@@ -8,7 +8,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/double-cross-dice-calculator/',
+  base: '/double-cross-dice-calculator',
   plugins: [
     vue({ 
       template: { transformAssetUrls }
