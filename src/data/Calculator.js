@@ -1,6 +1,6 @@
 import dx from './dx.json';
-import dr from './dr.json';
 import d10 from './d10.json';
+import d10_transpose from './d10_transpose.json';
 import { sumDistribution,subDistribution } from './FFT';
 
 function getExpectedValue (distribution) {
@@ -233,8 +233,9 @@ export function getDamage (score,attack,defence) {
     // ダメージロールの出目の分布を計算
     for (let i=0; i<1024; i++) {
         var sum = 0;
+        const d10_transpose_i = d10_transpose[i]
         for (let j=0; j<1024; j++) {
-            sum += scoreActionDistribution[j] * (1.0-scoreReactionUpperTailProbability[j]) * dr[i][j];
+            sum += scoreActionDistribution[j] * (1.0-scoreReactionUpperTailProbability[j]) * d10_transpose_i[Math.floor(j/10)+1];
         }
         distribution[i] = sum;
     }
