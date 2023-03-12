@@ -60,7 +60,7 @@
 <template>
     <v-container class="pa-1">
         <v-row dense class="pt-2 ma-0">
-            <v-col md="3" cols="6"><v-text-field label="現在侵蝕率" type="number" v-model.number="currentParams.encroachment" :rules="encroachmentRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
+            <v-col md="3" cols="6"><v-text-field label="現在侵蝕率" suffix="%" type="number" v-model.number="currentParams.encroachment" :rules="encroachmentRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
             <v-col md="3" cols="6"><v-text-field label="残存ロイス数" type="number" min=0 max=7 v-model.number="currentParams.lois" :rules="loisRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
             <v-col md="3" cols="6"><v-text-field label="Eロイス数" type="number" min=0 max=99 v-model.number="currentParams.elois" :rules="eloisRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
             <v-col md="3" cols="6" class="pb-2">
