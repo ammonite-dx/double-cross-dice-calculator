@@ -5,7 +5,7 @@
     import ScoreSettingForm from './ScoreSettingForm.vue';
 
     const props = defineProps(['attackData']);
-    const setting = ref({min:0, max:30, mode:'達成値がXとなる確率を表示'});
+    const setting = ref({min:0, max:100, mode:'達成値がXとなる確率を表示'});
 
 </script>
 

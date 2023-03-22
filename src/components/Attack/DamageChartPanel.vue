@@ -5,7 +5,7 @@
     import DamageSettingForm from './DamageSettingForm.vue';
 
     const props = defineProps(['attackData']);
-    const setting = ref({min:0, max:30, mode:'ダメージがXとなる確率を表示'});
+    const setting = ref({min:0, max:100, mode:'ダメージがXとなる確率を表示'});
 
 </script>
 

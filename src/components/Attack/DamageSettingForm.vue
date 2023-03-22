@@ -3,7 +3,7 @@
     import { reactive,watch } from 'vue';
 
     const props = defineProps(['setting']);
-    const currentSetting = reactive({min:props.setting.min, max:props.setting.max, mode:props.setting.max});
+    const currentSetting = reactive({min:props.setting.min, max:props.setting.max, mode:props.setting.mode});
     const minRule = [
         value => value!=="" || '最小値を入力して下さい。',
         value => Number.isInteger(value) || '最小値は整数値として下さい。',

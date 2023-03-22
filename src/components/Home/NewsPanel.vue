@@ -1,6 +1,6 @@
 <template>
     <v-card class="ma-0">
-        <v-card-title><v-icon>mdi-information-outline</v-icon> お知らせ</v-card-title>
+        <v-card-title><v-icon>mdi-newspaper-variant-outline</v-icon> お知らせ</v-card-title>
         <v-divider class="mx-2"/>
         <v-card-text class="pa-6 ma-0 text-md-body-1 text-caption">
             <v-table>
