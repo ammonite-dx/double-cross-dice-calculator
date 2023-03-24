@@ -3,6 +3,7 @@
     import { ref } from 'vue';
     import DamageChart from './DamageChart.vue';
     import DamageSettingForm from './DamageSettingForm.vue';
+    import { mdiChartLine } from '@mdi/js'
 
     const props = defineProps(['attackData']);
     const setting = ref({min:0, max:100, mode:'ダメージがXとなる確率を表示'});
@@ -11,7 +12,7 @@
 
 <template>
     <v-card class="ma-0">
-        <v-card-title><v-icon>mdi-chart-line</v-icon> ダメージ分布</v-card-title>
+        <v-card-title><v-icon :icon="mdiChartLine"/> ダメージ分布</v-card-title>
         <v-divider class="mx-2" />
         <v-container class="pa-0">
             <v-card-text class="text-md-body-1 text-caption">

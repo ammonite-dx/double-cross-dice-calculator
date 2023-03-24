@@ -4,6 +4,7 @@
     import { getScore,getScoreSummary,getDamage,getDamageSummary,getTotalDamage } from '@/data/Calculator';
     import { getChartColor } from '@/data/ColorSetter';
     import ComboForm from './ComboForm.vue';
+    import { mdiChevronUp,mdiChevronDown,mdiContentCopy,mdiDelete,mdiPlus } from '@mdi/js'
 
     const props = defineProps(['attackData']);
     const removeCombo = (index) => {
@@ -101,11 +102,11 @@
                 <v-col sm="3" cols="5" class="px-0">
                     <v-row class="ma-0">
                         <v-col cols="4" align-self="center" class="px-1 py-0">
-                            <v-btn v-if="combo.show" variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="combo.show=false"><v-icon color="white">mdi-chevron-up</v-icon><span class="hidden-sm-and-down" style="color:white">畳む</span></v-btn>
-                            <v-btn v-else variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="combo.show=true"><v-icon color="white">mdi-chevron-down</v-icon><span class="hidden-sm-and-down" style="color:white">開く</span></v-btn>
+                            <v-btn v-if="combo.show" variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="combo.show=false"><v-icon color="white" :icon="mdiChevronUp" /><span class="hidden-sm-and-down" style="color:white">畳む</span></v-btn>
+                            <v-btn v-else variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="combo.show=true"><v-icon color="white" :icon="mdiChevronDown"/><span class="hidden-sm-and-down" style="color:white">開く</span></v-btn>
                         </v-col>
-                        <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="duplicateCombo(index)"><v-icon color="white">mdi-content-copy</v-icon><span class="hidden-sm-and-down" style="color:white">複製</span></v-btn></v-col>
-                        <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="removeCombo(index)"><v-icon color="white">mdi-delete</v-icon><span class="hidden-sm-and-down" style="color:white">削除</span></v-btn></v-col>
+                        <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="duplicateCombo(index)"><v-icon color="white" :icon="mdiContentCopy"/><span class="hidden-sm-and-down" style="color:white">複製</span></v-btn></v-col>
+                        <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color=getChartColor(combo.id) @click="removeCombo(index)"><v-icon color="white" :icon="mdiDelete"/><span class="hidden-sm-and-down" style="color:white">削除</span></v-btn></v-col>
                     </v-row>
                 </v-col>
             </v-row>
@@ -114,6 +115,6 @@
         <v-divider class="mx-8"/>
     </template>
     <v-container class="px-3 py-1">
-        <v-btn variant="flat" block @click="addCombo" class="text-md-body-1 text-caption"><v-icon>mdi-plus</v-icon>コンボを追加</v-btn>
+        <v-btn variant="flat" block @click="addCombo" class="text-md-body-1 text-caption"><v-icon :icon="mdiPlus"/>コンボを追加</v-btn>
     </v-container>
 </template>

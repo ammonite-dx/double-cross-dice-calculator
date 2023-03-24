@@ -1,13 +1,15 @@
 <script setup>
 
     import FinalEncroachmentChart from './FinalEncroachmentChart.vue';
+    import { mdiChartLine } from '@mdi/js'
+
     const props = defineProps(['backtrackData']);
 
 </script>
 
 <template>
     <v-card class="ma-0">
-        <v-card-title><v-icon>mdi-chart-line</v-icon> 最終侵蝕率分布</v-card-title>
+        <v-card-title><v-icon :icon="mdiChartLine"/> 最終侵蝕率分布</v-card-title>
         <v-divider class="mx-2" />
         <v-container class="pa-0">
             <v-card-text class="text-md-body-1 text-caption">
