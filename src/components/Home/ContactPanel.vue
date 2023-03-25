@@ -15,7 +15,7 @@
             </v-list>
             <v-row class="mx-0 my-2">
                 <v-col md="4" cols="12" class="ma-0 pa-2"><v-btn :prepend-icon="mdiYoutube" variant="outlined" block disabled>紹介動画 (Youtube)</v-btn></v-col>
-                <v-col md="4" cols="12" class="ma-0 pa-2"><v-btn :prepend-icon="niconico" variant="outlined" block disabled>紹介動画 (ニコニコ動画)</v-btn></v-col>
+                <v-col md="4" cols="12" class="ma-0 pa-2"><v-btn href="https://www.nicovideo.jp/watch/sm41983879" target="_blank" :prepend-icon="niconico" variant="outlined" block>紹介動画 (ニコニコ動画)</v-btn></v-col>
                 <v-col md="4" cols="12" class="ma-0 pa-2"><v-btn href="https://twitter.com/Ammonite_dx" target="_blank" :prepend-icon="mdiTwitter" variant="outlined" block>作者Twitter</v-btn></v-col>
             </v-row>
         </v-card-text>
