@@ -10,7 +10,11 @@
             <v-table>
                 <tbody>
                     <tr>
-                        <td class="pa-0">2023-03-25</td>
+                        <td class="py-0 pl-0 pr-2" style="white-space:nowrap;">2023-03-29</td>
+                        <td class="pa-0">「ホーム」ページに紹介動画を追加しました。</td>
+                    </tr>
+                    <tr>
+                        <td class="py-0 pl-0 pr-2" style="white-space:nowrap;">2023-03-25</td>
                         <td class="pa-0">DCDCを公開しました。</td>
                     </tr>
                 </tbody>
@@ -18,3 +22,9 @@
         </v-card-text>
     </v-card>
 </template>
+
+<style>
+::v-deep .v-data-table__wrapper tbody tr:not(:last-child) td {
+  border-bottom: none;
+}
+</style>
