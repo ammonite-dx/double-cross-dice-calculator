@@ -10,6 +10,10 @@
             <v-table>
                 <tbody>
                     <tr>
+                        <td class="py-0 pl-0 pr-2" style="white-space:nowrap;">2023-04-28</td>
+                        <td class="pa-0">「攻撃」ページのダメージ分布のグラフ等で、最小値の指定時に予期せぬエラーメッセージが表示されてしまう不具合を修正しました。</td>
+                    </tr>
+                    <tr>
                         <td class="py-0 pl-0 pr-2" style="white-space:nowrap;">2023-03-29</td>
                         <td class="pa-0">「ホーム」ページに紹介動画を追加しました。</td>
                     </tr>

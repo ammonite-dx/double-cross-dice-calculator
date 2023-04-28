@@ -1,8 +1,9 @@
 <script setup>
 
-    import { reactive,watch } from 'vue';
+    import { ref,reactive,watch } from 'vue';
 
     const props = defineProps(['setting']);
+    const form = ref();
     const currentSetting = reactive({min:props.setting.min, max:props.setting.max, mode:props.setting.mode});
     const minRule = [
         value => value!=="" || '最小値を入力して下さい。',
@@ -19,13 +20,8 @@
         value => value>currentSetting.min || '最大値は最小値より大きくして下さい'
     ];
     const modeItem = ['達成値がXとなる確率を表示','達成値がX以上となる確率を表示'];
-    const valid = () => {
-        return currentSetting.min!=="" && Number.isInteger(currentSetting.min) && currentSetting.min>=0 && currentSetting.min<=999
-            && currentSetting.max!=="" && Number.isInteger(currentSetting.max) && currentSetting.max>=0 && currentSetting.max<=999
-            && currentSetting.min<currentSetting.max;
-    };
     watch(currentSetting, () => {
-        if (valid()) {
+        if (form.value.validate()) {
             props.setting.min = currentSetting.min;
             props.setting.max = currentSetting.max;
             props.setting.mode = currentSetting.mode;
@@ -35,11 +31,13 @@
 </script>
 
 <template>
-    <v-row dense class="pt-2 ma-0">
-        <v-col cols="6" class="pb-2"><v-text-field label="最小値" type="number" min=0 max=999 v-model.number="currentSetting.min" :rules="minRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
-        <v-col cols="6" class="pb-2"><v-text-field label="最大値" type="number" min=0 max=999 v-model.number="currentSetting.max" :rules="maxRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
-        <v-col cols="12" class="pb-2"><v-select label="表示モード" v-model="currentSetting.mode" :items="modeItem" variant="underlined" hide-details="auto" density="compact"/></v-col>
-    </v-row>
+    <v-form ref="form">
+        <v-row dense class="pt-2 ma-0">
+            <v-col cols="6" class="pb-2"><v-text-field label="最小値" type="number" min=0 max=999 v-model.number="currentSetting.min" :rules="minRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
+            <v-col cols="6" class="pb-2"><v-text-field label="最大値" type="number" min=0 max=999 v-model.number="currentSetting.max" :rules="maxRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
+            <v-col cols="12" class="pb-2"><v-select label="表示モード" v-model="currentSetting.mode" :items="modeItem" variant="underlined" hide-details="auto" density="compact"/></v-col>
+        </v-row>
+    </v-form>
 </template>
 
 <style>

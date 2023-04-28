@@ -27,7 +27,6 @@
         overflow: hidden;
         padding-bottom: 56.25%;
     }
-
     .youtube iframe{
         position: absolute;
         top: 0;

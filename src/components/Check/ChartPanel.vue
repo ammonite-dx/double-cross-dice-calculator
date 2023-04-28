@@ -7,7 +7,6 @@
 
     const props = defineProps(['checkData']);
     const setting = ref({min:0, max:30, mode:'達成値がXとなる確率を表示'});
-    const settingUpdate = (newSetting) => {setting.value=newSetting};
 
 </script>
 
@@ -18,7 +17,7 @@
         <v-container class="pa-0">
             <v-card-text class="text-md-body-1 text-caption">
                 <ScoreChart :checkData="props.checkData" :setting="setting"/>
-                <SettingForm @settingUpdate="settingUpdate($event)"/>
+                <SettingForm :setting="setting"/>
             </v-card-text>
         </v-container>
     </v-card>
