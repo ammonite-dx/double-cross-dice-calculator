@@ -17,12 +17,12 @@
         const nextId = max+1;
         const initialParams = {
             action: {
-                score: {dice:props.attackData.combos[index].data.params.action.score.dice, critical:props.attackData.combos[index].data.params.action.score.critical, skill:props.attackData.combos[index].data.params.action.score.skill},
-                damage: {dice:props.attackData.combos[index].data.params.action.damage.dice, value:props.attackData.combos[index].data.params.action.damage.value},
+                score: {dice:props.attackData.combos[index].data.params.action.score.dice, critical:props.attackData.combos[index].data.params.action.score.critical, skill:props.attackData.combos[index].data.params.action.score.skill, yousei:props.attackData.combos[index].data.params.action.score.yousei, shihai:props.attackData.combos[index].data.params.action.score.shihai},
+                damage: {dice:props.attackData.combos[index].data.params.action.damage.dice, value:props.attackData.combos[index].data.params.action.damage.value, kazanari:props.attackData.combos[index].data.params.action.damage.kazanari},
             },
             reaction: {
                 mode: props.attackData.combos[index].data.params.reaction.mode,
-                score: {dice:props.attackData.combos[index].data.params.reaction.score.dice, critical:props.attackData.combos[index].data.params.reaction.score.critical, skill:props.attackData.combos[index].data.params.reaction.score.skill},
+                score: {dice:props.attackData.combos[index].data.params.reaction.score.dice, critical:props.attackData.combos[index].data.params.reaction.score.critical, skill:props.attackData.combos[index].data.params.reaction.score.skill, yousei:props.attackData.combos[index].data.params.reaction.score.yousei, shihai:props.attackData.combos[index].data.params.reaction.score.shihai},
                 damage: {dice:props.attackData.combos[index].data.params.reaction.damage.dice, value:props.attackData.combos[index].data.params.reaction.damage.value},
             }
         };
@@ -57,12 +57,12 @@
         const nextId = max+1;
         const initialParams = {
             action: {
-                score: {dice:1, critical:10, skill:0},
-                damage: {dice:0, value:0},
+                score: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
+                damage: {dice:0, value:0, kazanari:0},
             },
             reaction: {
                 mode: 'ドッジ',
-                score: {dice:1, critical:10, skill:0},
+                score: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
                 damage: {dice:0, value:0},
             }
         };

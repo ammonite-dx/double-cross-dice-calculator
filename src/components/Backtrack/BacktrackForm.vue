@@ -1,15 +1,18 @@
 <script setup>
 
-    import { reactive,watch } from 'vue';
+    import { ref,reactive,watch } from 'vue';
 
     const props = defineProps(['params']);
+    const form = ref();
     const currentParams = reactive({
         encroachment: props.params.encroachment,
         lois: props.params.lois,
         elois: props.params.elois,
         dice: props.params.dice,
         value: props.params.value,
+        dlois: props.params.dlois,
     });
+    const dloisItem = ['なし', '戦闘用人格・生きる伝説', '生還者', '不死者・悪夢', '屍人', '戦友(通常)', '戦友(強化)']
     const encroachmentRule = [
         value => value!=="" || '現在侵蝕率を入力して下さい。',
         value => Number.isInteger(value) || '現在侵蝕率は整数値として下さい。',
@@ -38,27 +41,22 @@
         value => value>=0 || '減少量(固定値)は0以上として下さい。',
         value => value<=999 || '減少量(固定値)は999以下として下さい。',
     ];
-    const valid = () => {
-        return currentParams.encroachment!=="" && Number.isInteger(currentParams.encroachment)
-            && currentParams.lois!=="" && Number.isInteger(currentParams.lois) && currentParams.lois>=0 && currentParams.lois<=7
-            && currentParams.elois!=="" && Number.isInteger(currentParams.elois) && currentParams.elois>=0 && currentParams.elois<=99
-            && currentParams.dice!=="" && Number.isInteger(currentParams.dice) && currentParams.dice>=0 && currentParams.dice<=99
-            && currentParams.value!=="" && Number.isInteger(currentParams.value) && currentParams.value>=0 && currentParams.value<=999;
-    };
-    watch(currentParams, () => {
-        if (valid()) {
+    watch(currentParams, async () => {
+        const validResult = await form.value.validate();
+        if (validResult.valid) {
             props.params.encroachment = currentParams.encroachment;
             props.params.lois = currentParams.lois;
             props.params.elois = currentParams.elois;
             props.params.dice = currentParams.dice;
             props.params.value = currentParams.value;
+            props.params.dlois = currentParams.dlois;
         }
     });
 
 </script>
 
 <template>
-    <v-container class="pa-1">
+    <v-form ref="form" class="pa-1">
         <v-row dense class="pt-2 ma-0">
             <v-col md="3" cols="6"><v-text-field label="現在侵蝕率" suffix="%" type="number" v-model.number="currentParams.encroachment" :rules="encroachmentRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
             <v-col md="3" cols="6"><v-text-field label="残存ロイス数" type="number" min=0 max=7 v-model.number="currentParams.lois" :rules="loisRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
@@ -70,5 +68,8 @@
                 </v-row>
             </v-col>
         </v-row>
-    </v-container>
+        <v-row dense class="pt-2 ma-0">
+            <v-select label="バックトラックに影響するDロイス" v-model="currentParams.dlois" :items="dloisItem" variant="underlined" hide-details="auto" density="compact"/>
+        </v-row>
+    </v-form>
 </template>

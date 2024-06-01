@@ -20,8 +20,9 @@
         value => value>currentSetting.min || '最大値は最小値より大きくして下さい'
     ];
     const modeItem = ['達成値がXとなる確率を表示','達成値がX以上となる確率を表示'];
-    watch(currentSetting, () => {
-        if (form.value.validate()) {
+    watch(currentSetting, async () => {
+        const validResult = await form.value.validate();
+        if (validResult.valid) {
             props.setting.min = currentSetting.min;
             props.setting.max = currentSetting.max;
             props.setting.mode = currentSetting.mode;

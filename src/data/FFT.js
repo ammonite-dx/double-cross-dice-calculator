@@ -69,6 +69,8 @@ export function sumDistribution(distribution1,distribution2) {
     var sumDistribution = sumDistribution_complex.map(([r])=>r).slice(0,1024);
     const upperProtrusion = sumDistribution_complex.map(([r])=>r).slice(1024).reduce((sum,element)=>sum+element,0);
     sumDistribution[1023] += upperProtrusion;
+    // 負の値を0に変換
+    sumDistribution = sumDistribution.map(r=>Math.max(r,0));
 
     return sumDistribution;
 
@@ -108,6 +110,8 @@ export function subDistribution(distribution1,distribution2) {
     var subDistribution = subDistribution_complex.map(([r])=>r).slice(1024);
     const lowerProtrusion = subDistribution_complex.map(([r])=>r).slice(0,1024).reduce((sum,element)=>sum+element,0);
     subDistribution[0] += lowerProtrusion;
+    // 負の値を0に変換
+    subDistribution = subDistribution.map(r=>Math.max(r,0));
     
     return subDistribution;
 

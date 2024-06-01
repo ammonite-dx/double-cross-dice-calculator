@@ -25,6 +25,9 @@ export function getFinalEncroachmentChartData (finalEncroachment, mode) {
     if (mode=='single') {
         labels = ["100%〜","71〜99%","51〜70%","31〜50%","0〜30%"];
         datasets = [{data:finalEncroachment.single, backgroundColor:['#EC1D2C','#FE6F2F','#F9A829','#FAD23C','#5EBB68']}];
+    } else if (mode=='undead') {
+        labels = ["120%～","100〜119%","71〜99%","51〜70%","31〜50%","0〜30%"];
+        datasets = [{data:finalEncroachment.single, backgroundColor:['#EC1D2C','#ED551B','#FE6F2F','#F9A829','#FAD23C','#5EBB68']}];
     } else if (mode=='double') {
         labels = ["失敗","成功"];
         datasets = [{data:finalEncroachment.double, backgroundColor:['#EC1D2C','#5EBB68']}];

@@ -11,6 +11,7 @@
         elois: 0,
         dice: 0,
         value: 0,
+        dlois: 'なし',
     };
     const initialFinalEncroachment = getFinalEncroachment(initialParams);
     const backtrackData = reactive({

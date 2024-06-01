@@ -9,12 +9,12 @@
 
     const initialParams = {
         action: {
-            score: {dice:1, critical:10, skill:0},
-            damage: {dice:0, value:0},
+            score: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
+            damage: {dice:0, value:0, kazanari:0},
         },
         reaction: {
             mode: 'ドッジ',
-            score: {dice:1, critical:10, skill:0},
+            score: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
             damage: {dice:0, value:0},
         }
     };

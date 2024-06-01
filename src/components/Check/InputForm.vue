@@ -2,7 +2,6 @@
 
     import { watch } from 'vue';
     import { getScore,getScoreSummary } from '@/data/Calculator';
-    import { getChartColor } from '@/data/ColorSetter';
     import DfcltyForm from './DfcltyForm.vue';
     import ScoreForm from './ScoreForm.vue';
 
@@ -24,16 +23,8 @@
 
 <template>
     <v-container class="pa-4">
-        <v-container class="pa-0">
-            <DfcltyForm :dfclty="checkData.dfclty"/>
-        </v-container>
-        <v-container class="pa-0">
-            <v-row v-if="checkData.dfclty.opposed" class="ma-0 pa-1" :style="{backgroundColor:getChartColor(0)}" style="color:white">アクション側</v-row>
-            <ScoreForm :params="checkData.params.action"/>
-        </v-container>
-        <v-container v-if="checkData.dfclty.opposed" class="pa-0">
-            <v-row class="ma-0 pa-1" :style="{backgroundColor:getChartColor(1)}" style="color:white">リアクション側</v-row>
-            <ScoreForm :params="checkData.params.reaction"/>
-        </v-container>
+        <DfcltyForm :dfclty="checkData.dfclty"/>
+        <ScoreForm :side="'action'" :params="checkData.params.action"/>
+        <ScoreForm v-if="checkData.dfclty.opposed" :side="'reaction'" :params="checkData.params.reaction"/>
     </v-container>
 </template>

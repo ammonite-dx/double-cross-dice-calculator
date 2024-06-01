@@ -30,12 +30,6 @@
 </script>
 
 <template>
-    <v-container class="px-0 pt-2 pb-0">
-        <v-row class="ma-0 pa-1" :style="{backgroundColor:comboColor}" style="color:white">攻撃側</v-row>
-        <AttackForm :params="comboData.params.action"/>
-    </v-container>
-    <v-container class="px-0 pt-2 pb-0">
-        <v-row class="ma-0 pa-1" :style="{backgroundColor:comboColor}"  style="color:white">防御側</v-row>
-        <DefenceForm :params="comboData.params.reaction"/>
-    </v-container>
+    <AttackForm :params="comboData.params.action" :comboColor="comboColor" />
+    <DefenceForm :params="comboData.params.reaction" :comboColor="comboColor"/>
 </template>

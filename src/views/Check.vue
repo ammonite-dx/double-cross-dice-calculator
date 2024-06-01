@@ -8,8 +8,8 @@
 
     const initialDfclty = {opposed:false, target:0}
     const initialParams = {
-        action: {dice:1, critical:10, skill:0},
-        reaction: {dice:1, critical:10, skill:0},
+        action: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
+        reaction: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
     };
     const initialScore = {
         action: getScore(initialParams.action),
