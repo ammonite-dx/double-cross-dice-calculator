@@ -1,4 +1,23 @@
-import dx from './dx.json';
+import dx0 from './dx0.json';
+import dx1 from './dx1.json';
+import dx2 from './dx2.json';
+import dx3 from './dx3.json';
+import dx4 from './dx4.json';
+import dx5 from './dx5.json';
+import dx6 from './dx6.json';
+import dx7 from './dx7.json';
+import dx8 from './dx8.json';
+import dx9 from './dx9.json';
+import dx10 from './dx10.json';
+import dx11 from './dx11.json';
+import dx12 from './dx12.json';
+import dx13 from './dx13.json';
+import dx14 from './dx14.json';
+import dx15 from './dx15.json';
+import dx16 from './dx16.json';
+import dx17 from './dx17.json';
+import dx18 from './dx18.json';
+import dx19 from './dx19.json';
 import dr from './dr.json';
 import d10 from './d10.json';
 import livingdead from './livingdead.json';
@@ -79,7 +98,28 @@ export function getScore (params,fix=false) {
     } else {
 
         // ダイスの出目を計算
-        var diceResult = dx[params.shihai][params.dice][params.critical-2].slice();
+        switch (params.shihai) {
+            case 0: var diceResult = dx0[params.dice][params.critical-2].slice(); break;
+            case 1: var diceResult = dx1[params.dice][params.critical-2].slice(); break;
+            case 2: var diceResult = dx2[params.dice][params.critical-2].slice(); break;
+            case 3: var diceResult = dx3[params.dice][params.critical-2].slice(); break;
+            case 4: var diceResult = dx4[params.dice][params.critical-2].slice(); break;
+            case 5: var diceResult = dx5[params.dice][params.critical-2].slice(); break;
+            case 6: var diceResult = dx6[params.dice][params.critical-2].slice(); break;
+            case 7: var diceResult = dx7[params.dice][params.critical-2].slice(); break;
+            case 8: var diceResult = dx8[params.dice][params.critical-2].slice(); break;
+            case 9: var diceResult = dx9[params.dice][params.critical-2].slice(); break;
+            case 10: var diceResult = dx10[params.dice][params.critical-2].slice(); break;
+            case 11: var diceResult = dx11[params.dice][params.critical-2].slice(); break;
+            case 12: var diceResult = dx12[params.dice][params.critical-2].slice(); break;
+            case 13: var diceResult = dx13[params.dice][params.critical-2].slice(); break;
+            case 14: var diceResult = dx14[params.dice][params.critical-2].slice(); break;
+            case 15: var diceResult = dx15[params.dice][params.critical-2].slice(); break;
+            case 16: var diceResult = dx16[params.dice][params.critical-2].slice(); break;
+            case 17: var diceResult = dx17[params.dice][params.critical-2].slice(); break;
+            case 18: var diceResult = dx18[params.dice][params.critical-2].slice(); break;
+            case 19: var diceResult = dx19[params.dice][params.critical-2].slice(); break;
+        }
         
         // 《妖精の手》等による振り直し
         for (let i=0; i<params.yousei; i++) {
@@ -87,7 +127,7 @@ export function getScore (params,fix=false) {
             diceResult = Array.from({length:1024}, (_,i) => i%10===0 ? diceResult.slice(Math.max(0,i-9), i+1).reduce((acc,val) => acc+val,0.0) : 0.0);
             // クリティカル値が10以下なら振り足し
             if (params.critical<=10) {
-                diceResult = sumDistribution(diceResult, dx[0][1][params.critical-2]);
+                diceResult = sumDistribution(diceResult, dx0[1][params.critical-2]);
             }
         }
 
