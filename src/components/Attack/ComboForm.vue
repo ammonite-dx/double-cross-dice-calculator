@@ -5,7 +5,7 @@
     import AttackForm from './AttackForm.vue';
     import DefenceForm from './DefenceForm.vue';
 
-    const props = defineProps(['comboData','comboColor']);
+    const props = defineProps(['comboData','comboColor','showDetails']);
     watch(props.comboData.params.action.score, () => {
         props.comboData.score.action = getScore(props.comboData.params.action.score);
         props.comboData.scoreSummary = getScoreSummary(props.comboData.score);
@@ -30,6 +30,6 @@
 </script>
 
 <template>
-    <AttackForm :params="comboData.params.action" :comboColor="comboColor" />
-    <DefenceForm :params="comboData.params.reaction" :comboColor="comboColor"/>
+    <AttackForm :params="comboData.params.action" :comboColor="comboColor" :showDetails="showDetails.action"/>
+    <DefenceForm :params="comboData.params.reaction" :comboColor="comboColor" :showDetails="showDetails.reaction"/>
 </template>

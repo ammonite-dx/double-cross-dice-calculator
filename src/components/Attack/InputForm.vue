@@ -15,6 +15,10 @@
             return a > b.id ? a : b.id;
         },0);
         const nextId = max+1;
+        const initialShowDetails = {
+            action: {value:props.attackData.combos[index].showDetails.action.value},
+            reaction: {value:props.attackData.combos[index].showDetails.reaction.value},
+        };
         const initialParams = {
             action: {
                 score: {dice:props.attackData.combos[index].data.params.action.score.dice, critical:props.attackData.combos[index].data.params.action.score.critical, skill:props.attackData.combos[index].data.params.action.score.skill, yousei:props.attackData.combos[index].data.params.action.score.yousei, shihai:props.attackData.combos[index].data.params.action.score.shihai},
@@ -40,6 +44,7 @@
             id: nextId,
             name: props.attackData.combos[index].name+'のコピー',
             show: true,
+            showDetails: initialShowDetails,
             data: {
                 params: initialParams,
                 score: initialScore,
@@ -55,6 +60,10 @@
             return a > b.id ? a : b.id;
         },0);
         const nextId = max+1;
+        const initialShowDetails = {
+            action: {value:false},
+            reaction: {value:false},
+        };
         const initialParams = {
             action: {
                 score: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
@@ -77,6 +86,7 @@
             id: nextId,
             name: 'コンボ'+String(nextId+1),
             show: true,
+            showDetails: initialShowDetails,
             data: {
                 params: initialParams,
                 score: initialScore,
@@ -110,7 +120,7 @@
                     </v-row>
                 </v-col>
             </v-row>
-            <ComboForm v-if="combo.show" :comboData="combo.data" :comboColor=getChartColor(combo.id) />
+            <ComboForm v-if="combo.show" :comboData="combo.data" :comboColor=getChartColor(combo.id) :showDetails="combo.showDetails" />
         </v-container>
         <v-divider class="mx-8"/>
     </template>

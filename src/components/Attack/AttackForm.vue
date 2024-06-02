@@ -2,12 +2,14 @@
 
     import { ref,reactive,watch } from 'vue';
 
-    const props = defineProps(['params','comboColor'])
+    const props = defineProps(['params','comboColor','showDetails'])
     const form = ref();
-    const showDetails = ref(false);
     const currentParams = reactive({
         score: {dice:props.params.score.dice, critical:props.params.score.critical, skill:props.params.score.skill, yousei:props.params.score.yousei, shihai:props.params.score.shihai},
         damage: {dice:props.params.damage.dice, value:props.params.damage.value, kazanari:props.params.damage.kazanari},
+    });
+    const currentShowDetails = reactive({
+        value: props.showDetails.value
     });
     const diceRule = [
         value => value!=="" || 'ダイス数を入力して下さい。',
@@ -72,6 +74,14 @@
             props.params.damage.kazanari = currentParams.damage.kazanari;
         }
     });
+    watch(currentShowDetails, () => {
+        props.showDetails.value = currentShowDetails.value;
+        if (!currentShowDetails.value) {
+            currentParams.score.yousei = 0;
+            currentParams.score.shihai = 0;
+            currentParams.damage.kazanari = 0;
+        }
+    });
 
 </script>
 
@@ -79,7 +89,7 @@
     <v-container class="px-0 pt-2 pb-0">
         <v-row class="ma-0 px-1 py-0" :style="{backgroundColor:props.comboColor}" style="color:white">
             <v-col md="8" cols="6" class="pa-0 d-flex align-center">攻撃側</v-col>
-            <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="showDetails" density="compact" class="h-50" />高度な設定を表示</v-col>
+            <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="currentShowDetails.value" density="compact" class="h-50" />高度な設定</v-col>
         </v-row>
         <v-form ref="form" class="pa-1">
             <v-row dense class="pt-2 ma-0">
@@ -93,7 +103,7 @@
                     </v-row>
                 </v-col>
             </v-row>
-            <v-row v-if="showDetails" dense class="pt-2 ma-0">
+            <v-row v-if="props.showDetails.value" dense class="pt-2 ma-0">
                 <v-col cols="4" class="pb-2"><v-text-field label="《妖精の手》等の回数" type="number" min=0 max=9 v-model.number="currentParams.score.yousei" :rules="youseiRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col cols="4" class="pb-2"><v-text-field label="《支配の領域》の対象ダイス数" type="number" min=0 max=19 v-model.number="currentParams.score.shihai" :rules="shihaiRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col cols="4" class="pb-2"><v-text-field label="振り直せるダメージダイスの数" type="number" min=0 max=9 v-model.number="currentParams.damage.kazanari" :rules="kazanariRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>

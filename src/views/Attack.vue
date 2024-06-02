@@ -30,6 +30,10 @@
             id: 0,
             name: 'コンボ1',
             show: true,
+            showDetails: {
+                action: {value:false},
+                reaction: {value:false}
+            },
             data: {
                 params: initialParams,
                 score: initialScore,

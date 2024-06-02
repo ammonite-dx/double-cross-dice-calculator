@@ -47,7 +47,6 @@
         value => value<=19 || '《支配の領域》の対象となるダイス数は19以下として下さい。',
         value => (currentParams.yousei===0 || value===0) || '《妖精の手》と《支配の領域》の同時利用には対応していません。',
     ];
-
     watch(currentParams, async () => {
         const validResult = await form.value.validate();
         if (validResult.valid) {
@@ -58,13 +57,19 @@
             props.params.shihai = currentParams.shihai;
         }
     });
+    watch(showDetails, () => {
+        if (!showDetails.value) {
+            currentParams.yousei = 0;
+            currentParams.shihai = 0;
+        }
+    });
 
 </script>
 
 <template>
     <v-row class="ma-0 px-1 py-0" :style="{backgroundColor:backgroundColor}" style="color:white">
         <v-col md="8" cols="6" class="pa-0 d-flex align-center">{{ sideText }}</v-col>
-        <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="showDetails" density="compact" class="h-50" />高度な設定を表示</v-col>
+        <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="showDetails" density="compact" class="h-50" />高度な設定</v-col>
     </v-row>
     <v-form ref="form" class="pa-1">
         <v-row dense class="pt-2 ma-0">
