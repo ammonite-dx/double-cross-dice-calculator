@@ -92,7 +92,8 @@ export function getScore (params,fix=false) {
             var youseiResult = youseiLowerFill.concat(youseiInfo.val).concat(youseiUpperFill);
             for (let i=0; i<params.yousei; i++) {
                 // 最後のダイスの出目を10に変更
-                diceResult = Array.from({length:1024}, (_,i) => i%10===0 ? diceResult.slice(Math.max(0,i-9), i+1).reduce((acc,val) => acc+val,0.0) : 0.0);
+                diceResult = Array.from({length:1024}, (_,i) => i%10===0 ? diceResult.slice(Math.max(0,i-9), i+1).reduce((sum,element) => sum+element, 0.0) : 0.0);
+                diceResult[1023] = 1.0 - diceResult.slice(0,1023).reduce((sum,element) => sum+element, 0);
                 // クリティカル値が10以下なら振り足し
                 if (params.critical<=10) {
                     diceResult = sumDistribution(diceResult, youseiResult);
