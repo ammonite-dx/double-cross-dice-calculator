@@ -1,7 +1,8 @@
 <script setup>
 
     import { watch } from 'vue';
-    import { getScore,getScoreSummary,getDamage,getDamageSummary,getTotalDamage } from '@/data/Calculator';
+    import { getScore,getScoreSummary } from '@/logic/check';
+    import { getDamage,getDamageSummary,getTotalDamage } from '@/logic/damage';
     import { getChartColor } from '@/data/ColorSetter';
     import ComboForm from './ComboForm.vue';
     import { mdiChevronUp,mdiChevronDown,mdiContentCopy,mdiDelete,mdiPlus } from '@mdi/js'

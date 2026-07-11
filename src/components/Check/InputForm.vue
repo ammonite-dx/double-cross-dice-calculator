@@ -1,7 +1,7 @@
 <script setup>
 
     import { watch } from 'vue';
-    import { getScore,getScoreSummary } from '@/data/Calculator';
+    import { getScore,getScoreSummary } from '@/logic/check';
     import DfcltyForm from './DfcltyForm.vue';
     import ScoreForm from './ScoreForm.vue';
 

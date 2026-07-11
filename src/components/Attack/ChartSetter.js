@@ -1,4 +1,4 @@
-import { range } from '@/data/Calculator'
+import { range } from '@/utils/math';
 import { getChartColor } from '@/data/ColorSetter';
 
 function clipData (data, min, max) {

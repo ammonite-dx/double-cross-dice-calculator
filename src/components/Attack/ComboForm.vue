@@ -1,7 +1,8 @@
 <script setup>
 
     import { watch } from 'vue';
-    import { getScore,getScoreSummary,getDamage,getDamageSummary } from '@/data/Calculator';
+    import { getScore,getScoreSummary } from '@/logic/check';
+    import { getDamage,getDamageSummary } from '@/logic/damage';
     import AttackForm from './AttackForm.vue';
     import DefenceForm from './DefenceForm.vue';
 
