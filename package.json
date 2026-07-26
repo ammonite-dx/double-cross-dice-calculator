@@ -10,6 +10,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "data:generate": "node scripts/generate-precomputed-data.mjs",
+    "data:check": "node scripts/generate-precomputed-data.mjs --check",
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix",
     "test": "vitest run",

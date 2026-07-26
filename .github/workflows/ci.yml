@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate precomputed data
+        run: npm run data:check
+
       - name: Lint
         run: npm run lint
 

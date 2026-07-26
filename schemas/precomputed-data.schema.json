@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DCDC precomputed probability data",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "dataRevision",
+    "dataset",
+    "distributionSize",
+    "shard",
+    "index",
+    "distributions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "dataRevision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "dataset": {
+      "enum": [
+        "dx",
+        "dr",
+        "d10",
+        "livingdead"
+      ]
+    },
+    "distributionSize": {
+      "const": 1024
+    },
+    "shard": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "index": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/index"
+      }
+    },
+    "distributions": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sparseDistribution"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/sparseDistribution"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "index": {
+      "type": "object",
+      "required": [
+        "start",
+        "count"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "sparseDistribution": {
+      "type": "object",
+      "required": [
+        "offset",
+        "values"
+      ],
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1023
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "dataset": {
+            "const": "dx"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "shard": {
+            "type": "object",
+            "required": [
+              "shihai"
+            ],
+            "properties": {
+              "shihai": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 19
+              }
+            },
+            "additionalProperties": false
+          },
+          "index": {
+            "type": "object",
+            "required": [
+              "dice",
+              "critical"
+            ],
+            "properties": {
+              "dice": {
+                "const": {
+                  "start": 0,
+                  "count": 100
+                }
+              },
+              "critical": {
+                "const": {
+                  "start": 2,
+                  "count": 10
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "distributions": {
+            "type": "array",
+            "minItems": 100,
+            "maxItems": 100,
+            "items": {
+              "type": "array",
+              "minItems": 10,
+              "maxItems": 10,
+              "items": {
+                "$ref": "#/$defs/sparseDistribution"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "dataset": {
+            "const": "dr"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "shard": {
+            "type": "object",
+            "required": [
+              "kazanari"
+            ],
+            "properties": {
+              "kazanari": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              }
+            },
+            "additionalProperties": false
+          },
+          "index": {
+            "const": {
+              "dice": {
+                "start": 0,
+                "count": 203
+              }
+            }
+          },
+          "distributions": {
+            "type": "array",
+            "minItems": 203,
+            "maxItems": 203,
+            "items": {
+              "$ref": "#/$defs/sparseDistribution"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "dataset": {
+            "const": "d10"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "shard": {
+            "const": {}
+          },
+          "index": {
+            "const": {
+              "dice": {
+                "start": 0,
+                "count": 104
+              }
+            }
+          },
+          "distributions": {
+            "type": "array",
+            "minItems": 104,
+            "maxItems": 104,
+            "items": {
+              "$ref": "#/$defs/sparseDistribution"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "dataset": {
+            "const": "livingdead"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "shard": {
+            "const": {}
+          },
+          "index": {
+            "const": {
+              "dice": {
+                "start": 0,
+                "count": 100
+              }
+            }
+          },
+          "distributions": {
+            "type": "array",
+            "minItems": 100,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/$defs/sparseDistribution"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

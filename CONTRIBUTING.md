@@ -23,6 +23,7 @@ Double Cross Dice Calculatorへの改善提案をありがとうございます�
 5. Pull Requestを作成する前に品質確認を実行します。
 
 ```sh
+npm run data:check
 npm run lint
 npm test
 npm run build

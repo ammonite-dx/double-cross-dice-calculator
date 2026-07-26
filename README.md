@@ -59,6 +59,9 @@ npm run build
 npm run preview
 ```
 
+事前計算データの形式、生成方法、更新手順は
+[`docs/precomputed-data.md`](./docs/precomputed-data.md)を参照してください。
+
 本番用ファイルは `dist/` に生成されます。`dist/` と `.wrangler/` は生成物のためGit管理しません。
 
 Cloudflare Pagesの基本設定:
