@@ -1,8 +1,8 @@
-import dr from './dr.json';
-import d10 from './d10.json';
-import livingdead from './livingdead.json';
-import { sumDistribution,subDistribution } from './FFT';
-import { getDxDistribution } from './PrecomputedDataRepository';
+import dr from '../../src/data/dr.json';
+import d10 from '../../src/data/d10.json';
+import livingdead from '../../src/data/livingdead.json';
+import { sumDistribution,subDistribution } from '../../src/data/FFT';
+import { getDxDistribution } from '../../src/data/PrecomputedDataRepository';
 
 function getExpectedValue (distribution) {
 

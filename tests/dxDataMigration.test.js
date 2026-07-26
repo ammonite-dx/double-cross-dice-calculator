@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import legacyDx from '../src/data/dx.json'
-import { getScore as getLegacyScore } from '../src/data/Calculator'
+import { getScore as getLegacyScore } from './legacy/LegacyCalculator'
 import { registerDxAsset } from '../src/data/PrecomputedDataRepository'
 import { getScore } from '../src/data/ScoreCalculator'
 

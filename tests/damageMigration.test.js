@@ -4,7 +4,7 @@ import {
   getDamage as getLegacyDamage,
   getDamageSummary as getLegacyDamageSummary,
   getTotalDamage as getLegacyTotalDamage,
-} from '../src/data/Calculator'
+} from './legacy/LegacyCalculator'
 import {
   getDamage,
   getDamageSummary,

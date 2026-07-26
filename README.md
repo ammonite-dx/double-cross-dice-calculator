@@ -75,12 +75,18 @@ Cloudflare Pagesの基本設定:
 ```text
 src/
   components/  画面を構成するVueコンポーネント
-  data/        確率計算ロジックと事前計算データ
+  data/        データ取得・確率計算ロジック
   layouts/     共通レイアウト
   router/      ルーティング
   views/       ページ単位のコンポーネント
-public/        Cloudflare Pagesへそのまま配置する静的ファイル
+public/data/   バージョン管理された事前計算済み静的アセット
+schemas/       事前計算データのJSON Schema
+scripts/       事前計算データの生成・検証スクリプト
+tests/legacy/  移行結果を比較するための旧計算実装
 ```
+
+アプリケーションのモジュール境界とデータ読込の流れは
+[`docs/architecture.md`](./docs/architecture.md)を参照してください。
 
 ## コントリビューション
 

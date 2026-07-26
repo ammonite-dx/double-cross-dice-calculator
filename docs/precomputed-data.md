@@ -13,6 +13,9 @@
 
 現在の出力先は`public/data/schema-v1/revision-1/`です。
 
+生成元の`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`は変換処理だけが
+参照します。本番アプリケーションから直接importせず、ViteのJavaScriptチャンクにも含めません。
+
 ## 共通形式
 
 各ファイルは次のフィールドを持ちます。
@@ -86,6 +89,18 @@
 - ファイル: `livingdead.json`
 - 配列: `distributions[dice]`
 - `dice`: 0から99
+
+## 実行時の読込
+
+各画面は必要なファイルだけを同一Pagesデプロイから取得し、取得済みのデータをメモリ上で
+キャッシュします。
+
+- 一般判定: 初期値の`shihai-0`を読み込み、`shihai`変更時に対応するファイルを追加取得
+- 攻撃: `shihai-0`、`kazanari-0`、`d10`を初期読込し、`shihai`または`kazanari`変更時に追加取得
+- バックトラック: `d10`と`livingdead`を初期読込
+
+疎な分布は、計算で必要になったものだけを長さ1024の配列へ展開します。データ取得・検証・
+キャッシュは`PrecomputedDataRepository.js`に集約します。
 
 ## ファイル名と整合性
 

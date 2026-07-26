@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   getFinalEncroachment as getLegacyFinalEncroachment,
-} from '../src/data/Calculator'
+} from './legacy/LegacyCalculator'
 import {
   getFinalEncroachment,
 } from '../src/data/BacktrackCalculator'
