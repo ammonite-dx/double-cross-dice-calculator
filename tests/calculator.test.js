@@ -4,15 +4,17 @@ import {
   getDamage,
   getDamageSummary,
   getTotalDamage,
-} from '../src/data/Calculator'
+} from '../src/data/DamageCalculator'
 import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
 import {
   registerD10Asset,
+  registerDrAsset,
   registerDxAsset,
   registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
 import { getScore, getScoreSummary } from '../src/data/ScoreCalculator'
 import d10 from '../public/data/schema-v1/revision-1/d10.json'
+import drKazanari0 from '../public/data/schema-v1/revision-1/dr/kazanari-0.json'
 import dxShihai0 from '../public/data/schema-v1/revision-1/dx/shihai-0.json'
 import dxShihai19 from '../public/data/schema-v1/revision-1/dx/shihai-19.json'
 import livingdead from '../public/data/schema-v1/revision-1/livingdead.json'
@@ -29,6 +31,7 @@ const defaultScoreParams = {
 registerDxAsset(dxShihai0)
 registerDxAsset(dxShihai19)
 registerD10Asset(d10)
+registerDrAsset(drKazanari0)
 registerLivingdeadAsset(livingdead)
 
 describe('getScore', () => {

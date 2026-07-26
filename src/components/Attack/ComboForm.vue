@@ -1,14 +1,30 @@
 <script setup>
 
     import { watch } from 'vue';
-    import { getDamage,getDamageSummary } from '@/data/Calculator';
-    import { loadDxAsset } from '@/data/PrecomputedDataRepository';
+    import { getDamage,getDamageSummary } from '@/data/DamageCalculator';
+    import { loadDrAsset,loadDxAsset } from '@/data/PrecomputedDataRepository';
     import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
     import AttackForm from './AttackForm.vue';
     import DefenceForm from './DefenceForm.vue';
 
     const props = defineProps(['comboData','comboColor','showDetails']);
     const calculationRevision = {action: 0, reaction: 0};
+    let damageRevision = 0;
+    const updateDamage = async () => {
+        const revision = ++damageRevision;
+        const kazanari = props.comboData.params.action.damage.kazanari;
+
+        try {
+            await loadDrAsset(kazanari);
+            if (revision !== damageRevision) {
+                return;
+            }
+            props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);
+            props.comboData.damageSummary = getDamageSummary(props.comboData.damage);
+        } catch (error) {
+            console.error('Failed to update damage', error);
+        }
+    };
     const updateScore = async (side) => {
         const revision = ++calculationRevision[side];
         const params = props.comboData.params[side].score;
@@ -21,8 +37,7 @@
             const fix = side === 'reaction' && props.comboData.params.reaction.mode === '《イベイジョン》';
             props.comboData.score[side] = getScore(params,fix);
             props.comboData.scoreSummary = getScoreSummary(props.comboData.score);
-            props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);
-            props.comboData.damageSummary = getDamageSummary(props.comboData.damage);
+            await updateDamage();
         } catch (error) {
             console.error(`Failed to update ${side} score`, error);
         }
@@ -34,12 +49,10 @@
         void updateScore('reaction');
     });
     watch(props.comboData.params.action.damage, () => {
-        props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);
-        props.comboData.damageSummary = getDamageSummary(props.comboData.damage);
+        void updateDamage();
     });
     watch(props.comboData.params.reaction.damage, () => {
-        props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);
-        props.comboData.damageSummary = getDamageSummary(props.comboData.damage);
+        void updateDamage();
     });
 
 </script>

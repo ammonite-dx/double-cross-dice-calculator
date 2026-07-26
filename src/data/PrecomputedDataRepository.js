@@ -24,7 +24,11 @@ function validateShihai(shihai) {
   )
 }
 
-function validateSparseDistribution(distribution, context) {
+function validateSparseDistribution(
+  distribution,
+  context,
+  { requireNormalized = true } = {}
+) {
   assert(distribution && typeof distribution === 'object', `${context} is missing`)
   assert(
     Number.isInteger(distribution.offset) &&
@@ -51,10 +55,18 @@ function validateSparseDistribution(distribution, context) {
     )
     total += probability
   }
-  assert(
-    Math.abs(total - 1) < PROBABILITY_TOLERANCE,
-    `${context} probability total is ${total}`
-  )
+  if (requireNormalized) {
+    assert(
+      Math.abs(total - 1) < PROBABILITY_TOLERANCE,
+      `${context} probability total is ${total}`
+    )
+  } else {
+    assert(total > 0, `${context} probability total must be positive`)
+    assert(
+      total <= 1 + PROBABILITY_TOLERANCE,
+      `${context} probability total exceeds 1: ${total}`
+    )
+  }
 }
 
 function validateDxAsset(asset, expectedShihai) {
@@ -166,6 +178,8 @@ export const registerDxAsset = dxRepository.registerDxAsset
 
 const oneDimensionalAssets = new Map()
 const oneDimensionalRequests = new Map()
+const drAssets = new Map()
+const drRequests = new Map()
 const expandedDistributions = new Map()
 
 const oneDimensionalDefinitions = {
@@ -261,10 +275,110 @@ function getOneDimensionalDistribution(dataset, dice) {
   return expandedDistributions.get(cacheKey)
 }
 
+function validateKazanari(kazanari) {
+  assert(
+    Number.isInteger(kazanari) && kazanari >= 0 && kazanari <= 9,
+    `kazanari must be an integer between 0 and 9: ${kazanari}`
+  )
+}
+
+function validateDrAsset(asset, expectedKazanari) {
+  assert(asset?.schemaVersion === PRECOMPUTED_DATA_SCHEMA_VERSION, 'schema mismatch')
+  assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
+  assert(asset?.dataset === 'dr', 'dataset must be dr')
+  assert(asset?.distributionSize === DISTRIBUTION_SIZE, 'distribution size mismatch')
+  assert(asset?.shard?.kazanari === expectedKazanari, 'kazanari shard mismatch')
+  assert(
+    asset?.index?.dice?.start === 0 &&
+      asset?.index?.dice?.count === 203,
+    'dr dice index mismatch'
+  )
+  assert(asset?.distributions?.length === 203, 'dr distribution count mismatch')
+
+  asset.distributions.forEach((distribution, dice) => {
+    validateSparseDistribution(
+      distribution,
+      `dr[${expectedKazanari}][${dice}]`,
+      { requireNormalized: false }
+    )
+  })
+
+  return asset
+}
+
+export function registerDrAsset(asset) {
+  const kazanari = asset?.shard?.kazanari
+  validateKazanari(kazanari)
+  const validatedAsset = validateDrAsset(asset, kazanari)
+
+  for (const cacheKey of expandedDistributions.keys()) {
+    if (cacheKey.startsWith(`dr:${kazanari}:`)) {
+      expandedDistributions.delete(cacheKey)
+    }
+  }
+  drAssets.set(kazanari, validatedAsset)
+
+  return asset
+}
+
+export async function loadDrAsset(kazanari) {
+  validateKazanari(kazanari)
+
+  if (drAssets.has(kazanari)) {
+    return drAssets.get(kazanari)
+  }
+  if (drRequests.has(kazanari)) {
+    return drRequests.get(kazanari)
+  }
+
+  const request = fetch(`${basePath}/dr/kazanari-${kazanari}.json`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load dr data for kazanari ${kazanari}: HTTP ${response.status}`
+        )
+      }
+      return response.json()
+    })
+    .then((asset) => registerDrAsset(asset))
+    .finally(() => {
+      drRequests.delete(kazanari)
+    })
+
+  drRequests.set(kazanari, request)
+  return request
+}
+
+export function getDrDistribution(kazanari, dice) {
+  validateKazanari(kazanari)
+  const asset = drAssets.get(kazanari)
+  if (!asset) {
+    throw new Error(`dr data for kazanari ${kazanari} has not been loaded`)
+  }
+
+  const sparseDistribution = asset.distributions[dice]
+  if (!sparseDistribution) {
+    throw new Error(
+      `dr distribution is unavailable: kazanari=${kazanari}, dice=${dice}`
+    )
+  }
+
+  const cacheKey = `dr:${kazanari}:${dice}`
+  if (!expandedDistributions.has(cacheKey)) {
+    expandedDistributions.set(
+      cacheKey,
+      expandSparseDistribution(sparseDistribution)
+    )
+  }
+  return expandedDistributions.get(cacheKey)
+}
+
 export function clearPrecomputedDataCache() {
   dxRepository.clear()
   oneDimensionalAssets.clear()
   oneDimensionalRequests.clear()
+  drAssets.clear()
+  drRequests.clear()
   expandedDistributions.clear()
 }
 

@@ -1,7 +1,7 @@
 <script setup>
 
     import { watch } from 'vue';
-    import { getDamage,getDamageSummary,getTotalDamage } from '@/data/Calculator';
+    import { getDamage,getDamageSummary,getTotalDamage } from '@/data/DamageCalculator';
     import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
     import { getChartColor } from '@/data/ColorSetter';
     import ComboForm from './ComboForm.vue';
