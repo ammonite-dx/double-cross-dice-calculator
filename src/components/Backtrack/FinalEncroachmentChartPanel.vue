@@ -3,7 +3,7 @@
     import FinalEncroachmentChart from './FinalEncroachmentChart.vue';
     import { mdiChartLine } from '@mdi/js'
 
-    const props = defineProps(['backtrackData']);
+    defineProps(['backtrackData']);
 
 </script>
 

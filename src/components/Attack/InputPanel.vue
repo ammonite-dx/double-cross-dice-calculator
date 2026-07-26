@@ -3,7 +3,7 @@
     import InputForm from './InputForm.vue';
     import { mdiTuneVariant } from '@mdi/js'
 
-    const props = defineProps(['attackData']);
+    defineProps(['attackData']);
 
 </script>
 

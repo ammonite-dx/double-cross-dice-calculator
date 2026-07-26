@@ -36,7 +36,7 @@
 </template>
 
 <style>
-::v-deep .v-data-table__wrapper tbody tr:not(:last-child) td {
+.v-table__wrapper tbody tr:not(:last-child) td {
   border-bottom: none;
 }
 </style>

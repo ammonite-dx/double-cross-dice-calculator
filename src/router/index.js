@@ -1,15 +1,11 @@
 // Composables
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '@/views/Home.vue'
-import Check from '@/views/Check.vue'
-import Attack from '@/views/Attack.vue'
-import Backtrack from '@/views/Backtrack.vue'
 
 const routes = [
-    {path: '/', component: Home},
-    {path: '/check', component: Check},
-    {path: '/attack', component: Attack},
-    {path: '/backtrack', component: Backtrack}
+    {path: '/', component: () => import('@/views/Home.vue')},
+    {path: '/check', component: () => import('@/views/Check.vue')},
+    {path: '/attack', component: () => import('@/views/Attack.vue')},
+    {path: '/backtrack', component: () => import('@/views/Backtrack.vue')}
 ]
 
 const router = createRouter({

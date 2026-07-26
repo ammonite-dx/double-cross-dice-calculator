@@ -3,7 +3,7 @@
     import SummaryTable from './SummaryTable.vue';
     import { mdiFileChartOutline } from '@mdi/js'
 
-    const props = defineProps(['checkData']);
+    defineProps(['checkData']);
 
 </script>
 

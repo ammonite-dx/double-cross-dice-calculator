@@ -3,7 +3,7 @@
     import InputForm from './InputForm.vue';
     import { mdiTuneVariant } from '@mdi/js'
 
-    const props = defineProps(['backtrackData']);
+    defineProps(['backtrackData']);
 
 </script>
 

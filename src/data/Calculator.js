@@ -415,22 +415,26 @@ export function getFinalEncroachment (params) {
         }
     */
 
+    let single;
+    let double;
+    let second;
+
     switch (params.dlois) {
 
         case "戦闘用人格・生きる伝説":
             // 1倍振りの結果を計算
-            var single = Array(5).fill(0);
+            single = Array(5).fill(0);
             single[0] = Math.round(d10[params.lois+params.elois+params.dice-1].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[1] = Math.round(d10[params.lois+params.elois+params.dice-1].slice(Math.max(0,params.encroachment-params.value-99),Math.max(0,params.encroachment-params.value-70)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[2] = Math.round(d10[params.lois+params.elois+params.dice-1].slice(Math.max(0,params.encroachment-params.value-70),Math.max(0,params.encroachment-params.value-50)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[3] = Math.round(d10[params.lois+params.elois+params.dice-1].slice(Math.max(0,params.encroachment-params.value-50),Math.max(0,params.encroachment-params.value-30)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[4] = Math.round(d10[params.lois+params.elois+params.dice-1].slice(Math.max(0,params.encroachment-params.value-30),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振りの結果を計算
-            var double = Array(2);
+            double = Array(2);
             double[0] = Math.round(d10[params.lois*2+params.elois+params.dice-1].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             double[1] = Math.round(d10[params.lois*2+params.elois+params.dice-1].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振り+追加振りの結果を計算
-            var second = Array(2);
+            second = Array(2);
             second[0] = Math.round(d10[params.lois*3+params.elois+params.dice-1].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             second[1] = Math.round(d10[params.lois*3+params.elois+params.dice-1].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 結果を返す
@@ -438,18 +442,18 @@ export function getFinalEncroachment (params) {
         
         case "生還者":
             // 1倍振りの結果を計算
-            var single = Array(5).fill(0);
+            single = Array(5).fill(0);
             single[0] = Math.round(d10[params.lois+params.elois+params.dice+3].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[1] = Math.round(d10[params.lois+params.elois+params.dice+3].slice(Math.max(0,params.encroachment-params.value-99),Math.max(0,params.encroachment-params.value-70)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[2] = Math.round(d10[params.lois+params.elois+params.dice+3].slice(Math.max(0,params.encroachment-params.value-70),Math.max(0,params.encroachment-params.value-50)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[3] = Math.round(d10[params.lois+params.elois+params.dice+3].slice(Math.max(0,params.encroachment-params.value-50),Math.max(0,params.encroachment-params.value-30)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[4] = Math.round(d10[params.lois+params.elois+params.dice+3].slice(Math.max(0,params.encroachment-params.value-30),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振りの結果を計算
-            var double = Array(2);
+            double = Array(2);
             double[0] = Math.round(d10[params.lois*2+params.elois+params.dice+3].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             double[1] = Math.round(d10[params.lois*2+params.elois+params.dice+3].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振り+追加振りの結果を計算
-            var second = Array(2);
+            second = Array(2);
             second[0] = Math.round(d10[params.lois*3+params.elois+params.dice+3].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             second[1] = Math.round(d10[params.lois*3+params.elois+params.dice+3].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 結果を返す
@@ -457,7 +461,7 @@ export function getFinalEncroachment (params) {
         
         case "不死者・悪夢":
             // 1倍振りの結果を計算
-            var single = Array(5).fill(0);
+            single = Array(5).fill(0);
             single[0] = Math.round(d10[params.lois+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-119)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[1] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-119),Math.max(0,params.encroachment-params.value-100)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[2] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-99),Math.max(0,params.encroachment-params.value-70)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
@@ -465,11 +469,11 @@ export function getFinalEncroachment (params) {
             single[4] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-50),Math.max(0,params.encroachment-params.value-30)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[5] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-30),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振りの結果を計算
-            var double = Array(2);
+            double = Array(2);
             double[0] = Math.round(d10[params.lois*2+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-119)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             double[1] = Math.round(d10[params.lois*2+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-119),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振り+追加振りの結果を計算
-            var second = Array(2);
+            second = Array(2);
             second[0] = Math.round(d10[params.lois*3+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-119)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             second[1] = Math.round(d10[params.lois*3+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-119),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 結果を返す
@@ -477,18 +481,18 @@ export function getFinalEncroachment (params) {
         
         case "屍人":
             // 1倍振りの結果を計算
-            var single = Array(5).fill(0);
+            single = Array(5).fill(0);
             single[0] = Math.round(livingdead[params.lois+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[1] = Math.round(livingdead[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-99),Math.max(0,params.encroachment-params.value-70)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[2] = Math.round(livingdead[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-70),Math.max(0,params.encroachment-params.value-50)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[3] = Math.round(livingdead[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-50),Math.max(0,params.encroachment-params.value-30)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[4] = Math.round(livingdead[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-30),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振りの結果を計算
-            var double = Array(2);
+            double = Array(2);
             double[0] = Math.round(livingdead[params.lois*2+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             double[1] = Math.round(livingdead[params.lois*2+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振り+追加振りの結果を計算
-            var second = Array(2);
+            second = Array(2);
             second[0] = Math.round(livingdead[params.lois*3+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             second[1] = Math.round(livingdead[params.lois*3+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 結果を返す
@@ -496,18 +500,18 @@ export function getFinalEncroachment (params) {
         
         case "戦友(通常)":
             // 1倍振りの結果を計算
-            var single = Array(5).fill(0);
+            single = Array(5).fill(0);
             single[0] = Math.round(d10[params.lois+params.elois+params.dice+2].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[1] = Math.round(d10[params.lois+params.elois+params.dice+2].slice(Math.max(0,params.encroachment-params.value-99),Math.max(0,params.encroachment-params.value-70)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[2] = Math.round(d10[params.lois+params.elois+params.dice+2].slice(Math.max(0,params.encroachment-params.value-70),Math.max(0,params.encroachment-params.value-50)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[3] = Math.round(d10[params.lois+params.elois+params.dice+2].slice(Math.max(0,params.encroachment-params.value-50),Math.max(0,params.encroachment-params.value-30)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[4] = Math.round(d10[params.lois+params.elois+params.dice+2].slice(Math.max(0,params.encroachment-params.value-30),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振りの結果を計算
-            var double = Array(2);
+            double = Array(2);
             double[0] = Math.round(d10[params.lois*2+params.elois+params.dice+2].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             double[1] = Math.round(d10[params.lois*2+params.elois+params.dice+2].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振り+追加振りの結果を計算
-            var second = Array(2);
+            second = Array(2);
             second[0] = Math.round(d10[params.lois*3+params.elois+params.dice+2].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             second[1] = Math.round(d10[params.lois*3+params.elois+params.dice+2].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 結果を返す
@@ -515,18 +519,18 @@ export function getFinalEncroachment (params) {
         
         case "戦友(強化)":
             // 1倍振りの結果を計算
-            var single = Array(5).fill(0);
+            single = Array(5).fill(0);
             single[0] = Math.round(d10[params.lois+params.elois+params.dice+4].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[1] = Math.round(d10[params.lois+params.elois+params.dice+4].slice(Math.max(0,params.encroachment-params.value-99),Math.max(0,params.encroachment-params.value-70)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[2] = Math.round(d10[params.lois+params.elois+params.dice+4].slice(Math.max(0,params.encroachment-params.value-70),Math.max(0,params.encroachment-params.value-50)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[3] = Math.round(d10[params.lois+params.elois+params.dice+4].slice(Math.max(0,params.encroachment-params.value-50),Math.max(0,params.encroachment-params.value-30)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[4] = Math.round(d10[params.lois+params.elois+params.dice+4].slice(Math.max(0,params.encroachment-params.value-30),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振りの結果を計算
-            var double = Array(2);
+            double = Array(2);
             double[0] = Math.round(d10[params.lois*2+params.elois+params.dice+4].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             double[1] = Math.round(d10[params.lois*2+params.elois+params.dice+4].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振り+追加振りの結果を計算
-            var second = Array(2);
+            second = Array(2);
             second[0] = Math.round(d10[params.lois*3+params.elois+params.dice+4].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             second[1] = Math.round(d10[params.lois*3+params.elois+params.dice+4].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 結果を返す
@@ -534,18 +538,18 @@ export function getFinalEncroachment (params) {
         
         default:
             // 1倍振りの結果を計算
-            var single = Array(5).fill(0);
+            single = Array(5).fill(0);
             single[0] = Math.round(d10[params.lois+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[1] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-99),Math.max(0,params.encroachment-params.value-70)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[2] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-70),Math.max(0,params.encroachment-params.value-50)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[3] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-50),Math.max(0,params.encroachment-params.value-30)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             single[4] = Math.round(d10[params.lois+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-30),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振りの結果を計算
-            var double = Array(2);
+            double = Array(2);
             double[0] = Math.round(d10[params.lois*2+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             double[1] = Math.round(d10[params.lois*2+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 2倍振り+追加振りの結果を計算
-            var second = Array(2);
+            second = Array(2);
             second[0] = Math.round(d10[params.lois*3+params.elois+params.dice].slice(0,Math.max(0,params.encroachment-params.value-99)).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             second[1] = Math.round(d10[params.lois*3+params.elois+params.dice].slice(Math.max(0,params.encroachment-params.value-99),1024).reduce((sum,element)=>{return sum+element;},0)*1000)/10;
             // 結果を返す
