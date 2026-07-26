@@ -1,6 +1,10 @@
 // Composables
 import { createRouter, createWebHistory } from 'vue-router'
-import { loadDxAsset } from '@/data/PrecomputedDataRepository'
+import {
+  loadD10Asset,
+  loadDxAsset,
+  loadLivingdeadAsset,
+} from '@/data/PrecomputedDataRepository'
 
 const routes = [
     {path: '/', component: () => import('@/views/Home.vue')},
@@ -10,7 +14,9 @@ const routes = [
     {path: '/attack', component: () => import('@/views/Attack.vue'), beforeEnter: async () => {
       await loadDxAsset(0)
     }},
-    {path: '/backtrack', component: () => import('@/views/Backtrack.vue')}
+    {path: '/backtrack', component: () => import('@/views/Backtrack.vue'), beforeEnter: async () => {
+      await Promise.all([loadD10Asset(), loadLivingdeadAsset()])
+    }}
 ]
 
 const router = createRouter({

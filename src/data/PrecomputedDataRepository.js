@@ -1,4 +1,7 @@
-import { DISTRIBUTION_SIZE } from './Distribution'
+import {
+  DISTRIBUTION_SIZE,
+  expandSparseDistribution,
+} from './Distribution'
 
 export const PRECOMPUTED_DATA_SCHEMA_VERSION = 1
 export const PRECOMPUTED_DATA_REVISION = 1
@@ -157,7 +160,122 @@ export function createDxRepository(fetchAsset = (...args) => fetch(...args)) {
 
 const dxRepository = createDxRepository()
 
-export const clearPrecomputedDataCache = dxRepository.clear
 export const getDxDistribution = dxRepository.getDxDistribution
 export const loadDxAsset = dxRepository.loadDxAsset
 export const registerDxAsset = dxRepository.registerDxAsset
+
+const oneDimensionalAssets = new Map()
+const oneDimensionalRequests = new Map()
+const expandedDistributions = new Map()
+
+const oneDimensionalDefinitions = {
+  d10: { count: 104, filename: 'd10.json' },
+  livingdead: { count: 100, filename: 'livingdead.json' },
+}
+
+function validateOneDimensionalAsset(asset, dataset) {
+  const definition = oneDimensionalDefinitions[dataset]
+
+  assert(definition, `unknown dataset: ${dataset}`)
+  assert(asset?.schemaVersion === PRECOMPUTED_DATA_SCHEMA_VERSION, 'schema mismatch')
+  assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
+  assert(asset?.dataset === dataset, `dataset must be ${dataset}`)
+  assert(asset?.distributionSize === DISTRIBUTION_SIZE, 'distribution size mismatch')
+  assert(
+    asset?.index?.dice?.start === 0 &&
+      asset?.index?.dice?.count === definition.count,
+    `${dataset} dice index mismatch`
+  )
+  assert(
+    asset?.distributions?.length === definition.count,
+    `${dataset} distribution count mismatch`
+  )
+
+  asset.distributions.forEach((distribution, dice) => {
+    validateSparseDistribution(distribution, `${dataset}[${dice}]`)
+  })
+
+  return asset
+}
+
+function registerOneDimensionalAsset(asset, dataset) {
+  const validatedAsset = validateOneDimensionalAsset(asset, dataset)
+
+  for (const cacheKey of expandedDistributions.keys()) {
+    if (cacheKey.startsWith(`${dataset}:`)) {
+      expandedDistributions.delete(cacheKey)
+    }
+  }
+  oneDimensionalAssets.set(dataset, validatedAsset)
+
+  return asset
+}
+
+async function loadOneDimensionalAsset(dataset) {
+  const definition = oneDimensionalDefinitions[dataset]
+  assert(definition, `unknown dataset: ${dataset}`)
+
+  if (oneDimensionalAssets.has(dataset)) {
+    return oneDimensionalAssets.get(dataset)
+  }
+  if (oneDimensionalRequests.has(dataset)) {
+    return oneDimensionalRequests.get(dataset)
+  }
+
+  const request = fetch(`${basePath}/${definition.filename}`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load ${dataset} data: HTTP ${response.status}`
+        )
+      }
+      return response.json()
+    })
+    .then((asset) => registerOneDimensionalAsset(asset, dataset))
+    .finally(() => {
+      oneDimensionalRequests.delete(dataset)
+    })
+
+  oneDimensionalRequests.set(dataset, request)
+  return request
+}
+
+function getOneDimensionalDistribution(dataset, dice) {
+  const asset = oneDimensionalAssets.get(dataset)
+  if (!asset) {
+    throw new Error(`${dataset} data has not been loaded`)
+  }
+
+  const sparseDistribution = asset.distributions[dice]
+  if (!sparseDistribution) {
+    throw new Error(`${dataset} distribution is unavailable: dice=${dice}`)
+  }
+
+  const cacheKey = `${dataset}:${dice}`
+  if (!expandedDistributions.has(cacheKey)) {
+    expandedDistributions.set(
+      cacheKey,
+      expandSparseDistribution(sparseDistribution)
+    )
+  }
+  return expandedDistributions.get(cacheKey)
+}
+
+export function clearPrecomputedDataCache() {
+  dxRepository.clear()
+  oneDimensionalAssets.clear()
+  oneDimensionalRequests.clear()
+  expandedDistributions.clear()
+}
+
+export const loadD10Asset = () => loadOneDimensionalAsset('d10')
+export const loadLivingdeadAsset = () =>
+  loadOneDimensionalAsset('livingdead')
+export const registerD10Asset = (asset) =>
+  registerOneDimensionalAsset(asset, 'd10')
+export const registerLivingdeadAsset = (asset) =>
+  registerOneDimensionalAsset(asset, 'livingdead')
+export const getD10Distribution = (dice) =>
+  getOneDimensionalDistribution('d10', dice)
+export const getLivingdeadDistribution = (dice) =>
+  getOneDimensionalDistribution('livingdead', dice)

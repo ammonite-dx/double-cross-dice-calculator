@@ -1,7 +1,7 @@
 <script setup>
 
     import { reactive } from 'vue';
-    import { getFinalEncroachment } from '@/data/Calculator';
+    import { getFinalEncroachment } from '@/data/BacktrackCalculator';
     import InputPanel from '@/components/Backtrack/InputPanel.vue'
     import FinalEncroachmentChartPanel from '@/components/Backtrack/FinalEncroachmentChartPanel.vue';
 
