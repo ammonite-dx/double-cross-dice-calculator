@@ -4,10 +4,12 @@ import {
   getDamage,
   getDamageSummary,
   getFinalEncroachment,
-  getScore,
-  getScoreSummary,
   getTotalDamage,
 } from '../src/data/Calculator'
+import { registerDxAsset } from '../src/data/PrecomputedDataRepository'
+import { getScore, getScoreSummary } from '../src/data/ScoreCalculator'
+import dxShihai0 from '../public/data/schema-v1/revision-1/dx/shihai-0.json'
+import dxShihai19 from '../public/data/schema-v1/revision-1/dx/shihai-19.json'
 import { expectProbabilityResult } from './probabilityAssertions'
 
 const defaultScoreParams = {
@@ -17,6 +19,9 @@ const defaultScoreParams = {
   yousei: 0,
   shihai: 0,
 }
+
+registerDxAsset(dxShihai0)
+registerDxAsset(dxShihai19)
 
 describe('getScore', () => {
   it.each([

@@ -1,22 +1,37 @@
 <script setup>
 
     import { watch } from 'vue';
-    import { getScore,getScoreSummary,getDamage,getDamageSummary } from '@/data/Calculator';
+    import { getDamage,getDamageSummary } from '@/data/Calculator';
+    import { loadDxAsset } from '@/data/PrecomputedDataRepository';
+    import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
     import AttackForm from './AttackForm.vue';
     import DefenceForm from './DefenceForm.vue';
 
     const props = defineProps(['comboData','comboColor','showDetails']);
+    const calculationRevision = {action: 0, reaction: 0};
+    const updateScore = async (side) => {
+        const revision = ++calculationRevision[side];
+        const params = props.comboData.params[side].score;
+
+        try {
+            await loadDxAsset(params.shihai);
+            if (revision !== calculationRevision[side]) {
+                return;
+            }
+            const fix = side === 'reaction' && props.comboData.params.reaction.mode === '《イベイジョン》';
+            props.comboData.score[side] = getScore(params,fix);
+            props.comboData.scoreSummary = getScoreSummary(props.comboData.score);
+            props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);
+            props.comboData.damageSummary = getDamageSummary(props.comboData.damage);
+        } catch (error) {
+            console.error(`Failed to update ${side} score`, error);
+        }
+    };
     watch(props.comboData.params.action.score, () => {
-        props.comboData.score.action = getScore(props.comboData.params.action.score);
-        props.comboData.scoreSummary = getScoreSummary(props.comboData.score);
-        props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);
-        props.comboData.damageSummary = getDamageSummary(props.comboData.damage);
+        void updateScore('action');
     });
     watch(props.comboData.params.reaction.score, () => {
-        props.comboData.score.reaction = getScore(props.comboData.params.reaction.score,props.comboData.params.reaction.mode=='《イベイジョン》');
-        props.comboData.scoreSummary = getScoreSummary(props.comboData.score);
-        props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);
-        props.comboData.damageSummary = getDamageSummary(props.comboData.damage);
+        void updateScore('reaction');
     });
     watch(props.comboData.params.action.damage, () => {
         props.comboData.damage = getDamage(props.comboData.score, props.comboData.params.action.damage, props.comboData.params.reaction.damage);

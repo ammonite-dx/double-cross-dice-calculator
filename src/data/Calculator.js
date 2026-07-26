@@ -1,8 +1,8 @@
-import dx from './dx.json';
 import dr from './dr.json';
 import d10 from './d10.json';
 import livingdead from './livingdead.json';
 import { sumDistribution,subDistribution } from './FFT';
+import { getDxDistribution } from './PrecomputedDataRepository';
 
 function getExpectedValue (distribution) {
 
@@ -79,17 +79,17 @@ export function getScore (params,fix=false) {
     } else {
 
         // ダイスの出目を計算
-        const diceResultInfo = dx[params.shihai][params.dice][params.critical-2];
-        const diceResultLowerFill = Array(diceResultInfo.pre).fill(0);
-        const diceResultUpperFill = Array(diceResultInfo.post).fill(0);
-        var diceResult = diceResultLowerFill.concat(diceResultInfo.val).concat(diceResultUpperFill);
+        const diceResultInfo = getDxDistribution(params.shihai,params.dice,params.critical);
+        const diceResultLowerFill = Array(diceResultInfo.offset).fill(0);
+        const diceResultUpperFill = Array(1024-diceResultInfo.offset-diceResultInfo.values.length).fill(0);
+        var diceResult = diceResultLowerFill.concat(diceResultInfo.values).concat(diceResultUpperFill);
         
         // 《妖精の手》等による振り直し
         if (params.yousei>=0){
-            const youseiInfo = dx[0][1][params.critical-2];
-            const youseiLowerFill = Array(youseiInfo.pre).fill(0);
-            const youseiUpperFill = Array(youseiInfo.post).fill(0);
-            var youseiResult = youseiLowerFill.concat(youseiInfo.val).concat(youseiUpperFill);
+            const youseiInfo = getDxDistribution(0,1,params.critical);
+            const youseiLowerFill = Array(youseiInfo.offset).fill(0);
+            const youseiUpperFill = Array(1024-youseiInfo.offset-youseiInfo.values.length).fill(0);
+            var youseiResult = youseiLowerFill.concat(youseiInfo.values).concat(youseiUpperFill);
             for (let i=0; i<params.yousei; i++) {
                 // 最後のダイスの出目を10に変更
                 diceResult = Array.from({length:1024}, (_,i) => i%10===0 ? diceResult.slice(Math.max(0,i-9), i+1).reduce((sum,element) => sum+element, 0.0) : 0.0);

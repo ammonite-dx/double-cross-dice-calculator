@@ -1,7 +1,7 @@
 <script setup>
 
     import { ref } from 'vue';
-    import { getScore, getScoreSummary } from '@/data/Calculator';
+    import { getScore, getScoreSummary } from '@/data/ScoreCalculator';
     import InputPanel from '@/components/Check/InputPanel.vue';
     import ChartPanel from '@/components/Check/ChartPanel.vue';
     import SummaryPanel from '@/components/Check/SummaryPanel.vue';

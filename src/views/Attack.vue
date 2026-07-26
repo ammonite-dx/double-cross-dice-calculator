@@ -1,7 +1,8 @@
 <script setup>
 
     import { reactive } from 'vue';
-    import { getScore,getScoreSummary,getDamage,getDamageSummary } from '@/data/Calculator';
+    import { getDamage,getDamageSummary } from '@/data/Calculator';
+    import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
     import InputPanel from '@/components/Attack/InputPanel.vue';
     import ScoreChartPanel from '@/components/Attack/ScoreChartPanel.vue';
     import DamageChartPanel from '@/components/Attack/DamageChartPanel.vue';

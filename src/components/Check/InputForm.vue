@@ -1,7 +1,8 @@
 <script setup>
 
     import { watch } from 'vue';
-    import { getScore,getScoreSummary } from '@/data/Calculator';
+    import { loadDxAsset } from '@/data/PrecomputedDataRepository';
+    import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
     import DfcltyForm from './DfcltyForm.vue';
     import ScoreForm from './ScoreForm.vue';
 
@@ -10,13 +11,27 @@
     watch(props.checkData.dfclty, () => {
         props.checkData.scoreSummary = getScoreSummary(props.checkData.score,props.checkData.dfclty);
     });
+    const calculationRevision = {action: 0, reaction: 0};
+    const updateScore = async (side) => {
+        const revision = ++calculationRevision[side];
+        const params = props.checkData.params[side];
+
+        try {
+            await loadDxAsset(params.shihai);
+            if (revision !== calculationRevision[side]) {
+                return;
+            }
+            props.checkData.score[side] = getScore(params);
+            props.checkData.scoreSummary = getScoreSummary(props.checkData.score,props.checkData.dfclty);
+        } catch (error) {
+            console.error(`Failed to update ${side} score`, error);
+        }
+    };
     watch(props.checkData.params.action, () => {
-        props.checkData.score.action = getScore(props.checkData.params.action)
-        props.checkData.scoreSummary = getScoreSummary(props.checkData.score,props.checkData.dfclty);
+        void updateScore('action');
     });
     watch(props.checkData.params.reaction, () => {
-        props.checkData.score.reaction = getScore(props.checkData.params.reaction)
-        props.checkData.scoreSummary = getScoreSummary(props.checkData.score,props.checkData.dfclty);
+        void updateScore('reaction');
     });
 
 </script>
