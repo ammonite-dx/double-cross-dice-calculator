@@ -12,7 +12,7 @@ _MAXIMUM_FACE = 10
 _SUM_CAP = DISTRIBUTION_SIZE - 1 + _MAXIMUM_FACE - 1
 
 
-def generate_livingdead_distributions() -> list[Distribution]:
+def generate_raw_livingdead_distributions() -> list[Distribution]:
     states = np.zeros(
         (_MAXIMUM_FACE + 1, _SUM_CAP + 1),
         dtype=np.float64,
@@ -34,7 +34,7 @@ def generate_livingdead_distributions() -> list[Distribution]:
                         total - maximum + 1,
                     )
                     distribution[value] += probability
-        result.append(round_normalized_probabilities(distribution))
+        result.append(distribution)
 
         next_states = np.zeros_like(states)
         for maximum in range(_MAXIMUM_FACE + 1):
@@ -48,3 +48,10 @@ def generate_livingdead_distributions() -> list[Distribution]:
         states = next_states
 
     return result
+
+
+def generate_livingdead_distributions() -> list[Distribution]:
+    return [
+        round_normalized_probabilities(distribution)
+        for distribution in generate_raw_livingdead_distributions()
+    ]

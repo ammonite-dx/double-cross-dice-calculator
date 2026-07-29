@@ -53,6 +53,7 @@ jobs:
         run: |
           npm test
           npm run generator:test
+          npm run generator:test:simulation
 
       - name: Build
         run: npm run build

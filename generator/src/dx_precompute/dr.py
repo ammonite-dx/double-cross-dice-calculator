@@ -90,7 +90,9 @@ def _remaining_low_dice_distributions(
     return distributions
 
 
-def generate_kazanari_distributions(kazanari: int) -> list[Distribution]:
+def generate_raw_kazanari_distributions(
+    kazanari: int,
+) -> list[Distribution]:
     """Generate distributions indexed by damage-roll dice count."""
     one_d10 = die_distribution(range(1, 11), 0.1, size=FFT_SIZE)
     one_high_die = die_distribution(range(6, 11), 0.2, size=FFT_SIZE)
@@ -99,9 +101,7 @@ def generate_kazanari_distributions(kazanari: int) -> list[Distribution]:
 
     if kazanari == 0:
         return [
-            round_probabilities(
-                np.fft.irfft(d10_fourier**dice, n=FFT_SIZE)[:DISTRIBUTION_SIZE]
-            )
+            np.fft.irfft(d10_fourier**dice, n=FFT_SIZE)[:DISTRIBUTION_SIZE]
             for dice in range(DR_DICE_COUNT)
         ]
 
@@ -130,6 +130,13 @@ def generate_kazanari_distributions(kazanari: int) -> list[Distribution]:
             total_fourier += weight * term * high_fourier**high_count
 
         distribution = np.fft.irfft(total_fourier, n=FFT_SIZE)[:DISTRIBUTION_SIZE]
-        result.append(round_probabilities(distribution))
+        result.append(distribution)
 
     return result
+
+
+def generate_kazanari_distributions(kazanari: int) -> list[Distribution]:
+    return [
+        round_probabilities(distribution)
+        for distribution in generate_raw_kazanari_distributions(kazanari)
+    ]

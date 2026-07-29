@@ -14,6 +14,7 @@ dx-precompute = "dx_precompute.cli:main"
 dev = [
   "pytest>=8.3,<10",
   "ruff>=0.12,<1",
+  "scipy>=1.16,<2",
 ]
 
 [build-system]
@@ -22,9 +23,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dx_precompute"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 88

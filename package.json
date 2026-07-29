@@ -16,6 +16,7 @@
     "data:verify-generator": "uv run --project generator dx-precompute verify",
     "generator:lint": "uv run --project generator ruff check generator",
     "generator:test": "uv run --project generator pytest",
+    "generator:test:simulation": "uv run --project generator pytest -o addopts= -m simulation -s",
     "lint": "eslint .",
     "lint:markdown": "markdownlint-cli2",
     "lint:fix": "npm run lint -- --fix",

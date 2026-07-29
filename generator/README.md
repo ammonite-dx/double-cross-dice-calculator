@@ -25,6 +25,12 @@ npm run generator:lint
 npm run generator:test
 ```
 
+固定乱数シードによる統計シミュレーションは通常のPythonテストから分離しています。13ケースを各200,000試行で検証するには次を実行します。
+
+```sh
+npm run generator:test:simulation
+```
+
 ## 現行データとの照合
 
 まず軽量なデータセットだけを確認できます。

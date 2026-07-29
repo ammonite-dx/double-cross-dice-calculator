@@ -31,6 +31,7 @@ npm run lint:markdown
 npm run generator:lint
 npm test
 npm run generator:test
+npm run generator:test:simulation
 npm run build
 ```
 

@@ -47,7 +47,9 @@ def _order_statistic_distribution(
     return result
 
 
-def generate_shihai_distributions(shihai: int) -> list[list[Distribution]]:
+def generate_raw_shihai_distributions(
+    shihai: int,
+) -> list[list[Distribution]]:
     """Generate one ``dx/shihai-N.json`` shard."""
     rank = shihai + 1
     result = [
@@ -94,10 +96,14 @@ def generate_shihai_distributions(shihai: int) -> list[list[Distribution]]:
             distribution[-1] = 1.0 - float(distribution[:-1].sum())
             result[dice][critical_index] = distribution
 
+    return result
+
+
+def generate_shihai_distributions(shihai: int) -> list[list[Distribution]]:
     return [
         [
             round_normalized_probabilities(distribution)
             for distribution in critical_entries
         ]
-        for critical_entries in result
+        for critical_entries in generate_raw_shihai_distributions(shihai)
     ]
