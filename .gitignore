@@ -3,6 +3,13 @@ node_modules/
 /dist
 .wrangler/
 coverage/
+generated-data/
+.uv-cache/
+.venv/
+generator/.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
 
 # local env files
 .env

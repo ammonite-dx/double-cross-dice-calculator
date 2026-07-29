@@ -5,9 +5,15 @@ import globals from 'globals'
 export default [
   {
     ignores: [
+      '.pytest_cache/**',
+      '.ruff_cache/**',
+      '.uv-cache/**',
       '.wrangler/**',
       'coverage/**',
       'dist/**',
+      'generator/.pytest_cache/**',
+      'generator/.ruff_cache/**',
+      'generator/.venv/**',
       'node_modules/**',
     ],
   },
