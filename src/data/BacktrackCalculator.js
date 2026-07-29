@@ -15,6 +15,16 @@ const DLOIS_RULES = {
   '戦友(強化)': { diceModifier: 4 },
 }
 
+function getDiceCount(params, multiplier, diceModifier) {
+  return Math.max(
+    0,
+    params.lois * multiplier +
+      params.elois +
+      params.dice +
+      diceModifier
+  )
+}
+
 function getBoundary(params, threshold) {
   return Math.max(0, params.encroachment - params.value - threshold)
 }
@@ -78,13 +88,13 @@ export function getFinalEncroachment(params) {
   const threshold = rule.nightmare ? 119 : 99
 
   const singleDistribution = getDistribution(
-    params.lois + params.elois + params.dice + diceModifier
+    getDiceCount(params, 1, diceModifier)
   )
   const doubleDistribution = getDistribution(
-    params.lois * 2 + params.elois + params.dice + diceModifier
+    getDiceCount(params, 2, diceModifier)
   )
   const secondDistribution = getDistribution(
-    params.lois * 3 + params.elois + params.dice + diceModifier
+    getDiceCount(params, 3, diceModifier)
   )
 
   return {

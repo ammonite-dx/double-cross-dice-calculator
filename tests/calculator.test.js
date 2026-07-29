@@ -159,4 +159,26 @@ describe('getFinalEncroachment', () => {
       expect(Math.abs(total - 100)).toBeLessThanOrEqual(0.2)
     }
   })
+
+  it('treats a negative effective backtrack dice count as zero', () => {
+    const params = {
+      encroachment: 100,
+      lois: 0,
+      elois: 0,
+      dice: 0,
+      value: 0,
+    }
+
+    expect(
+      getFinalEncroachment({
+        ...params,
+        dlois: '戦闘用人格・生きる伝説',
+      })
+    ).toEqual(
+      getFinalEncroachment({
+        ...params,
+        dlois: 'なし',
+      })
+    )
+  })
 })
