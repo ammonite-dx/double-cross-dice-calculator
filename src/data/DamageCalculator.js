@@ -1,6 +1,6 @@
 import {
   getD10Distribution,
-  getDrDistribution,
+  getDrDamageDistributions,
 } from './PrecomputedDataRepository'
 import {
   DISTRIBUTION_SIZE,
@@ -43,29 +43,38 @@ export function getDamage(score, attack, defence) {
   const scoreActionDistribution = score.action.distribution.slice()
   const scoreReactionUpperTailProbability =
     score.reaction.upperTailProbability.slice()
-  const damageRollDistributions = scoreActionDistribution.map(
-    (_, scoreValue) =>
-      getDrDistribution(
-        attack.kazanari,
-        Math.floor(scoreValue / 10) + 1 + attack.dice
-      )
-  )
+  const damageRollDistributions =
+    getDrDamageDistributions(attack.kazanari)
 
   let failureRate = 0
+  const damageDice = []
+  const hitProbabilities = []
   for (let scoreValue = 0; scoreValue < DISTRIBUTION_SIZE; scoreValue += 1) {
+    const actionProbability = scoreActionDistribution[scoreValue]
     failureRate +=
-      scoreActionDistribution[scoreValue] *
+      actionProbability *
       scoreReactionUpperTailProbability[scoreValue]
+
+    if (actionProbability !== 0) {
+      damageDice.push(
+        Math.floor(scoreValue / 10) + 1 + attack.dice
+      )
+      hitProbabilities.push(
+        actionProbability *
+          (1 - scoreReactionUpperTailProbability[scoreValue])
+      )
+    }
   }
 
   let distribution = Array(DISTRIBUTION_SIZE).fill(0)
   for (let damage = 0; damage < DISTRIBUTION_SIZE; damage += 1) {
     let probability = 0
-    for (let scoreValue = 0; scoreValue < DISTRIBUTION_SIZE; scoreValue += 1) {
+    const damageRollDistribution = damageRollDistributions[damage]
+
+    for (let index = 0; index < damageDice.length; index += 1) {
       probability +=
-        scoreActionDistribution[scoreValue] *
-        (1 - scoreReactionUpperTailProbability[scoreValue]) *
-        damageRollDistributions[scoreValue][damage]
+        hitProbabilities[index] *
+        damageRollDistribution[damageDice[index]]
     }
     distribution[damage] = probability
   }

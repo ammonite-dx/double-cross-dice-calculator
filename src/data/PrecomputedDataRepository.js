@@ -180,6 +180,7 @@ const oneDimensionalAssets = new Map()
 const oneDimensionalRequests = new Map()
 const drAssets = new Map()
 const drRequests = new Map()
+const drDamageDistributions = new Map()
 const expandedDistributions = new Map()
 
 const oneDimensionalDefinitions = {
@@ -311,11 +312,7 @@ export function registerDrAsset(asset) {
   validateKazanari(kazanari)
   const validatedAsset = validateDrAsset(asset, kazanari)
 
-  for (const cacheKey of expandedDistributions.keys()) {
-    if (cacheKey.startsWith(`dr:${kazanari}:`)) {
-      expandedDistributions.delete(cacheKey)
-    }
-  }
+  drDamageDistributions.delete(kazanari)
   drAssets.set(kazanari, validatedAsset)
 
   return asset
@@ -349,28 +346,29 @@ export async function loadDrAsset(kazanari) {
   return request
 }
 
-export function getDrDistribution(kazanari, dice) {
+export function getDrDamageDistributions(kazanari) {
   validateKazanari(kazanari)
   const asset = drAssets.get(kazanari)
   if (!asset) {
     throw new Error(`dr data for kazanari ${kazanari} has not been loaded`)
   }
 
-  const sparseDistribution = asset.distributions[dice]
-  if (!sparseDistribution) {
-    throw new Error(
-      `dr distribution is unavailable: kazanari=${kazanari}, dice=${dice}`
+  if (!drDamageDistributions.has(kazanari)) {
+    const distributions = Array.from(
+      { length: DISTRIBUTION_SIZE },
+      () => new Float64Array(asset.index.dice.count)
     )
+
+    asset.distributions.forEach((sparseDistribution, dice) => {
+      sparseDistribution.values.forEach((probability, index) => {
+        distributions[sparseDistribution.offset + index][dice] =
+          probability
+      })
+    })
+    drDamageDistributions.set(kazanari, distributions)
   }
 
-  const cacheKey = `dr:${kazanari}:${dice}`
-  if (!expandedDistributions.has(cacheKey)) {
-    expandedDistributions.set(
-      cacheKey,
-      expandSparseDistribution(sparseDistribution)
-    )
-  }
-  return expandedDistributions.get(cacheKey)
+  return drDamageDistributions.get(kazanari)
 }
 
 export function clearPrecomputedDataCache() {
@@ -379,6 +377,7 @@ export function clearPrecomputedDataCache() {
   oneDimensionalRequests.clear()
   drAssets.clear()
   drRequests.clear()
+  drDamageDistributions.clear()
   expandedDistributions.clear()
 }
 
