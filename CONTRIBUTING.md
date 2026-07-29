@@ -18,22 +18,29 @@ Double Cross Dice Calculatorへの改善提案をありがとうございます�
 
 1. Node.jsのバージョンを `.node-version` に合わせます。
 2. `npm ci` で依存関係をインストールします。
-3. 作業用ブランチを作成します。
-4. 実装とテストを変更します。
-5. Pull Requestを作成する前に品質確認を実行します。
+3. 事前計算生成器を変更する場合は、[uv](https://docs.astral.sh/uv/)をインストールして`uv sync --project generator --dev`を実行します。
+4. 作業用ブランチを作成します。
+5. 実装とテストを変更します。
+6. Pull Requestを作成する前に品質確認を実行します。
 
 ```sh
 npm run data:check
+npm run data:verify-generator
 npm run lint
+npm run lint:markdown
+npm run generator:lint
 npm test
+npm run generator:test
 npm run build
 ```
+
+Markdownではmarkdownlintの規約に従い、段落内の文章を途中で改行しません。コードブロック、表、箇条書きなど、Markdownの構造に必要な改行は維持します。
 
 ## 確率計算の変更
 
 確率計算の変更では、境界値と代表的な入力のテストを追加してください。浮動小数点数の比較には完全一致ではなく、明示した許容誤差を使用してください。
 
-事前計算データを変更する場合は、生成条件、生成方法、検証結果をPull Requestに記載してください。
+事前計算データを変更する場合は、生成条件、生成方法、検証結果をPull Requestに記載してください。全データの再計算は`npm run data:regenerate`で行います。ブラウザアクセス時や通常のPagesビルド時には再計算しません。
 
 ## Pull Request
 

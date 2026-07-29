@@ -59,8 +59,7 @@ npm run build
 npm run preview
 ```
 
-事前計算データの形式、生成方法、更新手順は
-[`docs/precomputed-data.md`](./docs/precomputed-data.md)を参照してください。
+事前計算データの形式、生成方法、更新手順は[`docs/precomputed-data.md`](./docs/precomputed-data.md)を参照してください。
 
 本番用ファイルは `dist/` に生成されます。`dist/` と `.wrangler/` は生成物のためGit管理しません。
 
@@ -85,8 +84,7 @@ scripts/       事前計算データの生成・検証スクリプト
 tests/legacy/  移行結果を比較するための旧計算実装
 ```
 
-アプリケーションのモジュール境界とデータ読込の流れは
-[`docs/architecture.md`](./docs/architecture.md)を参照してください。
+アプリケーションのモジュール境界とデータ読込の流れは[`docs/architecture.md`](./docs/architecture.md)を参照してください。
 
 ## コントリビューション
 
