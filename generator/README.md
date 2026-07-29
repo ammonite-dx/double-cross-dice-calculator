@@ -6,6 +6,8 @@
 
 計算が従うゲーム内のダイスロール手順は[`docs/dice-rules.md`](../docs/dice-rules.md)を参照してください。ノートブックや既存JSONではなく、承認済みのルール仕様を実装と検証の基準にします。
 
+現在の生成範囲は`dx`が0～99ダイス、`dr`が0～202ダイス、`d10`と`livingdead`が0～223ダイスです。各上限を現在の入力フォームから導く計算は[`docs/dice-rules.md`の「事前計算範囲の決定方針」](../docs/dice-rules.md#事前計算範囲の決定方針)に記載しています。
+
 ## セットアップ
 
 リポジトリルートで次を実行します。
@@ -48,7 +50,7 @@ uv run --project generator dx-precompute verify
 
 ## 生成
 
-全データと`manifest.json`を`generated-data/schema-v1/revision-1/`へ生成します。
+全データと`manifest.json`を`generated-data/schema-v1/revision-2/`へ生成します。
 
 ```sh
 uv run --project generator dx-precompute generate

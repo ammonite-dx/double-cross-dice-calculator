@@ -11,7 +11,7 @@
 
 アプリとデータは同じPagesデプロイに含めます。後方互換レイヤーは持たず、アプリが要求する`schemaVersion`と`dataRevision`に一致するデータだけを読み込みます。
 
-現在の出力先は`public/data/schema-v1/revision-1/`です。
+現在の出力先は`public/data/schema-v1/revision-2/`です。比較用の旧データは、Pagesの配信対象外である`reference-data/schema-v1/revision-1/`に保持します。
 
 生成元の`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`は変換処理だけが参照します。本番アプリケーションから直接importせず、ViteのJavaScriptチャンクにも含めません。
 
@@ -22,7 +22,7 @@
 ```json
 {
   "schemaVersion": 1,
-  "dataRevision": 1,
+  "dataRevision": 2,
   "dataset": "dr",
   "distributionSize": 1024,
   "shard": {
@@ -49,11 +49,13 @@
 
 この例では、値12、13、14の確率がそれぞれ0.01、0.08、0.15であり、それ以外の確率はゼロです。`offset + values.length`は`distributionSize`以下でなければなりません。
 
-`dx`、`d10`、`livingdead`の各分布は確率総和が1になることを検証します。`dr`の高ダイス領域は既存データが値1023で打ち切られており、範囲外の確率を含まないため、総和が1未満になる場合があります。互換性維持のため生成時には補正せず、各確率が0以上1以下で総和が1を超えないことを検証します。
+`dx`、`d10`、`livingdead`の各分布は確率総和が1になることを検証します。これらのデータセットでは値1023以上の確率をインデックス1023へ集約します。`dr`の高ダイス領域は既存データが値1023で打ち切られており、範囲外の確率を含まないため、総和が1未満になる場合があります。互換性維持のため生成時には補正せず、各確率が0以上1以下で総和が1を超えないことを検証します。
 
 正式な共通スキーマは`schemas/precomputed-data.schema.json`にあります。データセット固有の配列形状は生成スクリプトでも検証します。
 
 ## データセット
+
+各範囲の計算根拠は[`docs/dice-rules.md`の「事前計算範囲の決定方針」](./dice-rules.md#事前計算範囲の決定方針)に記載します。範囲の上端を`N`とすると、インデックス0を含むためJSONの`index.dice.count`と`distributions`の要素数は`N + 1`です。
 
 ### `dx`
 
@@ -76,13 +78,15 @@
 
 - ファイル: `d10.json`
 - 配列: `distributions[dice]`
-- `dice`: 0から103
+- `dice`: 0から223
 
 ### `livingdead`
 
 - ファイル: `livingdead.json`
 - 配列: `distributions[dice]`
-- `dice`: 0から99
+- `dice`: 0から223
+
+現在のフォームから`livingdead`を実際に参照する最大値は219です。`d10`と同じ224分布に統一することで、バックトラック用データの境界管理を共通化しています。
 
 ## 実行時の読込
 
@@ -104,10 +108,10 @@
 
 1. `generator/`の生成ロジックまたは対応ルールを更新する
 2. 必要に応じて`schemaVersion`または`dataRevision`を更新する
-3. `npm run data:verify-generator`で現行データとの差分を確認する
+3. `npm run data:verify-generator`でPython生成器の出力と現行の配信データとの差分を確認する
 4. `npm run data:regenerate`を実行し、`generated-data/`へレビュー用データを生成する
 5. 公開する場合は`dataRevision`とアプリの参照先を更新し、新しいリビジョンの配信先へ配置する
-6. `npm run data:check`、PythonとJavaScriptのテスト、ビルドを実行する
+6. `npm run data:check`で旧密JSONから作るrevision-1参照データを検証し、PythonとJavaScriptのテスト、lint、ビルドを実行する
 7. 生成物とマニフェストを同じコミットに含める
 
 Python環境、データセット単位の照合、全再生成については[`generator/README.md`](../generator/README.md)を参照してください。生成器の移行検証が完了するまでは、`src/data/*.json`と`scripts/generate-precomputed-data.mjs`も比較用に保持します。

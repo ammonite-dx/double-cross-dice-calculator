@@ -27,8 +27,9 @@ def convolution_powers(
     count: int,
     *,
     size: int = DISTRIBUTION_SIZE,
+    aggregate_overflow: bool = False,
 ) -> list[Distribution]:
-    """Return truncated distributions for zero through ``count - 1`` dice."""
+    """Return distributions for zero through ``count - 1`` dice."""
     powers = [np.zeros(size, dtype=np.float64) for _ in range(count)]
     powers[0][0] = 1.0
 
@@ -39,6 +40,8 @@ def convolution_powers(
         current = powers[dice]
         for face, probability in weighted_faces:
             current[face:] += probability * previous[:-face]
+            if aggregate_overflow:
+                current[-1] += probability * float(previous[-face:].sum())
 
     return powers
 
@@ -66,5 +69,24 @@ def subtract_shifted(
 
 def round_probabilities(distribution: Distribution) -> Distribution:
     rounded = np.round(np.abs(distribution), ROUND_DIGITS)
+    rounded[rounded == 0.0] = 0.0
+    return rounded
+
+
+def round_normalized_probabilities(
+    distribution: Distribution,
+) -> Distribution:
+    rounded = round_probabilities(distribution)
+    unit = 10.0**-ROUND_DIGITS
+
+    while abs(float(rounded.sum()) - 1.0) > unit / 2:
+        errors = rounded - distribution
+        if rounded.sum() > 1.0:
+            index = int(np.argmax(errors))
+            rounded[index] -= unit
+        else:
+            index = int(np.argmin(errors))
+            rounded[index] += unit
+
     rounded[rounded == 0.0] = 0.0
     return rounded

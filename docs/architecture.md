@@ -37,10 +37,10 @@ reactive view state -> Chart.js
 
 事前計算データは`public/data/schema-v{schemaVersion}/revision-{dataRevision}/`に配置し、アプリ本体と同じデプロイから配信します。ファイル名に内容ハッシュは付けず、変更時は`dataRevision`を更新します。同一リビジョンのファイルは変更せず、長期キャッシュの対象にします。
 
-詳しいスキーマと更新手順は[`precomputed-data.md`](./precomputed-data.md)を参照してください。
+現在の配信データはschema-v1/revision-2です。旧revision-1は比較用として`reference-data/`へ移し、Pagesの配信対象には含めません。詳しいスキーマ、ダイス数範囲の根拠、更新手順は[`precomputed-data.md`](./precomputed-data.md)を参照してください。
 
 ## 旧実装との比較
 
-分離前の計算実装は`tests/legacy/LegacyCalculator.js`に回帰比較専用で残しています。本番コードから参照してはいけません。移行テストは新旧の結果を完全一致で比較し、分割・疎形式への変換で既存の計算結果が変わらないことを保証します。
+分離前の計算実装は`tests/legacy/LegacyCalculator.js`に回帰比較専用で残しています。本番コードから参照してはいけません。分割・疎形式への移行テストは新旧結果を比較し、Python生成器への移行で生じる6桁丸めの最小単位`0.000001`以内の差だけを許容します。
 
 すべての移行テストが十分な期間安定し、新実装側の境界値テストで同等の範囲を直接カバーできた段階で、旧実装と重複する生成元データの整理を別変更として行います。

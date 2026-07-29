@@ -1,9 +1,11 @@
+import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from dx_precompute.assets import (
-    compare_assets,
+    _expand_sparse,
     default_output_directory,
     default_reference_directory,
     generate_assets,
@@ -11,8 +13,7 @@ from dx_precompute.assets import (
 
 REFERENCE_DIRECTORY = (
     Path(__file__).resolve().parents[2]
-    / "public"
-    / "data"
+    / "reference-data"
     / "schema-v1"
     / "revision-1"
 )
@@ -20,12 +21,28 @@ REFERENCE_DIRECTORY = (
 
 @pytest.mark.parametrize("dataset", ["d10", "livingdead"])
 def test_lightweight_generated_assets_match_current_assets(dataset: str) -> None:
-    assets = generate_assets([dataset])
+    generated = generate_assets([dataset])[f"{dataset}.json"]
+    legacy = json.loads(
+        (REFERENCE_DIRECTORY / f"{dataset}.json").read_text(encoding="utf-8")
+    )
 
-    assert compare_assets(assets, REFERENCE_DIRECTORY) == []
+    assert len(generated["distributions"]) > len(legacy["distributions"])
+    for actual, expected in zip(
+        generated["distributions"],
+        legacy["distributions"],
+        strict=False,
+    ):
+        np.testing.assert_allclose(
+            _expand_sparse(actual),
+            _expand_sparse(expected),
+            atol=1e-6 + 1e-12,
+            rtol=0,
+        )
 
 
 def test_default_generation_does_not_overwrite_published_assets() -> None:
     assert "generated-data" in default_output_directory().parts
     assert "public" in default_reference_directory().parts
+    assert "revision-2" in default_output_directory().parts
+    assert "revision-2" in default_reference_directory().parts
     assert default_output_directory() != default_reference_directory()

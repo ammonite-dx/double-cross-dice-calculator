@@ -1,27 +1,23 @@
 from __future__ import annotations
 
-from math import comb
-
 import numpy as np
 
 from .constants import DISTRIBUTION_SIZE, LIVING_DEAD_DICE_COUNT
 from .polynomials import (
     Distribution,
-    add_shifted,
-    convolution_powers,
-    die_distribution,
-    round_probabilities,
+    round_normalized_probabilities,
 )
+
+_MAXIMUM_FACE = 10
+_SUM_CAP = DISTRIBUTION_SIZE - 1 + _MAXIMUM_FACE - 1
 
 
 def generate_livingdead_distributions() -> list[Distribution]:
-    lower_face_powers = {
-        maximum: convolution_powers(
-            die_distribution(range(1, maximum), 0.1),
-            LIVING_DEAD_DICE_COUNT,
-        )
-        for maximum in range(1, 11)
-    }
+    states = np.zeros(
+        (_MAXIMUM_FACE + 1, _SUM_CAP + 1),
+        dtype=np.float64,
+    )
+    states[0, 0] = 1.0
 
     result: list[Distribution] = []
     for dice in range(LIVING_DEAD_DICE_COUNT):
@@ -29,18 +25,26 @@ def generate_livingdead_distributions() -> list[Distribution]:
         if dice == 0:
             distribution[0] = 1.0
         else:
-            for maximum in range(1, 11):
-                powers = lower_face_powers[maximum]
-                for maximum_count in range(1, dice + 1):
-                    lower_count = dice - maximum_count
-                    weight = comb(dice, maximum_count) * 0.1**maximum_count
-                    shift = maximum * (maximum_count - 1) + 1
-                    add_shifted(
-                        distribution,
-                        powers[lower_count],
-                        shift,
-                        weight,
+            for maximum in range(1, _MAXIMUM_FACE + 1):
+                for total, probability in enumerate(states[maximum]):
+                    if probability == 0.0:
+                        continue
+                    value = min(
+                        DISTRIBUTION_SIZE - 1,
+                        total - maximum + 1,
                     )
-        result.append(round_probabilities(distribution))
+                    distribution[value] += probability
+        result.append(round_normalized_probabilities(distribution))
+
+        next_states = np.zeros_like(states)
+        for maximum in range(_MAXIMUM_FACE + 1):
+            state = states[maximum]
+            for face in range(1, _MAXIMUM_FACE + 1):
+                next_maximum = max(maximum, face)
+                next_states[next_maximum, face:] += 0.1 * state[:-face]
+                next_states[next_maximum, -1] += (
+                    0.1 * float(state[-face:].sum())
+                )
+        states = next_states
 
     return result

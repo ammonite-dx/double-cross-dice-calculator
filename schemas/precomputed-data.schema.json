@@ -229,14 +229,14 @@
             "const": {
               "dice": {
                 "start": 0,
-                "count": 104
+                "count": 224
               }
             }
           },
           "distributions": {
             "type": "array",
-            "minItems": 104,
-            "maxItems": 104,
+            "minItems": 224,
+            "maxItems": 224,
             "items": {
               "$ref": "#/$defs/sparseDistribution"
             }
@@ -261,14 +261,14 @@
             "const": {
               "dice": {
                 "start": 0,
-                "count": 100
+                "count": 224
               }
             }
           },
           "distributions": {
             "type": "array",
-            "minItems": 100,
-            "maxItems": 100,
+            "minItems": 224,
+            "maxItems": 224,
             "items": {
               "$ref": "#/$defs/sparseDistribution"
             }

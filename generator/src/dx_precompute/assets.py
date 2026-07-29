@@ -9,9 +9,11 @@ from typing import Any
 import numpy as np
 
 from .constants import (
+    D10_DICE_COUNT,
     DATA_REVISION,
     DISTRIBUTION_SIZE,
     KAZANARI_VALUES,
+    LIVING_DEAD_DICE_COUNT,
     PROBABILITY_TOLERANCE,
     SCHEMA_VERSION,
     SHIHAI_VALUES,
@@ -137,7 +139,7 @@ def generate_assets(
                 "dx",
                 {"shihai": shihai},
                 {
-                    "dice": {"start": 0, "count": 100},
+                    "dice": {"start": 0, "count": len(generated)},
                     "critical": {"start": 2, "count": 10},
                 },
                 distributions,
@@ -166,7 +168,7 @@ def generate_assets(
         assets["d10.json"] = _asset(
             "d10",
             {},
-            {"dice": {"start": 0, "count": 104}},
+            {"dice": {"start": 0, "count": D10_DICE_COUNT}},
             [
                 _to_sparse(distribution, f"d10[{dice}]")
                 for dice, distribution in enumerate(generated)
@@ -178,7 +180,12 @@ def generate_assets(
         assets["livingdead.json"] = _asset(
             "livingdead",
             {},
-            {"dice": {"start": 0, "count": 100}},
+            {
+                "dice": {
+                    "start": 0,
+                    "count": LIVING_DEAD_DICE_COUNT,
+                }
+            },
             [
                 _to_sparse(distribution, f"livingdead[{dice}]")
                 for dice, distribution in enumerate(generated)

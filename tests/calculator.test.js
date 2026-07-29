@@ -13,11 +13,11 @@ import {
   registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
 import { getScore, getScoreSummary } from '../src/data/ScoreCalculator'
-import d10 from '../public/data/schema-v1/revision-1/d10.json'
-import drKazanari0 from '../public/data/schema-v1/revision-1/dr/kazanari-0.json'
-import dxShihai0 from '../public/data/schema-v1/revision-1/dx/shihai-0.json'
-import dxShihai19 from '../public/data/schema-v1/revision-1/dx/shihai-19.json'
-import livingdead from '../public/data/schema-v1/revision-1/livingdead.json'
+import d10 from '../public/data/schema-v1/revision-2/d10.json'
+import drKazanari0 from '../public/data/schema-v1/revision-2/dr/kazanari-0.json'
+import dxShihai0 from '../public/data/schema-v1/revision-2/dx/shihai-0.json'
+import dxShihai19 from '../public/data/schema-v1/revision-2/dx/shihai-19.json'
+import livingdead from '../public/data/schema-v1/revision-2/livingdead.json'
 import { expectProbabilityResult } from './probabilityAssertions'
 
 const defaultScoreParams = {
@@ -136,6 +136,25 @@ describe('getFinalEncroachment', () => {
         expect(probability).toBeLessThanOrEqual(100)
       }
 
+      const total = probabilities.reduce((sum, probability) => sum + probability, 0)
+      expect(Math.abs(total - 100)).toBeLessThanOrEqual(0.2)
+    }
+  })
+
+  it.each([
+    ['戦友(強化)', 223],
+    ['屍人', 219],
+  ])('supports the maximum %s backtrack dice count (%i)', (dlois) => {
+    const result = getFinalEncroachment({
+      encroachment: 2000,
+      lois: 7,
+      elois: 99,
+      dice: 99,
+      value: 0,
+      dlois,
+    })
+
+    for (const probabilities of Object.values(result)) {
       const total = probabilities.reduce((sum, probability) => sum + probability, 0)
       expect(Math.abs(total - 100)).toBeLessThanOrEqual(0.2)
     }

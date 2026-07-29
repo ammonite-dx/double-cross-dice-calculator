@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const assetDirectory = fileURLToPath(
-  new URL('../public/data/schema-v1/revision-1/', import.meta.url)
+  new URL('../public/data/schema-v1/revision-2/', import.meta.url)
 )
 const manifestPath = path.join(assetDirectory, 'manifest.json')
 
@@ -21,7 +21,7 @@ describe('generated precomputed data assets', () => {
 
     expect(manifest).toMatchObject({
       schemaVersion: 1,
-      dataRevision: 1,
+      dataRevision: 2,
       distributionSize: 1024,
     })
     expect(filenames).toHaveLength(32)
@@ -53,10 +53,32 @@ describe('generated precomputed data assets', () => {
 
     expect(asset).toMatchObject({
       schemaVersion: 1,
-      dataRevision: 1,
+      dataRevision: 2,
       dataset,
       distributionSize: 1024,
       shard,
     })
   })
+
+  it.each(['d10.json', 'livingdead.json'])(
+    'covers every accepted backtrack dice count in %s',
+    async (filename) => {
+      const asset = JSON.parse(
+        await readFile(path.join(assetDirectory, filename), 'utf8')
+      )
+      const largestDistribution = asset.distributions.at(-1)
+      const total = largestDistribution.values.reduce(
+        (sum, probability) => sum + probability,
+        0
+      )
+
+      expect(asset.index.dice).toEqual({ start: 0, count: 224 })
+      expect(asset.distributions).toHaveLength(224)
+      expect(
+        largestDistribution.offset + largestDistribution.values.length
+      ).toBe(1024)
+      expect(total).toBeCloseTo(1, 10)
+      expect(largestDistribution.values.at(-1)).toBeGreaterThan(0)
+    }
+  )
 })

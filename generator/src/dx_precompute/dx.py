@@ -8,9 +8,12 @@ from .constants import (
     DISTRIBUTION_SIZE,
     DX_CRITICAL_VALUES,
     DX_DICE_COUNT,
-    ROUND_DIGITS,
 )
-from .polynomials import Distribution, add_shifted
+from .polynomials import (
+    Distribution,
+    add_shifted,
+    round_normalized_probabilities,
+)
 
 
 def _binomial_tail(dice: int, required: int, probability: float) -> float:
@@ -42,23 +45,6 @@ def _order_statistic_distribution(
         )
         result[face] = at_least_face - above_face
     return result
-
-
-def _round_normalized(distribution: Distribution) -> Distribution:
-    rounded = np.round(np.abs(distribution), ROUND_DIGITS)
-    unit = 10.0**-ROUND_DIGITS
-
-    while abs(float(rounded.sum()) - 1.0) > unit / 2:
-        errors = rounded - distribution
-        if rounded.sum() > 1.0:
-            index = int(np.argmax(errors))
-            rounded[index] -= unit
-        else:
-            index = int(np.argmin(errors))
-            rounded[index] += unit
-
-    rounded[rounded == 0.0] = 0.0
-    return rounded
 
 
 def generate_shihai_distributions(shihai: int) -> list[list[Distribution]]:
@@ -109,6 +95,9 @@ def generate_shihai_distributions(shihai: int) -> list[list[Distribution]]:
             result[dice][critical_index] = distribution
 
     return [
-        [_round_normalized(distribution) for distribution in critical_entries]
+        [
+            round_normalized_probabilities(distribution)
+            for distribution in critical_entries
+        ]
         for critical_entries in result
     ]

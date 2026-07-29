@@ -8,22 +8,24 @@ import { registerDxAsset } from '../src/data/PrecomputedDataRepository'
 import { getScore } from '../src/data/ScoreCalculator'
 
 const migratedAssets = []
+const MIGRATION_TOLERANCE = 1e-6 + 1e-12
 
 function assertSameDistribution(legacy, migrated, context) {
-  if (migrated.offset !== legacy.pre) {
-    throw new Error(`${context}: offset mismatch`)
-  }
-  if (migrated.values.length !== legacy.val.length) {
-    throw new Error(`${context}: value count mismatch`)
-  }
-  if (
-    migrated.offset + migrated.values.length + legacy.post !== 1024
-  ) {
-    throw new Error(`${context}: expanded length mismatch`)
-  }
-
-  for (let index = 0; index < legacy.val.length; index += 1) {
-    if (migrated.values[index] !== legacy.val[index]) {
+  for (let index = 0; index < 1024; index += 1) {
+    const legacyIndex = index - legacy.pre
+    const migratedIndex = index - migrated.offset
+    const legacyProbability =
+      legacyIndex >= 0 && legacyIndex < legacy.val.length
+        ? legacy.val[legacyIndex]
+        : 0
+    const migratedProbability =
+      migratedIndex >= 0 && migratedIndex < migrated.values.length
+        ? migrated.values[migratedIndex]
+        : 0
+    if (
+      Math.abs(migratedProbability - legacyProbability) >
+      MIGRATION_TOLERANCE
+    ) {
       throw new Error(`${context}: probability mismatch at ${index}`)
     }
   }
@@ -33,7 +35,7 @@ describe('dx data migration', () => {
   beforeAll(async () => {
     for (let shihai = 0; shihai < legacyDx.length; shihai += 1) {
       const assetUrl = new URL(
-        `../public/data/schema-v1/revision-1/dx/shihai-${shihai}.json`,
+        `../public/data/schema-v1/revision-2/dx/shihai-${shihai}.json`,
         import.meta.url
       )
       const asset = JSON.parse(await readFile(assetUrl, 'utf8'))
@@ -42,7 +44,7 @@ describe('dx data migration', () => {
     }
   })
 
-  it('preserves every precomputed probability exactly', () => {
+  it('preserves every precomputed probability within rounding tolerance', () => {
     for (let shihai = 0; shihai < legacyDx.length; shihai += 1) {
       const migrated = migratedAssets[shihai]
       for (let dice = 0; dice < legacyDx[shihai].length; dice += 1) {

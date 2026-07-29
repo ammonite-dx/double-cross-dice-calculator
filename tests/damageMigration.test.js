@@ -16,17 +16,30 @@ import {
   registerDxAsset,
 } from '../src/data/PrecomputedDataRepository'
 import { getScore } from '../src/data/ScoreCalculator'
-import d10 from '../public/data/schema-v1/revision-1/d10.json'
-import drKazanari0 from '../public/data/schema-v1/revision-1/dr/kazanari-0.json'
-import drKazanari3 from '../public/data/schema-v1/revision-1/dr/kazanari-3.json'
-import drKazanari9 from '../public/data/schema-v1/revision-1/dr/kazanari-9.json'
-import dxShihai0 from '../public/data/schema-v1/revision-1/dx/shihai-0.json'
+import d10 from '../public/data/schema-v1/revision-2/d10.json'
+import drKazanari0 from '../public/data/schema-v1/revision-2/dr/kazanari-0.json'
+import drKazanari3 from '../public/data/schema-v1/revision-2/dr/kazanari-3.json'
+import drKazanari9 from '../public/data/schema-v1/revision-2/dr/kazanari-9.json'
+import dxShihai0 from '../public/data/schema-v1/revision-2/dx/shihai-0.json'
 
 registerD10Asset(d10)
 registerDrAsset(drKazanari0)
 registerDrAsset(drKazanari3)
 registerDrAsset(drKazanari9)
 registerDxAsset(dxShihai0)
+
+const MIGRATION_TOLERANCE = 1e-6 + 1e-12
+
+function expectProbabilityResultClose(actual, expected) {
+  for (const field of ['distribution', 'upperTailProbability']) {
+    expect(actual[field]).toHaveLength(expected[field].length)
+    for (let index = 0; index < expected[field].length; index += 1) {
+      expect(
+        Math.abs(actual[field][index] - expected[field][index])
+      ).toBeLessThanOrEqual(MIGRATION_TOLERANCE)
+    }
+  }
+}
 
 const score = {
   action: getScore({
@@ -67,10 +80,13 @@ describe('damage calculator migration', () => {
       const legacyDamage = getLegacyDamage(score, attack, defence)
       const damage = getDamage(score, attack, defence)
 
-      expect(damage).toEqual(legacyDamage)
-      expect(getDamageSummary(damage)).toEqual(
-        getLegacyDamageSummary(legacyDamage)
-      )
+      expectProbabilityResultClose(damage, legacyDamage)
+      expect(
+        Math.abs(
+          getDamageSummary(damage).expectedValue -
+            getLegacyDamageSummary(legacyDamage).expectedValue
+        )
+      ).toBeLessThanOrEqual(MIGRATION_TOLERANCE)
     }
   )
 
@@ -80,6 +96,9 @@ describe('damage calculator migration', () => {
     )
     const combos = damages.map((damage) => ({ data: { damage } }))
 
-    expect(getTotalDamage(combos)).toEqual(getLegacyTotalDamage(combos))
+    expectProbabilityResultClose(
+      getTotalDamage(combos),
+      getLegacyTotalDamage(combos)
+    )
   })
 })

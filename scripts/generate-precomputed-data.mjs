@@ -21,8 +21,7 @@ const repositoryRoot = path.resolve(
 const sourceDirectory = path.join(repositoryRoot, 'src', 'data')
 const outputDirectory = path.join(
   repositoryRoot,
-  'public',
-  'data',
+  'reference-data',
   `schema-v${SCHEMA_VERSION}`,
   `revision-${DATA_REVISION}`
 )

@@ -40,12 +40,26 @@ def test_two_d10_distribution_is_triangular() -> None:
     )
 
 
+def test_largest_d10_distribution_aggregates_overflow() -> None:
+    distribution = generate_d10_distributions()[-1]
+
+    assert abs(float(distribution.sum()) - 1.0) < 1e-12
+    assert distribution[-1] > 0
+
+
 def test_livingdead_two_dice_matches_sum_minus_max_plus_one() -> None:
     distribution = generate_livingdead_distributions()[2]
     expected = np.zeros(1024)
     expected[2:12] = np.arange(19, 0, -2) / 100
 
     np.testing.assert_array_equal(distribution, expected)
+
+
+def test_largest_livingdead_distribution_aggregates_overflow() -> None:
+    distribution = generate_livingdead_distributions()[-1]
+
+    assert abs(float(distribution.sum()) - 1.0) < 1e-12
+    assert distribution[-1] > 0
 
 
 def test_removing_smallest_of_two_low_dice_leaves_the_maximum() -> None:

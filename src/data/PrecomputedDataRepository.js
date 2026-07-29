@@ -4,7 +4,7 @@ import {
 } from './Distribution'
 
 export const PRECOMPUTED_DATA_SCHEMA_VERSION = 1
-export const PRECOMPUTED_DATA_REVISION = 1
+export const PRECOMPUTED_DATA_REVISION = 2
 
 const PROBABILITY_TOLERANCE = 2e-4
 const basePath = `${
@@ -184,8 +184,8 @@ const drDamageDistributions = new Map()
 const expandedDistributions = new Map()
 
 const oneDimensionalDefinitions = {
-  d10: { count: 104, filename: 'd10.json' },
-  livingdead: { count: 100, filename: 'livingdead.json' },
+  d10: { count: 224, filename: 'd10.json' },
+  livingdead: { count: 224, filename: 'livingdead.json' },
 }
 
 function validateOneDimensionalAsset(asset, dataset) {
