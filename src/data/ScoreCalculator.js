@@ -25,6 +25,7 @@ export function calculateScore(
     return {
       distribution,
       upperTailProbability: getUpperTailProbability(distribution),
+      failureProbability: 0,
     }
   }
 
@@ -33,7 +34,7 @@ export function calculateScore(
     WORKING_DISTRIBUTION_SIZE
   )
 
-  if (params.yousei > 0) {
+  if (params.dice > 0 && params.yousei > 0) {
     const youseiResult = expandSparseDistribution(
       getDistribution(0, 1, params.critical),
       WORKING_DISTRIBUTION_SIZE
@@ -72,6 +73,7 @@ export function calculateScore(
   return {
     distribution,
     upperTailProbability: getUpperTailProbability(distribution),
+    failureProbability: fumble,
   }
 }
 
@@ -115,8 +117,12 @@ export function getScoreSummary(
     score.action.upperTailProbability
   ) {
     actionExpectedValue = getExpectedValue(score.action.distribution)
-    actionSuccessRate =
-      Math.round(score.action.upperTailProbability[dfclty.target] * 1000) / 10
+    const successProbability =
+      score.action.upperTailProbability[dfclty.target] -
+      (dfclty.target === 0
+        ? (score.action.failureProbability ?? 0)
+        : 0)
+    actionSuccessRate = Math.round(successProbability * 1000) / 10
     reactionExpectedValue = 0
     reactionSuccessRate = 0
   }

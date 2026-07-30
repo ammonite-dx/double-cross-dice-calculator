@@ -32,8 +32,8 @@
             }
         };
         const initialScore = {
-            action: {distribution:props.attackData.combos[index].data.score.action.distribution.slice(), upperTailProbability:props.attackData.combos[index].data.score.action.upperTailProbability.slice()},
-            reaction: {distribution:props.attackData.combos[index].data.score.reaction.distribution.slice(), upperTailProbability:props.attackData.combos[index].data.score.reaction.upperTailProbability.slice()},
+            action: {distribution:props.attackData.combos[index].data.score.action.distribution.slice(), upperTailProbability:props.attackData.combos[index].data.score.action.upperTailProbability.slice(), failureProbability:props.attackData.combos[index].data.score.action.failureProbability},
+            reaction: {distribution:props.attackData.combos[index].data.score.reaction.distribution.slice(), upperTailProbability:props.attackData.combos[index].data.score.reaction.upperTailProbability.slice(), failureProbability:props.attackData.combos[index].data.score.reaction.failureProbability},
         };
         const initialScoreSummary = {
             action: {expectedValue:props.attackData.combos[index].data.scoreSummary.action.expectedValue, successRate: props.attackData.combos[index].data.scoreSummary.action.successRate},
