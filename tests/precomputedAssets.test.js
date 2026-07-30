@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const assetDirectory = fileURLToPath(
-  new URL('../public/data/schema-v1/revision-3/', import.meta.url)
+  new URL('../public/data/schema-v2/revision-1/', import.meta.url)
 )
 const manifestPath = path.join(assetDirectory, 'manifest.json')
 
@@ -20,9 +20,14 @@ describe('generated precomputed data assets', () => {
     const filenames = Object.keys(manifest.files)
 
     expect(manifest).toMatchObject({
-      schemaVersion: 1,
-      dataRevision: 3,
-      distributionSize: 1024,
+      schemaVersion: 2,
+      dataRevision: 1,
+      distributionSizes: {
+        dx: 2048,
+        dr: 2048,
+        d10: 1024,
+        livingdead: 1024,
+      },
     })
     expect(filenames).toHaveLength(32)
     expect(filenames.filter((filename) => filename.startsWith('dx/'))).toHaveLength(20)
@@ -52,10 +57,10 @@ describe('generated precomputed data assets', () => {
     const asset = JSON.parse(await readFile(path.join(assetDirectory, filename), 'utf8'))
 
     expect(asset).toMatchObject({
-      schemaVersion: 1,
-      dataRevision: 3,
+      schemaVersion: 2,
+      dataRevision: 1,
       dataset,
-      distributionSize: 1024,
+      distributionSize: ['dx', 'dr'].includes(dataset) ? 2048 : 1024,
       shard,
     })
   })
@@ -82,7 +87,7 @@ describe('generated precomputed data assets', () => {
     }
   )
 
-  it('normalizes dr and aggregates the maximum input overflow', async () => {
+  it('normalizes dr and preserves values above the output range', async () => {
     const asset = JSON.parse(
       await readFile(path.join(assetDirectory, 'dr/kazanari-9.json'), 'utf8')
     )
@@ -95,7 +100,23 @@ describe('generated precomputed data assets', () => {
     expect(total).toBeCloseTo(1, 10)
     expect(
       largestDistribution.offset + largestDistribution.values.length
-    ).toBe(1024)
-    expect(largestDistribution.values.at(-1)).toBeGreaterThan(0.99)
+    ).toBeGreaterThan(1024)
+    expect(
+      largestDistribution.offset + largestDistribution.values.length
+    ).toBeLessThanOrEqual(2021)
+  })
+
+  it('preserves the dx tail above the output range', async () => {
+    const asset = JSON.parse(
+      await readFile(path.join(assetDirectory, 'dx/shihai-0.json'), 'utf8')
+    )
+    const distribution = asset.distributions[1][0]
+    const firstTailIndex = Math.max(0, 1024 - distribution.offset)
+    const tailProbability = distribution.values
+      .slice(firstTailIndex)
+      .reduce((sum, probability) => sum + probability, 0)
+
+    expect(distribution.offset + distribution.values.length).toBeGreaterThan(1024)
+    expect(tailProbability).toBeGreaterThan(0)
   })
 })

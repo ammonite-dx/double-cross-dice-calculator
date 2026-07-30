@@ -68,9 +68,11 @@ def test_kazanari_matches_independent_exhaustive_enumeration(
 ) -> None:
     for kazanari in ACCEPTED_KAZANARI:
         for dice in EXHAUSTIVE_DICE:
+            generated = kazanari_distributions[kazanari][dice]
+            expected = enumerate_kazanari(dice, kazanari)
             np.testing.assert_allclose(
-                kazanari_distributions[kazanari][dice],
-                enumerate_kazanari(dice, kazanari),
+                generated,
+                expected,
                 atol=ROUNDING_TOLERANCE,
                 rtol=0,
                 err_msg=f"dr dice={dice}, kazanari={kazanari}",
@@ -82,9 +84,11 @@ def test_dx_matches_independent_state_enumeration() -> None:
         generated = generate_shihai_distributions(shihai)
         for dice in EXHAUSTIVE_DICE:
             for critical in CRITICAL_VALUES:
+                actual = generated[dice][critical - 2]
+                expected = enumerate_dx(dice, critical, shihai)
                 np.testing.assert_allclose(
-                    generated[dice][critical - 2],
-                    enumerate_dx(dice, critical, shihai),
+                    actual,
+                    expected,
                     atol=ROUNDING_TOLERANCE,
                     rtol=0,
                     err_msg=(

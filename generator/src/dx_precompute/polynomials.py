@@ -5,7 +5,7 @@ from collections.abc import Iterable
 import numpy as np
 from numpy.typing import NDArray
 
-from .constants import DISTRIBUTION_SIZE, ROUND_DIGITS
+from .constants import OUTPUT_DISTRIBUTION_SIZE, ROUND_DIGITS
 
 Distribution = NDArray[np.float64]
 
@@ -14,7 +14,7 @@ def die_distribution(
     faces: Iterable[int],
     probability: float,
     *,
-    size: int = DISTRIBUTION_SIZE,
+    size: int = OUTPUT_DISTRIBUTION_SIZE,
 ) -> Distribution:
     distribution = np.zeros(size, dtype=np.float64)
     for face in faces:
@@ -26,7 +26,7 @@ def convolution_powers(
     one_die: Distribution,
     count: int,
     *,
-    size: int = DISTRIBUTION_SIZE,
+    size: int = OUTPUT_DISTRIBUTION_SIZE,
     aggregate_overflow: bool = False,
 ) -> list[Distribution]:
     """Return distributions for zero through ``count - 1`` dice."""
@@ -69,7 +69,7 @@ def subtract_shifted(
 
 def aggregate_overflow(
     distribution: Distribution,
-    size: int = DISTRIBUTION_SIZE,
+    size: int = OUTPUT_DISTRIBUTION_SIZE,
 ) -> Distribution:
     """Aggregate values at or above the final index into one bucket."""
     if distribution.size < size:

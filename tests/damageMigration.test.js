@@ -16,11 +16,11 @@ import {
   registerDxAsset,
 } from '../src/data/PrecomputedDataRepository'
 import { getScore } from '../src/data/ScoreCalculator'
-import d10 from '../public/data/schema-v1/revision-3/d10.json'
-import drKazanari0 from '../public/data/schema-v1/revision-3/dr/kazanari-0.json'
-import drKazanari3 from '../public/data/schema-v1/revision-3/dr/kazanari-3.json'
-import drKazanari9 from '../public/data/schema-v1/revision-3/dr/kazanari-9.json'
-import dxShihai0 from '../public/data/schema-v1/revision-3/dx/shihai-0.json'
+import d10 from '../public/data/schema-v2/revision-1/d10.json'
+import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
+import drKazanari3 from '../public/data/schema-v2/revision-1/dr/kazanari-3.json'
+import drKazanari9 from '../public/data/schema-v2/revision-1/dr/kazanari-9.json'
+import dxShihai0 from '../public/data/schema-v2/revision-1/dx/shihai-0.json'
 
 registerD10Asset(d10)
 registerDrAsset(drKazanari0)

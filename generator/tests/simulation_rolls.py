@@ -3,6 +3,7 @@ from collections.abc import Iterator
 import numpy as np
 
 DISTRIBUTION_SIZE = 1024
+WORKING_DISTRIBUTION_SIZE = 2048
 DEFAULT_BATCH_SIZE = 5_000
 
 
@@ -116,7 +117,7 @@ def simulate_kazanari(
 
         results[offset : offset + size] = np.minimum(
             batch,
-            DISTRIBUTION_SIZE - 1,
+            WORKING_DISTRIBUTION_SIZE - 1,
         )
         offset += size
 
@@ -171,7 +172,7 @@ def simulate_dx(
                     )[:, rank_index]
                     batch_results[terminal_indices] = np.minimum(
                         accumulated[terminal_indices] + terminal_faces,
-                        DISTRIBUTION_SIZE - 1,
+                        WORKING_DISTRIBUTION_SIZE - 1,
                     )
 
                 if np.any(continuing):
@@ -179,12 +180,12 @@ def simulate_dx(
                     accumulated[continuing_indices] += 10
                     overflow = (
                         accumulated[continuing_indices]
-                        >= DISTRIBUTION_SIZE - 1
+                        >= WORKING_DISTRIBUTION_SIZE - 1
                     )
                     if np.any(overflow):
                         overflow_indices = continuing_indices[overflow]
                         batch_results[overflow_indices] = (
-                            DISTRIBUTION_SIZE - 1
+                            WORKING_DISTRIBUTION_SIZE - 1
                         )
                     if np.any(~overflow):
                         next_indices = continuing_indices[~overflow]

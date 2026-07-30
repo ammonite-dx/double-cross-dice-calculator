@@ -1,8 +1,16 @@
 import dr from '../../src/data/dr.json';
 import d10 from '../../src/data/d10.json';
 import livingdead from '../../src/data/livingdead.json';
+import dx from '../../src/data/dx.json';
 import { sumDistribution,subDistribution } from '../../src/data/FFT';
-import { getDxDistribution } from '../../src/data/PrecomputedDataRepository';
+
+function getDxDistribution(shihai,dice,critical) {
+    const distribution = dx[shihai][dice][critical-2];
+    return {
+        offset: distribution.pre,
+        values: distribution.val,
+    };
+}
 
 function getExpectedValue (distribution) {
 

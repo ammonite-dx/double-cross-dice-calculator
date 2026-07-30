@@ -1,12 +1,20 @@
 import {
-  DISTRIBUTION_SIZE,
+  OUTPUT_DISTRIBUTION_SIZE,
+  WORKING_DISTRIBUTION_SIZE,
   expandSparseDistribution,
 } from './Distribution'
 
-export const PRECOMPUTED_DATA_SCHEMA_VERSION = 1
-export const PRECOMPUTED_DATA_REVISION = 3
+export const PRECOMPUTED_DATA_SCHEMA_VERSION = 2
+export const PRECOMPUTED_DATA_REVISION = 1
 
 const PROBABILITY_TOLERANCE = 2e-4
+const DR_DISTRIBUTION_CACHE_SIZE = 3
+const datasetDistributionSizes = {
+  dx: WORKING_DISTRIBUTION_SIZE,
+  dr: WORKING_DISTRIBUTION_SIZE,
+  d10: OUTPUT_DISTRIBUTION_SIZE,
+  livingdead: OUTPUT_DISTRIBUTION_SIZE,
+}
 const basePath = `${
   import.meta.env.BASE_URL
 }data/schema-v${PRECOMPUTED_DATA_SCHEMA_VERSION}/revision-${PRECOMPUTED_DATA_REVISION}`
@@ -26,13 +34,14 @@ function validateShihai(shihai) {
 
 function validateSparseDistribution(
   distribution,
-  context
+  context,
+  distributionSize
 ) {
   assert(distribution && typeof distribution === 'object', `${context} is missing`)
   assert(
     Number.isInteger(distribution.offset) &&
       distribution.offset >= 0 &&
-      distribution.offset < DISTRIBUTION_SIZE,
+      distribution.offset < distributionSize,
     `${context}.offset is invalid`
   )
   assert(
@@ -40,7 +49,7 @@ function validateSparseDistribution(
     `${context}.values is empty`
   )
   assert(
-    distribution.offset + distribution.values.length <= DISTRIBUTION_SIZE,
+    distribution.offset + distribution.values.length <= distributionSize,
     `${context} exceeds distribution size`
   )
 
@@ -64,7 +73,10 @@ function validateDxAsset(asset, expectedShihai) {
   assert(asset?.schemaVersion === PRECOMPUTED_DATA_SCHEMA_VERSION, 'schema mismatch')
   assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
   assert(asset?.dataset === 'dx', 'dataset must be dx')
-  assert(asset?.distributionSize === DISTRIBUTION_SIZE, 'distribution size mismatch')
+  assert(
+    asset?.distributionSize === datasetDistributionSizes.dx,
+    'distribution size mismatch'
+  )
   assert(asset?.shard?.shihai === expectedShihai, 'shihai shard mismatch')
   assert(asset?.index?.dice?.start === 0, 'dice start mismatch')
   assert(asset?.index?.dice?.count === 100, 'dice count mismatch')
@@ -80,7 +92,8 @@ function validateDxAsset(asset, expectedShihai) {
     criticalDistributions.forEach((distribution, criticalIndex) => {
       validateSparseDistribution(
         distribution,
-        `dx[${expectedShihai}][${dice}][${criticalIndex + 2}]`
+        `dx[${expectedShihai}][${dice}][${criticalIndex + 2}]`,
+        asset.distributionSize
       )
     })
   })
@@ -186,7 +199,10 @@ function validateOneDimensionalAsset(asset, dataset) {
   assert(asset?.schemaVersion === PRECOMPUTED_DATA_SCHEMA_VERSION, 'schema mismatch')
   assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
   assert(asset?.dataset === dataset, `dataset must be ${dataset}`)
-  assert(asset?.distributionSize === DISTRIBUTION_SIZE, 'distribution size mismatch')
+  assert(
+    asset?.distributionSize === datasetDistributionSizes[dataset],
+    'distribution size mismatch'
+  )
   assert(
     asset?.index?.dice?.start === 0 &&
       asset?.index?.dice?.count === definition.count,
@@ -198,7 +214,11 @@ function validateOneDimensionalAsset(asset, dataset) {
   )
 
   asset.distributions.forEach((distribution, dice) => {
-    validateSparseDistribution(distribution, `${dataset}[${dice}]`)
+    validateSparseDistribution(
+      distribution,
+      `${dataset}[${dice}]`,
+      asset.distributionSize
+    )
   })
 
   return asset
@@ -246,7 +266,11 @@ async function loadOneDimensionalAsset(dataset) {
   return request
 }
 
-function getOneDimensionalDistribution(dataset, dice) {
+function getOneDimensionalDistribution(
+  dataset,
+  dice,
+  size = datasetDistributionSizes[dataset]
+) {
   const asset = oneDimensionalAssets.get(dataset)
   if (!asset) {
     throw new Error(`${dataset} data has not been loaded`)
@@ -257,11 +281,22 @@ function getOneDimensionalDistribution(dataset, dice) {
     throw new Error(`${dataset} distribution is unavailable: dice=${dice}`)
   }
 
-  const cacheKey = `${dataset}:${dice}`
+  assert(
+    Number.isInteger(size) && size >= asset.distributionSize,
+    `${dataset} expansion size is invalid: ${size}`
+  )
+  if (dataset === 'd10' && size > asset.distributionSize) {
+    assert(
+      10 * dice < asset.distributionSize,
+      `d10[${dice}] cannot be expanded after overflow aggregation`
+    )
+  }
+
+  const cacheKey = `${dataset}:${dice}:${size}`
   if (!expandedDistributions.has(cacheKey)) {
     expandedDistributions.set(
       cacheKey,
-      expandSparseDistribution(sparseDistribution)
+      expandSparseDistribution(sparseDistribution, size)
     )
   }
   return expandedDistributions.get(cacheKey)
@@ -278,7 +313,10 @@ function validateDrAsset(asset, expectedKazanari) {
   assert(asset?.schemaVersion === PRECOMPUTED_DATA_SCHEMA_VERSION, 'schema mismatch')
   assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
   assert(asset?.dataset === 'dr', 'dataset must be dr')
-  assert(asset?.distributionSize === DISTRIBUTION_SIZE, 'distribution size mismatch')
+  assert(
+    asset?.distributionSize === datasetDistributionSizes.dr,
+    'distribution size mismatch'
+  )
   assert(asset?.shard?.kazanari === expectedKazanari, 'kazanari shard mismatch')
   assert(
     asset?.index?.dice?.start === 0 &&
@@ -290,7 +328,8 @@ function validateDrAsset(asset, expectedKazanari) {
   asset.distributions.forEach((distribution, dice) => {
     validateSparseDistribution(
       distribution,
-      `dr[${expectedKazanari}][${dice}]`
+      `dr[${expectedKazanari}][${dice}]`,
+      asset.distributionSize
     )
   })
 
@@ -345,7 +384,7 @@ export function getDrDamageDistributions(kazanari) {
 
   if (!drDamageDistributions.has(kazanari)) {
     const distributions = Array.from(
-      { length: DISTRIBUTION_SIZE },
+      { length: asset.distributionSize },
       () => new Float64Array(asset.index.dice.count)
     )
 
@@ -355,6 +394,14 @@ export function getDrDamageDistributions(kazanari) {
           probability
       })
     })
+    while (drDamageDistributions.size >= DR_DISTRIBUTION_CACHE_SIZE) {
+      const oldestKazanari = drDamageDistributions.keys().next().value
+      drDamageDistributions.delete(oldestKazanari)
+    }
+    drDamageDistributions.set(kazanari, distributions)
+  } else {
+    const distributions = drDamageDistributions.get(kazanari)
+    drDamageDistributions.delete(kazanari)
     drDamageDistributions.set(kazanari, distributions)
   }
 
@@ -378,7 +425,7 @@ export const registerD10Asset = (asset) =>
   registerOneDimensionalAsset(asset, 'd10')
 export const registerLivingdeadAsset = (asset) =>
   registerOneDimensionalAsset(asset, 'livingdead')
-export const getD10Distribution = (dice) =>
-  getOneDimensionalDistribution('d10', dice)
+export const getD10Distribution = (dice, size) =>
+  getOneDimensionalDistribution('d10', dice, size)
 export const getLivingdeadDistribution = (dice) =>
   getOneDimensionalDistribution('livingdead', dice)

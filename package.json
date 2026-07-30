@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "benchmark:calculators": "node scripts/benchmark-calculators.mjs",
     "preview": "vite preview",
     "data:generate": "node scripts/generate-precomputed-data.mjs",
     "data:check": "node scripts/generate-precomputed-data.mjs --check",

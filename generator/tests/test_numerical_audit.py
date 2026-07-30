@@ -1,10 +1,11 @@
 import numpy as np
 
 from dx_precompute.constants import (
-    DISTRIBUTION_SIZE,
     DX_CRITICAL_VALUES,
     KAZANARI_VALUES,
+    OUTPUT_DISTRIBUTION_SIZE,
     SHIHAI_VALUES,
+    WORKING_DISTRIBUTION_SIZE,
 )
 from dx_precompute.d10 import generate_raw_d10_distributions
 from dx_precompute.dr import generate_raw_kazanari_distributions
@@ -25,8 +26,9 @@ ROUNDING_TOLERANCE = 1e-6 + 1e-12
 def _audit_distribution(
     raw: np.ndarray,
     context: str,
+    size: int,
 ) -> np.ndarray:
-    assert raw.shape == (DISTRIBUTION_SIZE,), context
+    assert raw.shape == (size,), context
     assert np.all(np.isfinite(raw)), context
     assert float(raw.min()) >= -RAW_PROBABILITY_TOLERANCE, context
     assert float(raw.max()) <= 1 + RAW_PROBABILITY_TOLERANCE, context
@@ -62,21 +64,21 @@ def _assert_support(
 def test_d10_full_range_numerical_audit() -> None:
     for dice, raw in enumerate(generate_raw_d10_distributions()):
         context = f"d10 dice={dice}"
-        saved = _audit_distribution(raw, context)
+        saved = _audit_distribution(raw, context, OUTPUT_DISTRIBUTION_SIZE)
         minimum = 0 if dice == 0 else dice
-        maximum = min(10 * dice, DISTRIBUTION_SIZE - 1)
+        maximum = min(10 * dice, OUTPUT_DISTRIBUTION_SIZE - 1)
         _assert_support(saved, minimum, maximum, context)
 
 
 def test_livingdead_full_range_numerical_audit() -> None:
     for dice, raw in enumerate(generate_raw_livingdead_distributions()):
         context = f"livingdead dice={dice}"
-        saved = _audit_distribution(raw, context)
+        saved = _audit_distribution(raw, context, OUTPUT_DISTRIBUTION_SIZE)
         minimum = 0 if dice == 0 else dice
         maximum = (
             0
             if dice == 0
-            else min(10 * dice - 9, DISTRIBUTION_SIZE - 1)
+            else min(10 * dice - 9, OUTPUT_DISTRIBUTION_SIZE - 1)
         )
         _assert_support(saved, minimum, maximum, context)
 
@@ -94,10 +96,14 @@ def test_dx_full_range_numerical_audit() -> None:
                     f"dx dice={dice}, critical={critical}, "
                     f"shihai={shihai}"
                 )
-                saved = _audit_distribution(raw, context)
+                saved = _audit_distribution(
+                    raw,
+                    context,
+                    WORKING_DISTRIBUTION_SIZE,
+                )
 
                 if dice <= shihai:
-                    expected = np.zeros(DISTRIBUTION_SIZE)
+                    expected = np.zeros(WORKING_DISTRIBUTION_SIZE)
                     expected[0] = 1
                     np.testing.assert_array_equal(saved, expected)
                     continue
@@ -105,7 +111,7 @@ def test_dx_full_range_numerical_audit() -> None:
                 _assert_support(
                     saved,
                     1,
-                    10 if critical == 11 else DISTRIBUTION_SIZE - 1,
+                    10 if critical == 11 else WORKING_DISTRIBUTION_SIZE - 1,
                     context,
                 )
                 if critical <= 10:
@@ -117,7 +123,11 @@ def test_dr_full_range_numerical_audit() -> None:
         generated = generate_raw_kazanari_distributions(kazanari)
         for dice, raw in enumerate(generated):
             context = f"dr dice={dice}, kazanari={kazanari}"
-            saved = _audit_distribution(raw, context)
+            saved = _audit_distribution(
+                raw,
+                context,
+                WORKING_DISTRIBUTION_SIZE,
+            )
             minimum = 0 if dice == 0 else dice
-            maximum = min(10 * dice, DISTRIBUTION_SIZE - 1)
+            maximum = min(10 * dice, WORKING_DISTRIBUTION_SIZE - 1)
             _assert_support(saved, minimum, maximum, context)

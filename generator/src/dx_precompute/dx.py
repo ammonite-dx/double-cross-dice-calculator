@@ -5,9 +5,9 @@ from math import comb
 import numpy as np
 
 from .constants import (
-    DISTRIBUTION_SIZE,
     DX_CRITICAL_VALUES,
     DX_DICE_COUNT,
+    WORKING_DISTRIBUTION_SIZE,
 )
 from .polynomials import (
     Distribution,
@@ -31,7 +31,7 @@ def _order_statistic_distribution(
     critical: int,
 ) -> Distribution:
     """Terminal roll result before the next critical roll."""
-    result = np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+    result = np.zeros(WORKING_DISTRIBUTION_SIZE, dtype=np.float64)
     for face in range(1, critical):
         at_least_face = _binomial_tail(
             dice,
@@ -53,7 +53,10 @@ def generate_raw_shihai_distributions(
     """Generate one ``dx/shihai-N.json`` shard."""
     rank = shihai + 1
     result = [
-        [np.zeros(DISTRIBUTION_SIZE, dtype=np.float64) for _ in DX_CRITICAL_VALUES]
+        [
+            np.zeros(WORKING_DISTRIBUTION_SIZE, dtype=np.float64)
+            for _ in DX_CRITICAL_VALUES
+        ]
         for _ in range(DX_DICE_COUNT)
     ]
 
@@ -80,10 +83,10 @@ def generate_raw_shihai_distributions(
                 )
 
             all_critical_probability = critical_probability**dice
-            distribution = np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+            distribution = np.zeros(WORKING_DISTRIBUTION_SIZE, dtype=np.float64)
             repetition_probability = 1.0
             shift = 0
-            while shift < DISTRIBUTION_SIZE:
+            while shift < WORKING_DISTRIBUTION_SIZE:
                 add_shifted(
                     distribution,
                     stage,

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from .constants import DISTRIBUTION_SIZE, LIVING_DEAD_DICE_COUNT
+from .constants import LIVING_DEAD_DICE_COUNT, OUTPUT_DISTRIBUTION_SIZE
 from .polynomials import (
     Distribution,
     round_normalized_probabilities,
 )
 
 _MAXIMUM_FACE = 10
-_SUM_CAP = DISTRIBUTION_SIZE - 1 + _MAXIMUM_FACE - 1
+_SUM_CAP = OUTPUT_DISTRIBUTION_SIZE - 1 + _MAXIMUM_FACE - 1
 
 
 def generate_raw_livingdead_distributions() -> list[Distribution]:
@@ -21,7 +21,7 @@ def generate_raw_livingdead_distributions() -> list[Distribution]:
 
     result: list[Distribution] = []
     for dice in range(LIVING_DEAD_DICE_COUNT):
-        distribution = np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+        distribution = np.zeros(OUTPUT_DISTRIBUTION_SIZE, dtype=np.float64)
         if dice == 0:
             distribution[0] = 1.0
         else:
@@ -30,7 +30,7 @@ def generate_raw_livingdead_distributions() -> list[Distribution]:
                     if probability == 0.0:
                         continue
                     value = min(
-                        DISTRIBUTION_SIZE - 1,
+                        OUTPUT_DISTRIBUTION_SIZE - 1,
                         total - maximum + 1,
                     )
                     distribution[value] += probability

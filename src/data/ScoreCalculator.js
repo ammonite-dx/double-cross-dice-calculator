@@ -1,8 +1,11 @@
 import {
-  DISTRIBUTION_SIZE,
+  OUTPUT_DISTRIBUTION_SIZE,
+  WORKING_DISTRIBUTION_SIZE,
+  collapseDistribution,
   expandSparseDistribution,
   getExpectedValue,
   getUpperTailProbability,
+  shiftDistribution,
 } from './Distribution'
 import { sumDistribution } from './FFT'
 import { getDxDistribution } from './PrecomputedDataRepository'
@@ -12,10 +15,13 @@ export function calculateScore(
   getDistribution = getDxDistribution,
   fix = false
 ) {
-  let distribution = Array(DISTRIBUTION_SIZE).fill(0)
-
   if (fix) {
-    distribution[params.skill] = 1
+    const distribution = Array(OUTPUT_DISTRIBUTION_SIZE).fill(0)
+    const fixedScore = Math.min(
+      OUTPUT_DISTRIBUTION_SIZE - 1,
+      Math.max(0, params.skill)
+    )
+    distribution[fixedScore] = 1
     return {
       distribution,
       upperTailProbability: getUpperTailProbability(distribution),
@@ -23,17 +29,19 @@ export function calculateScore(
   }
 
   let diceResult = expandSparseDistribution(
-    getDistribution(params.shihai, params.dice, params.critical)
+    getDistribution(params.shihai, params.dice, params.critical),
+    WORKING_DISTRIBUTION_SIZE
   )
 
   if (params.yousei > 0) {
     const youseiResult = expandSparseDistribution(
-      getDistribution(0, 1, params.critical)
+      getDistribution(0, 1, params.critical),
+      WORKING_DISTRIBUTION_SIZE
     )
 
     for (let count = 0; count < params.yousei; count += 1) {
       diceResult = Array.from(
-        { length: DISTRIBUTION_SIZE },
+        { length: WORKING_DISTRIBUTION_SIZE },
         (_, value) =>
           value % 10 === 0
             ? diceResult
@@ -41,10 +49,10 @@ export function calculateScore(
               .reduce((sum, probability) => sum + probability, 0)
             : 0
       )
-      diceResult[DISTRIBUTION_SIZE - 1] =
+      diceResult[WORKING_DISTRIBUTION_SIZE - 1] =
         1 -
         diceResult
-          .slice(0, DISTRIBUTION_SIZE - 1)
+          .slice(0, WORKING_DISTRIBUTION_SIZE - 1)
           .reduce((sum, probability) => sum + probability, 0)
 
       if (params.critical <= 10) {
@@ -57,27 +65,9 @@ export function calculateScore(
   diceResult[0] = 0
   diceResult[1] = 0
 
-  if (params.skill < 0) {
-    const lowerProtrusion = diceResult
-      .slice(0, -params.skill)
-      .reduce((sum, probability) => sum + probability, 0)
-    distribution = diceResult
-      .slice(-params.skill)
-      .concat(Array(-params.skill).fill(0))
-    distribution[0] += lowerProtrusion + fumble
-  } else if (params.skill > 0) {
-    const upperProtrusion = diceResult
-      .slice(DISTRIBUTION_SIZE - params.skill)
-      .reduce((sum, probability) => sum + probability, 0)
-    distribution = Array(params.skill)
-      .fill(0)
-      .concat(diceResult.slice(0, DISTRIBUTION_SIZE - params.skill))
-    distribution[0] += fumble
-    distribution[DISTRIBUTION_SIZE - 1] += upperProtrusion
-  } else {
-    distribution = diceResult.slice()
-    distribution[0] += fumble
-  }
+  const shiftedDiceResult = shiftDistribution(diceResult, params.skill)
+  shiftedDiceResult[0] += fumble
+  const distribution = collapseDistribution(shiftedDiceResult)
 
   return {
     distribution,
@@ -107,7 +97,11 @@ export function getScoreSummary(
   ) {
     actionExpectedValue = getExpectedValue(score.action.distribution)
     actionSuccessRate = 0
-    for (let value = 0; value < DISTRIBUTION_SIZE; value += 1) {
+    for (
+      let value = 0;
+      value < OUTPUT_DISTRIBUTION_SIZE;
+      value += 1
+    ) {
       actionSuccessRate +=
         score.action.distribution[value] *
         (1 - score.reaction.upperTailProbability[value])

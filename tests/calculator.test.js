@@ -7,17 +7,18 @@ import {
 } from '../src/data/DamageCalculator'
 import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
 import {
+  getD10Distribution,
   registerD10Asset,
   registerDrAsset,
   registerDxAsset,
   registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
 import { getScore, getScoreSummary } from '../src/data/ScoreCalculator'
-import d10 from '../public/data/schema-v1/revision-3/d10.json'
-import drKazanari0 from '../public/data/schema-v1/revision-3/dr/kazanari-0.json'
-import dxShihai0 from '../public/data/schema-v1/revision-3/dx/shihai-0.json'
-import dxShihai19 from '../public/data/schema-v1/revision-3/dx/shihai-19.json'
-import livingdead from '../public/data/schema-v1/revision-3/livingdead.json'
+import d10 from '../public/data/schema-v2/revision-1/d10.json'
+import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
+import dxShihai0 from '../public/data/schema-v2/revision-1/dx/shihai-0.json'
+import dxShihai19 from '../public/data/schema-v2/revision-1/dx/shihai-19.json'
+import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
 import { expectProbabilityResult } from './probabilityAssertions'
 
 const defaultScoreParams = {
@@ -57,6 +58,16 @@ describe('getScore', () => {
     expect(result.upperTailProbability[43]).toBe(0)
   })
 
+  it.each([
+    [-999, 0],
+    [1197, 1023],
+  ])('clamps a fixed score of %i to output index %i', (skill, expected) => {
+    const result = getScore({ ...defaultScoreParams, skill }, true)
+
+    expectProbabilityResult(result)
+    expect(result.distribution[expected]).toBe(1)
+  })
+
   it('keeps the established expectation for a basic one-die check', () => {
     const score = {
       action: getScore(defaultScoreParams),
@@ -82,6 +93,13 @@ describe('getScore', () => {
 })
 
 describe('damage calculations', () => {
+  it('only expands d10 distributions whose full support was retained', () => {
+    expect(getD10Distribution(99, 2048)).toHaveLength(2048)
+    expect(() => getD10Distribution(103, 2048)).toThrow(
+      'cannot be expanded after overflow aggregation'
+    )
+  })
+
   it('returns a valid damage probability result', () => {
     const score = {
       action: getScore(defaultScoreParams),
@@ -95,6 +113,40 @@ describe('damage calculations', () => {
 
     expectProbabilityResult(damage)
     expect(Number.isFinite(getDamageSummary(damage).expectedValue)).toBe(true)
+  })
+
+  it('handles the largest accepted positive fixed-value shift', () => {
+    const action = getScore({ ...defaultScoreParams, skill: 1023 }, true)
+    const reaction = {
+      distribution: Array(1024).fill(0),
+      upperTailProbability: Array(1024).fill(0),
+    }
+    reaction.distribution[0] = 1
+    const damage = getDamage(
+      { action, reaction },
+      { dice: 99, value: 999, kazanari: 0 },
+      { dice: 99, value: -999 }
+    )
+
+    expectProbabilityResult(damage)
+    expect(damage.distribution.at(-1)).toBeCloseTo(1, 10)
+  })
+
+  it('handles the largest accepted negative fixed-value shift', () => {
+    const action = getScore({ ...defaultScoreParams, skill: 1023 }, true)
+    const reaction = {
+      distribution: Array(1024).fill(0),
+      upperTailProbability: Array(1024).fill(0),
+    }
+    reaction.distribution[0] = 1
+    const damage = getDamage(
+      { action, reaction },
+      { dice: 99, value: -999, kazanari: 0 },
+      { dice: 99, value: 999 }
+    )
+
+    expectProbabilityResult(damage)
+    expect(damage.distribution[0]).toBeCloseTo(1, 10)
   })
 
   it('combines combo damage distributions', () => {

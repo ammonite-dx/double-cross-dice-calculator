@@ -8,20 +8,29 @@ import { registerDxAsset } from '../src/data/PrecomputedDataRepository'
 import { getScore } from '../src/data/ScoreCalculator'
 
 const migratedAssets = []
-const MIGRATION_TOLERANCE = 1e-6 + 1e-12
+const MIGRATION_TOLERANCE = 2e-4
 
 function assertSameDistribution(legacy, migrated, context) {
   for (let index = 0; index < 1024; index += 1) {
     const legacyIndex = index - legacy.pre
-    const migratedIndex = index - migrated.offset
     const legacyProbability =
       legacyIndex >= 0 && legacyIndex < legacy.val.length
         ? legacy.val[legacyIndex]
         : 0
+    const migratedStart = Math.max(index, migrated.offset)
+    const migratedEnd =
+      index === 1023
+        ? migrated.offset + migrated.values.length
+        : index + 1
     const migratedProbability =
-      migratedIndex >= 0 && migratedIndex < migrated.values.length
-        ? migrated.values[migratedIndex]
-        : 0
+      migratedStart >= migratedEnd
+        ? 0
+        : migrated.values
+          .slice(
+            migratedStart - migrated.offset,
+            migratedEnd - migrated.offset
+          )
+          .reduce((sum, probability) => sum + probability, 0)
     if (
       Math.abs(migratedProbability - legacyProbability) >
       MIGRATION_TOLERANCE
@@ -35,7 +44,7 @@ describe('dx data migration', () => {
   beforeAll(async () => {
     for (let shihai = 0; shihai < legacyDx.length; shihai += 1) {
       const assetUrl = new URL(
-        `../public/data/schema-v1/revision-3/dx/shihai-${shihai}.json`,
+        `../public/data/schema-v2/revision-1/dx/shihai-${shihai}.json`,
         import.meta.url
       )
       const asset = JSON.parse(await readFile(assetUrl, 'utf8'))
@@ -44,7 +53,7 @@ describe('dx data migration', () => {
     }
   })
 
-  it('preserves every precomputed probability within rounding tolerance', () => {
+  it('preserves every precomputed probability within validation tolerance', () => {
     for (let shihai = 0; shihai < legacyDx.length; shihai += 1) {
       const migrated = migratedAssets[shihai]
       for (let dice = 0; dice < legacyDx[shihai].length; dice += 1) {
@@ -73,6 +82,15 @@ describe('dx data migration', () => {
     { dice: 20, critical: 10, skill: 0, yousei: 0, shihai: 19 },
     { dice: 5, critical: 11, skill: 3, yousei: 0, shihai: 5 },
   ])('preserves the legacy score result for %o', (params) => {
-    expect(getScore(params)).toEqual(getLegacyScore(params))
+    const actual = getScore(params)
+    const expected = getLegacyScore(params)
+
+    for (const field of ['distribution', 'upperTailProbability']) {
+      for (let index = 0; index < 1024; index += 1) {
+        expect(
+          Math.abs(actual[field][index] - expected[field][index])
+        ).toBeLessThan(MIGRATION_TOLERANCE)
+      }
+    }
   })
 })

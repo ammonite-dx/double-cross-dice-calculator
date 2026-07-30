@@ -33,8 +33,8 @@ def test_lightweight_generated_assets_match_current_assets(dataset: str) -> None
         strict=False,
     ):
         np.testing.assert_allclose(
-            _expand_sparse(actual),
-            _expand_sparse(expected),
+            _expand_sparse(actual, generated["distributionSize"]),
+            _expand_sparse(expected, legacy["distributionSize"]),
             atol=1e-6 + 1e-12,
             rtol=0,
         )
@@ -43,6 +43,8 @@ def test_lightweight_generated_assets_match_current_assets(dataset: str) -> None
 def test_default_generation_does_not_overwrite_published_assets() -> None:
     assert "generated-data" in default_output_directory().parts
     assert "public" in default_reference_directory().parts
-    assert "revision-3" in default_output_directory().parts
-    assert "revision-3" in default_reference_directory().parts
+    assert "schema-v2" in default_output_directory().parts
+    assert "schema-v2" in default_reference_directory().parts
+    assert "revision-1" in default_output_directory().parts
+    assert "revision-1" in default_reference_directory().parts
     assert default_output_directory() != default_reference_directory()

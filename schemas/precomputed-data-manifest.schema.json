@@ -5,19 +5,24 @@
   "required": [
     "schemaVersion",
     "dataRevision",
-    "distributionSize",
+    "distributionSizes",
     "files"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "dataRevision": {
       "type": "integer",
       "minimum": 1
     },
-    "distributionSize": {
-      "const": 1024
+    "distributionSizes": {
+      "const": {
+        "dx": 2048,
+        "dr": 2048,
+        "d10": 1024,
+        "livingdead": 1024
+      }
     },
     "files": {
       "type": "object",

@@ -6,6 +6,7 @@ from itertools import product
 import numpy as np
 
 DISTRIBUTION_SIZE = 1024
+WORKING_DISTRIBUTION_SIZE = 2048
 D10_FACES = tuple(range(1, 11))
 Rolls = tuple[int, ...]
 
@@ -53,7 +54,7 @@ def _reroll_sum_counts(dice: int) -> Counter[int]:
 
 def enumerate_kazanari(dice: int, kazanari: int) -> np.ndarray:
     """Enumerate initial rolls and exact reroll-sum counts."""
-    distribution = np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+    distribution = np.zeros(WORKING_DISTRIBUTION_SIZE, dtype=np.float64)
     initial_probability = 1 / 10**dice
 
     for rolls in product(D10_FACES, repeat=dice):
@@ -92,7 +93,7 @@ def _dx_round_counts(
 
 def enumerate_dx(dice: int, critical: int, shihai: int) -> np.ndarray:
     """Enumerate each active roll and propagate critical states."""
-    distribution = np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+    distribution = np.zeros(WORKING_DISTRIBUTION_SIZE, dtype=np.float64)
     if dice <= shihai:
         distribution[0] = 1.0
         return distribution
@@ -110,7 +111,7 @@ def enumerate_dx(dice: int, critical: int, shihai: int) -> np.ndarray:
 
             for terminal_face, count in terminal_faces.items():
                 value = min(
-                    DISTRIBUTION_SIZE - 1,
+                    WORKING_DISTRIBUTION_SIZE - 1,
                     accumulated + terminal_face,
                 )
                 distribution[value] += (
@@ -120,7 +121,7 @@ def enumerate_dx(dice: int, critical: int, shihai: int) -> np.ndarray:
             for next_dice, count in continuing_dice.items():
                 probability = state_probability * count / denominator
                 next_accumulated = accumulated + 10
-                if next_accumulated >= DISTRIBUTION_SIZE - 1:
+                if next_accumulated >= WORKING_DISTRIBUTION_SIZE - 1:
                     distribution[-1] += probability
                 else:
                     next_states[(next_dice, next_accumulated)] += probability

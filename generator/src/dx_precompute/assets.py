@@ -11,7 +11,7 @@ import numpy as np
 from .constants import (
     D10_DICE_COUNT,
     DATA_REVISION,
-    DISTRIBUTION_SIZE,
+    DATASET_DISTRIBUTION_SIZES,
     KAZANARI_VALUES,
     LIVING_DEAD_DICE_COUNT,
     PROBABILITY_TOLERANCE,
@@ -51,9 +51,10 @@ def default_reference_directory() -> Path:
 def _validate_distribution(
     distribution: Distribution,
     context: str,
+    size: int,
 ) -> None:
-    if distribution.shape != (DISTRIBUTION_SIZE,):
-        raise ValueError(f"{context}: expected {DISTRIBUTION_SIZE} values")
+    if distribution.shape != (size,):
+        raise ValueError(f"{context}: expected {size} values")
     if not np.all(np.isfinite(distribution)):
         raise ValueError(f"{context}: contains a non-finite probability")
     if np.any(distribution < 0) or np.any(distribution > 1):
@@ -67,8 +68,9 @@ def _validate_distribution(
 def _to_sparse(
     distribution: Distribution,
     context: str,
+    size: int,
 ) -> dict[str, Any]:
-    _validate_distribution(distribution, context)
+    _validate_distribution(distribution, context, size)
     nonzero = np.flatnonzero(distribution)
     if nonzero.size == 0:
         raise ValueError(f"{context}: distribution contains only zeroes")
@@ -93,7 +95,7 @@ def _asset(
         "schemaVersion": SCHEMA_VERSION,
         "dataRevision": DATA_REVISION,
         "dataset": dataset,
-        "distributionSize": DISTRIBUTION_SIZE,
+        "distributionSize": DATASET_DISTRIBUTION_SIZES[dataset],
         "shard": shard,
         "index": index,
         "distributions": distributions,
@@ -120,6 +122,7 @@ def generate_assets(
                     _to_sparse(
                         distribution,
                         f"dx[{shihai}][{dice}][{critical + 2}]",
+                        DATASET_DISTRIBUTION_SIZES["dx"],
                     )
                     for critical, distribution in enumerate(critical_entries)
                 ]
@@ -142,6 +145,7 @@ def generate_assets(
                 _to_sparse(
                     distribution,
                     f"dr[{kazanari}][{dice}]",
+                    DATASET_DISTRIBUTION_SIZES["dr"],
                 )
                 for dice, distribution in enumerate(generated)
             ]
@@ -159,7 +163,11 @@ def generate_assets(
             {},
             {"dice": {"start": 0, "count": D10_DICE_COUNT}},
             [
-                _to_sparse(distribution, f"d10[{dice}]")
+                _to_sparse(
+                    distribution,
+                    f"d10[{dice}]",
+                    DATASET_DISTRIBUTION_SIZES["d10"],
+                )
                 for dice, distribution in enumerate(generated)
             ],
         )
@@ -176,7 +184,11 @@ def generate_assets(
                 }
             },
             [
-                _to_sparse(distribution, f"livingdead[{dice}]")
+                _to_sparse(
+                    distribution,
+                    f"livingdead[{dice}]",
+                    DATASET_DISTRIBUTION_SIZES["livingdead"],
+                )
                 for dice, distribution in enumerate(generated)
             ],
         )
@@ -218,7 +230,7 @@ def write_assets(
         manifest = {
             "schemaVersion": SCHEMA_VERSION,
             "dataRevision": DATA_REVISION,
-            "distributionSize": DISTRIBUTION_SIZE,
+            "distributionSizes": DATASET_DISTRIBUTION_SIZES,
             "files": {
                 filename: {
                     "bytes": len(content),
@@ -244,8 +256,11 @@ def _collect_sparse(asset: dict[str, Any]) -> list[dict[str, Any]]:
     return distributions
 
 
-def _expand_sparse(distribution: dict[str, Any]) -> Distribution:
-    expanded = np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+def _expand_sparse(
+    distribution: dict[str, Any],
+    size: int,
+) -> Distribution:
+    expanded = np.zeros(size, dtype=np.float64)
     offset = int(distribution["offset"])
     values = np.asarray(distribution["values"], dtype=np.float64)
     expanded[offset : offset + values.size] = values
@@ -269,6 +284,11 @@ def compare_assets(
         if generated["dataset"] != reference.get("dataset"):
             issues.append(f"{filename}: dataset metadata differs")
             continue
+        if generated["distributionSize"] != reference.get("distributionSize"):
+            issues.append(f"{filename}: distribution size differs")
+            continue
+
+        distribution_size = generated["distributionSize"]
 
         actual_distributions = _collect_sparse(generated)
         expected_distributions = _collect_sparse(reference)
@@ -284,7 +304,8 @@ def compare_assets(
                 float(
                     np.max(
                         np.abs(
-                            _expand_sparse(actual) - _expand_sparse(expected)
+                            _expand_sparse(actual, distribution_size)
+                            - _expand_sparse(expected, distribution_size)
                         ),
                         initial=0,
                     )

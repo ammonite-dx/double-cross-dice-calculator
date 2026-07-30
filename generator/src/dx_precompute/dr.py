@@ -4,7 +4,7 @@ from math import comb
 
 import numpy as np
 
-from .constants import DISTRIBUTION_SIZE, DR_DICE_COUNT, FFT_SIZE
+from .constants import DR_DICE_COUNT, FFT_SIZE, WORKING_DISTRIBUTION_SIZE
 from .polynomials import (
     Distribution,
     aggregate_overflow,
@@ -18,13 +18,18 @@ from .polynomials import (
 def _face_range_powers() -> dict[int, list[Distribution]]:
     powers = {
         first_face: convolution_powers(
-            die_distribution(range(first_face, 6), 0.2),
+            die_distribution(
+                range(first_face, 6),
+                0.2,
+                size=WORKING_DISTRIBUTION_SIZE,
+            ),
             DR_DICE_COUNT,
+            size=WORKING_DISTRIBUTION_SIZE,
         )
         for first_face in range(1, 6)
     }
     empty = [
-        np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+        np.zeros(WORKING_DISTRIBUTION_SIZE, dtype=np.float64)
         for _ in range(DR_DICE_COUNT)
     ]
     empty[0][0] = 1.0
@@ -44,7 +49,7 @@ def _remaining_low_dice_distributions(
     their count is required.
     """
     distributions = [
-        np.zeros(DISTRIBUTION_SIZE, dtype=np.float64)
+        np.zeros(WORKING_DISTRIBUTION_SIZE, dtype=np.float64)
         for _ in range(DR_DICE_COUNT)
     ]
 
@@ -82,7 +87,7 @@ def _remaining_low_dice_distributions(
                     )
 
                 shift = threshold * removed_at_threshold
-                distribution[: DISTRIBUTION_SIZE - shift] += (
+                distribution[: WORKING_DISTRIBUTION_SIZE - shift] += (
                     below_weight * eligible[shift:]
                 )
 
@@ -103,7 +108,8 @@ def generate_raw_kazanari_distributions(
     if kazanari == 0:
         return [
             aggregate_overflow(
-                np.fft.irfft(d10_fourier**dice, n=FFT_SIZE)
+                np.fft.irfft(d10_fourier**dice, n=FFT_SIZE),
+                WORKING_DISTRIBUTION_SIZE,
             )
             for dice in range(DR_DICE_COUNT)
         ]
@@ -133,7 +139,8 @@ def generate_raw_kazanari_distributions(
             total_fourier += weight * term * high_fourier**high_count
 
         distribution = aggregate_overflow(
-            np.fft.irfft(total_fourier, n=FFT_SIZE)
+            np.fft.irfft(total_fourier, n=FFT_SIZE),
+            WORKING_DISTRIBUTION_SIZE,
         )
         distribution[np.abs(distribution) < 1e-15] = 0.0
         result.append(distribution)
