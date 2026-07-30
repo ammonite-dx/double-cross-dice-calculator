@@ -11,7 +11,7 @@
 
 アプリとデータは同じPagesデプロイに含めます。後方互換レイヤーは持たず、アプリが要求する`schemaVersion`と`dataRevision`に一致するデータだけを読み込みます。
 
-現在の出力先は`public/data/schema-v1/revision-3/`です。比較用の旧revision-1とrevision-2は、Pagesの配信対象外である`reference-data/schema-v1/`に保持します。
+現在の出力先は`public/data/schema-v2/revision-1/`です。schema-v1の旧データは移行比較の参照用として保持し、アプリからは参照しません。
 
 生成元の`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`は変換処理だけが参照します。本番アプリケーションから直接importせず、ViteのJavaScriptチャンクにも含めません。
 
@@ -21,10 +21,10 @@
 
 ```json
 {
-  "schemaVersion": 1,
-  "dataRevision": 2,
+  "schemaVersion": 2,
+  "dataRevision": 1,
   "dataset": "dr",
-  "distributionSize": 1024,
+  "distributionSize": 2048,
   "shard": {
     "kazanari": 0
   },
@@ -49,7 +49,9 @@
 
 この例では、値12、13、14の確率がそれぞれ0.01、0.08、0.15であり、それ以外の確率はゼロです。`offset + values.length`は`distributionSize`以下でなければなりません。
 
-すべてのデータセットで値1023以上の確率をインデックス1023へ集約し、各分布の確率総和が1になることを検証します。インデックス1023は値1023だけではなく、表現範囲の上限以上をまとめたオーバーフローバケットです。
+`dx`と`dr`の`distributionSize`は2048、`d10`と`livingdead`は1024です。各分布の最終インデックスは、その値以上をまとめたオーバーフローバケットです。アプリが画面へ返す公開分布は常に1024要素であり、インデックス1023へ値1023以上を集約します。
+
+中間表現と公開表現を分ける理由、および2048要素で安全に処理できる入力範囲は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)に記載します。
 
 正式な共通スキーマは`schemas/precomputed-data.schema.json`にあります。データセット固有の配列形状は生成スクリプトでも検証します。
 
@@ -64,6 +66,7 @@
 - 配列: `distributions[dice][critical - 2]`
 - `dice`: 0から99
 - `critical`: 2から11
+- `distributionSize`: 2048
 
 ### `dr`
 
@@ -71,6 +74,7 @@
 - ファイル: `dr/kazanari-{kazanari}.json`
 - 配列: `distributions[dice]`
 - `dice`: 0から202
+- `distributionSize`: 2048
 
 旧形式の`dr[kazanari][damage][dice]`は生成時に転置します。各要素はダメージの確率分布です。
 
@@ -79,12 +83,14 @@
 - ファイル: `d10.json`
 - 配列: `distributions[dice]`
 - `dice`: 0から223
+- `distributionSize`: 1024
 
 ### `livingdead`
 
 - ファイル: `livingdead.json`
 - 配列: `distributions[dice]`
 - `dice`: 0から223
+- `distributionSize`: 1024
 
 現在のフォームから`livingdead`を実際に参照する最大値は219です。`d10`と同じ224分布に統一することで、バックトラック用データの境界管理を共通化しています。
 
@@ -96,13 +102,13 @@
 - 攻撃: `shihai-0`、`kazanari-0`、`d10`を初期読込し、`shihai`または`kazanari`変更時に追加取得
 - バックトラック: `d10`と`livingdead`を初期読込
 
-`d10`と`livingdead`の疎な分布は、計算で必要になったものだけを長さ1024の配列へ展開します。`dr`は読み込んだ`kazanari`ごとに、ダメージ計算の走査順に合わせた型付き配列のビューを一度だけ構築します。データ取得・検証・これらのキャッシュは`PrecomputedDataRepository.js`に集約します。
+`d10`と`livingdead`の疎な分布は、計算で必要になったものだけを長さ1024の配列へ展開します。ダメージ軽減に使う最大99ダイスの`d10`だけは2048要素へゼロ拡張します。`dr`は読み込んだ`kazanari`ごとに、ダメージ計算の走査順に合わせた型付き配列のビューを構築し、最近使用した3種類をLRUとして保持します。データ取得・検証・これらのキャッシュは`PrecomputedDataRepository.js`に集約します。
 
 ## ファイル名と整合性
 
 ファイル名には内容ハッシュを含めません。スキーマ版とデータ改訂版をパスに含め、同じ改訂版のファイルは変更しない運用とします。
 
-`manifest.json`には各生成物のバイト数とSHA-256を記録します。ハッシュは実行時のURL解決ではなく、生成の決定性とコミット内容をCIで検証するために使用します。
+`manifest.json`にはデータセット別の`distributionSizes`、各生成物のバイト数、SHA-256を記録します。ハッシュは実行時のURL解決ではなく、生成の決定性とコミット内容をCIで検証するために使用します。
 
 ## 更新手順
 
