@@ -4,7 +4,7 @@ import {
 } from './Distribution'
 
 export const PRECOMPUTED_DATA_SCHEMA_VERSION = 1
-export const PRECOMPUTED_DATA_REVISION = 2
+export const PRECOMPUTED_DATA_REVISION = 3
 
 const PROBABILITY_TOLERANCE = 2e-4
 const basePath = `${
@@ -26,8 +26,7 @@ function validateShihai(shihai) {
 
 function validateSparseDistribution(
   distribution,
-  context,
-  { requireNormalized = true } = {}
+  context
 ) {
   assert(distribution && typeof distribution === 'object', `${context} is missing`)
   assert(
@@ -55,18 +54,10 @@ function validateSparseDistribution(
     )
     total += probability
   }
-  if (requireNormalized) {
-    assert(
-      Math.abs(total - 1) < PROBABILITY_TOLERANCE,
-      `${context} probability total is ${total}`
-    )
-  } else {
-    assert(total > 0, `${context} probability total must be positive`)
-    assert(
-      total <= 1 + PROBABILITY_TOLERANCE,
-      `${context} probability total exceeds 1: ${total}`
-    )
-  }
+  assert(
+    Math.abs(total - 1) < PROBABILITY_TOLERANCE,
+    `${context} probability total is ${total}`
+  )
 }
 
 function validateDxAsset(asset, expectedShihai) {
@@ -299,8 +290,7 @@ function validateDrAsset(asset, expectedKazanari) {
   asset.distributions.forEach((distribution, dice) => {
     validateSparseDistribution(
       distribution,
-      `dr[${expectedKazanari}][${dice}]`,
-      { requireNormalized: false }
+      `dr[${expectedKazanari}][${dice}]`
     )
   })
 

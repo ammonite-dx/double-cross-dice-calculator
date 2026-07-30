@@ -4,6 +4,7 @@ from dx_precompute.d10 import generate_d10_distributions
 from dx_precompute.dr import (
     _face_range_powers,
     _remaining_low_dice_distributions,
+    generate_kazanari_distributions,
 )
 from dx_precompute.dx import generate_shihai_distributions
 from dx_precompute.livingdead import generate_livingdead_distributions
@@ -68,6 +69,13 @@ def test_removing_smallest_of_two_low_dice_leaves_the_maximum() -> None:
     expected[1:6] = np.asarray([1, 3, 5, 7, 9]) / 25
 
     np.testing.assert_allclose(generated, expected, atol=1e-15)
+
+
+def test_largest_kazanari_distribution_aggregates_overflow() -> None:
+    distribution = generate_kazanari_distributions(9)[-1]
+
+    assert abs(float(distribution.sum()) - 1.0) < 1e-12
+    assert distribution[-1] > 0
 
 
 def test_shihai_zero_one_die_critical_ten_is_normalized() -> None:

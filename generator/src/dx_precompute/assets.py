@@ -51,8 +51,6 @@ def default_reference_directory() -> Path:
 def _validate_distribution(
     distribution: Distribution,
     context: str,
-    *,
-    require_normalized: bool = True,
 ) -> None:
     if distribution.shape != (DISTRIBUTION_SIZE,):
         raise ValueError(f"{context}: expected {DISTRIBUTION_SIZE} values")
@@ -62,23 +60,15 @@ def _validate_distribution(
         raise ValueError(f"{context}: contains a probability outside [0, 1]")
 
     total = float(distribution.sum())
-    if require_normalized and abs(total - 1.0) >= PROBABILITY_TOLERANCE:
-        raise ValueError(f"{context}: probability total is {total}")
-    if not require_normalized and not (0 < total <= 1 + PROBABILITY_TOLERANCE):
+    if abs(total - 1.0) >= PROBABILITY_TOLERANCE:
         raise ValueError(f"{context}: probability total is {total}")
 
 
 def _to_sparse(
     distribution: Distribution,
     context: str,
-    *,
-    require_normalized: bool = True,
 ) -> dict[str, Any]:
-    _validate_distribution(
-        distribution,
-        context,
-        require_normalized=require_normalized,
-    )
+    _validate_distribution(distribution, context)
     nonzero = np.flatnonzero(distribution)
     if nonzero.size == 0:
         raise ValueError(f"{context}: distribution contains only zeroes")
@@ -152,7 +142,6 @@ def generate_assets(
                 _to_sparse(
                     distribution,
                     f"dr[{kazanari}][{dice}]",
-                    require_normalized=False,
                 )
                 for dice, distribution in enumerate(generated)
             ]

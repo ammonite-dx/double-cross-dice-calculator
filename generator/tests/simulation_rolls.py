@@ -3,7 +3,6 @@ from collections.abc import Iterator
 import numpy as np
 
 DISTRIBUTION_SIZE = 1024
-DR_OVERFLOW_INDEX = DISTRIBUTION_SIZE
 DEFAULT_BATCH_SIZE = 5_000
 
 
@@ -115,10 +114,9 @@ def simulate_kazanari(
                     0,
                 ).sum(axis=1, dtype=np.int32)
 
-        results[offset : offset + size] = np.where(
-            batch >= DISTRIBUTION_SIZE,
-            DR_OVERFLOW_INDEX,
+        results[offset : offset + size] = np.minimum(
             batch,
+            DISTRIBUTION_SIZE - 1,
         )
         offset += size
 

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const assetDirectory = fileURLToPath(
-  new URL('../public/data/schema-v1/revision-2/', import.meta.url)
+  new URL('../public/data/schema-v1/revision-3/', import.meta.url)
 )
 const manifestPath = path.join(assetDirectory, 'manifest.json')
 
@@ -21,7 +21,7 @@ describe('generated precomputed data assets', () => {
 
     expect(manifest).toMatchObject({
       schemaVersion: 1,
-      dataRevision: 2,
+      dataRevision: 3,
       distributionSize: 1024,
     })
     expect(filenames).toHaveLength(32)
@@ -53,7 +53,7 @@ describe('generated precomputed data assets', () => {
 
     expect(asset).toMatchObject({
       schemaVersion: 1,
-      dataRevision: 2,
+      dataRevision: 3,
       dataset,
       distributionSize: 1024,
       shard,
@@ -81,4 +81,21 @@ describe('generated precomputed data assets', () => {
       expect(largestDistribution.values.at(-1)).toBeGreaterThan(0)
     }
   )
+
+  it('normalizes dr and aggregates the maximum input overflow', async () => {
+    const asset = JSON.parse(
+      await readFile(path.join(assetDirectory, 'dr/kazanari-9.json'), 'utf8')
+    )
+    const largestDistribution = asset.distributions.at(-1)
+    const total = largestDistribution.values.reduce(
+      (sum, probability) => sum + probability,
+      0
+    )
+
+    expect(total).toBeCloseTo(1, 10)
+    expect(
+      largestDistribution.offset + largestDistribution.values.length
+    ).toBe(1024)
+    expect(largestDistribution.values.at(-1)).toBeGreaterThan(0.99)
+  })
 })

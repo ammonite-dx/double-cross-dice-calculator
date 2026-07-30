@@ -113,16 +113,6 @@ def _simulate(case: SimulationCase) -> np.ndarray:
     )
 
 
-def _with_explicit_overflow(
-    expected: np.ndarray,
-    dataset: str,
-) -> np.ndarray:
-    if dataset != "dr":
-        return expected
-    overflow = max(0.0, 1.0 - float(expected.sum()))
-    return np.append(expected, overflow)
-
-
 def _merge_chi_square_bins(
     observed: np.ndarray,
     expected_counts: np.ndarray,
@@ -165,10 +155,7 @@ def test_precomputed_distribution_matches_simulation(
     case: SimulationCase,
     expected_distributions: dict[str, object],
 ) -> None:
-    expected = _with_explicit_overflow(
-        _expected_distribution(case, expected_distributions),
-        case.dataset,
-    )
+    expected = _expected_distribution(case, expected_distributions)
     expected = expected / expected.sum()
     samples = _simulate(case)
     observed = np.bincount(samples, minlength=expected.size)

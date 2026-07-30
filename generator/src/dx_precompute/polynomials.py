@@ -67,6 +67,22 @@ def subtract_shifted(
     add_shifted(target, source, shift, -weight)
 
 
+def aggregate_overflow(
+    distribution: Distribution,
+    size: int = DISTRIBUTION_SIZE,
+) -> Distribution:
+    """Aggregate values at or above the final index into one bucket."""
+    if distribution.size < size:
+        raise ValueError(
+            f"cannot aggregate {distribution.size} values into {size} buckets"
+        )
+
+    aggregated = np.zeros(size, dtype=np.float64)
+    aggregated[:-1] = distribution[: size - 1]
+    aggregated[-1] = float(distribution[size - 1 :].sum())
+    return aggregated
+
+
 def round_probabilities(distribution: Distribution) -> Distribution:
     rounded = np.round(np.abs(distribution), ROUND_DIGITS)
     rounded[rounded == 0.0] = 0.0

@@ -13,11 +13,11 @@ import {
   registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
 import { getScore, getScoreSummary } from '../src/data/ScoreCalculator'
-import d10 from '../public/data/schema-v1/revision-2/d10.json'
-import drKazanari0 from '../public/data/schema-v1/revision-2/dr/kazanari-0.json'
-import dxShihai0 from '../public/data/schema-v1/revision-2/dx/shihai-0.json'
-import dxShihai19 from '../public/data/schema-v1/revision-2/dx/shihai-19.json'
-import livingdead from '../public/data/schema-v1/revision-2/livingdead.json'
+import d10 from '../public/data/schema-v1/revision-3/d10.json'
+import drKazanari0 from '../public/data/schema-v1/revision-3/dr/kazanari-0.json'
+import dxShihai0 from '../public/data/schema-v1/revision-3/dx/shihai-0.json'
+import dxShihai19 from '../public/data/schema-v1/revision-3/dx/shihai-19.json'
+import livingdead from '../public/data/schema-v1/revision-3/livingdead.json'
 import { expectProbabilityResult } from './probabilityAssertions'
 
 const defaultScoreParams = {

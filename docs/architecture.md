@@ -37,7 +37,7 @@ reactive view state -> Chart.js
 
 事前計算データは`public/data/schema-v{schemaVersion}/revision-{dataRevision}/`に配置し、アプリ本体と同じデプロイから配信します。ファイル名に内容ハッシュは付けず、変更時は`dataRevision`を更新します。同一リビジョンのファイルは変更せず、長期キャッシュの対象にします。
 
-現在の配信データはschema-v1/revision-2です。旧revision-1は比較用として`reference-data/`へ移し、Pagesの配信対象には含めません。詳しいスキーマ、ダイス数範囲の根拠、更新手順は[`precomputed-data.md`](./precomputed-data.md)を参照してください。
+現在の配信データはschema-v1/revision-3です。旧revision-1とrevision-2は比較用として`reference-data/`へ移し、Pagesの配信対象には含めません。詳しいスキーマ、ダイス数範囲の根拠、更新手順は[`precomputed-data.md`](./precomputed-data.md)を参照してください。
 
 ## 旧実装との比較
 

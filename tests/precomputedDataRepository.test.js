@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createDxRepository,
 } from '../src/data/PrecomputedDataRepository'
-import dxShihai0 from '../public/data/schema-v1/revision-2/dx/shihai-0.json'
+import dxShihai0 from '../public/data/schema-v1/revision-3/dx/shihai-0.json'
 
 function createJsonResponse(body, { ok = true, status = 200 } = {}) {
   return {

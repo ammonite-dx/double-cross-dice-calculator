@@ -10,8 +10,8 @@ import {
   registerD10Asset,
   registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
-import d10 from '../public/data/schema-v1/revision-2/d10.json'
-import livingdead from '../public/data/schema-v1/revision-2/livingdead.json'
+import d10 from '../public/data/schema-v1/revision-3/d10.json'
+import livingdead from '../public/data/schema-v1/revision-3/livingdead.json'
 
 registerD10Asset(d10)
 registerLivingdeadAsset(livingdead)

@@ -35,7 +35,7 @@ describe('dx data migration', () => {
   beforeAll(async () => {
     for (let shihai = 0; shihai < legacyDx.length; shihai += 1) {
       const assetUrl = new URL(
-        `../public/data/schema-v1/revision-2/dx/shihai-${shihai}.json`,
+        `../public/data/schema-v1/revision-3/dx/shihai-${shihai}.json`,
         import.meta.url
       )
       const asset = JSON.parse(await readFile(assetUrl, 'utf8'))

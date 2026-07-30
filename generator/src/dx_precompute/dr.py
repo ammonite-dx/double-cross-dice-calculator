@@ -7,9 +7,10 @@ import numpy as np
 from .constants import DISTRIBUTION_SIZE, DR_DICE_COUNT, FFT_SIZE
 from .polynomials import (
     Distribution,
+    aggregate_overflow,
     convolution_powers,
     die_distribution,
-    round_probabilities,
+    round_normalized_probabilities,
     subtract_shifted,
 )
 
@@ -101,7 +102,9 @@ def generate_raw_kazanari_distributions(
 
     if kazanari == 0:
         return [
-            np.fft.irfft(d10_fourier**dice, n=FFT_SIZE)[:DISTRIBUTION_SIZE]
+            aggregate_overflow(
+                np.fft.irfft(d10_fourier**dice, n=FFT_SIZE)
+            )
             for dice in range(DR_DICE_COUNT)
         ]
 
@@ -129,7 +132,10 @@ def generate_raw_kazanari_distributions(
                 term = reroll_fourier * low_remaining_fourier[low_count]
             total_fourier += weight * term * high_fourier**high_count
 
-        distribution = np.fft.irfft(total_fourier, n=FFT_SIZE)[:DISTRIBUTION_SIZE]
+        distribution = aggregate_overflow(
+            np.fft.irfft(total_fourier, n=FFT_SIZE)
+        )
+        distribution[np.abs(distribution) < 1e-15] = 0.0
         result.append(distribution)
 
     return result
@@ -137,6 +143,6 @@ def generate_raw_kazanari_distributions(
 
 def generate_kazanari_distributions(kazanari: int) -> list[Distribution]:
     return [
-        round_probabilities(distribution)
+        round_normalized_probabilities(distribution)
         for distribution in generate_raw_kazanari_distributions(kazanari)
     ]

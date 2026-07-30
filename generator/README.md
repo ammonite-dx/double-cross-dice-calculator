@@ -56,7 +56,7 @@ uv run --project generator dx-precompute verify
 
 ## 生成
 
-全データと`manifest.json`を`generated-data/schema-v1/revision-2/`へ生成します。
+全データと`manifest.json`を`generated-data/schema-v1/revision-3/`へ生成します。
 
 ```sh
 uv run --project generator dx-precompute generate

@@ -43,6 +43,6 @@ def test_lightweight_generated_assets_match_current_assets(dataset: str) -> None
 def test_default_generation_does_not_overwrite_published_assets() -> None:
     assert "generated-data" in default_output_directory().parts
     assert "public" in default_reference_directory().parts
-    assert "revision-2" in default_output_directory().parts
-    assert "revision-2" in default_reference_directory().parts
+    assert "revision-3" in default_output_directory().parts
+    assert "revision-3" in default_reference_directory().parts
     assert default_output_directory() != default_reference_directory()
