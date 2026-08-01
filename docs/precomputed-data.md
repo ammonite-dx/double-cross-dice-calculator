@@ -4,6 +4,8 @@
 
 事前計算が従うダイスロール手順と境界条件は[`docs/dice-rules.md`](./dice-rules.md)に定義します。
 
+各データセットの状態、漸化式、FFT、丸め、疎形式化の詳細は[`precomputation-algorithms.md`](./precomputation-algorithms.md)に定義します。
+
 ## バージョン
 
 - `schemaVersion`: JSON構造を変更したときに更新する整数

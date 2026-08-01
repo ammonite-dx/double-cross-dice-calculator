@@ -260,7 +260,7 @@ Lₙ = X₁ + X₂ + ... + Xₙ - max(X₁, X₂, ..., Xₙ) + 1
 
 ### 実行時計算
 
-技能値、自動失敗とファンブル、成功判定、ダメージ軽減、バックトラック区分など、事前計算済み分布へJavaScriptで加える処理は、旧Calculatorを参照しない独立テストで検証します。対象ケース、期待値の作り方、実行方法は[`runtime-rule-validation.md`](./runtime-rule-validation.md)に定義します。
+技能値、自動失敗とファンブル、成功判定、ダメージ軽減、バックトラック区分など、事前計算済み分布へJavaScriptで加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載し、旧Calculatorを参照しない独立テストで検証します。対象ケース、期待値の作り方、実行方法は[`runtime-rule-validation.md`](./runtime-rule-validation.md)に定義します。
 
 ### 全入力範囲の数値監査
 

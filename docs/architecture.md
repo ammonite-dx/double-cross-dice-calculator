@@ -13,6 +13,8 @@
 
 Vueコンポーネントは入力状態と表示を管理し、確率計算そのものは上記モジュールへ委譲します。計算モジュールはVueに依存しません。
 
+各計算モジュールが事前計算済み分布へ加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載しています。
+
 ## データフロー
 
 ```text
@@ -39,7 +41,7 @@ reactive view state -> Chart.js
 
 事前計算データは`public/data/schema-v{schemaVersion}/revision-{dataRevision}/`に配置し、アプリ本体と同じデプロイから配信します。ファイル名に内容ハッシュは付けず、変更時は`dataRevision`を更新します。同一リビジョンのファイルは変更せず、長期キャッシュの対象にします。
 
-現在の配信データはschema-v2/revision-1です。schema-v1の旧データは比較用として`reference-data/`に保持し、Pagesの配信対象とアプリの参照先から除外します。詳しいスキーマ、ダイス数範囲の根拠、更新手順は[`precomputed-data.md`](./precomputed-data.md)を参照してください。
+現在の配信データはschema-v2/revision-1です。schema-v1の旧データは比較用として`reference-data/`に保持し、Pagesの配信対象とアプリの参照先から除外します。詳しいスキーマ、ダイス数範囲の根拠、更新手順は[`precomputed-data.md`](./precomputed-data.md)、計算方法は[`precomputation-algorithms.md`](./precomputation-algorithms.md)を参照してください。
 
 ## 旧実装との比較
 
@@ -49,6 +51,6 @@ reactive view state -> Chart.js
 
 ## 検証の分担
 
-事前計算器の数式、丸め、生成範囲は[`precomputation-validation.md`](./precomputation-validation.md)に従って検証します。JavaScriptが事前計算済み分布へ加える技能値、成功判定、ダメージ軽減、バックトラック区分は[`runtime-rule-validation.md`](./runtime-rule-validation.md)の独立テストで検証します。
+事前計算器の数式、丸め、生成範囲は[`precomputation-validation.md`](./precomputation-validation.md)に従って検証します。JavaScriptが事前計算済み分布へ加える技能値、成功判定、ダメージ軽減、バックトラック区分のアルゴリズムは[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)、独立テストは[`runtime-rule-validation.md`](./runtime-rule-validation.md)に記載しています。
 
 移行比較テストは旧実装から意図せず結果が変わっていないことを確認するために使用します。独立テストはルールから期待値を直接作り、旧実装と現行実装が同じ誤りを持つ場合にも検出できることを目的とします。
