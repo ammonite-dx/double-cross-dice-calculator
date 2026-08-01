@@ -6,6 +6,8 @@
 
 計算が従うゲーム内のダイスロール手順は[`docs/dice-rules.md`](../docs/dice-rules.md)を参照してください。ノートブックや既存JSONではなく、承認済みのルール仕様を実装と検証の基準にします。
 
+通常D10合計、`dx`、`dr`、`livingdead`の状態と計算方法、FFT、丸め、疎形式化は[`docs/precomputation-algorithms.md`](../docs/precomputation-algorithms.md)を参照してください。確率計算を具体例から段階的に学ぶ場合は[`docs/probability-calculation-tutorial.md`](../docs/probability-calculation-tutorial.md)を参照してください。
+
 現在の生成範囲は`dx`が0～99ダイス、`dr`が0～202ダイス、`d10`と`livingdead`が0～223ダイスです。各上限を現在の入力フォームから導く計算は[`docs/dice-rules.md`の「事前計算範囲の決定方針」](../docs/dice-rules.md#事前計算範囲の決定方針)に記載しています。
 
 ## セットアップ

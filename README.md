@@ -46,7 +46,7 @@ npm run build
 
 `npm run lint:fix` はESLintで自動修正可能な箇所を更新します。
 
-事前計算後にブラウザで行う判定・ダメージ・バックトラック計算の独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証は[`docs/precomputation-validation.md`](./docs/precomputation-validation.md)を参照してください。
+事前計算後にブラウザで行う判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証は[`docs/precomputation-validation.md`](./docs/precomputation-validation.md)を参照してください。
 
 判定・ダメージ計算の参考ベンチマークは`npm run benchmark:calculators`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 
@@ -64,7 +64,7 @@ npm run build
 npm run preview
 ```
 
-事前計算データの形式、生成方法、更新手順は[`docs/precomputed-data.md`](./docs/precomputed-data.md)を参照してください。
+事前計算データの形式、生成方法、更新手順は[`docs/precomputed-data.md`](./docs/precomputed-data.md)、各データセットの計算アルゴリズムは[`docs/precomputation-algorithms.md`](./docs/precomputation-algorithms.md)、ブラウザ内の合成処理は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)を参照してください。確率分布、動的計画法、順序統計量、FFTを具体例から学ぶための入門は[`docs/probability-calculation-tutorial.md`](./docs/probability-calculation-tutorial.md)に記載しています。
 
 本番用ファイルは `dist/` に生成されます。`dist/` と `.wrangler/` は生成物のためGit管理しません。
 
