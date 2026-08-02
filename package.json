@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "benchmark:calculators": "node scripts/benchmark-calculators.mjs",
+    "benchmark:runtime-dr": "node scripts/benchmark-runtime-dr-experiment.mjs",
     "preview": "vite preview",
     "data:generate": "node scripts/generate-precomputed-data.mjs",
     "data:check": "node scripts/generate-precomputed-data.mjs --check",
@@ -22,6 +23,8 @@
     "lint:markdown": "markdownlint-cli2",
     "lint:fix": "npm run lint -- --fix",
     "test": "vitest run",
+    "test:runtime-dr:full": "node scripts/verify-runtime-dr-experiment.mjs --optimized",
+    "test:runtime-dr:full:reference": "node scripts/verify-runtime-dr-experiment.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
