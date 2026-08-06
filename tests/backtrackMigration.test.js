@@ -52,15 +52,42 @@ const parameterSets = [
 
 describe('backtrack calculator migration', () => {
   it.each(dloisValues)(
-    'matches the legacy result for %s',
+    'preserves the legacy result outside the corrected boundary for %s',
     (dlois) => {
       for (const params of parameterSets) {
         const completeParams = { ...params, dlois }
+        const actual = getFinalEncroachment(completeParams)
+        const legacy = getLegacyFinalEncroachment(completeParams)
 
-        expect(getFinalEncroachment(completeParams)).toEqual(
-          getLegacyFinalEncroachment(completeParams)
-        )
+        if (dlois === '不死者・悪夢') {
+          expect(actual.double).toEqual(legacy.double)
+          expect(actual.second).toEqual(legacy.second)
+        } else {
+          expect(actual).toEqual(legacy)
+        }
       }
+    }
+  )
+
+  it.each([
+    [120, [100, 0, 0, 0, 0, 0]],
+    [119, [0, 100, 0, 0, 0, 0]],
+    [100, [0, 100, 0, 0, 0, 0]],
+    [99, [0, 0, 100, 0, 0, 0]],
+  ])(
+    'classifies nightmare boundary %i without gaps',
+    (encroachment, expected) => {
+      const result = getFinalEncroachment({
+        encroachment,
+        lois: 0,
+        elois: 0,
+        dice: 0,
+        value: 0,
+        dlois: '不死者・悪夢',
+      })
+
+      expect(result.single).toEqual(expected)
+      expect(result.single.reduce((sum, value) => sum + value, 0)).toBe(100)
     }
   )
 })

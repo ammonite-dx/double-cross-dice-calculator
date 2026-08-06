@@ -54,15 +54,15 @@ function getStandardSingleResult(distribution, params) {
 }
 
 function getNightmareSingleResult(distribution, params) {
-  const boundaries = [119, 100, 99, 70, 50, 30]
+  const boundaries = [119, 99, 70, 50, 30]
     .map((threshold) => getBoundary(params, threshold))
   const ranges = [
     [0, boundaries[0]],
     [boundaries[0], boundaries[1]],
+    [boundaries[1], boundaries[2]],
     [boundaries[2], boundaries[3]],
     [boundaries[3], boundaries[4]],
-    [boundaries[4], boundaries[5]],
-    [boundaries[5], DISTRIBUTION_SIZE],
+    [boundaries[4], DISTRIBUTION_SIZE],
   ]
 
   return ranges.map(([start, end]) =>
