@@ -54,3 +54,9 @@ reactive view state -> Chart.js
 事前計算器の数式、丸め、生成範囲は[`precomputation-validation.md`](./precomputation-validation.md)に従って検証します。JavaScriptが事前計算済み分布へ加える技能値、成功判定、ダメージ軽減、バックトラック区分のアルゴリズムは[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)、独立テストは[`runtime-rule-validation.md`](./runtime-rule-validation.md)に記載しています。
 
 移行比較テストは旧実装から意図せず結果が変わっていないことを確認するために使用します。独立テストはルールから期待値を直接作り、旧実装と現行実装が同じ誤りを持つ場合にも検出できることを目的とします。
+
+## 計画中の計算実行境界
+
+オンデマンド計算の本番統合では、計算ロジックをVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離し、UIは`CalculationClient`相当のインターフェースを介して利用します。公開サイトは当面、Cloudflare Pages上の静的SPAとブラウザ内Web Workerを維持します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
+
+この決定の理由、Cloudflare上の構成、段階的な導入順序は[`ADR 0002`](./adr/0002-separate-calculation-core.md)に記載します。現在のソースコードはまだこの境界へ移行していないため、本節は実装済みの構成ではなく後続作業の目標を表します。
