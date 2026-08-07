@@ -4,14 +4,15 @@
 
 ## モジュール境界
 
-- `ScoreCalculator.js`: 一般判定・対決判定の達成値と成功率
-- `DamageCalculator.js`: ダメージ、期待値、複数コンボの合計
-- `BacktrackCalculator.js`: バックトラック後の侵蝕率
-- `Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
-- `FFT.js`: 独立な確率分布の加算・減算
-- `PrecomputedDataRepository.js`: 静的アセットの取得、検証、キャッシュ
+- `src/calculation/ScoreCalculator.js`: 一般判定・対決判定の達成値と成功率を計算するコア
+- `src/calculation/DamageCalculator.js`: ダメージ、期待値、複数コンボの合計を計算するコア
+- `src/calculation/BacktrackCalculator.js`: バックトラック後の侵蝕率を計算するコア
+- `src/data/*Calculator.js`: 現行UIと公開APIを維持し、計算コアへ事前計算データ供給関数を注入する互換ラッパー
+- `src/data/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
+- `src/data/FFT.js`: 独立な確率分布の加算・減算
+- `src/data/PrecomputedDataRepository.js`: 静的アセットの取得、検証、キャッシュ
 
-Vueコンポーネントは入力状態と表示を管理し、確率計算そのものは上記モジュールへ委譲します。計算モジュールはVueに依存しません。
+Vueコンポーネントは入力状態と表示を管理し、確率計算そのものは上記モジュールへ委譲します。`src/calculation/`の計算コアはVue、DOM、`fetch`、静的アセットの配置に依存せず、必要な分布は引数で渡される関数から取得します。
 
 各計算モジュールが事前計算済み分布へ加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載しています。
 
@@ -25,7 +26,11 @@ PrecomputedDataRepository
   fetch -> validate -> cache -> sparse expansion
           |
           v
-Score / Damage / Backtrack Calculator
+src/data compatibility calculator
+  inject distribution providers
+          |
+          v
+src/calculation core
           |
           v
 reactive view state -> Chart.js
@@ -55,8 +60,10 @@ reactive view state -> Chart.js
 
 移行比較テストは旧実装から意図せず結果が変わっていないことを確認するために使用します。独立テストはルールから期待値を直接作り、旧実装と現行実装が同じ誤りを持つ場合にも検出できることを目的とします。
 
-## 計画中の計算実行境界
+## 計算実行境界
 
-オンデマンド計算の本番統合では、計算ロジックをVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離し、UIは`CalculationClient`相当のインターフェースを介して利用します。公開サイトは当面、Cloudflare Pages上の静的SPAとブラウザ内Web Workerを維持します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
+計算ロジックはVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離しています。現在のUIは互換ラッパーを通じて同期的にコアを呼び出します。次の段階で、UIは非同期の`CalculationClient`相当のインターフェースだけを介して計算を利用する構成へ移行します。
 
-この決定の理由、Cloudflare上の構成、段階的な導入順序は[`ADR 0002`](./adr/0002-separate-calculation-core.md)に記載します。現在のソースコードはまだこの境界へ移行していないため、本節は実装済みの構成ではなく後続作業の目標を表します。
+公開サイトは当面、Cloudflare Pages上の静的SPAとブラウザ内Web Workerを維持します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
+
+この決定の理由、Cloudflare上の構成、段階的な導入順序は[`ADR 0002`](./adr/0002-separate-calculation-core.md)に記載します。

@@ -13,7 +13,11 @@ import {
   registerDxAsset,
   registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
-import { getScore, getScoreSummary } from '../src/data/ScoreCalculator'
+import {
+  calculateScore,
+  getScore,
+  getScoreSummary,
+} from '../src/data/ScoreCalculator'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import dxShihai0 from '../public/data/schema-v2/revision-1/dx/shihai-0.json'
@@ -36,6 +40,12 @@ registerDrAsset(drKazanari0)
 registerLivingdeadAsset(livingdead)
 
 describe('getScore', () => {
+  it('keeps the default repository for calculateScore compatibility', () => {
+    expect(calculateScore(defaultScoreParams)).toEqual(
+      getScore(defaultScoreParams)
+    )
+  })
+
   it.each([
     defaultScoreParams,
     { ...defaultScoreParams, dice: 0 },
