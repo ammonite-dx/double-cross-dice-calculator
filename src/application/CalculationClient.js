@@ -1,12 +1,12 @@
 import { getFinalEncroachment } from '../data/BacktrackCalculator'
+import { calculateDamageOnDemand } from '../calculation/DamageCalculator'
 import {
-  getDamage,
   getDamageSummary,
   getTotalDamage,
 } from '../data/DamageCalculator'
 import {
+  getD10Distribution,
   loadD10Asset,
-  loadDrAsset,
   loadDxAsset,
   loadLivingdeadAsset,
 } from '../data/PrecomputedDataRepository'
@@ -14,16 +14,20 @@ import {
   getScore,
   getScoreSummary,
 } from '../data/ScoreCalculator'
+import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
+
+const runtimeDamageRollClient = createRuntimeDamageRollClient()
 
 const defaultDependencies = {
-  getDamage,
+  calculateDamageOnDemand,
   getDamageSummary,
+  getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachment,
+  getD10Distribution,
   getScore,
   getScoreSummary,
   getTotalDamage,
   loadD10Asset,
-  loadDrAsset,
   loadDxAsset,
   loadLivingdeadAsset,
 }
@@ -64,7 +68,6 @@ export function createCalculationClient(
       if (routeName === 'attack') {
         await Promise.all([
           dependencies.loadDxAsset(0),
-          dependencies.loadDrAsset(0),
           dependencies.loadD10Asset(),
         ])
         return
@@ -103,12 +106,11 @@ export function createCalculationClient(
       }
     },
 
-    async calculateAttackCombo(params) {
+    async calculateAttackCombo(params, options = {}) {
       const request = snapshotAttackParams(params)
       await Promise.all([
         dependencies.loadDxAsset(request.action.score.shihai),
         dependencies.loadDxAsset(request.reaction.score.shihai),
-        dependencies.loadDrAsset(request.action.damage.kazanari),
         request.reaction.damage.dice > 0
           ? dependencies.loadD10Asset()
           : Promise.resolve(),
@@ -121,10 +123,16 @@ export function createCalculationClient(
           request.reaction.mode === '《イベイジョン》'
         ),
       }
-      const damage = dependencies.getDamage(
+      const damage = await dependencies.calculateDamageOnDemand(
         score,
         request.action.damage,
-        request.reaction.damage
+        request.reaction.damage,
+        {
+          getDamageRollDistribution:
+            dependencies.getDamageRollDistribution,
+          getD10Distribution: dependencies.getD10Distribution,
+        },
+        options
       )
 
       return {

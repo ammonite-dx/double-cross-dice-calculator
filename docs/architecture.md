@@ -7,7 +7,7 @@
 - `src/calculation/ScoreCalculator.js`: 一般判定・対決判定の達成値と成功率を計算するコア
 - `src/calculation/DamageCalculator.js`: ダメージ、期待値、複数コンボの合計を計算するコア
 - `src/calculation/BacktrackCalculator.js`: バックトラック後の侵蝕率を計算するコア
-- `src/application/CalculationClient.js`: UI向けの非同期計算境界と、現行の事前計算データを使うローカルアダプター
+- `src/application/CalculationClient.js`: UI向けの非同期計算境界、事前計算データの取得、常駐runtime damage Workerの組み立て
 - `src/data/*Calculator.js`: 現行UIと公開APIを維持し、計算コアへ事前計算データ供給関数を注入する互換ラッパー
 - `src/data/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
 - `src/data/FFT.js`: 独立な確率分布の加算・減算
@@ -24,26 +24,27 @@ route guard / input watcher / async view setup
           |
           v
 CalculationClient
-  snapshot -> load dependencies -> calculate
+  snapshot -> load dx/d10 dependencies -> calculate
           |
           v
 PrecomputedDataRepository
   fetch -> validate -> cache -> sparse expansion
           |
           v
-src/data compatibility calculator
-  inject distribution providers
+calculation core
+  score + on-demand damage finalization
           |
           v
-src/calculation core
+resident RuntimeDamageRollClient -> RuntimeDamageRollWorker
+  weights + kazanari -> runtime damage-roll distribution
           |
           v
 reactive view state -> Chart.js
 ```
 
-ルート表示前に`CalculationClient.prepare`が初期値で必要なアセットを読み込みます。`shihai`や`kazanari`が変わった場合は、クライアントが計算開始時の入力をスナップショット化し、対応する分割ファイルだけを追加取得します。連続した入力変更では画面側のリビジョン番号を使い、古い非同期計算結果で新しい入力結果を上書きしないようにします。
+ルート表示前に`CalculationClient.prepare`が初期値で必要なアセットを読み込みます。攻撃ルートの準備では`dx`と`d10`を初期ロードし、`d10`は以降の防御計算で再利用します。`shihai`が未キャッシュの値へ変わったときは対応する`dx`分割ファイルを追加取得し、`kazanari`が変わってもJSONを取得せず、常駐Workerへダメージロール分布の再計算を依頼します。連続した入力変更では画面側のリビジョン番号を使い、古い非同期計算結果で新しい入力結果を上書きしないようにします。
 
-`dr`の配信形式は圧縮効率を優先したダイス数ごとの疎な分布ですが、ダメージ計算ではダメージ値ごとに連続走査できる型付き配列のビューへ変換してキャッシュします。2048要素化後のメモリ使用量を制限するため、転置済みビューは最近使用した3種類の`kazanari`だけを保持します。計算時は確率が非ゼロの達成値だけを昇順に処理し、走査量を減らします。
+`dr`の配信形式は圧縮効率を優先したダイス数ごとの疎な分布で、旧`src/data/DamageCalculator.js`経路と適合テストの参照用に保持します。本番の`CalculationClient`は`dr`をロードせず、攻撃ごとのweightsと`kazanari`を常駐`RuntimeDamageRollClient`へ渡してWorker内でダメージロール分布を計算します。Workerの結果は計算コアが固定値、d10防御ダイス、命中失敗を合成して画面向けの結果に仕上げます。
 
 判定とダメージの中間計算は2048要素で行い、画面へ返す直前に1024要素へ集約します。公開結果のインデックス1023は値1023以上を表します。この決定の根拠と厳密性の境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)を参照してください。
 
@@ -65,11 +66,11 @@ reactive view state -> Chart.js
 
 移行比較テストは旧実装から意図せず結果が変わっていないことを確認するために使用します。独立テストはルールから期待値を直接作り、旧実装と現行実装が同じ誤りを持つ場合にも検出できることを目的とします。
 
-`tests/calculationClient.test.js`はローダーと計算関数を注入し、ルート準備、入力スナップショット、コンボ単位の結果、バックトラック用データ選択を検証します。`tests/calculationClientIntegration.test.js`は実際の事前計算アセットと互換計算器を使い、`CalculationClient`経由の判定、攻撃、バックトラックが既存経路と一致することを検証します。
+`tests/calculationClient.test.js`はローダー、on-demand計算関数、runtime providerを注入し、ルート準備で`dr`をロードしないこと、入力スナップショット、weights・`kazanari`・optionsの受け渡し、コンボ単位の結果、バックトラック用データ選択を検証します。`tests/calculationClientIntegration.test.js`は実際の`dx`・`d10`・`dr`アセットとruntime damage計算器を使い、`kazanari`、固定値、d10防御ダイスの代表ケースで`CalculationClient`経由の攻撃結果が既存JSON経路と一致することを検証します。
 
 ## 計算実行境界
 
-計算ロジックはVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離しています。UIは非同期の`CalculationClient`だけを呼び出し、現在のローカルアダプターが事前計算データの取得と互換ラッパーの実行を担当します。判定とダメージをWeb Workerへ移す際は、この境界の内側を差し替えます。
+計算ロジックはVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離しています。UIは非同期の`CalculationClient`だけを呼び出し、アプリケーション層が`dx`・`d10`・`livingdead`の取得と、常駐`RuntimeDamageRollClient`の`calculate`をダメージ計算コアのproviderへ注入します。ダメージロールのFFT本体はWorkerチャンクで実行し、固定値、d10防御ダイス、命中失敗の合成は計算コアで行います。
 
 公開サイトは当面、Cloudflare Pages上の静的SPAとブラウザ内Web Workerを維持します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
 

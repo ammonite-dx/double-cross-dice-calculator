@@ -9,7 +9,7 @@
 1. 完了: `9571f08`で「不死者・悪夢」の100%境界バグを修正し、以後の構造変更に正しい期待値を持ち込んだ
 2. 完了: `9beeea2`で現行の判定、ダメージ、バックトラック計算からVue、`fetch`、静的アセット取得への依存を除き、互換ラッパーで現行UIを維持した
 3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
-4. `codex/runtime-dr-production`で実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立する
+4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証する
 6. `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるプランナーを導入し、資源見積もりに基づく警告と安全上限を設ける
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
@@ -139,9 +139,9 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 ## `dr`と`kazanari`をブラウザ内でオンデマンド計算する
 
-- 状態: [専用ブランチでの実験](../experiments/runtime-dr/decision.md)を完了、オンデマンド化を採用、本番移植待ち
+- 状態: 本番移植済み、実ブラウザ検証と本番配信からのJSON除外待ち
 - 優先度: 高
-- 作業ブランチ: `codex/runtime-dr-experiment`
+- 作業ブランチ: 実験・検証は`codex/runtime-dr-experiment`、本番移植は`codex/runtime-dr-production`
 - 対象:
   - `src/data/DamageCalculator.js`
   - `src/data/FFT.js`
