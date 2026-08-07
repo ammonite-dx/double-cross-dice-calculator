@@ -139,7 +139,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 ## `dr`と`kazanari`をブラウザ内でオンデマンド計算する
 
-- 状態: 本番移植済み、実ブラウザ検証と本番配信からのJSON除外待ち
+- 状態: 本番移植と実ブラウザ検証を完了、本番配信からの`dr`用JSON除外待ち
 - 優先度: 高
 - 作業ブランチ: 実験・検証は`codex/runtime-dr-experiment`、本番移植は`codex/runtime-dr-production`
 - 対象:
@@ -170,6 +170,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - Windows x64のChrome 150ではメインスレッド中央値が`kazanari=0`で約0.9 ms、1で約15.1 ms、2で約16.9 ms、9で約44.5 msとなり、60 Hz表示の1フレームに相当する約16.7 msを`kazanari=2`から超えた
 - 同じChrome環境のmodule Workerでは2048要素の分布転送を含む往復増分が中央値で概ね0.1～0.3 msに留まったため、採用時は端末依存の閾値分岐ではなく常駐Workerへ統一する案を第一候補とする
 - Workerクライアントの重複排除、LRUキャッシュ、呼び出し単位の中断、障害後の再生成を独立テストで検証し、`kazanari=0/3/9`では防御適用後の最終ダメージ分布も現行JSON経路と最大絶対差 $2\times10^{-6}$ 以内で一致した
+- Codex In-app BrowserのVite production previewで`kazanari=0/3/9`、固定値の正負、防御ダイス、連続入力、一般判定、バックトラックを確認し、Workerチャンクの取得は同一URLの1件、`dr`用JSONの取得は0件、console warning/errorは0件だった
 - 公開済みJSONから作った同じ混合分布との最大差は約 $1.4\times10^{-7}$ であり、個別分布の代表比較では約 $5.4\times10^{-7}$ だった
 - FFT由来の負値は絶対値 $10^{-15}$ 程度に収まった
 - 現行の`dr`アセットは10ファイルで非圧縮約4.02 MiB、gzip圧縮約0.83 MiBであり、1ファイルのJSON解析と転置は約2.3～2.5 msだった
