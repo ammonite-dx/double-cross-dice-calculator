@@ -8,7 +8,7 @@
 
 1. 完了: `9571f08`で「不死者・悪夢」の100%境界バグを修正し、以後の構造変更に正しい期待値を持ち込んだ
 2. 完了: `9beeea2`で現行の判定、ダメージ、バックトラック計算からVue、`fetch`、静的アセット取得への依存を除き、互換ラッパーで現行UIを維持した
-3. `codex/calculation-client-boundary`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくす
+3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
 4. `codex/runtime-dr-production`で実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立する
 5. `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証する
 6. `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるプランナーを導入し、資源見積もりに基づく警告と安全上限を設ける
@@ -38,7 +38,7 @@
 
 ## 計算コアを実行環境から分離する
 
-- 状態: 計算コア分離済み（`9beeea2`）、`CalculationClient`とWeb Workerは未着手
+- 状態: 計算コアと`CalculationClient`の分離済み（`9beeea2`、`b29b4e0`）、Web Workerは未着手
 - 優先度: 高
 - 判断記録: [`ADR 0002`](./adr/0002-separate-calculation-core.md)
 - 対象:
@@ -55,7 +55,7 @@
 
 1. 判定、ダメージ、バックトラックの入力、結果、エラー、キャンセルを表す内部契約を定義する
 2. 完了: 計算コアからVue、静的アセット取得、ブラウザとCloudflare固有APIへの依存を除く
-3. UIが利用する`CalculationClient`相当のインターフェースを定義する
+3. 完了: UIが利用する`CalculationClient`相当のインターフェースを定義する
 4. ブラウザ内Web Workerアダプターを実装し、連続入力のキャンセル、重複排除、キャッシュ、障害復旧を統合する
 5. 現行経路、計算コア、ブラウザ内Web Workerで同じ入力が同じ結果になる適合テストを追加する
 6. オンデマンド計算と範囲決定処理を計算コアへ統合した後に、HTTP APIの入出力契約を設計する
