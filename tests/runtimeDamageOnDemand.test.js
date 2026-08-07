@@ -1,16 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
+  calculateDamageOnDemand,
   createDamageRollRequest,
-  getDamageOnDemand,
-} from '../experiments/runtime-dr/damage'
-import { generateMixedDamageDistributionOptimized } from '../experiments/runtime-dr/optimized'
+  generateMixedDamageDistribution,
+} from '../src/calculation'
 import { getDamage } from '../src/data/DamageCalculator'
 import {
   OUTPUT_DISTRIBUTION_SIZE,
   getUpperTailProbability,
 } from '../src/data/Distribution'
 import {
+  getD10Distribution as getRepositoryD10Distribution,
   registerD10Asset,
   registerDrAsset,
 } from '../src/data/PrecomputedDataRepository'
@@ -65,12 +66,15 @@ const score = {
   ]),
 }
 
-const optimizedClient = {
-  calculate: async (weights, kazanari) =>
-    generateMixedDamageDistributionOptimized(weights, kazanari),
+const productionProvider = async (weights, kazanari) =>
+  generateMixedDamageDistribution(weights, kazanari)
+
+const productionDependencies = {
+  getDamageRollDistribution: productionProvider,
+  getD10Distribution: getRepositoryD10Distribution,
 }
 
-describe('on-demand damage integration experiment', () => {
+describe('on-demand damage calculation', () => {
   it('aggregates hit probabilities by damage dice count', () => {
     const request = createDamageRollRequest(score, {
       dice: 4,
@@ -87,6 +91,29 @@ describe('on-demand damage integration experiment', () => {
       .toBeCloseTo(0.69, 12)
   })
 
+  it('aggregates hits that produce the same damage dice count', () => {
+    const aggregationScore = {
+      action: probabilityResult([
+        [9, 0.2],
+        [8, 0.3],
+      ]),
+      reaction: probabilityResult([
+        [5, 0.4],
+        [20, 0.6],
+      ]),
+    }
+    const request = createDamageRollRequest(aggregationScore, {
+      dice: 0,
+      value: 0,
+      kazanari: 0,
+    })
+
+    expect(request.failureProbability).toBeCloseTo(0.3, 12)
+    expect(request.weights[1]).toBeCloseTo(0.2, 12)
+    expect(request.weights.reduce((sum, weight) => sum + weight, 0))
+      .toBeCloseTo(0.2, 12)
+  })
+
   it.each([
     [0, { dice: 0, value: 0 }, { dice: 0, value: 0 }],
     [3, { dice: 4, value: 12 }, { dice: 2, value: 5 }],
@@ -97,11 +124,11 @@ describe('on-demand damage integration experiment', () => {
       registerDrAsset(drAssets.get(kazanari))
       const attack = { ...attackValues, kazanari }
       const current = getDamage(score, attack, defence)
-      const onDemand = await getDamageOnDemand(
+      const onDemand = await calculateDamageOnDemand(
         score,
         attack,
         defence,
-        { client: optimizedClient }
+        productionDependencies
       )
 
       expectDistributionsClose(onDemand.distribution, current.distribution)
@@ -118,5 +145,96 @@ describe('on-demand damage integration experiment', () => {
       value: 0,
       kazanari: 0,
     })).toThrow('outside the supported range')
+  })
+
+  it('passes provider arguments and options through unchanged', async () => {
+    const options = {
+      signal: new AbortController().signal,
+      requestId: 'damage-request',
+    }
+    const provider = vi.fn(productionProvider)
+    const request = createDamageRollRequest(score, {
+      dice: 0,
+      value: 0,
+      kazanari: 3,
+    })
+
+    await calculateDamageOnDemand(
+      score,
+      { dice: 0, value: 0, kazanari: 3 },
+      { dice: 0, value: 0 },
+      {
+        getDamageRollDistribution: provider,
+        getD10Distribution: getRepositoryD10Distribution,
+      },
+      options
+    )
+
+    expect(provider).toHaveBeenCalledOnce()
+    expect(provider).toHaveBeenCalledWith(
+      request.weights,
+      3,
+      options
+    )
+  })
+
+  it('requires the explicit dependency object and defaults options to an empty object', async () => {
+    const provider = vi.fn(productionProvider)
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const request = createDamageRollRequest(score, attack)
+
+    await calculateDamageOnDemand(
+      score,
+      attack,
+      { dice: 0, value: 0 },
+      {
+        getDamageRollDistribution: provider,
+        getD10Distribution: getRepositoryD10Distribution,
+      }
+    )
+
+    expect(provider).toHaveBeenCalledWith(
+      request.weights,
+      0,
+      {}
+    )
+
+    await expect(
+      calculateDamageOnDemand(
+        score,
+        attack,
+        { dice: 0, value: 0 },
+        { provider: productionProvider }
+      )
+    ).rejects.toThrow('getDamageRollDistribution')
+  })
+
+  it('propagates provider rejection', async () => {
+    const error = new Error('runtime provider failed')
+    const provider = vi.fn(async () => {
+      throw error
+    })
+
+    await expect(
+      calculateDamageOnDemand(
+        score,
+        { dice: 0, value: 0, kazanari: 0 },
+        { dice: 0, value: 0 },
+        { getDamageRollDistribution: provider }
+      )
+    ).rejects.toBe(error)
+  })
+
+  it('rejects a damage-roll distribution with the wrong length', async () => {
+    const provider = vi.fn(async () => new Float64Array(2047))
+
+    await expect(
+      calculateDamageOnDemand(
+        score,
+        { dice: 0, value: 0, kazanari: 0 },
+        { dice: 0, value: 0 },
+        { getDamageRollDistribution: provider }
+      )
+    ).rejects.toThrow('2048 entries')
   })
 })

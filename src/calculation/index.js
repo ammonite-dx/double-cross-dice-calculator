@@ -3,6 +3,9 @@ export {
 } from './BacktrackCalculator'
 export {
   calculateDamage,
+  calculateDamageOnDemand,
+  createDamageRollRequest,
+  finalizeOnDemandDamage,
   getDamageSummary,
   getTotalDamage,
 } from './DamageCalculator'
