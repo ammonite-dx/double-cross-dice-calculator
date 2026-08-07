@@ -1,6 +1,25 @@
+<script setup>
+    import CalculationErrorBoundary from '@/components/CalculationErrorBoundary.vue';
+</script>
+
 <template>
   <v-main>
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <CalculationErrorBoundary>
+        <Suspense>
+          <template #default>
+            <div>
+              <component :is="Component" />
+            </div>
+          </template>
+          <template #fallback>
+            <v-container class="pa-6 text-center">
+              <v-progress-circular indeterminate color="primary" />
+            </v-container>
+          </template>
+        </Suspense>
+      </CalculationErrorBoundary>
+    </router-view>
     <v-footer color="secondary">
         <v-container>
             <p class="ma-0 white--text text-caption text-center">

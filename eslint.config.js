@@ -32,4 +32,22 @@ export default [
       'vue/no-mutating-props': ['error', { shallowOnly: true }],
     },
   },
+  {
+    files: [
+      'src/components/**/*.{js,vue}',
+      'src/router/**/*.js',
+      'src/views/**/*.vue',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [
+          '@/data/BacktrackCalculator',
+          '@/data/DamageCalculator',
+          '@/data/PrecomputedDataRepository',
+          '@/data/ScoreCalculator',
+        ],
+        patterns: ['@/calculation', '@/calculation/*'],
+      }],
+    },
+  },
 ]

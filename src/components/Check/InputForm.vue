@@ -1,37 +1,38 @@
 <script setup>
 
-    import { watch } from 'vue';
-    import { loadDxAsset } from '@/data/PrecomputedDataRepository';
-    import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
+    import { onUnmounted,watch } from 'vue';
+    import { calculationClient } from '@/application/CalculationClient';
     import DfcltyForm from './DfcltyForm.vue';
     import ScoreForm from './ScoreForm.vue';
 
     const props = defineProps(['checkData']);
 
-    watch(props.checkData.dfclty, () => {
-        props.checkData.scoreSummary = getScoreSummary(props.checkData.score,props.checkData.dfclty);
+    let calculationRevision = 0;
+    onUnmounted(() => {
+        calculationRevision += 1;
     });
-    const calculationRevision = {action: 0, reaction: 0};
-    const updateScore = async (side) => {
-        const revision = ++calculationRevision[side];
-        const params = props.checkData.params[side];
+    const updateCheck = async () => {
+        const revision = ++calculationRevision;
 
         try {
-            await loadDxAsset(params.shihai);
-            if (revision !== calculationRevision[side]) {
+            const result = await calculationClient.calculateCheck(props.checkData.params,props.checkData.dfclty);
+            if (revision !== calculationRevision) {
                 return;
             }
-            props.checkData.score[side] = getScore(params);
-            props.checkData.scoreSummary = getScoreSummary(props.checkData.score,props.checkData.dfclty);
+            props.checkData.score = result.score;
+            props.checkData.scoreSummary = result.scoreSummary;
         } catch (error) {
-            console.error(`Failed to update ${side} score`, error);
+            console.error('Failed to update check', error);
         }
     };
+    watch(props.checkData.dfclty, () => {
+        void updateCheck();
+    });
     watch(props.checkData.params.action, () => {
-        void updateScore('action');
+        void updateCheck();
     });
     watch(props.checkData.params.reaction, () => {
-        void updateScore('reaction');
+        void updateCheck();
     });
 
 </script>

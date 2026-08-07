@@ -1,8 +1,7 @@
 <script setup>
 
     import { reactive } from 'vue';
-    import { getDamage,getDamageSummary } from '@/data/DamageCalculator';
-    import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
+    import { calculationClient } from '@/application/CalculationClient';
     import InputPanel from '@/components/Attack/InputPanel.vue';
     import ScoreChartPanel from '@/components/Attack/ScoreChartPanel.vue';
     import DamageChartPanel from '@/components/Attack/DamageChartPanel.vue';
@@ -19,13 +18,7 @@
             damage: {dice:0, value:0},
         }
     };
-    const initialScore = {
-        action: getScore(initialParams.action.score),
-        reaction: getScore(initialParams.reaction.score),
-    };
-    const initialScoreSummary = getScoreSummary(initialScore);
-    const initialDamage = getDamage(initialScore,initialParams.action.damage,initialParams.reaction.damage);
-    const initialDamageSummary = getDamageSummary(initialDamage);
+    const initialCalculation = await calculationClient.calculateAttackCombo(initialParams);
     const attackData = reactive({
         combos: [{
             id: 0,
@@ -37,14 +30,14 @@
             },
             data: {
                 params: initialParams,
-                score: initialScore,
-                scoreSummary: initialScoreSummary,
-                damage: initialDamage,
-                damageSummary: initialDamageSummary,
+                score: initialCalculation.score,
+                scoreSummary: initialCalculation.scoreSummary,
+                damage: initialCalculation.damage,
+                damageSummary: initialCalculation.damageSummary,
             },
         }],
-        totalDamage: initialDamage,
-        totalDamageSummary: initialDamageSummary,
+        totalDamage: initialCalculation.damage,
+        totalDamageSummary: initialCalculation.damageSummary,
     });
 
 </script>

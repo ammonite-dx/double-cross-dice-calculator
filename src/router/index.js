@@ -1,22 +1,25 @@
 // Composables
 import { createRouter, createWebHistory } from 'vue-router'
-import {
-  loadD10Asset,
-  loadDrAsset,
-  loadDxAsset,
-  loadLivingdeadAsset,
-} from '@/data/PrecomputedDataRepository'
+import { calculationClient } from '@/application/CalculationClient'
+
+async function prepareCalculation(routeName) {
+  try {
+    await calculationClient.prepare(routeName)
+  } catch (error) {
+    console.error(`Failed to prepare ${routeName} calculation`, error)
+  }
+}
 
 const routes = [
     {path: '/', component: () => import('@/views/Home.vue')},
     {path: '/check', component: () => import('@/views/Check.vue'), beforeEnter: async () => {
-      await loadDxAsset(0)
+      await prepareCalculation('check')
     }},
     {path: '/attack', component: () => import('@/views/Attack.vue'), beforeEnter: async () => {
-      await Promise.all([loadDxAsset(0), loadDrAsset(0), loadD10Asset()])
+      await prepareCalculation('attack')
     }},
     {path: '/backtrack', component: () => import('@/views/Backtrack.vue'), beforeEnter: async () => {
-      await Promise.all([loadD10Asset(), loadLivingdeadAsset()])
+      await prepareCalculation('backtrack')
     }}
 ]
 

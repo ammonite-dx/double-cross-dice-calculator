@@ -1,13 +1,26 @@
 <script setup>
 
-    import { watch } from 'vue';
-    import { getFinalEncroachment } from '@/data/BacktrackCalculator';
+    import { onUnmounted,watch } from 'vue';
+    import { calculationClient } from '@/application/CalculationClient';
     import BacktrackForm from './BacktrackForm.vue';
 
     const props = defineProps(['backtrackData']);
 
-    watch(props.backtrackData.params, () => {
-        props.backtrackData.finalEncroachment = getFinalEncroachment(props.backtrackData.params);
+    let calculationRevision = 0;
+    onUnmounted(() => {
+        calculationRevision += 1;
+    });
+    watch(props.backtrackData.params, async () => {
+        const revision = ++calculationRevision;
+        try {
+            const result = await calculationClient.calculateBacktrack(props.backtrackData.params);
+            if (revision !== calculationRevision) {
+                return;
+            }
+            props.backtrackData.finalEncroachment = result;
+        } catch (error) {
+            console.error('Failed to update backtrack', error);
+        }
     });
 
 </script>

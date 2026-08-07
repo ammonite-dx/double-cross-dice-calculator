@@ -1,7 +1,7 @@
 <script setup>
 
     import { reactive } from 'vue';
-    import { getFinalEncroachment } from '@/data/BacktrackCalculator';
+    import { calculationClient } from '@/application/CalculationClient';
     import InputPanel from '@/components/Backtrack/InputPanel.vue'
     import FinalEncroachmentChartPanel from '@/components/Backtrack/FinalEncroachmentChartPanel.vue';
 
@@ -13,7 +13,7 @@
         value: 0,
         dlois: 'なし',
     };
-    const initialFinalEncroachment = getFinalEncroachment(initialParams);
+    const initialFinalEncroachment = await calculationClient.calculateBacktrack(initialParams);
     const backtrackData = reactive({
         params: initialParams,
         finalEncroachment: initialFinalEncroachment,

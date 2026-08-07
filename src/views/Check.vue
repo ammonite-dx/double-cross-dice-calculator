@@ -1,7 +1,7 @@
 <script setup>
 
     import { ref } from 'vue';
-    import { getScore, getScoreSummary } from '@/data/ScoreCalculator';
+    import { calculationClient } from '@/application/CalculationClient';
     import InputPanel from '@/components/Check/InputPanel.vue';
     import ChartPanel from '@/components/Check/ChartPanel.vue';
     import SummaryPanel from '@/components/Check/SummaryPanel.vue';
@@ -11,16 +11,12 @@
         action: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
         reaction: {dice:1, critical:10, skill:0, yousei:0, shihai:0},
     };
-    const initialScore = {
-        action: getScore(initialParams.action),
-        reaction: getScore(initialParams.reaction),
-    };
-    const initialScoreSummary = getScoreSummary(initialScore,initialDfclty);
+    const initialCalculation = await calculationClient.calculateCheck(initialParams,initialDfclty);
     const checkData = ref({
         dfclty: initialDfclty,
         params: initialParams,
-        score: initialScore,
-        scoreSummary: initialScoreSummary,
+        score: initialCalculation.score,
+        scoreSummary: initialCalculation.scoreSummary,
     });
 
 </script>

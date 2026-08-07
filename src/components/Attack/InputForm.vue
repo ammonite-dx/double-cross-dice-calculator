@@ -1,21 +1,27 @@
 <script setup>
 
-    import { watch } from 'vue';
-    import { getDamage,getDamageSummary,getTotalDamage } from '@/data/DamageCalculator';
-    import { getScore,getScoreSummary } from '@/data/ScoreCalculator';
+    import { onUnmounted,watch } from 'vue';
+    import { calculationClient } from '@/application/CalculationClient';
     import { getChartColor } from '@/data/ColorSetter';
     import ComboForm from './ComboForm.vue';
     import { mdiChevronUp,mdiChevronDown,mdiContentCopy,mdiDelete,mdiPlus } from '@mdi/js'
 
     const props = defineProps(['attackData']);
+    let componentActive = true;
+    let nextComboId = props.attackData.combos.reduce(
+        (maximum, combo) => Math.max(maximum, combo.id),
+        -1
+    ) + 1;
+    const allocateComboId = () => {
+        const id = nextComboId;
+        nextComboId += 1;
+        return id;
+    };
     const removeCombo = (index) => {
         props.attackData.combos.splice(index,1);
     };
     const duplicateCombo = (index) => {
-        var max = props.attackData.combos.reduce(function(a,b){
-            return a > b.id ? a : b.id;
-        },0);
-        const nextId = max+1;
+        const nextId = allocateComboId();
         const initialShowDetails = {
             action: {value:props.attackData.combos[index].showDetails.action.value},
             reaction: {value:props.attackData.combos[index].showDetails.reaction.value},
@@ -56,11 +62,8 @@
         };
         props.attackData.combos.push(newCombo);
     };
-    const addCombo = () => {
-        var max = props.attackData.combos.reduce(function(a,b){
-            return a > b.id ? a : b.id;
-        },0);
-        const nextId = max+1;
+    const addCombo = async () => {
+        const nextId = allocateComboId();
         const initialShowDetails = {
             action: {value:false},
             reaction: {value:false},
@@ -76,13 +79,16 @@
                 damage: {dice:0, value:0},
             }
         };
-        const initialScore = {
-            action: getScore(initialParams.action.score),
-            reaction: getScore(initialParams.reaction.score),
-        };
-        const initialScoreSummary = getScoreSummary(initialScore);
-        const initialDamage = getDamage(initialScore,initialParams.action.damage,initialParams.reaction.damage);
-        const initialDamageSummary = getDamageSummary(initialDamage);
+        let initialCalculation;
+        try {
+            initialCalculation = await calculationClient.calculateAttackCombo(initialParams);
+        } catch (error) {
+            console.error('Failed to add combo', error);
+            return;
+        }
+        if (!componentActive) {
+            return;
+        }
         const newCombo = {
             id: nextId,
             name: 'コンボ'+String(nextId+1),
@@ -90,17 +96,31 @@
             showDetails: initialShowDetails,
             data: {
                 params: initialParams,
-                score: initialScore,
-                scoreSummary: initialScoreSummary,
-                damage: initialDamage,
-                damageSummary: initialDamageSummary,
+                score: initialCalculation.score,
+                scoreSummary: initialCalculation.scoreSummary,
+                damage: initialCalculation.damage,
+                damageSummary: initialCalculation.damageSummary,
             },
         };
         props.attackData.combos.push(newCombo);
     };
-    watch(props.attackData.combos, () => {
-        props.attackData.totalDamage = getTotalDamage(props.attackData.combos);
-        props.attackData.totalDamageSummary = getDamageSummary(props.attackData.totalDamage);
+    let totalDamageRevision = 0;
+    onUnmounted(() => {
+        componentActive = false;
+        totalDamageRevision += 1;
+    });
+    watch(props.attackData.combos, async () => {
+        const revision = ++totalDamageRevision;
+        try {
+            const result = await calculationClient.calculateTotalDamage(props.attackData.combos);
+            if (revision !== totalDamageRevision) {
+                return;
+            }
+            props.attackData.totalDamage = result.totalDamage;
+            props.attackData.totalDamageSummary = result.totalDamageSummary;
+        } catch (error) {
+            console.error('Failed to update total damage', error);
+        }
     });
 
 </script>
