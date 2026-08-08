@@ -27,7 +27,7 @@ TRPG『ダブルクロス The 3rd Edition』のダイスロールについて、
 
 ## 開発環境
 
-Node.jsのバージョンは [`.node-version`](./.node-version) に固定しています。
+Node.jsのバージョンは [`.node-version`](./.node-version) の `22.23.2` に固定しています。`npm run check:node` は固定値、`package.json` の `engines.node`、実行中のNode.jsの整合を確認します。
 
 ```sh
 npm ci
@@ -39,6 +39,7 @@ npm run dev
 ## 品質確認
 
 ```sh
+npm run check:node
 npm run lint
 npm test
 npm run build
@@ -72,7 +73,7 @@ Cloudflare Pagesの基本設定:
 
 - Build command: `npm run build`
 - Build output directory: `dist`
-- Node.js: `.node-version` に記載されたバージョン
+- Node.js: `.node-version` に記載された `22.23.2`
 
 ## ディレクトリ構成
 

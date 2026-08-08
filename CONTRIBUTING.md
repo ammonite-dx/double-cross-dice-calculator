@@ -16,14 +16,16 @@ Double Cross Dice Calculatorへの改善提案をありがとうございます�
 
 ## 開発手順
 
-1. Node.jsのバージョンを `.node-version` に合わせます。
-2. `npm ci` で依存関係をインストールします。
-3. 事前計算生成器を変更する場合は、[uv](https://docs.astral.sh/uv/)をインストールして`uv sync --project generator --dev`を実行します。
-4. 作業用ブランチを作成します。
-5. 実装とテストを変更します。
-6. Pull Requestを作成する前に品質確認を実行します。
+1. Node.jsのバージョンを `.node-version` の `22.23.2` に合わせます。
+2. `npm run check:node` でNode.jsのバージョンを確認します。
+3. `npm ci` で依存関係をインストールします。
+4. 事前計算生成器を変更する場合は、[uv](https://docs.astral.sh/uv/)をインストールして`uv sync --project generator --dev`を実行します。
+5. 作業用ブランチを作成します。
+6. 実装とテストを変更します。
+7. Pull Requestを作成する前に品質確認を実行します。
 
 ```sh
+npm run check:node
 npm run data:check
 npm run data:verify-generator
 npm run lint
