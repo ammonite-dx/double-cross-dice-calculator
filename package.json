@@ -23,6 +23,7 @@
     "lint:markdown": "markdownlint-cli2",
     "lint:fix": "npm run lint -- --fix",
     "test": "vitest run",
+    "verify:runtime-dx": "node scripts/verify-runtime-dx.mjs",
     "test:runtime-dr:full": "node scripts/verify-runtime-dr-experiment.mjs --optimized",
     "test:runtime-dr:full:reference": "node scripts/verify-runtime-dr-experiment.mjs",
     "test:watch": "vitest"

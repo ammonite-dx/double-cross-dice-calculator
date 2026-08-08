@@ -14,6 +14,15 @@ export {
   getScoreSummary,
 } from './ScoreCalculator'
 export {
+  calculateDxDistribution,
+  DX_CRITICAL_MAX,
+  DX_CRITICAL_MIN,
+  DX_DICE_COUNT,
+  DX_DISTRIBUTION_SIZE,
+  DX_SHIHAI_MAX,
+  DX_SHIHAI_MIN,
+} from './DxCalculator'
+export {
   generateMixedDamageDistribution,
   MAX_DAMAGE_DICE,
   MAX_KAZANARI,
