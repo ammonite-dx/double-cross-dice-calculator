@@ -60,8 +60,8 @@ function attackParams() {
 
 describe('CalculationClient', () => {
   it.each([
-    ['check', ['loadDxAsset']],
-    ['attack', ['loadDxAsset', 'loadD10Asset']],
+    ['check', []],
+    ['attack', ['loadD10Asset']],
     ['backtrack', ['loadD10Asset', 'loadLivingdeadAsset']],
   ])('prepares %s route assets', async (routeName, loaders) => {
     const dependencies = createDependencies()
@@ -72,6 +72,7 @@ describe('CalculationClient', () => {
     for (const loader of loaders) {
       expect(dependencies[loader]).toHaveBeenCalled()
     }
+    expect(dependencies.loadDxAsset).not.toHaveBeenCalled()
     expect(dependencies.loadDrAsset).not.toHaveBeenCalled()
   })
 
@@ -99,6 +100,7 @@ describe('CalculationClient', () => {
     await expect(result).resolves.toMatchObject({
       scoreSummary: 'score summary',
     })
+    expect(dependencies.loadDxAsset).not.toHaveBeenCalled()
     expect(dependencies.getScore).toHaveBeenNthCalledWith(
       1,
       { ...scoreParams, shihai: 2 }
@@ -116,8 +118,7 @@ describe('CalculationClient', () => {
       damageSummary: 'damage summary',
     })
 
-    expect(dependencies.loadDxAsset).toHaveBeenCalledWith(2)
-    expect(dependencies.loadDxAsset).toHaveBeenCalledWith(1)
+    expect(dependencies.loadDxAsset).not.toHaveBeenCalled()
     expect(dependencies.loadDrAsset).not.toHaveBeenCalled()
     expect(dependencies.loadD10Asset).toHaveBeenCalledOnce()
     expect(dependencies.getScore).toHaveBeenNthCalledWith(
@@ -131,6 +132,39 @@ describe('CalculationClient', () => {
       4,
       {}
     )
+  })
+
+  it('injects and caches runtime DX distributions without loading JSON', async () => {
+    const calculateDxDistribution = vi.fn(
+      () => new Float64Array(2048)
+    )
+    const calculateScore = vi.fn((params, getDxDistribution, fix = false) => ({
+      params,
+      fix,
+      distribution: fix
+        ? undefined
+        : getDxDistribution(params.shihai, params.dice, params.critical),
+    }))
+    const dependencies = createDependencies({
+      calculateDxDistribution,
+      calculateScore,
+    })
+    const client = createCalculationClient(dependencies)
+    const params = {
+      action: { ...scoreParams, dice: 20, critical: 7, shihai: 3 },
+      reaction: { ...scoreParams, dice: 20, critical: 7, shihai: 3 },
+    }
+
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+
+    expect(calculateDxDistribution).toHaveBeenCalledOnce()
+    expect(calculateDxDistribution).toHaveBeenCalledWith({
+      dice: 20,
+      critical: 7,
+      shihai: 3,
+    })
+    expect(dependencies.loadDxAsset).not.toHaveBeenCalled()
   })
 
   it('passes calculation options to the resident runtime provider', async () => {

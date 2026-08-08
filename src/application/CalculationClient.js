@@ -1,5 +1,6 @@
 import { getFinalEncroachment } from '../data/BacktrackCalculator'
 import { calculateDamageOnDemand } from '../calculation/DamageCalculator'
+import { calculateDxDistribution } from '../calculation/DxCalculator'
 import {
   getDamageSummary,
   getTotalDamage,
@@ -7,28 +8,28 @@ import {
 import {
   getD10Distribution,
   loadD10Asset,
-  loadDxAsset,
   loadLivingdeadAsset,
 } from '../data/PrecomputedDataRepository'
 import {
-  getScore,
+  calculateScore,
   getScoreSummary,
 } from '../data/ScoreCalculator'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 
+const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
 
 const defaultDependencies = {
   calculateDamageOnDemand,
+  calculateDxDistribution,
+  calculateScore,
   getDamageSummary,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachment,
   getD10Distribution,
-  getScore,
   getScoreSummary,
   getTotalDamage,
   loadD10Asset,
-  loadDxAsset,
   loadLivingdeadAsset,
 }
 
@@ -56,20 +57,54 @@ function snapshotAttackParams(params) {
   }
 }
 
+function createRuntimeDxProvider(calculateDistribution) {
+  const cache = new Map()
+
+  return (shihai, dice, critical) => {
+    const key = [dice, critical, shihai].join(':')
+    if (cache.has(key)) {
+      const distribution = cache.get(key)
+      cache.delete(key)
+      cache.set(key, distribution)
+      return distribution
+    }
+
+    const distribution = calculateDistribution({ dice, critical, shihai })
+    cache.set(key, distribution)
+    while (cache.size > RUNTIME_DX_CACHE_SIZE) {
+      cache.delete(cache.keys().next().value)
+    }
+    return distribution
+  }
+}
+
 export function createCalculationClient(
   dependencies = defaultDependencies
 ) {
+  const scoreCalculator =
+    dependencies.calculateScore && dependencies.calculateDxDistribution
+      ? (() => {
+          const getDxDistribution = createRuntimeDxProvider(
+            dependencies.calculateDxDistribution
+          )
+          return (params, fix = false) =>
+            dependencies.calculateScore(params, getDxDistribution, fix)
+        })()
+      : dependencies.getScore
+
+  if (!scoreCalculator) {
+    throw new Error(
+      'CalculationClient requires calculateScore/calculateDxDistribution'
+    )
+  }
+
   return {
     async prepare(routeName) {
       if (routeName === 'check') {
-        await dependencies.loadDxAsset(0)
         return
       }
       if (routeName === 'attack') {
-        await Promise.all([
-          dependencies.loadDxAsset(0),
-          dependencies.loadD10Asset(),
-        ])
+        await dependencies.loadD10Asset()
         return
       }
       if (routeName === 'backtrack') {
@@ -88,14 +123,10 @@ export function createCalculationClient(
         reaction: snapshotScoreParams(params.reaction),
       }
       const difficultyRequest = { ...difficulty }
-      await Promise.all([
-        dependencies.loadDxAsset(request.action.shihai),
-        dependencies.loadDxAsset(request.reaction.shihai),
-      ])
 
       const score = {
-        action: dependencies.getScore(request.action),
-        reaction: dependencies.getScore(request.reaction),
+        action: scoreCalculator(request.action),
+        reaction: scoreCalculator(request.reaction),
       }
       return {
         score,
@@ -108,17 +139,13 @@ export function createCalculationClient(
 
     async calculateAttackCombo(params, options = {}) {
       const request = snapshotAttackParams(params)
-      await Promise.all([
-        dependencies.loadDxAsset(request.action.score.shihai),
-        dependencies.loadDxAsset(request.reaction.score.shihai),
-        request.reaction.damage.dice > 0
-          ? dependencies.loadD10Asset()
-          : Promise.resolve(),
-      ])
+      if (request.reaction.damage.dice > 0) {
+        await dependencies.loadD10Asset()
+      }
 
       const score = {
-        action: dependencies.getScore(request.action.score),
-        reaction: dependencies.getScore(
+        action: scoreCalculator(request.action.score),
+        reaction: scoreCalculator(
           request.reaction.score,
           request.reaction.mode === '《イベイジョン》'
         ),

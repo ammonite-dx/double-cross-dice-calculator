@@ -36,6 +36,23 @@ describe('calculation core', () => {
     expect(result.failureProbability).toBe(0)
   })
 
+  it('accepts the dense Float64Array returned by runtime DX calculation', () => {
+    const distribution = new Float64Array(WORKING_DISTRIBUTION_SIZE)
+    distribution[5] = 1
+    const getDistribution = vi.fn(() => distribution)
+
+    const result = calculateScore({
+      dice: 1,
+      critical: 10,
+      skill: 2,
+      yousei: 0,
+      shihai: 0,
+    }, { getDxDistribution: getDistribution })
+
+    expect(result.distribution[7]).toBe(1)
+    expect(result.failureProbability).toBe(0)
+  })
+
   it('calculates damage with injected damage-roll providers', () => {
     const damageRollDistributions = Array.from(
       { length: WORKING_DISTRIBUTION_SIZE },

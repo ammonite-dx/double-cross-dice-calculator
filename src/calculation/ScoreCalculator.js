@@ -9,6 +9,17 @@ import {
 } from '../data/Distribution'
 import { sumDistribution } from '../data/FFT'
 
+function expandDxDistribution(distribution) {
+  if (distribution instanceof Float64Array) {
+    return Array.from(distribution)
+  }
+
+  return expandSparseDistribution(
+    distribution,
+    WORKING_DISTRIBUTION_SIZE
+  )
+}
+
 export function calculateScore(
   params,
   { getDxDistribution },
@@ -28,15 +39,13 @@ export function calculateScore(
     }
   }
 
-  let diceResult = expandSparseDistribution(
-    getDxDistribution(params.shihai, params.dice, params.critical),
-    WORKING_DISTRIBUTION_SIZE
+  let diceResult = expandDxDistribution(
+    getDxDistribution(params.shihai, params.dice, params.critical)
   )
 
   if (params.dice > 0 && params.yousei > 0) {
-    const youseiResult = expandSparseDistribution(
-      getDxDistribution(0, 1, params.critical),
-      WORKING_DISTRIBUTION_SIZE
+    const youseiResult = expandDxDistribution(
+      getDxDistribution(0, 1, params.critical)
     )
 
     for (let count = 0; count < params.yousei; count += 1) {

@@ -4,6 +4,7 @@ import {
   createCalculationClient,
 } from '../src/application/CalculationClient'
 import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
+import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
 import {
@@ -14,7 +15,6 @@ import {
 import {
   getD10Distribution,
   loadD10Asset,
-  loadDxAsset,
   loadLivingdeadAsset,
   registerD10Asset,
   registerDrAsset,
@@ -22,6 +22,7 @@ import {
   registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
 import {
+  calculateScore,
   getScore,
   getScoreSummary,
 } from '../src/data/ScoreCalculator'
@@ -30,6 +31,8 @@ import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import drKazanari3 from '../public/data/schema-v2/revision-1/dr/kazanari-3.json'
 import drKazanari9 from '../public/data/schema-v2/revision-1/dr/kazanari-9.json'
 import dxShihai0 from '../public/data/schema-v2/revision-1/dx/shihai-0.json'
+import dxShihai3 from '../public/data/schema-v2/revision-1/dx/shihai-3.json'
+import dxShihai19 from '../public/data/schema-v2/revision-1/dx/shihai-19.json'
 import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
 
 registerD10Asset(d10)
@@ -37,10 +40,14 @@ registerDrAsset(drKazanari0)
 registerDrAsset(drKazanari3)
 registerDrAsset(drKazanari9)
 registerDxAsset(dxShihai0)
+registerDxAsset(dxShihai3)
+registerDxAsset(dxShihai19)
 registerLivingdeadAsset(livingdead)
 
 const calculationClient = createCalculationClient({
   calculateDamageOnDemand,
+  calculateDxDistribution,
+  calculateScore,
   getD10Distribution,
   getDamageRollDistribution: generateMixedDamageDistribution,
   getFinalEncroachment,
@@ -49,7 +56,6 @@ const calculationClient = createCalculationClient({
   getTotalDamage,
   getDamageSummary,
   loadD10Asset,
-  loadDxAsset,
   loadLivingdeadAsset,
 })
 
@@ -73,12 +79,55 @@ describe('CalculationClient integration', () => {
       reaction: getScore(params.reaction),
     }
 
-    await expect(
-      calculationClient.calculateCheck(params, difficulty)
-    ).resolves.toEqual({
-      score,
-      scoreSummary: getScoreSummary(score, difficulty),
+    const result = await calculationClient.calculateCheck(params, difficulty)
+
+    expectScoresClose(result.score, score)
+    expect(result.scoreSummary).toEqual(getScoreSummary(result.score, difficulty))
+  })
+
+  it.each([
+    {
+      dice: 99,
+      critical: 2,
+      skill: -7,
+      yousei: 0,
+      shihai: 0,
+    },
+    {
+      dice: 20,
+      critical: 11,
+      skill: 4,
+      yousei: 0,
+      shihai: 3,
+    },
+    {
+      dice: 20,
+      critical: 8,
+      skill: 5,
+      yousei: 2,
+      shihai: 0,
+    },
+    {
+      dice: 20,
+      critical: 7,
+      skill: 3,
+      yousei: 0,
+      shihai: 19,
+    },
+  ])('preserves runtime DX score output for %o', async (actionParams) => {
+    const params = {
+      action: actionParams,
+      reaction: { ...scoreParams, dice: 0 },
+    }
+    const expected = getScore(actionParams)
+    const result = await calculationClient.calculateCheck(params, {
+      opposed: false,
+      target: 10,
     })
+
+    expectDistributionsClose(result.score.action, expected)
+    expect(result.score.action.failureProbability)
+      .toBeCloseTo(expected.failureProbability, 6)
   })
 
   it.each([
@@ -110,8 +159,8 @@ describe('CalculationClient integration', () => {
       )
       const result = await calculationClient.calculateAttackCombo(params)
 
-      expect(result.score).toEqual(score)
-      expect(result.scoreSummary).toEqual(getScoreSummary(score))
+      expectScoresClose(result.score, score)
+      expect(result.scoreSummary).toEqual(getScoreSummary(result.score))
       expectDistributionsClose(result.damage, damage)
       expect(result.damageSummary).toEqual(getDamageSummary(damage))
     }
@@ -156,4 +205,13 @@ function expectDistributionsClose(actual, expected, tolerance = 2e-6) {
 
   expect(distributionDifference).toBeLessThanOrEqual(tolerance)
   expect(upperTailDifference).toBeLessThanOrEqual(tolerance)
+}
+
+function expectScoresClose(actual, expected) {
+  expectDistributionsClose(actual.action, expected.action)
+  expectDistributionsClose(actual.reaction, expected.reaction)
+  expect(actual.action.failureProbability)
+    .toBeCloseTo(expected.action.failureProbability, 6)
+  expect(actual.reaction.failureProbability)
+    .toBeCloseTo(expected.reaction.failureProbability, 6)
 }
