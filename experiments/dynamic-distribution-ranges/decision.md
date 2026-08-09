@@ -214,7 +214,7 @@ planCalculationRanges(params, policy)
 
 ```js
 {
-  operation: 'score' | 'attack' | 'backtrack',
+  operation: 'score' | 'check' | 'attack' | 'backtrack',
   score: {
     action: { dice, critical, shihai, yousei, skill },
     reaction: { dice, critical, shihai, yousei, skill },
@@ -226,7 +226,7 @@ planCalculationRanges(params, policy)
 }
 ```
 
-`score`単体では`score`自身を使い、`attack`ではaction/reactionの両側を使います。`backtrack`ではロイス数、Eロイス数、減少ダイス、減少固定値、現在侵蝕率、Dロイス種別を使います。入力の整数性、符号、相互排他はplannerの前段で検証し、計算器自身も再検証します。
+`score`単体では`score`自身を使い、`check`と`attack`ではaction/reactionの両側を使います。`check`は2つのscoreに`scoreTail`予算を均等配分し、damage planを作りません。`backtrack`ではロイス数、Eロイス数、減少ダイス、減少固定値、現在侵蝕率、Dロイス種別を使います。入力の整数性、符号、相互排他はplannerの前段で検証し、計算器自身も再検証します。
 
 `policy`は環境依存の設定を明示します。
 

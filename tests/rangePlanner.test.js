@@ -163,6 +163,25 @@ describe('production range planner', () => {
     expect(summary.meaning).toContain('multiple scores')
   })
 
+  it('plans check action and reaction scores within the shared tail budget', () => {
+    const plan = planCalculationRanges({
+      operation: 'check',
+      score: {
+        action: scoreParams({ dice: 20, critical: 2 }),
+        reaction: scoreParams({ dice: 10, critical: 7 }),
+      },
+    })
+
+    expect(plan.operation).toBe('check')
+    expect(plan.damage).toBeNull()
+    expect(plan.backtrack).toBeNull()
+    expect(plan.scores).toHaveLength(2)
+    expect(plan.scores[0].tail.requested).toBe(4e-9)
+    expect(plan.scores[1].tail.requested).toBe(4e-9)
+    expect(plan.errorBudget.scoreTail).toBe(8e-9)
+    expect(plan.errorBudget.scorePerSide).toBe(4e-9)
+  })
+
   it('distinguishes shihai and yousei tail models and rejects their combination', () => {
     const shihai = planCalculationRanges(scoreOnlyParams({
       score: scoreParams({ dice: 10, critical: 2, shihai: 1 }),

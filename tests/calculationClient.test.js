@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  CalculationRangeError,
   createCalculationClient,
 } from '../src/application/CalculationClient'
 import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
@@ -59,6 +60,85 @@ function attackParams() {
 }
 
 describe('CalculationClient', () => {
+  it('exposes planner methods with snapshotted route mappings', () => {
+    const plan = { accepted: true }
+    const planCalculationRanges = vi.fn(() => plan)
+    const dependencies = createDependencies({ planCalculationRanges })
+    const client = createCalculationClient(dependencies)
+    const params = attackParams()
+    const policy = { limits: { hard: { estimatedTimeMs: 1 } } }
+
+    expect(client.planCheck(
+      {
+        action: { ...scoreParams },
+        reaction: { ...scoreParams, skill: 2 },
+      },
+      { opposed: true, target: 9 },
+      policy
+    )).toBe(plan)
+    expect(client.planAttackCombo(params, policy)).toBe(plan)
+    expect(client.planBacktrack({ dlois: '屍人', lois: 2 }, policy)).toBe(plan)
+
+    expect(planCalculationRanges).toHaveBeenNthCalledWith(
+      1,
+      {
+        operation: 'check',
+        score: {
+          action: { ...scoreParams },
+          reaction: { ...scoreParams, skill: 2 },
+        },
+      },
+      policy
+    )
+    expect(planCalculationRanges).toHaveBeenNthCalledWith(
+      2,
+      {
+        operation: 'attack',
+        score: {
+          action: { ...params.action.score },
+          reaction: {
+            ...params.reaction.score,
+            dice: 0,
+            critical: 11,
+            shihai: 0,
+            yousei: 0,
+          },
+        },
+        attack: { ...params.action.damage },
+        defence: { ...params.reaction.damage },
+      },
+      policy
+    )
+    expect(planCalculationRanges).toHaveBeenNthCalledWith(
+      3,
+      {
+        operation: 'backtrack',
+        backtrack: { dlois: '屍人', lois: 2 },
+      },
+      policy
+    )
+  })
+
+  it('uses a plan snapshot when the source input changes', () => {
+    const planCalculationRanges = vi.fn(() => ({ accepted: true }))
+    const dependencies = createDependencies({ planCalculationRanges })
+    const client = createCalculationClient(dependencies)
+    const params = attackParams()
+
+    client.planAttackCombo(params)
+    params.action.score.dice = 99
+    params.action.damage.value = 999
+    params.reaction.damage.dice = 99
+
+    expect(planCalculationRanges.mock.calls[0][0]).toMatchObject({
+      score: {
+        action: { dice: 1 },
+      },
+      attack: { value: 3 },
+      defence: { dice: 2 },
+    })
+  })
+
   it.each([
     ['check', []],
     ['attack', ['loadD10Asset']],
@@ -85,6 +165,7 @@ describe('CalculationClient', () => {
       loadDxAsset: vi.fn(() => loading),
     })
     const client = createCalculationClient(dependencies)
+    const onRangePlan = vi.fn()
     const params = {
       action: { ...scoreParams, shihai: 2 },
       reaction: { ...scoreParams, shihai: 3 },
@@ -93,7 +174,7 @@ describe('CalculationClient', () => {
     const result = client.calculateCheck(params, {
       opposed: true,
       target: 0,
-    })
+    }, { onRangePlan })
     params.action.shihai = 9
     finishLoading()
 
@@ -105,6 +186,8 @@ describe('CalculationClient', () => {
       1,
       { ...scoreParams, shihai: 2 }
     )
+    expect(onRangePlan).toHaveBeenCalledTimes(1)
+    expect(onRangePlan.mock.calls[0][0].operation).toBe('check')
   })
 
   it('calculates an attack combo atomically', async () => {
@@ -131,6 +214,154 @@ describe('CalculationClient', () => {
       new Float64Array([1, 0]),
       4,
       {}
+    )
+  })
+
+  it('runs the range preflight before calculation and publishes one plan', async () => {
+    const plan = { accepted: true, warnings: ['warning'] }
+    const planCalculationRanges = vi.fn(() => plan)
+    const onRangePlan = vi.fn()
+    const rangePolicy = { limits: { hard: { estimatedTimeMs: 1 } } }
+    const options = {
+      signal: new AbortController().signal,
+      requestId: 'combo-preflight',
+      rangePolicy,
+      onRangePlan,
+    }
+    const optionsSnapshot = { ...options }
+    const dependencies = createDependencies({ planCalculationRanges })
+    const client = createCalculationClient(dependencies)
+
+    await client.calculateAttackCombo(attackParams(), options)
+
+    expect(planCalculationRanges).toHaveBeenCalledOnce()
+    expect(onRangePlan).toHaveBeenCalledTimes(1)
+    expect(onRangePlan).toHaveBeenCalledWith(plan)
+    expect(dependencies.calculateDamageOnDemand.mock.calls[0][4]).toEqual({
+      signal: options.signal,
+      requestId: 'combo-preflight',
+    })
+    expect(options).toEqual(optionsSnapshot)
+    expect(options.rangePolicy).toBe(rangePolicy)
+    expect(options.onRangePlan).toBe(onRangePlan)
+  })
+
+  it('rejects a check before score calculation dependencies are called', async () => {
+    const plan = {
+      accepted: false,
+      rejectionReasons: ['incompatible-input'],
+      warnings: [{ code: 'incompatible-input', severity: 'reject' }],
+    }
+    const calculateScore = vi.fn()
+    const calculateDxDistribution = vi.fn()
+    const planCalculationRanges = vi.fn(() => plan)
+    const dependencies = createDependencies({
+      calculateDxDistribution,
+      calculateScore,
+      planCalculationRanges,
+    })
+    const client = createCalculationClient(dependencies)
+    const onRangePlan = vi.fn()
+
+    await expect(client.calculateCheck(
+      {
+        action: { ...scoreParams },
+        reaction: { ...scoreParams },
+      },
+      { opposed: true, target: 0 },
+      { onRangePlan }
+    )).rejects.toSatisfy((error) => {
+      expect(error).toBeInstanceOf(CalculationRangeError)
+      expect(error.plan).toBe(plan)
+      expect(error.rejectionReasons).toBe(plan.rejectionReasons)
+      return true
+    })
+
+    expect(onRangePlan).toHaveBeenCalledTimes(1)
+    expect(onRangePlan).toHaveBeenCalledWith(plan)
+    expect(dependencies.getScore).not.toHaveBeenCalled()
+    expect(calculateScore).not.toHaveBeenCalled()
+    expect(calculateDxDistribution).not.toHaveBeenCalled()
+    expect(dependencies.getScoreSummary).not.toHaveBeenCalled()
+  })
+
+  it('throws CalculationRangeError before loading or calculating on a hard reject', async () => {
+    const plan = {
+      accepted: false,
+      rejectionReasons: ['estimated-time'],
+      warnings: [{ code: 'estimated-time', severity: 'reject' }],
+    }
+    const dependencies = createDependencies({
+      planCalculationRanges: vi.fn(() => plan),
+    })
+    const client = createCalculationClient(dependencies)
+    const onRangePlan = vi.fn()
+
+    await expect(client.calculateAttackCombo(attackParams(), {
+      onRangePlan,
+    })).rejects.toSatisfy((error) => {
+      expect(error).toBeInstanceOf(CalculationRangeError)
+      expect(error.plan).toBe(plan)
+      expect(error.rejectionReasons).toBe(plan.rejectionReasons)
+      return true
+    })
+    expect(onRangePlan).toHaveBeenCalledTimes(1)
+    expect(onRangePlan).toHaveBeenCalledWith(plan)
+    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
+    expect(dependencies.getScore).not.toHaveBeenCalled()
+    expect(dependencies.calculateDamageOnDemand).not.toHaveBeenCalled()
+  })
+
+  it('rejects backtrack before loading assets or calculating the result', async () => {
+    const plan = {
+      accepted: false,
+      rejectionReasons: ['estimated-memory'],
+      warnings: [{ code: 'estimated-memory', severity: 'reject' }],
+    }
+    const dependencies = createDependencies({
+      planCalculationRanges: vi.fn(() => plan),
+    })
+    const client = createCalculationClient(dependencies)
+    const onRangePlan = vi.fn()
+
+    await expect(client.calculateBacktrack({ dlois: '屍人' }, {
+      onRangePlan,
+    })).rejects.toSatisfy((error) => {
+      expect(error).toBeInstanceOf(CalculationRangeError)
+      expect(error.plan).toBe(plan)
+      expect(error.rejectionReasons).toBe(plan.rejectionReasons)
+      return true
+    })
+
+    expect(onRangePlan).toHaveBeenCalledTimes(1)
+    expect(onRangePlan).toHaveBeenCalledWith(plan)
+    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
+    expect(dependencies.loadLivingdeadAsset).not.toHaveBeenCalled()
+    expect(dependencies.getFinalEncroachment).not.toHaveBeenCalled()
+  })
+
+  it('does not add DX planning cost for a fixed-value evasion reaction', () => {
+    const client = createCalculationClient(createDependencies())
+    const params = attackParams()
+    params.reaction.score = {
+      ...params.reaction.score,
+      dice: 99,
+      critical: 2,
+      shihai: 19,
+      yousei: 9,
+    }
+
+    const plan = client.planAttackCombo(params)
+
+    expect(plan.scores[1].params).toEqual({
+      dice: 0,
+      critical: 11,
+      skill: scoreParams.skill,
+      yousei: 0,
+      shihai: 0,
+    })
+    expect(plan.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'incompatible-input' })
     )
   })
 
@@ -243,11 +474,14 @@ describe('CalculationClient', () => {
   ])('loads the correct backtrack data for %s', async (dlois, loader) => {
     const dependencies = createDependencies()
     const client = createCalculationClient(dependencies)
+    const onRangePlan = vi.fn()
     const params = { dlois }
 
-    await expect(client.calculateBacktrack(params))
+    await expect(client.calculateBacktrack(params, { onRangePlan }))
       .resolves.toBe('backtrack')
 
+    expect(onRangePlan).toHaveBeenCalledTimes(1)
+    expect(onRangePlan.mock.calls[0][0].operation).toBe('backtrack')
     expect(dependencies[loader]).toHaveBeenCalledOnce()
     expect(dependencies.getFinalEncroachment).toHaveBeenCalledWith(params)
   })

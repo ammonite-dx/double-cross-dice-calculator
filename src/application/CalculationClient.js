@@ -14,6 +14,7 @@ import {
   calculateScore,
   getScoreSummary,
 } from '../data/ScoreCalculator'
+import { planCalculationRanges } from '../calculation/RangePlanner'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 
 const RUNTIME_DX_CACHE_SIZE = 32
@@ -31,6 +32,23 @@ const defaultDependencies = {
   getTotalDamage,
   loadD10Asset,
   loadLivingdeadAsset,
+  planCalculationRanges,
+}
+
+const EVASION_MODE = '《イベイジョン》'
+
+export class CalculationRangeError extends Error {
+  constructor(plan) {
+    const rejectionReasons = plan?.rejectionReasons ?? []
+    super(
+      rejectionReasons.length > 0
+        ? `Calculation range rejected: ${rejectionReasons.join(', ')}`
+        : 'Calculation range rejected'
+    )
+    this.name = 'CalculationRangeError'
+    this.plan = plan
+    this.rejectionReasons = rejectionReasons
+  }
 }
 
 function snapshotScoreParams(params) {
@@ -57,6 +75,82 @@ function snapshotAttackParams(params) {
   }
 }
 
+function snapshotBacktrackParams(params) {
+  return { ...params }
+}
+
+function fixedReactionScoreForPlanning(request) {
+  if (request.mode !== EVASION_MODE) {
+    return request.score
+  }
+  return {
+    ...request.score,
+    dice: 0,
+    critical: 11,
+    shihai: 0,
+    yousei: 0,
+  }
+}
+
+function createCheckRangeParams(request) {
+  return {
+    operation: 'check',
+    score: {
+      action: request.action,
+      reaction: request.reaction,
+    },
+  }
+}
+
+function createAttackRangeParams(request) {
+  return {
+    operation: 'attack',
+    score: {
+      action: request.action.score,
+      reaction: fixedReactionScoreForPlanning(request.reaction),
+    },
+    attack: { ...request.action.damage },
+    defence: { ...request.reaction.damage },
+  }
+}
+
+function createBacktrackRangeParams(request) {
+  return {
+    operation: 'backtrack',
+    backtrack: { ...request },
+  }
+}
+
+function getRuntimeOptions(options) {
+  if (
+    !('rangePolicy' in options) &&
+    !('onRangePlan' in options)
+  ) {
+    return options
+  }
+
+  const runtimeOptions = { ...options }
+  delete runtimeOptions.rangePolicy
+  delete runtimeOptions.onRangePlan
+  return runtimeOptions
+}
+
+function runRangePreflight(
+  planner,
+  plannerParams,
+  rangePolicy,
+  onRangePlan
+) {
+  const plan = planner(plannerParams, rangePolicy)
+  if (typeof onRangePlan === 'function') {
+    onRangePlan(plan)
+  }
+  if (!plan.accepted) {
+    throw new CalculationRangeError(plan)
+  }
+  return plan
+}
+
 function createRuntimeDxProvider(calculateDistribution) {
   const cache = new Map()
 
@@ -81,6 +175,7 @@ function createRuntimeDxProvider(calculateDistribution) {
 export function createCalculationClient(
   dependencies = defaultDependencies
 ) {
+  const planner = dependencies.planCalculationRanges ?? planCalculationRanges
   const scoreCalculator =
     dependencies.calculateScore && dependencies.calculateDxDistribution
       ? (() => {
@@ -99,6 +194,24 @@ export function createCalculationClient(
   }
 
   return {
+    planCheck(params, _difficulty, policy = {}) {
+      const request = {
+        action: snapshotScoreParams(params.action),
+        reaction: snapshotScoreParams(params.reaction),
+      }
+      return planner(createCheckRangeParams(request), policy)
+    },
+
+    planAttackCombo(params, policy = {}) {
+      const request = snapshotAttackParams(params)
+      return planner(createAttackRangeParams(request), policy)
+    },
+
+    planBacktrack(params, policy = {}) {
+      const request = snapshotBacktrackParams(params)
+      return planner(createBacktrackRangeParams(request), policy)
+    },
+
     async prepare(routeName) {
       if (routeName === 'check') {
         return
@@ -117,12 +230,18 @@ export function createCalculationClient(
       throw new Error(`Unknown calculation route: ${routeName}`)
     },
 
-    async calculateCheck(params, difficulty) {
+    async calculateCheck(params, difficulty, options = {}) {
       const request = {
         action: snapshotScoreParams(params.action),
         reaction: snapshotScoreParams(params.reaction),
       }
       const difficultyRequest = { ...difficulty }
+      runRangePreflight(
+        planner,
+        createCheckRangeParams(request),
+        options.rangePolicy,
+        options.onRangePlan
+      )
 
       const score = {
         action: scoreCalculator(request.action),
@@ -139,6 +258,12 @@ export function createCalculationClient(
 
     async calculateAttackCombo(params, options = {}) {
       const request = snapshotAttackParams(params)
+      runRangePreflight(
+        planner,
+        createAttackRangeParams(request),
+        options.rangePolicy,
+        options.onRangePlan
+      )
       if (request.reaction.damage.dice > 0) {
         await dependencies.loadD10Asset()
       }
@@ -147,7 +272,7 @@ export function createCalculationClient(
         action: scoreCalculator(request.action.score),
         reaction: scoreCalculator(
           request.reaction.score,
-          request.reaction.mode === '《イベイジョン》'
+          request.reaction.mode === EVASION_MODE
         ),
       }
       const damage = await dependencies.calculateDamageOnDemand(
@@ -159,7 +284,7 @@ export function createCalculationClient(
             dependencies.getDamageRollDistribution,
           getD10Distribution: dependencies.getD10Distribution,
         },
-        options
+        getRuntimeOptions(options)
       )
 
       return {
@@ -178,8 +303,14 @@ export function createCalculationClient(
       }
     },
 
-    async calculateBacktrack(params) {
-      const request = { ...params }
+    async calculateBacktrack(params, options = {}) {
+      const request = snapshotBacktrackParams(params)
+      runRangePreflight(
+        planner,
+        createBacktrackRangeParams(request),
+        options.rangePolicy,
+        options.onRangePlan
+      )
       if (request.dlois === '屍人') {
         await dependencies.loadLivingdeadAsset()
       } else {

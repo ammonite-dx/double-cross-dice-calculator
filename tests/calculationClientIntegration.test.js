@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CalculationRangeError,
   createCalculationClient,
 } from '../src/application/CalculationClient'
 import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
@@ -68,6 +69,47 @@ const scoreParams = {
 }
 
 describe('CalculationClient integration', () => {
+  it('accepts representative current UI upper bounds with the default policy', () => {
+    const checkPlan = calculationClient.planCheck({
+      action: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
+      reaction: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
+    }, { opposed: true, target: 0 })
+    const attackPlan = calculationClient.planAttackCombo({
+      action: {
+        score: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
+        damage: { dice: 99, value: 999, kazanari: 9 },
+      },
+      reaction: {
+        mode: 'ドッジ',
+        score: { dice: 99, critical: 2, skill: 0, yousei: 0, shihai: 19 },
+        damage: { dice: 99, value: -999 },
+      },
+    })
+    const backtrackPlan = calculationClient.planBacktrack({
+      encroachment: 100,
+      lois: 7,
+      elois: 99,
+      dice: 99,
+      value: 999,
+      dlois: 'なし',
+    })
+
+    expect(checkPlan.accepted).toBe(true)
+    expect(attackPlan.accepted).toBe(true)
+    expect(backtrackPlan.accepted).toBe(true)
+  })
+
+  it('rejects unsupported score combinations before calculation starts', async () => {
+    const params = {
+      action: { ...scoreParams, shihai: 1, yousei: 1 },
+      reaction: { ...scoreParams },
+    }
+
+    await expect(
+      calculationClient.calculateCheck(params, { opposed: true, target: 0 })
+    ).rejects.toBeInstanceOf(CalculationRangeError)
+  })
+
   it('matches the existing check calculation', async () => {
     const params = {
       action: { ...scoreParams },

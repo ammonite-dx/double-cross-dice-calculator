@@ -89,6 +89,22 @@ test('shihai and yousei are rejected together in compatibility mode', () => {
   )
 })
 
+test('check plans two scores and no damage range', () => {
+  const plan = planCalculationRanges({
+    operation: 'check',
+    score: {
+      action: scoreParams({ dice: 20, critical: 2 }),
+      reaction: scoreParams({ dice: 10, critical: 7 }),
+    },
+  })
+
+  assert.equal(plan.operation, 'check')
+  assert.equal(plan.damage, null)
+  assert.equal(plan.scores.length, 2)
+  assert.equal(plan.scores[0].tail.requested, 4e-9)
+  assert.equal(plan.scores[1].tail.requested, 4e-9)
+})
+
 test('exact-yousei handles ten boundaries and the stress cutoff', () => {
   const oneUse = { dice: 1, critical: 11, shihai: 0, yousei: 1 }
   assert.equal(scoreTailBound(10, oneUse), 1)

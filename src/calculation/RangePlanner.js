@@ -1,7 +1,7 @@
 const DEFAULT_ERROR_BUDGET = 1e-8
 
 /**
- * @typedef {'score' | 'attack' | 'backtrack'} PlannerOperation
+ * @typedef {'score' | 'check' | 'attack' | 'backtrack'} PlannerOperation
  * @typedef {'published-bucket' | 'full-tail'} ScorePropagation
  * @typedef {
  *   'exact-max' |
@@ -1289,8 +1289,10 @@ export function planCalculationRanges(params, policy = {}) {
   object(params, 'params')
 
   const operation = params.operation ?? 'attack'
-  if (!['score', 'attack', 'backtrack'].includes(operation)) {
-    throw new RangeError('operation must be score, attack, or backtrack')
+  if (!['score', 'check', 'attack', 'backtrack'].includes(operation)) {
+    throw new RangeError(
+      'operation must be score, check, attack, or backtrack'
+    )
   }
   const display = normalizeDisplay(params.display, effectivePolicy)
   const comboCount = params.comboCount ?? 1

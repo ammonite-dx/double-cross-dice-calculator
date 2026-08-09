@@ -827,8 +827,10 @@ export function planCalculationRanges(params, policy = {}) {
   }
 
   const operation = params.operation ?? 'attack'
-  if (!['score', 'attack', 'backtrack'].includes(operation)) {
-    throw new RangeError('operation must be score, attack, or backtrack')
+  if (!['score', 'check', 'attack', 'backtrack'].includes(operation)) {
+    throw new RangeError(
+      'operation must be score, check, attack, or backtrack'
+    )
   }
   const display = normalizeDisplay(params.display, effectivePolicy)
   let scores = []
@@ -840,7 +842,10 @@ export function planCalculationRanges(params, policy = {}) {
   } else {
     const scoreParams = operation === 'score'
       ? [params.score ?? params]
-      : [params.score?.action, params.score?.reaction]
+      : [
+          params.score?.action ?? params.action,
+          params.score?.reaction ?? params.reaction,
+        ]
 
     if (scoreParams.some((value) => !value)) {
       throw new TypeError('score parameters are required')
@@ -851,9 +856,8 @@ export function planCalculationRanges(params, policy = {}) {
       planScore(score, display, effectivePolicy, tailBudget)
     )
 
-    damage = operation === 'score'
-      ? null
-      : planDamage(
+    damage = operation === 'attack'
+      ? planDamage(
           params,
           scores[0],
           scores[1],
@@ -863,6 +867,7 @@ export function planCalculationRanges(params, policy = {}) {
             ? scores[0].outputMax
             : effectivePolicy.calculationMax + 1,
         )
+      : null
   }
   const estimates = backtrack
     ? {

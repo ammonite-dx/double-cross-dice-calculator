@@ -217,7 +217,7 @@ $$
 | 単発・合計ダメージ | `src/data/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
 | バックトラック | `src/data/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
 | アセット検証とキャッシュ | `src/data/PrecomputedDataRepository.js` | `tests/precomputedDataRepository.test.js` |
-| 動的範囲の計画（calculator未接続） | `src/calculation/RangePlanner.js` | `tests/rangePlanner.test.js` |
+| 動的範囲の計画とCalculationClient preflight（calculator配列未接続） | `src/calculation/RangePlanner.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
 
 独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は回帰の検出に使用しますが、ルール上の正しさを保証する期待値には使用しません。
 
@@ -231,9 +231,9 @@ $$
 - 新しい分布を合成する場合は、確率総和、非負性、到達範囲、上側確率の単調性を検証する。
 - 性能に影響する場合は、同一環境のベンチマーク結果を変更前後で比較する。
 
-## 11. 動的範囲planner（calculator未接続）
+## 11. 動的範囲plannerとCalculationClient preflight
 
-`src/calculation/RangePlanner.js`に、score、attack、backtrackの入力からDXの作業範囲、DRの有限support、FFT長、推定時間・メモリ、warning/rejectを計画するcore APIを追加しました。DXは`TailCertificate`、DRとバックトラックは有限supportとして扱い、`overflowInfo`では`dx-tail`、`finite-support`、`display-bucket`、`asset`を区別します。`published-bucket`を既定値にしており、`full-tail`は計画値を返せますが、本番のcalculator、配列確保、UI、入力上限、JSON経路にはまだ接続していません。
+`src/calculation/RangePlanner.js`に、score、check、attack、backtrackの入力からDXの作業範囲、DRの有限support、FFT長、推定時間・メモリ、warning/rejectを計画するcore APIを追加しました。checkはactionとreactionの2つのscoreに`scoreTail`予算を均等配分し、damage planは作りません。DXは`TailCertificate`、DRとバックトラックは有限supportとして扱い、`overflowInfo`では`dx-tail`、`finite-support`、`display-bucket`、`asset`を区別します。`published-bucket`を既定値にしており、`full-tail`は計画値を返せます。
 
 DXの尾部certificateは、`shihai=0`かつ`yousei=0`では最大値のCDFから得る`exact-max`、`shihai=0`かつ`yousei>0`では妖精の手の反復を厳密に分解する`exact-yousei`です。1ダイスを`Z=10L+R`（`p=(11-critical)/10`、`L`は幾何分布、`R`は`1..critical-1`）と分けると、通常の最大値の`M`と追加ダイスの負の二項和`S_y`によって、`A_y=10(y+M+S_y)+R`になります。plannerは`P(M>m)`を`expm1`で、負の二項PMFを対数再帰で評価し、`P(A_y>x)`を直接求めます。このため、有限配列の末尾バケットやnear-oneなCDF差に依存せず、cutoffを二分探索できます。`critical=11`は`p=0`の退化ケース、`dice=0`は`yousei`にかかわらずtail 0です。
 
@@ -241,4 +241,8 @@ DXの尾部certificateは、`shihai=0`かつ`yousei=0`では最大値のCDFか�
 
 certificateの確率clampでは、`NaN`をtail 0へ変換せず計算失敗として例外にし、`+Infinity`と`-Infinity`はそれぞれ確率`1`と`0`の明示的な端点として扱います。`scoreTailBound`の入口では、dice 0を含むすべての経路で`critical`がsafe integerの2～11であることを検証します。
 
-この段階で現行の公開分布1024、作業分布2048、DR FFT4096と計算結果の意味は不変です。次の統合段階では、plannerの計画範囲をcalculatorへ渡す前に、尾部certificateとfinite supportの境界、負の固定値差、表示overflow、hard reject時のキャンセルを接続テストで固定します。
+`CalculationClient`はdefault dependencyとして`planCalculationRanges`を持ち、`planCheck(params, difficulty?, policy?)`、`planAttackCombo(params, policy?)`、`planBacktrack(params, policy?)`からsnapshot済み入力の計画を直接取得できます。`calculateCheck(params, difficulty, options)`、`calculateAttackCombo(params, options)`、`calculateBacktrack(params, options)`は計算前に同じ計画を生成し、`options.rangePolicy`を渡し、`options.onRangePlan`があれば計画直後に1回だけ呼び出します。`accepted`が`false`の場合は`CalculationRangeError`を`plan`と`rejectionReasons`付きでthrowし、アセット読込、DX計算、DR Worker起動、結果生成を開始しません。
+
+preflightの計画やwarningは公開planメソッドまたはcallbackから取得し、既存のcheck/attack結果に`rangePlan`を追加せず、backtrackを含む既存の戻り値形状を維持します。attackでは`action.score`と`reaction.score`をscore planへ、`action.damage`と`reaction.damage`をattack/defence planへ写像します。《イベイジョン》のreaction scoreは実計算が固定値であるため、planning時だけdice 0、critical 11、shihai 0、yousei 0、skill維持へ正規化します。`rangePolicy`と`onRangePlan`はruntime damage optionsから除外し、`signal`や`requestId`など既存optionsはそのまま渡します。
+
+この段階で現行の公開分布1024、作業分布2048、DR FFT4096と計算結果の意味は不変です。preflightはhard rejectと計画通知までを担当し、calculatorの可変配列長、FFT長への接続、UI表示、入力上限、JSON経路の変更は次工程に残しています。
