@@ -27,8 +27,13 @@ export {
 } from './DxCalculator'
 export {
   generateMixedDamageDistribution,
+  getRuntimeDamageRollRawSupportMax,
   MAX_DAMAGE_DICE,
   MAX_KAZANARI,
+  normalizeRuntimeDamageRollOptions,
+  RUNTIME_DAMAGE_MAX_FFT_SIZE,
+  RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
+  RUNTIME_DAMAGE_MIN_FFT_SIZE,
   RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_FFT_SIZE,
   RUNTIME_DAMAGE_MAX_DAMAGE_DICE,

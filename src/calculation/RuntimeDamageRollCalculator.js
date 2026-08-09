@@ -1,14 +1,18 @@
 import { transform } from './RuntimeDamageRollFFT'
 import {
   MAX_KAZANARI,
-  RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
-  RUNTIME_DAMAGE_FFT_SIZE,
+  normalizeRuntimeDamageRollOptions,
   validateRuntimeDamageRollInputs,
 } from './RuntimeDamageRollLimits'
 
 export {
   MAX_DAMAGE_DICE,
   MAX_KAZANARI,
+  getRuntimeDamageRollRawSupportMax,
+  normalizeRuntimeDamageRollOptions,
+  RUNTIME_DAMAGE_MAX_FFT_SIZE,
+  RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
+  RUNTIME_DAMAGE_MIN_FFT_SIZE,
   RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_FFT_SIZE,
   RUNTIME_DAMAGE_MAX_DAMAGE_DICE,
@@ -16,6 +20,9 @@ export {
   validateRuntimeDamageRollInputs,
 } from './RuntimeDamageRollLimits'
 
+// The inverse FFT leaves round-off noise around 1e-15 in the current full
+// enumeration/reference cases. Keep the existing 1e-12 cleanup threshold:
+// it removes that noise while remaining far below any material probability.
 const NUMERICAL_EPSILON = 1e-12
 
 const binomialTable = (() => {
@@ -122,8 +129,14 @@ function createScratch() {
   }
 }
 
-function evaluateSpectrumAt(weights, kazanari, frequency, scratch) {
-  const angle = -2 * Math.PI * frequency / RUNTIME_DAMAGE_FFT_SIZE
+function evaluateSpectrumAt(
+  weights,
+  kazanari,
+  frequency,
+  fftLength,
+  scratch
+) {
+  const angle = -2 * Math.PI * frequency / fftLength
   const rootReal = Math.cos(angle)
   const rootImaginary = Math.sin(angle)
   const {
@@ -289,29 +302,98 @@ function evaluateSpectrumAt(weights, kazanari, frequency, scratch) {
   return [resultReal, resultImaginary]
 }
 
-function spectrumToDistribution(real, imaginary) {
-  transform(real, imaginary, true)
-  const distribution = new Float64Array(
-    RUNTIME_DAMAGE_DISTRIBUTION_SIZE
-  )
-
-  for (
-    let value = 0;
-    value < RUNTIME_DAMAGE_DISTRIBUTION_SIZE - 1;
-    value += 1
-  ) {
-    const probability = real[value]
-    distribution[value] =
-      Math.abs(probability) < NUMERICAL_EPSILON ? 0 : probability
+function normalizeInverseProbability(probability) {
+  if (!Number.isFinite(probability)) {
+    throw new RangeError('inverse FFT produced a non-finite probability')
   }
-  for (
-    let value = RUNTIME_DAMAGE_DISTRIBUTION_SIZE - 1;
-    value < RUNTIME_DAMAGE_FFT_SIZE;
-    value += 1
+  if (Math.abs(probability) <= NUMERICAL_EPSILON) {
+    return 0
+  }
+  if (probability < 0) {
+    throw new RangeError(
+      'inverse FFT produced a materially negative probability'
+    )
+  }
+  return probability
+}
+
+function spectrumToDistribution(
+  real,
+  imaginary,
+  distributionLength,
+  actualSupportMax,
+  expectedTotal
+) {
+  transform(real, imaginary, true)
+  const distribution = new Float64Array(distributionLength)
+
+  for (let value = 0; value < real.length; value += 1) {
+    if (!Number.isFinite(imaginary[value])) {
+      throw new RangeError('inverse FFT produced a non-finite value')
+    }
+    if (value > actualSupportMax) {
+      if (!Number.isFinite(real[value])) {
+        throw new RangeError('inverse FFT produced a non-finite probability')
+      }
+      if (Math.abs(real[value]) > NUMERICAL_EPSILON) {
+        throw new RangeError(
+          'inverse FFT produced material probability outside finite support'
+        )
+      }
+      continue
+    }
+    const probability = normalizeInverseProbability(real[value])
+    const outputValue = Math.min(value, distributionLength - 1)
+    distribution[outputValue] += probability
+  }
+
+  let total = 0
+  let correctionIndex = 0
+  for (let value = 0; value < distribution.length; value += 1) {
+    const probability = distribution[value]
+    if (!Number.isFinite(probability)) {
+      throw new RangeError('distribution contains a non-finite probability')
+    }
+    if (probability < -NUMERICAL_EPSILON) {
+      throw new RangeError('distribution contains a materially negative probability')
+    }
+    if (probability < 0) {
+      distribution[value] = 0
+    }
+    total += distribution[value]
+    if (distribution[value] > distribution[correctionIndex]) {
+      correctionIndex = value
+    }
+  }
+
+  if (!Number.isFinite(total)) {
+    throw new RangeError('distribution total must be finite')
+  }
+  const totalDifference = expectedTotal - total
+  const totalTolerance = 1e-8 * Math.max(1, expectedTotal)
+  if (Math.abs(totalDifference) > totalTolerance) {
+    throw new RangeError('distribution total does not match weight total')
+  }
+  if (totalDifference !== 0) {
+    const corrected = distribution[correctionIndex] + totalDifference
+    if (corrected < -NUMERICAL_EPSILON || !Number.isFinite(corrected)) {
+      throw new RangeError('distribution total correction produced an invalid probability')
+    }
+    distribution[correctionIndex] = corrected < 0 ? 0 : corrected
+  }
+
+  let correctedTotal = 0
+  for (const probability of distribution) {
+    if (!Number.isFinite(probability) || probability < -NUMERICAL_EPSILON) {
+      throw new RangeError('distribution failed numerical validation')
+    }
+    correctedTotal += probability
+  }
+  if (
+    !Number.isFinite(correctedTotal) ||
+    Math.abs(correctedTotal - expectedTotal) > totalTolerance
   ) {
-    const probability = real[value]
-    distribution[RUNTIME_DAMAGE_DISTRIBUTION_SIZE - 1] +=
-      Math.abs(probability) < NUMERICAL_EPSILON ? 0 : probability
+    throw new RangeError('distribution total failed numerical validation')
   }
 
   return distribution
@@ -319,30 +401,46 @@ function spectrumToDistribution(real, imaginary) {
 
 export function generateMixedDamageDistribution(
   weights,
-  kazanari
+  kazanari,
+  options
 ) {
-  validateRuntimeDamageRollInputs(weights, kazanari)
+  const {
+    rawSupportMax: actualSupportMax,
+    total,
+  } = validateRuntimeDamageRollInputs(weights, kazanari)
+  const normalizedOptions = normalizeRuntimeDamageRollOptions(
+    options,
+    actualSupportMax
+  )
+  const { fftLength, distributionLength } = normalizedOptions
 
-  const real = new Float64Array(RUNTIME_DAMAGE_FFT_SIZE)
-  const imaginary = new Float64Array(RUNTIME_DAMAGE_FFT_SIZE)
+  const real = new Float64Array(fftLength)
+  const imaginary = new Float64Array(fftLength)
   const scratch = createScratch()
-  const halfSize = RUNTIME_DAMAGE_FFT_SIZE / 2
+  const halfSize = fftLength / 2
 
   for (let frequency = 0; frequency <= halfSize; frequency += 1) {
     const [valueReal, valueImaginary] = evaluateSpectrumAt(
       weights,
       kazanari,
       frequency,
+      fftLength,
       scratch
     )
     real[frequency] = valueReal
     imaginary[frequency] = valueImaginary
 
     if (frequency > 0 && frequency < halfSize) {
-      real[RUNTIME_DAMAGE_FFT_SIZE - frequency] = valueReal
-      imaginary[RUNTIME_DAMAGE_FFT_SIZE - frequency] = -valueImaginary
+      real[fftLength - frequency] = valueReal
+      imaginary[fftLength - frequency] = -valueImaginary
     }
   }
 
-  return spectrumToDistribution(real, imaginary)
+  return spectrumToDistribution(
+    real,
+    imaginary,
+    distributionLength,
+    actualSupportMax,
+    total
+  )
 }

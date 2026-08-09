@@ -11,11 +11,11 @@
 3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
 4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
-6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、既存戻り値維持まで接続済み。DR/Damage、防御畳み込み、total damage、バックトラック配列、UI表示、入力上限、JSON経路はこの段階の対象外として追加検証を続ける
+6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、既存戻り値維持まで接続済み。DRの可変options単体とWorker経路は第1単位として完了したが、DamageCalculator、防御畳み込み、total damage、CalculationClientからのDamageRangePlan接続、バックトラック配列、UI表示、入力上限、JSON経路はこの段階の対象外として追加検証を続ける
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
 8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
-第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。DR/Damage、防御畳み込み、total damage、バックトラック配列、UI、入力上限、JSON経路は未接続であり、これらへ範囲契約を広げる作業は残っています。
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは第1単位で`fftLength`、`distributionLength`、`rawSupportMax`を受け取れるようになりましたが、DamageCalculator、防御畳み込み、total damage、CalculationClientからのDamageRangePlan接続、バックトラック配列、UI、入力上限、JSON経路は未接続であり、これらへ範囲契約を広げる作業は残っています。
 
 第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
 
@@ -147,7 +147,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 ## `dr`と`kazanari`をブラウザ内でオンデマンド計算する
 
-- 状態: 本番移植と実ブラウザ検証を完了、本番配信からの`dr`用JSON除外待ち
+- 状態: 固定4096/2048の本番移植と実ブラウザ検証を完了し、可変FFT・出力長のRuntimeDamageRollCalculator/Worker第1単位も完了。本番配信からの`dr`用JSON除外とDamage経路接続は未完了
 - 優先度: 高
 - 作業ブランチ: 実験・検証は`codex/runtime-dr-experiment`、本番移植は`codex/runtime-dr-production`
 - 対象:
@@ -168,7 +168,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - `kazanari=0`では、1D10の確率母関数を $D(z)$ として混合分布を $W(D(z))$ で直接計算する
 - `kazanari>0`では、最後に振り直される元の出目 $t\in\{1,\ldots,5\}$ とそれより小さいダイス数で排他的に場合分けする
 - $E_r(s)=W^{(r)}(s)/r!=\sum_{n\ge r}\binom{n}{r}w_ns^{n-r}$ を0階から`kazanari - 1`階まで拡張Horner法で同時に評価し、ダイス数ごとの二項係数付き混合をまとめる
-- 長さ4096のFFT周波数点で上記の式を評価し、最終的な混合分布だけを逆FFT 1回で復元する
+- 既定長4096のFFT周波数点で上記の式を評価し、optionsで指定された有限supportを保持できる2の冪へ変更可能とする。最終的な混合分布だけを逆FFT 1回で復元する
 - 実数分布の共役対称性を使って半分の周波数点だけを計算し、型付き配列の再利用と複素数演算のインライン化で一時オブジェクトを削減する
 
 ### 予備調査
@@ -176,7 +176,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - Node.jsのV8上での未最適化のJavaScript試作では、ダイス数0～202個の任意の重み付き混合分布を`kazanari=0`で約2.8 ms、`kazanari=3`で約32.5 ms、`kazanari=9`で約55.1 msで計算できた
 - 型付き配列とインライン複素数演算を使う最適化版では、Node.js上で`kazanari=0`が約0.87 ms、`kazanari=3`が約20.55 ms、`kazanari=9`が約44.24 msとなった
 - Windows x64のChrome 150ではメインスレッド中央値が`kazanari=0`で約0.9 ms、1で約15.1 ms、2で約16.9 ms、9で約44.5 msとなり、60 Hz表示の1フレームに相当する約16.7 msを`kazanari=2`から超えた
-- 同じChrome環境のmodule Workerでは2048要素の分布転送を含む往復増分が中央値で概ね0.1～0.3 msに留まったため、採用時は端末依存の閾値分岐ではなく常駐Workerへ統一する案を第一候補とする
+- 同じChrome環境のmodule Workerでは既定2048要素の分布転送を含む往復増分が中央値で概ね0.1～0.3 msに留まった。可変出力長でもtransferable配列とrequest単位のcache/dedup契約を維持する
 - Workerクライアントの重複排除、LRUキャッシュ、呼び出し単位の中断、障害後の再生成を独立テストで検証し、`kazanari=0/3/9`では防御適用後の最終ダメージ分布も現行JSON経路と最大絶対差 $2\times10^{-6}$ 以内で一致した
 - Codex In-app BrowserのVite production previewで`kazanari=0/3/9`、固定値の正負、防御ダイス、連続入力、一般判定、バックトラックを確認し、Workerチャンクの取得は同一URLの1件、`dr`用JSONの取得は0件、console warning/errorは0件だった
 - 公開済みJSONから作った同じ混合分布との最大差は約 $1.4\times10^{-7}$ であり、個別分布の代表比較では約 $5.4\times10^{-7}$ だった

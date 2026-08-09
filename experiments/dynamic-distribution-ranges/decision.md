@@ -2,7 +2,7 @@
 
 ## 状態と結論
 
-この調査では、本番の`src`、配信JSON、UI入力上限を変更していません。実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。
+調査開始時点では、本番の`src`、配信JSON、UI入力上限を変更せず、実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。現在の第1実装単位では、参照plannerの契約をRuntimeDamageRollCalculatorとWorkerの可変FFT・出力長optionsへ移植しています。配信JSON、UI入力上限、DamageCalculatorの実計算経路は引き続き変更していません。
 
 現時点の推奨は次のとおりです。
 
@@ -12,10 +12,10 @@
 - DXのsupportは有限supportではなく、許容打ち切り誤差を満たすcutoffとして決める。`shihai=0`かつ`yousei>0`には、妖精の手の反復順序をそのまま分解した厳密なCDF/tail certificateを使う。
 - `tail.model`は、`shihai=0`かつ`yousei=0`を`exact-max`、`shihai=0`かつ`yousei>0`を`exact-yousei`、`shihai>0`かつ`yousei=0`を`conservative-max-bound`とする。`shihai>0`かつ`yousei>0`は現行UI非対応のため、従来の`conservative-union-bound`を診断用に残し、厳密分布とは呼ばない。
 - 現行互換モードでは`shihai>0`かつ`yousei>0`をUI仕様どおり`incompatible-input`のrejectとする。reject前にtail planningを実行し、診断用のcutoffとモデル名は返す。
-- `dr`はダメージダイス数が決まれば有限supportなので、最大値、固定値差、防御ダイスから必要な作業範囲を導出する。FFT長はsupport長から別に導出する。
+- `dr`はダメージダイス数が決まれば有限supportなので、最大値、固定値差、防御ダイスから必要な作業範囲を導出する。FFT長はsupport長から別に導出する。第1実装単位では、まずDamageCalculatorへ接続せず、RuntimeDamageRollCalculatorとWorkerだけに`fftLength`・`distributionLength`・`rawSupportMax`を渡す。
 - 警告と拒否は入力値だけでなく、推定時間、推定メモリ、作業配列長、FFT長、尾部誤差予算のすべてで判定する。
 
-ベンチマークは要求Nodeの`22.23.2`を使用できず、実際の`v22.12.0`で実行しました。したがって、以下の時間は設計の根拠となる同一環境の比較値であり、対応ブラウザや低速端末の合格基準ではありません。
+ベンチマークは要求Nodeの`v22.23.2`で実行しました。したがって、以下の時間は設計の根拠となる同一環境の比較値であり、対応ブラウザや低速端末の合格基準ではありません。`.node-version`の`22.23.2`とも一致します。
 
 ## 既存判断との関係
 
@@ -28,12 +28,12 @@
 | 対象 | 現行値 | overflowまたは固定境界の意味 | 主な実装経路 |
 | --- | ---: | --- | --- |
 | 公開分布 | 1024要素 | index 0–1022は個別値、index 1023は1023以上の集約 | [`src/data/Distribution.js`](../../src/data/Distribution.js) |
-| 判定・ダメージ作業分布 | ScoreはplannerのworkingLength、互換経路は2048要素 | 各作業配列の最後を作業範囲外を集約する末尾バケットとする。DR/Damageは本段階で固定経路を維持 | [`src/calculation/ScoreCalculator.js`](../../src/calculation/ScoreCalculator.js)、[`src/calculation/DamageCalculator.js`](../../src/calculation/DamageCalculator.js) |
+| 判定・ダメージ作業分布 | ScoreはplannerのworkingLength、互換経路は2048要素 | 各作業配列の最後を作業範囲外を集約する末尾バケットとする。DRの直接Calculator/Workerは第1単位で可変長に対応し、Damageへの接続は固定経路を維持 | [`src/calculation/ScoreCalculator.js`](../../src/calculation/ScoreCalculator.js)、[`src/calculation/DamageCalculator.js`](../../src/calculation/DamageCalculator.js)、[`src/calculation/RuntimeDamageRollCalculator.js`](../../src/calculation/RuntimeDamageRollCalculator.js) |
 | DX入力 | dice 0–99、critical 2–11、shihai 0–19 | `shihai=0`は最大値の累積分布、`shihai>0`はダイス数方向DP。指定workingLengthの最後へ尾部を集約 | [`src/calculation/DxCalculator.js`](../../src/calculation/DxCalculator.js) |
 | DX丸め | legacyは小数第6位、planner dynamicは未丸め | 公開JSONとplanなし経路は互換丸め、dynamic内部はtail 1e-8より粗い確率を消さない | [`src/calculation/DxCalculator.js`](../../src/calculation/DxCalculator.js) |
 | 実行時DR入力 | damage dice 0–202、kazanari 0–9 | scoreの公開bucket 1023をdamage dice 202として扱うため、現行の最大値は202 | [`src/calculation/RuntimeDamageRollLimits.js`](../../src/calculation/RuntimeDamageRollLimits.js)、[`src/calculation/DamageCalculator.js`](../../src/calculation/DamageCalculator.js) |
-| 実行時DR出力 | 2048要素 | `spectrumToDistribution`がindex 2047以上を末尾へ加算 | [`src/calculation/RuntimeDamageRollCalculator.js`](../../src/calculation/RuntimeDamageRollCalculator.js) |
-| 実行時DR FFT | 4096点 | 周波数側を4096点で評価し、2049点を計算して共役対称に補完 | [`src/calculation/RuntimeDamageRollLimits.js`](../../src/calculation/RuntimeDamageRollLimits.js) |
+| 実行時DR出力 | 既定2048要素、optionsで2以上の可変長 | `spectrumToDistribution`が`distributionLength - 1`以上を末尾へ加算し、長さ1はdamage 0とoverflowを分離できないため拒否 | [`src/calculation/RuntimeDamageRollCalculator.js`](../../src/calculation/RuntimeDamageRollCalculator.js)、[`src/calculation/RuntimeDamageRollLimits.js`](../../src/calculation/RuntimeDamageRollLimits.js) |
+| 実行時DR FFT | 既定4096点、optionsで2の冪へ変更 | 必要supportより長いFFT長で周波数側を半分+1点評価し、残りを共役対称に補完 | [`src/calculation/RuntimeDamageRollCalculator.js`](../../src/calculation/RuntimeDamageRollCalculator.js) |
 | 通常FFT畳み込み | 入力配列長`N`から`nextPowerOfTwo(2N-1)` | `sumDistribution`は出力長`N`へ戻し、`N-1`へ上限集約 | [`src/data/FFT.js`](../../src/data/FFT.js) |
 | d10/livingdeadアセット | 1024要素、dice 0–223 | 1023以上はすでにアセット側で集約。現行UIの最大入力から必要な224本を保持 | [`src/data/PrecomputedDataRepository.js`](../../src/data/PrecomputedDataRepository.js) |
 | 転置DRキャッシュ | 3種類のkazanari | 配列を`distribution[damage][dice]`へ転置し、LRUで3種類まで保持 | [`src/data/PrecomputedDataRepository.js`](../../src/data/PrecomputedDataRepository.js) |
@@ -157,7 +157,7 @@ $$
 
 ## ベンチマーク結果
 
-再実行可能なスクリプトは[`benchmark.mjs`](./benchmark.mjs)、全結果は[`results.json`](./results.json)です。測定環境はWindows x64、AMD Ryzen 7 9700X、論理CPU16、約61.6 GiB、Node `v22.12.0`です。`.node-version`の`22.23.2`とは一致しません。
+再実行可能なスクリプトは[`benchmark.mjs`](./benchmark.mjs)、全結果は[`results.json`](./results.json)です。測定環境はWindows x64、AMD Ryzen 7 9700X、論理CPU16、約61.6 GiB、Node `v22.23.2`です。`.node-version`の`22.23.2`と一致します。
 
 ### 尾部cutoff
 
@@ -345,7 +345,7 @@ overflowは一種類ではありません。
 | planner | 入力検証、尾部誤差予算、supportとFFT長の決定、時間・メモリ見積もり、warning/reject、overflow契約の生成。配列確保や確率計算はしない |
 | DxCalculator | `critical`、`shihai`、`yousei`の規則に従う分布生成、plannerが要求したcutoffに対する尾部証明、DPの確率総和と非負性の検証 |
 | ScoreCalculator | 妖精の手、技能値、失敗確率をplanned working rangeへ適用し、full-tailなら公開bucketへ集約する前に達成値をdamage dice weightへ渡す |
-| RuntimeDamageRollCalculator | damage dice weightとkazanariから有限DRを生成し、planned FFT長、raw support、数値誤差を検証して返す |
+| RuntimeDamageRollCalculator | damage dice weightとkazanariから有限DRを生成し、planned FFT長、raw support、数値誤差を検証して返す。第1単位では明示optionsを受けるが、DamageCalculatorからのplan接続はまだ行わない |
 | DamageCalculator | 命中達成値をdamage diceごとのweightへ集約し、攻撃固定値、防御ダイス、防御固定値をplanned working rangeへ適用してから表示overflowを作る |
 | Distribution/FFT | 明示されたrange contractに従うシフト、畳み込み、差、overflow集約。暗黙の1024/2048への縮退はしない |
 | Worker/client | planner結果を要求単位で転送し、キャンセル、重複排除、cache、transferable配列、エラーを管理する |
@@ -371,11 +371,19 @@ overflowは一種類ではありません。
 1. `RangePlan`、`OverflowInfo`、`TailCertificate`の内部型を追加し、既定の`published-bucket`では現在の1024/2048結果を変えない。
 2. plannerを計算coreへ移植し、入力検証、尾部上界、resource estimate、warning/rejectの単体テストを追加する。
 3. `DxCalculator`をplanned supportへ対応させ、`shihai=0`の厳密上界、`shihai>0`の保守上界、cutoff外質量を別フィールドで返す。小数第6位丸めは互換経路だけへ限定する。
-4. `RuntimeDamageRollCalculator`と`FFT`をrequested FFT長へ対応させ、有限DRの最大値と循環畳み込みなしを検証する。`kazanari=9`のWorker経路を基本とする。
+4. 完了（第1単位）。`RuntimeDamageRollCalculator`とWorkerをrequested FFT長・出力長へ対応させ、`rawSupportMax=10n`、`fftLength > rawSupportMax`、有限DRの最大値、循環畳み込みなしを検証した。`kazanari=0/3/9`、overflow、既定互換、Workerのtransferable・中断・重複排除・cache・障害復旧をテストした。
 5. `DamageCalculator`で公開スコアを先に1023へ集約する現行経路と、full-tailのweight化経路を明示的に分ける。負の固定値、防御ダイス、overflowの境界テストを追加する。
 6. 複数コンボの合計、d10/livingdead、バックトラックのfinite supportをplannerへ接続し、既存アセットのoverflow警告を追加する。
 7. UIで推定時間、メモリ、尾部誤差、overflow下限を表示し、広いsupportは表示binへ集約する。チャート点数と計算supportを分離する。
 8. Node、Chrome、Firefox、Safari、低速モバイル相当、Worker転送込みで再測定し、入力上限の拡張可否を決める。JSON削除や外部API化はこの検証後の別作業とする。
+
+## 第1単位で確定したRuntime DR契約
+
+`generateMixedDamageDistribution(weights, kazanari, options?)`の既定値は従来の`fftLength=4096`、`distributionLength=2048`である。`distributionLength`は2以上`fftLength`以下、`fftLength`は2の冪かつ直接APIの安全上限`1 << 20`以下とする。`rawSupportMax`はweightsの最大非ゼロdamage dice数$n$から導く`10n`以上でなければならず、`fftLength > rawSupportMax`を満たさないrequestは循環supportを防ぐためrejectする。kazanariは最大damage `10n`を増やさない。逆FFT後は、明示値にかかわらずweightsから導いた実support`10n`より上の実数係数が絶対値`1e-12`以下であることを検証し、その範囲を超える係数は末尾overflowへ混ぜずrejectする。`1e-12`は既存の逆FFT微小誤差clamp閾値で、現行の全列挙比較で観測されるおよそ`1e-15`級の丸めノイズを吸収しつつ、意味のある確率質量とは分離できる値として固定する。
+
+出力は`distributionLength - 1`以上を末尾overflow bucketへ集約する。damage 0とoverflowを分離できない長さ1は採用しない。逆FFT後は有限値、material negative、weight総和を検証し、FFT由来の微小負値だけを0へ補正する。Clientは正規化した3項目をWorker requestへ渡し、optionsをcache/dedupの識別子に含める一方、`signal`はWorkerへ転送しない。
+
+この契約はRuntimeDamageRollCalculatorとWorkerの第1単位でのみ有効化した。DamageCalculatorの固定値差・防御畳み込み、CalculationClientからのDamageRangePlan接続、RangePlannerによる実options構成、UI入力上限、JSON assetの変更は第2単位以降に残す。
 
 ## 追加テスト計画
 

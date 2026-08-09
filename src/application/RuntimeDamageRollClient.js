@@ -1,5 +1,6 @@
 import {
-  RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
+  getRuntimeDamageRollRawSupportMax,
+  normalizeRuntimeDamageRollOptions,
   validateRuntimeDamageRollInputs,
 } from '../calculation/RuntimeDamageRollLimits'
 
@@ -13,10 +14,14 @@ function createAbortError(message = 'The calculation was aborted') {
   return error
 }
 
-function validateDistribution(distribution, expectedTotal) {
+function validateDistribution(
+  distribution,
+  expectedTotal,
+  expectedLength
+) {
   if (
     !(distribution instanceof Float64Array) ||
-    distribution.length !== RUNTIME_DAMAGE_DISTRIBUTION_SIZE
+    distribution.length !== expectedLength
   ) {
     throw new Error('Worker returned an invalid distribution')
   }
@@ -37,10 +42,13 @@ function validateDistribution(distribution, expectedTotal) {
   }
 }
 
-function requestsEqual(entry, weights, kazanari) {
+function requestsEqual(entry, weights, kazanari, options) {
   if (
     entry.kazanari !== kazanari ||
-    entry.weights.length !== weights.length
+    entry.weights.length !== weights.length ||
+    entry.options.fftLength !== options.fftLength ||
+    entry.options.distributionLength !== options.distributionLength ||
+    entry.options.rawSupportMax !== options.rawSupportMax
   ) {
     return false
   }
@@ -129,13 +137,18 @@ export function createRuntimeDamageRollClient({
         (total, weight) => total + weight,
         0
       )
-      validateDistribution(event.data.distribution, expectedTotal)
+      validateDistribution(
+        event.data.distribution,
+        expectedTotal,
+        entry.options.distributionLength
+      )
       const distribution = event.data.distribution
 
       if (cacheSize > 0) {
         cache.unshift({
           kazanari: entry.kazanari,
           weights: entry.weights,
+          options: entry.options,
           distribution,
         })
         cache.splice(cacheSize)
@@ -161,18 +174,18 @@ export function createRuntimeDamageRollClient({
     return worker
   }
 
-  function findPending(weights, kazanari) {
+  function findPending(weights, kazanari, options) {
     for (const entry of pendingById.values()) {
-      if (requestsEqual(entry, weights, kazanari)) {
+      if (requestsEqual(entry, weights, kazanari, options)) {
         return entry
       }
     }
     return null
   }
 
-  function takeCached(weights, kazanari) {
+  function takeCached(weights, kazanari, options) {
     const index = cache.findIndex((entry) =>
-      requestsEqual(entry, weights, kazanari)
+      requestsEqual(entry, weights, kazanari, options)
     )
     if (index < 0) {
       return null
@@ -183,21 +196,30 @@ export function createRuntimeDamageRollClient({
     return entry.distribution.slice()
   }
 
-  function calculate(weights, kazanari, { signal } = {}) {
+  function calculate(weights, kazanari, options = {}) {
     if (disposed) {
       return Promise.reject(new Error('Runtime damage client is disposed'))
     }
     validateRuntimeDamageRollInputs(weights, kazanari)
+    const normalizedOptions = normalizeRuntimeDamageRollOptions(
+      options,
+      getRuntimeDamageRollRawSupportMax(weights)
+    )
+    const signal = options?.signal
     if (signal?.aborted) {
       return Promise.reject(createAbortError())
     }
 
-    const cached = takeCached(weights, kazanari)
+    const cached = takeCached(weights, kazanari, normalizedOptions)
     if (cached) {
       return waitWithSignal(Promise.resolve(cached), signal)
     }
 
-    const existing = findPending(weights, kazanari)
+    const existing = findPending(
+      weights,
+      kazanari,
+      normalizedOptions
+    )
     if (existing) {
       return waitWithSignal(
         existing.promise.then((distribution) => distribution.slice()),
@@ -219,6 +241,7 @@ export function createRuntimeDamageRollClient({
       id,
       kazanari,
       weights: storedWeights,
+      options: normalizedOptions,
       promise,
       resolve: resolveRequest,
       reject: rejectRequest,
@@ -227,7 +250,12 @@ export function createRuntimeDamageRollClient({
 
     try {
       getWorker().postMessage(
-        { id, weights: transmittedWeights, kazanari },
+        {
+          id,
+          weights: transmittedWeights,
+          kazanari,
+          options: normalizedOptions,
+        },
         [transmittedWeights.buffer]
       )
     } catch (error) {

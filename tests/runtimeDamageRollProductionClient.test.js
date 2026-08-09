@@ -51,8 +51,8 @@ function createHarness(options = {}) {
   return { client, workers }
 }
 
-function distributionAt(value) {
-  const distribution = new Float64Array(2048)
+function distributionAt(value, size = 2048) {
+  const distribution = new Float64Array(size)
   distribution[value] = 1
   return distribution
 }
@@ -78,6 +78,93 @@ describe('production runtime damage roll Worker client', () => {
     const cached = await client.calculate([0.25, 0.75], 3)
     expect(cached[17]).toBe(1)
     expect(workers).toHaveLength(1)
+  })
+
+  it('forwards variable options and keeps distinct output ranges in the cache', async () => {
+    const { client, workers } = createHarness()
+    const options = {
+      fftLength: 16,
+      distributionLength: 8,
+      requestId: 'caller-request',
+    }
+    const first = client.calculate([0, 1], 0, options)
+    const worker = workers[0]
+
+    expect(worker.messages[0].message.options).toEqual({
+      fftLength: 16,
+      distributionLength: 8,
+      rawSupportMax: 10,
+    })
+    expect(worker.messages[0].message.options).not.toHaveProperty('signal')
+    worker.respond(0, distributionAt(7, 8))
+    await expect(first).resolves.toEqual(distributionAt(7, 8))
+
+    await expect(client.calculate([0, 1], 0, options)).resolves.toEqual(
+      distributionAt(7, 8)
+    )
+    expect(worker.messages).toHaveLength(1)
+
+    const differentLength = client.calculate(
+      [0, 1],
+      0,
+      { fftLength: 16, distributionLength: 16 }
+    )
+    expect(worker.messages).toHaveLength(2)
+    expect(worker.messages[1].message.options).toEqual({
+      fftLength: 16,
+      distributionLength: 16,
+      rawSupportMax: 10,
+    })
+    worker.respond(1, distributionAt(10, 16))
+    await expect(differentLength).resolves.toEqual(distributionAt(10, 16))
+  })
+
+  it('does not share requests with different explicit raw support bounds', async () => {
+    const { client, workers } = createHarness()
+    const first = client.calculate(
+      [0, 1],
+      0,
+      { fftLength: 16, distributionLength: 8, rawSupportMax: 10 }
+    )
+    const second = client.calculate(
+      [0, 1],
+      0,
+      { fftLength: 16, distributionLength: 8, rawSupportMax: 12 }
+    )
+    const worker = workers[0]
+
+    expect(worker.messages).toHaveLength(2)
+    expect(worker.messages[0].message.options.rawSupportMax).toBe(10)
+    expect(worker.messages[1].message.options.rawSupportMax).toBe(12)
+
+    worker.respond(0, distributionAt(1, 8))
+    worker.respond(1, distributionAt(2, 8))
+    await expect(first).resolves.toEqual(distributionAt(1, 8))
+    await expect(second).resolves.toEqual(distributionAt(2, 8))
+
+    await expect(client.calculate(
+      [0, 1],
+      0,
+      { fftLength: 16, distributionLength: 8, rawSupportMax: 10 }
+    )).resolves.toEqual(distributionAt(1, 8))
+    await expect(client.calculate(
+      [0, 1],
+      0,
+      { fftLength: 16, distributionLength: 8, rawSupportMax: 12 }
+    )).resolves.toEqual(distributionAt(2, 8))
+    expect(worker.messages).toHaveLength(2)
+  })
+
+  it.each([
+    [{ fftLength: 12 }, 'power of two'],
+    [{ fftLength: 8, distributionLength: 8 }, 'greater than rawSupportMax'],
+    [{ fftLength: 16, distributionLength: 17 }, 'distributionLength'],
+    [{ fftLength: 16, distributionLength: 1 }, 'distributionLength must be at least'],
+  ])('rejects invalid options before creating a Worker %#', (options, message) => {
+    const { client, workers } = createHarness()
+
+    expect(() => client.calculate([0, 1], 0, options)).toThrow(message)
+    expect(workers).toHaveLength(0)
   })
 
   it('shares one pending calculation for identical inputs', async () => {

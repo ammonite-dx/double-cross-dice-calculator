@@ -3,11 +3,12 @@ import {
 } from '../calculation/RuntimeDamageRollCalculator'
 
 self.addEventListener('message', (event) => {
-  const { id, weights, kazanari } = event.data
+  const { id, weights, kazanari, options } = event.data
   try {
     const distribution = generateMixedDamageDistribution(
       weights,
-      kazanari
+      kazanari,
+      options
     )
 
     self.postMessage(

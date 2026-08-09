@@ -218,6 +218,7 @@ $$
 | バックトラック | `src/data/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
 | アセット検証とキャッシュ | `src/data/PrecomputedDataRepository.js` | `tests/precomputedDataRepository.test.js` |
 | 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
+| 実行時DRの可変FFT・出力長、Worker protocol | `src/calculation/RuntimeDamageRollCalculator.js`、`src/calculation/RuntimeDamageRollLimits.js`、`src/application/RuntimeDamageRollClient.js`、`src/application/RuntimeDamageRollWorker.js` | `tests/runtimeDamageRollProduction.test.js`、`tests/runtimeDamageRollProductionClient.test.js` |
 
 独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は回帰の検出に使用しますが、ルール上の正しさを保証する期待値には使用しません。
 
@@ -251,6 +252,18 @@ Scoreのdynamic接続では、`ScoreRangePlan.workingLength`をDX providerとSco
 
 丸めはDX分布生成の最後にだけ行います。引数なしのlegacy pathと明示的な`legacy`または`six-decimal`だけが小数第6位の互換丸めと総和補正を使い、planner dynamic pathはDX、妖精の手用1D10、畳み込み、skill shiftの間で未丸め値を保持し、最後の公開1024要素へのcollapse後にも追加の互換丸めを行いません。したがって同じ入力でも固定2048のlegacy結果とdynamic結果には丸め由来の小差があり得ますが、tail certificateの誤差予算とは別に扱います。
 
-末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DR、Damage、防御畳み込み、total damage、バックトラック配列はこの接続の対象外で、固定された既存経路を維持します。
+末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応しましたが、Damage、防御畳み込み、total damage、バックトラック配列への接続はこの段階の対象外で、CalculationClientからは固定された既存経路を維持します。
 
 `CalculationClient`はcheckとattackのpreflight planを捨てず、actionとreactionの順にScoreCalculatorへ渡します。《イベイション》の固定reactionは引き続きDX providerを呼ばず、戻り値形状も変更しません。runtime DX cacheのキーはdice、critical、shihai、workingLength、rounding modeを含むため、同じ入力でも異なるplanの固定2048結果を誤再利用しません。同じplanは既存のLRU cacheで再利用されます。
+
+## 12. RuntimeDamageRollCalculatorの可変FFTと出力長（第1単位）
+
+`generateMixedDamageDistribution(weights, kazanari, options?)`は、引数なしでは従来どおり`fftLength=4096`、`distributionLength=2048`で計算します。明示optionsの計算項目は`fftLength`、`distributionLength`、`rawSupportMax`です。`distributionLength`はdamage 0の通常バケットと末尾のoverflow bucketを分けるため2以上、`fftLength`以下でなければなりません。`fftLength`は2の冪で、直接APIの安全上限は`1 << 20`です。
+
+DRの有限supportは、`weights[dice]`が非ゼロとなる最大のdamage dice数を$n$とし、`rawSupportMax=10n`と定義します。`kazanari=0..9`の振り直し規則は1個のダイスの最大値10を超える出目を作らないため、kazanariはこの上限を増やしません。全weightが0の場合の必要supportは0です。`rawSupportMax`を明示する場合は、weightsから導出した必要support以上の安全な整数であることを検証し、`fftLength > rawSupportMax`を要求します。この条件により、逆FFTで循環して先頭へ折り返す質量を許しません。明示値は将来のplannerが保守的な上限を渡せるよう、必要supportと同値である必要はありませんが、下回る値は拒否します。さらに逆FFT後は、明示された`rawSupportMax`ではなくweightsから得たactual support`10n`より上の実数係数が絶対値`1e-12`以下であることを検証します。閾値を超えるsupport外係数は末尾overflowへ暗黙に集約せず、計算をrejectします。`1e-12`は既存の逆FFT微小誤差clamp閾値であり、全列挙比較で観測されるおよそ`1e-15`級の丸めノイズを吸収する一方、意味のある確率質量を隠さないための契約です。
+
+逆FFT後はactual supportの範囲内で`distributionLength - 1`以上の全インデックスを末尾へ加算します。actual supportより上の係数は絶対値`1e-12`以下であることを検証してから無視し、閾値を超えるsupport外質量は末尾へ混ぜず例外にします。各確率と総和が有限であることを確認し、絶対値`1e-12`以下のFFT由来の微小値と小さな負値だけを0へ補正します。material negativeは黙って捨てず例外にし、weight総和との差が数値許容範囲内の場合だけ最大バケットへ補正します。これにより、出力長を縮めても確率質量を捨てず、`kazanari=0`と非ゼロの双方で総和と非負性を検証できます。
+
+`RuntimeDamageRollClient`は正規化済みの3項目をrequestの`options`としてWorkerへ渡します。`signal`は呼び出し側の中断制御として保持してWorkerへstructured cloneせず、既存の内部`id`、transferable weights、重複排除、LRU、Worker障害後の再生成を維持します。cacheと進行中requestの比較には`fftLength`、`distributionLength`、`rawSupportMax`を含めるため、異なる出力長を誤って再利用しません。Workerはoptionsなしの旧requestも既定値で処理できます。
+
+この第1単位はCalculatorとWorker経路のパラメータ化だけを完了したものです。`DamageCalculator`の固定値差・防御畳み込み、`CalculationClient`からの`DamageRangePlan`接続、RangePlannerの実計算接続、UI入力上限、公開JSONの変更はまだ行っていません。これらを接続する際は、後続処理がこの分布の長さとoverflow契約を明示的に受け取る必要があります。
