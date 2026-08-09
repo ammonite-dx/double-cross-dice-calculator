@@ -235,4 +235,10 @@ $$
 
 `src/calculation/RangePlanner.js`に、score、attack、backtrackの入力からDXの作業範囲、DRの有限support、FFT長、推定時間・メモリ、warning/rejectを計画するcore APIを追加しました。DXは`TailCertificate`、DRとバックトラックは有限supportとして扱い、`overflowInfo`では`dx-tail`、`finite-support`、`display-bucket`、`asset`を区別します。`published-bucket`を既定値にしており、`full-tail`は計画値を返せますが、本番のcalculator、配列確保、UI、入力上限、JSON経路にはまだ接続していません。
 
+DXの尾部certificateは、`shihai=0`かつ`yousei=0`では最大値のCDFから得る`exact-max`、`shihai=0`かつ`yousei>0`では妖精の手の反復を厳密に分解する`exact-yousei`です。1ダイスを`Z=10L+R`（`p=(11-critical)/10`、`L`は幾何分布、`R`は`1..critical-1`）と分けると、通常の最大値の`M`と追加ダイスの負の二項和`S_y`によって、`A_y=10(y+M+S_y)+R`になります。plannerは`P(M>m)`を`expm1`で、負の二項PMFを対数再帰で評価し、`P(A_y>x)`を直接求めます。このため、有限配列の末尾バケットやnear-oneなCDF差に依存せず、cutoffを二分探索できます。`critical=11`は`p=0`の退化ケース、`dice=0`は`yousei`にかかわらずtail 0です。
+
+`shihai>0`かつ`yousei>0`は現行UIの非対応組み合わせなので、plannerは`conservative-union-bound`を診断用に返し、`incompatible-input`をrejectします。この組み合わせを`exact-yousei`と表示しないことで、厳密certificateと保守boundを区別します。
+
+certificateの確率clampでは、`NaN`をtail 0へ変換せず計算失敗として例外にし、`+Infinity`と`-Infinity`はそれぞれ確率`1`と`0`の明示的な端点として扱います。`scoreTailBound`の入口では、dice 0を含むすべての経路で`critical`がsafe integerの2～11であることを検証します。
+
 この段階で現行の公開分布1024、作業分布2048、DR FFT4096と計算結果の意味は不変です。次の統合段階では、plannerの計画範囲をcalculatorへ渡す前に、尾部certificateとfinite supportの境界、負の固定値差、表示overflow、hard reject時のキャンセルを接続テストで固定します。

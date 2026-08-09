@@ -67,12 +67,12 @@ test('critical 11 with zero dice has zero tail and zero cutoff', () => {
   assert.equal(tail.bound, 0)
 })
 
-test('yousei uses the conservative union-bound model', () => {
+test('yousei uses the exact-yousei model', () => {
   const plan = planCalculationRanges(scoreOnlyParams({
     score: scoreParams({ dice: 10, critical: 2, yousei: 1 }),
   }))
 
-  assert.equal(plan.scores[0].tail.model, 'conservative-union-bound')
+  assert.equal(plan.scores[0].tail.model, 'exact-yousei')
 })
 
 test('shihai and yousei are rejected together in compatibility mode', () => {
@@ -87,6 +87,46 @@ test('shihai and yousei are rejected together in compatibility mode', () => {
     plan.warnings.find((warning) => warning.code === 'incompatible-input').severity,
     'reject',
   )
+})
+
+test('exact-yousei handles ten boundaries and the stress cutoff', () => {
+  const oneUse = { dice: 1, critical: 11, shihai: 0, yousei: 1 }
+  assert.equal(scoreTailBound(10, oneUse), 1)
+  assert.equal(scoreTailBound(20, oneUse), 0)
+
+  const zeroDice = { dice: 0, critical: 2, shihai: 0, yousei: 9 }
+  assert.equal(scoreTailBound(0, zeroDice), 0)
+  assert.deepEqual(findTailCutoff(zeroDice, 1e-8), {
+    reachable: true,
+    cutoff: 0,
+    bound: 0,
+  })
+
+  for (const critical of [1, 12, 2.5]) {
+    assert.throws(() => scoreTailBound(0, {
+      dice: 0,
+      critical,
+      shihai: 0,
+      yousei: 1,
+    }), RangeError)
+  }
+
+  assert.throws(() => scoreTailBound(Number.NaN, oneUse), RangeError)
+  assert.equal(scoreTailBound(Number.POSITIVE_INFINITY, oneUse), 0)
+  assert.equal(scoreTailBound(Number.NEGATIVE_INFINITY, oneUse), 1)
+
+  const cutoffParams = { dice: 99, critical: 2, shihai: 0, yousei: 9 }
+  const cutoff = findTailCutoff(cutoffParams, 1e-8)
+  assert.ok(cutoff.bound <= 1e-8)
+  assert.ok(scoreTailBound(cutoff.cutoff - 1, cutoffParams) > 1e-8)
+
+  const stress = planCalculationRanges(scoreOnlyParams({
+    score: scoreParams({ dice: 99, critical: 2, yousei: 9 }),
+  }))
+  assert.equal(stress.accepted, true)
+  assert.equal(stress.scores[0].tail.model, 'exact-yousei')
+  assert.ok(stress.scores[0].workingLength < 16384)
+  assert.ok(stress.scores[0].tail.bound <= 1e-8)
 })
 
 test('finite damage support and FFT lengths cover their required ranges', () => {

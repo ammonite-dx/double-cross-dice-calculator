@@ -9,8 +9,8 @@
 - 静的Cloudflare Pagesとブラウザ内オンデマンド計算を維持する。
 - plannerの既定モードは現行互換の`published-bucket`とし、公開スコアの1023以上をダメージダイス数202へ写像する契約を不用意に変えない。
 - 達成値の尾部をダメージ計算まで伝播する`full-tail`は別の明示的な移行段階とし、尾部誤差証明、表示、資源上限、新旧比較を同時に導入する。
-- DXのsupportは有限supportではなく、許容打ち切り誤差を満たすcutoffとして決める。`shihai > 0`と`yousei > 0`には、まず安全側の尾部上界を使い、実装時により鋭い証明を追加する。
-- `tail.model`は、`shihai=0`かつ`yousei=0`だけを`exact-max`とし、`shihai>0`は`conservative-max-bound`、`yousei>0`はunion boundを表す`conservative-union-bound`とする。後者は`shihai>0`との組み合わせを含め、厳密分布とは呼ばない。
+- DXのsupportは有限supportではなく、許容打ち切り誤差を満たすcutoffとして決める。`shihai=0`かつ`yousei>0`には、妖精の手の反復順序をそのまま分解した厳密なCDF/tail certificateを使う。
+- `tail.model`は、`shihai=0`かつ`yousei=0`を`exact-max`、`shihai=0`かつ`yousei>0`を`exact-yousei`、`shihai>0`かつ`yousei=0`を`conservative-max-bound`とする。`shihai>0`かつ`yousei>0`は現行UI非対応のため、従来の`conservative-union-bound`を診断用に残し、厳密分布とは呼ばない。
 - 現行互換モードでは`shihai>0`かつ`yousei>0`をUI仕様どおり`incompatible-input`のrejectとする。reject前にtail planningを実行し、診断用のcutoffとモデル名は返す。
 - `dr`はダメージダイス数が決まれば有限supportなので、最大値、固定値差、防御ダイスから必要な作業範囲を導出する。FFT長はsupport長から別に導出する。
 - 警告と拒否は入力値だけでなく、推定時間、推定メモリ、作業配列長、FFT長、尾部誤差予算のすべてで判定する。
@@ -68,14 +68,42 @@ $$
 
 `shihai > 0`では、実装のorder statisticと自己遷移を含むDPが必要です。plannerの最初の安全側実装では、`shihai=0`の最大値の尾部を上界として使います。これはcutoffを大きめにしますが、有限配列の末尾確率を「supportがそこまでしかない」と誤解するより安全です。実装時には、`shihai`ごとのDPから得られる単調な尾部証明を追加し、同じ誤差で配列を縮められるか検証します。
 
-`yousei=y`がある場合、各回の10の倍数への切り上げは値を最大9増加させ、criticalが10以下なら1ダイス判定の合成が追加されます。したがって、`t=floor((x-9y)/(y+1))`として、参照plannerは次の保守的上界を使います。
+`shihai=0`かつ`yousei=y>0`では、union boundで各回を独立に上界化せず、反復の確率構造を直接使う。1ダイスのDXを
 
 $$
-P(V_{\mathrm{final}} > x)
-\leq \left(1-F_c(t)^n\right) + y\left(1-F_c(t)\right)
+Z=10L+R,
+\qquad
+P(L=\ell)=(1-p)p^\ell,
+\qquad
+p=\frac{11-c}{10},
 $$
 
-この上界は`yousei=9`でかなり保守的です。`yousei`と`shihai`を同時に扱う入力は現行UIで拒否しているため、plannerでも互換モードでは警告または拒否理由として保持します。将来の実装では、実際の合成順序を考慮したsub-Gaussian型またはDP由来の上界を検討します。
+と分ける。ここで`R`は`1..c-1`の一様分布で、`L`と独立である。`n`ダイスの通常結果を`V=max(Z_1,\ldots,Z_n)`、`M=max(L_1,\ldots,L_n)`とすると、`V=10M+R_0`なので、1回目の切り上げは`ceil10(V)=10(M+1)`になる。
+
+妖精の手を`y`回適用し、各追加ダイスを`Z_i`とすると、丸め後の余りは次の丸めで消えるため、
+
+$$
+A_y=\operatorname{ceil}_{10}(V)+
+\sum_{i=1}^{y-1}\operatorname{ceil}_{10}(Z_i)+Z_y
+    =10\left(y+M+S_y\right)+R,
+$$
+
+となる。`S_y=L_1+\cdots+L_y`は負の二項分布、最後の`R`だけが最終値の余りとして残る。このため、`T=M+S_y`の生存確率を求め、`r=1..c-1`について
+
+$$
+P(A_y>x)=\frac{1}{c-1}\sum_{r=1}^{c-1}
+P\left(T>\left\lfloor\frac{x-r}{10}\right\rfloor-y\right)
+$$
+
+を評価できる。`floor((x-r)/10)-y`は高々2種類なので、二分探索中の1回の評価で必要な`T`計算も高々2回である。`P(T>t)`は`S_y=s`で条件付けて、`P(M>t-s)`を`-expm1(n*log1p(-p^(t-s+1)))`で計算する。`S_y`のPMFは
+
+$$
+P(S_y=s+1)=P(S_y=s)\,p\frac{s+y}{s+1}
+$$
+
+の対数再帰で生成し、`S_y>t`の項も直接加える。これにより、near-oneなCDF同士の差し引きや有限配列のcutoff依存を避けながら、評価量は`O(t)`で済む。`p=0`（`critical=11`）では`L=S_y=M=0`として、`A_y=10y+R`の離散分布へ退化する。`dice=0`は自動失敗なので、`yousei`の指定にかかわらずtailは0である。
+
+`shihai>0`かつ`yousei>0`は、厳密なorder statisticと妖精の手を同時に証明する範囲ではない。現行UIが拒否する組み合わせなので、plannerは従来の`conservative-union-bound`を診断用に使い、`incompatible-input`をrejectとして返す。このモデルを`exact-yousei`へ昇格させないことが重要である。
 
 許容尾部誤差を`epsilonTail`とすると、最小の整数`x`を次の条件で選びます。
 
@@ -139,9 +167,11 @@ $$
 | 99D、critical 2、shihai 0、yousei 0 | 1e-8 | 2181 | 9.44e-9 |
 | 99D、critical 8、shihai 0、yousei 0 | 1e-8 | 192 | 9.21e-9 |
 | 200D、critical 2、shihai 19、yousei 0 | 1e-8 | 2251 | 9.12e-9 |
-| 99D、critical 2、shihai 0、yousei 9 | 1e-8 | 21991 | 9.26e-9 |
+| 99D、critical 2、shihai 0、yousei 9（厳密`exact-yousei`） | 1e-8 | 4151 | 9.40e-9 |
 
-現行supportの最大値2047で計算した安全側上界は、99D・critical 2・yousei 0で約`4.12e-8`、99D・critical 2・yousei 9では1です。後者は上界が粗いため、ただちに実確率が1という意味ではありませんが、2048要素をそのまま拡張用supportとして採用する根拠にはなりません。
+旧union boundでは同じ99D・critical 2・yousei 9のcutoffは21991だったが、厳密分解では4151まで縮んだ。いずれも`epsilon=1e-8`で、厳密値は境界で`9.40e-9`、直前はepsilonを超える。現行supportの最大値2047で計算した安全側上界は、99D・critical 2・yousei 0で約`4.12e-8`、厳密`exact-yousei`では約`2.92e-2`（実装結果はベンチ結果JSONを参照）となる。後者は2048要素ではまだ予算を満たさないが、旧union boundの1よりは実際の構造を反映した証明になっている。
+
+ベンチマークではplannerの99D・critical2・yousei9 stress計画そのものを10回測定し、中央値`0.7891 ms`（最小`0.7833 ms`、最大`0.7961 ms`）だった。これは分布生成やFFTを含まないplanner評価時間であり、resource estimateの`0.363596 ms`とは別の値である。
 
 ### Node計算時間と理論配列容量
 
@@ -327,7 +357,7 @@ overflowは一種類ではありません。
 | --- | ---: | ---: | --- |
 | 1計算の推定時間 | 50 ms | 200 ms | 現行DR `kazanari=9`がNodeで約42.5 ms、既存Chromeで約44.5 ms。メインスレッド16.7 ms枠はすでに超える |
 | peak計算メモリ | 32 MiB | 64 MiB | DX DP、DR FFT、防御畳み込み、Worker転送の同時生存に余裕を持たせる。実端末のメモリ測定が必要 |
-| dense working length | 8192 | 16384 | `yousei=9`・critical2の99Dはepsilon1e-8で約21992 cutoffとなり、4096への置換だけでは足りない |
+| dense working length | 8192 | 16384 | 厳密`exact-yousei`では`yousei=9`・critical2の99Dがepsilon1e-8で4151 cutoff（working length 4172）となり、現行hard limit内に収まる |
 | FFT length | 16384 | 32768 | FFTは長さに比例して増え、32768点のtransformでもNodeで約1.37 ms。大きい入力はDPやDR本体が支配する |
 | チャート点数 | 1000 | 1000 | 現行UIの0–999を維持。広いsupportはbinまたは拡大表示で分ける |
 | DX総打ち切り誤差 | 8e-9をscore側へ配分 | total 1e-8 | 現行2048の99D・critical2上界約4.12e-8より厳しい。数値誤差、重み化、表示丸めを別枠で管理する |
@@ -350,8 +380,9 @@ overflowは一種類ではありません。
 ### 単体テスト
 
 - `nextPowerOfTwo`、support長、`delta`の正負、`B_max`からの作業範囲導出。
-- `shihai=0`の尾部式とcutoffの単調性、`critical=11`の有限support、`dice=0`。
-- `shihai>0`の保守上界が実測DPの尾部以上であること、`yousei`の上界、cutoff未達時のreject。
+- `shihai=0`の尾部式とcutoffの単調性、`critical=11`、`dice=0`、10の倍数境界。
+- `exact-yousei`の`y=1/2`を有限配列の丸め+畳み込みoracleと比較し、PMF再帰の非有限値、負値、非単調性がないことをdice数百・yousei数十まで確認する。
+- `shihai>0`の保守上界が実測DPの尾部以上であること、`shihai>0`と`yousei>0`のunion bound診断、cutoff未達時のreject。
 - finite DRの最大値`10n`、kazanariによる最大値不変、FFT長が線形畳み込み長以上であること。
 - warning/rejectの境界、メモリ見積もり、display point数、`published-bucket`と`full-tail`の写像差。
 - overflow確率の非負性、総和、下限表示、後続の負の補正前に集約しないこと。
@@ -373,7 +404,7 @@ overflowは一種類ではありません。
 
 ## 未解決の設計判断
 
-- `shihai>0`と`yousei>0`の保守的な尾部上界を、現行DPの計算量を増やさずどこまで鋭くできるか。
+- `shihai>0`と`yousei>0`を現行UIのrejectのまま、将来サポートする場合に厳密なorder statistic+反復のcertificateをどこまで計算量を増やさず導けるか。
 - `epsilonTotal=1e-8`をルール上の表示精度として採用するか。現行JSONの小数第6位丸めとの互換許容差は別契約にする必要がある。
 - `full-tail`を採用する場合、cutoffより上の達成値をdamage dice weightへどのように近似し、期待値とoverflow区間をどう表示するか。
 - 公開分布のindex1023を「1023以上」と表示するか、チャートに区間ラベルを追加するか。

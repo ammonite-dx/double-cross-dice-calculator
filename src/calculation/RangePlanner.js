@@ -5,6 +5,7 @@ const DEFAULT_ERROR_BUDGET = 1e-8
  * @typedef {'published-bucket' | 'full-tail'} ScorePropagation
  * @typedef {
  *   'exact-max' |
+ *   'exact-yousei' |
  *   'conservative-max-bound' |
  *   'conservative-union-bound'
  * } TailModel
@@ -374,6 +375,183 @@ function geometricSum(probabilityValue, terms) {
   return (1 - probabilityValue ** terms) / (1 - probabilityValue)
 }
 
+function clampProbability(value) {
+  // NaN means the certificate calculation failed; endpoint infinities are
+  // explicit probability limits rather than errors.
+  if (Number.isNaN(value)) {
+    throw new RangeError('probability calculation produced NaN')
+  }
+  if (value === Infinity) {
+    return 1
+  }
+  if (value === -Infinity) {
+    return 0
+  }
+  if (!Number.isFinite(value)) {
+    throw new RangeError('probability calculation produced a non-finite value')
+  }
+  return Math.max(0, Math.min(1, value))
+}
+
+function maxGeometricTail(maxL, dice, criticalProbability) {
+  if (maxL < 0) {
+    return 1
+  }
+  if (criticalProbability === 0) {
+    return 0
+  }
+
+  const tailOfOneDie = criticalProbability ** (maxL + 1)
+  return clampProbability(
+    -Math.expm1(dice * Math.log1p(-tailOfOneDie))
+  )
+}
+
+function negativeBinomialLogStep(logPmf, sum, yousei, criticalProbability) {
+  return logPmf +
+    Math.log(criticalProbability) +
+    Math.log(sum + yousei) -
+    Math.log(sum + 1)
+}
+
+function negativeBinomialTailFrom(
+  logPmf,
+  sum,
+  yousei,
+  criticalProbability,
+) {
+  let result = 0
+  let compensation = 0
+  const logMinimum = Math.log(Number.MIN_VALUE)
+
+  while (true) {
+    const pmf = Math.exp(logPmf)
+    if (pmf > 0) {
+      const corrected = pmf - compensation
+      const next = result + corrected
+      compensation = next - result - corrected
+      result = next
+    }
+
+    const logRatio =
+      Math.log(criticalProbability) +
+      Math.log(sum + yousei) -
+      Math.log(sum + 1)
+    const nextLogPmf = logPmf + logRatio
+    const nextPmf = Math.exp(nextLogPmf)
+    if (
+      logRatio < 0 &&
+      (
+        nextPmf === 0 ||
+        nextPmf <= Number.EPSILON * Math.max(result, Number.MIN_VALUE)
+      )
+    ) {
+      break
+    }
+    if (logRatio < 0 && nextLogPmf < logMinimum) {
+      break
+    }
+
+    logPmf = nextLogPmf
+    sum += 1
+  }
+
+  return clampProbability(result)
+}
+
+// T = M + S_y, where M is the maximum of the geometric L values and S_y is
+// their y-term negative-binomial sum. This evaluates P(T > threshold)
+// directly, so a tiny tail is not obtained by subtracting a near-one CDF.
+// maxGeometricTail uses expm1 on the max CDF complement, avoiding the PMF/CDF
+// cancellation that would occur if adjacent near-one max CDF values were
+// subtracted.
+function maxPlusNegativeBinomialTail(
+  threshold,
+  dice,
+  yousei,
+  criticalProbability,
+) {
+  if (threshold < 0) {
+    return 1
+  }
+  if (criticalProbability === 0) {
+    return 0
+  }
+
+  let logPmf = yousei * Math.log1p(-criticalProbability)
+  let result = 0
+  let compensation = 0
+  for (let sum = 0; sum <= threshold; sum += 1) {
+    const pmf = Math.exp(logPmf)
+    const term =
+      pmf * maxGeometricTail(threshold - sum, dice, criticalProbability)
+    if (term > 0) {
+      const corrected = term - compensation
+      const next = result + corrected
+      compensation = next - result - corrected
+      result = next
+    }
+    logPmf = negativeBinomialLogStep(
+      logPmf,
+      sum,
+      yousei,
+      criticalProbability,
+    )
+  }
+
+  result += negativeBinomialTailFrom(
+    logPmf,
+    threshold + 1,
+    yousei,
+    criticalProbability,
+  )
+  return clampProbability(result)
+}
+
+function exactYouseiTailBound(value, dice, critical, yousei) {
+  if (dice === 0) {
+    return 0
+  }
+
+  const integerValue = Math.floor(value)
+  const remainderCount = critical - 1
+  const criticalProbability = (11 - critical) / 10
+
+  // A_y = 10(y + T) + R, with R uniform on 1..critical-1. There are at
+  // most two distinct T thresholds among the possible remainders.
+  let result = 0
+  let previousThreshold = null
+  let multiplicity = 0
+  for (let remainder = 1; remainder <= remainderCount; remainder += 1) {
+    const threshold =
+      Math.floor((integerValue - remainder) / 10) - yousei
+    if (threshold === previousThreshold) {
+      multiplicity += 1
+      continue
+    }
+    if (previousThreshold !== null) {
+      result += multiplicity * maxPlusNegativeBinomialTail(
+        previousThreshold,
+        dice,
+        yousei,
+        criticalProbability,
+      )
+    }
+    previousThreshold = threshold
+    multiplicity = 1
+  }
+  if (previousThreshold !== null) {
+    result += multiplicity * maxPlusNegativeBinomialTail(
+      previousThreshold,
+      dice,
+      yousei,
+      criticalProbability,
+    )
+  }
+
+  return clampProbability(result / remainderCount)
+}
+
 export function oneDieCumulative(value, critical) {
   if (value <= 0) {
     return 0
@@ -393,11 +571,17 @@ export function oneDieCumulative(value, critical) {
 
 export function maxTailBound(value, dice, critical) {
   nonNegativeInteger(dice, 'dice')
+  if (!Number.isSafeInteger(critical) || critical < 2 || critical > 11) {
+    throw new RangeError('critical must be an integer between 2 and 11')
+  }
+  if (Number.isNaN(value)) {
+    throw new RangeError('score.value must not be NaN')
+  }
   if (dice === 0) {
     return 0
   }
   const cumulative = oneDieCumulative(Math.floor(value), critical)
-  return Math.max(0, Math.min(1, 1 - cumulative ** dice))
+  return clampProbability(1 - cumulative ** dice)
 }
 
 // For shihai>0, the maximum-of-all-dice tail is deliberately conservative.
@@ -409,11 +593,24 @@ export function scoreTailBound(value, params) {
   nonNegativeInteger(dice, 'score.dice')
   nonNegativeInteger(shihai, 'score.shihai')
   nonNegativeInteger(yousei, 'score.yousei')
-  if (!Number.isInteger(critical) || critical < 2 || critical > 11) {
+  if (!Number.isSafeInteger(critical) || critical < 2 || critical > 11) {
     throw new RangeError('score.critical must be between 2 and 11')
+  }
+  if (Number.isNaN(value)) {
+    throw new RangeError('score.value must not be NaN')
   }
   if (yousei === 0) {
     return maxTailBound(value, dice, critical)
+  }
+
+  if (shihai === 0) {
+    if (value === Infinity) {
+      return 0
+    }
+    if (value === -Infinity) {
+      return 1
+    }
+    return exactYouseiTailBound(value, dice, critical, yousei)
   }
 
   const adjusted = Math.floor((value - 9 * yousei) / (yousei + 1))
@@ -432,22 +629,30 @@ export function findTailCutoff(params, epsilon, maxSearch = 1 << 20) {
   probability(epsilon, 'epsilon')
   positiveInteger(maxSearch, 'maxSearch')
 
+  const cache = new Map()
+  const evaluate = (value) => {
+    if (!cache.has(value)) {
+      cache.set(value, scoreTailBound(value, params))
+    }
+    return cache.get(value)
+  }
+
   let high = 1
-  while (high < maxSearch && scoreTailBound(high, params) > epsilon) {
+  while (high < maxSearch && evaluate(high) > epsilon) {
     high *= 2
   }
-  if (scoreTailBound(high, params) > epsilon) {
+  if (evaluate(high) > epsilon) {
     return {
       reachable: false,
       cutoff: high,
-      bound: scoreTailBound(high, params),
+      bound: evaluate(high),
     }
   }
 
   let low = -1
   while (high - low > 1) {
     const middle = Math.floor((low + high) / 2)
-    if (scoreTailBound(middle, params) <= epsilon) {
+    if (evaluate(middle) <= epsilon) {
       high = middle
     } else {
       low = middle
@@ -456,7 +661,7 @@ export function findTailCutoff(params, epsilon, maxSearch = 1 << 20) {
   return {
     reachable: true,
     cutoff: high,
-    bound: scoreTailBound(high, params),
+    bound: evaluate(high),
   }
 }
 
@@ -586,7 +791,9 @@ function planScore(params, display, policy, tailBudget) {
   const float64Bytes =
     arrayCount * workingLength * Float64Array.BYTES_PER_ELEMENT
   const tailModel = normalized.yousei > 0
-    ? 'conservative-union-bound'
+    ? normalized.shihai === 0
+      ? 'exact-yousei'
+      : 'conservative-union-bound'
     : normalized.shihai === 0
       ? 'exact-max'
       : 'conservative-max-bound'

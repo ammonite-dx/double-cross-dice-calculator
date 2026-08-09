@@ -4,7 +4,7 @@
 
 ## ファイル
 
-- [`planner.mjs`](./planner.mjs)は、尾部上界、有限support、作業範囲、FFT長、概算資源量、警告とhard rejectを返す参照plannerです。将来の本番APIの候補を実行可能な形で記録しています。
+- [`planner.mjs`](./planner.mjs)は、`shihai=0`の`exact-max`/`exact-yousei` tail certificate、`shihai>0`の保守bound、有限support、作業範囲、FFT長、概算資源量、警告とhard rejectを返す参照plannerです。将来の本番APIの候補を実行可能な形で記録しています。
 - [`benchmark.mjs`](./benchmark.mjs)は、現行DX・DR計算、可変supportのDX参照計算、可変FFT長のD10混合、FFT、planner代表ケースをNodeで測定します。
 - [`results.json`](./results.json)は、最後にベンチを実行した結果です。`generatedAt`、Node、CPU、OS、反復回数、理論上の`Float64Array`容量を含みます。
 - [`decision.md`](./decision.md)は、現行境界、数式、API案、推奨しきい値、責務分担、実装段階、テスト計画、未解決事項を記録します。
@@ -27,4 +27,4 @@ plannerの境界条件はNode標準の`node:test`で検証します。
 node --test experiments/dynamic-distribution-ranges/planner.node-test.mjs
 ```
 
-テストはtail cutoffの境界と単調性、`critical=11`・`dice=0`、tail model名、互換入力reject、有限DR support、FFT長、warning/hard境界、FFT係数、`published-bucket`と`full-tail`の差を対象にします。
+テストはtail cutoffの境界と単調性、`critical=11`・`dice=0`、`exact-yousei`の境界、tail model名、互換入力reject、有限DR support、FFT長、warning/hard境界、FFT係数、`published-bucket`と`full-tail`の差を対象にします。

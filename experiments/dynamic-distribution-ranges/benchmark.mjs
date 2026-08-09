@@ -11,6 +11,7 @@ import {
 } from '../runtime-dr/optimized.js'
 import { transform } from '../../src/calculation/RuntimeDamageRollFFT.js'
 import {
+  findTailCutoff,
   nextPowerOfTwo,
   planCalculationRanges,
   scoreTailBound,
@@ -315,6 +316,42 @@ function planSummary(plan) {
   }
 }
 
+function legacyYouseiUnionTailBound(value, params) {
+  const { dice, critical, yousei } = params
+  if (yousei === 0) {
+    return scoreTailBound(value, params)
+  }
+  const adjusted = Math.floor((value - 9 * yousei) / (yousei + 1))
+  if (adjusted <= 0) {
+    return 1
+  }
+  const maxTail = (tailValue, tailDice) => scoreTailBound(
+    tailValue,
+    { dice: tailDice, critical, shihai: 0, yousei: 0 },
+  )
+  return Math.min(
+    1,
+    maxTail(adjusted, dice) + yousei * maxTail(adjusted, 1),
+  )
+}
+
+function findCutoffWithEvaluator(params, epsilon, evaluator) {
+  let high = 1
+  while (high < (1 << 20) && evaluator(high, params) > epsilon) {
+    high *= 2
+  }
+  let low = -1
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2)
+    if (evaluator(middle, params) <= epsilon) {
+      high = middle
+    } else {
+      low = middle
+    }
+  }
+  return { cutoff: high, bound: evaluator(high, params) }
+}
+
 const dxCases = [
   {
     label: 'dx current shihai=0',
@@ -431,7 +468,7 @@ const plannerCases = [
     },
   },
   {
-    label: 'planner infinite-tail stress',
+    label: 'planner exact-yousei stress',
     params: {
       operation: 'score',
       score: { dice: 99, critical: 2, shihai: 0, yousei: 9, skill: 0 },
@@ -463,6 +500,20 @@ const plannerCases = [
 const plans = plannerCases.map(({ label, params, policy }) => ({
   label,
   plan: planSummary(planCalculationRanges(params, policy)),
+  benchmark: (() => {
+    const measurement = measure(
+      `planner ${label}`,
+      10,
+      () => planCalculationRanges(params, policy),
+    )
+    return {
+      iterations: measurement.iterations,
+      minMs: measurement.minMs,
+      medianMs: measurement.medianMs,
+      maxMs: measurement.maxMs,
+      meanMs: measurement.meanMs,
+    }
+  })(),
 }))
 
 const result = {
@@ -485,24 +536,28 @@ const result = {
     { dice: 200, critical: 2, shihai: 19, yousei: 0, epsilon: 1e-8 },
     { dice: 99, critical: 2, shihai: 0, yousei: 9, epsilon: 1e-8 },
   ].map((item) => {
-    let low = 0
-    let high = 1
     const params = item
-    while (high < (1 << 20) && scoreTailBound(high, params) > item.epsilon) {
-      high *= 2
-    }
-    while (high - low > 1) {
-      const middle = Math.floor((low + high) / 2)
-      if (scoreTailBound(middle, params) <= item.epsilon) {
-        high = middle
-      } else {
-        low = middle
-      }
-    }
+    const cutoff = findTailCutoff(params, item.epsilon)
     return {
       ...item,
-      cutoff: high,
-      bound: scoreTailBound(high, params),
+      model: params.yousei > 0 && params.shihai === 0
+        ? 'exact-yousei'
+        : params.yousei > 0
+          ? 'conservative-union-bound'
+          : params.shihai === 0
+            ? 'exact-max'
+            : 'conservative-max-bound',
+      cutoff: cutoff.cutoff,
+      bound: cutoff.bound,
+      ...(params.yousei > 0 && params.shihai === 0
+        ? {
+            legacyUnionBound: findCutoffWithEvaluator(
+              params,
+              item.epsilon,
+              legacyYouseiUnionTailBound,
+            ),
+          }
+        : {}),
     }
   }),
   currentSupportTailBounds: [

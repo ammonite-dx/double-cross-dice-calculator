@@ -39,6 +39,83 @@ function attackParams(overrides = {}) {
   }
 }
 
+function createOneDieOracle(critical, maxValue) {
+  const distribution = Array(maxValue + 1).fill(0)
+  const criticalProbability = (11 - critical) / 10
+  for (let remainder = 1; remainder < critical; remainder += 1) {
+    let value = remainder
+    let probability = 0.1
+    while (value <= maxValue) {
+      distribution[value] += probability
+      value += 10
+      probability *= criticalProbability
+    }
+  }
+
+  const total = distribution.reduce((sum, probability) => sum + probability, 0)
+  distribution[maxValue] += 1 - total
+  return distribution
+}
+
+function createFiniteYouseiOracle({ dice, critical, yousei }, maxValue = 1000) {
+  if (dice === 0) {
+    const result = Array(maxValue + 1).fill(0)
+    result[0] = 1
+    return result
+  }
+
+  const oneDie = createOneDieOracle(critical, maxValue)
+  const result = Array(maxValue + 1).fill(0)
+  let cumulative = 0
+  let previousMaxCumulative = 0
+  for (let value = 0; value <= maxValue; value += 1) {
+    cumulative += oneDie[value]
+    const maxCumulative = cumulative ** dice
+    result[value] = maxCumulative - previousMaxCumulative
+    previousMaxCumulative = maxCumulative
+  }
+
+  let current = result
+  for (let count = 0; count < yousei; count += 1) {
+    const rounded = Array(maxValue + 1).fill(0)
+    for (let value = 0; value <= maxValue; value += 1) {
+      const target = value === 0
+        ? 0
+        : Math.min(maxValue, Math.ceil(value / 10) * 10)
+      rounded[target] += current[value]
+    }
+
+    const next = Array(maxValue + 1).fill(0)
+    for (let left = 0; left <= maxValue; left += 1) {
+      if (rounded[left] === 0) {
+        continue
+      }
+      for (let right = 0; right <= maxValue; right += 1) {
+        if (oneDie[right] === 0) {
+          continue
+        }
+        next[Math.min(maxValue, left + right)] +=
+          rounded[left] * oneDie[right]
+      }
+    }
+    current = next
+  }
+  return current
+}
+
+function finiteOracleTail(distribution, value) {
+  const cutoff = Math.floor(value)
+  let result = 0
+  for (
+    let index = Math.max(0, cutoff + 1);
+    index < distribution.length;
+    index += 1
+  ) {
+    result += distribution[index]
+  }
+  return Math.max(0, Math.min(1, result))
+}
+
 describe('production range planner', () => {
   it('finds a cutoff boundary and preserves tail monotonicity', () => {
     const params = { dice: 99, critical: 2, shihai: 0, yousei: 0 }
@@ -98,14 +175,110 @@ describe('production range planner', () => {
     }))
 
     expect(shihai.scores[0].tail.model).toBe('conservative-max-bound')
-    expect(yousei.scores[0].tail.model).toBe('conservative-union-bound')
+    expect(yousei.scores[0].tail.model).toBe('exact-yousei')
     expect(incompatible.accepted).toBe(false)
+    expect(incompatible.scores[0].tail.model).toBe('conservative-union-bound')
     expect(incompatible.rejectionReasons).toContain('incompatible-input')
     expect(
       incompatible.warnings.find(
         (warning) => warning.code === 'incompatible-input'
       ).severity
     ).toBe('reject')
+  })
+
+  it('matches a finite round-and-convolution oracle for small yousei cases', () => {
+    const cases = [
+      { dice: 1, critical: 2, shihai: 0, yousei: 1 },
+      { dice: 2, critical: 3, shihai: 0, yousei: 2 },
+      { dice: 3, critical: 7, shihai: 0, yousei: 1 },
+    ]
+
+    for (const params of cases) {
+      const oracle = createFiniteYouseiOracle(params)
+      for (let value = 0; value <= 220; value += 1) {
+        expect(scoreTailBound(value, params)).toBeCloseTo(
+          finiteOracleTail(oracle, value),
+          10,
+        )
+      }
+    }
+  })
+
+  it('keeps ten-boundary, critical-11, zero-dice, and one-use cases exact', () => {
+    const oneUse = { dice: 1, critical: 11, shihai: 0, yousei: 1 }
+    expect(scoreTailBound(10, oneUse)).toBe(1)
+    expect(scoreTailBound(11, oneUse)).toBeCloseTo(0.9)
+    expect(scoreTailBound(19, oneUse)).toBeCloseTo(0.1)
+    expect(scoreTailBound(20, oneUse)).toBe(0)
+
+    const twoUses = { dice: 1, critical: 11, shihai: 0, yousei: 2 }
+    expect(scoreTailBound(20, twoUses)).toBe(1)
+    expect(scoreTailBound(21, twoUses)).toBeCloseTo(0.9)
+    expect(scoreTailBound(30, twoUses)).toBe(0)
+
+    const zeroDice = { dice: 0, critical: 2, shihai: 0, yousei: 9 }
+    expect(scoreTailBound(0, zeroDice)).toBe(0)
+    expect(findTailCutoff(zeroDice, 1e-8)).toEqual({
+      reachable: true,
+      cutoff: 0,
+      bound: 0,
+    })
+
+    for (const critical of [1, 12, 2.5]) {
+      expect(() => scoreTailBound(0, {
+        dice: 0,
+        critical,
+        shihai: 0,
+        yousei: 1,
+      })).toThrow(RangeError)
+    }
+
+    expect(() => scoreTailBound(Number.NaN, oneUse)).toThrow(RangeError)
+    expect(scoreTailBound(Number.POSITIVE_INFINITY, oneUse)).toBe(0)
+    expect(scoreTailBound(Number.NEGATIVE_INFINITY, oneUse)).toBe(1)
+  })
+
+  it('uses the exact yousei certificate for the stress case below the hard range', () => {
+    const cutoffParams = {
+      dice: 99,
+      critical: 2,
+      shihai: 0,
+      yousei: 9,
+    }
+    const cutoff = findTailCutoff(cutoffParams, 1e-8)
+    expect(cutoff.bound).toBeLessThanOrEqual(1e-8)
+    expect(
+      scoreTailBound(cutoff.cutoff - 1, cutoffParams)
+    ).toBeGreaterThan(1e-8)
+
+    const plan = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({ dice: 99, critical: 2, yousei: 9 }),
+    }))
+    const score = plan.scores[0]
+
+    expect(plan.accepted).toBe(true)
+    expect(score.tail.model).toBe('exact-yousei')
+    expect(score.workingLength).toBeLessThan(16384)
+    expect(score.tail.bound).toBeLessThanOrEqual(1e-8)
+  })
+
+  it('keeps exact-yousei tails finite, non-negative, and monotone at larger inputs', () => {
+    const cases = [
+      { dice: 300, critical: 2, shihai: 0, yousei: 30 },
+      { dice: 500, critical: 5, shihai: 0, yousei: 40 },
+    ]
+
+    for (const params of cases) {
+      let previous = scoreTailBound(0, params)
+      for (let value = 37; value <= 12000; value += 37) {
+        const current = scoreTailBound(value, params)
+        expect(Number.isFinite(current)).toBe(true)
+        expect(current).toBeGreaterThanOrEqual(0)
+        expect(current).toBeLessThanOrEqual(1)
+        expect(current).toBeLessThanOrEqual(previous + 1e-12)
+        previous = current
+      }
+    }
   })
 
   it('adjusts the working range in the expected direction for skill shifts', () => {
