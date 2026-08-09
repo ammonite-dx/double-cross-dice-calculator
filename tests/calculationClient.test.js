@@ -671,6 +671,91 @@ describe('CalculationClient', () => {
     expect(onRangePlan).toHaveBeenCalledTimes(1)
     expect(onRangePlan.mock.calls[0][0].operation).toBe('backtrack')
     expect(dependencies[loader]).toHaveBeenCalledOnce()
-    expect(dependencies.getFinalEncroachment).toHaveBeenCalledWith(params)
+    expect(dependencies.getFinalEncroachment).toHaveBeenCalledWith(
+      params,
+      {},
+      onRangePlan.mock.calls[0][0].backtrack
+    )
+  })
+
+  it('skips static asset loading for a complete on-demand backtrack plan', async () => {
+    const plan = {
+      accepted: true,
+      backtrack: { distributionMode: 'on-demand' },
+    }
+    const dependencies = createDependencies({
+      planCalculationRanges: vi.fn(() => plan),
+      loadD10Asset: vi.fn(() => Promise.reject(new Error('D10 asset must not load'))),
+      loadLivingdeadAsset: vi.fn(() => Promise.reject(
+        new Error('livingdead asset must not load')
+      )),
+    })
+    const client = createCalculationClient(dependencies)
+    const params = { dice: 103, dlois: '\u306a\u3057' }
+
+    await expect(client.calculateBacktrack(params)).resolves.toBe('backtrack')
+    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
+    expect(dependencies.loadLivingdeadAsset).not.toHaveBeenCalled()
+    expect(dependencies.getFinalEncroachment).toHaveBeenCalledWith(
+      params,
+      {},
+      plan.backtrack
+    )
+  })
+
+  it('rejects an already-aborted backtrack before loading or calculating', async () => {
+    const dependencies = createDependencies({
+      planCalculationRanges: vi.fn(() => ({
+        accepted: true,
+        backtrack: { distributionMode: 'asset' },
+      })),
+    })
+    const client = createCalculationClient(dependencies)
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(client.calculateBacktrack(
+      { dice: 0, dlois: '\u306a\u3057' },
+      { signal: controller.signal }
+    )).rejects.toMatchObject({ name: 'AbortError' })
+    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
+    expect(dependencies.loadLivingdeadAsset).not.toHaveBeenCalled()
+    expect(dependencies.getFinalEncroachment).not.toHaveBeenCalled()
+  })
+
+  it('passes backtrack runtime options and range plan as separate arguments', async () => {
+    const backtrackPlan = {
+      workingMax: 1200,
+      workingLength: 1201,
+      fftLength: 0,
+    }
+    const plan = {
+      accepted: true,
+      backtrack: backtrackPlan,
+    }
+    const planCalculationRanges = vi.fn(() => plan)
+    const dependencies = createDependencies({ planCalculationRanges })
+    const client = createCalculationClient(dependencies)
+    const options = {
+      signal: new AbortController().signal,
+      requestId: 'backtrack-1',
+      rangePolicy: { calculationMax: 1200 },
+      onRangePlan: vi.fn(),
+    }
+    const params = { ...{
+      encroachment: 100,
+      lois: 7,
+      elois: 0,
+      dice: 0,
+      value: 0,
+    }, dlois: 'なし' }
+
+    await client.calculateBacktrack(params, options)
+
+    expect(dependencies.getFinalEncroachment).toHaveBeenCalledWith(
+      params,
+      { signal: options.signal, requestId: 'backtrack-1' },
+      backtrackPlan
+    )
   })
 })

@@ -122,7 +122,7 @@ describe('CalculationFeedback', () => {
 
     expect(display.type).toBe('warning')
     expect(display.reasons).toContain('計算に時間がかかる可能性があります。')
-    expect(display.reasons).toContain('現在のバックトラック用データでは全範囲を表せません。')
+    expect(display.reasons).toContain('静的なバックトラック用データのcoverageが不足しています（計算結果のoverflowではありません）。完全supportはオンデマンド計算を使用してください。')
     expect(display.metrics.time).toBe('52.5 ms')
     expect(display.metrics.memory).toBe('2 MiB')
     expect(display.overflow).toContain('表示範囲: 1,000以上の値をまとめて扱います。')

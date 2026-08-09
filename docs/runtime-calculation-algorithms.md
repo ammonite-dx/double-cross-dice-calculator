@@ -247,13 +247,15 @@ certificateの確率clampでは、`NaN`をtail 0へ変換せず計算失敗と�
 
 preflightの計画やwarningは公開planメソッドまたはcallbackから取得し、既存のcheck/attack結果に`rangePlan`を追加せず、backtrackを含む既存の戻り値形状を維持します。attackでは`action.score`と`reaction.score`をscore planへ、`action.damage`と`reaction.damage`をattack/defence planへ写像します。《イベイジョン》のreaction scoreは実計算が固定値であるため、planning時だけdice 0、critical 11、shihai 0、yousei 0、skill維持へ正規化します。`rangePolicy`と`onRangePlan`はruntime damage optionsから除外し、`signal`や`requestId`など既存optionsはそのまま渡します。
 
+backtrackの計算では、`calculateBacktrack`が同じpreflightの`plan.backtrack`を計算coreへ渡します。`runtime options`（`signal`、`requestId`など）と計画を別引数に分け、`workingMax`、`workingLength`、`fftLength`を計算側で再検証します。計画なしの直接呼出しは従来どおりproviderの1024要素配列を使い、計画ありでは完全supportが必要なときだけオンデマンド生成へ切り替えます。
+
 Scoreのdynamic接続では、`ScoreRangePlan.workingLength`をDX providerとScoreの全ての中間配列へ渡します。`calculateDxDistribution(params, options?)`は明示された`workingLength`または`size`を検証し、値0の明示bucketとoverflow bucketを分けるため最低2要素、かつplannerの通常hard policyより広い直接API safety ceilingも超えないようにします。既定の引数なし呼出しは2048要素と従来の小数第6位互換丸めを維持し、planあり呼出しは小確率を消さない`unrounded`または`full-precision`を内部指定します。直接APIの現在の安全上限は65536要素であり、既定plannerのScore hard limit 16384要素とは別の防御的な上限です。hard policyを将来広げる場合も、このAPI上限と同時に見直します。
 
 妖精の手を使うScoreでは、主DXと1D10分布を同じworkingLengthで取得し、同長配列の線形畳み込みを行います。実装のFFT長は`nextPowerOfTwo(2 * workingLength - 1)`で、RangePlannerの`score.fftLength`もこの値を返します。`oneDieCutoff`は独立した1D10 tail診断値として残しますが、FFT長の決定には使いません。`sumDistribution`は任意の`fftLength`と`onFftLength`診断callbackを受け付け、指定値が実際の必要長と一致しない場合は例外にします。
 
 丸めはDX分布生成の最後にだけ行います。引数なしのlegacy pathと明示的な`legacy`または`six-decimal`だけが小数第6位の互換丸めと総和補正を使い、planner dynamic pathはDX、妖精の手用1D10、畳み込み、skill shiftの間で未丸め値を保持し、最後の公開1024要素へのcollapse後にも追加の互換丸めを行いません。したがって同じ入力でも固定2048のlegacy結果とdynamic結果には丸め由来の小差があり得ますが、tail certificateの誤差予算とは別に扱います。
 
-末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応し、第2-BでDamageCalculator、有限防御support、CalculationClientからのDamageRangePlan接続まで完了しました。第2-Cで計画のwarning/rejectとoverflow下限をUIへ表示します。total damageの現行1024 published bucket集計は維持し、残る課題はresource guardと将来のdynamic output契約、バックトラック配列、入力上限、JSON経路です。
+末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応し、第2-BでDamageCalculator、有限防御support、CalculationClientからのDamageRangePlan接続まで完了しました。第2-Cで計画のwarning/rejectとoverflow下限をUIへ表示します。第2-Dでbacktrackの完全support生成とplan伝播も完了しました。total damageの現行1024 published bucket集計は維持し、残る課題はresource guardと将来のdynamic output契約、入力上限、JSON経路です。
 
 `CalculationClient`はcheckとattackのpreflight planを捨てず、actionとreactionの順にScoreCalculatorへ渡します。《イベイション》の固定reactionは引き続きDX providerを呼ばず、戻り値形状も変更しません。runtime DX cacheのキーはdice、critical、shihai、workingLength、rounding modeを含むため、同じ入力でも異なるplanの固定2048結果を誤再利用しません。同じplanは既存のLRU cacheで再利用されます。
 
@@ -289,7 +291,7 @@ raw分布は防御前の座標`X`として扱う。`a>=0`では`X+a`を防御へ
 
 防御分布は`0..D`の`D+1`要素へ展開し、`defenceFftLength`を`subDistribution`へ渡す。防御差の負値は0へ、failure massは0へ合算し、最後に公開長1024へcollapseする。provider返却分布と防御分布は長さ、有限性、非負性、確率総和を検証し、微小な負値だけを0へ補正する。
 
-`PrecomputedDataRepository`は有限supportが要求長に収まる場合に、既存アセット長1024より短い`d10`配列も生成できるようになった。既定のアセット取得長と公開分布のoverflow semanticsは変更していない。第2-Bの対象外だったUI表示は第2-Cで範囲warning/rejectの表示を追加した。total damageの現行1024 published bucket集計は変更せず、対象外として残るのはresource guardと将来のdynamic output契約、バックトラック配列、入力上限、JSON経路である。
+`PrecomputedDataRepository`は有限supportが要求長に収まる場合に、既存アセット長1024より短い`d10`および`livingdead`配列も生成できるようになった。既定のアセット取得長と公開分布のoverflow semanticsは変更していない。第2-Bの対象外だったUI表示は第2-Cで範囲warning/rejectの表示を追加した。total damageの現行1024 published bucket集計は変更せず、対象外として残るのはresource guardと将来のdynamic output契約、入力上限、JSON経路である。backtrackの動的範囲接続は第2-Dで完了した。
 
 ## 15. Dynamic range feedback in the UI（第2-C）
 
@@ -297,4 +299,16 @@ raw分布は防御前の座標`X`として扱う。`a>=0`では`X+a`を防御へ
 
 checkとbacktrackは画面単位、attackはコンボ単位でfeedbackと`resultReady`を保持します。`CalculationRangeError`は計算器とアセット読込が始まる前に既存契約どおり発生し、UIはrejectの理由を表示して古い分布を結果として残しません。各更新はrequest tokenでcommit対象を制限し、前のattack requestにはAbortControllerを渡します。UI runnerが`options.signal`を受け取った場合は、呼び出し側signalとrunner所有signalを`AbortSignal.any`（非対応環境では同等のfallback）で合成し、どちらも上書きしません。AbortError、古いrequest、アンマウント後のcallbackはUIエラーへ変換しません。
 
-この変更はRangePlannerをUIへ複製せず、`CalculationClient`のpreflight callbackだけを利用します。CalculationClientの公開計算結果、現行1024 published bucket、JSON asset、入力上限、backtrack配列、full-tail、total damageの集計仕様は変更していません。total damageについて未接続として残る意味は、将来のresource guardとdynamic output契約です。
+この変更はRangePlannerをUIへ複製せず、`CalculationClient`のpreflight callbackだけを利用します。CalculationClientの公開計算結果、現行1024 published bucket、JSON asset、入力上限、full-tail、total damageの集計仕様は変更していません。backtrackだけは第2-Dでplanあり経路の内部supportを拡張しましたが、公開戻り値のカテゴリ形状は維持しています。total damageについて未接続として残る意味は、将来のresource guardとdynamic output契約です。
+
+## 16. Backtrack dynamic range 第2-D（完了）
+
+RangePlannerのbacktrack planは、通常backtrackの3種類（1倍、2倍、3倍）のダイス数を負値0 clamp後に求めます。通常D10の`rawSupportMax`は`10 * maxDice`、《屍人》は`maxDice === 0 ? 0 : 10 * maxDice - 9`であり、`workingMax = rawSupportMax`、`workingLength = workingMax + 1`です。backtrackは畳み込みを使わないため`fftLength`は0です。`rawSupportMax <= assetSupportMax`（1022）なら`asset`、超える場合は完全supportをcore内で生成する`on-demand`です。したがってn=103は通常D10では1030/1031でon-demand、《屍人》では1021/1022でassetです。
+
+計画なしの経路は従来どおりproviderと1024要素アセットを必須とします。計画ありの`asset`経路だけがrepositoryで検証したアセットを使い、`on-demand`経路はアセットを読まずに、通常の`nD10`を前向きDP、《屍人》を`sum(d10) - max(d10) + 1`の最大値状態DPで完全support生成します。ダイス数0は両方とも値0の点分布です。on-demandで完全supportを生成できる場合、静的アセットのcoverage不足warningは出さず、`overflowInfo`も計算結果のoverflowとは扱いません。
+
+純粋なbacktrack generatorにはplannerを迂回する直接呼出し向けの絶対安全上限があります。`BACKTRACK_MAX_GENERATION_LENGTH = 1 << 16`はDXの直接計算と同じ65536要素規模、`BACKTRACK_MAX_GENERATION_OPERATIONS = 100_000_000`はDPの概算O(n²)処理量を抑える値、`BACKTRACK_MAX_GENERATED_DICE = 1 << 12`は入力の明示上限です。これらはplannerのwarning/reject policyとは別に、配列確保前に検証されます。abortは配列確保前、主要DP境界、4096反復ごとのchunk境界、終了前に確認します。
+
+完全supportを得てから`encroachment - value - threshold`の境界でカテゴリへ集計するため、減算後に表示範囲へ戻る可能性があるoverflow質量を一点値として扱いません。カテゴリの公開配列は従来の1024相当の形状を保ちますが、計画あり経路の最後の区分は生成した有限support末端までを集計します。生成・provider配列は長さ、有限性、非負性、確率総和を検証し、許容した微小負値だけを0へ補正して総和を正規化します。`signal`はDPの途中でも確認し、既存のcancel/stale契約をruntime options側で維持します。
+
+既存1024要素アセットのsupport限界は`assetSupportMax = 1022`として計画metadataに残しますが、on-demandで完全supportを生成する場合は`assetOverflow`をwarningや`overflowInfo.backtrack`の実計算overflowとして表示しません。静的assetを選ぶ経路でcoverage不足が実際に残る場合だけ、asset warningを表示します。低い`calculationMax`をアセット境界の判定に流用せず、planなし経路、公開1024、UI入力上限、JSON削除、full-tail、total damageのdynamic outputは変更しません。

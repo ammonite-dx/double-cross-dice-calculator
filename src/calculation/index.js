@@ -1,6 +1,15 @@
 export {
   calculateFinalEncroachment,
+  calculateD10Distributions,
+  calculateLivingdeadDistributions,
 } from './BacktrackCalculator'
+export {
+  BACKTRACK_ABORT_CHECK_INTERVAL,
+  BACKTRACK_ASSET_SUPPORT_MAX,
+  BACKTRACK_MAX_GENERATED_DICE,
+  BACKTRACK_MAX_GENERATION_LENGTH,
+  BACKTRACK_MAX_GENERATION_OPERATIONS,
+} from './BacktrackLimits'
 export {
   calculateDamage,
   calculateDamageOnDemand,

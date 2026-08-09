@@ -3,6 +3,7 @@ import {
   WORKING_DISTRIBUTION_SIZE,
   expandSparseDistribution,
 } from './Distribution'
+import { getDatasetSupportMax } from '../domain/BacktrackRules'
 
 export const PRECOMPUTED_DATA_SCHEMA_VERSION = 2
 export const PRECOMPUTED_DATA_REVISION = 1
@@ -285,20 +286,21 @@ function getOneDimensionalDistribution(
     Number.isInteger(size) && size > 0,
     `${dataset} expansion size is invalid: ${size}`
   )
-  if (dataset === 'd10' && size > asset.distributionSize) {
+  const fullSupportMax = getDatasetSupportMax(dataset, dice)
+  if (size > asset.distributionSize) {
     assert(
-      10 * dice < asset.distributionSize,
-      `d10[${dice}] cannot be expanded after overflow aggregation`
+      fullSupportMax < asset.distributionSize,
+      `${dataset}[${dice}] cannot be expanded after overflow aggregation`
     )
   }
   assert(
     sparseDistribution.offset + sparseDistribution.values.length <= size,
     `${dataset} distribution does not fit in expansion size: ${size}`
   )
-  if (dataset === 'd10' && size < asset.distributionSize) {
+  if (size < asset.distributionSize) {
     assert(
-      10 * dice < size,
-      `d10 distribution does not fit in expansion size: ${size}`
+      fullSupportMax < size,
+      `${dataset} distribution does not fit in expansion size: ${size}`
     )
   }
 
@@ -437,5 +439,5 @@ export const registerLivingdeadAsset = (asset) =>
   registerOneDimensionalAsset(asset, 'livingdead')
 export const getD10Distribution = (dice, size) =>
   getOneDimensionalDistribution('d10', dice, size)
-export const getLivingdeadDistribution = (dice) =>
-  getOneDimensionalDistribution('livingdead', dice)
+export const getLivingdeadDistribution = (dice, size) =>
+  getOneDimensionalDistribution('livingdead', dice, size)

@@ -6,7 +6,7 @@ const RANGE_REASON_BY_CODE = Object.freeze({
   'damage-working-length': 'ダメージ計算の作業範囲が大きくなっています。',
   'damage-fft-length': 'ダメージ計算のFFT範囲が大きくなっています。',
   'backtrack-working-length': 'バックトラック計算の作業範囲が大きくなっています。',
-  'backtrack-asset-overflow': '現在のバックトラック用データでは全範囲を表せません。',
+  'backtrack-asset-overflow': '静的なバックトラック用データのcoverageが不足しています（計算結果のoverflowではありません）。完全supportはオンデマンド計算を使用してください。',
   'estimated-memory': '計算に必要なメモリが大きくなっています。',
   'estimated-time': '計算に時間がかかる可能性があります。',
   'tail-cutoff-unreachable': '判定の末尾誤差を指定範囲まで抑えられません。',

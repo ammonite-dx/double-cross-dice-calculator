@@ -600,7 +600,7 @@ describe('production range planner', () => {
     expect(fullTail.damage.rawSupportMax).toBe(10)
   })
 
-  it('clamps negative backtrack dice and reports finite asset overflow', () => {
+  it('clamps negative backtrack dice and separates static asset coverage', () => {
     const clamped = planCalculationRanges({
       operation: 'backtrack',
       backtrack: {
@@ -630,10 +630,73 @@ describe('production range planner', () => {
     expect(clamped.backtrack.finiteSupport).toBe(true)
     expect(overflow.backtrack.rawSupportMax).toBe(3000)
     expect(overflow.backtrack.assetOverflow).toBe(true)
-    expect(overflow.warnings.find(
-      (warning) => warning.code === 'backtrack-asset-overflow'
-    ).severity).toBe('warning')
-    expect(overflow.overflowInfo.backtrack.type).toBe('asset')
+    expect(overflow.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'backtrack-asset-overflow' })
+    )
+    expect(overflow.overflowInfo.backtrack.type).toBe('finite-support')
+    expect(overflow.overflowInfo.backtrack.lowerBound).toBeNull()
+    expect(overflow.backtrack.distributionMode).toBe('on-demand')
+    expect(overflow.backtrack.fftLength).toBe(0)
+  })
+
+  it('uses the rule-specific livingdead support boundary', () => {
+    const livingdead = planCalculationRanges({
+      operation: 'backtrack',
+      backtrack: {
+        lois: 0,
+        elois: 0,
+        dice: 103,
+        value: 0,
+        dlois: '\u5c4d\u4eba',
+      },
+    })
+    const ordinary = planCalculationRanges({
+      operation: 'backtrack',
+      backtrack: {
+        lois: 0,
+        elois: 0,
+        dice: 103,
+        value: 0,
+        dlois: '\u306a\u3057',
+      },
+    })
+
+    expect(livingdead.backtrack.rawSupportMax).toBe(1021)
+    expect(livingdead.backtrack.workingLength).toBe(1022)
+    expect(livingdead.backtrack.distributionMode).toBe('asset')
+    expect(livingdead.backtrack.assetOverflow).toBe(false)
+    expect(livingdead.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'backtrack-asset-overflow' })
+    )
+
+    expect(ordinary.backtrack.rawSupportMax).toBe(1030)
+    expect(ordinary.backtrack.workingLength).toBe(1031)
+    expect(ordinary.backtrack.distributionMode).toBe('on-demand')
+    expect(ordinary.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'backtrack-asset-overflow' })
+    )
+  })
+
+  it('keeps the asset boundary independent from a lower calculation maximum', () => {
+    const plan = planCalculationRanges({
+      operation: 'backtrack',
+      backtrack: {
+        encroachment: 100,
+        lois: 0,
+        elois: 0,
+        dice: 1,
+        value: 0,
+        dlois: 'なし',
+      },
+    }, {
+      calculationMax: 0,
+    })
+
+    expect(plan.backtrack.assetOverflow).toBe(false)
+    expect(plan.backtrack.distributionMode).toBe('asset')
+    expect(plan.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'backtrack-asset-overflow' })
+    )
   })
 
   it('rejects malformed planner and policy inputs', () => {

@@ -23,6 +23,18 @@ import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
 
+function createAbortError() {
+  const error = new Error('Backtrack calculation was aborted')
+  error.name = 'AbortError'
+  return error
+}
+
+function throwIfAborted(options) {
+  if (options?.signal?.aborted) {
+    throw createAbortError()
+  }
+}
+
 const defaultDependencies = {
   calculateDamageOnDemand,
   calculateDxDistribution,
@@ -352,18 +364,31 @@ export function createCalculationClient(
 
     async calculateBacktrack(params, options = {}) {
       const request = snapshotBacktrackParams(params)
-      runRangePreflight(
+      const plan = runRangePreflight(
         planner,
         createBacktrackRangeParams(request),
         options.rangePolicy,
         options.onRangePlan
       )
+      throwIfAborted(options)
+      if (plan.backtrack?.distributionMode === 'on-demand') {
+        return dependencies.getFinalEncroachment(
+          request,
+          getRuntimeOptions(options),
+          plan.backtrack
+        )
+      }
       if (request.dlois === '屍人') {
         await dependencies.loadLivingdeadAsset()
       } else {
         await dependencies.loadD10Asset()
       }
-      return dependencies.getFinalEncroachment(request)
+      throwIfAborted(options)
+      return dependencies.getFinalEncroachment(
+        request,
+        getRuntimeOptions(options),
+        plan.backtrack
+      )
     },
   }
 }

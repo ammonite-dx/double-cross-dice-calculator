@@ -1,5 +1,14 @@
 import { OUTPUT_DISTRIBUTION_SIZE } from '../data/Distribution'
 import { DX_MAX_DISTRIBUTION_SIZE } from './DxCalculator'
+import {
+  BACKTRACK_ASSET_SUPPORT_MAX,
+  getBacktrackGenerationOperationEstimate,
+} from './BacktrackLimits'
+import {
+  getBacktrackDiceCounts,
+  getBacktrackRule,
+  getBacktrackSupportMax,
+} from '../domain/BacktrackRules'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
 const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
@@ -139,7 +148,10 @@ function getPublishedScoreUpperBound(calculationMax) {
  * @property {number} operations
  * @property {number} float64Bytes
  * @property {true} finiteSupport
- * @property {boolean} assetOverflow
+ * @property {'asset' | 'on-demand'} distributionMode
+ * @property {number} assetSupportMax
+ * @property {boolean} assetOverflow Static asset coverage metadata; it is not
+ *   a calculation overflow when distributionMode is on-demand.
  * @property {number} assetOverflowLowerBound
  *
  * @typedef {Object} ResourceEstimate
@@ -878,14 +890,7 @@ function planScore(params, display, policy, tailBudget) {
   }
 }
 
-const BACKTRACK_DICE_MODIFIERS = {
-  '戦闘用人格・生きる伝説': -1,
-  生還者: 3,
-  '戦友(通常)': 2,
-  '戦友(強化)': 4,
-}
-
-function planBacktrack(params, display, policy) {
+function planBacktrack(params, display) {
   object(params, 'backtrack')
   const normalized = {
     encroachment: integer(
@@ -901,24 +906,52 @@ function planBacktrack(params, display, policy) {
   if (typeof normalized.dlois !== 'string') {
     throw new TypeError('backtrack.dlois must be a string')
   }
-  const diceModifier = BACKTRACK_DICE_MODIFIERS[normalized.dlois] ?? 0
-  const diceCounts = [1, 2, 3].map((multiplier) => Math.max(
-    0,
-    normalized.lois * multiplier +
-      normalized.elois +
-      normalized.dice +
-      diceModifier
-  ))
+  const rule = getBacktrackRule(normalized.dlois)
+  const diceModifier = rule.diceModifier ?? 0
+  const diceCounts = getBacktrackDiceCounts(normalized)
+  diceCounts.forEach((dice, index) => {
+    if (!Number.isSafeInteger(dice) || dice < 0) {
+      throw new TypeError(
+        `backtrack.diceCounts[${index}] must be a non-negative safe integer`
+      )
+    }
+  })
   const maxDice = Math.max(...diceCounts)
-  const rawSupportMax = 10 * maxDice
+  const rawSupportMax = getBacktrackSupportMax(normalized.dlois, maxDice)
+  if (!Number.isSafeInteger(rawSupportMax)) {
+    throw new TypeError('backtrack.rawSupportMax must be a safe integer')
+  }
   const workingLength = rawSupportMax + 1
-  const assetOverflow = rawSupportMax > policy.calculationMax
+  if (!Number.isSafeInteger(workingLength)) {
+    throw new TypeError('backtrack.workingLength must be a safe integer')
+  }
+  // schema-v2 backtrack assets are 1024-element arrays. The calculation
+  // maximum is a separate policy boundary and may be lower than the asset
+  // boundary, so it must not be used to classify asset overflow.
+  const assetSupportMax = BACKTRACK_ASSET_SUPPORT_MAX
+  const assetOverflow = rawSupportMax > assetSupportMax
+  const distributionMode = assetOverflow ? 'on-demand' : 'asset'
+  const dynamicSupport = distributionMode === 'on-demand'
+  const generationOperations = dynamicSupport
+    ? getBacktrackGenerationOperationEstimate(
+        maxDice,
+        workingLength,
+        rule.livingdead
+      )
+    : 0
+  const operations = workingLength * 3 + generationOperations
+  const generationFloat64Arrays = dynamicSupport
+    ? rule.livingdead
+      ? 22
+      : 2
+    : 0
 
   return {
     params: normalized,
     display,
     rule: normalized.dlois,
     diceModifier,
+    livingdead: rule.livingdead === true,
     diceCounts: {
       single: diceCounts[0],
       double: diceCounts[1],
@@ -935,11 +968,15 @@ function planBacktrack(params, display, policy) {
     workingMax: rawSupportMax,
     workingLength,
     fftLength: 0,
-    operations: workingLength * 3,
-    float64Bytes: 3 * workingLength * Float64Array.BYTES_PER_ELEMENT,
+    operations,
+    float64Bytes: (
+      3 + generationFloat64Arrays
+    ) * workingLength * Float64Array.BYTES_PER_ELEMENT,
     finiteSupport: true,
+    distributionMode,
+    assetSupportMax,
     assetOverflow,
-    assetOverflowLowerBound: policy.calculationMax + 1,
+    assetOverflowLowerBound: assetSupportMax + 1,
   }
 }
 
@@ -1189,12 +1226,15 @@ function applyLimits(plan, policy) {
       limits.hard.workingLength,
       'elements'
     )
-    if (plan.backtrack.assetOverflow) {
+    if (
+      plan.backtrack.assetOverflow &&
+      plan.backtrack.distributionMode !== 'on-demand'
+    ) {
       addWarning(
         warnings,
         'backtrack-asset-overflow',
         'warning',
-        'the current finite distribution asset cannot represent the full backtrack support; generate a larger asset or use an on-demand calculator',
+        'the selected static backtrack asset cannot represent the full support; use an on-demand calculator or a larger asset',
         plan.backtrack.rawSupportMax,
         plan.backtrack.assetOverflowLowerBound
       )
@@ -1306,15 +1346,19 @@ function makeOverflowInfo(plan) {
   }
   const backtrack = plan.backtrack
     ? {
-        type: plan.backtrack.assetOverflow ? 'asset' : 'finite-support',
+        type: plan.backtrack.assetOverflow &&
+            plan.backtrack.distributionMode !== 'on-demand'
+          ? 'asset'
+          : 'finite-support',
         finiteSupport: true,
-        lowerBound: plan.backtrack.assetOverflow
+        lowerBound: plan.backtrack.assetOverflow &&
+            plan.backtrack.distributionMode !== 'on-demand'
           ? plan.backtrack.assetOverflowLowerBound
           : null,
         bound: null,
-        meaning: plan.backtrack.assetOverflow
-          ? 'the existing finite backtrack asset cannot represent the full finite support'
-          : 'backtrack D10 values have finite support within the selected asset',
+        meaning: plan.backtrack.distributionMode === 'on-demand'
+          ? 'backtrack values have finite support and this plan generates the complete support on demand; assetOverflow only describes static asset coverage'
+          : 'backtrack values have finite support within the selected asset',
       }
     : null
 
@@ -1360,8 +1404,7 @@ export function planCalculationRanges(params, policy = {}) {
   if (operation === 'backtrack') {
     backtrack = planBacktrack(
       params.backtrack ?? params,
-      display,
-      effectivePolicy
+      display
     )
   } else {
     const scoreParams = operation === 'score'
@@ -1425,7 +1468,7 @@ export function planCalculationRanges(params, policy = {}) {
       score: 'values above the modeled cutoff are omitted only within tail error budget',
       damage: 'finite modeled values above display.max are an explicit display overflow bucket',
       totalDamage: 'once a value is aggregated above display.max, later operations must not subtract from it',
-      backtrack: 'backtrack D10 distributions have finite support; values above the current asset boundary are asset overflow, not an infinite DX tail',
+      backtrack: 'backtrack values have finite support; on-demand plans generate the complete support, while static asset coverage is reported separately',
     },
     overflowInfo: null,
     warnings: [],

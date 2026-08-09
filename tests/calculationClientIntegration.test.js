@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   CalculationRangeError,
@@ -59,6 +59,24 @@ const calculationClient = createCalculationClient({
   loadD10Asset,
   loadLivingdeadAsset,
 })
+
+function createIntegrationClient(overrides = {}) {
+  return createCalculationClient({
+    calculateDamageOnDemand,
+    calculateDxDistribution,
+    calculateScore,
+    getD10Distribution,
+    getDamageRollDistribution: generateMixedDamageDistribution,
+    getFinalEncroachment,
+    getScore,
+    getScoreSummary,
+    getTotalDamage,
+    getDamageSummary,
+    loadD10Asset,
+    loadLivingdeadAsset,
+    ...overrides,
+  })
+}
 
 const scoreParams = {
   dice: 1,
@@ -253,6 +271,93 @@ describe('CalculationClient integration', () => {
     await expect(
       calculationClient.calculateBacktrack(params)
     ).resolves.toEqual(getFinalEncroachment(params))
+  })
+
+  it('matches the legacy provider at the n=102 asset boundary', async () => {
+    const params = {
+      encroachment: 100,
+      lois: 0,
+      elois: 0,
+      dice: 102,
+      value: 0,
+      dlois: '\u306a\u3057',
+    }
+    const legacy = getFinalEncroachment(params)
+
+    const result = await calculationClient.calculateBacktrack(params)
+
+    expect(result).toEqual(legacy)
+  })
+
+  it('completes ordinary n=103 on demand without a static asset', async () => {
+    const loadD10AssetSpy = vi.fn(() => Promise.reject(
+      new Error('D10 asset failure must not affect on-demand support')
+    ))
+    const loadLivingdeadAssetSpy = vi.fn(() => Promise.reject(
+      new Error('livingdead asset must not be requested')
+    ))
+    const client = createIntegrationClient({
+      loadD10Asset: loadD10AssetSpy,
+      loadLivingdeadAsset: loadLivingdeadAssetSpy,
+    })
+    const params = {
+      encroachment: 100,
+      lois: 0,
+      elois: 0,
+      dice: 103,
+      value: 0,
+      dlois: '\u306a\u3057',
+    }
+    let plan
+
+    const result = await client.calculateBacktrack(params, {
+      onRangePlan: (rangePlan) => {
+        plan = rangePlan
+      },
+    })
+
+    expect(plan.backtrack.rawSupportMax).toBe(1030)
+    expect(plan.backtrack.workingLength).toBe(1031)
+    expect(plan.backtrack.distributionMode).toBe('on-demand')
+    expect(loadD10AssetSpy).not.toHaveBeenCalled()
+    expect(loadLivingdeadAssetSpy).not.toHaveBeenCalled()
+    expect(result.single.reduce((sum, value) => sum + value, 0))
+      .toBeCloseTo(100, 10)
+  })
+
+  it('uses the livingdead asset at n=103 without an on-demand warning', async () => {
+    const loadLivingdeadAssetSpy = vi.fn(async () => {})
+    const loadD10AssetSpy = vi.fn(async () => {})
+    const client = createIntegrationClient({
+      loadD10Asset: loadD10AssetSpy,
+      loadLivingdeadAsset: loadLivingdeadAssetSpy,
+    })
+    const params = {
+      encroachment: 100,
+      lois: 0,
+      elois: 0,
+      dice: 103,
+      value: 0,
+      dlois: '\u5c4d\u4eba',
+    }
+    let plan
+
+    const result = await client.calculateBacktrack(params, {
+      onRangePlan: (rangePlan) => {
+        plan = rangePlan
+      },
+    })
+
+    expect(plan.backtrack.rawSupportMax).toBe(1021)
+    expect(plan.backtrack.workingLength).toBe(1022)
+    expect(plan.backtrack.distributionMode).toBe('asset')
+    expect(plan.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'backtrack-asset-overflow' })
+    )
+    expect(loadLivingdeadAssetSpy).toHaveBeenCalledOnce()
+    expect(loadD10AssetSpy).not.toHaveBeenCalled()
+    expect(result.single.reduce((sum, value) => sum + value, 0))
+      .toBeCloseTo(100, 10)
   })
 })
 

@@ -2,8 +2,17 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createDxRepository,
+  getD10Distribution,
+  getLivingdeadDistribution,
+  registerD10Asset,
+  registerLivingdeadAsset,
 } from '../src/data/PrecomputedDataRepository'
 import dxShihai0 from '../public/data/schema-v2/revision-1/dx/shihai-0.json'
+import d10 from '../public/data/schema-v2/revision-1/d10.json'
+import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
+
+registerD10Asset(d10)
+registerLivingdeadAsset(livingdead)
 
 function createJsonResponse(body, { ok = true, status = 200 } = {}) {
   return {
@@ -52,5 +61,23 @@ describe('dx repository', () => {
     await expect(repository.loadDxAsset(0)).rejects.toThrow('HTTP 503')
     await expect(repository.loadDxAsset(0)).resolves.toBe(dxShihai0)
     expect(fetchAsset).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('finite backtrack distributions', () => {
+  it('expands only distributions whose complete support survives the asset boundary', () => {
+    const d10 = getD10Distribution(102, 1021)
+    expect(d10).toHaveLength(1021)
+    expect(d10.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1, 12)
+    expect(() => getD10Distribution(103, 1031)).toThrow(
+      'cannot be expanded after overflow aggregation'
+    )
+
+    const livingdead = getLivingdeadDistribution(103, 1031)
+    expect(livingdead).toHaveLength(1031)
+    expect(livingdead.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1, 12)
+    expect(() => getLivingdeadDistribution(104, 1041)).toThrow(
+      'cannot be expanded after overflow aggregation'
+    )
   })
 })

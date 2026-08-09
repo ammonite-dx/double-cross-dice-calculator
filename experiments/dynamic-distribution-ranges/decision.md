@@ -2,7 +2,7 @@
 
 ## 状態と結論
 
-調査開始時点では、本番の`src`、配信JSON、UI入力上限を変更せず、実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。第1実装単位では参照plannerの契約をRuntimeDamageRollCalculatorとWorkerの可変FFT・出力長optionsへ移植し、第2-BではDamageCalculatorとCalculationClientへDamageRangePlanを接続し、第2-Cでは計画のwarning/rejectをcheck、attack、backtrack UIへ接続しました。現行1024 published bucketのtotal damage集計は維持し、配信JSON、UI入力上限、バックトラック配列、resource guardと将来のdynamic output契約は引き続き変更していません。
+調査開始時点では、本番の`src`、配信JSON、UI入力上限を変更せず、実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。第1実装単位では参照plannerの契約をRuntimeDamageRollCalculatorとWorkerの可変FFT・出力長optionsへ移植し、第2-BではDamageCalculatorとCalculationClientへDamageRangePlanを接続し、第2-Cでは計画のwarning/rejectをcheck、attack、backtrack UIへ接続しました。第2-DではbacktrackのplanをCalculationClientとBacktrackCalculatorへ接続し、必要時のD10/livingdead完全support生成まで実装しました。現行1024 published bucketのtotal damage集計は維持し、配信JSON、UI入力上限、full-tail、resource guardと将来のdynamic output契約は引き続き変更していません。
 
 現時点の推奨は次のとおりです。
 
@@ -153,7 +153,7 @@ n_2=\max(0,2l+e_l+b+\delta),\quad
 n_3=\max(0,3l+e_l+b+\delta)
 $$
 
-各supportは`0..10n_i`です。現行の`d10`と`livingdead`アセットは1023以上を集約済みなので、1023より大きい境界を正確に表示するには、アセットを動的生成するか、別の広い有限分布を用意する必要があります。DXのような無限尾部誤差とは分けて、asset-overflowとして扱います。
+通常D10のsupportは`0..10n_i`、《屍人》は`n_i=0`なら値0のみ、`n_i>=1`なら`0..(10n_i-9)`です。`workingLength`はsupport最大値+1とします。schema-v2の1024要素アセットが表現できる静的support最大値は1022なので、収まる場合はasset、超える場合は静的assetの末尾bucketを使わずon-demandで完全supportを生成します。DXのような無限尾部誤差や実計算結果のoverflowとは分け、静的assetのcoverage情報として扱います。
 
 ## ベンチマーク結果
 
@@ -323,10 +323,10 @@ Scoreの`fftLength`は、ScoreCalculatorが主DXと妖精の手の1D10分布を�
 - `working-length`、`fft-length`: 分布または畳み込み長が閾値を超えた。
 - `estimated-time`、`estimated-memory`: 校正済みモデルの推定資源が閾値を超えた。
 - `display-points`: チャート点数が描画上限を超えた。
-- `asset-overflow`: d10/livingdeadなど既存アセットのoverflowが要求境界にかかる。
+- `asset-overflow`: 選択したd10/livingdeadなど静的アセットが要求supportを表せない場合だけ表示する。完全supportをon-demand生成できる計画では表示しない。
 - `incompatible-input`: 現行互換モードで`yousei`と`shihai`を同時利用するなど、UI仕様が拒否する組み合わせ。参照plannerではrejectとして返す。
 
-warningは計算を許可しますが、ユーザーへ推定時間、メモリ、尾部誤差、overflowの意味を示します。rejectは入力を計算器へ渡さず、理由と、入力を下げるか表示を粗くする代替案を返します。
+warningは計算を許可しますが、ユーザーへ推定時間、メモリ、尾部誤差、静的asset coverage不足など各warningの意味を示します。実計算結果のoverflowとassetが使えないことを同じwarningとして扱いません。rejectは入力を計算器へ渡さず、理由と、入力を下げるか表示を粗くする代替案を返します。
 
 ### overflowの契約
 
@@ -373,7 +373,7 @@ overflowは一種類ではありません。
 3. `DxCalculator`をplanned supportへ対応させ、`shihai=0`の厳密上界、`shihai>0`の保守上界、cutoff外質量を別フィールドで返す。小数第6位丸めは互換経路だけへ限定する。
 4. 完了（第1単位）。`RuntimeDamageRollCalculator`とWorkerをrequested FFT長・出力長へ対応させ、`rawSupportMax=10n`、`fftLength > rawSupportMax`、有限DRの最大値、循環畳み込みなしを検証した。`kazanari=0/3/9`、overflow、既定互換、Workerのtransferable・中断・重複排除・cache・障害復旧をテストした。
 5. 完了（第2-B）。`DamageCalculator`で公開スコアを先に1023へ集約する現行経路を維持しながら、planあり経路ではraw support、固定値差、防御ダイス、overflow境界を動的化した。負の固定値、防御ダイス、境界点質量、現行最大入力、all-zero、provider検証をテストした。
-6. 複数コンボの合計、d10/livingdead、バックトラックのfinite supportをplannerへ接続し、既存アセットのoverflow警告を追加する。
+6. 完了（第2-D）。backtrackのfinite supportをplanner、CalculationClient、BacktrackCalculatorへ接続し、通常D10と《屍人》の完全supportを必要時にオンデマンド生成する。既存アセットのoverflow warningは静的データの制約として残す。
 7. UIで推定時間、メモリ、尾部誤差、overflow下限を表示し、広いsupportは表示binへ集約する。チャート点数と計算supportを分離する。
 8. Node、Chrome、Firefox、Safari、低速モバイル相当、Worker転送込みで再測定し、入力上限の拡張可否を決める。JSON削除や外部API化はこの検証後の別作業とする。
 
@@ -383,7 +383,7 @@ overflowは一種類ではありません。
 
 出力は`distributionLength - 1`以上を末尾overflow bucketへ集約する。damage 0とoverflowを分離できない長さ1は採用しない。逆FFT後は有限値、material negative、weight総和を検証し、FFT由来の微小負値だけを0へ補正する。Clientは正規化した3項目をWorker requestへ渡し、optionsをcache/dedupの識別子に含める一方、`signal`はWorkerへ転送しない。
 
-この契約はRuntimeDamageRollCalculatorとWorkerの第1単位で確定し、第2-BでDamageCalculatorとCalculationClientのplanあり経路へ適用した。UI入力上限、JSON asset、total damage、バックトラック配列の変更は後続へ残す。
+この契約はRuntimeDamageRollCalculatorとWorkerの第1単位で確定し、第2-BでDamageCalculatorとCalculationClientのplanあり経路へ適用した。第2-Dでは同じruntime optionsと計画の分離をbacktrackへ適用した。UI入力上限、JSON asset、total damage、full-tailの変更は後続へ残す。
 
 ## 追加テスト計画
 
@@ -404,6 +404,7 @@ overflowは一種類ではありません。
 - score overflowがdamage diceへ伝播しない互換モードと、伝播するfull-tailモードを別の期待値で検証する。
 - 複数コンボの合計、後続の減算、表示範囲999、overflow下限、期待値の近似表示を検証する。
 - `d10`と`livingdead`のdice 223、および1023境界のasset-overflowを検証する。
+- backtrackのplanなし互換、負のダイス数0 clamp、D10/livingdeadの完全support生成、1023境界、減算後のカテゴリ境界、provider配列検証、cancelを検証する。
 
 ### 性能・実ブラウザテスト
 
@@ -418,7 +419,7 @@ overflowは一種類ではありません。
 - `epsilonTotal=1e-8`をルール上の表示精度として採用するか。現行JSONの小数第6位丸めとの互換許容差は別契約にする必要がある。
 - `full-tail`を採用する場合、cutoffより上の達成値をdamage dice weightへどのように近似し、期待値とoverflow区間をどう表示するか。
 - 公開分布のindex1023を「1023以上」と表示するか、チャートに区間ラベルを追加するか。
-- d10/livingdeadを動的生成して有限supportを広げるか、現行1024アセットを維持してasset-overflowを警告するか。
+- d10/livingdeadの動的生成は第2-Dでbacktrackのplanあり経路へ接続した。静的JSONアセットの削除とアセット生成器の拡張は別作業として残す。
 - WorkerをDXにも常時使用するか、計画時間がwarning以上の場合だけ使用するか。二重経路の保守コストと低速端末の応答を比較する必要がある。
 - 時間モデルを固定係数で持つか、端末の初回micro-benchmarkで校正するか。校正自体の待ち時間と再現性が未確定である。
 - plannerを計算coreの同期純関数として公開するか、Worker側で再検証するか。入力改ざんや異なるpolicyを防ぐため、Worker側のhard limit検証は残すべきである。
@@ -427,10 +428,20 @@ overflowは一種類ではありません。
 
 第2-Aでは、`RangePlanner`と実験plannerのDamage境界を同期し、`workingMax=W`、`workingLength=W+2`、overflow下限`W+1`を採用した。`a<0`では防御最大値`D`を含む`W=min(R,C-a+D)`を使う。異長の`subDistribution`は第1分布の長さへ`max(0,X-Y)`を返し、線形畳み込み必要長以上の最小2冪FFT長を厳密に要求する。
 
-第2-Aの実装、テスト、文書更新は完了した。第2-Bでは、`calculateDamageOnDemand`のruntime optionsとdamage planを別引数に分け、`CalculationClient`のpreflight `plan.damage`を渡すようにした。raw overflow bucketは一点質量としてシフトせず、必要raw最大がsupport端点の場合だけ端点を明示値として扱う。防御分布は`D+1`要素へ縮約し、`defenceFftLength`を渡してからfailure massを0へ合算し、公開1024要素へcollapseする。provider返却長、有限性、非負性、総和も検証する。第2-Cでは`CalculationFeedback`と`RangePlanNotice`を追加し、計画のwarning/reject、推定資源、overflow下限をcheck、attack、backtrack UIへ表示する。現行1024 published bucketのtotal damage集計は正しいまま維持し、未接続なのはresource guardと将来のdynamic output契約、JSON経路、入力上限、バックトラック配列である。
+第2-Aの実装、テスト、文書更新は完了した。第2-Bでは、`calculateDamageOnDemand`のruntime optionsとdamage planを別引数に分け、`CalculationClient`のpreflight `plan.damage`を渡すようにした。raw overflow bucketは一点質量としてシフトせず、必要raw最大がsupport端点の場合だけ端点を明示値として扱う。防御分布は`D+1`要素へ縮約し、`defenceFftLength`を渡してからfailure massを0へ合算し、公開1024要素へcollapseする。provider返却分布と防御分布の長さ、有限性、非負性、総和も検証する。第2-Cでは`CalculationFeedback`と`RangePlanNotice`を追加し、計画のwarning/reject、推定資源、overflow下限をcheck、attack、backtrack UIへ表示する。第2-Dではbacktrackのplan伝播とD10/livingdead完全support生成を追加した。現行1024 published bucketのtotal damage集計は正しいまま維持し、未接続なのはresource guardと将来のdynamic output契約、JSON経路、入力上限である。
 
 ## Dynamic distribution range 第2-Cの確定事項
 
 `CalculationClient`の`onRangePlan` callbackをUI層で受け取り、plannerを再実装せずに`RangePlan`を表示用へ整形する。warningは計算を継続し、理由、推定計算時間、推定メモリ、`overflowInfo`の該当する下限を表示する。hard rejectは`CalculationRangeError`のplanとrejectionReasonsを同じnoticeへ渡し、結果を表示可能状態から外して古い結果を新しい入力へ見せない。
 
-check、backtrackは画面単位、attackはコンボ単位でfeedbackを保持する。各更新はrequest revisionを発行し、最新revisionだけがplan、result、errorをcommitする。前のrequestは`AbortController`で中断を依頼し、`AbortError`とアンマウント後の結果はユーザー向けnoticeへ変換しない。UI入力の上限、JSON asset、backtrack配列、full-tail、total damageの公開1024 bucket契約は変更しない。
+check、backtrackは画面単位、attackはコンボ単位でfeedbackを保持する。各更新はrequest revisionを発行し、最新revisionだけがplan、result、errorをcommitする。前のrequestは`AbortController`で中断を依頼し、`AbortError`とアンマウント後の結果はユーザー向けnoticeへ変換しない。UI入力の上限、JSON asset、full-tail、total damageの公開1024 bucket契約は変更しない。backtrackの内部supportだけは第2-Dのplanあり経路で拡張し、公開戻り値のカテゴリ形状は維持する。
+
+## Dynamic distribution range 第2-Dの確定事項
+
+backtrack planは、負のダイス数を0へclampした1倍・2倍・3倍のダイス数から`maxDice`を求め、通常D10を`10*maxDice`、《屍人》を`maxDice===0 ? 0 : 10*maxDice-9`として計画する。`workingLength = rawSupportMax + 1`、`fftLength = 0`であり、backtrack自身はFFTを使わない。`calculationMax`はアセット境界の判定に使わず、schema-v2の1024要素アセットの静的support限界`assetSupportMax=1022`と区別する。n=103は通常D10が1030/1031でon-demand、《屍人》が1021/1022でassetとなる。
+
+planなしは従来のprovider呼出しと1024要素結果を厳密に維持する。planありでは`distributionMode=asset`のときだけrepositoryのsize指定取得を使い、`on-demand`では通常D10を純粋な前向きDP、《屍人》を`sum(d10)-max(d10)+1`の最大値状態DPで生成する。ダイス数0は値0の点分布、最終的な境界処理では0未満を0へclampする。on-demandが完全supportを生成できる場合、静的asset coverage warningは表示しない。
+
+完全support生成後にだけencroachment、固定値、thresholdによる区分を適用するため、後続の減算で表示範囲へ戻る可能性がある安全でないoverflow bucketを一点質量として扱わない。生成分布とprovider分布は長さ、有限性、非負性、総和を検証する。`runtime options`とplanは別引数とし、cancel、cache、dedup、stale requestの既存契約を維持する。
+
+動的生成で計算可能な場合、`assetOverflow`は静的asset coverageの計画メタデータとして残すが、on-demand計画にはstatic asset warningを出さず、`overflowInfo`も実計算結果のoverflowとは扱わない。純粋generatorにはplannerを迂回した配列確保とO(n²)暴走を防ぐ絶対上限として、長さ`1<<16`、生成dice`1<<12`、概算処理量`100_000_000` operationsを設ける。これはplannerの通常warning/rejectとは別の防御である。公開1024要素、JSON削除、full-tail、total damageのdynamic outputは本単位の対象外とする。

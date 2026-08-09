@@ -11,11 +11,11 @@
 3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
 4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
-6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、既存戻り値維持、check/attack/backtrack UIへのwarning/reject表示まで接続済み。現行1024 published bucketのtotal damage集計は維持し、resource guardと将来のdynamic output契約、バックトラック配列、入力上限、JSON経路は追加検証を続ける
+6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、バックトラックの完全support生成、既存戻り値維持、check/attack/backtrack UIへのwarning/reject表示まで接続済み。現行1024 published bucketのtotal damage集計は維持し、resource guardと将来のdynamic output契約、入力上限、JSON経路は追加検証を続ける
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
 8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
-第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込みもDamageRangePlanへ接続済みです。UIは計画のwarning/rejectとoverflow下限を表示し、現行1024 published bucketのtotal damage集計を維持しています。残るtotal damage課題はresource guardと将来のdynamic output契約であり、バックトラック配列、入力上限、JSON経路は残課題です。
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。UIは計画のwarning/rejectとoverflow下限を表示し、現行1024 published bucketのtotal damage集計を維持しています。残るtotal damage課題はresource guardと将来のdynamic output契約であり、入力上限とJSON経路は残課題です。
 
 第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
 
@@ -217,7 +217,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 - 完了: `RangePlanner`と実験plannerのDamage境界、異長防御差分布のFFT、境界テスト、契約文書を更新した
 - 完了: `DamageCalculator`と`CalculationClient`へ`DamageRangePlan`を接続し、raw分布長、provider options、防御support、`defenceFftLength`、公開1024要素へのcollapseを動的化した
-- 継続: total damageのresource guardと将来のdynamic output契約、バックトラック配列、JSON経路、入力上限
+- 継続: total damageのresource guardと将来のdynamic output契約、JSON経路、入力上限。バックトラック配列のplan接続は第2-Dで完了
 
 ### Dynamic distribution range Phase 2-C
 
@@ -228,3 +228,11 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `onRangePlan`を同期callback契約としてJSDoc、文書、実行順テストで固定し、UI runnerの外部`signal`はrunner所有signalと合成する
 - テスト: component mount依存を増やさず、状態層テストで複数comboのaggregate ready、generic error、initial reject、stale/unmount、signal合成を固定した。残余リスクは実ブラウザでのVuetify/Chart.js描画と入力イベントの結合確認、およびresource guard・dynamic output契約である
 - 継続: 公開1024 bucketの最終ラベル・確率をチャート上で個別表示すること、入力上限、JSON経路、resource guardと将来のdynamic output契約
+
+### Dynamic distribution range Phase 2-D
+
+- 完了: `RangePlanner.backtrack`の`workingMax`、`workingLength`、`fftLength`を`BacktrackCalculator`へ明示的に渡し、runtime optionsと計画を別引数として`CalculationClient`から伝播した
+- 完了: 1024要素を超える計画では、通常D10の和を有限support DPで生成し、《屍人》は`sum - max + 1`の専用DPで生成する。1024要素以内は完全supportがアセット内に収まる場合だけ既存アセットを展開する
+- 完了: 計画経路で末尾アセットbucketを下流の閾値判定へ流さず、有限support全体を分類してから既存の公開結果形状へ変換する。配列長、有限性、非負性、確率総和、事前に定義された`fftLength=0`を検証する
+- 完了: 既存アセットのsupport境界は`assetOverflow`の静的coverage metadataとして計画に残し、完全supportを生成できるon-demand経路ではstatic asset warningを表示しない。実計算結果のoverflow、通常planner policy、core絶対安全上限を分離する
+- 完了: planなし経路、1024要素の公開結果、既存入力範囲、cancel/staleのrequest runner契約を維持し、JSON削除、入力上限拡張、full-tail、total damageのdynamic outputは対象外とした

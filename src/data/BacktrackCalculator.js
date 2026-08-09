@@ -11,6 +11,15 @@ const dependencies = {
   getLivingdeadDistribution,
 }
 
-export function getFinalEncroachment(params) {
-  return calculateFinalEncroachment(params, dependencies)
+export function getFinalEncroachment(
+  params,
+  runtimeOptions = {},
+  backtrackRangePlan
+) {
+  return calculateFinalEncroachment(
+    params,
+    dependencies,
+    runtimeOptions,
+    backtrackRangePlan
+  )
 }
