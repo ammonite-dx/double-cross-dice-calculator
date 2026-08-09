@@ -167,9 +167,13 @@ describe('CalculationClient integration', () => {
       target: 10,
     })
 
-    expectDistributionsClose(result.score.action, expected)
+    // The client now uses the planner's full-precision dynamic path. The
+    // legacy repository path remains the reference for the default migration
+    // tests, while this comparison allows the expected sub-1e-6-bin rounding
+    // accumulation across Score's public 1024 buckets.
+    expectDistributionsClose(result.score.action, expected, 5e-6)
     expect(result.score.action.failureProbability)
-      .toBeCloseTo(expected.failureProbability, 6)
+      .toBeCloseTo(expected.failureProbability, 5)
   })
 
   it.each([

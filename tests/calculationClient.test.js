@@ -398,6 +398,147 @@ describe('CalculationClient', () => {
     expect(dependencies.loadDxAsset).not.toHaveBeenCalled()
   })
 
+  it('passes action and reaction score plans in order and keys DX cache by length', async () => {
+    const plans = [
+      {
+        accepted: true,
+        scores: [
+          { workingLength: 3000, fftLength: 8192 },
+          { workingLength: 3000, fftLength: 8192 },
+        ],
+      },
+      {
+        accepted: true,
+        scores: [
+          { workingLength: 3000, fftLength: 8192 },
+          { workingLength: 3000, fftLength: 8192 },
+        ],
+      },
+      {
+        accepted: true,
+        scores: [
+          { workingLength: 3072, fftLength: 8192 },
+          { workingLength: 3072, fftLength: 8192 },
+        ],
+      },
+    ]
+    let planIndex = 0
+    const planCalculationRanges = vi.fn(() => plans[planIndex++])
+    const calculateDxDistribution = vi.fn(
+      (_params, options) => new Float64Array(options?.workingLength ?? 2048)
+    )
+    const calculateScore = vi.fn((params, getDxDistribution, fix, plan) => {
+      if (!fix) {
+        getDxDistribution(
+          params.shihai,
+          params.dice,
+          params.critical,
+          {
+            workingLength: plan.workingLength,
+            rounding: 'unrounded',
+          }
+        )
+      }
+      return { params, fix }
+    })
+    const dependencies = createDependencies({
+      calculateDxDistribution,
+      calculateScore,
+      planCalculationRanges,
+    })
+    const client = createCalculationClient(dependencies)
+    const params = {
+      action: { ...scoreParams, dice: 20, critical: 7, shihai: 3 },
+      reaction: { ...scoreParams, dice: 20, critical: 7, shihai: 3 },
+    }
+
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+
+    expect(calculateScore).toHaveBeenCalledTimes(6)
+    expect(calculateScore.mock.calls[0][3]).toBe(plans[0].scores[0])
+    expect(calculateScore.mock.calls[1][3]).toBe(plans[0].scores[1])
+    expect(calculateScore.mock.calls[2][3]).toBe(plans[1].scores[0])
+    expect(calculateScore.mock.calls[3][3]).toBe(plans[1].scores[1])
+    expect(calculateScore.mock.calls[4][3]).toBe(plans[2].scores[0])
+    expect(calculateScore.mock.calls[5][3]).toBe(plans[2].scores[1])
+    expect(calculateDxDistribution).toHaveBeenCalledTimes(2)
+    expect(calculateDxDistribution).toHaveBeenNthCalledWith(
+      1,
+      { dice: 20, critical: 7, shihai: 3 },
+      { workingLength: 3000, rounding: 'unrounded' }
+    )
+    expect(calculateDxDistribution).toHaveBeenNthCalledWith(
+      2,
+      { dice: 20, critical: 7, shihai: 3 },
+      { workingLength: 3072, rounding: 'unrounded' }
+    )
+  })
+
+  it('normalizes runtime DX cache rounding aliases and default length', async () => {
+    const requests = [
+      { workingLength: 3000, rounding: 'unrounded' },
+      { size: 3000, roundingMode: 'full-precision' },
+      { workingLength: 3000 },
+      { workingLength: 3000, rounding: 'legacy' },
+      undefined,
+      {},
+      { rounding: 'compatibility' },
+      { size: 3000, rounding: 'six-decimal' },
+    ]
+    const planCalculationRanges = vi.fn(() => ({
+      accepted: true,
+      scores: [
+        { workingLength: 3000, fftLength: 8192 },
+        { workingLength: 3000, fftLength: 8192 },
+      ],
+    }))
+    const calculateDxDistribution = vi.fn(
+      (_params, options) => new Float64Array(options?.workingLength ?? 2048)
+    )
+    let requestIndex = 0
+    const calculateScore = vi.fn((_params, getDxDistribution) => {
+      getDxDistribution(
+        0,
+        20,
+        7,
+        requests[requestIndex++]
+      )
+      return {}
+    })
+    const client = createCalculationClient(createDependencies({
+      calculateDxDistribution,
+      calculateScore,
+      planCalculationRanges,
+    }))
+    const params = {
+      action: { ...scoreParams },
+      reaction: { ...scoreParams },
+    }
+
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+    await client.calculateCheck(params, { opposed: true, target: 0 })
+
+    expect(calculateDxDistribution).toHaveBeenCalledTimes(3)
+    expect(calculateDxDistribution).toHaveBeenNthCalledWith(
+      1,
+      { dice: 20, critical: 7, shihai: 0 },
+      { workingLength: 3000, rounding: 'unrounded' }
+    )
+    expect(calculateDxDistribution).toHaveBeenNthCalledWith(
+      2,
+      { dice: 20, critical: 7, shihai: 0 },
+      { workingLength: 3000, rounding: 'legacy' }
+    )
+    expect(calculateDxDistribution).toHaveBeenNthCalledWith(
+      3,
+      { dice: 20, critical: 7, shihai: 0 }
+    )
+  })
+
   it('passes calculation options to the resident runtime provider', async () => {
     const dependencies = createDependencies()
     const client = createCalculationClient(dependencies)

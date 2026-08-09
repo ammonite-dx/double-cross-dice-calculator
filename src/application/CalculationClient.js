@@ -1,6 +1,9 @@
 import { getFinalEncroachment } from '../data/BacktrackCalculator'
 import { calculateDamageOnDemand } from '../calculation/DamageCalculator'
-import { calculateDxDistribution } from '../calculation/DxCalculator'
+import {
+  calculateDxDistribution,
+  normalizeDxOptions,
+} from '../calculation/DxCalculator'
 import {
   getDamageSummary,
   getTotalDamage,
@@ -154,8 +157,15 @@ function runRangePreflight(
 function createRuntimeDxProvider(calculateDistribution) {
   const cache = new Map()
 
-  return (shihai, dice, critical) => {
-    const key = [dice, critical, shihai].join(':')
+  return (shihai, dice, critical, options) => {
+    const normalizedOptions = normalizeDxOptions(options)
+    const key = [
+      dice,
+      critical,
+      shihai,
+      normalizedOptions.workingLength,
+      normalizedOptions.rounding,
+    ].join(':')
     if (cache.has(key)) {
       const distribution = cache.get(key)
       cache.delete(key)
@@ -163,7 +173,12 @@ function createRuntimeDxProvider(calculateDistribution) {
       return distribution
     }
 
-    const distribution = calculateDistribution({ dice, critical, shihai })
+    const distribution = options === undefined
+      ? calculateDistribution({ dice, critical, shihai })
+      : calculateDistribution(
+          { dice, critical, shihai },
+          normalizedOptions
+        )
     cache.set(key, distribution)
     while (cache.size > RUNTIME_DX_CACHE_SIZE) {
       cache.delete(cache.keys().next().value)
@@ -176,18 +191,35 @@ export function createCalculationClient(
   dependencies = defaultDependencies
 ) {
   const planner = dependencies.planCalculationRanges ?? planCalculationRanges
-  const scoreCalculator =
-    dependencies.calculateScore && dependencies.calculateDxDistribution
-      ? (() => {
-          const getDxDistribution = createRuntimeDxProvider(
-            dependencies.calculateDxDistribution
-          )
-          return (params, fix = false) =>
-            dependencies.calculateScore(params, getDxDistribution, fix)
-        })()
-      : dependencies.getScore
+  const hasRuntimeScoreDependencies =
+    typeof dependencies.calculateScore === 'function' &&
+    typeof dependencies.calculateDxDistribution === 'function'
+  const hasLegacyScoreDependency = typeof dependencies.getScore === 'function'
+  const scoreCalculator = (() => {
+    if (hasRuntimeScoreDependencies) {
+      const getDxDistribution = createRuntimeDxProvider(
+        dependencies.calculateDxDistribution
+      )
+      return (params, fix = false, scoreRangePlan) => {
+        if (scoreRangePlan === undefined) {
+          return dependencies.calculateScore(params, getDxDistribution, fix)
+        }
+        return dependencies.calculateScore(
+          params,
+          getDxDistribution,
+          fix,
+          scoreRangePlan
+        )
+      }
+    }
 
-  if (!scoreCalculator) {
+    return (params, fix = false) =>
+      fix
+        ? dependencies.getScore(params, true)
+        : dependencies.getScore(params)
+  })()
+
+  if (!hasRuntimeScoreDependencies && !hasLegacyScoreDependency) {
     throw new Error(
       'CalculationClient requires calculateScore/calculateDxDistribution'
     )
@@ -236,7 +268,7 @@ export function createCalculationClient(
         reaction: snapshotScoreParams(params.reaction),
       }
       const difficultyRequest = { ...difficulty }
-      runRangePreflight(
+      const plan = runRangePreflight(
         planner,
         createCheckRangeParams(request),
         options.rangePolicy,
@@ -244,8 +276,8 @@ export function createCalculationClient(
       )
 
       const score = {
-        action: scoreCalculator(request.action),
-        reaction: scoreCalculator(request.reaction),
+        action: scoreCalculator(request.action, false, plan.scores?.[0]),
+        reaction: scoreCalculator(request.reaction, false, plan.scores?.[1]),
       }
       return {
         score,
@@ -258,7 +290,7 @@ export function createCalculationClient(
 
     async calculateAttackCombo(params, options = {}) {
       const request = snapshotAttackParams(params)
-      runRangePreflight(
+      const plan = runRangePreflight(
         planner,
         createAttackRangeParams(request),
         options.rangePolicy,
@@ -269,10 +301,15 @@ export function createCalculationClient(
       }
 
       const score = {
-        action: scoreCalculator(request.action.score),
+        action: scoreCalculator(
+          request.action.score,
+          false,
+          plan.scores?.[0]
+        ),
         reaction: scoreCalculator(
           request.reaction.score,
-          request.reaction.mode === EVASION_MODE
+          request.reaction.mode === EVASION_MODE,
+          plan.scores?.[1]
         ),
       }
       const damage = await dependencies.calculateDamageOnDemand(

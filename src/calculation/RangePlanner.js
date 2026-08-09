@@ -1,3 +1,5 @@
+import { DX_MAX_DISTRIBUTION_SIZE } from './DxCalculator'
+
 const DEFAULT_ERROR_BUDGET = 1e-8
 
 /**
@@ -85,10 +87,11 @@ const DEFAULT_ERROR_BUDGET = 1e-8
  * @property {Object} support
  * @property {TailCertificate} tail
  * @property {number} workingMax
- * @property {number} workingLength
+ * @property {number} workingLength Number of entries including the DX tail bucket.
  * @property {number} outputMax
  * @property {number} publishedOutputMax
- * @property {number} oneDieCutoff
+ * @property {number} oneDieCutoff Deprecated diagnostic cutoff for the
+ *   standalone 1D10 distribution; it no longer determines FFT length.
  * @property {number} fftLength
  * @property {number} operations
  * @property {number} fftOperations
@@ -569,6 +572,30 @@ export function oneDieCumulative(value, critical) {
   return Math.min(1, result)
 }
 
+function oneDieTail(value, critical) {
+  if (value < 0) {
+    return 1
+  }
+
+  const criticalProbability = (11 - critical) / 10
+  let result = 0
+  for (let face = 1; face < critical; face += 1) {
+    const firstExcludedRepeat =
+      value < face ? 0 : Math.floor((value - face) / 10) + 1
+    if (criticalProbability === 0) {
+      if (firstExcludedRepeat === 0) {
+        result += 0.1
+      }
+      continue
+    }
+    result +=
+      0.1 *
+      criticalProbability ** firstExcludedRepeat /
+      (1 - criticalProbability)
+  }
+  return Math.max(0, Math.min(1, result))
+}
+
 export function maxTailBound(value, dice, critical) {
   nonNegativeInteger(dice, 'dice')
   if (!Number.isSafeInteger(critical) || critical < 2 || critical > 11) {
@@ -580,8 +607,13 @@ export function maxTailBound(value, dice, critical) {
   if (dice === 0) {
     return 0
   }
-  const cumulative = oneDieCumulative(Math.floor(value), critical)
-  return clampProbability(1 - cumulative ** dice)
+  const tailOfOneDie = oneDieTail(Math.floor(value), critical)
+  if (tailOfOneDie === 1) {
+    return 1
+  }
+  return clampProbability(
+    -Math.expm1(dice * Math.log1p(-tailOfOneDie))
+  )
 }
 
 // For shihai>0, the maximum-of-all-dice tail is deliberately conservative.
@@ -775,10 +807,15 @@ function planScore(params, display, policy, tailBudget) {
         tailBudget / 2
       ).cutoff
     : 0
-  const workingLength = workingMax + 1
+  // Keep every value through workingMax explicit. The final array entry is a
+  // separate bucket for values strictly greater than workingMax.
+  const workingLength = workingMax + 2
   const outputMax = Math.max(0, workingMax + normalized.skill)
+  // ScoreCalculator convolves two complete working-length arrays. The FFT
+  // therefore needs the exact linear-convolution length, including the
+  // overflow bucket, rather than the old one-die-tail estimate.
   const youseiFftLength = normalized.yousei > 0 && normalized.critical <= 10
-    ? nextPowerOfTwo(workingLength + oneDieCutoff + 1)
+    ? nextPowerOfTwo(2 * workingLength - 1)
     : 0
   const operations = scoreOperationCount({
     params: normalized,
@@ -1105,13 +1142,21 @@ function applyLimits(plan, policy) {
       )
       accepted = false
     }
+    const scoreWorkingHardLimit = Math.min(
+      limits.hard.workingLength,
+      DX_MAX_DISTRIBUTION_SIZE
+    )
+    const scoreWorkingWarningLimit = Math.min(
+      limits.warning.workingLength,
+      scoreWorkingHardLimit
+    )
     accepted = classifyMetric(
       warnings,
       accepted,
       'score-working-length',
       score.workingLength,
-      limits.warning.workingLength,
-      limits.hard.workingLength,
+      scoreWorkingWarningLimit,
+      scoreWorkingHardLimit,
       'elements'
     )
     accepted = classifyMetric(

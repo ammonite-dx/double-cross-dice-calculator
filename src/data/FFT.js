@@ -7,9 +7,19 @@ function assertCompatibleDistributions(distribution1, distribution2) {
   }
 }
 
-function nextPowerOfTwo(value) {
+export function getConvolutionFftLength(length) {
+  if (!Number.isSafeInteger(length) || length <= 0) {
+    throw new RangeError('distribution length must be a positive safe integer')
+  }
+  const requiredLength = 2 * length - 1
+  if (!Number.isSafeInteger(requiredLength)) {
+    throw new RangeError('distribution length is too large for an FFT')
+  }
   let result = 1
-  while (result < value) {
+  while (result < requiredLength) {
+    if (result > Number.MAX_SAFE_INTEGER / 2) {
+      throw new RangeError('distribution length is too large for an FFT')
+    }
     result *= 2
   }
   return result
@@ -78,11 +88,20 @@ function transform(real, imaginary, inverse = false) {
   }
 }
 
-function convolve(distribution1, distribution2) {
+function convolve(distribution1, distribution2, options = {}) {
   assertCompatibleDistributions(distribution1, distribution2)
 
   const resultLength = distribution1.length + distribution2.length - 1
-  const transformSize = nextPowerOfTwo(resultLength)
+  const requiredFftLength = getConvolutionFftLength(distribution1.length)
+  const transformSize = options.fftLength ?? requiredFftLength
+  if (transformSize !== requiredFftLength) {
+    throw new RangeError(
+      `fftLength must equal ${requiredFftLength} for distributions of length ${distribution1.length}`
+    )
+  }
+  if (typeof options.onFftLength === 'function') {
+    options.onFftLength(transformSize)
+  }
   const firstReal = new Float64Array(transformSize)
   const firstImaginary = new Float64Array(transformSize)
   const secondReal = new Float64Array(transformSize)
@@ -108,9 +127,16 @@ function convolve(distribution1, distribution2) {
   return firstReal.slice(0, resultLength)
 }
 
-export function sumDistribution(distribution1, distribution2) {
+export function sumDistribution(distribution1, distribution2, options = {}) {
+  const normalizedOptions = typeof options === 'number'
+    ? { fftLength: options }
+    : options ?? {}
   const size = distribution1.length
-  const convolved = convolve(distribution1, distribution2)
+  const convolved = convolve(
+    distribution1,
+    distribution2,
+    normalizedOptions
+  )
   const result = Array(size).fill(0)
 
   for (let value = 0; value < size - 1; value += 1) {

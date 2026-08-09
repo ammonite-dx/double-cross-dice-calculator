@@ -19,8 +19,11 @@ export {
   DX_CRITICAL_MIN,
   DX_DICE_COUNT,
   DX_DISTRIBUTION_SIZE,
+  DX_MAX_DISTRIBUTION_SIZE,
+  DX_MIN_DISTRIBUTION_SIZE,
   DX_SHIHAI_MAX,
   DX_SHIHAI_MIN,
+  normalizeDxOptions,
 } from './DxCalculator'
 export {
   generateMixedDamageDistribution,

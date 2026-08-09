@@ -281,6 +281,17 @@ describe('production range planner', () => {
     expect(score.tail.bound).toBeLessThanOrEqual(1e-8)
   })
 
+  it('plans the same FFT length used by score convolution', () => {
+    const plan = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({ dice: 99, critical: 2, yousei: 9 }),
+    }))
+    const score = plan.scores[0]
+
+    expect(score.fftLength).toBe(nextPowerOfTwo(
+      2 * score.workingLength - 1
+    ))
+  })
+
   it('keeps exact-yousei tails finite, non-negative, and monotone at larger inputs', () => {
     const cases = [
       { dice: 300, critical: 2, shihai: 0, yousei: 30 },

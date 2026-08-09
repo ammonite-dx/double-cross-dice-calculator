@@ -6,6 +6,8 @@ import {
   DX_CRITICAL_MIN,
   DX_DICE_COUNT,
   DX_DISTRIBUTION_SIZE,
+  DX_MAX_DISTRIBUTION_SIZE,
+  DX_MIN_DISTRIBUTION_SIZE,
   DX_SHIHAI_MAX,
 } from '../src/calculation'
 
@@ -130,5 +132,77 @@ describe('runtime dx input validation', () => {
     { dice: 1, critical: 10, shihai: DX_SHIHAI_MAX + 1 },
   ])('rejects %o', (params) => {
     expect(() => calculateDxDistribution(params)).toThrow()
+  })
+})
+
+describe('runtime dx dynamic working lengths', () => {
+  it('reserves two slots for an explicit zero bucket and overflow bucket', () => {
+    expect(DX_MIN_DISTRIBUTION_SIZE).toBe(2)
+    const distribution = calculateDxDistribution(
+      { dice: 0, critical: 11, shihai: 0 },
+      { workingLength: DX_MIN_DISTRIBUTION_SIZE, rounding: 'unrounded' }
+    )
+
+    expect(distribution).toHaveLength(2)
+    expect(distribution[0]).toBe(1)
+    expect(distribution[1]).toBe(0)
+  })
+
+  it.each([
+    { dice: 0, critical: 2, shihai: 0 },
+    { dice: 99, critical: 2, shihai: 0 },
+    { dice: 0, critical: 11, shihai: 19 },
+    { dice: 99, critical: 11, shihai: 19 },
+  ])('returns a valid unrounded distribution for %o', (params) => {
+    const distribution = calculateDxDistribution(params, {
+      workingLength: 4172,
+      rounding: 'unrounded',
+    })
+
+    expect(distribution).toHaveLength(4172)
+    let total = 0
+    for (const probability of distribution) {
+      expect(Number.isFinite(probability)).toBe(true)
+      expect(Number.isNaN(probability)).toBe(false)
+      expect(probability).toBeGreaterThanOrEqual(0)
+      total += probability
+    }
+    expect(total).toBeCloseTo(1, 12)
+  })
+
+  it('accepts size as a compatibility alias and preserves the legacy path', () => {
+    const params = { dice: 20, critical: 6, shihai: 3 }
+    const defaultDistribution = calculateDxDistribution(params)
+    const explicitLegacy = calculateDxDistribution(params, {
+      size: DX_DISTRIBUTION_SIZE,
+      rounding: 'legacy',
+    })
+
+    expect(Array.from(explicitLegacy)).toEqual(Array.from(defaultDistribution))
+  })
+
+  it('does not discard a small dynamic tail through compatibility rounding', () => {
+    const distribution = calculateDxDistribution(
+      { dice: 99, critical: 2, shihai: 0 },
+      { workingLength: 4172, rounding: 'full-precision' }
+    )
+
+    expect(distribution[2001]).toBeGreaterThan(0)
+  })
+
+  it.each([
+    { workingLength: 0 },
+    { workingLength: DX_MIN_DISTRIBUTION_SIZE - 1 },
+    { workingLength: 1.5 },
+    { workingLength: Number.MAX_SAFE_INTEGER },
+    { workingLength: DX_MAX_DISTRIBUTION_SIZE + 1 },
+    { workingLength: null },
+    { size: 32, workingLength: 64 },
+    { workingLength: 32, rounding: 'unknown' },
+  ])('rejects invalid dynamic options %o', (options) => {
+    expect(() => calculateDxDistribution(
+      { dice: 1, critical: 10, shihai: 0 },
+      options
+    )).toThrow()
   })
 })

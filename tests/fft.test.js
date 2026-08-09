@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  getConvolutionFftLength,
   subDistribution,
   sumDistribution,
 } from '../src/data/FFT'
@@ -38,4 +39,21 @@ describe('FFT distribution operations', () => {
       expect(sumDistribution(first, second).at(-1)).toBeCloseTo(1, 12)
     }
   )
+
+  it('reports and enforces the exact linear-convolution FFT length', () => {
+    const size = 4173
+    const first = pointMass(size, 10)
+    const second = pointMass(size, 20)
+    const observed = []
+    const expected = getConvolutionFftLength(size)
+
+    expect(sumDistribution(first, second, {
+      fftLength: expected,
+      onFftLength: (length) => observed.push(length),
+    })[30]).toBeCloseTo(1, 12)
+    expect(observed).toEqual([expected])
+    expect(() => sumDistribution(first, second, {
+      fftLength: expected * 2,
+    })).toThrow('fftLength')
+  })
 })

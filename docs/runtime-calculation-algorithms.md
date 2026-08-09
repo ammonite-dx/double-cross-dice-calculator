@@ -10,7 +10,7 @@
 
 ### 1.1 公開分布と作業分布
 
-非負整数値を取る確率分布を、インデックスが値、要素がその値の確率となる配列で表します。画面へ返す公開分布は1024要素であり、インデックス1023には値1023以上の確率を集約します。判定とダメージの中間計算では2048要素を使用し、最後に公開分布へ集約します。
+非負整数値を取る確率分布を、インデックスが値、要素がその値の確率となる配列で表します。画面へ返す公開分布は1024要素であり、インデックス1023には値1023以上の確率を集約します。planなしの互換経路では判定の作業分布を2048要素で保持し、planner経由のScore経路ではtail certificateと表示範囲から求めたworkingLengthを使い、最後に公開分布へ集約します。
 
 この二段階の表現は、値1023以上を一度集約した後で負の固定値やダイス軽減を適用すると、元の値を復元できない問題を避けるためのものです。厳密性の境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)に記載しています。
 
@@ -18,17 +18,17 @@
 
 静的アセットの各分布は、先頭の連続する0を省略した`offset`と`values`からなります。`expandSparseDistribution`はこれを1024要素または2048要素の密な配列へ展開します。
 
-`collapseDistribution`は作業分布のインデックス0から1022をそのまま残し、インデックス1023以降の確率を公開分布の最後へ合計します。上限外の確率を捨てないことが重要です。
+`collapseDistribution`は作業分布のインデックス0から1022をそのまま残し、インデックス1023以降の確率を公開分布の最後へ合計します。上限外の確率を捨てないことが重要です。Scoreのdynamic経路では作業配列の実際の長さを使って丸め、overflow bucket、skill shiftを処理し、公開時だけ1024要素へ戻します。
 
 ### 1.3 シフト
 
 定数$a$を加える操作は、分布$p$を次の分布$q$へ移します。
 
 $$
-q_{\min(2047,\max(0,x+a))}\mathrel{+}=p_x
+q_{\min(L-1,\max(0,x+a))}\mathrel{+}=p_x
 $$
 
-`shiftDistribution`は負の結果を0、作業上限以上を最後のバケットへ集約します。これはダメージが0未満にならないことや、有限配列の上限を表現するための計算上の処理です。
+`shiftDistribution`は負の結果を0、作業上限以上を最後のバケットへ集約します。これはダメージが0未満にならないことや、有限配列の上限を表現するための計算上の処理です。ここで$L$は固定2048ではなく、その経路のdistribution.lengthです。
 
 ### 1.4 畳み込みと差
 
@@ -217,7 +217,7 @@ $$
 | 単発・合計ダメージ | `src/data/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
 | バックトラック | `src/data/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
 | アセット検証とキャッシュ | `src/data/PrecomputedDataRepository.js` | `tests/precomputedDataRepository.test.js` |
-| 動的範囲の計画とCalculationClient preflight（calculator配列未接続） | `src/calculation/RangePlanner.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
+| 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
 
 独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は回帰の検出に使用しますが、ルール上の正しさを保証する期待値には使用しません。
 
@@ -245,4 +245,12 @@ certificateの確率clampでは、`NaN`をtail 0へ変換せず計算失敗と�
 
 preflightの計画やwarningは公開planメソッドまたはcallbackから取得し、既存のcheck/attack結果に`rangePlan`を追加せず、backtrackを含む既存の戻り値形状を維持します。attackでは`action.score`と`reaction.score`をscore planへ、`action.damage`と`reaction.damage`をattack/defence planへ写像します。《イベイジョン》のreaction scoreは実計算が固定値であるため、planning時だけdice 0、critical 11、shihai 0、yousei 0、skill維持へ正規化します。`rangePolicy`と`onRangePlan`はruntime damage optionsから除外し、`signal`や`requestId`など既存optionsはそのまま渡します。
 
-この段階で現行の公開分布1024、作業分布2048、DR FFT4096と計算結果の意味は不変です。preflightはhard rejectと計画通知までを担当し、calculatorの可変配列長、FFT長への接続、UI表示、入力上限、JSON経路の変更は次工程に残しています。
+Scoreのdynamic接続では、`ScoreRangePlan.workingLength`をDX providerとScoreの全ての中間配列へ渡します。`calculateDxDistribution(params, options?)`は明示された`workingLength`または`size`を検証し、値0の明示bucketとoverflow bucketを分けるため最低2要素、かつplannerの通常hard policyより広い直接API safety ceilingも超えないようにします。既定の引数なし呼出しは2048要素と従来の小数第6位互換丸めを維持し、planあり呼出しは小確率を消さない`unrounded`または`full-precision`を内部指定します。直接APIの現在の安全上限は65536要素であり、既定plannerのScore hard limit 16384要素とは別の防御的な上限です。hard policyを将来広げる場合も、このAPI上限と同時に見直します。
+
+妖精の手を使うScoreでは、主DXと1D10分布を同じworkingLengthで取得し、同長配列の線形畳み込みを行います。実装のFFT長は`nextPowerOfTwo(2 * workingLength - 1)`で、RangePlannerの`score.fftLength`もこの値を返します。`oneDieCutoff`は独立した1D10 tail診断値として残しますが、FFT長の決定には使いません。`sumDistribution`は任意の`fftLength`と`onFftLength`診断callbackを受け付け、指定値が実際の必要長と一致しない場合は例外にします。
+
+丸めはDX分布生成の最後にだけ行います。引数なしのlegacy pathと明示的な`legacy`または`six-decimal`だけが小数第6位の互換丸めと総和補正を使い、planner dynamic pathはDX、妖精の手用1D10、畳み込み、skill shiftの間で未丸め値を保持し、最後の公開1024要素へのcollapse後にも追加の互換丸めを行いません。したがって同じ入力でも固定2048のlegacy結果とdynamic結果には丸め由来の小差があり得ますが、tail certificateの誤差予算とは別に扱います。
+
+末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DR、Damage、防御畳み込み、total damage、バックトラック配列はこの接続の対象外で、固定された既存経路を維持します。
+
+`CalculationClient`はcheckとattackのpreflight planを捨てず、actionとreactionの順にScoreCalculatorへ渡します。《イベイション》の固定reactionは引き続きDX providerを呼ばず、戻り値形状も変更しません。runtime DX cacheのキーはdice、critical、shihai、workingLength、rounding modeを含むため、同じ入力でも異なるplanの固定2048結果を誤再利用しません。同じplanは既存のLRU cacheで再利用されます。

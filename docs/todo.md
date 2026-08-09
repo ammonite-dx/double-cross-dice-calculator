@@ -11,11 +11,11 @@
 3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
 4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
-6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、既存戻り値維持まで接続済み。calculatorの可変配列長・FFT長、UI表示、入力上限、JSON経路への接続と現行経路での追加検証を次に行う
+6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、既存戻り値維持まで接続済み。DR/Damage、防御畳み込み、total damage、バックトラック配列、UI表示、入力上限、JSON経路はこの段階の対象外として追加検証を続ける
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
 8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
-第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。calculatorの可変配列長・FFT長、UI、入力上限、JSON経路には未接続で、計算結果は不変です。
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。DR/Damage、防御畳み込み、total damage、バックトラック配列、UI、入力上限、JSON経路は未接続であり、これらへ範囲契約を広げる作業は残っています。
 
 第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
 

@@ -142,6 +142,10 @@ test('exact-yousei handles ten boundaries and the stress cutoff', () => {
   assert.equal(stress.accepted, true)
   assert.equal(stress.scores[0].tail.model, 'exact-yousei')
   assert.ok(stress.scores[0].workingLength < 16384)
+  assert.equal(
+    stress.scores[0].fftLength,
+    nextPowerOfTwo(2 * stress.scores[0].workingLength - 1),
+  )
   assert.ok(stress.scores[0].tail.bound <= 1e-8)
 })
 

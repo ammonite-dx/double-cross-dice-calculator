@@ -9,6 +9,11 @@ import {
   OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,
 } from '../src/data/Distribution'
+import {
+  getConvolutionFftLength,
+} from '../src/data/FFT'
+import { calculateDxDistribution } from '../src/calculation/DxCalculator'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 function pointDistribution(value, size = OUTPUT_DISTRIBUTION_SIZE) {
   const distribution = Array(size).fill(0)
@@ -51,6 +56,167 @@ describe('calculation core', () => {
 
     expect(result.distribution[7]).toBe(1)
     expect(result.failureProbability).toBe(0)
+  })
+
+  it('uses a score plan to request the same unrounded working length', () => {
+    const params = {
+      dice: 99,
+      critical: 2,
+      skill: 0,
+      yousei: 9,
+      shihai: 0,
+    }
+    const plan = planCalculationRanges({
+      operation: 'score',
+      score: params,
+    }).scores[0]
+    const getDistribution = vi.fn((shihai, dice, critical, options) =>
+      calculateDxDistribution({ dice, critical, shihai }, options)
+    )
+
+    const result = calculateScore(
+      params,
+      { getDxDistribution: getDistribution },
+      false,
+      plan
+    )
+
+    expect(plan.workingLength).toBe(4173)
+    expect(plan.fftLength).toBe(getConvolutionFftLength(plan.workingLength))
+    expect(result.distribution).toHaveLength(OUTPUT_DISTRIBUTION_SIZE)
+    expect(getDistribution).toHaveBeenCalledTimes(2)
+    for (const call of getDistribution.mock.calls) {
+      expect(call[3]).toEqual({
+        workingLength: plan.workingLength,
+        rounding: 'unrounded',
+      })
+      expect(call[0] === 0 || call[0] === params.shihai).toBe(true)
+    }
+  })
+
+  it('rejects a dense DX provider result with the wrong planned length', () => {
+    const plan = { workingLength: 8, fftLength: 0 }
+    const getDistribution = vi.fn(() => new Float64Array(7))
+
+    expect(() => calculateScore(
+      {
+        dice: 1,
+        critical: 10,
+        skill: 0,
+        yousei: 0,
+        shihai: 0,
+      },
+      { getDxDistribution: getDistribution },
+      false,
+      plan
+    )).toThrow('DX distribution length')
+  })
+
+  it('rejects a dense yousei provider result with the wrong planned length', () => {
+    const plan = {
+      workingLength: 8,
+      fftLength: getConvolutionFftLength(8),
+    }
+    let callCount = 0
+    const getDistribution = vi.fn(() => {
+      callCount += 1
+      const distribution = new Float64Array(callCount === 1 ? 8 : 7)
+      distribution[0] = 1
+      return distribution
+    })
+
+    expect(() => calculateScore(
+      {
+        dice: 1,
+        critical: 10,
+        skill: 0,
+        yousei: 1,
+        shihai: 0,
+      },
+      { getDxDistribution: getDistribution },
+      false,
+      plan
+    )).toThrow('yousei distribution length')
+  })
+
+  it('requires separate explicit and overflow buckets in a score plan', () => {
+    expect(() => calculateScore(
+      {
+        dice: 0,
+        critical: 11,
+        skill: 0,
+        yousei: 0,
+        shihai: 0,
+      },
+      { getDxDistribution: vi.fn() },
+      false,
+      { workingLength: 1, fftLength: 0 }
+    )).toThrow('workingLength must be at least 2')
+  })
+
+  it('keeps fixed scores independent of the dynamic DX provider', () => {
+    const getDistribution = vi.fn()
+    const result = calculateScore(
+      {
+        dice: 99,
+        critical: 2,
+        skill: 999,
+        yousei: 9,
+        shihai: 19,
+      },
+      { getDxDistribution: getDistribution },
+      true,
+      { workingLength: 4173, fftLength: 16384 }
+    )
+
+    expect(result.distribution[999]).toBe(1)
+    expect(getDistribution).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { dice: 99, critical: 2, skill: -999, yousei: 0, shihai: 0 },
+    { dice: 99, critical: 2, skill: 999, yousei: 0, shihai: 0 },
+    { dice: 99, critical: 2, skill: -999, yousei: 9, shihai: 0 },
+  ])('keeps planned score output bounded for %o', (params) => {
+    const plan = planCalculationRanges({
+      operation: 'score',
+      score: params,
+    }).scores[0]
+    const result = calculateScore(
+      params,
+      {
+        getDxDistribution: (shihai, dice, critical, options) =>
+          calculateDxDistribution({ dice, critical, shihai }, options),
+      },
+      false,
+      plan
+    )
+
+    expect(result.distribution).toHaveLength(OUTPUT_DISTRIBUTION_SIZE)
+    expect(result.failureProbability).toBeGreaterThanOrEqual(0)
+    expect(result.failureProbability).toBeLessThanOrEqual(1)
+    expect(result.distribution.reduce((sum, value) => sum + value, 0))
+      .toBeCloseTo(1, 12)
+  })
+
+  it('keeps the dynamic DX overflow bucket inside the tail certificate', () => {
+    const params = {
+      dice: 99,
+      critical: 2,
+      skill: -7,
+      yousei: 0,
+      shihai: 0,
+    }
+    const plan = planCalculationRanges({
+      operation: 'score',
+      score: params,
+    }).scores[0]
+    const distribution = calculateDxDistribution(params, {
+      workingLength: plan.workingLength,
+      rounding: 'unrounded',
+    })
+
+    expect(distribution.at(-1)).toBeLessThanOrEqual(plan.tail.bound + 1e-12)
   })
 
   it('calculates damage with injected damage-roll providers', () => {

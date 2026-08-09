@@ -9,15 +9,21 @@ export { getScoreSummary }
 export function calculateScore(
   params,
   getDistribution = getDxDistribution,
-  fix = false
+  fix = false,
+  scoreRangePlan
 ) {
   return calculateCoreScore(
     params,
     { getDxDistribution: getDistribution },
-    fix
+    fix,
+    scoreRangePlan
   )
 }
 
 export function getScore(params, fix = false) {
-  return calculateCoreScore(params, { getDxDistribution }, fix)
+  return calculateCoreScore(
+    params,
+    { getDxDistribution },
+    fix
+  )
 }

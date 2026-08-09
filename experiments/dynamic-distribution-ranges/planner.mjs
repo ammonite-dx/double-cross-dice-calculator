@@ -490,10 +490,14 @@ function planScore(params, display, policy, tailBudget) {
   const oneDieCutoff = normalized.yousei > 0
     ? findTailCutoff({ dice: 1, critical: normalized.critical, shihai: 0, yousei: 0 }, tailBudget / 2).cutoff
     : 0
-  const workingLength = workingMax + 1
+  // Keep every value through workingMax explicit; the last entry is the
+  // separate bucket for values strictly greater than workingMax.
+  const workingLength = workingMax + 2
   const outputMax = Math.max(0, workingMax + normalized.skill)
+  // The production score path convolves two complete working-length arrays;
+  // keep the experiment's estimate aligned with that implementation.
   const youseiFftLength = normalized.yousei > 0 && normalized.critical <= 10
-    ? nextPowerOfTwo(workingLength + oneDieCutoff + 1)
+    ? nextPowerOfTwo(2 * workingLength - 1)
     : 0
   const operations = scoreOperationCount({
     params: normalized,
@@ -527,6 +531,7 @@ function planScore(params, display, policy, tailBudget) {
     workingLength,
     outputMax,
     publishedOutputMax: policy.calculationMax + 1,
+    // Diagnostic only: the score FFT uses both full working-length arrays.
     oneDieCutoff,
     fftLength: youseiFftLength,
     operations,

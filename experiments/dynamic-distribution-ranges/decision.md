@@ -28,9 +28,9 @@
 | 対象 | 現行値 | overflowまたは固定境界の意味 | 主な実装経路 |
 | --- | ---: | --- | --- |
 | 公開分布 | 1024要素 | index 0–1022は個別値、index 1023は1023以上の集約 | [`src/data/Distribution.js`](../../src/data/Distribution.js) |
-| 判定・ダメージ作業分布 | 2048要素 | index 2047は作業範囲外を集約する末尾バケット | [`src/calculation/ScoreCalculator.js`](../../src/calculation/ScoreCalculator.js)、[`src/calculation/DamageCalculator.js`](../../src/calculation/DamageCalculator.js) |
-| DX入力 | dice 0–99、critical 2–11、shihai 0–19 | `shihai=0`は最大値の累積分布、`shihai>0`はダイス数方向DP。どちらもindex 2047へ尾部を集約 | [`src/calculation/DxCalculator.js`](../../src/calculation/DxCalculator.js) |
-| DX丸め | 小数第6位 | 公開JSONとの互換用。一般的な動的計算の必須丸めではない | [`src/calculation/DxCalculator.js`](../../src/calculation/DxCalculator.js) |
+| 判定・ダメージ作業分布 | ScoreはplannerのworkingLength、互換経路は2048要素 | 各作業配列の最後を作業範囲外を集約する末尾バケットとする。DR/Damageは本段階で固定経路を維持 | [`src/calculation/ScoreCalculator.js`](../../src/calculation/ScoreCalculator.js)、[`src/calculation/DamageCalculator.js`](../../src/calculation/DamageCalculator.js) |
+| DX入力 | dice 0–99、critical 2–11、shihai 0–19 | `shihai=0`は最大値の累積分布、`shihai>0`はダイス数方向DP。指定workingLengthの最後へ尾部を集約 | [`src/calculation/DxCalculator.js`](../../src/calculation/DxCalculator.js) |
+| DX丸め | legacyは小数第6位、planner dynamicは未丸め | 公開JSONとplanなし経路は互換丸め、dynamic内部はtail 1e-8より粗い確率を消さない | [`src/calculation/DxCalculator.js`](../../src/calculation/DxCalculator.js) |
 | 実行時DR入力 | damage dice 0–202、kazanari 0–9 | scoreの公開bucket 1023をdamage dice 202として扱うため、現行の最大値は202 | [`src/calculation/RuntimeDamageRollLimits.js`](../../src/calculation/RuntimeDamageRollLimits.js)、[`src/calculation/DamageCalculator.js`](../../src/calculation/DamageCalculator.js) |
 | 実行時DR出力 | 2048要素 | `spectrumToDistribution`がindex 2047以上を末尾へ加算 | [`src/calculation/RuntimeDamageRollCalculator.js`](../../src/calculation/RuntimeDamageRollCalculator.js) |
 | 実行時DR FFT | 4096点 | 周波数側を4096点で評価し、2049点を計算して共役対称に補完 | [`src/calculation/RuntimeDamageRollLimits.js`](../../src/calculation/RuntimeDamageRollLimits.js) |
@@ -312,6 +312,8 @@ planCalculationRanges(params, policy)
 
 `tail.bound`はDXのモデル化supportの外側にある確率の上界です。`damage.rawSupportMax`は有限DRを生成するための最大値であり、`damage.workingMax`は防御や固定値差を適用しても`calculationMax`以下へ戻り得る値を保持する最大値です。両者を同じ値として扱わないことが重要です。
 
+Scoreの`fftLength`は、ScoreCalculatorが主DXと妖精の手の1D10分布を同じ`workingLength`で畳み込む実装に合わせ、`nextPowerOfTwo(2 * workingLength - 1)`で決めます。`oneDieCutoff`は1D10 tailの診断値として保持しますが、FFT長の推定には使いません。productionのDxCalculatorは値0の明示bucketとoverflow bucketを分けるため直接APIのworkingLengthを2以上65536以下へ制限し、既定plannerのScore hard limit 16384は別のpolicy上限として扱います。
+
 `estimates.timeMs`は、DXやDR本体のoperationをそれぞれ`dxOperationsPerMs`または`damageOperationsPerMs`で割り、FFT operationを`fftOperationsPerMs`で割って合算します。`operations`は本体とFFTを含む総数で、係数が異なるため時間見積もりの代用にはしません。
 
 警告コードは少なくとも次を用意します。
@@ -357,7 +359,7 @@ overflowは一種類ではありません。
 | --- | ---: | ---: | --- |
 | 1計算の推定時間 | 50 ms | 200 ms | 現行DR `kazanari=9`がNodeで約42.5 ms、既存Chromeで約44.5 ms。メインスレッド16.7 ms枠はすでに超える |
 | peak計算メモリ | 32 MiB | 64 MiB | DX DP、DR FFT、防御畳み込み、Worker転送の同時生存に余裕を持たせる。実端末のメモリ測定が必要 |
-| dense working length | 8192 | 16384 | 厳密`exact-yousei`では`yousei=9`・critical2の99Dがepsilon1e-8で4151 cutoff（working length 4172）となり、現行hard limit内に収まる |
+| dense working length | 8192 | 16384 | 厳密`exact-yousei`では`yousei=9`・critical2の99Dがepsilon1e-8で4151 cutoff（working length 4173）となり、現行hard limit内に収まる |
 | FFT length | 16384 | 32768 | FFTは長さに比例して増え、32768点のtransformでもNodeで約1.37 ms。大きい入力はDPやDR本体が支配する |
 | チャート点数 | 1000 | 1000 | 現行UIの0–999を維持。広いsupportはbinまたは拡大表示で分ける |
 | DX総打ち切り誤差 | 8e-9をscore側へ配分 | total 1e-8 | 現行2048の99D・critical2上界約4.12e-8より厳しい。数値誤差、重み化、表示丸めを別枠で管理する |
