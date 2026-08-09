@@ -171,33 +171,33 @@ $$
 
 旧union boundでは同じ99D・critical 2・yousei 9のcutoffは21991だったが、厳密分解では4151まで縮んだ。いずれも`epsilon=1e-8`で、厳密値は境界で`9.40e-9`、直前はepsilonを超える。現行supportの最大値2047で計算した安全側上界は、99D・critical 2・yousei 0で約`4.12e-8`、厳密`exact-yousei`では約`2.92e-2`（実装結果はベンチ結果JSONを参照）となる。後者は2048要素ではまだ予算を満たさないが、旧union boundの1よりは実際の構造を反映した証明になっている。
 
-ベンチマークではplannerの99D・critical2・yousei9 stress計画そのものを10回測定し、中央値`0.7891 ms`（最小`0.7833 ms`、最大`0.7961 ms`）だった。これは分布生成やFFTを含まないplanner評価時間であり、resource estimateの`0.363596 ms`とは別の値である。
+ベンチマークではplannerの99D・critical2・yousei9 stress計画そのものを10回測定し、中央値`0.8149 ms`（最小`0.8059 ms`、最大`0.8365 ms`）だった。これは分布生成やFFTを含まないplanner評価時間であり、resource estimateの`0.778317 ms`とは別の値である。
 
 ### Node計算時間と理論配列容量
 
 | 処理 | supportまたは入力 | 中央値 |
 | --- | --- | ---: |
-| 現行DX、shihai 0 | 99D、critical 8、2048要素 | 0.61 ms |
-| 現行DX、shihai 19 | 99D、critical 2、2048要素 | 5.26 ms |
-| 可変DX参照、shihai 0 | 200D、critical 2、4096要素 | 0.43 ms |
-| 可変DX参照、shihai 19 | 200D、critical 2、4096要素 | 48.2 ms、約6.29 MiBのresultByDice |
-| 可変DX参照、shihai 19 | 300D、critical 5、4096要素 | 103 ms、約9.40 MiBのresultByDice |
-| 現行DR最適化、kazanari 0 | 202D、FFT4096 | 0.83 ms |
-| 現行DR最適化、kazanari 9 | 202D、FFT4096 | 42.5 ms |
-| 可変DR参照、kazanari 0 | 304D、FFT4096 | 1.11 ms |
-| 可変DR参照、kazanari 0 | 400D、FFT4096 | 1.37 ms |
-| 可変DR参照、kazanari 0 | 512D、FFT8192 | 3.47 ms |
-| 可変DR参照、kazanari 0 | 800D、FFT8192 | 5.17 ms |
-| FFT transform | 16384点 | 0.59 ms |
-| FFT transform | 32768点 | 1.37 ms |
+| 現行DX、shihai 0 | 99D、critical 8、2048要素 | 0.58 ms |
+| 現行DX、shihai 19 | 99D、critical 2、2048要素 | 5.09 ms |
+| 可変DX参照、shihai 0 | 200D、critical 2、4096要素 | 0.50 ms |
+| 可変DX参照、shihai 19 | 200D、critical 2、4096要素 | 45.3 ms、約6.29 MiBのresultByDice |
+| 可変DX参照、shihai 19 | 300D、critical 5、4096要素 | 101 ms、約9.40 MiBのresultByDice |
+| 現行DR最適化、kazanari 0 | 202D、FFT4096 | 0.82 ms |
+| 現行DR最適化、kazanari 9 | 202D、FFT4096 | 39.8 ms |
+| 可変DR参照、kazanari 0 | 304D、FFT4096 | 1.07 ms |
+| 可変DR参照、kazanari 0 | 400D、FFT4096 | 1.34 ms |
+| 可変DR参照、kazanari 0 | 512D、FFT8192 | 3.37 ms |
+| 可変DR参照、kazanari 0 | 800D、FFT8192 | 5.10 ms |
+| FFT transform | 16384点 | 0.60 ms |
+| FFT transform | 32768点 | 1.34 ms |
 
-可変DRの304D以上は`kazanari=0`の多項式参照計算です。`kazanari=9`の拡張値を実測したものではなく、現行の42.5 ms測定とダイス数・FFT長・導関数次数に比例する計算量モデルで見積もる対象です。低速端末でのhard limitを決める前に、Workerを含むブラウザ測定が必要です。
+可変DRの304D以上は`kazanari=0`の多項式参照計算です。`kazanari=9`の拡張値を実測したものではなく、現行の39.8 ms測定とダイス数・FFT長・導関数次数に比例する計算量モデルで見積もる対象です。低速端末でのhard limitを決める前に、Workerを含むブラウザ測定が必要です。
 
 ### 何がしきい値を支配するか
 
-- `shihai=0`のDXは、supportを2048から4096へ増やしても99Dの可変参照計算は0.43 msでした。尾部cutoffが主な設計要因です。
-- `shihai>0`のDXは、`resultByDice`がダイス数とsupportの積で増え、200D・4096要素で約48.2 ms、300D・4096要素で約103 msでした。入力ダイス数だけでなく、DPの中間配列数とsupport長を警告対象にする必要があります。
-- DRの`kazanari=9`は現行最大で約42.5 msです。メインスレッドの60 Hz 1フレーム16.7 msを超えるため、既存判断どおりWorker経路を基本とし、plannerの時間警告は計算本体の測定値にWorker転送とUI更新の余裕を加えます。
+- `shihai=0`のDXは、supportを2048から4096へ増やしても99Dの可変参照計算は0.50 msでした。尾部cutoffが主な設計要因です。
+- `shihai>0`のDXは、`resultByDice`がダイス数とsupportの積で増え、200D・4096要素で約45.3 ms、300D・4096要素で約101 msでした。入力ダイス数だけでなく、DPの中間配列数とsupport長を警告対象にする必要があります。
+- DRの`kazanari=9`は現行最大で約39.8 msです。メインスレッドの60 Hz 1フレーム16.7 msを超えるため、既存判断どおりWorker経路を基本とし、plannerの時間警告は計算本体の測定値にWorker転送とUI更新の余裕を加えます。
 - FFT配列そのものは32768点でも複素2配列で512 KiBですが、DXのDP配列、DRの導関数作業配列、同時に生きる防御畳み込み配列を合算したpeakを使う必要があります。
 
 ## planner API案
@@ -357,10 +357,10 @@ overflowは一種類ではありません。
 
 | 指標 | warning案 | hard案 | 根拠 |
 | --- | ---: | ---: | --- |
-| 1計算の推定時間 | 50 ms | 200 ms | 現行DR `kazanari=9`がNodeで約42.5 ms、既存Chromeで約44.5 ms。メインスレッド16.7 ms枠はすでに超える |
+| 1計算の推定時間 | 50 ms | 200 ms | 現行DR `kazanari=9`がNodeで約39.8 ms、既存Chromeで約44.5 ms。メインスレッド16.7 ms枠はすでに超える |
 | peak計算メモリ | 32 MiB | 64 MiB | DX DP、DR FFT、防御畳み込み、Worker転送の同時生存に余裕を持たせる。実端末のメモリ測定が必要 |
 | dense working length | 8192 | 16384 | 厳密`exact-yousei`では`yousei=9`・critical2の99Dがepsilon1e-8で4151 cutoff（working length 4173）となり、現行hard limit内に収まる |
-| FFT length | 16384 | 32768 | FFTは長さに比例して増え、32768点のtransformでもNodeで約1.37 ms。大きい入力はDPやDR本体が支配する |
+| FFT length | 16384 | 32768 | FFTは長さに比例して増え、32768点のtransformでもNodeで約1.34 ms。大きい入力はDPやDR本体が支配する |
 | チャート点数 | 1000 | 1000 | 現行UIの0–999を維持。広いsupportはbinまたは拡大表示で分ける |
 | DX総打ち切り誤差 | 8e-9をscore側へ配分 | total 1e-8 | 現行2048の99D・critical2上界約4.12e-8より厳しい。数値誤差、重み化、表示丸めを別枠で管理する |
 
@@ -422,3 +422,9 @@ overflowは一種類ではありません。
 - WorkerをDXにも常時使用するか、計画時間がwarning以上の場合だけ使用するか。二重経路の保守コストと低速端末の応答を比較する必要がある。
 - 時間モデルを固定係数で持つか、端末の初回micro-benchmarkで校正するか。校正自体の待ち時間と再現性が未確定である。
 - plannerを計算coreの同期純関数として公開するか、Worker側で再検証するか。入力改ざんや異なるpolicyを防ぐため、Worker側のhard limit検証は残すべきである。
+
+## Damage dynamic range 第2-Aの確定事項
+
+第2-Aでは、`RangePlanner`と実験plannerのDamage境界を同期し、`workingMax=W`、`workingLength=W+2`、overflow下限`W+1`を採用した。`a<0`では防御最大値`D`を含む`W=min(R,C-a+D)`を使う。異長の`subDistribution`は第1分布の長さへ`max(0,X-Y)`を返し、線形畳み込み必要長以上の最小2冪FFT長を厳密に要求する。
+
+第2-Aの実装、テスト、文書更新は完了した。`DamageCalculator`、`CalculationClient`、防御畳み込みの実計算接続、total damage、UI・JSON経路は第2-Bとして未接続である。

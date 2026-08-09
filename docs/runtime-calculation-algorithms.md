@@ -267,3 +267,13 @@ DRの有限supportは、`weights[dice]`が非ゼロとなる最大のdamage dice
 `RuntimeDamageRollClient`は正規化済みの3項目をrequestの`options`としてWorkerへ渡します。`signal`は呼び出し側の中断制御として保持してWorkerへstructured cloneせず、既存の内部`id`、transferable weights、重複排除、LRU、Worker障害後の再生成を維持します。cacheと進行中requestの比較には`fftLength`、`distributionLength`、`rawSupportMax`を含めるため、異なる出力長を誤って再利用しません。Workerはoptionsなしの旧requestも既定値で処理できます。
 
 この第1単位はCalculatorとWorker経路のパラメータ化だけを完了したものです。`DamageCalculator`の固定値差・防御畳み込み、`CalculationClient`からの`DamageRangePlan`接続、RangePlannerの実計算接続、UI入力上限、公開JSONの変更はまだ行っていません。これらを接続する際は、後続処理がこの分布の長さとoverflow契約を明示的に受け取る必要があります。
+
+## 13. Damage dynamic range 第2-A（完了）
+
+第2-Aでは、最終値を`Z=max(0,X+a-Y)`として、`a=attack.value-defence.value`、`R=10*maxDamageDice`、`D=10*defenceDice`、計算上限を`C`と定義した。防御直前に必要な最後の明示値は`a>=0`なら`W=min(R+a,C+D)`、`a<0`なら`W=min(R,C-a+D)`である。`workingMax=W`、明示値のindexは`0..W`、overflowのindexは`W+1`なので、作業配列長は`W+2`とする。
+
+末尾overflowを値`W+1`以上として扱っても、`a>=0`では防御後の下限`W+1-D`、`a<0`では`W+1-D+a`が、`W`を計算上限から逆算したケースでそれぞれ`C+1`以上となる。`W`がraw supportで決まるケースではoverflow質量自体がないため、計算上限以下へ戻る質量を失わない。この境界は正、ゼロ、負の固定差、防御ダイス0、正の防御ダイスでplannerテストに固定した。
+
+`subDistribution`は第1配列長`L1`と有限supportの第2配列長`L2`を別々に受け、`A*reverse(B)`の係数`c[k]`から`result[0]=sum(c[0..L2-1])`、`result[v]=c[L2-1+v]`を構成する。線形畳み込み必要長`L1+L2-1`以上の最小の2冪を実使用FFT長とし、既存の`sumDistribution`と同長`subDistribution`の既定値・公開挙動は維持する。明示FFT長はこの値への厳密一致とし、`onFftLength`で実使用値を検証できる。
+
+第2-AはRangePlanner、実験planner、FFTとそのテストおよび契約文書までを完了した。`DamageCalculator`、`CalculationClient`、防御畳み込みの実計算接続、total damage、UI・JSON経路は第2-Bとして未接続である。

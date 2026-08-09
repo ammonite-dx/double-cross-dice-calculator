@@ -212,3 +212,8 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 対応ブラウザと端末性能の下限でパフォーマンス目標を満たす
 - 不要になったJSON、キャッシュ、初期読込み、スキーマ参照が残っていない
 - ゲームルール、数式、実装、テスト、教科書と開発者向け文書が同じ計算方法を説明している
+
+### Damage dynamic range 第2-A
+
+- 完了: `RangePlanner`と実験plannerのDamage境界、異長防御差分布のFFT、境界テスト、契約文書を更新した
+- 第2-B未接続: `DamageCalculator`、`CalculationClient`、防御畳み込みの実計算、total damage、UI・JSON経路

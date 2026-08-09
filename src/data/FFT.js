@@ -7,11 +7,20 @@ function assertCompatibleDistributions(distribution1, distribution2) {
   }
 }
 
-export function getConvolutionFftLength(length) {
-  if (!Number.isSafeInteger(length) || length <= 0) {
-    throw new RangeError('distribution length must be a positive safe integer')
+function assertNonEmptyDistributions(distribution1, distribution2) {
+  if (distribution1.length === 0 || distribution2.length === 0) {
+    throw new Error('Distributions must have non-zero length')
   }
-  const requiredLength = 2 * length - 1
+}
+
+export function getConvolutionFftLength(length, otherLength = length) {
+  if (!Number.isSafeInteger(length) || length <= 0 ||
+      !Number.isSafeInteger(otherLength) || otherLength <= 0) {
+    throw new RangeError(
+      'distribution lengths must be positive safe integers'
+    )
+  }
+  const requiredLength = length + otherLength - 1
   if (!Number.isSafeInteger(requiredLength)) {
     throw new RangeError('distribution length is too large for an FFT')
   }
@@ -89,14 +98,17 @@ function transform(real, imaginary, inverse = false) {
 }
 
 function convolve(distribution1, distribution2, options = {}) {
-  assertCompatibleDistributions(distribution1, distribution2)
+  assertNonEmptyDistributions(distribution1, distribution2)
 
   const resultLength = distribution1.length + distribution2.length - 1
-  const requiredFftLength = getConvolutionFftLength(distribution1.length)
+  const requiredFftLength = getConvolutionFftLength(
+    distribution1.length,
+    distribution2.length,
+  )
   const transformSize = options.fftLength ?? requiredFftLength
   if (transformSize !== requiredFftLength) {
     throw new RangeError(
-      `fftLength must equal ${requiredFftLength} for distributions of length ${distribution1.length}`
+      `fftLength must equal ${requiredFftLength} for distributions of lengths ${distribution1.length} and ${distribution2.length}`
     )
   }
   if (typeof options.onFftLength === 'function') {
@@ -131,6 +143,7 @@ export function sumDistribution(distribution1, distribution2, options = {}) {
   const normalizedOptions = typeof options === 'number'
     ? { fftLength: options }
     : options ?? {}
+  assertCompatibleDistributions(distribution1, distribution2)
   const size = distribution1.length
   const convolved = convolve(
     distribution1,
@@ -149,18 +162,29 @@ export function sumDistribution(distribution1, distribution2, options = {}) {
   return result
 }
 
-export function subDistribution(distribution1, distribution2) {
-  assertCompatibleDistributions(distribution1, distribution2)
+export function subDistribution(distribution1, distribution2, options = {}) {
+  assertNonEmptyDistributions(distribution1, distribution2)
+
+  const normalizedOptions = typeof options === 'number'
+    ? { fftLength: options }
+    : options ?? {}
 
   const size = distribution1.length
-  const convolved = convolve(distribution1, distribution2.slice().reverse())
+  const convolved = convolve(
+    distribution1,
+    distribution2.slice().reverse(),
+    normalizedOptions,
+  )
   const result = Array(size).fill(0)
 
-  for (let index = 0; index < size; index += 1) {
+  for (let index = 0; index < distribution2.length; index += 1) {
     result[0] += Math.max(0, convolved[index])
   }
   for (let value = 1; value < size; value += 1) {
-    result[value] = Math.max(0, convolved[size - 1 + value])
+    result[value] = Math.max(
+      0,
+      convolved[distribution2.length - 1 + value],
+    )
   }
 
   return result

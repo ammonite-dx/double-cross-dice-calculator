@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-09T04:53:03.066Z",
+    "generatedAt": "2026-08-09T05:53:23.997Z",
     "node": "v22.23.2",
     "requestedNodeVersion": "22.23.2",
     "nodeVersionMatchesRequest": true,
@@ -97,10 +97,10 @@
     {
       "label": "dx current shihai=0",
       "iterations": 30,
-      "minMs": 0.544700000000006,
-      "medianMs": 0.5515000000000043,
-      "maxMs": 0.9806000000000097,
-      "meanMs": 0.6015433333333334,
+      "minMs": 0.5595999999999961,
+      "medianMs": 0.5778999999999996,
+      "maxMs": 1.0551999999999992,
+      "meanMs": 0.629916666666665,
       "checksum": 1310.1979200000003,
       "params": {
         "dice": 99,
@@ -113,10 +113,10 @@
     {
       "label": "dx current shihai=19",
       "iterations": 5,
-      "minMs": 4.376500000000021,
-      "medianMs": 4.981799999999964,
-      "maxMs": 5.163599999999974,
-      "meanMs": 4.89265999999999,
+      "minMs": 4.602899999999991,
+      "medianMs": 5.0852,
+      "maxMs": 5.138400000000004,
+      "meanMs": 4.980119999999999,
       "checksum": 758.3631,
       "params": {
         "dice": 99,
@@ -129,10 +129,10 @@
     {
       "label": "dx expanded shihai=0",
       "iterations": 5,
-      "minMs": 0.42730000000000246,
-      "medianMs": 0.46900000000005093,
-      "maxMs": 0.5153999999999996,
-      "meanMs": 0.4669399999999996,
+      "minMs": 0.43670000000000186,
+      "medianMs": 0.495199999999997,
+      "maxMs": 0.5848000000000013,
+      "meanMs": 0.5012200000000007,
       "checksum": 2774.4847094378147,
       "params": {
         "dice": 200,
@@ -145,10 +145,10 @@
     {
       "label": "dx expanded shihai=19",
       "iterations": 2,
-      "minMs": 45.678800000000024,
-      "medianMs": 45.69050000000004,
-      "maxMs": 45.69050000000004,
-      "meanMs": 45.68465000000003,
+      "minMs": 45.13819999999998,
+      "medianMs": 45.31569999999999,
+      "maxMs": 45.31569999999999,
+      "meanMs": 45.22694999999999,
       "checksum": 436.3462198202865,
       "params": {
         "dice": 200,
@@ -161,10 +161,10 @@
     {
       "label": "dx large shihai=19",
       "iterations": 1,
-      "minMs": 102.13220000000001,
-      "medianMs": 102.13220000000001,
-      "maxMs": 102.13220000000001,
-      "meanMs": 102.13220000000001,
+      "minMs": 100.66730000000001,
+      "medianMs": 100.66730000000001,
+      "maxMs": 100.66730000000001,
+      "meanMs": 100.66730000000001,
       "checksum": 52.26127969804245,
       "params": {
         "dice": 300,
@@ -177,10 +177,10 @@
     {
       "label": "fft transform 2048",
       "iterations": 10,
-      "minMs": 0.04739999999992506,
-      "medianMs": 0.33209999999996853,
-      "maxMs": 0.4373999999999114,
-      "meanMs": 0.2575099999999793,
+      "minMs": 0.047899999999913234,
+      "medianMs": 0.29149999999992815,
+      "maxMs": 0.35770000000002256,
+      "meanMs": 0.24820999999997184,
       "checksum": 10,
       "size": 2048,
       "fftFloat64Bytes": 32768
@@ -189,9 +189,9 @@
       "label": "fft transform 4096",
       "iterations": 10,
       "minMs": 0.10190000000000055,
-      "medianMs": 0.1028999999999769,
-      "maxMs": 0.11659999999994852,
-      "meanMs": 0.1055499999999597,
+      "medianMs": 0.1027000000000271,
+      "maxMs": 0.1170999999999367,
+      "meanMs": 0.10419999999998027,
       "checksum": 10,
       "size": 4096,
       "fftFloat64Bytes": 65536
@@ -199,10 +199,10 @@
     {
       "label": "fft transform 8192",
       "iterations": 10,
-      "minMs": 0.26310000000000855,
-      "medianMs": 0.2717000000000098,
-      "maxMs": 0.2844000000000051,
-      "meanMs": 0.27250999999999975,
+      "minMs": 0.2477000000000089,
+      "medianMs": 0.2678000000000793,
+      "maxMs": 0.27680000000009386,
+      "meanMs": 0.26431000000001176,
       "checksum": 10,
       "size": 8192,
       "fftFloat64Bytes": 131072
@@ -210,10 +210,10 @@
     {
       "label": "fft transform 16384",
       "iterations": 3,
-      "minMs": 0.5988000000000966,
-      "medianMs": 0.63900000000001,
-      "maxMs": 0.7187000000000126,
-      "meanMs": 0.6521666666667064,
+      "minMs": 0.5285000000000082,
+      "medianMs": 0.6035999999999149,
+      "maxMs": 0.610300000000052,
+      "meanMs": 0.5807999999999917,
       "checksum": 3,
       "size": 16384,
       "fftFloat64Bytes": 262144
@@ -221,10 +221,10 @@
     {
       "label": "fft transform 32768",
       "iterations": 3,
-      "minMs": 1.174099999999953,
-      "medianMs": 1.189799999999991,
-      "maxMs": 1.2034999999999627,
-      "meanMs": 1.1891333333333023,
+      "minMs": 1.2889999999999873,
+      "medianMs": 1.3410000000000082,
+      "maxMs": 1.3432000000000244,
+      "meanMs": 1.3244000000000067,
       "checksum": 3,
       "size": 32768,
       "fftFloat64Bytes": 524288
@@ -232,10 +232,10 @@
     {
       "label": "dr current optimized kazanari=0 maxDice=202",
       "iterations": 20,
-      "minMs": 0.8018000000000711,
-      "medianMs": 0.8232000000000426,
-      "maxMs": 1.4856000000000904,
-      "meanMs": 0.8947650000000238,
+      "minMs": 0.8152000000000044,
+      "medianMs": 0.8233999999999924,
+      "maxMs": 1.398900000000026,
+      "meanMs": 0.8936700000000031,
       "checksum": 2660.061938170951,
       "maxDamageDice": 202,
       "kazanari": 0,
@@ -245,10 +245,10 @@
     {
       "label": "dr current optimized kazanari=9 maxDice=202",
       "iterations": 10,
-      "minMs": 39.11590000000001,
-      "medianMs": 40.30329999999992,
-      "maxMs": 43.704200000000014,
-      "meanMs": 40.458759999999984,
+      "minMs": 38.94049999999993,
+      "medianMs": 39.76789999999994,
+      "maxMs": 41.64580000000012,
+      "meanMs": 39.91866000000001,
       "checksum": 1590.796599360279,
       "maxDamageDice": 202,
       "kazanari": 9,
@@ -258,10 +258,10 @@
     {
       "label": "dr candidate polynomial kazanari=0 maxDice=304",
       "iterations": 10,
-      "minMs": 1.0551000000000386,
-      "medianMs": 1.0699999999999363,
-      "maxMs": 1.1277999999999793,
-      "meanMs": 1.077049999999963,
+      "minMs": 1.0608000000001994,
+      "medianMs": 1.067600000000084,
+      "maxMs": 1.0914999999999964,
+      "meanMs": 1.0699800000000323,
       "checksum": 1330.0309691100688,
       "maxDamageDice": 304,
       "kazanari": 0,
@@ -271,10 +271,10 @@
     {
       "label": "dr candidate polynomial kazanari=0 maxDice=400",
       "iterations": 10,
-      "minMs": 1.3514999999999873,
-      "medianMs": 1.3595000000000255,
-      "maxMs": 1.3851999999999407,
-      "meanMs": 1.361619999999948,
+      "minMs": 1.335399999999936,
+      "medianMs": 1.3382999999998901,
+      "maxMs": 1.3550000000000182,
+      "meanMs": 1.341619999999989,
       "checksum": 1330.0309691100688,
       "maxDamageDice": 400,
       "kazanari": 0,
@@ -284,10 +284,10 @@
     {
       "label": "dr candidate polynomial kazanari=0 maxDice=512",
       "iterations": 5,
-      "minMs": 3.3821000000000367,
-      "medianMs": 3.3985000000000127,
-      "maxMs": 3.4781000000000404,
-      "meanMs": 3.40930000000003,
+      "minMs": 3.3660999999999603,
+      "medianMs": 3.3704999999999927,
+      "maxMs": 3.382400000000189,
+      "meanMs": 3.372800000000052,
       "checksum": 665.0154845550376,
       "maxDamageDice": 512,
       "kazanari": 0,
@@ -297,10 +297,10 @@
     {
       "label": "dr candidate polynomial kazanari=0 maxDice=800",
       "iterations": 3,
-      "minMs": 5.143399999999929,
-      "medianMs": 5.156100000000151,
-      "maxMs": 5.1646999999998116,
-      "meanMs": 5.154733333333297,
+      "minMs": 5.090799999999945,
+      "medianMs": 5.098799999999983,
+      "maxMs": 5.124499999999898,
+      "meanMs": 5.104699999999942,
       "checksum": 399.0092907330225,
       "maxDamageDice": 800,
       "kazanari": 0,
@@ -362,14 +362,14 @@
           "maxDamageDice": 202,
           "rawSupportMax": 2020,
           "rawMax": 2020,
-          "workingLength": 2013,
+          "workingLength": 2014,
           "fftLength": 2048,
           "defenceFftLength": 4096
         },
         "estimates": {
           "operations": 19685734,
           "timeMs": 53.889084999999994,
-          "float64Bytes": 2092304,
+          "float64Bytes": 2092328,
           "scoreOperations": 8094153,
           "scoreFftOperations": 0,
           "damageOperations": 11444125,
@@ -389,10 +389,10 @@
       },
       "benchmark": {
         "iterations": 10,
-        "minMs": 0.021399999999999864,
-        "medianMs": 0.052300000000002456,
-        "maxMs": 1.0860999999999876,
-        "meanMs": 0.15733000000000175
+        "minMs": 0.0218999999999987,
+        "medianMs": 0.05209999999999937,
+        "maxMs": 0.12490000000000023,
+        "meanMs": 0.06509999999999998
       }
     },
     {
@@ -448,14 +448,14 @@
           "maxDamageDice": 253,
           "rawSupportMax": 2530,
           "rawMax": 2530,
-          "workingLength": 2223,
+          "workingLength": 2224,
           "fftLength": 4096,
           "defenceFftLength": 4096
         },
         "estimates": {
           "operations": 16685047,
           "timeMs": 45.382789,
-          "float64Bytes": 1274888,
+          "float64Bytes": 1274912,
           "scoreOperations": 5690653,
           "scoreFftOperations": 0,
           "damageOperations": 9888474,
@@ -467,10 +467,10 @@
       },
       "benchmark": {
         "iterations": 10,
-        "minMs": 0.02240000000000464,
-        "medianMs": 0.022600000000011278,
-        "maxMs": 0.02430000000001087,
-        "meanMs": 0.022910000000004517
+        "minMs": 0.02289999999999992,
+        "medianMs": 0.023099999999999454,
+        "maxMs": 0.02459999999999951,
+        "meanMs": 0.02330000000000041
       }
     },
     {
@@ -526,14 +526,14 @@
           "maxDamageDice": 353,
           "rawSupportMax": 3530,
           "rawMax": 3530,
-          "workingLength": 3023,
+          "workingLength": 3024,
           "fftLength": 4096,
           "defenceFftLength": 8192
         },
         "estimates": {
           "operations": 125256718,
           "timeMs": 243.26149600000002,
-          "float64Bytes": 5249896,
+          "float64Bytes": 5249920,
           "scoreOperations": 83445760,
           "scoreFftOperations": 0,
           "damageOperations": 39894030,
@@ -555,10 +555,10 @@
       },
       "benchmark": {
         "iterations": 10,
-        "minMs": 0.024199999999979127,
-        "medianMs": 0.025300000000015643,
-        "maxMs": 0.04919999999998481,
-        "meanMs": 0.029209999999997648
+        "minMs": 0.022700000000000387,
+        "medianMs": 0.023499999999998522,
+        "maxMs": 0.07219999999999871,
+        "meanMs": 0.03039999999999985
       }
     },
     {
@@ -608,10 +608,10 @@
       },
       "benchmark": {
         "iterations": 10,
-        "minMs": 0.7849000000000217,
-        "medianMs": 0.8915000000000077,
-        "maxMs": 3.814499999999981,
-        "meanMs": 1.592440000000002
+        "minMs": 0.8059000000000012,
+        "medianMs": 0.8149000000000015,
+        "maxMs": 0.8365000000000009,
+        "meanMs": 0.8161700000000011
       }
     },
     {
@@ -674,10 +674,10 @@
       },
       "benchmark": {
         "iterations": 10,
-        "minMs": 0.014499999999998181,
-        "medianMs": 0.01470000000000482,
-        "maxMs": 0.03999999999999204,
-        "meanMs": 0.017250000000001365
+        "minMs": 0.015000000000000568,
+        "medianMs": 0.015200000000000102,
+        "maxMs": 0.04099999999999682,
+        "meanMs": 0.017730000000000957
       }
     },
     {
@@ -733,14 +733,14 @@
           "maxDamageDice": 434,
           "rawSupportMax": 4340,
           "rawMax": 4340,
-          "workingLength": 2013,
+          "workingLength": 2014,
           "fftLength": 8192,
           "defenceFftLength": 4096
         },
         "estimates": {
           "operations": 1939152,
           "timeMs": 7.156713,
-          "float64Bytes": 352344,
+          "float64Bytes": 352368,
           "scoreOperations": 9501,
           "scoreFftOperations": 0,
           "damageOperations": 1782195,
@@ -752,10 +752,10 @@
       },
       "benchmark": {
         "iterations": 10,
-        "minMs": 0.01490000000001146,
-        "medianMs": 0.015099999999989677,
-        "maxMs": 0.015399999999999636,
-        "meanMs": 0.015100000000003888
+        "minMs": 0.015399999999999636,
+        "medianMs": 0.01559999999999917,
+        "maxMs": 0.015999999999998238,
+        "meanMs": 0.01560000000000059
       }
     }
   ]

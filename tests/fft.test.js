@@ -56,4 +56,41 @@ describe('FFT distribution operations', () => {
       fftLength: expected * 2,
     })).toThrow('fftLength')
   })
+
+  it('subtracts unequal-length distributions and clamps negative values', () => {
+    const first = pointMass(5, 4)
+    const second = pointMass(3, 2)
+
+    expect(subDistribution(first, second)).toEqual([0, 0, 1, 0, 0])
+    expect(subDistribution(pointMass(5, 2), pointMass(3, 2))).toEqual(
+      [1, 0, 0, 0, 0]
+    )
+    const clamped = subDistribution(pointMass(5, 1), pointMass(3, 2))
+    expect(clamped[0]).toBeCloseTo(1, 12)
+    expect(clamped.slice(1).every((value) => Math.abs(value) < 1e-12)).toBe(
+      true
+    )
+  })
+
+  it('uses the exact explicit FFT length for unequal subtraction', () => {
+    const first = pointMass(5, 4)
+    const second = pointMass(3, 2)
+    const expected = getConvolutionFftLength(first.length, second.length)
+    const observed = []
+
+    expect(subDistribution(first, second, {
+      fftLength: expected,
+      onFftLength: (length) => observed.push(length),
+    })).toEqual([0, 0, 1, 0, 0])
+    expect(observed).toEqual([expected])
+    expect(() => subDistribution(first, second, {
+      fftLength: expected / 2,
+    })).toThrow('fftLength')
+    expect(() => subDistribution(first, second, {
+      fftLength: expected * 2,
+    })).toThrow('fftLength')
+    expect(() => subDistribution(first, second, {
+      fftLength: expected + 2,
+    })).toThrow('fftLength')
+  })
 })

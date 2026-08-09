@@ -968,13 +968,16 @@ function planDamage(params, display, policy, maxScoreForDamage) {
       )
     : Math.max(
         0,
-        Math.min(rawMax, policy.calculationMax - fixedDifference)
+        Math.min(
+          rawMax,
+          policy.calculationMax - fixedDifference + defenceMax
+        )
       )
   const damageRollFftLength = nextPowerOfTwo(rawMax + 1)
+  const workingLength = workingMax + 2
   const defenceFftLength = defence.dice > 0
-    ? nextPowerOfTwo((workingMax + 1) + (defenceMax + 1) - 1)
+    ? nextPowerOfTwo(workingLength + defenceMax)
     : 0
-  const workingLength = workingMax + 1
   const damageOperations =
     (damageRollFftLength / 2 + 1) *
       (maxDamageDice + 1) *
@@ -1283,9 +1286,9 @@ function makeOverflowInfo(plan) {
     ? {
         type: 'finite-support',
         finiteSupport: true,
-        lowerBound: plan.damage.rawSupportMax + 1,
+        lowerBound: plan.damage.workingMax + 1,
         bound: 0,
-        meaning: 'DR values have finite support; values above the raw support are impossible before fixed differences',
+        meaning: 'pre-defence damage values above workingMax use an explicit overflow bucket; raw DR support remains finite before fixed differences',
       }
     : null
   const display = {

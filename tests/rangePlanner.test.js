@@ -116,6 +116,15 @@ function finiteOracleTail(distribution, value) {
   return Math.max(0, Math.min(1, result))
 }
 
+function defendedOverflowLowerBound(damage, overflowLowerBound) {
+  // For a>=0, workingMax is already in the X+a coordinate. For a<0, it is
+  // still in the X coordinate and the fixed difference is applied afterward.
+  const postDefenceShift = damage.fixedDifference < 0
+    ? damage.fixedDifference
+    : 0
+  return overflowLowerBound - damage.defenceMax + postDefenceShift
+}
+
 describe('production range planner', () => {
   it('finds a cutoff boundary and preserves tail monotonicity', () => {
     const params = { dice: 99, critical: 2, shihai: 0, yousei: 0 }
@@ -363,11 +372,100 @@ describe('production range planner', () => {
 
     expect(positive.damage.fixedDifference).toBe(5)
     expect(positive.damage.workingMax).toBe(215)
+    expect(positive.damage.workingLength).toBe(217)
     expect(negative.damage.fixedDifference).toBe(-5)
-    expect(negative.damage.workingMax).toBe(205)
+    expect(negative.damage.workingMax).toBe(210)
+    expect(negative.damage.workingLength).toBe(212)
     expect(positive.damage.defenceFftLength).toBe(
       nextPowerOfTwo(positive.damage.workingLength + positive.damage.defenceMax)
     )
+  })
+
+  it('keeps the pre-defence overflow above calculationMax after defence', () => {
+    const policy = {
+      calculationMax: 200,
+      display: { defaultMax: 0 },
+    }
+    const cases = [
+      {
+        label: 'positive difference',
+        attack: { dice: 30, value: 5, kazanari: 0 },
+        defence: { dice: 2, value: 0 },
+        expectedDifference: 5,
+        expectedWorkingMax: 220,
+      },
+      {
+        label: 'zero difference',
+        attack: { dice: 30, value: 0, kazanari: 0 },
+        defence: { dice: 2, value: 0 },
+        expectedDifference: 0,
+        expectedWorkingMax: 220,
+      },
+      {
+        label: 'negative difference with defence',
+        attack: { dice: 30, value: 0, kazanari: 0 },
+        defence: { dice: 2, value: 5 },
+        expectedDifference: -5,
+        expectedWorkingMax: 225,
+      },
+      {
+        label: 'negative difference without defence',
+        attack: { dice: 30, value: 0, kazanari: 0 },
+        defence: { dice: 0, value: 5 },
+        expectedDifference: -5,
+        expectedWorkingMax: 205,
+      },
+    ]
+
+    for (const testCase of cases) {
+      const plan = planCalculationRanges(attackParams({
+        attack: testCase.attack,
+        defence: testCase.defence,
+        display: { min: 0, max: 0 },
+      }), policy)
+      const damage = plan.damage
+      const overflowLowerBound = damage.workingMax + 1
+
+      expect(plan.overflowInfo.damage.lowerBound, testCase.label).toBe(
+        overflowLowerBound
+      )
+      expect(damage.fixedDifference, testCase.label).toBe(
+        testCase.expectedDifference
+      )
+      expect(damage.workingMax, testCase.label).toBe(
+        testCase.expectedWorkingMax
+      )
+      expect(damage.workingLength, testCase.label).toBe(
+        testCase.expectedWorkingMax + 2
+      )
+      expect(overflowLowerBound, testCase.label).toBe(
+        testCase.expectedWorkingMax + 1
+      )
+
+      expect(
+        defendedOverflowLowerBound(damage, overflowLowerBound),
+        testCase.label
+      ).toBe(201)
+      if (damage.defenceDice > 0) {
+        expect(damage.defenceFftLength, testCase.label).toBe(
+          nextPowerOfTwo(damage.workingLength + damage.defenceMax)
+        )
+      } else {
+        expect(damage.defenceFftLength, testCase.label).toBe(0)
+      }
+    }
+
+    const exactPowerOfTwo = planCalculationRanges(attackParams({
+      attack: { dice: 30, value: 0, kazanari: 0 },
+      defence: { dice: 2, value: 0 },
+      display: { min: 0, max: 0 },
+    }), {
+      calculationMax: 214,
+      display: { defaultMax: 0 },
+    }).damage
+    expect(exactPowerOfTwo.workingMax).toBe(234)
+    expect(exactPowerOfTwo.workingLength).toBe(236)
+    expect(exactPowerOfTwo.defenceFftLength).toBe(256)
   })
 
   it('uses exact display and resource warning/hard boundaries', () => {

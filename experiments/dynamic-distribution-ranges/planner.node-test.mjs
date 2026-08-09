@@ -40,6 +40,15 @@ function scoreOnlyParams(overrides = {}) {
   }
 }
 
+function defendedOverflowLowerBound(damage, overflowLowerBound) {
+  // For a>=0, workingMax is already in the X+a coordinate. For a<0, it is
+  // still in the X coordinate and the fixed difference is applied afterward.
+  const postDefenceShift = damage.fixedDifference < 0
+    ? damage.fixedDifference
+    : 0
+  return overflowLowerBound - damage.defenceMax + postDefenceShift
+}
+
 test('tail cutoff is a boundary and the tail bound is monotone', () => {
   const params = { dice: 99, critical: 2, shihai: 0, yousei: 0 }
   const epsilon = 1e-8
@@ -159,6 +168,7 @@ test('finite damage support and FFT lengths cover their required ranges', () => 
 
   assert.equal(damage.finiteSupport, true)
   assert.equal(damage.rawSupportMax, 1130)
+  assert.equal(damage.workingLength, damage.workingMax + 2)
   assert.equal(damage.fftLength, nextPowerOfTwo(damage.rawSupportMax + 1))
   assert.ok(damage.fftLength >= damage.rawSupportMax + 1)
   assert.equal(
@@ -166,6 +176,79 @@ test('finite damage support and FFT lengths cover their required ranges', () => 
     nextPowerOfTwo(requiredDefenceConvolution),
   )
   assert.ok(damage.defenceFftLength >= requiredDefenceConvolution)
+})
+
+test('keeps the pre-defence overflow above calculationMax after defence', () => {
+  const policy = {
+    calculationMax: 200,
+    display: { defaultMax: 0 },
+  }
+  const cases = [
+    {
+      attack: { dice: 30, value: 5, kazanari: 0 },
+      defence: { dice: 2, value: 0 },
+      expectedDifference: 5,
+      expectedWorkingMax: 220,
+    },
+    {
+      attack: { dice: 30, value: 0, kazanari: 0 },
+      defence: { dice: 2, value: 0 },
+      expectedDifference: 0,
+      expectedWorkingMax: 220,
+    },
+    {
+      attack: { dice: 30, value: 0, kazanari: 0 },
+      defence: { dice: 2, value: 5 },
+      expectedDifference: -5,
+      expectedWorkingMax: 225,
+    },
+    {
+      attack: { dice: 30, value: 0, kazanari: 0 },
+      defence: { dice: 0, value: 5 },
+      expectedDifference: -5,
+      expectedWorkingMax: 205,
+    },
+  ]
+
+  for (const testCase of cases) {
+    const plan = planCalculationRanges(attackParams({
+      attack: testCase.attack,
+      defence: testCase.defence,
+      display: { min: 0, max: 0 },
+    }), policy)
+    const damage = plan.damage
+    const overflowLowerBound = damage.workingMax + 1
+
+    assert.equal(damage.fixedDifference, testCase.expectedDifference)
+    assert.equal(damage.workingMax, testCase.expectedWorkingMax)
+    assert.equal(damage.workingLength, testCase.expectedWorkingMax + 2)
+    assert.equal(overflowLowerBound, testCase.expectedWorkingMax + 1)
+
+    assert.equal(
+      defendedOverflowLowerBound(damage, overflowLowerBound),
+      201,
+    )
+    if (damage.defenceDice > 0) {
+      assert.equal(
+        damage.defenceFftLength,
+        nextPowerOfTwo(damage.workingLength + damage.defenceMax),
+      )
+    } else {
+      assert.equal(damage.defenceFftLength, 0)
+    }
+  }
+
+  const exactPowerOfTwo = planCalculationRanges(attackParams({
+    attack: { dice: 30, value: 0, kazanari: 0 },
+    defence: { dice: 2, value: 0 },
+    display: { min: 0, max: 0 },
+  }), {
+    calculationMax: 214,
+    display: { defaultMax: 0 },
+  }).damage
+  assert.equal(exactPowerOfTwo.workingMax, 234)
+  assert.equal(exactPowerOfTwo.workingLength, 236)
+  assert.equal(exactPowerOfTwo.defenceFftLength, 256)
 })
 
 test('estimated-time warning and hard limits have exact boundaries', () => {

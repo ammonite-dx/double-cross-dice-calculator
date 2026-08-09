@@ -615,13 +615,16 @@ function planDamage(
       )
     : Math.max(
         0,
-        Math.min(rawMax, policy.calculationMax - fixedDifference),
+        Math.min(
+          rawMax,
+          policy.calculationMax - fixedDifference + defenceMax,
+        ),
       )
   const damageRollFftLength = nextPowerOfTwo(rawMax + 1)
+  const workingLength = workingMax + 2
   const defenceFftLength = defenceDice > 0
-    ? nextPowerOfTwo((workingMax + 1) + (defenceMax + 1) - 1)
+    ? nextPowerOfTwo(workingLength + defenceMax)
     : 0
-  const workingLength = workingMax + 1
   const damageOperations =
     (damageRollFftLength / 2 + 1) *
       (maxDamageDice + 1) *
@@ -639,6 +642,7 @@ function planDamage(
     defenceValue,
     kazanari,
     maxDamageDice,
+    fixedDifference,
     rawSupportMax: rawMax,
     rawMax,
     workingMax,
