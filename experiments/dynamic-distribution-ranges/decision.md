@@ -2,7 +2,7 @@
 
 ## 状態と結論
 
-調査開始時点では、本番の`src`、配信JSON、UI入力上限を変更せず、実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。第1実装単位では参照plannerの契約をRuntimeDamageRollCalculatorとWorkerの可変FFT・出力長optionsへ移植し、第2-BではDamageCalculatorとCalculationClientへDamageRangePlanを接続しています。配信JSON、UI入力上限、total damage、バックトラック配列は引き続き変更していません。
+調査開始時点では、本番の`src`、配信JSON、UI入力上限を変更せず、実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。第1実装単位では参照plannerの契約をRuntimeDamageRollCalculatorとWorkerの可変FFT・出力長optionsへ移植し、第2-BではDamageCalculatorとCalculationClientへDamageRangePlanを接続し、第2-Cでは計画のwarning/rejectをcheck、attack、backtrack UIへ接続しました。現行1024 published bucketのtotal damage集計は維持し、配信JSON、UI入力上限、バックトラック配列、resource guardと将来のdynamic output契約は引き続き変更していません。
 
 現時点の推奨は次のとおりです。
 
@@ -410,7 +410,7 @@ overflowは一種類ではありません。
 - `node experiments/dynamic-distribution-ranges/benchmark.mjs --write-results`をNodeバージョンとともに保存する。
 - `kazanari=0/3/9`、DX `shihai=0/19`、support 1024/2048/4096/8192/16384をWorker転送込みで測定する。
 - Chrome、Firefox、Safari、低速モバイル相当で、中央値、95パーセンタイル、最大時間、Long Task、Worker peak memoryを測定する。
-- 計画がwarningへ入ったときのUI表示、hard reject時のキャンセル、連続入力の重複排除、Worker再生成を検証する。
+- 完了: 計画がwarningへ入ったときのUI表示、hard rejectの結果クリア、連続入力のrequest token、AbortError除外を共通helperのunit testで検証した。実ブラウザでのキャンセル表示とWorker再生成は引き続き検証する。
 
 ## 未解決の設計判断
 
@@ -427,4 +427,10 @@ overflowは一種類ではありません。
 
 第2-Aでは、`RangePlanner`と実験plannerのDamage境界を同期し、`workingMax=W`、`workingLength=W+2`、overflow下限`W+1`を採用した。`a<0`では防御最大値`D`を含む`W=min(R,C-a+D)`を使う。異長の`subDistribution`は第1分布の長さへ`max(0,X-Y)`を返し、線形畳み込み必要長以上の最小2冪FFT長を厳密に要求する。
 
-第2-Aの実装、テスト、文書更新は完了した。第2-Bでは、`calculateDamageOnDemand`のruntime optionsとdamage planを別引数に分け、`CalculationClient`のpreflight `plan.damage`を渡すようにした。raw overflow bucketは一点質量としてシフトせず、必要raw最大がsupport端点の場合だけ端点を明示値として扱う。防御分布は`D+1`要素へ縮約し、`defenceFftLength`を渡してからfailure massを0へ合算し、公開1024要素へcollapseする。provider返却長、有限性、非負性、総和も検証する。total damage、UI・JSON経路、入力上限、バックトラック配列は未接続である。
+第2-Aの実装、テスト、文書更新は完了した。第2-Bでは、`calculateDamageOnDemand`のruntime optionsとdamage planを別引数に分け、`CalculationClient`のpreflight `plan.damage`を渡すようにした。raw overflow bucketは一点質量としてシフトせず、必要raw最大がsupport端点の場合だけ端点を明示値として扱う。防御分布は`D+1`要素へ縮約し、`defenceFftLength`を渡してからfailure massを0へ合算し、公開1024要素へcollapseする。provider返却長、有限性、非負性、総和も検証する。第2-Cでは`CalculationFeedback`と`RangePlanNotice`を追加し、計画のwarning/reject、推定資源、overflow下限をcheck、attack、backtrack UIへ表示する。現行1024 published bucketのtotal damage集計は正しいまま維持し、未接続なのはresource guardと将来のdynamic output契約、JSON経路、入力上限、バックトラック配列である。
+
+## Dynamic distribution range 第2-Cの確定事項
+
+`CalculationClient`の`onRangePlan` callbackをUI層で受け取り、plannerを再実装せずに`RangePlan`を表示用へ整形する。warningは計算を継続し、理由、推定計算時間、推定メモリ、`overflowInfo`の該当する下限を表示する。hard rejectは`CalculationRangeError`のplanとrejectionReasonsを同じnoticeへ渡し、結果を表示可能状態から外して古い結果を新しい入力へ見せない。
+
+check、backtrackは画面単位、attackはコンボ単位でfeedbackを保持する。各更新はrequest revisionを発行し、最新revisionだけがplan、result、errorをcommitする。前のrequestは`AbortController`で中断を依頼し、`AbortError`とアンマウント後の結果はユーザー向けnoticeへ変換しない。UI入力の上限、JSON asset、backtrack配列、full-tail、total damageの公開1024 bucket契約は変更しない。

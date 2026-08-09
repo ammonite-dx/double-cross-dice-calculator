@@ -21,7 +21,7 @@
                 <td class="pa-0 text-right" style="font-size:80%">{{ combo.data.scoreSummary.action.successRate }}%</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ combo.data.damageSummary.expectedValue }}</td>
             </tr>
-            <tr v-if="props.attackData.combos.length>1">
+            <tr v-if="props.attackData.combos.length>1 && props.attackData.totalDamageReady">
                 <td class="pa-0" style="font-size:80%">合計</td>
                 <td class="pa-0 text-right" style="font-size:80%"></td>
                 <td class="pa-0 text-right" style="font-size:80%"></td>

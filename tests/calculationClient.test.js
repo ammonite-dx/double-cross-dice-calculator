@@ -190,6 +190,35 @@ describe('CalculationClient', () => {
     expect(onRangePlan.mock.calls[0][0].operation).toBe('check')
   })
 
+  it('publishes the range plan synchronously before calculation dependencies run', async () => {
+    const events = []
+    const planCalculationRanges = vi.fn(() => {
+      events.push('plan')
+      return { accepted: true }
+    })
+    const dependencies = createDependencies({
+      planCalculationRanges,
+      getScore: vi.fn(() => {
+        events.push('score')
+        return 'score'
+      }),
+      getScoreSummary: vi.fn(() => {
+        events.push('summary')
+        return 'summary'
+      }),
+    })
+    const client = createCalculationClient(dependencies)
+
+    const calculation = client.calculateCheck(
+      { action: { ...scoreParams }, reaction: { ...scoreParams } },
+      { opposed: false, target: 0 },
+      { onRangePlan: () => events.push('callback') }
+    )
+
+    expect(events).toEqual(['plan', 'callback', 'score', 'score', 'summary'])
+    await calculation
+  })
+
   it('calculates an attack combo atomically', async () => {
     const dependencies = createDependencies()
     const client = createCalculationClient(dependencies)

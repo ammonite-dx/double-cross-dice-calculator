@@ -40,6 +40,8 @@ const defaultDependencies = {
 
 const EVASION_MODE = '《イベイジョン》'
 
+export const CALCULATION_CLIENT_KEY = Symbol('calculationClient')
+
 export class CalculationRangeError extends Error {
   constructor(plan) {
     const rejectionReasons = plan?.rejectionReasons ?? []
@@ -138,6 +140,12 @@ function getRuntimeOptions(options) {
   return runtimeOptions
 }
 
+/**
+ * Plans a request and publishes the plan before any calculation starts.
+ *
+ * `onRangePlan` is a synchronous notification. Its return value is ignored;
+ * asynchronous callbacks are not part of the CalculationClient contract.
+ */
 function runRangePreflight(
   planner,
   plannerParams,

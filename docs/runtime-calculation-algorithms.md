@@ -243,7 +243,7 @@ DXの尾部certificateは、`shihai=0`かつ`yousei=0`では最大値のCDFか�
 
 certificateの確率clampでは、`NaN`をtail 0へ変換せず計算失敗として例外にし、`+Infinity`と`-Infinity`はそれぞれ確率`1`と`0`の明示的な端点として扱います。`scoreTailBound`の入口では、dice 0を含むすべての経路で`critical`がsafe integerの2～11であることを検証します。
 
-`CalculationClient`はdefault dependencyとして`planCalculationRanges`を持ち、`planCheck(params, difficulty?, policy?)`、`planAttackCombo(params, policy?)`、`planBacktrack(params, policy?)`からsnapshot済み入力の計画を直接取得できます。`calculateCheck(params, difficulty, options)`、`calculateAttackCombo(params, options)`、`calculateBacktrack(params, options)`は計算前に同じ計画を生成し、`options.rangePolicy`を渡し、`options.onRangePlan`があれば計画直後に1回だけ呼び出します。`accepted`が`false`の場合は`CalculationRangeError`を`plan`と`rejectionReasons`付きでthrowし、アセット読込、DX計算、DR Worker起動、結果生成を開始しません。
+`CalculationClient`はdefault dependencyとして`planCalculationRanges`を持ち、`planCheck(params, difficulty?, policy?)`、`planAttackCombo(params, policy?)`、`planBacktrack(params, policy?)`からsnapshot済み入力の計画を直接取得できます。`calculateCheck(params, difficulty, options)`、`calculateAttackCombo(params, options)`、`calculateBacktrack(params, options)`は計算前に同じ計画を生成し、`options.rangePolicy`を渡し、`options.onRangePlan`があれば計画直後に1回だけ呼び出します。このcallbackは同期通知であり、戻り値を待機しないため、非同期callbackは公開契約に含めません。`accepted`が`false`の場合は`CalculationRangeError`を`plan`と`rejectionReasons`付きでthrowし、アセット読込、DX計算、DR Worker起動、結果生成を開始しません。
 
 preflightの計画やwarningは公開planメソッドまたはcallbackから取得し、既存のcheck/attack結果に`rangePlan`を追加せず、backtrackを含む既存の戻り値形状を維持します。attackでは`action.score`と`reaction.score`をscore planへ、`action.damage`と`reaction.damage`をattack/defence planへ写像します。《イベイジョン》のreaction scoreは実計算が固定値であるため、planning時だけdice 0、critical 11、shihai 0、yousei 0、skill維持へ正規化します。`rangePolicy`と`onRangePlan`はruntime damage optionsから除外し、`signal`や`requestId`など既存optionsはそのまま渡します。
 
@@ -253,7 +253,7 @@ Scoreのdynamic接続では、`ScoreRangePlan.workingLength`をDX providerとSco
 
 丸めはDX分布生成の最後にだけ行います。引数なしのlegacy pathと明示的な`legacy`または`six-decimal`だけが小数第6位の互換丸めと総和補正を使い、planner dynamic pathはDX、妖精の手用1D10、畳み込み、skill shiftの間で未丸め値を保持し、最後の公開1024要素へのcollapse後にも追加の互換丸めを行いません。したがって同じ入力でも固定2048のlegacy結果とdynamic結果には丸め由来の小差があり得ますが、tail certificateの誤差予算とは別に扱います。
 
-末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応し、第2-BでDamageCalculator、有限防御support、CalculationClientからのDamageRangePlan接続まで完了しました。total damage、バックトラック配列、UI表示、入力上限、JSON経路は後続課題です。
+末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応し、第2-BでDamageCalculator、有限防御support、CalculationClientからのDamageRangePlan接続まで完了しました。第2-Cで計画のwarning/rejectとoverflow下限をUIへ表示します。total damageの現行1024 published bucket集計は維持し、残る課題はresource guardと将来のdynamic output契約、バックトラック配列、入力上限、JSON経路です。
 
 `CalculationClient`はcheckとattackのpreflight planを捨てず、actionとreactionの順にScoreCalculatorへ渡します。《イベイション》の固定reactionは引き続きDX providerを呼ばず、戻り値形状も変更しません。runtime DX cacheのキーはdice、critical、shihai、workingLength、rounding modeを含むため、同じ入力でも異なるplanの固定2048結果を誤再利用しません。同じplanは既存のLRU cacheで再利用されます。
 
@@ -289,4 +289,12 @@ raw分布は防御前の座標`X`として扱う。`a>=0`では`X+a`を防御へ
 
 防御分布は`0..D`の`D+1`要素へ展開し、`defenceFftLength`を`subDistribution`へ渡す。防御差の負値は0へ、failure massは0へ合算し、最後に公開長1024へcollapseする。provider返却分布と防御分布は長さ、有限性、非負性、確率総和を検証し、微小な負値だけを0へ補正する。
 
-`PrecomputedDataRepository`は有限supportが要求長に収まる場合に、既存アセット長1024より短い`d10`配列も生成できるようになった。既定のアセット取得長と公開分布のoverflow semanticsは変更していない。第2-Bの対象外はtotal damage、バックトラック配列、UI表示、入力上限、JSON経路である。
+`PrecomputedDataRepository`は有限supportが要求長に収まる場合に、既存アセット長1024より短い`d10`配列も生成できるようになった。既定のアセット取得長と公開分布のoverflow semanticsは変更していない。第2-Bの対象外だったUI表示は第2-Cで範囲warning/rejectの表示を追加した。total damageの現行1024 published bucket集計は変更せず、対象外として残るのはresource guardと将来のdynamic output契約、バックトラック配列、入力上限、JSON経路である。
+
+## 15. Dynamic range feedback in the UI（第2-C）
+
+`src/application/CalculationFeedback.js`に、`CalculationClient`の`onRangePlan` callbackを受けてUI状態へ反映する共通formatterとlatest-request runnerを追加しました。`src/components/RangePlanNotice.vue`はplannerのwarning codeを日本語の理由へ変換し、推定計算時間、推定メモリ、該当する`overflowInfo`の下限を表示します。warningは`role=status`と`aria-live=polite`、hard rejectは`role=alert`と`aria-live=assertive`で通知し、色だけに依存しません。
+
+checkとbacktrackは画面単位、attackはコンボ単位でfeedbackと`resultReady`を保持します。`CalculationRangeError`は計算器とアセット読込が始まる前に既存契約どおり発生し、UIはrejectの理由を表示して古い分布を結果として残しません。各更新はrequest tokenでcommit対象を制限し、前のattack requestにはAbortControllerを渡します。UI runnerが`options.signal`を受け取った場合は、呼び出し側signalとrunner所有signalを`AbortSignal.any`（非対応環境では同等のfallback）で合成し、どちらも上書きしません。AbortError、古いrequest、アンマウント後のcallbackはUIエラーへ変換しません。
+
+この変更はRangePlannerをUIへ複製せず、`CalculationClient`のpreflight callbackだけを利用します。CalculationClientの公開計算結果、現行1024 published bucket、JSON asset、入力上限、backtrack配列、full-tail、total damageの集計仕様は変更していません。total damageについて未接続として残る意味は、将来のresource guardとdynamic output契約です。

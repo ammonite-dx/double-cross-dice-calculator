@@ -288,12 +288,12 @@ export function getAttackDamageChartData (attackData, setting) {
     var datasets;
     if (setting.mode=='ダメージがXとなる確率を表示') {
         datasets = attackData.combos.map((combo) => ({label:combo.name, data:clipData(combo.data.damage.distribution,setting.min,setting.max), backgroundColor:getChartColor(combo.id) ,borderColor:getChartColor(combo.id)}));
-        if (attackData.combos.length>1) {
+        if (attackData.combos.length>1 && attackData.totalDamageReady) {
             datasets.push({label:'合計', data:clipData(attackData.totalDamage.distribution,setting.min,setting.max), backgroundColor:"secondary" ,borderColor:"secondary"});
         }
     } else {
         datasets = attackData.combos.map((combo) => ({label:combo.name, data:clipData(combo.data.damage.upperTailProbability,setting.min,setting.max), backgroundColor:getChartColor(combo.id) ,borderColor:getChartColor(combo.id)}));
-        if (attackData.combos.length>1) {
+        if (attackData.combos.length>1 && attackData.totalDamageReady) {
             datasets.push({label:'合計', data:clipData(attackData.totalDamage.upperTailProbability,setting.min,setting.max), backgroundColor:"secondary" ,borderColor:"secondary"});
         }
     }

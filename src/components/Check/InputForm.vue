@@ -1,30 +1,54 @@
 <script setup>
 
-    import { onUnmounted,watch } from 'vue';
-    import { calculationClient } from '@/application/CalculationClient';
+    import { inject, onMounted, onUnmounted, watch } from 'vue';
+    import {
+        CALCULATION_CLIENT_KEY,
+        calculationClient as defaultCalculationClient,
+    } from '@/application/CalculationClient';
+    import {
+        createCalculationFeedbackState,
+        createLatestCalculationRunner,
+    } from '@/application/CalculationFeedback';
     import DfcltyForm from './DfcltyForm.vue';
     import ScoreForm from './ScoreForm.vue';
 
     const props = defineProps(['checkData']);
-
-    let calculationRevision = 0;
-    onUnmounted(() => {
-        calculationRevision += 1;
-    });
-    const updateCheck = async () => {
-        const revision = ++calculationRevision;
-
-        try {
-            const result = await calculationClient.calculateCheck(props.checkData.params,props.checkData.dfclty);
-            if (revision !== calculationRevision) {
-                return;
-            }
+    const calculationClient = inject(
+        CALCULATION_CLIENT_KEY,
+        defaultCalculationClient
+    );
+    if (!props.checkData.rangeFeedback) {
+        props.checkData.rangeFeedback = createCalculationFeedbackState();
+    }
+    const calculationRunner = createLatestCalculationRunner({
+        feedback: props.checkData.rangeFeedback,
+        calculate: (options) => calculationClient.calculateCheck(
+            props.checkData.params,
+            props.checkData.dfclty,
+            options
+        ),
+        clearResult: () => {
+            props.checkData.score = null;
+            props.checkData.scoreSummary = null;
+            props.checkData.resultReady = false;
+        },
+        commitResult: (result) => {
             props.checkData.score = result.score;
             props.checkData.scoreSummary = result.scoreSummary;
-        } catch (error) {
+            props.checkData.resultReady = true;
+        },
+        onError: (error) => {
             console.error('Failed to update check', error);
+        },
+    });
+    const updateCheck = () => calculationRunner.run();
+    onMounted(() => {
+        if (!props.checkData.resultReady
+            && props.checkData.rangeFeedback.status !== 'rejected') {
+            void updateCheck();
         }
-    };
+    });
+    onUnmounted(() => calculationRunner.invalidate());
     watch(props.checkData.dfclty, () => {
         void updateCheck();
     });
