@@ -99,6 +99,34 @@ describe('CalculationClient integration', () => {
     expect(backtrackPlan.accepted).toBe(true)
   })
 
+  it('passes public overflow support to the runtime provider below calculationMax', async () => {
+    let plan
+    const result = await calculationClient.calculateAttackCombo({
+      action: {
+        score: { dice: 99, critical: 2, skill: 0, yousei: 0, shihai: 0 },
+        damage: { dice: 0, value: 0, kazanari: 0 },
+      },
+      reaction: {
+        mode: 'non-evasion',
+        score: { dice: 0, critical: 11, skill: 0, yousei: 0, shihai: 0 },
+        damage: { dice: 0, value: 0 },
+      },
+    }, {
+      rangePolicy: {
+        calculationMax: 0,
+        display: { defaultMax: 0 },
+      },
+      onRangePlan: (rangePlan) => {
+        plan = rangePlan
+      },
+    })
+
+    expect(plan.accepted).toBe(true)
+    expect(plan.damage.scoreValueUpperBound).toBe(1023)
+    expect(plan.damage.rawSupportMax).toBe(1030)
+    expect(result.damage.distribution).toHaveLength(1024)
+  })
+
   it('rejects unsupported score combinations before calculation starts', async () => {
     const params = {
       action: { ...scoreParams, shihai: 1, yousei: 1 },

@@ -11,11 +11,11 @@
 3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
 4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
-6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、既存戻り値維持まで接続済み。DRの可変options単体とWorker経路は第1単位として完了したが、DamageCalculator、防御畳み込み、total damage、CalculationClientからのDamageRangePlan接続、バックトラック配列、UI表示、入力上限、JSON経路はこの段階の対象外として追加検証を続ける
+6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、既存戻り値維持まで接続済み。total damage、バックトラック配列、UI表示、入力上限、JSON経路は追加検証を続ける
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
 8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
-第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは第1単位で`fftLength`、`distributionLength`、`rawSupportMax`を受け取れるようになりましたが、DamageCalculator、防御畳み込み、total damage、CalculationClientからのDamageRangePlan接続、バックトラック配列、UI、入力上限、JSON経路は未接続であり、これらへ範囲契約を広げる作業は残っています。
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込みもDamageRangePlanへ接続済みです。total damage、バックトラック配列、UI、入力上限、JSON経路は残課題です。
 
 第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
 
@@ -213,7 +213,8 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 不要になったJSON、キャッシュ、初期読込み、スキーマ参照が残っていない
 - ゲームルール、数式、実装、テスト、教科書と開発者向け文書が同じ計算方法を説明している
 
-### Damage dynamic range 第2-A
+### Damage dynamic range 第2-B
 
 - 完了: `RangePlanner`と実験plannerのDamage境界、異長防御差分布のFFT、境界テスト、契約文書を更新した
-- 第2-B未接続: `DamageCalculator`、`CalculationClient`、防御畳み込みの実計算、total damage、UI・JSON経路
+- 完了: `DamageCalculator`と`CalculationClient`へ`DamageRangePlan`を接続し、raw分布長、provider options、防御support、`defenceFftLength`、公開1024要素へのcollapseを動的化した
+- 継続: total damage、バックトラック配列、UI・JSON経路、入力上限

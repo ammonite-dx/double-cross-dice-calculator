@@ -282,13 +282,23 @@ function getOneDimensionalDistribution(
   }
 
   assert(
-    Number.isInteger(size) && size >= asset.distributionSize,
+    Number.isInteger(size) && size > 0,
     `${dataset} expansion size is invalid: ${size}`
   )
   if (dataset === 'd10' && size > asset.distributionSize) {
     assert(
       10 * dice < asset.distributionSize,
       `d10[${dice}] cannot be expanded after overflow aggregation`
+    )
+  }
+  assert(
+    sparseDistribution.offset + sparseDistribution.values.length <= size,
+    `${dataset} distribution does not fit in expansion size: ${size}`
+  )
+  if (dataset === 'd10' && size < asset.distributionSize) {
+    assert(
+      10 * dice < size,
+      `d10 distribution does not fit in expansion size: ${size}`
     )
   }
 

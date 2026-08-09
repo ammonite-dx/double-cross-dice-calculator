@@ -4,6 +4,7 @@ import {
   calculateDamageOnDemand,
   createDamageRollRequest,
   generateMixedDamageDistribution,
+  planCalculationRanges,
 } from '../src/calculation'
 import { getDamage } from '../src/data/DamageCalculator'
 import {
@@ -66,12 +67,31 @@ const score = {
   ]),
 }
 
-const productionProvider = async (weights, kazanari) =>
-  generateMixedDamageDistribution(weights, kazanari)
+const productionProvider = async (weights, kazanari, options) =>
+  generateMixedDamageDistribution(weights, kazanari, options)
 
 const productionDependencies = {
   getDamageRollDistribution: productionProvider,
   getD10Distribution: getRepositoryD10Distribution,
+}
+
+function createDamagePlan(attack, defence) {
+  return planCalculationRanges({
+    operation: 'attack',
+    score: {
+      action: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      reaction: { dice: 0, critical: 11, skill: 0, yousei: 0, shihai: 0 },
+    },
+    attack,
+    defence,
+  }).damage
+}
+
+function certainHitScore() {
+  return {
+    action: probabilityResult([[1, 1]]),
+    reaction: probabilityResult([[0, 1]]),
+  }
 }
 
 describe('on-demand damage calculation', () => {
@@ -138,6 +158,214 @@ describe('on-demand damage calculation', () => {
       )
     }
   )
+
+  it.each([
+    ['positive fixed value without defence', { dice: 0, value: 4 }, { dice: 0, value: 0 }],
+    ['zero fixed difference with defence', { dice: 4, value: 0 }, { dice: 2, value: 0 }],
+    ['negative fixed difference with defence', { dice: 8, value: -4 }, { dice: 3, value: 7 }],
+    ['negative fixed difference without defence', { dice: 4, value: 0 }, { dice: 0, value: 5 }],
+  ])(
+    'matches the legacy and planned damage paths for %s',
+    async (_label, attackValues, defence) => {
+      const attack = { ...attackValues, kazanari: 3 }
+      const plan = createDamagePlan(attack, defence)
+      const legacy = await calculateDamageOnDemand(
+        score,
+        attack,
+        defence,
+        productionDependencies
+      )
+      const planned = await calculateDamageOnDemand(
+        score,
+        attack,
+        defence,
+        productionDependencies,
+        { requestId: 'planned-damage' },
+        plan
+      )
+
+      expectDistributionsClose(planned.distribution, legacy.distribution)
+      expectDistributionsClose(
+        planned.upperTailProbability,
+        legacy.upperTailProbability
+      )
+      expect(planned.distribution).toHaveLength(OUTPUT_DISTRIBUTION_SIZE)
+    }
+  )
+
+  it('matches the legacy path at the current maximum attack and defence inputs', async () => {
+    const attack = { dice: 99, value: 999, kazanari: 9 }
+    const defence = { dice: 99, value: -999 }
+    const plan = planCalculationRanges({
+      operation: 'attack',
+      score: {
+        action: { dice: 99, critical: 2, skill: 0, yousei: 0, shihai: 0 },
+        reaction: { dice: 99, critical: 2, skill: 0, yousei: 0, shihai: 0 },
+      },
+      attack,
+      defence,
+    }).damage
+    const legacy = await calculateDamageOnDemand(
+      certainHitScore(),
+      attack,
+      defence,
+      productionDependencies
+    )
+    const planned = await calculateDamageOnDemand(
+      certainHitScore(),
+      attack,
+      defence,
+      productionDependencies,
+      {},
+      plan
+    )
+
+    expectDistributionsClose(planned.distribution, legacy.distribution)
+    expectDistributionsClose(
+      planned.upperTailProbability,
+      legacy.upperTailProbability
+    )
+  })
+
+  it('keeps the raw support endpoint explicit when it is the planned maximum', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const defence = { dice: 0, value: 0 }
+    const plan = {
+      fixedDifference: 0,
+      rawSupportMax: 10,
+      rawMax: 10,
+      workingMax: 10,
+      workingLength: 12,
+      defenceMax: 0,
+      fftLength: 16,
+      defenceFftLength: 0,
+    }
+    const provider = vi.fn(async (_weights, _kazanari, options) => {
+      const distribution = new Float64Array(options.distributionLength)
+      distribution[distribution.length - 1] = 1
+      return distribution
+    })
+    const result = await calculateDamageOnDemand(
+      certainHitScore(),
+      attack,
+      defence,
+      {
+        getDamageRollDistribution: provider,
+      },
+      {},
+      plan
+    )
+
+    expect(result.distribution[10]).toBeCloseTo(1, 12)
+    expect(result.distribution[OUTPUT_DISTRIBUTION_SIZE - 1]).toBe(0)
+    expect(provider).toHaveBeenCalledWith(
+      expect.any(Float64Array),
+      0,
+      expect.objectContaining({
+        fftLength: 16,
+        distributionLength: 11,
+        rawSupportMax: 10,
+      })
+    )
+  })
+
+  it('does not shift a non-point raw overflow bucket into a published value', async () => {
+    const plan = {
+      fixedDifference: 0,
+      rawSupportMax: 10,
+      rawMax: 10,
+      workingMax: 5,
+      workingLength: 7,
+      defenceMax: 0,
+      fftLength: 16,
+      defenceFftLength: 0,
+    }
+    const result = await calculateDamageOnDemand(
+      certainHitScore(),
+      { dice: 0, value: 0, kazanari: 0 },
+      { dice: 0, value: 0 },
+      {
+        getDamageRollDistribution: vi.fn(async (_weights, _kazanari, options) => {
+          const distribution = new Float64Array(options.distributionLength)
+          distribution[distribution.length - 1] = 1
+          return distribution
+        }),
+      },
+      {},
+      plan
+    )
+
+    expect(result.distribution[5]).toBe(0)
+    expect(result.distribution[OUTPUT_DISTRIBUTION_SIZE - 1]).toBeCloseTo(1, 12)
+  })
+
+  it('passes the planned defence FFT length to the subtraction callback', async () => {
+    const attack = { dice: 0, value: 2, kazanari: 0 }
+    const defence = { dice: 1, value: 0 }
+    const plan = {
+      fixedDifference: 2,
+      rawSupportMax: 10,
+      rawMax: 10,
+      workingMax: 12,
+      workingLength: 14,
+      defenceMax: 10,
+      fftLength: 16,
+      defenceFftLength: 32,
+    }
+    const observedFftLengths = []
+    const getD10Distribution = vi.fn(() => {
+      const distribution = Array(11).fill(0)
+      distribution[0] = 1
+      return distribution
+    })
+    const result = await calculateDamageOnDemand(
+      certainHitScore(),
+      attack,
+      defence,
+      {
+        getDamageRollDistribution: vi.fn(async (_weights, _kazanari, options) => {
+          const distribution = new Float64Array(options.distributionLength)
+          distribution[distribution.length - 1] = 1
+          return distribution
+        }),
+        getD10Distribution,
+        onFftLength: (length) => observedFftLengths.push(length),
+      },
+      {},
+      plan
+    )
+
+    expect(result.distribution[12]).toBeCloseTo(1, 12)
+    expect(observedFftLengths).toEqual([32])
+    expect(getD10Distribution).toHaveBeenCalledWith(1, 11)
+  })
+
+  it('keeps all-zero hit mass compatible across legacy and planned paths', async () => {
+    const zeroScore = {
+      action: probabilityResult([]),
+      reaction: probabilityResult([]),
+    }
+    const attack = { dice: 0, value: 0, kazanari: 9 }
+    const defence = { dice: 2, value: 0 }
+    const plan = createDamagePlan(attack, defence)
+    const legacy = await calculateDamageOnDemand(
+      zeroScore,
+      attack,
+      defence,
+      productionDependencies
+    )
+    const planned = await calculateDamageOnDemand(
+      zeroScore,
+      attack,
+      defence,
+      productionDependencies,
+      {},
+      plan
+    )
+
+    expect(planned.distribution).toEqual(legacy.distribution)
+    expect(planned.upperTailProbability).toEqual(legacy.upperTailProbability)
+  })
 
   it('rejects damage dice beyond the current supported range', () => {
     expect(() => createDamageRollRequest(score, {
@@ -236,5 +464,26 @@ describe('on-demand damage calculation', () => {
         { getDamageRollDistribution: provider }
       )
     ).rejects.toThrow('2048 entries')
+  })
+
+  it.each([
+    ['a non-finite probability', (distribution) => { distribution[0] = Number.NaN }, 'non-finite'],
+    ['a negative probability', (distribution) => { distribution[0] = -1 }, 'negative'],
+    ['an invalid probability total', (distribution) => { distribution[0] = 0.5 }, 'total'],
+  ])('rejects provider output containing %s', async (_label, mutate, message) => {
+    const provider = vi.fn(async () => {
+      const distribution = new Float64Array(2048)
+      mutate(distribution)
+      return distribution
+    })
+
+    await expect(
+      calculateDamageOnDemand(
+        score,
+        { dice: 0, value: 0, kazanari: 0 },
+        { dice: 0, value: 0 },
+        { getDamageRollDistribution: provider }
+      )
+    ).rejects.toThrow(message)
   })
 })

@@ -218,7 +218,11 @@ describe('CalculationClient', () => {
   })
 
   it('runs the range preflight before calculation and publishes one plan', async () => {
-    const plan = { accepted: true, warnings: ['warning'] }
+    const plan = {
+      accepted: true,
+      warnings: ['warning'],
+      damage: { workingLength: 123, fftLength: 128 },
+    }
     const planCalculationRanges = vi.fn(() => plan)
     const onRangePlan = vi.fn()
     const rangePolicy = { limits: { hard: { estimatedTimeMs: 1 } } }
@@ -241,6 +245,8 @@ describe('CalculationClient', () => {
       signal: options.signal,
       requestId: 'combo-preflight',
     })
+    expect(dependencies.calculateDamageOnDemand.mock.calls[0][5])
+      .toBe(plan.damage)
     expect(options).toEqual(optionsSnapshot)
     expect(options.rangePolicy).toBe(rangePolicy)
     expect(options.onRangePlan).toBe(onRangePlan)
@@ -574,7 +580,13 @@ describe('CalculationClient', () => {
     const options = { requestId: 'combo-2' }
     const dependencies = createDependencies({
       calculateDamageOnDemand,
-      getDamageRollDistribution: vi.fn(async () => new Float64Array(2048)),
+      getDamageRollDistribution: vi.fn(async (_weights, _kazanari, providerOptions) => {
+        const distribution = new Float64Array(
+          providerOptions?.distributionLength ?? 2048
+        )
+        distribution[0] = 1
+        return distribution
+      }),
       getScore: vi.fn()
         .mockReturnValueOnce({ distribution: actionDistribution })
         .mockReturnValueOnce({ upperTailProbability: reactionUpperTailProbability }),
@@ -594,7 +606,13 @@ describe('CalculationClient', () => {
     expect(weights[2]).toBe(1)
     expect(weights.reduce((sum, weight) => sum + weight, 0)).toBe(1)
     expect(kazanari).toBe(4)
-    expect(passedOptions).toBe(options)
+    expect(passedOptions).toMatchObject({
+      requestId: 'combo-2',
+      fftLength: 2048,
+      distributionLength: 1024,
+      rawSupportMax: 1030,
+    })
+    expect(passedOptions).not.toBe(options)
   })
 
   it('calculates total damage and its summary together', async () => {

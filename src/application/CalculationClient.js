@@ -320,8 +320,10 @@ export function createCalculationClient(
           getDamageRollDistribution:
             dependencies.getDamageRollDistribution,
           getD10Distribution: dependencies.getD10Distribution,
+          onFftLength: dependencies.onFftLength,
         },
-        getRuntimeOptions(options)
+        getRuntimeOptions(options),
+        plan.damage
       )
 
       return {

@@ -219,6 +219,7 @@ $$
 | アセット検証とキャッシュ | `src/data/PrecomputedDataRepository.js` | `tests/precomputedDataRepository.test.js` |
 | 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
 | 実行時DRの可変FFT・出力長、Worker protocol | `src/calculation/RuntimeDamageRollCalculator.js`、`src/calculation/RuntimeDamageRollLimits.js`、`src/application/RuntimeDamageRollClient.js`、`src/application/RuntimeDamageRollWorker.js` | `tests/runtimeDamageRollProduction.test.js`、`tests/runtimeDamageRollProductionClient.test.js` |
+| Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/application/CalculationClient.js`、`src/data/PrecomputedDataRepository.js` | `tests/runtimeDamageOnDemand.test.js`、`tests/calculationClient.test.js`、`tests/precomputedDataRepository.test.js` |
 
 独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は回帰の検出に使用しますが、ルール上の正しさを保証する期待値には使用しません。
 
@@ -252,7 +253,7 @@ Scoreのdynamic接続では、`ScoreRangePlan.workingLength`をDX providerとSco
 
 丸めはDX分布生成の最後にだけ行います。引数なしのlegacy pathと明示的な`legacy`または`six-decimal`だけが小数第6位の互換丸めと総和補正を使い、planner dynamic pathはDX、妖精の手用1D10、畳み込み、skill shiftの間で未丸め値を保持し、最後の公開1024要素へのcollapse後にも追加の互換丸めを行いません。したがって同じ入力でも固定2048のlegacy結果とdynamic結果には丸め由来の小差があり得ますが、tail certificateの誤差予算とは別に扱います。
 
-末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応しましたが、Damage、防御畳み込み、total damage、バックトラック配列への接続はこの段階の対象外で、CalculationClientからは固定された既存経路を維持します。
+末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応し、第2-BでDamageCalculator、有限防御support、CalculationClientからのDamageRangePlan接続まで完了しました。total damage、バックトラック配列、UI表示、入力上限、JSON経路は後続課題です。
 
 `CalculationClient`はcheckとattackのpreflight planを捨てず、actionとreactionの順にScoreCalculatorへ渡します。《イベイション》の固定reactionは引き続きDX providerを呼ばず、戻り値形状も変更しません。runtime DX cacheのキーはdice、critical、shihai、workingLength、rounding modeを含むため、同じ入力でも異なるplanの固定2048結果を誤再利用しません。同じplanは既存のLRU cacheで再利用されます。
 
@@ -266,7 +267,7 @@ DRの有限supportは、`weights[dice]`が非ゼロとなる最大のdamage dice
 
 `RuntimeDamageRollClient`は正規化済みの3項目をrequestの`options`としてWorkerへ渡します。`signal`は呼び出し側の中断制御として保持してWorkerへstructured cloneせず、既存の内部`id`、transferable weights、重複排除、LRU、Worker障害後の再生成を維持します。cacheと進行中requestの比較には`fftLength`、`distributionLength`、`rawSupportMax`を含めるため、異なる出力長を誤って再利用しません。Workerはoptionsなしの旧requestも既定値で処理できます。
 
-この第1単位はCalculatorとWorker経路のパラメータ化だけを完了したものです。`DamageCalculator`の固定値差・防御畳み込み、`CalculationClient`からの`DamageRangePlan`接続、RangePlannerの実計算接続、UI入力上限、公開JSONの変更はまだ行っていません。これらを接続する際は、後続処理がこの分布の長さとoverflow契約を明示的に受け取る必要があります。
+この第1単位はRuntimeDamageRollCalculatorとWorker経路のパラメータ化を完了したものです。DamageCalculatorの接続では第2-Bで計画値をprovider optionsと防御畳み込みへ伝播し、公開1024要素へcollapseします。UI入力上限と公開JSONの変更はまだ行っていないため、後続処理がこの分布の長さとoverflow契約を明示的に受け取る必要があります。
 
 ## 13. Damage dynamic range 第2-A（完了）
 
@@ -276,4 +277,16 @@ DRの有限supportは、`weights[dice]`が非ゼロとなる最大のdamage dice
 
 `subDistribution`は第1配列長`L1`と有限supportの第2配列長`L2`を別々に受け、`A*reverse(B)`の係数`c[k]`から`result[0]=sum(c[0..L2-1])`、`result[v]=c[L2-1+v]`を構成する。線形畳み込み必要長`L1+L2-1`以上の最小の2冪を実使用FFT長とし、既存の`sumDistribution`と同長`subDistribution`の既定値・公開挙動は維持する。明示FFT長はこの値への厳密一致とし、`onFftLength`で実使用値を検証できる。
 
-第2-AはRangePlanner、実験planner、FFTとそのテストおよび契約文書までを完了した。`DamageCalculator`、`CalculationClient`、防御畳み込みの実計算接続、total damage、UI・JSON経路は第2-Bとして未接続である。
+第2-AはRangePlanner、実験planner、FFTとそのテストおよび契約文書までを完了した。第2-BではこのplanをDamageCalculatorとCalculationClientへ接続し、runtime optionsとdamage planを分離した明示契約を導入した。
+
+## 14. Damage dynamic range 第2-B（完了）
+
+`calculateDamageOnDemand`は第5引数をruntime options、第6引数を任意の`DamageRangePlan`とし、`CalculationClient`はpreflightの`plan.damage`を第6引数へ渡す。`signal`、`requestId`、dedup、cache、cancelの責務はruntime optionsと既存clientに残し、planの値をoptionsオブジェクトへ混在させない。
+
+planありのprovider optionsはruntime optionsを保持したまま、planの`fftLength`、必要なraw `distributionLength`、`rawSupportMax`を上書きして作る。必要なraw最大値は`a>=0`なら`max(0,W-a)`、`a<0`なら`W`とし、raw support内であれば次のoverflow bucketを含む長さ、raw support端点まで必要なら`R+1`を使い、runtimeの最小長も満たす。planなしは従来のprovider既定値と作業長2048を維持する。
+
+raw分布は防御前の座標`X`として扱う。`a>=0`では`X+a`を防御へ入力し、`a<0`では`X`を防御へ入力してから固定差を適用する。planの証明により境界以下へ戻れない非点質量のoverflow bucketはシフトせず公開overflowへ直接合算し、raw supportが`R`まで明示的に必要な場合だけ`R`の一点質量を通常値として処理する。
+
+防御分布は`0..D`の`D+1`要素へ展開し、`defenceFftLength`を`subDistribution`へ渡す。防御差の負値は0へ、failure massは0へ合算し、最後に公開長1024へcollapseする。provider返却分布と防御分布は長さ、有限性、非負性、確率総和を検証し、微小な負値だけを0へ補正する。
+
+`PrecomputedDataRepository`は有限supportが要求長に収まる場合に、既存アセット長1024より短い`d10`配列も生成できるようになった。既定のアセット取得長と公開分布のoverflow semanticsは変更していない。第2-Bの対象外はtotal damage、バックトラック配列、UI表示、入力上限、JSON経路である。

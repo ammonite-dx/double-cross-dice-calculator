@@ -6,6 +6,7 @@ import {
   planCalculationRanges,
   scoreTailBound,
 } from '../src/calculation/RangePlanner'
+import { OUTPUT_DISTRIBUTION_SIZE } from '../src/data/Distribution'
 
 function scoreParams(overrides = {}) {
   return {
@@ -371,11 +372,11 @@ describe('production range planner', () => {
     }), policy)
 
     expect(positive.damage.fixedDifference).toBe(5)
-    expect(positive.damage.workingMax).toBe(215)
-    expect(positive.damage.workingLength).toBe(217)
+    expect(positive.damage.workingMax).toBe(220)
+    expect(positive.damage.workingLength).toBe(222)
     expect(negative.damage.fixedDifference).toBe(-5)
-    expect(negative.damage.workingMax).toBe(210)
-    expect(negative.damage.workingLength).toBe(212)
+    expect(negative.damage.workingMax).toBe(225)
+    expect(negative.damage.workingLength).toBe(227)
     expect(positive.damage.defenceFftLength).toBe(
       nextPowerOfTwo(positive.damage.workingLength + positive.damage.defenceMax)
     )
@@ -571,6 +572,32 @@ describe('production range planner', () => {
     expect(fullTail.damage.scoreValueUpperBound).toBeGreaterThan(
       published.damage.scoreValueUpperBound
     )
+  })
+
+  it('retains the public overflow score bucket for a lower calculation maximum', () => {
+    const params = attackParams()
+    const published = planCalculationRanges(params, {
+      calculationMax: 0,
+      display: { defaultMax: 0 },
+    })
+    const fullTail = planCalculationRanges(params, {
+      calculationMax: 0,
+      display: { defaultMax: 0 },
+      scorePropagation: 'full-tail',
+    })
+
+    expect(published.scores[0].publishedOutputMax).toBe(
+      OUTPUT_DISTRIBUTION_SIZE - 1
+    )
+    expect(published.damage.scoreValueUpperBound).toBe(
+      OUTPUT_DISTRIBUTION_SIZE - 1
+    )
+    expect(published.damage.maxDamageDice).toBe(103)
+    expect(published.damage.rawSupportMax).toBe(1030)
+    expect(fullTail.damage.scoreValueUpperBound).toBe(
+      fullTail.scores[0].outputMax
+    )
+    expect(fullTail.damage.rawSupportMax).toBe(10)
   })
 
   it('clamps negative backtrack dice and reports finite asset overflow', () => {

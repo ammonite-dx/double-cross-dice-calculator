@@ -1,6 +1,12 @@
+import { OUTPUT_DISTRIBUTION_SIZE } from '../data/Distribution'
 import { DX_MAX_DISTRIBUTION_SIZE } from './DxCalculator'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
+const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
+
+function getPublishedScoreUpperBound(calculationMax) {
+  return Math.max(calculationMax + 1, PUBLISHED_SCORE_MAX_INDEX)
+}
 
 /**
  * @typedef {'score' | 'check' | 'attack' | 'backtrack'} PlannerOperation
@@ -862,7 +868,7 @@ function planScore(params, display, policy, tailBudget) {
     workingMax,
     workingLength,
     outputMax,
-    publishedOutputMax: policy.calculationMax + 1,
+    publishedOutputMax: getPublishedScoreUpperBound(policy.calculationMax),
     oneDieCutoff,
     fftLength: youseiFftLength,
     operations,
@@ -1380,7 +1386,7 @@ export function planCalculationRanges(params, policy = {}) {
         effectivePolicy,
         effectivePolicy.scorePropagation === 'full-tail'
           ? scores[0].outputMax
-          : effectivePolicy.calculationMax + 1
+          : getPublishedScoreUpperBound(effectivePolicy.calculationMax)
       )
     }
   }
