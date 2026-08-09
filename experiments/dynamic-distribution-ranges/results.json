@@ -1,0 +1,728 @@
+{
+  "metadata": {
+    "generatedAt": "2026-08-09T02:36:59.354Z",
+    "node": "v22.12.0",
+    "requestedNodeVersion": "22.23.2",
+    "nodeVersionMatchesRequest": false,
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "AMD Ryzen 7 9700X 8-Core Processor             ",
+    "cpuCount": 16,
+    "totalMemoryBytes": 66126708736,
+    "currentDistributionSize": 2048
+  },
+  "tailBounds": [
+    {
+      "dice": 99,
+      "critical": 2,
+      "shihai": 0,
+      "yousei": 0,
+      "epsilon": 0.000001,
+      "cutoff": 1741,
+      "bound": 9.729132750546654e-7
+    },
+    {
+      "dice": 99,
+      "critical": 2,
+      "shihai": 0,
+      "yousei": 0,
+      "epsilon": 1e-8,
+      "cutoff": 2181,
+      "bound": 9.435039749483565e-9
+    },
+    {
+      "dice": 99,
+      "critical": 8,
+      "shihai": 0,
+      "yousei": 0,
+      "epsilon": 1e-8,
+      "cutoff": 192,
+      "bound": 9.20508169688361e-9
+    },
+    {
+      "dice": 200,
+      "critical": 2,
+      "shihai": 19,
+      "yousei": 0,
+      "epsilon": 1e-8,
+      "cutoff": 2251,
+      "bound": 9.116640775630458e-9
+    },
+    {
+      "dice": 99,
+      "critical": 2,
+      "shihai": 0,
+      "yousei": 9,
+      "epsilon": 1e-8,
+      "cutoff": 21991,
+      "bound": 9.263477984688961e-9
+    }
+  ],
+  "currentSupportTailBounds": [
+    {
+      "dice": 99,
+      "critical": 2,
+      "shihai": 0,
+      "yousei": 0,
+      "supportMax": 2047,
+      "bound": 4.124291319573814e-8
+    },
+    {
+      "dice": 99,
+      "critical": 8,
+      "shihai": 0,
+      "yousei": 0,
+      "supportMax": 2047,
+      "bound": 0
+    },
+    {
+      "dice": 99,
+      "critical": 2,
+      "shihai": 0,
+      "yousei": 9,
+      "supportMax": 2047,
+      "bound": 1
+    }
+  ],
+  "benchmarks": [
+    {
+      "label": "dx current shihai=0",
+      "iterations": 30,
+      "minMs": 0.5578000000000003,
+      "medianMs": 0.6090000000000018,
+      "maxMs": 0.8631000000000029,
+      "meanMs": 0.6455666666666665,
+      "checksum": 1310.1979200000003,
+      "params": {
+        "dice": 99,
+        "critical": 8,
+        "shihai": 0
+      },
+      "size": 2048,
+      "workingFloat64Bytes": 16384
+    },
+    {
+      "label": "dx current shihai=19",
+      "iterations": 5,
+      "minMs": 4.7960000000000065,
+      "medianMs": 5.264399999999995,
+      "maxMs": 5.582099999999997,
+      "meanMs": 5.228879999999998,
+      "checksum": 758.3631,
+      "params": {
+        "dice": 99,
+        "critical": 2,
+        "shihai": 19
+      },
+      "size": 2048,
+      "workingFloat64Bytes": 1638400
+    },
+    {
+      "label": "dx expanded shihai=0",
+      "iterations": 5,
+      "minMs": 0.4217000000000013,
+      "medianMs": 0.430499999999995,
+      "maxMs": 0.9136999999999915,
+      "meanMs": 0.6192199999999957,
+      "checksum": 2774.4847094378147,
+      "params": {
+        "dice": 200,
+        "critical": 2,
+        "shihai": 0
+      },
+      "size": 4096,
+      "workingFloat64Bytes": 32768
+    },
+    {
+      "label": "dx expanded shihai=19",
+      "iterations": 2,
+      "minMs": 47.844599999999986,
+      "medianMs": 48.21770000000001,
+      "maxMs": 48.21770000000001,
+      "meanMs": 48.03115,
+      "checksum": 436.3462198202865,
+      "params": {
+        "dice": 200,
+        "critical": 2,
+        "shihai": 19
+      },
+      "size": 4096,
+      "workingFloat64Bytes": 6586368
+    },
+    {
+      "label": "dx large shihai=19",
+      "iterations": 1,
+      "minMs": 103.17590000000001,
+      "medianMs": 103.17590000000001,
+      "maxMs": 103.17590000000001,
+      "meanMs": 103.17590000000001,
+      "checksum": 52.26127969804245,
+      "params": {
+        "dice": 300,
+        "critical": 5,
+        "shihai": 19
+      },
+      "size": 4096,
+      "workingFloat64Bytes": 9863168
+    },
+    {
+      "label": "fft transform 2048",
+      "iterations": 10,
+      "minMs": 0.047700000000077125,
+      "medianMs": 0.28949999999997544,
+      "maxMs": 0.360300000000052,
+      "meanMs": 0.1971200000000067,
+      "checksum": 10,
+      "size": 2048,
+      "fftFloat64Bytes": 32768
+    },
+    {
+      "label": "fft transform 4096",
+      "iterations": 10,
+      "minMs": 0.102800000000002,
+      "medianMs": 0.1070999999999458,
+      "maxMs": 0.12120000000004438,
+      "meanMs": 0.10828999999999951,
+      "checksum": 10,
+      "size": 4096,
+      "fftFloat64Bytes": 65536
+    },
+    {
+      "label": "fft transform 8192",
+      "iterations": 10,
+      "minMs": 0.24650000000008276,
+      "medianMs": 0.27099999999995816,
+      "maxMs": 0.2765000000000555,
+      "meanMs": 0.2684700000000134,
+      "checksum": 10,
+      "size": 8192,
+      "fftFloat64Bytes": 131072
+    },
+    {
+      "label": "fft transform 16384",
+      "iterations": 3,
+      "minMs": 0.5313999999999623,
+      "medianMs": 0.5875999999999522,
+      "maxMs": 0.602100000000064,
+      "meanMs": 0.5736999999999929,
+      "checksum": 3,
+      "size": 16384,
+      "fftFloat64Bytes": 262144
+    },
+    {
+      "label": "fft transform 32768",
+      "iterations": 3,
+      "minMs": 1.2632999999999583,
+      "medianMs": 1.3715000000000828,
+      "maxMs": 1.3770999999999276,
+      "meanMs": 1.3372999999999895,
+      "checksum": 3,
+      "size": 32768,
+      "fftFloat64Bytes": 524288
+    },
+    {
+      "label": "dr current optimized kazanari=0 maxDice=202",
+      "iterations": 20,
+      "minMs": 0.8079999999999927,
+      "medianMs": 0.8275999999999613,
+      "maxMs": 1.825800000000072,
+      "meanMs": 0.9232500000000016,
+      "checksum": 2660.061938170951,
+      "maxDamageDice": 202,
+      "kazanari": 0,
+      "fftSize": 4096,
+      "fftFloat64Bytes": 65536
+    },
+    {
+      "label": "dr current optimized kazanari=9 maxDice=202",
+      "iterations": 10,
+      "minMs": 41.061199999999985,
+      "medianMs": 42.45960000000002,
+      "maxMs": 45.288200000000074,
+      "meanMs": 42.612660000000005,
+      "checksum": 1590.796599360279,
+      "maxDamageDice": 202,
+      "kazanari": 9,
+      "fftSize": 4096,
+      "fftFloat64Bytes": 65536
+    },
+    {
+      "label": "dr candidate polynomial kazanari=0 maxDice=304",
+      "iterations": 10,
+      "minMs": 1.0726999999999407,
+      "medianMs": 1.1119000000001051,
+      "maxMs": 1.1596999999999298,
+      "meanMs": 1.1051999999999453,
+      "checksum": 1330.0309691100688,
+      "maxDamageDice": 304,
+      "kazanari": 0,
+      "fftSize": 4096,
+      "fftFloat64Bytes": 65536
+    },
+    {
+      "label": "dr candidate polynomial kazanari=0 maxDice=400",
+      "iterations": 10,
+      "minMs": 1.3560999999999694,
+      "medianMs": 1.369499999999789,
+      "maxMs": 1.4096999999999298,
+      "meanMs": 1.3760099999999285,
+      "checksum": 1330.0309691100688,
+      "maxDamageDice": 400,
+      "kazanari": 0,
+      "fftSize": 4096,
+      "fftFloat64Bytes": 65536
+    },
+    {
+      "label": "dr candidate polynomial kazanari=0 maxDice=512",
+      "iterations": 5,
+      "minMs": 3.4021999999999935,
+      "medianMs": 3.4670999999998457,
+      "maxMs": 3.598799999999983,
+      "meanMs": 3.4954999999999927,
+      "checksum": 665.0154845550376,
+      "maxDamageDice": 512,
+      "kazanari": 0,
+      "fftSize": 8192,
+      "fftFloat64Bytes": 131072
+    },
+    {
+      "label": "dr candidate polynomial kazanari=0 maxDice=800",
+      "iterations": 3,
+      "minMs": 5.13779999999997,
+      "medianMs": 5.168299999999817,
+      "maxMs": 5.172900000000027,
+      "meanMs": 5.159666666666605,
+      "checksum": 399.0092907330225,
+      "maxDamageDice": 800,
+      "kazanari": 0,
+      "fftSize": 8192,
+      "fftFloat64Bytes": 131072
+    }
+  ],
+  "plannerCases": [
+    {
+      "label": "planner current maximum",
+      "plan": {
+        "accepted": true,
+        "operation": "attack",
+        "propagation": {
+          "score": "published-bucket",
+          "calculationMax": 1022
+        },
+        "display": {
+          "min": 0,
+          "max": 999,
+          "points": 1000,
+          "overflowLowerBound": 1000
+        },
+        "score": [
+          {
+            "params": {
+              "dice": 99,
+              "critical": 2,
+              "shihai": 0,
+              "yousei": 0,
+              "skill": 999
+            },
+            "tailModel": "exact-max",
+            "tailCutoff": 2271,
+            "tailBound": 3.655302061034149e-9,
+            "workingLength": 2272,
+            "outputMax": 3270,
+            "fftLength": 0
+          },
+          {
+            "params": {
+              "dice": 99,
+              "critical": 2,
+              "shihai": 19,
+              "yousei": 0,
+              "skill": -999
+            },
+            "tailModel": "conservative-max-bound",
+            "tailCutoff": 2271,
+            "tailBound": 3.655302061034149e-9,
+            "workingLength": 2272,
+            "outputMax": 1272,
+            "fftLength": 0
+          }
+        ],
+        "damage": {
+          "scoreValueMode": "published-bucket",
+          "scoreValueUpperBound": 1023,
+          "maxDamageDice": 202,
+          "rawSupportMax": 2020,
+          "rawMax": 2020,
+          "workingLength": 2013,
+          "fftLength": 2048,
+          "defenceFftLength": 4096
+        },
+        "estimates": {
+          "operations": 19682173,
+          "timeMs": 53.885524,
+          "float64Bytes": 2091448,
+          "scoreOperations": 8090592,
+          "scoreFftOperations": 0,
+          "damageOperations": 11444125,
+          "damageFftOperations": 147456,
+          "totalDamageFftOperations": 147456
+        },
+        "warnings": [
+          {
+            "code": "estimated-time",
+            "severity": "warning",
+            "message": "estimated-time exceeds the warning limit (ms)",
+            "value": 53.885524,
+            "limit": 50
+          }
+        ],
+        "rejectionReasons": []
+      }
+    },
+    {
+      "label": "planner extended moderate",
+      "plan": {
+        "accepted": true,
+        "operation": "attack",
+        "propagation": {
+          "score": "published-bucket",
+          "calculationMax": 1022
+        },
+        "display": {
+          "min": 0,
+          "max": 999,
+          "points": 1000,
+          "overflowLowerBound": 1000
+        },
+        "score": [
+          {
+            "params": {
+              "dice": 200,
+              "critical": 2,
+              "shihai": 0,
+              "yousei": 0,
+              "skill": 500
+            },
+            "tailModel": "exact-max",
+            "tailCutoff": 2331,
+            "tailBound": 3.924394142984511e-9,
+            "workingLength": 2332,
+            "outputMax": 2831,
+            "fftLength": 0
+          },
+          {
+            "params": {
+              "dice": 120,
+              "critical": 5,
+              "shihai": 19,
+              "yousei": 0,
+              "skill": 0
+            },
+            "tailModel": "conservative-max-bound",
+            "tailCutoff": 472,
+            "tailBound": 0,
+            "workingLength": 1023,
+            "outputMax": 1022,
+            "fftLength": 0
+          }
+        ],
+        "damage": {
+          "scoreValueMode": "published-bucket",
+          "scoreValueUpperBound": 1023,
+          "maxDamageDice": 253,
+          "rawSupportMax": 2530,
+          "rawMax": 2530,
+          "workingLength": 2223,
+          "fftLength": 4096,
+          "defenceFftLength": 4096
+        },
+        "estimates": {
+          "operations": 16679491,
+          "timeMs": 45.377233000000004,
+          "float64Bytes": 1273864,
+          "scoreOperations": 5685097,
+          "scoreFftOperations": 0,
+          "damageOperations": 9888474,
+          "damageFftOperations": 1105920,
+          "totalDamageFftOperations": 1105920
+        },
+        "warnings": [],
+        "rejectionReasons": []
+      }
+    },
+    {
+      "label": "planner extended shihai",
+      "plan": {
+        "accepted": false,
+        "operation": "attack",
+        "propagation": {
+          "score": "published-bucket",
+          "calculationMax": 1022
+        },
+        "display": {
+          "min": 0,
+          "max": 999,
+          "points": 1000,
+          "overflowLowerBound": 1000
+        },
+        "score": [
+          {
+            "params": {
+              "dice": 300,
+              "critical": 5,
+              "shihai": 19,
+              "yousei": 0,
+              "skill": 0
+            },
+            "tailModel": "conservative-max-bound",
+            "tailCutoff": 491,
+            "tailBound": 0,
+            "workingLength": 1023,
+            "outputMax": 1022,
+            "fftLength": 0
+          },
+          {
+            "params": {
+              "dice": 300,
+              "critical": 5,
+              "shihai": 19,
+              "yousei": 0,
+              "skill": 0
+            },
+            "tailModel": "conservative-max-bound",
+            "tailCutoff": 491,
+            "tailBound": 0,
+            "workingLength": 1023,
+            "outputMax": 1022,
+            "fftLength": 0
+          }
+        ],
+        "damage": {
+          "scoreValueMode": "published-bucket",
+          "scoreValueUpperBound": 1023,
+          "maxDamageDice": 353,
+          "rawSupportMax": 3530,
+          "rawMax": 3530,
+          "workingLength": 3023,
+          "fftLength": 4096,
+          "defenceFftLength": 8192
+        },
+        "estimates": {
+          "operations": 125175228,
+          "timeMs": 243.18000600000002,
+          "float64Bytes": 5245032,
+          "scoreOperations": 83364270,
+          "scoreFftOperations": 0,
+          "damageOperations": 39894030,
+          "damageFftOperations": 1916928,
+          "totalDamageFftOperations": 1916928
+        },
+        "warnings": [
+          {
+            "code": "estimated-time",
+            "severity": "reject",
+            "message": "estimated-time exceeds the hard limit",
+            "value": 243.18000600000002,
+            "limit": 200
+          }
+        ],
+        "rejectionReasons": [
+          "estimated-time"
+        ]
+      }
+    },
+    {
+      "label": "planner infinite-tail stress",
+      "plan": {
+        "accepted": false,
+        "operation": "score",
+        "propagation": {
+          "score": "published-bucket",
+          "calculationMax": 1022
+        },
+        "display": {
+          "min": 0,
+          "max": 999,
+          "points": 1000,
+          "overflowLowerBound": 1000
+        },
+        "score": [
+          {
+            "params": {
+              "dice": 99,
+              "critical": 2,
+              "shihai": 0,
+              "yousei": 9,
+              "skill": 0
+            },
+            "tailModel": "conservative-union-bound",
+            "tailCutoff": 22191,
+            "tailBound": 7.503417887022579e-9,
+            "workingLength": 22192,
+            "outputMax": 22191,
+            "fftLength": 32768
+          }
+        ],
+        "damage": null,
+        "estimates": {
+          "operations": 13293232,
+          "timeMs": 1.681072,
+          "float64Bytes": 710144,
+          "scoreOperations": 22192,
+          "scoreFftOperations": 13271040,
+          "damageOperations": 0,
+          "damageFftOperations": 0
+        },
+        "warnings": [
+          {
+            "code": "score-working-length",
+            "severity": "reject",
+            "message": "score-working-length exceeds the hard limit",
+            "value": 22192,
+            "limit": 16384
+          },
+          {
+            "code": "score-fft-length",
+            "severity": "warning",
+            "message": "score-fft-length exceeds the warning limit (elements)",
+            "value": 32768,
+            "limit": 16384
+          }
+        ],
+        "rejectionReasons": [
+          "score-working-length"
+        ]
+      }
+    },
+    {
+      "label": "planner incompatible shihai-yousei",
+      "plan": {
+        "accepted": false,
+        "operation": "score",
+        "propagation": {
+          "score": "published-bucket",
+          "calculationMax": 1022
+        },
+        "display": {
+          "min": 0,
+          "max": 999,
+          "points": 1000,
+          "overflowLowerBound": 1000
+        },
+        "score": [
+          {
+            "params": {
+              "dice": 10,
+              "critical": 2,
+              "shihai": 1,
+              "yousei": 1,
+              "skill": 0
+            },
+            "tailModel": "conservative-union-bound",
+            "tailCutoff": 3991,
+            "tailBound": 7.760584175287022e-9,
+            "workingLength": 3992,
+            "outputMax": 3991,
+            "fftLength": 8192
+          }
+        ],
+        "damage": null,
+        "estimates": {
+          "operations": 642840,
+          "timeMs": 0.36328799999999994,
+          "float64Bytes": 447104,
+          "scoreOperations": 323352,
+          "scoreFftOperations": 319488,
+          "damageOperations": 0,
+          "damageFftOperations": 0
+        },
+        "warnings": [
+          {
+            "code": "incompatible-input",
+            "severity": "reject",
+            "message": "shihai and yousei cannot both be non-zero in the current compatibility mode",
+            "value": {
+              "shihai": 1,
+              "yousei": 1
+            },
+            "limit": 0
+          }
+        ],
+        "rejectionReasons": [
+          "incompatible-input"
+        ]
+      }
+    },
+    {
+      "label": "planner full-tail propagation",
+      "plan": {
+        "accepted": true,
+        "operation": "attack",
+        "propagation": {
+          "score": "full-tail",
+          "calculationMax": 1022
+        },
+        "display": {
+          "min": 0,
+          "max": 999,
+          "points": 1000,
+          "overflowLowerBound": 1000
+        },
+        "score": [
+          {
+            "params": {
+              "dice": 200,
+              "critical": 2,
+              "shihai": 0,
+              "yousei": 0,
+              "skill": 500
+            },
+            "tailModel": "exact-max",
+            "tailCutoff": 2331,
+            "tailBound": 3.924394142984511e-9,
+            "workingLength": 2332,
+            "outputMax": 2831,
+            "fftLength": 0
+          },
+          {
+            "params": {
+              "dice": 99,
+              "critical": 8,
+              "shihai": 0,
+              "yousei": 0,
+              "skill": 0
+            },
+            "tailModel": "exact-max",
+            "tailCutoff": 197,
+            "tailBound": 0,
+            "workingLength": 1023,
+            "outputMax": 1022,
+            "fftLength": 0
+          }
+        ],
+        "damage": {
+          "scoreValueMode": "full-tail",
+          "scoreValueUpperBound": 2831,
+          "maxDamageDice": 434,
+          "rawSupportMax": 4340,
+          "rawMax": 4340,
+          "workingLength": 2013,
+          "fftLength": 8192,
+          "defenceFftLength": 4096
+        },
+        "estimates": {
+          "operations": 1939144,
+          "timeMs": 7.156705,
+          "float64Bytes": 352280,
+          "scoreOperations": 9493,
+          "scoreFftOperations": 0,
+          "damageOperations": 1782195,
+          "damageFftOperations": 147456,
+          "totalDamageFftOperations": 147456
+        },
+        "warnings": [],
+        "rejectionReasons": []
+      }
+    }
+  ]
+}

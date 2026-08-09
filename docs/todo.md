@@ -15,6 +15,8 @@
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
 8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。現行互換の`published-bucket`を既定とし、DXの尾部誤差、finite support、推定時間・メモリによるwarning/rejectを次段階で実装します。
+
 第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
 
 ## オーバーフローバケットを利用者へ表示する
