@@ -217,6 +217,7 @@ $$
 | 単発・合計ダメージ | `src/data/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
 | バックトラック | `src/data/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
 | アセット検証とキャッシュ | `src/data/PrecomputedDataRepository.js` | `tests/precomputedDataRepository.test.js` |
+| 動的範囲の計画（calculator未接続） | `src/calculation/RangePlanner.js` | `tests/rangePlanner.test.js` |
 
 独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は回帰の検出に使用しますが、ルール上の正しさを保証する期待値には使用しません。
 
@@ -229,3 +230,9 @@ $$
 - 配列長や上限集約を変える場合はADRを追加または更新し、負の補正を含む境界値を検証する。
 - 新しい分布を合成する場合は、確率総和、非負性、到達範囲、上側確率の単調性を検証する。
 - 性能に影響する場合は、同一環境のベンチマーク結果を変更前後で比較する。
+
+## 11. 動的範囲planner（calculator未接続）
+
+`src/calculation/RangePlanner.js`に、score、attack、backtrackの入力からDXの作業範囲、DRの有限support、FFT長、推定時間・メモリ、warning/rejectを計画するcore APIを追加しました。DXは`TailCertificate`、DRとバックトラックは有限supportとして扱い、`overflowInfo`では`dx-tail`、`finite-support`、`display-bucket`、`asset`を区別します。`published-bucket`を既定値にしており、`full-tail`は計画値を返せますが、本番のcalculator、配列確保、UI、入力上限、JSON経路にはまだ接続していません。
+
+この段階で現行の公開分布1024、作業分布2048、DR FFT4096と計算結果の意味は不変です。次の統合段階では、plannerの計画範囲をcalculatorへ渡す前に、尾部certificateとfinite supportの境界、負の固定値差、表示overflow、hard reject時のキャンセルを接続テストで固定します。

@@ -32,3 +32,12 @@ export {
   RUNTIME_DAMAGE_MAX_KAZANARI,
   validateRuntimeDamageRollInputs,
 } from './RuntimeDamageRollCalculator'
+export {
+  DEFAULT_POLICY as DEFAULT_RANGE_PLANNER_POLICY,
+  findTailCutoff,
+  maxTailBound,
+  nextPowerOfTwo,
+  oneDieCumulative,
+  planCalculationRanges,
+  scoreTailBound,
+} from './RangePlanner'
