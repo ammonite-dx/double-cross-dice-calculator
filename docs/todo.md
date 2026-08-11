@@ -276,3 +276,8 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: published-bucket score由来のmodeled supportをfinite、未打切りDX sourceをinfiniteとしてmetadataで分離し、score tail certificateをoverflowへ加算せず防御コピー・freezeした。modeled support max式、最終damage座標のoverflow lower bound、末尾ゼロの除外、既知massとraw overflowのexact合算、null/exact overflowを専用テストで固定した
 - 対象外: `CalculationClient`、UI、RuntimeDamageRoll Client/Worker protocol、cache、transfer、JSON、total damage、入力上限、full-tail、公開dynamic outputは変更しない
 - 次段階: canonical resultのconsumer、Worker・JSON serialization、既存1024結果から公開結果・UIを切り替える互換境界を設計・検証する
+- 完了: `createCalculationClient()`へopt-inの`calculateAttackCanonical(params, options = {})`を追加し、既存`calculateAttackCombo`の戻り値と既定動作を維持した
+- 完了: canonical pathを既存attackと同じsnapshot、RangePlanner preflight、`onRangePlan`、ResourceGuard lease、abort/stale確認、score計算へ接続し、acceptedなtop-level attack plan、DR/D10 provider、`onFftLength`、runtime optionsを伝播した
+- 完了: canonicalの戻り値を`{ score, scoreSummary, canonicalDamage }`に限定し、pure APIのfreeze済み`{ result, metadata }`を保持した。legacy calculator、`damage`、`damageSummary`、`getDamageSummary`はcanonical pathで呼び出さない
+- 対象外: canonical consumerのUI接続、既存公開結果、RuntimeDamageRoll Client/Worker protocol、JSON serialization、`getTotalDamage`、入力上限、full-tail、公開dynamic outputは変更しない
+- 次段階: canonical resultを利用するconsumer、Worker・JSON serialization、公開結果・UIへの移行条件、total damageとのsupport metadata境界を設計・検証する

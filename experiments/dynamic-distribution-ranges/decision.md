@@ -592,3 +592,11 @@ DR weightsはhit mass `H`のsub-probabilityであり、RuntimeDamageRollの契�
 canonical resultはpublished-bucket scoreを入力とする有限modeled distributionであり、実世界の未打切りDX sourceは無限supportとしてmetadataで区別する。modeled support maxは`max(0, rawSupportMax + fixedDifference - defence.dice)`で、安全な整数演算を必須とする。modeled supportがworking rangeを超える場合の最終damage overflow lower boundは、fixed differenceを`a`、defenceMaxを`D`、workingMaxを`W`として、`a >= 0`なら`max(0, W + 1 - D)`、`a < 0`なら`max(0, W + 1 - D + a)`とする。明示valuesは`min(modeledSupportMax, lowerBound - 1)`までに切り詰め、lowerBound以上の既知の最終分布massをplanned raw overflowへ加算してexact overflowへ集約する。supportがworking range内ならoverflowをnullとし、DX tail certificateはmodeled overflowへ二重加算せず、防御コピーしてfreezeした`scoreTails`にだけ残す。
 
 この単位の対象はpure calculation API、unit tests、設計文書までである。`CalculationClient`、UI戻り値、RuntimeDamageRoll Client/Worker protocol、cache、transfer、JSON、total damage、入力上限、full-tail、公開dynamic outputは変更しない。次単位ではcanonical consumer、Worker・JSON serialization、公開結果切替の互換境界を設計する。
+
+## Dynamic distribution range Phase 2-H 第3単位
+
+第3単位では、既存attack routeの公開契約を維持したまま`createCalculationClient()`へopt-inの`calculateAttackCanonical(params, options = {})`を追加する。legacy `calculateAttackCombo`とcanonical methodはsnapshot、RangePlanner preflight、`onRangePlan`、ResourceGuard lease、abort/stale確認、score計算を共有し、canonical pathだけが`calculateCanonicalDamageOnDemand`を選択する。
+
+canonical calculatorにはdamage subplanではなくacceptedなtop-level attack planを渡し、DR provider、D10 provider、`onFftLength`、runtime optionsはlegacy pathと同じものを渡す。戻り値は`{ score, scoreSummary, canonicalDamage }`に限定し、pure APIのfreeze済み`{ result, metadata }`をそのまま保持する。legacy `damage`、`damageSummary`、`getDamageSummary`はcanonical pathへ持ち込まない。
+
+この単位のconsumerはclient APIとunit testに限り、UI、既存公開結果、RuntimeDamageRoll Client/Worker protocol、JSON、`getTotalDamage`、入力上限、full-tailは未接続のままとする。次段階ではcanonical resultのconsumer、Worker・JSON serialization、公開resultとUIの切替条件、total damageでsupport metadataを失わない境界を設計・検証する。
