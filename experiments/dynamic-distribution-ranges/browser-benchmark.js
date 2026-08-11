@@ -749,7 +749,7 @@ async function run() {
   const report = {
     metadata: {
       generatedAt: new Date().toISOString(),
-      benchmark: 'dynamic-distribution-ranges-phase2e',
+      benchmark: 'dynamic-distribution-ranges-phase2f',
       warmupIterations: WARMUP_ITERATIONS,
       warmIterations: WARM_ITERATIONS,
       currentDistributionSize: DX_DISTRIBUTION_SIZE,
