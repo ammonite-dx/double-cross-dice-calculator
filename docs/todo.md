@@ -286,3 +286,13 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: overflowの`errorBound`を期待値区間へ加算せず既存mass summaryのmetadataとして伝播し、summaryの再帰freeze、入力・values非変更、invalid入力をテストした
 - 完了: `getCanonicalDamageSummary`をcanonical damage envelopeの薄いadapterとして追加し、`{ expectedValue, mass }`を返して`calculation/index.js`と`CalculationClient`の`canonicalDamageSummary`へ接続した。canonical pathからlegacy summary、legacy adapter、UI、Worker、JSON、total damageは呼び出さない
 - 対象外: 既存`getDamageSummary`、legacy/UI/total damage/Worker/JSON protocol、canonical result自体のserialization契約は変更しない
+
+### Dynamic distribution range Phase 2-H 第5単位
+
+- 完了: `sumCanonicalDamage(canonicalDamages, options = {})`を追加し、canonical damage envelopeだけを独立和として加算するpure coreを実装した。0件はdamage 0のidentity、1件は不要なFFTを省略し、複数件だけ完全線形畳み込みを行う
+- 完了: 明示`values`はoffsetを加算した座標のまま保持し、異長配列を含む完全畳み込みを行う。空の明示配列が一つでもあれば明示結果は空とし、overflowのlowerBoundを一点massへ変換しない
+- 完了: finite modeled/source supportのsafe integer加算、infinite伝播、exact/null/upper-bound overflowの独立union、mixed時のexact-only lower bound、source errorBoundとFFT mass driftの補助metadataを実装した。upper-boundはFFT後の明示mass不足も上界へ含める
+- 完了: `src/data/FFT.js`のprivate線形畳み込みを異長対応の公開`convolveDistributions` helperとして整理し、旧公開aliasは残さず、既存`sumDistribution`・`subDistribution`の公開挙動を維持した。`onFftLength`、AbortSignal、FFT stage境界のabort確認を伝播する
+- 完了: result/metadataとcomponent descriptorsをfreezeし、入力envelope/result/valuesを変更しない。metadataには`aggregation: 'independent-sum'`、`independence: 'assumed'`、support、overflow lower bound、aggregation error boundを残す
+- 完了: values/FFTは`1 << 20`、componentは`1 << 12`、resourceは512 MiBを絶対安全上限とし、persistent bytes（component、inspected、steps、descriptors、metadata、output）と各FFT peakの合計をguardする。canonical option名以外を拒否し、optionsで下げられるが緩和できないようにした。invalid envelope/options、index overflow、resource limit、numerical failure、abortをtyped error codeで識別する
+- 対象外: `CalculationClient`、UI、legacy `getTotalDamage`、combo ViewModel、Worker/JSON protocol、display再集約、total summary、公開dynamic outputは変更しない
