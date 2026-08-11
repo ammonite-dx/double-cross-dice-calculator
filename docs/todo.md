@@ -15,7 +15,7 @@
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
 8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
-第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定ではエラー、Long Task、数値異常を確認せず、DR/attackのWorker telemetryでWorker生成とcold初回要求を確認しました。残るtotal damage課題はresource guardと将来のdynamic output契約であり、Firefox/WebKit、低速モバイル、入力拡張候補の実測、入力上限とJSON経路は残課題です。
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。残るtotal damage課題はresource guardと将来のdynamic output契約であり、低速実機、入力拡張候補のブラウザ実測、入力上限とJSON経路は残課題です。
 
 第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
 
@@ -244,4 +244,14 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `mainThreadTimerDelayApproxMilliseconds`をCPU時間ではなくzero-delay timer遅延の近似として文書化し、短時間ケースの約4–5 ms下限をtimer clamping・スケジューリングの特性として扱った
 - 完了: 通常buildの`dist/`と専用buildの`dist-dynamic-distribution-ranges/`を分離し、Phase 2-Eの新規JSON結果を保存・Git追跡しない方針を[`experiments/dynamic-distribution-ranges/README.md`](../experiments/dynamic-distribution-ranges/README.md)へ記録した
 - 完了: 現行入力上限はこの作業単位では変更しないと判断した。拡張はplanner warning/hard reject、dynamic outputと公開出力契約、resource guardを組み合わせ、複合入力の推定時間・メモリで段階的に制御する
-- 次作業: Firefox/WebKit、低速モバイル相当、入力拡張候補のcore cap内実測、dynamic output/resource guard/JSON経路を検証し、その後に具体的なUI入力上限を決める
+- 引継ぎ: Firefox/WebKitのengine差とChrome 4xのrenderer CPU条件はPhase 2-Fで測定済み。低速実機、入力拡張候補のブラウザ実測、dynamic output/resource guard/JSON経路を検証した後に具体的なUI入力上限を判断する
+
+### Dynamic distribution range Phase 2-F
+
+- 完了: Playwright `1.62.1`をdevDependencyへ追加し、`package.json`と`package-lock.json`を更新した。指定Node `v22.23.2`で`npm install --save-dev playwright`を実行した
+- 完了: `npx playwright install firefox webkit`でFirefox `153.0`（revision `v1538`）とWebKit `26.5`（revision `v2336`）だけを取得した。ダウンロード表示はFirefox 119.9 MiB、WebKit 59.6 MiBで、取得後directoryはFirefox 352,898,025 bytes、WebKit 177,304,497 bytes、合計530,202,522 bytes（505.6 MiB）だった
+- 完了: [`playwright-runner.mjs`](../experiments/dynamic-distribution-ranges/playwright-runner.mjs)を追加し、専用Viteの起動・停止、Firefox、WebKit、Chrome channelの順次実行、ChromeだけのCDP 4x、page/context/profile/CDP cleanup、標準出力JSON、engine単位の明示的失敗を再現可能にした。`--no-sandbox`は使用していない
+- 完了: Firefox `153.0`、WebKit `26.5`、Chrome `151.0.7922.108`で同じ`browser: true` 12ケースを各12/12成功させた。page errorと数値検証エラーは各0件、Firefox/WebKitはLong Task APIなし、Chrome 4xはLong Task 50件（最大154 ms）、Worker resource timing unavailableは4件だった
+- 完了: 代表値はFirefoxのmain warm median/p95最大34/40 ms・Worker cold/warm p95最大56/36 ms、WebKitの15/24 ms・38/19 ms、Chrome 4xの129.5/132.8 ms・74.8/31.5 msだった。timer-delay warm p95最大は40/24/134.2 msで、CPU時間ではなくzero-delay timer遅延近似として記録した
+- 完了: 入力拡張候補の`dx-two-x-planner-only`、`dx-large-planner-only`、`dx-hard-reject-planner-only`、`dr-over-core-cap`、`attack-two-x-planner-only`はcore capを変更せずplanner-onlyに維持し、`backtrack-large-normal-node-only`はNode-onlyとしてブラウザ測定から除外した
+- 継続: dynamic output、resource guard、JSON経路、低速実機、入力拡張候補のブラウザ実測は残課題とし、今回の3 engine実測だけでは本番core cap、UI入力上限、配信JSONを変更しない

@@ -510,6 +510,55 @@ Chromeのブラウザ結果はページエラー0、Long Task 0、数値異常0�
 | FFT length | 32768超 | 拒否候補 |
 | planner判定 | hard reject | 拒否候補 |
 
-### 未完と次の判断
+### Phase 2-E時点の未完とPhase 2-Fへの引継ぎ
 
-FirefoxとWebKit、低速モバイル相当、入力拡張候補をcore cap内で実際に動かす検証は未完である。dynamic output、resource guard、JSON経路も未完であり、今回のブラウザ結果だけからこれらの採用を断定しない。これらを追加実測し、複合入力の推定時間・メモリと表示・公開出力契約を確認した後に、具体的なUI入力上限を決める。
+Phase 2-E時点ではFirefox、WebKit、低速モバイル相当、入力拡張候補のcore cap内実測が未完だった。Phase 2-FでFirefox、WebKit、Chrome 4xの同一12ケースを測定したが、dynamic output、resource guard、JSON経路、入力拡張候補のブラウザ実行は引き続き対象外であるため、今回の結果だけで具体的なUI入力上限を拡張しない。
+
+## Dynamic distribution range Phase 2-Fの確定事項
+
+2026-08-11にPlaywright `1.62.1`を`npm install --save-dev playwright`で追加し、`package.json`と`package-lock.json`を更新した。指定Nodeは`C:\Users\SoraHirokane\AppData\Roaming\fnm\node-versions\v22.23.2\installation\node.exe`の`v22.23.2`で、runnerは要求versionと一致しない場合に失敗する。
+
+`npx playwright install firefox webkit`でFirefox `153.0`（Playwright revision `v1538`）とWebKit `26.5`（revision `v2336`）を取得した。ダウンロード表示はFirefox 119.9 MiB、WebKit 59.6 MiB、FFmpeg 1.3 MiB、Winldd 0.1 MiBで、取得後のdirectory容量はFirefox 352,898,025 bytes、WebKit 177,304,497 bytes、Firefox/WebKit合計530,202,522 bytes（505.6 MiB）、補助toolを含めて533,978,424 bytes（509.2 MiB）だった。Playwright cacheには別途`chromium-1181`が存在するが、今回のinstallコマンドはChromiumを指定しておらず、Chromiumの取得ログもない。[Playwright browsers documentation](https://playwright.dev/docs/browsers)
+
+[`playwright-runner.mjs`](./playwright-runner.mjs)は専用Viteをfree portで起動し、`browser: true`の12ケースだけをFirefox、WebKit、Chrome channelの順に順次測定する。FirefoxとWebKitではCPU throttlingを適用せず、ChromeだけでPlaywrightのCDP sessionから`Emulation.setCPUThrottlingRate`の4xを適用する。runnerは`--no-sandbox`を使用せず、Vite child process、browser context、page、CDP session、一時profile、CPU throttlingを`finally`でcleanupし、JSONを保存せず標準出力へ出す。全engineが12ケースを完走しなければ非0終了し、engine単位の起動、ページ、ケース、page error、数値検証の失敗を明示する。
+
+このデスクトップの通常Codex sandboxではFirefox/WebKitのbrowser child process起動が`spawn EPERM`になったため、最終実測はローカルbrowser child processの起動を許可した実行コンテキストで行った。Playwrightのlaunch optionsとrunnerには`--no-sandbox`を指定していない。通常sandboxで同じ制限がある環境では、runnerはengine errorをJSONへ記録して非0終了する。
+
+PowerShellでの再現コマンドは次のとおりです。
+
+```powershell
+$nodeDir = 'C:\Users\SoraHirokane\AppData\Roaming\fnm\node-versions\v22.23.2\installation'
+$env:Path = "$nodeDir;$env:Path"
+& "$nodeDir\node.exe" experiments/dynamic-distribution-ranges/playwright-runner.mjs
+```
+
+同じrunnerは`npm run benchmark:dynamic-distribution-ranges:browser`でも起動できる。runnerのJSONはPlaywright version、engine/browser version、12件のcase count、main warm median/p95、Worker cold/warm、timer-delay、Long Task、page error、数値検証、Resource Timing診断、cleanup結果を含む。p95は7回のwarm sampleから求め、代表値は12ケースの各pathにおける最大値として集計した。
+
+### Phase 2-Fの実測結果
+
+実測環境はWindows x64、論理CPU16、viewport 1280×720、devicePixelRatio 1、Chromeの`deviceMemory=32`、`crossOriginIsolated=false`だった。各engineはtotal 18ケースのうち`browser: true`の12ケースを測定し、planner-onlyまたはNode-onlyの6ケースをskipした。
+
+| engine | CPU条件 | measured / skipped / errors | main warm median最大 / p95最大 | Worker cold最大 / warm p95最大 | timer-delay warm p95最大 | Long Task | page error / 数値異常 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Firefox `153.0` | throttlingなし | 12 / 6 / 0 | 34 / 40 ms | 56 / 36 ms | 40 ms | APIなし | 0 / 0 |
+| WebKit `26.5` | throttlingなし | 12 / 6 / 0 | 15 / 24 ms | 38 / 19 ms | 24 ms | APIなし | 0 / 0 |
+| Chrome `151.0.7922.108` | CDP 4x | 12 / 6 / 0 | 129.5 / 132.8 ms | 74.8 / 31.5 ms | 134.2 ms | 50（最大154 ms） | 0 / 0 |
+
+FirefoxとWebKitではLong Task APIが利用できず、Long Task 0は観測なしではなくAPIなしとして扱った。ChromeではLong Task APIが利用可能で50件（最大154 ms）を観測し、Resource TimingのWorker duration unavailableは4件、timing anomalyは0件だった。全engineでcase error、page error、数値検証エラーは0件だった。
+
+CPU 4x時のChromeはmain warm p95最大132.8 ms、Worker warm round-trip p95最大31.5 ms、Worker cold最大74.8 msだった。この4xはrendererのCPUスケジューリングだけを変える条件であり、実機モバイルのメモリ、GPU、OS scheduler、ネットワーク、Firefox/WebKitの実装差を再現しない。`mainThreadTimerDelayApproxMilliseconds`もCPU時間ではなくzero-delay timerの発火遅延近似であり、Chrome 4xの最大値134.2 msを連続ブロック時間と解釈しない。
+
+### Phase 2-Fの受入判定と残る限界
+
+| 受入項目 | 結果 |
+| --- | --- |
+| PlaywrightをdevDependencyへ追加しlockfileを更新 | 適合、`1.62.1` |
+| Firefox/WebKitのみをPlaywright installで取得 | 適合、Firefox `153.0`、WebKit `26.5` |
+| Firefox、WebKit、Chrome channel 4xを同じ12ケースで順次測定 | 適合、各12/12成功 |
+| `--no-sandbox`を使わない | 適合、runnerと起動optionsに指定なし |
+| page error、case error、数値異常 | 各engine 0 |
+| Long TaskとResource Timingを診断 | 適合、APIなしとWorker timing unavailableを明示 |
+| Vite、engine、page、context、profile、CDP throttlingのcleanup | 適合、3engineでerrorなし |
+| 本番core cap、src、UI入力上限、配信JSONを変更しない | 適合 |
+
+`dx-two-x-planner-only`、`dx-large-planner-only`、`dx-hard-reject-planner-only`、`dr-over-core-cap`、`attack-two-x-planner-only`はcore capを変更せずplanner-onlyのままとした。`backtrack-large-normal-node-only`はNode-onlyでブラウザ測定対象外のケースであり、core cap理由のplanner-onlyとは区別した。dynamic output、resource guard、JSON経路、低速実機、入力拡張候補のブラウザ実測は残課題であり、現行入力上限と本番コードは変更しない。
