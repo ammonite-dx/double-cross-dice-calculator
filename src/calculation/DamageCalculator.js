@@ -15,6 +15,7 @@ import {
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
 } from './RuntimeDamageRollLimits'
+import { createDistributionResult } from './DistributionResult'
 
 const DAMAGE_DICE_COUNT = MAX_DAMAGE_DICE + 1
 const PROBABILITY_TOLERANCE = 1e-10
@@ -177,7 +178,7 @@ function getFiniteDefenceDistribution(
   return result
 }
 
-function finalizePlannedDamage(
+function composePlannedDamage(
   damageRollDistribution,
   failureProbability,
   attack,
@@ -256,12 +257,170 @@ function finalizePlannedDamage(
     throw new RangeError('failure probability must be finite and non-negative')
   }
   distribution[0] += failureProbability
-  distribution = collapseDistribution(distribution)
-  distribution[OUTPUT_DISTRIBUTION_SIZE - 1] += overflowProbability
+
+  return {
+    distribution,
+    overflowProbability,
+    plan,
+  }
+}
+
+function finalizePlannedDamage(
+  damageRollDistribution,
+  failureProbability,
+  attack,
+  defence,
+  getD10Distribution,
+  damageRangePlan,
+  onFftLength
+) {
+  const composed = composePlannedDamage(
+    damageRollDistribution,
+    failureProbability,
+    attack,
+    defence,
+    getD10Distribution,
+    damageRangePlan,
+    onFftLength
+  )
+  const distribution = collapseDistribution(composed.distribution)
+  distribution[OUTPUT_DISTRIBUTION_SIZE - 1] +=
+    composed.overflowProbability
 
   return {
     distribution,
     upperTailProbability: getUpperTailProbability(distribution),
+  }
+}
+
+function validateCanonicalRangePlan(rangePlan, attack, defence) {
+  if (!rangePlan || typeof rangePlan !== 'object' || Array.isArray(rangePlan)) {
+    throw new TypeError('rangePlan must be a top-level range plan object')
+  }
+  if (rangePlan.operation !== 'attack' || rangePlan.accepted !== true) {
+    throw new TypeError('rangePlan must be an accepted top-level attack plan')
+  }
+  if (
+    rangePlan.propagation?.score !== 'published-bucket' ||
+    rangePlan.damage?.scoreValueMode !== 'published-bucket'
+  ) {
+    throw new RangeError(
+      'canonical damage currently requires published-bucket score propagation'
+    )
+  }
+  if (!Array.isArray(rangePlan.scores) || rangePlan.scores.length === 0) {
+    throw new TypeError('rangePlan.scores must contain score plans')
+  }
+
+  const scoreTails = rangePlan.scores.map((score, index) => {
+    if (!score?.tail || typeof score.tail !== 'object' || Array.isArray(score.tail)) {
+      throw new TypeError(`rangePlan.scores[${index}].tail must be an object`)
+    }
+    return Object.freeze({ ...score.tail })
+  })
+
+  return {
+    damage: validateDamageRangePlan(rangePlan.damage, attack, defence),
+    scoreTails: Object.freeze(scoreTails),
+  }
+}
+
+function getModeledDamageSupportMax(plan, attack, defence) {
+  const fixedValueDifference = attack.value - defence.value
+  if (!Number.isSafeInteger(fixedValueDifference)) {
+    throw new RangeError('attack and defence fixed difference must be a safe integer')
+  }
+  const shiftedRawSupportMax = plan.rawSupportMax + fixedValueDifference
+  if (!Number.isSafeInteger(shiftedRawSupportMax)) {
+    throw new RangeError('shifted raw damage support max must be a safe integer')
+  }
+  const defendedSupportMax = shiftedRawSupportMax - defence.dice
+  if (!Number.isSafeInteger(defendedSupportMax)) {
+    throw new RangeError('modeled damage support max must be a safe integer')
+  }
+  return Math.max(0, defendedSupportMax)
+}
+
+function getFinalOverflowLowerBound(plan, attack, defence) {
+  const fixedValueDifference = attack.value - defence.value
+  if (!Number.isSafeInteger(fixedValueDifference)) {
+    throw new RangeError('attack and defence fixed difference must be a safe integer')
+  }
+  const workingBoundary = plan.workingMax + 1
+  if (!Number.isSafeInteger(workingBoundary)) {
+    throw new RangeError('damage working overflow boundary must be a safe integer')
+  }
+  const shiftedLowerBound = fixedValueDifference >= 0
+    ? workingBoundary - plan.defenceMax
+    : workingBoundary - plan.defenceMax + fixedValueDifference
+  if (!Number.isSafeInteger(shiftedLowerBound)) {
+    throw new RangeError('final damage overflow lower bound must be a safe integer')
+  }
+  return Math.max(0, shiftedLowerBound)
+}
+
+function sumDistributionFrom(distribution, lowerBound) {
+  let total = 0
+  for (
+    let index = Math.max(0, lowerBound);
+    index < distribution.length;
+    index += 1
+  ) {
+    total += distribution[index]
+  }
+  return total
+}
+
+function sumProbabilities(values) {
+  return values.reduce((total, probability) => total + probability, 0)
+}
+
+async function requestDamageRollDistribution(
+  score,
+  attack,
+  defence,
+  getDamageRollDistribution,
+  runtimeOptions,
+  damageRangePlan
+) {
+  const request = createDamageRollRequest(score, attack)
+  const planned = damageRangePlan !== undefined && damageRangePlan !== null
+  const normalizedPlan = planned
+    ? validateDamageRangePlan(damageRangePlan, attack, defence)
+    : null
+  const providerOptions = planned
+    ? {
+        ...runtimeOptions,
+        fftLength: Math.max(
+          RUNTIME_DAMAGE_MIN_FFT_SIZE,
+          normalizedPlan.fftLength
+        ),
+        distributionLength: getPlannedRawDistributionLength(
+          normalizedPlan,
+          attack.value - defence.value
+        ),
+        rawSupportMax: normalizedPlan.rawSupportMax,
+      }
+    : runtimeOptions
+  const damageRollDistribution = await getDamageRollDistribution(
+    request.weights,
+    attack.kazanari,
+    providerOptions
+  )
+  const hitProbability = sumProbabilities(request.weights)
+  const expectedLength = planned
+    ? providerOptions.distributionLength
+    : WORKING_DISTRIBUTION_SIZE
+
+  return {
+    damageRollDistribution: validateDamageRollDistribution(
+      damageRollDistribution,
+      expectedLength,
+      hitProbability
+    ),
+    failureProbability: request.failureProbability,
+    hitProbability,
+    normalizedPlan,
   }
 }
 
@@ -381,52 +540,140 @@ export async function calculateDamageOnDemand(
     )
   }
 
-  const request = createDamageRollRequest(score, attack)
-  const planned = damageRangePlan !== undefined && damageRangePlan !== null
-  const normalizedPlan = planned
-    ? validateDamageRangePlan(damageRangePlan, attack, defence)
-    : null
-  const providerOptions = planned
-    ? {
-        ...runtimeOptions,
-        fftLength: Math.max(
-          RUNTIME_DAMAGE_MIN_FFT_SIZE,
-          normalizedPlan.fftLength
-        ),
-        distributionLength: getPlannedRawDistributionLength(
-          normalizedPlan,
-          attack.value - defence.value
-        ),
-        rawSupportMax: normalizedPlan.rawSupportMax,
-      }
-    : runtimeOptions
-  const damageRollDistribution = await getDamageRollDistribution(
-    request.weights,
-    attack.kazanari,
-    providerOptions
-  )
-  const expectedTotal = request.weights.reduce(
-    (total, weight) => total + weight,
-    0
-  )
-  const expectedLength = planned
-    ? providerOptions.distributionLength
-    : WORKING_DISTRIBUTION_SIZE
-  const normalizedDamageRollDistribution = validateDamageRollDistribution(
-    damageRollDistribution,
-    expectedLength,
-    expectedTotal
+  const requested = await requestDamageRollDistribution(
+    score,
+    attack,
+    defence,
+    getDamageRollDistribution,
+    runtimeOptions,
+    damageRangePlan
   )
 
   return finalizeOnDemandDamage(
-    normalizedDamageRollDistribution,
-    request.failureProbability,
+    requested.damageRollDistribution,
+    requested.failureProbability,
     attack,
     defence,
     getD10Distribution,
-    normalizedPlan,
+    requested.normalizedPlan,
     onFftLength
   )
+}
+
+export async function calculateCanonicalDamageOnDemand(
+  score,
+  attack,
+  defence,
+  {
+    getDamageRollDistribution,
+    getD10Distribution,
+    onFftLength,
+  } = {},
+  runtimeOptions = {},
+  rangePlan
+) {
+  if (typeof getDamageRollDistribution !== 'function') {
+    throw new TypeError(
+      'getDamageRollDistribution must provide a function'
+    )
+  }
+
+  const canonicalPlan = validateCanonicalRangePlan(
+    rangePlan,
+    attack,
+    defence
+  )
+  const requested = await requestDamageRollDistribution(
+    score,
+    attack,
+    defence,
+    getDamageRollDistribution,
+    runtimeOptions,
+    canonicalPlan.damage
+  )
+  const totalProbability =
+    requested.failureProbability + requested.hitProbability
+  if (
+    !Number.isFinite(totalProbability) ||
+    Math.abs(totalProbability - 1) > TOTAL_TOLERANCE
+  ) {
+    throw new RangeError(
+      'failure probability plus hit probability must be approximately one'
+    )
+  }
+
+  const composed = composePlannedDamage(
+    requested.damageRollDistribution,
+    requested.failureProbability,
+    attack,
+    defence,
+    getD10Distribution,
+    requested.normalizedPlan,
+    onFftLength
+  )
+  const modeledSupportMax = getModeledDamageSupportMax(
+    composed.plan,
+    attack,
+    defence
+  )
+  const modeledSupport = Object.freeze({
+    kind: 'finite',
+    max: modeledSupportMax,
+  })
+  const sourceSupport = Object.freeze({ kind: 'infinite' })
+  let explicitMax = Math.min(
+    composed.plan.workingMax,
+    modeledSupportMax
+  )
+  let overflow = null
+  if (modeledSupportMax <= composed.plan.workingMax) {
+    if (composed.overflowProbability > TOTAL_TOLERANCE) {
+      throw new RangeError(
+        'planned damage overflow must be zero within finite modeled support'
+      )
+    }
+  } else {
+    const finalOverflowLowerBound = getFinalOverflowLowerBound(
+      composed.plan,
+      attack,
+      defence
+    )
+    const explicitMaxBeforeOverflow = Math.min(
+      modeledSupportMax,
+      finalOverflowLowerBound - 1
+    )
+    const knownFinalOverflowProbability = sumDistributionFrom(
+      composed.distribution,
+      finalOverflowLowerBound
+    )
+    const exactOverflowProbability =
+      composed.overflowProbability + knownFinalOverflowProbability
+    explicitMax = explicitMaxBeforeOverflow
+    overflow = {
+      kind: 'exact',
+      lowerBound: finalOverflowLowerBound,
+      probability: exactOverflowProbability,
+      errorBound: TOTAL_TOLERANCE,
+    }
+  }
+
+  const result = createDistributionResult({
+    values: explicitMax < 0
+      ? []
+      : composed.distribution.slice(0, explicitMax + 1),
+    offset: 0,
+    support: modeledSupport,
+    overflow,
+  })
+  const metadata = Object.freeze({
+    modeledDistribution: true,
+    scorePropagation: 'published-bucket',
+    scoreTails: canonicalPlan.scoreTails,
+    modeledSupport,
+    sourceSupport,
+  })
+
+  return Object.freeze({ result, metadata })
 }
 
 export function calculateDamage(

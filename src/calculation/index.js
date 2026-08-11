@@ -11,6 +11,7 @@ export {
   BACKTRACK_MAX_GENERATION_OPERATIONS,
 } from './BacktrackLimits'
 export {
+  calculateCanonicalDamageOnDemand,
   calculateDamage,
   calculateDamageOnDemand,
   createDamageRollRequest,
