@@ -582,3 +582,13 @@ mass検証は、nullまたはexactでは明示massとexact probabilityの合計�
 legacy adapterの入力側は1024要素を要求し、0から1022を明示値、1023をexact overflowへ移す。supportはlegacy配列から推測せず、`options.support`を必須にする。出力側はlower boundが1023以上のexact overflowと1023以上のexplicit valuesだけを末尾bucketへfoldし、upper-bound overflowを確率配列へ変換しない。exact overflowにpotential massがありlower boundがlegacy overflow index未満なら、明示範囲が完全でもmassが1023以上だけにある証明がないため`unsafe-projection`として拒否し、inert overflowだけを許可する。
 
 この単位のmoduleはproduction import graphから独立しており、既存のcalculator、`CalculationClient`、UI、JSON、入力上限、published-bucketの末尾bucket semanticsは変更しない。次単位ではcanonical resultを生成できる計算経路を選び、support metadataとoverflow証明をどの境界で付与するか、Worker・JSON serialization、公開結果への移行条件を決める。
+
+## Dynamic distribution range Phase 2-H 第2単位
+
+第2単位では`DamageCalculator`へopt-inの`calculateCanonicalDamageOnDemand`を追加し、planned on-demand damageの最終合成後だけ`DistributionResult` version 1を生成する。APIはprovider、runtime optionsに続いてacceptedなtop-level attack range planを要求し、damage subplanだけの入力を拒否する。`published-bucket` score propagationだけを実装対象とし、`full-tail`はcanonical結果へ黙って近似せず明示的に拒否する。
+
+DR weightsはhit mass `H`のsub-probabilityであり、RuntimeDamageRollの契約を条件付き確率へ変更しない。provider返却値の総量を`H`として検証し、failure mass `F`と分離したまま防御・fixed shiftを適用し、最終合成境界で`F + H = 1 ± 1e-8`を検証する。既存planned APIとcanonical APIはcollapse前の共通内部helperを利用し、DR providerの呼出し、防御、fixed shift、failure合成を二重実行しない。既存APIは従来の1024 bucket collapseとoverflow加算を維持し、canonical adapterへ置き換えない。
+
+canonical resultはpublished-bucket scoreを入力とする有限modeled distributionであり、実世界の未打切りDX sourceは無限supportとしてmetadataで区別する。modeled support maxは`max(0, rawSupportMax + fixedDifference - defence.dice)`で、安全な整数演算を必須とする。modeled supportがworking rangeを超える場合の最終damage overflow lower boundは、fixed differenceを`a`、defenceMaxを`D`、workingMaxを`W`として、`a >= 0`なら`max(0, W + 1 - D)`、`a < 0`なら`max(0, W + 1 - D + a)`とする。明示valuesは`min(modeledSupportMax, lowerBound - 1)`までに切り詰め、lowerBound以上の既知の最終分布massをplanned raw overflowへ加算してexact overflowへ集約する。supportがworking range内ならoverflowをnullとし、DX tail certificateはmodeled overflowへ二重加算せず、防御コピーしてfreezeした`scoreTails`にだけ残す。
+
+この単位の対象はpure calculation API、unit tests、設計文書までである。`CalculationClient`、UI戻り値、RuntimeDamageRoll Client/Worker protocol、cache、transfer、JSON、total damage、入力上限、full-tail、公開dynamic outputは変更しない。次単位ではcanonical consumer、Worker・JSON serialization、公開結果切替の互換境界を設計する。

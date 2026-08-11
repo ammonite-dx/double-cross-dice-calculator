@@ -271,3 +271,8 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `tests/distributionResult.test.js`で正常系、invalid number、NaN、負値、mass、support、exact/upper-bound、mutation、round-trip、overflow folding、unsafe projection rejectionを固定した
 - 対象外: 既存calculator、`CalculationClient`、UI戻り値、JSON asset経路、Worker serialization、入力上限、現行1024 bucketの解釈、metadata-aware演算、dynamic outputのproduction接続は変更しない
 - 次段階: 各計算経路のcanonical result生成地点、support metadataとoverflow証明の伝播、JSON・Workerのserialization、公開結果とUIをcanonical契約へ切り替える条件を設計・検証する
+- 完了: `calculateCanonicalDamageOnDemand`をopt-in pure calculation APIとして追加し、acceptedなtop-level attack planと`published-bucket` score propagationを必須化した。damage subplanだけの入力と未実装の`full-tail`は明示的に拒否する
+- 完了: DR hit mass `H`を条件付き正規化せずproviderへ渡し、failure mass `F`と分離して、防御・fixed shift・failure合成後だけ`F + H = 1 ± 1e-8`と`DistributionResult`のmassを検証する。既存planned APIと共通のcollapse前helperを使い、provider、防御、shift、failure合成を一度だけ実行する
+- 完了: published-bucket score由来のmodeled supportをfinite、未打切りDX sourceをinfiniteとしてmetadataで分離し、score tail certificateをoverflowへ加算せず防御コピー・freezeした。modeled support max式、最終damage座標のoverflow lower bound、末尾ゼロの除外、既知massとraw overflowのexact合算、null/exact overflowを専用テストで固定した
+- 対象外: `CalculationClient`、UI、RuntimeDamageRoll Client/Worker protocol、cache、transfer、JSON、total damage、入力上限、full-tail、公開dynamic outputは変更しない
+- 次段階: canonical resultのconsumer、Worker・JSON serialization、既存1024結果から公開結果・UIを切り替える互換境界を設計・検証する
