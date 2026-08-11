@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  convolveDistributions,
   getConvolutionFftLength,
   subDistribution,
   sumDistribution,
 } from '../src/data/FFT'
+import * as FFT from '../src/data/FFT'
 
 function pointMass(size, value) {
   const distribution = Array(size).fill(0)
@@ -13,6 +15,22 @@ function pointMass(size, value) {
 }
 
 describe('FFT distribution operations', () => {
+  it('exposes only the canonical complete-convolution helper name', () => {
+    expect(FFT.convolveDistributions).toBeTypeOf('function')
+    expect(FFT.convolve).toBeUndefined()
+    expect(FFT.linearConvolution).toBeUndefined()
+    expect(FFT.convolveDistribution).toBeUndefined()
+  })
+
+  it('exposes complete linear convolution for unequal non-empty lengths', () => {
+    const result = Array.from(convolveDistributions([0.5, 0.5], [0.25, 0.75, 0]))
+    expect(result).toHaveLength(4)
+    expect(result[0]).toBeCloseTo(0.125, 12)
+    expect(result[1]).toBeCloseTo(0.5, 12)
+    expect(result[2]).toBeCloseTo(0.375, 12)
+    expect(result[3]).toBeCloseTo(0, 12)
+  })
+
   it.each([1024, 2048])(
     'supports sums and differences with %i elements',
     (size) => {

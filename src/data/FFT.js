@@ -34,8 +34,17 @@ export function getConvolutionFftLength(length, otherLength = length) {
   return result
 }
 
-function transform(real, imaginary, inverse = false) {
+function throwIfAborted(signal) {
+  if (signal?.aborted) {
+    const error = new Error('The FFT convolution was aborted')
+    error.name = 'AbortError'
+    throw error
+  }
+}
+
+function transform(real, imaginary, inverse = false, signal) {
   const size = real.length
+  throwIfAborted(signal)
 
   for (let index = 1, reversed = 0; index < size; index += 1) {
     let bit = size >> 1
@@ -54,8 +63,10 @@ function transform(real, imaginary, inverse = false) {
       imaginary[reversed] = currentImaginary
     }
   }
+  throwIfAborted(signal)
 
   for (let width = 2; width <= size; width *= 2) {
+    throwIfAborted(signal)
     const angle = (inverse ? 2 : -2) * Math.PI / width
     const baseReal = Math.cos(angle)
     const baseImaginary = Math.sin(angle)
@@ -87,6 +98,7 @@ function transform(real, imaginary, inverse = false) {
         factorReal = nextFactorReal
       }
     }
+    throwIfAborted(signal)
   }
 
   if (inverse) {
@@ -95,25 +107,36 @@ function transform(real, imaginary, inverse = false) {
       imaginary[index] /= size
     }
   }
+  throwIfAborted(signal)
 }
 
-function convolve(distribution1, distribution2, options = {}) {
+/**
+ * Compute the complete linear convolution of two non-empty distributions.
+ * Unlike sumDistribution, this helper keeps every coefficient and accepts
+ * different input lengths.
+ */
+export function convolveDistributions(distribution1, distribution2, options = {}) {
+  const normalizedOptions = typeof options === 'number'
+    ? { fftLength: options }
+    : options ?? {}
   assertNonEmptyDistributions(distribution1, distribution2)
+  throwIfAborted(normalizedOptions.signal)
 
   const resultLength = distribution1.length + distribution2.length - 1
   const requiredFftLength = getConvolutionFftLength(
     distribution1.length,
     distribution2.length,
   )
-  const transformSize = options.fftLength ?? requiredFftLength
+  const transformSize = normalizedOptions.fftLength ?? requiredFftLength
   if (transformSize !== requiredFftLength) {
     throw new RangeError(
       `fftLength must equal ${requiredFftLength} for distributions of lengths ${distribution1.length} and ${distribution2.length}`
     )
   }
-  if (typeof options.onFftLength === 'function') {
-    options.onFftLength(transformSize)
+  if (typeof normalizedOptions.onFftLength === 'function') {
+    normalizedOptions.onFftLength(transformSize)
   }
+  throwIfAborted(normalizedOptions.signal)
   const firstReal = new Float64Array(transformSize)
   const firstImaginary = new Float64Array(transformSize)
   const secondReal = new Float64Array(transformSize)
@@ -121,8 +144,8 @@ function convolve(distribution1, distribution2, options = {}) {
 
   firstReal.set(distribution1)
   secondReal.set(distribution2)
-  transform(firstReal, firstImaginary)
-  transform(secondReal, secondImaginary)
+  transform(firstReal, firstImaginary, false, normalizedOptions.signal)
+  transform(secondReal, secondImaginary, false, normalizedOptions.signal)
 
   for (let index = 0; index < transformSize; index += 1) {
     const real =
@@ -134,8 +157,10 @@ function convolve(distribution1, distribution2, options = {}) {
     firstReal[index] = real
     firstImaginary[index] = imaginary
   }
+  throwIfAborted(normalizedOptions.signal)
 
-  transform(firstReal, firstImaginary, true)
+  transform(firstReal, firstImaginary, true, normalizedOptions.signal)
+  throwIfAborted(normalizedOptions.signal)
   return firstReal.slice(0, resultLength)
 }
 
@@ -145,7 +170,7 @@ export function sumDistribution(distribution1, distribution2, options = {}) {
     : options ?? {}
   assertCompatibleDistributions(distribution1, distribution2)
   const size = distribution1.length
-  const convolved = convolve(
+  const convolved = convolveDistributions(
     distribution1,
     distribution2,
     normalizedOptions
@@ -170,7 +195,7 @@ export function subDistribution(distribution1, distribution2, options = {}) {
     : options ?? {}
 
   const size = distribution1.length
-  const convolved = convolve(
+  const convolved = convolveDistributions(
     distribution1,
     distribution2.slice().reverse(),
     normalizedOptions,

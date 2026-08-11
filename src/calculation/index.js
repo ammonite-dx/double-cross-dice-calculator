@@ -24,6 +24,20 @@ export {
   getExpectedValueSummary,
 } from './DistributionResult'
 export {
+  CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES,
+  CANONICAL_DAMAGE_AGGREGATION_LIMITS,
+  CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS,
+  CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
+  CANONICAL_DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES,
+  CANONICAL_DAMAGE_AGGREGATION_MAX_VALUES_LENGTH,
+  CANONICAL_DAMAGE_AGGREGATION_NUMERICAL_EPSILON,
+  CanonicalDamageAggregationAbortError,
+  CanonicalDamageAggregationError,
+  isCanonicalDamageAggregationAbortError,
+  isCanonicalDamageAggregationError,
+  sumCanonicalDamage,
+} from './CanonicalDamageAggregation'
+export {
   calculateScore,
   getScoreSummary,
 } from './ScoreCalculator'
