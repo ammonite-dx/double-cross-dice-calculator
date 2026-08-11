@@ -136,8 +136,9 @@
     let totalRequestGeneration = null;
     const totalCalculationRunner = createLatestCalculationRunner({
         feedback: props.attackData.totalDamageFeedback,
-        calculate: () => calculationClient.calculateTotalDamage(
-            props.attackData.combos
+        calculate: (options) => calculationClient.calculateTotalDamage(
+            props.attackData.combos,
+            options
         ),
         clearResult: () => {
             totalRequestGeneration = invalidateTotalDamage(props.attackData);

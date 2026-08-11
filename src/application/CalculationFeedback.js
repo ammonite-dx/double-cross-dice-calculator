@@ -1,3 +1,8 @@
+import {
+  isResourceGuardError,
+  RESOURCE_GUARD_ERROR_CODES,
+} from './ResourceGuard'
+
 const RANGE_REASON_BY_CODE = Object.freeze({
   'display-points': '表示する点数が多すぎるため、計算結果を表示できません。',
   'incompatible-input': '《妖精の手》と《支配の領域》は同時に使用できません。',
@@ -57,6 +62,26 @@ function formatWarningReason(warning) {
   }
   return RANGE_REASON_BY_CODE[warning.code]
     ?? '計算範囲の制限により、計算できる範囲を調整しています。'
+}
+
+function formatResourceGuardReason(error) {
+  const details = error?.details ?? {}
+  const requestedBytes = details.reservedBytes ?? details.float64Bytes
+  const requested = formatMemory(requestedBytes)
+  const capacity = formatMemory(details.capacityBytes)
+  if (error?.code === RESOURCE_GUARD_ERROR_CODES.OVERSIZE) {
+    return requested && capacity
+      ? `この計算の予約量（${requested}）が上限（${capacity}）を超えています。`
+      : 'この計算の予約量が設定された上限を超えています。'
+  }
+  if (error?.code === RESOURCE_GUARD_ERROR_CODES.QUEUE_FULL) {
+    const queued = details.queuedCount
+    const maxQueued = details.maxQueued
+    return Number.isFinite(queued) && Number.isFinite(maxQueued)
+      ? `計算待ち行列が満杯です（${queued}/${maxQueued}）。しばらく待ってから再試行してください。`
+      : '計算待ち行列が満杯です。しばらく待ってから再試行してください。'
+  }
+  return '計算資源の予約に失敗しました。入力を確認して再試行してください。'
 }
 
 function collectWarnings(plan, feedback) {
@@ -197,28 +222,37 @@ export function recordCalculationError(feedback, error) {
 }
 
 export function formatRangeFeedback(feedback) {
+  if (feedback?.error?.name === 'AbortError') {
+    return null
+  }
   const plan = feedback?.plan
   const warnings = collectWarnings(plan, feedback)
   const rejected = feedback?.status === 'rejected'
     || plan?.accepted === false
     || warnings.some((warning) => warning.severity === 'reject')
-  const hasGenericError = feedback?.status === 'error'
+  const hasResourceError = isResourceGuardError(feedback?.error)
+  const hasGenericError = feedback?.status === 'error' && !hasResourceError
   const visibleWarnings = warnings.filter((warning) =>
     rejected || warning.severity === 'warning'
   )
 
-  if (!hasGenericError && visibleWarnings.length === 0) {
+  if (!hasGenericError && !hasResourceError && visibleWarnings.length === 0) {
     return null
   }
 
   return {
-    type: hasGenericError || rejected ? 'error' : 'warning',
-    title: hasGenericError
+    type: hasGenericError || hasResourceError || rejected ? 'error' : 'warning',
+    title: hasResourceError
+      ? '計算資源の制約により計算できません'
+      : hasGenericError
       ? '計算に失敗しました'
       : rejected
         ? 'この入力では計算できません'
         : '計算範囲に関する注意',
     reasons: [
+      ...(hasResourceError
+        ? [formatResourceGuardReason(feedback.error)]
+        : []),
       ...(hasGenericError
         ? ['計算中にエラーが発生しました。入力内容を確認して再入力してください。']
         : []),
@@ -229,7 +263,9 @@ export function formatRangeFeedback(feedback) {
       memory: formatMemory(plan?.estimates?.float64Bytes),
     },
     overflow: collectOverflowMessages(plan),
-    action: hasGenericError
+    action: hasResourceError
+      ? '同時実行中の計算が終わるのを待つか、入力を小さくして再試行してください。'
+      : hasGenericError
       ? '入力内容を確認して、もう一度お試しください。'
       : rejected
       ? '入力値を下げるか、表示範囲を狭めて再試行してください。'

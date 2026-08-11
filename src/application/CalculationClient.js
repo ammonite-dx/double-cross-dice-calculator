@@ -19,19 +19,26 @@ import {
 } from '../data/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
+import { createResourceGuard } from './ResourceGuard'
 
 const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
+const defaultResourceGuard = createResourceGuard()
+const TOTAL_DAMAGE_OUTPUT_LENGTH = 1024
+const TOTAL_DAMAGE_FFT_LENGTH = 2048
+const TOTAL_DAMAGE_FFT_BUFFER_COUNT = 4
+const TOTAL_DAMAGE_CONVOLVED_BUFFER_LENGTH = TOTAL_DAMAGE_FFT_LENGTH
+const TOTAL_DAMAGE_OUTPUT_BUFFER_COUNT = 2
 
-function createAbortError() {
-  const error = new Error('Backtrack calculation was aborted')
+function createAbortError(operation = 'Calculation') {
+  const error = new Error(`${operation} calculation was aborted`)
   error.name = 'AbortError'
   return error
 }
 
-function throwIfAborted(options) {
+function throwIfAborted(options, operation = 'Calculation') {
   if (options?.signal?.aborted) {
-    throw createAbortError()
+    throw createAbortError(operation)
   }
 }
 
@@ -48,6 +55,7 @@ const defaultDependencies = {
   loadD10Asset,
   loadLivingdeadAsset,
   planCalculationRanges,
+  resourceGuard: defaultResourceGuard,
 }
 
 const EVASION_MODE = '《イベイジョン》'
@@ -152,6 +160,60 @@ function getRuntimeOptions(options) {
   return runtimeOptions
 }
 
+function acquirePlanLease(resourceGuard, plan, options, operation) {
+  return resourceGuard.acquirePlan(plan, {
+    signal: options.signal,
+    requestId: options.requestId,
+    operation,
+  })
+}
+
+function acquireResourceLease(resourceGuard, request) {
+  const acquire = resourceGuard.acquireLease ?? resourceGuard.acquire
+  return acquire.call(resourceGuard, request)
+}
+
+function isPromiseLike(value) {
+  return value !== null
+    && value !== undefined
+    && typeof value.then === 'function'
+}
+
+function multiplySafeInteger(left, right) {
+  const product = left * right
+  return Number.isSafeInteger(product)
+    ? product
+    : Number.MAX_SAFE_INTEGER
+}
+
+function createTotalDamageResourceRequest(combos, options) {
+  const comboCount = Array.isArray(combos) ? combos.length : 0
+  const operationCount = Math.max(1, comboCount)
+  // sumDistribution() uses two complex FFT buffers (four Float64Array
+  // buffers), a convolution result, and the previous/new aggregate arrays.
+  // The convolution result is bounded by the 2048-point FFT length because
+  // two 1024-element distributions produce 2047 values.
+  const float64WordsPerOperation =
+    TOTAL_DAMAGE_FFT_BUFFER_COUNT * TOTAL_DAMAGE_FFT_LENGTH
+    + TOTAL_DAMAGE_CONVOLVED_BUFFER_LENGTH
+    + TOTAL_DAMAGE_OUTPUT_BUFFER_COUNT * TOTAL_DAMAGE_OUTPUT_LENGTH
+  const bytesPerOperation = multiplySafeInteger(
+    float64WordsPerOperation,
+    Float64Array.BYTES_PER_ELEMENT
+  )
+  return {
+    operation: 'attack-total-damage',
+    requestId: options.requestId,
+    signal: options.signal,
+    float64Bytes: multiplySafeInteger(operationCount, bytesPerOperation),
+    operations: multiplySafeInteger(
+      operationCount,
+      TOTAL_DAMAGE_FFT_LENGTH * Math.log2(TOTAL_DAMAGE_FFT_LENGTH)
+    ),
+    timeMs: null,
+  }
+}
+
 /**
  * Plans a request and publishes the plan before any calculation starts.
  *
@@ -210,6 +272,7 @@ function createRuntimeDxProvider(calculateDistribution) {
 export function createCalculationClient(
   dependencies = defaultDependencies
 ) {
+  const resourceGuard = dependencies.resourceGuard ?? defaultResourceGuard
   const planner = dependencies.planCalculationRanges ?? planCalculationRanges
   const hasRuntimeScoreDependencies =
     typeof dependencies.calculateScore === 'function' &&
@@ -294,17 +357,32 @@ export function createCalculationClient(
         options.rangePolicy,
         options.onRangePlan
       )
+      const leaseRequest = acquirePlanLease(
+        resourceGuard,
+        plan,
+        options,
+        'check'
+      )
+      const lease = isPromiseLike(leaseRequest)
+        ? await leaseRequest
+        : leaseRequest
 
-      const score = {
-        action: scoreCalculator(request.action, false, plan.scores?.[0]),
-        reaction: scoreCalculator(request.reaction, false, plan.scores?.[1]),
-      }
-      return {
-        score,
-        scoreSummary: dependencies.getScoreSummary(
+      try {
+        throwIfAborted(options, 'Check')
+        const score = {
+          action: scoreCalculator(request.action, false, plan.scores?.[0]),
+          reaction: scoreCalculator(request.reaction, false, plan.scores?.[1]),
+        }
+        throwIfAborted(options, 'Check')
+        return {
           score,
-          difficultyRequest
-        ),
+          scoreSummary: dependencies.getScoreSummary(
+            score,
+            difficultyRequest
+          ),
+        }
+      } finally {
+        lease.release()
       }
     },
 
@@ -316,49 +394,79 @@ export function createCalculationClient(
         options.rangePolicy,
         options.onRangePlan
       )
-      if (request.reaction.damage.dice > 0) {
-        await dependencies.loadD10Asset()
-      }
-
-      const score = {
-        action: scoreCalculator(
-          request.action.score,
-          false,
-          plan.scores?.[0]
-        ),
-        reaction: scoreCalculator(
-          request.reaction.score,
-          request.reaction.mode === EVASION_MODE,
-          plan.scores?.[1]
-        ),
-      }
-      const damage = await dependencies.calculateDamageOnDemand(
-        score,
-        request.action.damage,
-        request.reaction.damage,
-        {
-          getDamageRollDistribution:
-            dependencies.getDamageRollDistribution,
-          getD10Distribution: dependencies.getD10Distribution,
-          onFftLength: dependencies.onFftLength,
-        },
-        getRuntimeOptions(options),
-        plan.damage
+      const leaseRequest = acquirePlanLease(
+        resourceGuard,
+        plan,
+        options,
+        'attack'
       )
+      const lease = isPromiseLike(leaseRequest)
+        ? await leaseRequest
+        : leaseRequest
 
-      return {
-        score,
-        scoreSummary: dependencies.getScoreSummary(score),
-        damage,
-        damageSummary: dependencies.getDamageSummary(damage),
+      try {
+        throwIfAborted(options, 'Attack')
+        if (request.reaction.damage.dice > 0) {
+          await dependencies.loadD10Asset()
+        }
+        throwIfAborted(options, 'Attack')
+
+        const score = {
+          action: scoreCalculator(
+            request.action.score,
+            false,
+            plan.scores?.[0]
+          ),
+          reaction: scoreCalculator(
+            request.reaction.score,
+            request.reaction.mode === EVASION_MODE,
+            plan.scores?.[1]
+          ),
+        }
+        const damage = await dependencies.calculateDamageOnDemand(
+          score,
+          request.action.damage,
+          request.reaction.damage,
+          {
+            getDamageRollDistribution:
+              dependencies.getDamageRollDistribution,
+            getD10Distribution: dependencies.getD10Distribution,
+            onFftLength: dependencies.onFftLength,
+          },
+          getRuntimeOptions(options),
+          plan.damage
+        )
+        throwIfAborted(options, 'Attack')
+
+        return {
+          score,
+          scoreSummary: dependencies.getScoreSummary(score),
+          damage,
+          damageSummary: dependencies.getDamageSummary(damage),
+        }
+      } finally {
+        lease.release()
       }
     },
 
-    async calculateTotalDamage(combos) {
-      const totalDamage = dependencies.getTotalDamage(combos)
-      return {
-        totalDamage,
-        totalDamageSummary: dependencies.getDamageSummary(totalDamage),
+    async calculateTotalDamage(combos, options = {}) {
+      const leaseRequest = acquireResourceLease(
+        resourceGuard,
+        createTotalDamageResourceRequest(combos, options)
+      )
+      const lease = isPromiseLike(leaseRequest)
+        ? await leaseRequest
+        : leaseRequest
+      try {
+        throwIfAborted(options, 'Total damage')
+        const totalDamage = dependencies.getTotalDamage(combos)
+        throwIfAborted(options, 'Total damage')
+        return {
+          totalDamage,
+          totalDamageSummary: dependencies.getDamageSummary(totalDamage),
+        }
+      } finally {
+        lease.release()
       }
     },
 
@@ -370,27 +478,50 @@ export function createCalculationClient(
         options.rangePolicy,
         options.onRangePlan
       )
-      throwIfAborted(options)
-      if (plan.backtrack?.distributionMode === 'on-demand') {
+      const leaseRequest = acquirePlanLease(
+        resourceGuard,
+        plan,
+        options,
+        'backtrack'
+      )
+      const lease = isPromiseLike(leaseRequest)
+        ? await leaseRequest
+        : leaseRequest
+      try {
+        throwIfAborted(options, 'Backtrack')
+        if (plan.backtrack?.distributionMode === 'on-demand') {
+          return dependencies.getFinalEncroachment(
+            request,
+            getRuntimeOptions(options),
+            plan.backtrack
+          )
+        }
+        if (request.dlois === '屍人') {
+          await dependencies.loadLivingdeadAsset()
+        } else {
+          await dependencies.loadD10Asset()
+        }
+        throwIfAborted(options, 'Backtrack')
         return dependencies.getFinalEncroachment(
           request,
           getRuntimeOptions(options),
           plan.backtrack
         )
+      } finally {
+        lease.release()
       }
-      if (request.dlois === '屍人') {
-        await dependencies.loadLivingdeadAsset()
-      } else {
-        await dependencies.loadD10Asset()
-      }
-      throwIfAborted(options)
-      return dependencies.getFinalEncroachment(
-        request,
-        getRuntimeOptions(options),
-        plan.backtrack
-      )
     },
   }
 }
 
+export function createCalculationDependencies(overrides = {}) {
+  return {
+    ...defaultDependencies,
+    ...overrides,
+    resourceGuard: overrides.resourceGuard ?? createResourceGuard(),
+  }
+}
+
+export const calculationDependencies = defaultDependencies
+export const calculationResourceGuard = defaultResourceGuard
 export const calculationClient = createCalculationClient()
