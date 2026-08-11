@@ -255,3 +255,10 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: 代表値はFirefoxのmain warm median/p95最大34/40 ms・Worker cold/warm p95最大56/36 ms、WebKitの15/24 ms・38/19 ms、Chrome 4xの129.5/132.8 ms・74.8/31.5 msだった。timer-delay warm p95最大は40/24/134.2 msで、CPU時間ではなくzero-delay timer遅延近似として記録した
 - 完了: 入力拡張候補の`dx-two-x-planner-only`、`dx-large-planner-only`、`dx-hard-reject-planner-only`、`dr-over-core-cap`、`attack-two-x-planner-only`はcore capを変更せずplanner-onlyに維持し、`backtrack-large-normal-node-only`はNode-onlyとしてブラウザ測定から除外した
 - 継続: dynamic output、resource guard、JSON経路、低速実機、入力拡張候補のブラウザ実測は残課題とし、今回の3 engine実測だけでは本番core cap、UI入力上限、配信JSONを変更しない
+
+## Dynamic distribution range Phase 2-G
+
+- 完了: `src/application/ResourceGuard.js`にcapacity 64 MiB、maxActive 4、maxQueued 32、1.5倍切上げ予約、FIFO待機、queued abort、typed rejection、snapshot/diagnostics、idempotent lease releaseを実装し、`CalculationClient`のcheck、attack、backtrackとattack total damageへ共有guardを接続した
+- 完了: preflight hard reject後かつアセット読込・計算開始前の予約、成功・cancel・stale・repository error・Worker error・同期例外の単一finally解放、複数CalculationClient共有、既存AbortSignalによるstale queued request除去をテストした
+- 完了: `CalculationFeedback`と`RangePlanNotice`でresource rejectのcapacity超過・queue満杯を通常の未知エラーに隠さず表示する最小接続を追加した
+- 対象外: owner replace policy、入力上限、RangePlanner hard policy、core absolute safety limit、JSON経路、dynamic output、RuntimeDamageRollClient内部の重複guardは変更しない

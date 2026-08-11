@@ -312,3 +312,13 @@ RangePlannerのbacktrack planは、通常backtrackの3種類（1倍、2倍、3�
 完全supportを得てから`encroachment - value - threshold`の境界でカテゴリへ集計するため、減算後に表示範囲へ戻る可能性があるoverflow質量を一点値として扱いません。カテゴリの公開配列は従来の1024相当の形状を保ちますが、計画あり経路の最後の区分は生成した有限support末端までを集計します。生成・provider配列は長さ、有限性、非負性、確率総和を検証し、許容した微小負値だけを0へ補正して総和を正規化します。`signal`はDPの途中でも確認し、既存のcancel/stale契約をruntime options側で維持します。
 
 既存1024要素アセットのsupport限界は`assetSupportMax = 1022`として計画metadataに残しますが、on-demandで完全supportを生成する場合は`assetOverflow`をwarningや`overflowInfo.backtrack`の実計算overflowとして表示しません。静的assetを選ぶ経路でcoverage不足が実際に残る場合だけ、asset warningを表示します。低い`calculationMax`をアセット境界の判定に流用せず、planなし経路、公開1024、UI入力上限、JSON削除、full-tail、total damageのdynamic outputは変更しません。
+
+## Phase 2-G resource guard
+
+Phase 2-G adds a shared FIFO resource guard in `src/application/ResourceGuard.js` and injects the singleton through the application `CalculationClient` dependency factory. `check`, `attack`, and `backtrack` run the existing range preflight first, then reserve before asset loading or calculation, and release the lease from one `finally` path. A preflight hard reject therefore does not reserve anything.
+
+The initial policy is a 64 MiB reservation capacity, at most 4 active requests, and at most 32 queued requests. Admission uses only `plan.estimates.float64Bytes`; the reservation is `ceil(float64Bytes * 1.5)`. `operations` and `timeMs` remain lease diagnostics and are not admission thresholds. Requests whose reservation exceeds capacity and requests arriving after the queue limit are typed `ResourceGuardError` rejections. Queued aborts remove the request and reject with an `AbortError`-named guard error, while an active abort leaves the reservation until the caller settles and releases its lease. Lease release is idempotent.
+
+The attack total-damage aggregation is outside the range-planned `CalculationClient` routes, so it uses one explicit request-level reservation based on the stable published 1024 bucket and its 2048-point internal FFT shape. This connection does not add a second reservation to `RuntimeDamageRollClient`, does not retain calculation arrays in the guard, and does not change the total-damage return shape. The published 1024 bucket, input limits, `RangePlanner` hard policy, core absolute safety limit, JSON paths, and dynamic output contract remain unchanged.
+
+Guard errors are surfaced by the existing `CalculationFeedback` and `RangePlanNotice` path with a resource-specific message. Cache and dedup behavior remains conservative: each `CalculationClient` request reserves independently, and stale queued requests are removed by the existing composed `AbortSignal`. The guard exposes immutable policy values, lease metadata, `snapshot()`, `getSnapshot()`, and `diagnostics()` for tests and runtime diagnostics.

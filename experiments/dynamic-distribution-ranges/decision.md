@@ -562,3 +562,13 @@ CPU 4x時のChromeはmain warm p95最大132.8 ms、Worker warm round-trip p95最
 | 本番core cap、src、UI入力上限、配信JSONを変更しない | 適合 |
 
 `dx-two-x-planner-only`、`dx-large-planner-only`、`dx-hard-reject-planner-only`、`dr-over-core-cap`、`attack-two-x-planner-only`はcore capを変更せずplanner-onlyのままとした。`backtrack-large-normal-node-only`はNode-onlyでブラウザ測定対象外のケースであり、core cap理由のplanner-onlyとは区別した。dynamic output、resource guard、JSON経路、低速実機、入力拡張候補のブラウザ実測は残課題であり、現行入力上限と本番コードは変更しない。
+
+## Dynamic distribution range Phase 2-Gの確定事項
+
+Phase 2-Gでは、本番`src/application/ResourceGuard.js`に計算単位の共有resource guardを追加し、`CalculationClient`のdependency factoryで単一instanceを共有する。`check`、`attack`、`backtrack`は既存RangePlannerのhard reject後、アセット読込または計算開始前に予約し、成功、cancel、stale、repository error、Worker error、同期例外を共通`finally`で解放する。RangePlannerのpreflight rejectは予約しない。
+
+初期policyはcapacity 64 MiB、同時実行4件、待機32件である。admissionは`plan.estimates.float64Bytes`だけを基礎にし、予約量を`ceil(float64Bytes * 1.5)`とする。`operations`と`timeMs`はlease metadataとdiagnosticsに保持できるが閾値には使わない。単体予約がcapacityを超える要求とqueue満杯はtyped errorで即時rejectし、待機中abortはFIFO queueから除去してAbortError相当とする。実行中abortはcallerの計算がsettleするまで予約を保持し、`lease.release()`はidempotentである。
+
+attack total damageはRangePlannerのplanを持たない別計算であるため、現行公開1024 bucketと内部2048 FFT形状から保守的なscalar推定を作り、同じguardへrequest単位で明示reserveする。`RuntimeDamageRollClient`には二重予約を追加しない。guardは計算結果やTypedArrayを保持しない。公開戻り値、現行1024 published bucket、入力上限、RangePlanner hard policy、core absolute safety limit、JSON経路、dynamic outputは変更しない。
+
+Phase 2-Gの対象外は、明示的なowner replace policy、入力上限の拡張、JSON asset経路の削除または置換、dynamic output契約の変更、Worker内部への別guard導入である。UIは既存`CalculationFeedback`と`RangePlanNotice`でresource rejectを通常エラーに埋没させず表示する最小接続に留める。
