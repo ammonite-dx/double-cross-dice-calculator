@@ -1,6 +1,7 @@
 import { getFinalEncroachment } from '../data/BacktrackCalculator'
 import {
   calculateCanonicalDamageOnDemand,
+  getCanonicalDamageSummary,
   calculateDamageOnDemand,
 } from '../calculation/DamageCalculator'
 import {
@@ -50,6 +51,7 @@ const defaultDependencies = {
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore,
+  getCanonicalDamageSummary,
   getDamageSummary,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachment,
@@ -499,6 +501,8 @@ export function createCalculationClient(
           score,
           scoreSummary,
           canonicalDamage: finalizedDamage,
+          canonicalDamageSummary:
+            dependencies.getCanonicalDamageSummary(finalizedDamage),
         })
       )
     },

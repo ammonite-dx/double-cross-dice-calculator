@@ -26,6 +26,7 @@ function createDependencies(overrides = {}) {
       )
       return 'damage'
     }),
+    getCanonicalDamageSummary: vi.fn(() => 'canonical damage summary'),
     getDamageSummary: vi.fn(() => 'damage summary'),
     getDamageRollDistribution: vi.fn(async () => {}),
     getFinalEncroachment: vi.fn(() => 'backtrack'),
@@ -307,6 +308,7 @@ describe('CalculationClient', () => {
       },
       scoreSummary: 'canonical score summary',
       canonicalDamage,
+      canonicalDamageSummary: 'canonical damage summary',
     })
     expect(result.canonicalDamage).toBe(canonicalDamage)
     expect(result).not.toHaveProperty('damage')
@@ -316,6 +318,10 @@ describe('CalculationClient', () => {
     expect(onRangePlan).toHaveBeenCalledWith(plan)
     expect(dependencies.getScore).toHaveBeenCalledTimes(2)
     expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
+    expect(dependencies.getCanonicalDamageSummary)
+      .toHaveBeenCalledOnce()
+    expect(dependencies.getCanonicalDamageSummary)
+      .toHaveBeenCalledWith(canonicalDamage)
     expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
     expect(dependencies.calculateDamageOnDemand).not.toHaveBeenCalled()
     expect(dependencies.getDamageSummary).not.toHaveBeenCalled()

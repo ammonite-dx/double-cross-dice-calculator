@@ -571,6 +571,77 @@ export function getProbabilityMassSummary(result) {
 
 export const summarizeProbabilityMass = getProbabilityMassSummary
 
+function sumExplicitFirstMoment(values, offset) {
+  let firstMoment = 0
+  for (let index = 0; index < values.length; index += 1) {
+    firstMoment += (offset + index) * values[index]
+  }
+  return firstMoment
+}
+
+function createExactExpectedValue(value) {
+  return Object.freeze({ kind: 'exact', value })
+}
+
+function createBoundedExpectedValue(lowerBound, upperBound) {
+  return Object.freeze({ kind: 'bounded', lowerBound, upperBound })
+}
+
+function createLowerBoundExpectedValue(lowerBound) {
+  return Object.freeze({ kind: 'lower-bound', lowerBound })
+}
+
+/**
+ * Summarize the expected value without assigning a point value to overflow.
+ *
+ * The explicit values contribute their first moment directly. Exact overflow
+ * contributes a point value only when its support is known exactly; otherwise
+ * the result retains the strongest safe interval or lower bound available.
+ * Upper-bound overflow is never treated as actual probability mass.
+ */
+export function getExpectedValueSummary(result) {
+  const inspected = inspectDistributionResult(result)
+  const { values, offset, support, overflow } = inspected
+  const explicitFirstMoment = sumExplicitFirstMoment(values, offset)
+
+  if (overflow === null) {
+    return createExactExpectedValue(explicitFirstMoment)
+  }
+
+  if (overflow.kind === 'exact') {
+    const lowerExpectedValue = explicitFirstMoment
+      + overflow.probability * overflow.lowerBound
+
+    if (support.kind === 'finite') {
+      const upperExpectedValue = explicitFirstMoment
+        + overflow.probability * support.max
+      if (overflow.probability === 0 || overflow.lowerBound === support.max) {
+        return createExactExpectedValue(lowerExpectedValue)
+      }
+      return createBoundedExpectedValue(
+        lowerExpectedValue,
+        upperExpectedValue
+      )
+    }
+
+    if (overflow.probability === 0) {
+      return createExactExpectedValue(explicitFirstMoment)
+    }
+    return createLowerBoundExpectedValue(lowerExpectedValue)
+  }
+
+  if (overflow.probabilityUpperBound === 0) {
+    return createExactExpectedValue(explicitFirstMoment)
+  }
+  if (support.kind === 'finite') {
+    return createBoundedExpectedValue(
+      explicitFirstMoment,
+      explicitFirstMoment + overflow.probabilityUpperBound * support.max
+    )
+  }
+  return createLowerBoundExpectedValue(explicitFirstMoment)
+}
+
 function validateLegacyInputValues(distribution) {
   if (!isLegacyValueSource(distribution)) {
     failAdapter(

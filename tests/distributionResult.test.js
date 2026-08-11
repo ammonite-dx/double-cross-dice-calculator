@@ -10,6 +10,7 @@ import {
   createDistributionResult,
   fromPublishedBucketDistribution,
   getExplicitMax,
+  getExpectedValueSummary,
   getProbabilityMassSummary,
   isDistributionResultAdapterError,
   toPublishedBucketDistribution,
@@ -188,6 +189,199 @@ describe('canonical distribution result', () => {
       errorBound: 0,
       isExact: true,
     })
+  })
+
+  it('summarizes exact values with offset included in the explicit first moment', () => {
+    const result = createDistributionResult({
+      values: [0.2, 0.8],
+      offset: 10,
+      support: { kind: 'infinite' },
+      overflow: null,
+    })
+
+    expect(getExpectedValueSummary(result)).toEqual({
+      kind: 'exact',
+      value: 10.8,
+    })
+
+    const finiteResult = createDistributionResult({
+      values: [0.25, 0.75],
+      offset: 4,
+      support: { kind: 'finite', max: 5 },
+      overflow: null,
+    })
+    expect(getExpectedValueSummary(finiteResult)).toEqual({
+      kind: 'exact',
+      value: 4.75,
+    })
+  })
+
+  it.each([
+    {
+      label: 'exact overflow with finite support',
+      result: createExactResult({
+        values: [0.75],
+        offset: 2,
+        support: { kind: 'finite', max: 8 },
+        lowerBound: 4,
+        probability: 0.25,
+      }),
+      expected: { kind: 'bounded', lowerBound: 2.5, upperBound: 3.5 },
+    },
+    {
+      label: 'exact overflow with infinite support',
+      result: createExactResult({
+        values: [0.75],
+        offset: 2,
+        support: { kind: 'infinite' },
+        lowerBound: 4,
+        probability: 0.25,
+      }),
+      expected: { kind: 'lower-bound', lowerBound: 2.5 },
+    },
+    {
+      label: 'exact overflow at one finite support point',
+      result: createExactResult({
+        values: [0.75],
+        offset: 2,
+        support: { kind: 'finite', max: 4 },
+        lowerBound: 4,
+        probability: 0.25,
+      }),
+      expected: { kind: 'exact', value: 2.5 },
+    },
+    {
+      label: 'zero exact overflow with infinite support',
+      result: createExactResult({
+        values: [1],
+        offset: 2,
+        support: { kind: 'infinite' },
+        lowerBound: 4,
+        probability: 0,
+        errorBound: 0.25,
+      }),
+      expected: { kind: 'exact', value: 2 },
+    },
+    {
+      label: 'zero exact overflow with finite support',
+      result: createExactResult({
+        values: [1],
+        offset: 2,
+        support: { kind: 'finite', max: 4 },
+        lowerBound: 4,
+        probability: 0,
+        errorBound: 0.25,
+      }),
+      expected: { kind: 'exact', value: 2 },
+    },
+  ])('summarizes $label without folding overflow into a point value', ({ result, expected }) => {
+    expect(getExpectedValueSummary(result)).toEqual(expected)
+  })
+
+  it.each([
+    {
+      label: 'zero upper-bound overflow with finite support',
+      result: createDistributionResult({
+        values: [1],
+        offset: 3,
+        support: { kind: 'finite', max: 8 },
+        overflow: {
+          kind: 'upper-bound',
+          lowerBound: 5,
+          probabilityUpperBound: 0,
+          errorBound: 0.5,
+        },
+      }),
+      expected: { kind: 'exact', value: 3 },
+    },
+    {
+      label: 'zero upper-bound overflow with infinite support',
+      result: createDistributionResult({
+        values: [1],
+        offset: 3,
+        support: { kind: 'infinite' },
+        overflow: {
+          kind: 'upper-bound',
+          lowerBound: 5,
+          probabilityUpperBound: 0,
+          errorBound: 0.5,
+        },
+      }),
+      expected: { kind: 'exact', value: 3 },
+    },
+    {
+      label: 'upper-bound overflow with finite support',
+      result: createDistributionResult({
+        values: [0.5],
+        offset: 1,
+        support: { kind: 'finite', max: 6 },
+        overflow: {
+          kind: 'upper-bound',
+          lowerBound: 4,
+          probabilityUpperBound: 0.5,
+          errorBound: 0.75,
+        },
+      }),
+      expected: { kind: 'bounded', lowerBound: 0.5, upperBound: 3.5 },
+    },
+    {
+      label: 'upper-bound overflow with infinite support',
+      result: createDistributionResult({
+        values: [0.5],
+        offset: 1,
+        support: { kind: 'infinite' },
+        overflow: {
+          kind: 'upper-bound',
+          lowerBound: 4,
+          probabilityUpperBound: 0.5,
+          errorBound: 0.75,
+        },
+      }),
+      expected: { kind: 'lower-bound', lowerBound: 0.5 },
+    },
+  ])('summarizes $label using its probability upper bound', ({ result, expected }) => {
+    expect(getExpectedValueSummary(result)).toEqual(expected)
+  })
+
+  it('freezes summaries, propagates error metadata through mass, and leaves the result untouched', () => {
+    const values = new Float64Array([0.75])
+    const support = { kind: 'finite', max: 8 }
+    const overflow = {
+      kind: 'exact',
+      lowerBound: 4,
+      probability: 0.25,
+      errorBound: 0.125,
+    }
+    const result = createDistributionResult({
+      values,
+      offset: 2,
+      support,
+      overflow,
+    })
+    const beforeValues = Array.from(result.values)
+    const beforeSupport = { ...result.support }
+    const beforeOverflow = { ...result.overflow }
+
+    const expectedValue = getExpectedValueSummary(result)
+    const mass = getProbabilityMassSummary(result)
+
+    expect(Object.isFrozen(expectedValue)).toBe(true)
+    expect(Object.isFrozen(mass)).toBe(true)
+    expect(expectedValue).toEqual({
+      kind: 'bounded',
+      lowerBound: 2.5,
+      upperBound: 3.5,
+    })
+    expect(mass.errorBound).toBe(0.125)
+    expect(Array.from(result.values)).toEqual(beforeValues)
+    expect(result.support).toEqual(beforeSupport)
+    expect(result.overflow).toEqual(beforeOverflow)
+    expect(result.values).not.toBe(values)
+  })
+
+  it('rejects invalid canonical input before calculating an expected value', () => {
+    expectTypedError(() => getExpectedValueSummary({}),
+      DISTRIBUTION_RESULT_ERROR_CODES.INVALID_VERSION)
   })
 
   it('accepts finite support at explicitMax and finite support containing overflow lowerBound', () => {

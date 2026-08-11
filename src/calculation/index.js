@@ -16,9 +16,13 @@ export {
   calculateDamageOnDemand,
   createDamageRollRequest,
   finalizeOnDemandDamage,
+  getCanonicalDamageSummary,
   getDamageSummary,
   getTotalDamage,
 } from './DamageCalculator'
+export {
+  getExpectedValueSummary,
+} from './DistributionResult'
 export {
   calculateScore,
   getScoreSummary,

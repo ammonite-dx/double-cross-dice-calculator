@@ -15,7 +15,11 @@ import {
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
 } from './RuntimeDamageRollLimits'
-import { createDistributionResult } from './DistributionResult'
+import {
+  createDistributionResult,
+  getExpectedValueSummary,
+  getProbabilityMassSummary,
+} from './DistributionResult'
 
 const DAMAGE_DICE_COUNT = MAX_DAMAGE_DICE + 1
 const PROBABILITY_TOLERANCE = 1e-10
@@ -756,6 +760,37 @@ export function getDamageSummary(damage) {
   return {
     expectedValue: getExpectedValue(damage.distribution),
   }
+}
+
+function isCanonicalDamageEnvelope(value) {
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.prototype.hasOwnProperty.call(value, 'result')
+    && value.metadata !== null
+    && typeof value.metadata === 'object'
+    && !Array.isArray(value.metadata)
+    && Object.prototype.hasOwnProperty.call(
+      value.metadata,
+      'modeledDistribution'
+    )
+    && value.metadata.modeledDistribution === true
+}
+
+/**
+ * Summarize a canonical damage envelope without converting it to legacy
+ * buckets or copying its values buffer.
+ */
+export function getCanonicalDamageSummary(canonicalDamage) {
+  if (!isCanonicalDamageEnvelope(canonicalDamage)) {
+    throw new TypeError(
+      'canonical damage summary expects an envelope with result and metadata'
+    )
+  }
+
+  const expectedValue = getExpectedValueSummary(canonicalDamage.result)
+  const mass = getProbabilityMassSummary(canonicalDamage.result)
+  return Object.freeze({ expectedValue, mass })
 }
 
 export function getTotalDamage(combos) {
