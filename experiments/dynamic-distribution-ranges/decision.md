@@ -572,3 +572,13 @@ Phase 2-Gでは、本番`src/application/ResourceGuard.js`に計算単位の共�
 attack total damageはRangePlannerのplanを持たない別計算であるため、現行公開1024 bucketと内部2048 FFT形状から保守的なscalar推定を作り、同じguardへrequest単位で明示reserveする。`RuntimeDamageRollClient`には二重予約を追加しない。guardは計算結果やTypedArrayを保持しない。公開戻り値、現行1024 published bucket、入力上限、RangePlanner hard policy、core absolute safety limit、JSON経路、dynamic outputは変更しない。
 
 Phase 2-Gの対象外は、明示的なowner replace policy、入力上限の拡張、JSON asset経路の削除または置換、dynamic output契約の変更、Worker内部への別guard導入である。UIは既存`CalculationFeedback`と`RangePlanNotice`でresource rejectを通常エラーに埋没させず表示する最小接続に留める。
+
+## Dynamic distribution range Phase 2-H 第1単位
+
+Phase 2-H第1単位は、現行公開結果を切り替えずに内部canonical resultの表現を固定する単位である。`DistributionResult`は明示一点確率を`Float64Array`で保持し、overflowを末尾要素へ混在させない。`offset`と可変長valuesからexplicit maxを導出し、supportはfiniteまたはinfinite、overflowはactual massを持つexactとactual probabilityではないupper-boundを別unionとして扱う。
+
+mass検証は、nullまたはexactでは明示massとexact probabilityの合計を1に近づけ、upper-boundでは明示massの超過と未明示massの上限を検証する。`errorBound`は補助的な数値誤差metadataであり、`probability`や`probabilityUpperBound`、mass summaryへ自動加算しない。upper-boundを安全にする誤差はproducerが`probabilityUpperBound`へ織り込む。許容値は新module内の`DISTRIBUTION_RESULT_TOLERANCE`へ集約する。finite supportはexplicit max以上とし、potential massを持つoverflowではlower boundをsupport max以下に置く。exactの`probability=0`かつ`errorBound=0`、またはupper-boundの`probabilityUpperBound=0`かつ`errorBound=0`はinert overflowとして扱い、finite supportのmaxがlower bound未満でも許可する。全てのindex、support max、offset plus lengthはsafe integerとして検証する。
+
+legacy adapterの入力側は1024要素を要求し、0から1022を明示値、1023をexact overflowへ移す。supportはlegacy配列から推測せず、`options.support`を必須にする。出力側はlower boundが1023以上のexact overflowと1023以上のexplicit valuesだけを末尾bucketへfoldし、upper-bound overflowを確率配列へ変換しない。exact overflowにpotential massがありlower boundがlegacy overflow index未満なら、明示範囲が完全でもmassが1023以上だけにある証明がないため`unsafe-projection`として拒否し、inert overflowだけを許可する。
+
+この単位のmoduleはproduction import graphから独立しており、既存のcalculator、`CalculationClient`、UI、JSON、入力上限、published-bucketの末尾bucket semanticsは変更しない。次単位ではcanonical resultを生成できる計算経路を選び、support metadataとoverflow証明をどの境界で付与するか、Worker・JSON serialization、公開結果への移行条件を決める。

@@ -322,3 +322,17 @@ The initial policy is a 64 MiB reservation capacity, at most 4 active requests, 
 The attack total-damage aggregation is outside the range-planned `CalculationClient` routes, so it uses one explicit request-level reservation based on the stable published 1024 bucket and its 2048-point internal FFT shape. This connection does not add a second reservation to `RuntimeDamageRollClient`, does not retain calculation arrays in the guard, and does not change the total-damage return shape. The published 1024 bucket, input limits, `RangePlanner` hard policy, core absolute safety limit, JSON paths, and dynamic output contract remain unchanged.
 
 Guard errors are surfaced by the existing `CalculationFeedback` and `RangePlanNotice` path with a resource-specific message. Cache and dedup behavior remains conservative: each `CalculationClient` request reserves independently, and stale queued requests are removed by the existing composed `AbortSignal`. The guard exposes immutable policy values, lease metadata, `snapshot()`, `getSnapshot()`, and `diagnostics()` for tests and runtime diagnostics.
+
+## Phase 2-H distribution result contract（第1単位）
+
+Phase 2-H第1単位では、`src/calculation/DistributionResult.js`に内部用のcanonical distribution result契約を追加した。契約は`version: 1`、`Float64Array`の明示一点確率、非負safe integerの`offset`、`finite`または`infinite`のdiscriminated unionである`support`、`null`または`exact`・`upper-bound`を区別する`overflow`から構成される。`explicitMax`は保存せず、空でないときだけ`offset + values.length - 1`から`getExplicitMax`で導出する。
+
+`exact` overflowは`probability`と`errorBound`を持ち、明示massと合計して一になることを検証する。`upper-bound` overflowは`probabilityUpperBound`を持ち、actual probabilityとして扱わず、明示massが一を超えないことと未明示massが上限以下であることを検証する。`errorBound`は補助的な数値誤差metadataであり、`probability`や`probabilityUpperBound`へ自動加算せず、mass summaryのactual massや上限にも自動加算しない。upper-boundを安全にする誤差はproducerが`probabilityUpperBound`へ織り込む。確率総和の浮動小数点許容値はこのmoduleの`DISTRIBUTION_RESULT_TOLERANCE = 1e-8`に集約し、NaN、Infinity、負値、1を超える値、safe integer overflow、support境界違反は`DistributionResultError`系のtyped errorとcodeで拒否する。
+
+factoryは入力のArrayLikeを一度だけ`Float64Array`へコピーし、結果が所有する`values`バッファを直接公開する。metadataとresult objectはfreezeするが、TypedArray要素のfreezeは行わないため、callerは`values`をread-onlyとして扱う。書き込み可能な値が必要な利用者は`copyDistributionValues(result)`を明示的に呼び出す。この契約はcopy-on-readのO(n)割り当てを行わない。
+
+finite supportの`max`はexplicit max以上とし、potential massを持つoverflowでは`lowerBound <= support.max`を要求する。exact overflowの`probability=0`かつ`errorBound=0`、またはupper-bound overflowの`probabilityUpperBound=0`かつ`errorBound=0`はinertであり、finite supportの`max`が`lowerBound`未満でも許可する。inertであることはactual massの証明を追加するものではない。
+
+`fromPublishedBucketDistribution`は現行1024要素の0から1022を明示値、1023を`lowerBound: 1023`のexact overflowへ変換し、legacy arrayだけではfiniteまたはinfinite supportを証明できないため`options.support`を必須とする。`toPublishedBucketDistribution`は明示値のindex 1023以上と、lower boundが1023以上のexact overflowを末尾bucketへ合算するが、upper-bound overflowはactual probabilityではないためtyped errorで拒否する。exact overflowにpotential massがあり`lowerBound`が1023未満の場合は、明示範囲が影響範囲を覆っていてもmassが1023以上だけにある証明がないため`unsafe-projection`として拒否し、inert overflowだけを例外として許可する。
+
+この単位は独立契約とadapter、validator、mass summary、境界テストだけを追加し、既存calculator、`CalculationClient`、UI戻り値、JSON asset経路、入力上限、現行1024 published bucketの解釈には接続していない。可変長`values`を導入しただけでmetadata-awareな演算や公開結果のdynamic outputが完成したとは扱わない。次段階では、計算経路ごとのsupport metadata生成、overflow証明の伝播、JSONとWorkerのserialization方針、公開結果・UIがcanonical resultを受け取る切替条件を別途確定する。

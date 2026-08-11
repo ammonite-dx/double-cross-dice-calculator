@@ -262,3 +262,12 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: preflight hard reject後かつアセット読込・計算開始前の予約、成功・cancel・stale・repository error・Worker error・同期例外の単一finally解放、複数CalculationClient共有、既存AbortSignalによるstale queued request除去をテストした
 - 完了: `CalculationFeedback`と`RangePlanNotice`でresource rejectのcapacity超過・queue満杯を通常の未知エラーに隠さず表示する最小接続を追加した
 - 対象外: owner replace policy、入力上限、RangePlanner hard policy、core absolute safety limit、JSON経路、dynamic output、RuntimeDamageRollClient内部の重複guardは変更しない
+
+## Dynamic distribution range Phase 2-H
+
+- 完了: `src/calculation/DistributionResult.js`にversion 1のcanonical distribution result、explicit max導出、finite/infinite support、exact/upper-bound overflow、centralized mass tolerance、typed validation errors、mass summaryを追加した
+- 完了: factoryは入力ArrayLikeのvaluesを一度だけFloat64Arrayへコピーしてresult所有bufferを直接公開し、metadataをfreezeした。TypedArray要素はfreezeせず、書き込み可能なcopyは`copyDistributionValues(result)`で明示取得するため、copy-on-readのO(n)割り当てを行わない
+- 完了: 現行1024 published bucketとのadapterを追加し、supportの明示要求、1023末尾bucketのexact overflow化、exact overflowの安全なfold、upper-bound projection拒否、欠落した個別値を復元できないlower bound投影のtyped拒否、offset・可変長・finite/infinite境界をテストした
+- 完了: `tests/distributionResult.test.js`で正常系、invalid number、NaN、負値、mass、support、exact/upper-bound、mutation、round-trip、overflow folding、unsafe projection rejectionを固定した
+- 対象外: 既存calculator、`CalculationClient`、UI戻り値、JSON asset経路、Worker serialization、入力上限、現行1024 bucketの解釈、metadata-aware演算、dynamic outputのproduction接続は変更しない
+- 次段階: 各計算経路のcanonical result生成地点、support metadataとoverflow証明の伝播、JSON・Workerのserialization、公開結果とUIをcanonical契約へ切り替える条件を設計・検証する
