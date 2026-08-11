@@ -2,7 +2,7 @@
 
 ## 状態と結論
 
-調査開始時点では、本番の`src`、配信JSON、UI入力上限を変更せず、実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。第1実装単位では参照plannerの契約をRuntimeDamageRollCalculatorとWorkerの可変FFT・出力長optionsへ移植し、第2-BではDamageCalculatorとCalculationClientへDamageRangePlanを接続し、第2-Cでは計画のwarning/rejectをcheck、attack、backtrack UIへ接続しました。第2-DではbacktrackのplanをCalculationClientとBacktrackCalculatorへ接続し、必要時のD10/livingdead完全support生成まで実装しました。現行1024 published bucketのtotal damage集計は維持し、配信JSON、UI入力上限、full-tail、resource guardと将来のdynamic output契約は引き続き変更していません。
+調査開始時点では、本番の`src`、配信JSON、UI入力上限を変更せず、実行可能な参照plannerとNodeベンチマークだけを`experiments/dynamic-distribution-ranges/`へ追加しました。第1実装単位では参照plannerの契約をRuntimeDamageRollCalculatorとWorkerの可変FFT・出力長optionsへ移植し、第2-BではDamageCalculatorとCalculationClientへDamageRangePlanを接続し、第2-Cでは計画のwarning/rejectをcheck、attack、backtrack UIへ接続しました。第2-DではbacktrackのplanをCalculationClientとBacktrackCalculatorへ接続し、必要時のD10/livingdead完全support生成まで実装しました。第2-Eでは本番コードを変更せずにNodeとChromeの測定基盤を追加し、Worker telemetryと指標の意味を修正後の実測で確認しました。現行1024 published bucketのtotal damage集計は維持し、配信JSON、UI入力上限、full-tail、resource guardと将来のdynamic output契約は引き続き変更していません。
 
 現時点の推奨は次のとおりです。
 
@@ -155,9 +155,9 @@ $$
 
 通常D10のsupportは`0..10n_i`、《屍人》は`n_i=0`なら値0のみ、`n_i>=1`なら`0..(10n_i-9)`です。`workingLength`はsupport最大値+1とします。schema-v2の1024要素アセットが表現できる静的support最大値は1022なので、収まる場合はasset、超える場合は静的assetの末尾bucketを使わずon-demandで完全supportを生成します。DXのような無限尾部誤差や実計算結果のoverflowとは分け、静的assetのcoverage情報として扱います。
 
-## ベンチマーク結果
+## 旧ベンチマーク結果（Phase 2-A–D）
 
-再実行可能なスクリプトは[`benchmark.mjs`](./benchmark.mjs)、全結果は[`results.json`](./results.json)です。測定環境はWindows x64、AMD Ryzen 7 9700X、論理CPU16、約61.6 GiB、Node `v22.23.2`です。`.node-version`の`22.23.2`と一致します。
+再実行可能なスクリプトは[`benchmark.mjs`](./benchmark.mjs)、全結果は[`results.json`](./results.json)です。測定環境はWindows x64、AMD Ryzen 7 9700X、論理CPU16、約61.6 GiB、Node `v22.23.2`です。`.node-version`の`22.23.2`と一致します。この節の値はPhase 2-Aから2-Dの履歴であり、Phase 2-Eの修正後測定は後述の節に分けて記録します。
 
 ### 尾部cutoff
 
@@ -351,9 +351,9 @@ overflowは一種類ではありません。
 | Worker/client | planner結果を要求単位で転送し、キャンセル、重複排除、cache、transferable配列、エラーを管理する |
 | UI/chart/table | warning/rejectとoverflowの意味を表示し、表示点数とビンを制御する。確率のsupportや誤差を独自に推定しない |
 
-## 推奨しきい値案
+## 旧推奨しきい値案（Phase 2-A–D、未採用）
 
-以下は本番確定値ではなく、Node実測と既存ブラウザ測定から作る初期policy案です。端末下限を測定後に更新します。
+以下は本番確定値ではなく、Phase 2-E実測前のNode実測と既存ブラウザ測定から作った初期policy案です。RangePlannerの確定policyへは採用せず、後述のPhase 2-E評価基準と追加実測で更新します。
 
 | 指標 | warning案 | hard案 | 根拠 |
 | --- | ---: | ---: | --- |
@@ -445,3 +445,71 @@ planなしは従来のprovider呼出しと1024要素結果を厳密に維持す�
 完全support生成後にだけencroachment、固定値、thresholdによる区分を適用するため、後続の減算で表示範囲へ戻る可能性がある安全でないoverflow bucketを一点質量として扱わない。生成分布とprovider分布は長さ、有限性、非負性、総和を検証する。`runtime options`とplanは別引数とし、cancel、cache、dedup、stale requestの既存契約を維持する。
 
 動的生成で計算可能な場合、`assetOverflow`は静的asset coverageの計画メタデータとして残すが、on-demand計画にはstatic asset warningを出さず、`overflowInfo`も実計算結果のoverflowとは扱わない。純粋generatorにはplannerを迂回した配列確保とO(n²)暴走を防ぐ絶対上限として、長さ`1<<16`、生成dice`1<<12`、概算処理量`100_000_000` operationsを設ける。これはplannerの通常warning/rejectとは別の防御である。公開1024要素、JSON削除、full-tail、total damageのdynamic outputは本単位の対象外とする。
+
+## Dynamic distribution range Phase 2-Eの確定事項
+
+Phase 2-Eは、現行入力と拡張候補をNodeと実ブラウザで比較する調査用ベンチマーク基盤として完了した。測定基盤は本番コードとUIのimport graphから分離し、通常buildの`dist/`と専用buildの`dist-dynamic-distribution-ranges/`を分けた。専用build出力は`.gitignore`対象であり、Phase 2-EのNode結果は標準出力、ブラウザ結果はページ内JSONを正とし、新しいJSON結果ファイルはGit追跡しない。既存の[`results.json`](./results.json)はPhase 2-Aから2-Dの追跡済み履歴として残す。
+
+再現コマンドは[`README.md`](./README.md)に固定した。Nodeは`node experiments/dynamic-distribution-ranges/benchmark-phase2e.mjs`、ブラウザは専用Vite設定で`node node_modules/vite/bin/vite.js --config experiments/dynamic-distribution-ranges/vite.config.mjs --host 127.0.0.1 --port 3000`を起動して`browser-benchmark.html`を開き、専用buildは`node node_modules/vite/bin/vite.js build --config experiments/dynamic-distribution-ranges/vite.config.mjs`で実行する。いずれもNode `22.23.2`を選択して実行する。
+
+### 最終実測環境と集計
+
+最終実測は2026-08-11に、Windows 10相当のChrome `151.0.0.0`、論理CPU16、ブラウザ報告メモリ32 GiB、viewport 1280×720、devicePixelRatio 1.5で行った。ブラウザは`crossOriginIsolated=false`、Long Task APIは利用可能だった。Node側は同じWindows x64環境のNode `v22.23.2`、AMD Ryzen 7 9700X、論理CPU16、Node報告総メモリ約61.6 GiBで、`.node-version`と一致する。
+
+| 測定 | total | measured | skipped | errors | 補足 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Node | 18 | 13 | 5 | 0 | planner-onlyのケースを実計算せずに分類 |
+| Chrome | 18 | 12 | 6 | 0 | `browser: true`だけを実測し、Node-onlyをskip |
+
+Nodeはwarmup 2回、warm 7回で、以下は修正後の最新実行における代表的なwarm median/p95（ms）である。p95は7サンプルのnearest-rank値なので、端末差を保証する統計的上限ではない。
+
+| ケース | median | p95 |
+| --- | ---: | ---: |
+| `dx-current-light` | 0.3499 | 0.3866 |
+| `dx-current-heavy` | 5.7087 | 8.4842 |
+| `score-current-yousei` | 11.7412 | 12.3854 |
+| `dr-current-kazanari-0` | 0.5226 | 0.8367 |
+| `dr-current-kazanari-9` | 20.6498 | 22.2100 |
+| `attack-current-warning` | 21.2829 | 22.4239 |
+| `attack-combo-3` | 12.2751 | 12.4161 |
+| `backtrack-current-livingdead` | 41.1111 | 45.4428 |
+| `backtrack-current-nightmare` | 4.3349 | 8.2838 |
+
+Chromeのブラウザ結果はページエラー0、Long Task 0、数値異常0だった。Resource Timingの異常は0で、Worker resourceのdurationを取得できない診断項目が4件あったが、これはWorker計測の利用制限として`timingUnavailable`に分類し、ベンチマークエラーにはしていない。
+
+| Workerケース | createdCount | cold（生成・初回要求を含む） | warm round-trip median | warm timer-delay median |
+| --- | ---: | ---: | ---: | ---: |
+| `dr-current-kazanari-0` | 1 | 14.8 ms | 0.8 ms | 0 ms |
+| `dr-current-kazanari-9` | 1 | 45.5 ms | 30.6 ms | 0.1 ms |
+| `attack-current-warning` | 1 | 49.6 ms | 25.4 ms | 0.3 ms |
+| `attack-combo-3` | 1 | 41.6 ms | 14 ms | 0.2 ms |
+
+`createdCount=1`はWorkerを実際に生成してcold測定へ入れたことを示す。Workerのcold値はWorker生成と初回要求を含み、warm round-tripは`postMessage`転送とWorker応答を含む。DRとattackはmain-thread pathとWorker pathを同じケースで比較し、Worker pathではUI側の計算処理をメインスレッドから外せることを確認した。
+
+### 指標の解釈
+
+`mainThreadTimerDelayApproxMilliseconds`はCPU時間でも、メインスレッドが連続してブロックした時間でもない。計測中に登録したzero-delay timerが発火するまでの遅延を、処理時間とイベントループの待ち時間を含む近似値として記録する。短時間ケースで約4–5 msの下限が現れるのはブラウザのtimer clampingやスケジューリングによるものであり、その値をCPU負荷として解釈しない。UI阻害の評価では、この指標をLong Task件数と併読する。
+
+### 入力上限の暫定判断
+
+現行入力上限はこの作業単位では変更しない。現行最大級の入力はデスクトップChromeで実用的な時間範囲に収まり、DRとattackはWorker経路によってUI阻害を抑えられるため、今回の結果だけで上限を撤廃する理由はない。
+
+入力上限を撤廃せず、拡張候補はplannerのwarningまたはhard reject、動的表示と公開出力契約、resource guardを一体で段階的に導入する。制御単位は単一入力の固定上限だけにせず、複合入力から推定した計算時間とメモリ量、working length、FFT長、尾部誤差を合わせて決める。現在の`RangePlanner`のpolicyを今回の評価値だけで即時変更しない。
+
+### 暫定受入基準
+
+以下は通常許容または拒否候補を振り分けるための追加実測用の評価基準であり、現行`RangePlanner`の確定policyではない。
+
+| 指標 | 暫定基準 | 判定の扱い |
+| --- | --- | --- |
+| デスクトップのwarm p95 | 100 ms未満 | 通常許容の目安 |
+| メインスレッドtimer-delay近似 | 50 ms未満 | 通常許容の目安。CPU時間とは解釈しない |
+| 低速端末相当の1計算 | 1秒超 | 拒否候補 |
+| 推定計算メモリ | 64 MiB超 | 拒否候補 |
+| `workingLength` | 16384超 | 拒否候補 |
+| FFT length | 32768超 | 拒否候補 |
+| planner判定 | hard reject | 拒否候補 |
+
+### 未完と次の判断
+
+FirefoxとWebKit、低速モバイル相当、入力拡張候補をcore cap内で実際に動かす検証は未完である。dynamic output、resource guard、JSON経路も未完であり、今回のブラウザ結果だけからこれらの採用を断定しない。これらを追加実測し、複合入力の推定時間・メモリと表示・公開出力契約を確認した後に、具体的なUI入力上限を決める。

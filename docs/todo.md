@@ -11,11 +11,11 @@
 3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
 4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
-6. 進行中: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、バックトラックの完全support生成、既存戻り値維持、check/attack/backtrack UIへのwarning/reject表示まで接続済み。現行1024 published bucketのtotal damage集計は維持し、resource guardと将来のdynamic output契約、入力上限、JSON経路は追加検証を続ける
+6. 完了: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、バックトラックの完全support生成、既存戻り値維持、check/attack/backtrack UIへのwarning/reject表示まで接続した。Phase 2-Eでは本番コードを変更せずNode/Chromeベンチマーク基盤を追加・修正し、現行1024 published bucketのtotal damage集計を維持したまま、現行入力上限を変更しない暫定判断と追加実測の受入基準を確定した。resource guard、将来のdynamic output契約、入力拡張候補、JSON経路は次段階へ引き継ぐ
 7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
 8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
-第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。UIは計画のwarning/rejectとoverflow下限を表示し、現行1024 published bucketのtotal damage集計を維持しています。残るtotal damage課題はresource guardと将来のdynamic output契約であり、入力上限とJSON経路は残課題です。
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定ではエラー、Long Task、数値異常を確認せず、DR/attackのWorker telemetryでWorker生成とcold初回要求を確認しました。残るtotal damage課題はresource guardと将来のdynamic output契約であり、Firefox/WebKit、低速モバイル、入力拡張候補の実測、入力上限とJSON経路は残課題です。
 
 第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
 
@@ -236,3 +236,12 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: 計画経路で末尾アセットbucketを下流の閾値判定へ流さず、有限support全体を分類してから既存の公開結果形状へ変換する。配列長、有限性、非負性、確率総和、事前に定義された`fftLength=0`を検証する
 - 完了: 既存アセットのsupport境界は`assetOverflow`の静的coverage metadataとして計画に残し、完全supportを生成できるon-demand経路ではstatic asset warningを表示しない。実計算結果のoverflow、通常planner policy、core絶対安全上限を分離する
 - 完了: planなし経路、1024要素の公開結果、既存入力範囲、cancel/staleのrequest runner契約を維持し、JSON削除、入力上限拡張、full-tail、total damageのdynamic outputは対象外とした
+
+### Dynamic distribution range Phase 2-E
+
+- 完了: `benchmark-phase2e.mjs`でNode `v22.23.2`の18ケースを測定し、13ケースを実測、5ケースをplanner-onlyまたはcore cap理由でskip、エラー0を確認した。warmup 2回、warm 7回の結果は[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)へ記録した
+- 完了: Chrome `151.0.0.0`相当のWindows環境でブラウザ12ケースを実測し、エラー0、Long Task 0、数値異常0、Worker resource timingの利用不可4件を診断上のunavailableとして分類した。DR/attackのWorker telemetryは各`createdCount=1`で、cold値に生成と初回要求を含めた
+- 完了: `mainThreadTimerDelayApproxMilliseconds`をCPU時間ではなくzero-delay timer遅延の近似として文書化し、短時間ケースの約4–5 ms下限をtimer clamping・スケジューリングの特性として扱った
+- 完了: 通常buildの`dist/`と専用buildの`dist-dynamic-distribution-ranges/`を分離し、Phase 2-Eの新規JSON結果を保存・Git追跡しない方針を[`experiments/dynamic-distribution-ranges/README.md`](../experiments/dynamic-distribution-ranges/README.md)へ記録した
+- 完了: 現行入力上限はこの作業単位では変更しないと判断した。拡張はplanner warning/hard reject、dynamic outputと公開出力契約、resource guardを組み合わせ、複合入力の推定時間・メモリで段階的に制御する
+- 次作業: Firefox/WebKit、低速モバイル相当、入力拡張候補のcore cap内実測、dynamic output/resource guard/JSON経路を検証し、その後に具体的なUI入力上限を決める
