@@ -351,6 +351,14 @@ canonical resultが表すのは、無限supportを持つ実世界の未打切り
 
 Phase 2-H第3単位では、既存の`calculateAttackCombo`結果を変更せず、`createCalculationClient()`へ明示的な`calculateAttackCanonical(params, options = {})`を追加した。canonical経路は既存attackと同じsnapshot、RangePlanner preflight、`onRangePlan`、ResourceGuard lease、abort/stale確認、score計算を共有し、DR provider、D10 provider、`onFftLength`、runtime optionsも同じ値を渡す。
 
-canonical damage calculatorには`plan.damage`ではなくacceptedなtop-level attack plan全体を渡す。戻り値は`{ score, scoreSummary, canonicalDamage }`だけで、`canonicalDamage`にはpure APIが返すfreeze済みの`{ result, metadata }`をそのまま保持する。canonical経路はlegacy `damage`、`damageSummary`、`getDamageSummary`を使用せず、legacy calculatorとscore/DR計算の二重実行も行わない。
+第3単位時点のcanonical damage calculatorには`plan.damage`ではなくacceptedなtop-level attack plan全体を渡し、戻り値は`{ score, scoreSummary, canonicalDamage }`だけだった。`canonicalDamage`にはpure APIが返すfreeze済みの`{ result, metadata }`をそのまま保持した。第4単位で`canonicalDamageSummary`を追加した後も、canonical経路はlegacy `damage`、`damageSummary`、`getDamageSummary`を使用せず、legacy calculatorとscore/DR計算の二重実行も行わない。
 
 `calculateAttackCanonical`はopt-in consumer向けの未接続APIであり、UI、既存公開結果、`getTotalDamage`、RuntimeDamageRoll Client/Worker protocol、JSON serialization、入力上限、full-tail契約は切り替えない。preflight rejectはasset/provider/calculator開始前に発生し、canonical calculatorの成功、error、abortを含む全経路でleaseを一度だけ解放する。次段階ではcanonical resultを利用するconsumer、Worker・JSON serialization、公開結果・UIへの移行条件、total damageとのmetadata境界を設計して検証する。
+
+## Phase 2-H canonical expected-value summary（第4単位）
+
+canonical distributionの期待値summaryは`src/calculation/DistributionResult.js`の`getExpectedValueSummary`で計算する。明示値の一次モーメントは`E = Σ (offset + index) * values[index]`であり、`offset`を0とみなさない。`overflow: null`はsupportが`infinite`でも全質量が明示されているため`{ kind: 'exact', value: E }`を返す。
+
+exact overflowの確率を`p`、lower boundを`L`、finite supportの最大値を`U`とすると、finite supportでは`[E + pL, E + pU]`を返し、`p = 0`または`L = U`ならexactへ縮約する。infinite supportでは`p = 0`だけをexactとし、それ以外は`{ kind: 'lower-bound', lowerBound: E + pL }`とする。upper-bound overflowの上限を`q`とすると、`q = 0`はexact、finite supportでは`[E, E + qU]`、infinite supportでは`{ kind: 'lower-bound', lowerBound: E }`とする。値は`exact`、`bounded`、`lower-bound`のJSON-safe discriminated unionで表し、`errorBound`は区間へ加算せずmass summaryのmetadataとして保持する。
+
+`getCanonicalDamageSummary`は`{ result, metadata }` envelopeだけを受ける薄いadapterで、legacy bucketへの変換や`values`のcopyを行わず、freeze済みの`{ expectedValue, mass }`を返す。`mass`は既存`getProbabilityMassSummary`を利用するため、exact/upper-boundの区別、actual mass、upper bound、`errorBound`を保持する。`getDamageSummary`、legacy adapter、UI、total damage、Worker/JSON protocolはcanonical summaryから独立したままとする。

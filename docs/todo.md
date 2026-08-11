@@ -278,6 +278,11 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 次段階: canonical resultのconsumer、Worker・JSON serialization、既存1024結果から公開結果・UIを切り替える互換境界を設計・検証する
 - 完了: `createCalculationClient()`へopt-inの`calculateAttackCanonical(params, options = {})`を追加し、既存`calculateAttackCombo`の戻り値と既定動作を維持した
 - 完了: canonical pathを既存attackと同じsnapshot、RangePlanner preflight、`onRangePlan`、ResourceGuard lease、abort/stale確認、score計算へ接続し、acceptedなtop-level attack plan、DR/D10 provider、`onFftLength`、runtime optionsを伝播した
-- 完了: canonicalの戻り値を`{ score, scoreSummary, canonicalDamage }`に限定し、pure APIのfreeze済み`{ result, metadata }`を保持した。legacy calculator、`damage`、`damageSummary`、`getDamageSummary`はcanonical pathで呼び出さない
+- 完了: 第3単位時点のcanonical戻り値を`{ score, scoreSummary, canonicalDamage }`に限定し、pure APIのfreeze済み`{ result, metadata }`を保持した。第4単位で`canonicalDamageSummary`を追加したが、legacy calculator、`damage`、`damageSummary`、`getDamageSummary`はcanonical pathで呼び出さない
 - 対象外: canonical consumerのUI接続、既存公開結果、RuntimeDamageRoll Client/Worker protocol、JSON serialization、`getTotalDamage`、入力上限、full-tail、公開dynamic outputは変更しない
 - 次段階: canonical resultを利用するconsumer、Worker・JSON serialization、公開結果・UIへの移行条件、total damageとのsupport metadata境界を設計・検証する
+- 完了: `DistributionResult.js`にoffset込みの明示一次モーメントとoverflow-awareな`getExpectedValueSummary`を追加し、exact・bounded・lower-boundのJSON-safe unionを返すようにした
+- 完了: `overflow: null`、exact overflowのfinite/infinite support、`p=0`、`lowerBound === support.max`、upper-bound overflowの`q=0`、finite/infinite supportを期待値summaryの専用テストで固定した
+- 完了: overflowの`errorBound`を期待値区間へ加算せず既存mass summaryのmetadataとして伝播し、summaryの再帰freeze、入力・values非変更、invalid入力をテストした
+- 完了: `getCanonicalDamageSummary`をcanonical damage envelopeの薄いadapterとして追加し、`{ expectedValue, mass }`を返して`calculation/index.js`と`CalculationClient`の`canonicalDamageSummary`へ接続した。canonical pathからlegacy summary、legacy adapter、UI、Worker、JSON、total damageは呼び出さない
+- 対象外: 既存`getDamageSummary`、legacy/UI/total damage/Worker/JSON protocol、canonical result自体のserialization契約は変更しない

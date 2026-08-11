@@ -597,6 +597,14 @@ canonical resultはpublished-bucket scoreを入力とする有限modeled distrib
 
 第3単位では、既存attack routeの公開契約を維持したまま`createCalculationClient()`へopt-inの`calculateAttackCanonical(params, options = {})`を追加する。legacy `calculateAttackCombo`とcanonical methodはsnapshot、RangePlanner preflight、`onRangePlan`、ResourceGuard lease、abort/stale確認、score計算を共有し、canonical pathだけが`calculateCanonicalDamageOnDemand`を選択する。
 
-canonical calculatorにはdamage subplanではなくacceptedなtop-level attack planを渡し、DR provider、D10 provider、`onFftLength`、runtime optionsはlegacy pathと同じものを渡す。戻り値は`{ score, scoreSummary, canonicalDamage }`に限定し、pure APIのfreeze済み`{ result, metadata }`をそのまま保持する。legacy `damage`、`damageSummary`、`getDamageSummary`はcanonical pathへ持ち込まない。
+第3単位時点のcanonical calculatorにはdamage subplanではなくacceptedなtop-level attack planを渡し、DR provider、D10 provider、`onFftLength`、runtime optionsはlegacy pathと同じものを渡した。当時の戻り値は`{ score, scoreSummary, canonicalDamage }`に限定し、pure APIのfreeze済み`{ result, metadata }`をそのまま保持した。第4単位で`canonicalDamageSummary`を追加した後も、legacy `damage`、`damageSummary`、`getDamageSummary`はcanonical pathへ持ち込まない。
 
 この単位のconsumerはclient APIとunit testに限り、UI、既存公開結果、RuntimeDamageRoll Client/Worker protocol、JSON、`getTotalDamage`、入力上限、full-tailは未接続のままとする。次段階ではcanonical resultのconsumer、Worker・JSON serialization、公開resultとUIの切替条件、total damageでsupport metadataを失わない境界を設計・検証する。
+
+## Dynamic distribution range Phase 2-H 第4単位
+
+第4単位では、canonical distributionをlegacyの末尾bucketへ潰さずに期待値へ変換するoverflow-aware summaryを追加する。明示valuesの一次モーメントは`E = Σ (offset + index) * values[index]`で計算し、`overflow: null`はfinite/infinite supportを問わずexactとする。
+
+exact overflowは、finite supportなら`p`、`L`、`U`から`[E + pL, E + pU]`を作り、`p = 0`または`L = U`ではexactにする。infinite supportでは`p = 0`だけをexactとし、それ以外は`E + pL`のlower-boundにする。upper-bound overflowは、`q = 0`ならexact、finite supportなら`[E, E + qU]`、infinite supportなら`E`のlower-boundにする。返却値は`{ kind, value }`、`{ kind, lowerBound, upperBound }`、`{ kind, lowerBound }`のJSON-safe unionとし、overflowの`errorBound`は区間へ混ぜずmass metadataへ伝播する。
+
+`getCanonicalDamageSummary`はcanonical damageの`{ result, metadata }`を受け、`DistributionResult`の期待値summaryとmass summaryを組み合わせたfreeze済み`{ expectedValue, mass }`を返す。入力envelope、metadata、canonical `values`は変更またはcopyせず、legacy `getDamageSummary`、published-bucket adapter、UI、total damage、Worker/JSON protocolは呼び出さない。`calculateAttackCanonical`にはこのadapter結果を`canonicalDamageSummary`として追加するが、既存`calculateAttackCombo`の契約は維持する。
