@@ -1,5 +1,8 @@
 import { getFinalEncroachment } from '../data/BacktrackCalculator'
-import { calculateDamageOnDemand } from '../calculation/DamageCalculator'
+import {
+  calculateCanonicalDamageOnDemand,
+  calculateDamageOnDemand,
+} from '../calculation/DamageCalculator'
 import {
   calculateDxDistribution,
   normalizeDxOptions,
@@ -43,6 +46,7 @@ function throwIfAborted(options, operation = 'Calculation') {
 }
 
 const defaultDependencies = {
+  calculateCanonicalDamageOnDemand,
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore,
@@ -308,6 +312,66 @@ export function createCalculationClient(
     )
   }
 
+  async function runAttackCalculation(
+    params,
+    options,
+    finalizeDamage,
+    buildResult
+  ) {
+    const request = snapshotAttackParams(params)
+    const plan = runRangePreflight(
+      planner,
+      createAttackRangeParams(request),
+      options.rangePolicy,
+      options.onRangePlan
+    )
+    const leaseRequest = acquirePlanLease(
+      resourceGuard,
+      plan,
+      options,
+      'attack'
+    )
+    const lease = isPromiseLike(leaseRequest)
+      ? await leaseRequest
+      : leaseRequest
+
+    try {
+      throwIfAborted(options, 'Attack')
+      if (request.reaction.damage.dice > 0) {
+        await dependencies.loadD10Asset()
+      }
+      throwIfAborted(options, 'Attack')
+
+      const score = {
+        action: scoreCalculator(
+          request.action.score,
+          false,
+          plan.scores?.[0]
+        ),
+        reaction: scoreCalculator(
+          request.reaction.score,
+          request.reaction.mode === EVASION_MODE,
+          plan.scores?.[1]
+        ),
+      }
+      const finalizedDamage = await finalizeDamage(
+        score,
+        request,
+        plan,
+        getRuntimeOptions(options)
+      )
+      throwIfAborted(options, 'Attack')
+
+      return buildResult({
+        score,
+        scoreSummary: dependencies.getScoreSummary(score),
+        finalizedDamage,
+      })
+    } finally {
+      lease.release()
+    }
+  }
+
   return {
     planCheck(params, _difficulty, policy = {}) {
       const request = {
@@ -387,66 +451,56 @@ export function createCalculationClient(
     },
 
     async calculateAttackCombo(params, options = {}) {
-      const request = snapshotAttackParams(params)
-      const plan = runRangePreflight(
-        planner,
-        createAttackRangeParams(request),
-        options.rangePolicy,
-        options.onRangePlan
-      )
-      const leaseRequest = acquirePlanLease(
-        resourceGuard,
-        plan,
+      return runAttackCalculation(
+        params,
         options,
-        'attack'
+        (score, request, plan, runtimeOptions) =>
+          dependencies.calculateDamageOnDemand(
+            score,
+            request.action.damage,
+            request.reaction.damage,
+            {
+              getDamageRollDistribution:
+                dependencies.getDamageRollDistribution,
+              getD10Distribution: dependencies.getD10Distribution,
+              onFftLength: dependencies.onFftLength,
+            },
+            runtimeOptions,
+            plan.damage
+          ),
+        ({ score, scoreSummary, finalizedDamage }) => ({
+          score,
+          scoreSummary,
+          damage: finalizedDamage,
+          damageSummary: dependencies.getDamageSummary(finalizedDamage),
+        })
       )
-      const lease = isPromiseLike(leaseRequest)
-        ? await leaseRequest
-        : leaseRequest
+    },
 
-      try {
-        throwIfAborted(options, 'Attack')
-        if (request.reaction.damage.dice > 0) {
-          await dependencies.loadD10Asset()
-        }
-        throwIfAborted(options, 'Attack')
-
-        const score = {
-          action: scoreCalculator(
-            request.action.score,
-            false,
-            plan.scores?.[0]
+    async calculateAttackCanonical(params, options = {}) {
+      return runAttackCalculation(
+        params,
+        options,
+        (score, request, plan, runtimeOptions) =>
+          dependencies.calculateCanonicalDamageOnDemand(
+            score,
+            request.action.damage,
+            request.reaction.damage,
+            {
+              getDamageRollDistribution:
+                dependencies.getDamageRollDistribution,
+              getD10Distribution: dependencies.getD10Distribution,
+              onFftLength: dependencies.onFftLength,
+            },
+            runtimeOptions,
+            plan
           ),
-          reaction: scoreCalculator(
-            request.reaction.score,
-            request.reaction.mode === EVASION_MODE,
-            plan.scores?.[1]
-          ),
-        }
-        const damage = await dependencies.calculateDamageOnDemand(
+        ({ score, scoreSummary, finalizedDamage }) => ({
           score,
-          request.action.damage,
-          request.reaction.damage,
-          {
-            getDamageRollDistribution:
-              dependencies.getDamageRollDistribution,
-            getD10Distribution: dependencies.getD10Distribution,
-            onFftLength: dependencies.onFftLength,
-          },
-          getRuntimeOptions(options),
-          plan.damage
-        )
-        throwIfAborted(options, 'Attack')
-
-        return {
-          score,
-          scoreSummary: dependencies.getScoreSummary(score),
-          damage,
-          damageSummary: dependencies.getDamageSummary(damage),
-        }
-      } finally {
-        lease.release()
-      }
+          scoreSummary,
+          canonicalDamage: finalizedDamage,
+        })
+      )
     },
 
     async calculateTotalDamage(combos, options = {}) {

@@ -8,6 +8,10 @@ import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
 
 function createDependencies(overrides = {}) {
   return {
+    calculateCanonicalDamageOnDemand: vi.fn(async () => Object.freeze({
+      result: Object.freeze({ values: [1] }),
+      metadata: Object.freeze({ modeledDistribution: true }),
+    })),
     calculateDamageOnDemand: vi.fn(async (
       _score,
       attack,
@@ -244,6 +248,180 @@ describe('CalculationClient', () => {
       4,
       {}
     )
+  })
+
+  it('exposes an opt-in canonical attack method', () => {
+    const client = createCalculationClient(createDependencies())
+
+    expect(client.calculateAttackCanonical).toEqual(expect.any(Function))
+  })
+
+  it('uses the shared attack flow and passes the top-level plan to canonical damage', async () => {
+    const plan = {
+      accepted: true,
+      operation: 'attack',
+      propagation: { score: 'published-bucket' },
+      scores: [{ tail: { kind: 'dx-tail' } }, { tail: { kind: 'dx-tail' } }],
+      damage: {
+        fixedDifference: 2,
+        rawSupportMax: 10,
+        workingMax: 10,
+        workingLength: 12,
+        defenceMax: 20,
+        fftLength: 16,
+        defenceFftLength: 32,
+        scoreValueMode: 'published-bucket',
+      },
+    }
+    const signal = new AbortController().signal
+    const onRangePlan = vi.fn()
+    const onFftLength = vi.fn()
+    const options = {
+      signal,
+      requestId: 'canonical-attack',
+      rangePolicy: { calculationMax: 10 },
+      onRangePlan,
+      runtimeFlag: 'preserve',
+    }
+    const canonicalDamage = Object.freeze({
+      result: Object.freeze({ values: [0.25, 0.75] }),
+      metadata: Object.freeze({ scorePropagation: 'published-bucket' }),
+    })
+    const calculateCanonicalDamageOnDemand = vi.fn(async () => canonicalDamage)
+    const planCalculationRanges = vi.fn(() => plan)
+    const dependencies = createDependencies({
+      calculateCanonicalDamageOnDemand,
+      calculateDamageOnDemand: vi.fn(),
+      getScoreSummary: vi.fn(() => 'canonical score summary'),
+      onFftLength,
+      planCalculationRanges,
+    })
+    const client = createCalculationClient(dependencies)
+
+    const result = await client.calculateAttackCanonical(attackParams(), options)
+
+    expect(result).toEqual({
+      score: {
+        action: { params: expect.any(Object), fix: false },
+        reaction: { params: expect.any(Object), fix: true },
+      },
+      scoreSummary: 'canonical score summary',
+      canonicalDamage,
+    })
+    expect(result.canonicalDamage).toBe(canonicalDamage)
+    expect(result).not.toHaveProperty('damage')
+    expect(result).not.toHaveProperty('damageSummary')
+    expect(planCalculationRanges).toHaveBeenCalledOnce()
+    expect(onRangePlan).toHaveBeenCalledOnce()
+    expect(onRangePlan).toHaveBeenCalledWith(plan)
+    expect(dependencies.getScore).toHaveBeenCalledTimes(2)
+    expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
+    expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
+    expect(dependencies.calculateDamageOnDemand).not.toHaveBeenCalled()
+    expect(dependencies.getDamageSummary).not.toHaveBeenCalled()
+
+    const [score, attack, defence, damageDependencies, runtimeOptions, passedPlan] =
+      calculateCanonicalDamageOnDemand.mock.calls[0]
+    expect(score).toEqual(result.score)
+    expect(attack).toEqual({ dice: 0, value: 3, kazanari: 4 })
+    expect(defence).toEqual({ dice: 2, value: 1 })
+    expect(damageDependencies).toEqual({
+      getDamageRollDistribution: dependencies.getDamageRollDistribution,
+      getD10Distribution: dependencies.getD10Distribution,
+      onFftLength,
+    })
+    expect(runtimeOptions).toEqual({
+      signal,
+      requestId: 'canonical-attack',
+      runtimeFlag: 'preserve',
+    })
+    expect(passedPlan).toBe(plan)
+  })
+
+  it('rejects canonical attack in preflight before assets or calculators run', async () => {
+    const plan = {
+      accepted: false,
+      operation: 'attack',
+      rejectionReasons: ['estimated-memory'],
+    }
+    const dependencies = createDependencies({
+      calculateCanonicalDamageOnDemand: vi.fn(),
+      calculateDamageOnDemand: vi.fn(),
+      planCalculationRanges: vi.fn(() => plan),
+    })
+    const client = createCalculationClient(dependencies)
+
+    await expect(client.calculateAttackCanonical(attackParams()))
+      .rejects.toSatisfy((error) => {
+        expect(error).toBeInstanceOf(CalculationRangeError)
+        expect(error.plan).toBe(plan)
+        return true
+      })
+
+    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
+    expect(dependencies.getScore).not.toHaveBeenCalled()
+    expect(dependencies.getDamageRollDistribution).not.toHaveBeenCalled()
+    expect(dependencies.calculateCanonicalDamageOnDemand).not.toHaveBeenCalled()
+    expect(dependencies.calculateDamageOnDemand).not.toHaveBeenCalled()
+  })
+
+  it('releases the canonical lease after an abort before scoring', async () => {
+    const controller = new AbortController()
+    const release = vi.fn()
+    const resourceGuard = {
+      acquirePlan: vi.fn(() => {
+        controller.abort()
+        return { release }
+      }),
+    }
+    const dependencies = createDependencies({ resourceGuard })
+    const client = createCalculationClient(dependencies)
+
+    await expect(client.calculateAttackCanonical(attackParams(), {
+      signal: controller.signal,
+    })).rejects.toMatchObject({ name: 'AbortError' })
+
+    expect(release).toHaveBeenCalledOnce()
+    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
+    expect(dependencies.getScore).not.toHaveBeenCalled()
+    expect(dependencies.calculateCanonicalDamageOnDemand).not.toHaveBeenCalled()
+  })
+
+  it('releases the canonical lease when canonical damage fails', async () => {
+    const release = vi.fn()
+    const resourceGuard = {
+      acquirePlan: vi.fn(() => ({ release })),
+    }
+    const canonicalError = new Error('canonical failure')
+    const dependencies = createDependencies({
+      calculateCanonicalDamageOnDemand: vi.fn(async () => {
+        throw canonicalError
+      }),
+      resourceGuard,
+    })
+    const client = createCalculationClient(dependencies)
+
+    await expect(client.calculateAttackCanonical(attackParams()))
+      .rejects.toBe(canonicalError)
+
+    expect(release).toHaveBeenCalledOnce()
+    expect(dependencies.getDamageSummary).not.toHaveBeenCalled()
+  })
+
+  it('does not acquire or release a canonical lease when resource admission rejects', async () => {
+    const resourceError = new Error('resource rejected')
+    const resourceGuard = {
+      acquirePlan: vi.fn(() => Promise.reject(resourceError)),
+    }
+    const dependencies = createDependencies({ resourceGuard })
+    const client = createCalculationClient(dependencies)
+
+    await expect(client.calculateAttackCanonical(attackParams()))
+      .rejects.toBe(resourceError)
+
+    expect(resourceGuard.acquirePlan).toHaveBeenCalledOnce()
+    expect(dependencies.getScore).not.toHaveBeenCalled()
+    expect(dependencies.calculateCanonicalDamageOnDemand).not.toHaveBeenCalled()
   })
 
   it('runs the range preflight before calculation and publishes one plan', async () => {
