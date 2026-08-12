@@ -296,3 +296,10 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: result/metadataとcomponent descriptorsをfreezeし、入力envelope/result/valuesを変更しない。metadataには`aggregation: 'independent-sum'`、`independence: 'assumed'`、support、overflow lower bound、aggregation error boundを残す
 - 完了: values/FFTは`1 << 20`、componentは`1 << 12`、resourceは512 MiBを絶対安全上限とし、persistent bytes（component、inspected、steps、descriptors、metadata、output）と各FFT peakの合計をguardする。canonical option名以外を拒否し、optionsで下げられるが緩和できないようにした。invalid envelope/options、index overflow、resource limit、numerical failure、abortをtyped error codeで識別する
 - 対象外: `CalculationClient`、UI、legacy `getTotalDamage`、combo ViewModel、Worker/JSON protocol、display再集約、total summary、公開dynamic outputは変更しない
+
+### Dynamic distribution range Phase 2-H 第6単位
+
+- 完了: `planCanonicalDamageAggregation()`でcanonical damage配列の検証とFFT/resource見積りを一度だけ行い、freeze済みread-only planを公開した。planは入力係数列の所有copyを保持して呼び出し元の後続変更から分離し、そのmemoryも見積りへ含める。`plan.estimates.float64Bytes`等をResourceGuardの`acquirePlan()`へ渡し、偽造・改変planは内部識別で拒否する
+- 完了: `sumCanonicalDamage()`が同一planを実行できるようにし、client側でFFT長・resource量を再実装しない。`getCanonicalTotalDamageSummary()`はupper-bound aggregateの`overflowProbabilityLowerBound × lowerBound`を期待値下限へ反映し、sourceMassDrift/errorBoundを区間へ加算しない
+- 完了: `CalculationClient.calculateCanonicalTotalDamage()`をopt-inで追加し、入力snapshot、plan、単一lease、同一planのaggregation、summary、finally releaseの順序、abort/requestId/onFftLength、入力非変更・返却alias防止をテストした
+- 対象外: 既存`calculateTotalDamage`、UI、combo ViewModel、Worker/JSON、display再集約、公開1024結果は変更しない

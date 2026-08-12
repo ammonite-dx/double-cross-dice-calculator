@@ -21,6 +21,7 @@ export {
   getTotalDamage,
 } from './DamageCalculator'
 export {
+  getCanonicalTotalDamageSummary,
   getExpectedValueSummary,
 } from './DistributionResult'
 export {
@@ -35,6 +36,7 @@ export {
   CanonicalDamageAggregationError,
   isCanonicalDamageAggregationAbortError,
   isCanonicalDamageAggregationError,
+  planCanonicalDamageAggregation,
   sumCanonicalDamage,
 } from './CanonicalDamageAggregation'
 export {

@@ -642,6 +642,114 @@ export function getExpectedValueSummary(result) {
   return createLowerBoundExpectedValue(explicitFirstMoment)
 }
 
+function validateCanonicalTotalDamageEnvelope(canonicalTotalDamage) {
+  if (
+    !isRecord(canonicalTotalDamage)
+    || !hasOwn(canonicalTotalDamage, 'result')
+    || !isRecord(canonicalTotalDamage.metadata)
+    || canonicalTotalDamage.metadata.modeledDistribution !== true
+  ) {
+    failAdapter(
+      DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
+      'canonical total damage summary expects a modeled result envelope'
+    )
+  }
+
+  const inspected = inspectDistributionResult(canonicalTotalDamage.result)
+  const overflow = inspected.overflow
+  if (overflow?.kind === 'upper-bound') {
+    const lowerBound = canonicalTotalDamage.metadata
+      .overflowProbabilityLowerBound
+    if (!Number.isFinite(lowerBound) || lowerBound < 0 || lowerBound > 1) {
+      failAdapter(
+        DISTRIBUTION_RESULT_ERROR_CODES.INVALID_LOWER_BOUND,
+        'canonical total damage metadata.overflowProbabilityLowerBound must be a probability',
+        { overflowProbabilityLowerBound: lowerBound }
+      )
+    }
+    if (
+      lowerBound
+      > overflow.probabilityUpperBound + DISTRIBUTION_RESULT_TOLERANCE
+    ) {
+      failAdapter(
+        DISTRIBUTION_RESULT_ERROR_CODES.UPPER_BOUND_TOO_SMALL,
+        'canonical total damage overflow probability lower bound exceeds its upper bound',
+        {
+          overflowProbabilityLowerBound: lowerBound,
+          probabilityUpperBound: overflow.probabilityUpperBound,
+        }
+      )
+    }
+  }
+  return inspected
+}
+
+/**
+ * Summarize an aggregated canonical damage envelope. Upper-bound aggregates
+ * retain the proven overflow probability lower bound from aggregation when
+ * deriving their expected-value lower bound; numerical drift and error bounds
+ * remain diagnostics and never widen the returned interval.
+ */
+export function getCanonicalTotalDamageSummary(canonicalTotalDamage) {
+  const inspected = validateCanonicalTotalDamageEnvelope(canonicalTotalDamage)
+  const { result, metadata } = canonicalTotalDamage
+
+  if (inspected.overflow?.kind !== 'upper-bound') {
+    return Object.freeze({
+      expectedValue: getExpectedValueSummary(result),
+      mass: getProbabilityMassSummary(result),
+    })
+  }
+
+  const explicitFirstMoment = sumExplicitFirstMoment(
+    inspected.values,
+    inspected.offset
+  )
+  // Validation admits a tolerance-sized numerical disagreement between the
+  // published lower and upper probabilities. Clamp that disagreement before
+  // constructing the expectation interval so its bounds cannot be inverted.
+  const overflowProbabilityLowerBound = Math.min(
+    metadata.overflowProbabilityLowerBound,
+    inspected.overflow.probabilityUpperBound
+  )
+  const lowerExpectedValue = explicitFirstMoment
+    + overflowProbabilityLowerBound * inspected.overflow.lowerBound
+
+  if (!Number.isFinite(lowerExpectedValue)) {
+    failAdapter(
+      DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
+      'canonical total damage expected-value lower bound is not finite',
+      { lowerExpectedValue }
+    )
+  }
+
+  let expectedValue
+  if (inspected.overflow.probabilityUpperBound === 0) {
+    expectedValue = createExactExpectedValue(explicitFirstMoment)
+  } else if (inspected.support.kind === 'finite') {
+    const upperExpectedValue = explicitFirstMoment
+      + inspected.overflow.probabilityUpperBound * inspected.support.max
+    if (!Number.isFinite(upperExpectedValue)) {
+      failAdapter(
+        DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
+        'canonical total damage expected-value upper bound is not finite',
+        { upperExpectedValue }
+      )
+    }
+    expectedValue = createBoundedExpectedValue(
+      lowerExpectedValue,
+      upperExpectedValue
+    )
+  } else {
+    expectedValue = createLowerBoundExpectedValue(lowerExpectedValue)
+  }
+
+  return Object.freeze({
+    expectedValue,
+    mass: getProbabilityMassSummary(result),
+  })
+}
+
 function validateLegacyInputValues(distribution) {
   if (!isLegacyValueSource(distribution)) {
     failAdapter(

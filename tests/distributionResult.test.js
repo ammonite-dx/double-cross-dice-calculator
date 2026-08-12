@@ -10,6 +10,7 @@ import {
   createDistributionResult,
   fromPublishedBucketDistribution,
   getExplicitMax,
+  getCanonicalTotalDamageSummary,
   getExpectedValueSummary,
   getProbabilityMassSummary,
   isDistributionResultAdapterError,
@@ -377,6 +378,119 @@ describe('canonical distribution result', () => {
     expect(result.support).toEqual(beforeSupport)
     expect(result.overflow).toEqual(beforeOverflow)
     expect(result.values).not.toBe(values)
+  })
+
+  it('uses aggregate overflow lower probability for total expected-value bounds', () => {
+    const result = createDistributionResult({
+      values: [0.5, 0.5],
+      offset: 2,
+      support: { kind: 'finite', max: 20 },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 10,
+        probabilityUpperBound: 0.5,
+        errorBound: 0.75,
+      },
+    })
+    const summary = getCanonicalTotalDamageSummary({
+      result,
+      metadata: {
+        modeledDistribution: true,
+        aggregation: 'independent-sum',
+        overflowProbabilityLowerBound: 0.2,
+        sourceMassDrift: 0.4,
+      },
+    })
+
+    expect(summary.expectedValue).toEqual({
+      kind: 'bounded',
+      lowerBound: 4.5,
+      upperBound: 12.5,
+    })
+    expect(summary.mass.errorBound).toBe(0.75)
+    expect(summary.expectedValue).not.toHaveProperty('errorBound')
+  })
+
+  it('does not invert expectation bounds within probability tolerance', () => {
+    const result = createDistributionResult({
+      values: [0.5],
+      offset: 0,
+      support: { kind: 'finite', max: 10 },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 10,
+        probabilityUpperBound: 0.5,
+        errorBound: 0,
+      },
+    })
+
+    expect(getCanonicalTotalDamageSummary({
+      result,
+      metadata: {
+        modeledDistribution: true,
+        overflowProbabilityLowerBound: 0.5 + 5e-13,
+      },
+    }).expectedValue).toEqual({
+      kind: 'bounded',
+      lowerBound: 5,
+      upperBound: 5,
+    })
+  })
+
+  it('retains aggregate lower expected value for infinite support', () => {
+    const result = createDistributionResult({
+      values: [0.5, 0.5],
+      offset: 2,
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 10,
+        probabilityUpperBound: 0.5,
+        errorBound: 0,
+      },
+    })
+
+    expect(getCanonicalTotalDamageSummary({
+      result,
+      metadata: {
+        modeledDistribution: true,
+        overflowProbabilityLowerBound: 0.2,
+        errorBound: 99,
+        sourceMassDrift: 99,
+      },
+    }).expectedValue).toEqual({
+      kind: 'lower-bound',
+      lowerBound: 4.5,
+    })
+  })
+
+  it('keeps exact and null overflow on the existing expected-value semantics', () => {
+    const exact = createDistributionResult({
+      values: [0.75],
+      offset: 2,
+      support: { kind: 'finite', max: 8 },
+      overflow: {
+        kind: 'exact',
+        lowerBound: 4,
+        probability: 0.25,
+        errorBound: 0.5,
+      },
+    })
+    const noOverflow = createDistributionResult({
+      values: [0.25, 0.75],
+      offset: 4,
+      support: { kind: 'finite', max: 5 },
+      overflow: null,
+    })
+
+    expect(getCanonicalTotalDamageSummary({
+      result: exact,
+      metadata: { modeledDistribution: true, overflowProbabilityLowerBound: 0 },
+    }).expectedValue).toEqual(getExpectedValueSummary(exact))
+    expect(getCanonicalTotalDamageSummary({
+      result: noOverflow,
+      metadata: { modeledDistribution: true },
+    }).expectedValue).toEqual(getExpectedValueSummary(noOverflow))
   })
 
   it('rejects invalid canonical input before calculating an expected value', () => {

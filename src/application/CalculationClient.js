@@ -5,6 +5,14 @@ import {
   calculateDamageOnDemand,
 } from '../calculation/DamageCalculator'
 import {
+  createDistributionResult,
+  getCanonicalTotalDamageSummary,
+} from '../calculation/DistributionResult'
+import {
+  planCanonicalDamageAggregation,
+  sumCanonicalDamage,
+} from '../calculation/CanonicalDamageAggregation'
+import {
   calculateDxDistribution,
   normalizeDxOptions,
 } from '../calculation/DxCalculator'
@@ -52,6 +60,7 @@ const defaultDependencies = {
   calculateDxDistribution,
   calculateScore,
   getCanonicalDamageSummary,
+  getCanonicalTotalDamageSummary,
   getDamageSummary,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachment,
@@ -60,8 +69,10 @@ const defaultDependencies = {
   getTotalDamage,
   loadD10Asset,
   loadLivingdeadAsset,
+  planCanonicalDamageAggregation,
   planCalculationRanges,
   resourceGuard: defaultResourceGuard,
+  sumCanonicalDamage,
 }
 
 const EVASION_MODE = '《イベイジョン》'
@@ -220,6 +231,70 @@ function createTotalDamageResourceRequest(combos, options) {
   }
 }
 
+const CANONICAL_TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES = Object.freeze([
+  'maxValuesLength',
+  'maxFftLength',
+  'maxResourceBytes',
+  'maxComponents',
+  'signal',
+  'onFftLength',
+])
+
+function hasOwn(object, property) {
+  return Object.prototype.hasOwnProperty.call(object, property)
+}
+
+function createCanonicalTotalDamageAggregationOptions(
+  options,
+  defaultOnFftLength
+) {
+  const aggregationOptions = {}
+  for (const name of CANONICAL_TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES) {
+    if (hasOwn(options, name)) {
+      aggregationOptions[name] = options[name]
+    }
+  }
+  if (
+    !hasOwn(aggregationOptions, 'onFftLength')
+    && typeof defaultOnFftLength === 'function'
+  ) {
+    aggregationOptions.onFftLength = defaultOnFftLength
+  }
+  return aggregationOptions
+}
+
+function copyCanonicalTotalDamageEnvelope(canonicalTotalDamage) {
+  const result = canonicalTotalDamage?.result
+  if (
+    canonicalTotalDamage === null
+    || typeof canonicalTotalDamage !== 'object'
+    || result === null
+    || typeof result !== 'object'
+    || !hasOwn(result, 'values')
+    || !hasOwn(result, 'offset')
+    || !hasOwn(result, 'support')
+    || !hasOwn(result, 'overflow')
+  ) {
+    return canonicalTotalDamage
+  }
+
+  try {
+    return Object.freeze({
+      ...canonicalTotalDamage,
+      result: createDistributionResult({
+        values: result.values,
+        offset: result.offset,
+        support: result.support,
+        overflow: result.overflow,
+      }),
+    })
+  } catch {
+    // A dependency-injected test double or an invalid upstream result should
+    // be reported by its summary/aggregation dependency, not hidden here.
+    return canonicalTotalDamage
+  }
+}
+
 /**
  * Plans a request and publishes the plan before any calculation starts.
  *
@@ -280,6 +355,15 @@ export function createCalculationClient(
 ) {
   const resourceGuard = dependencies.resourceGuard ?? defaultResourceGuard
   const planner = dependencies.planCalculationRanges ?? planCalculationRanges
+  const canonicalDamagePlan =
+    dependencies.planCanonicalDamageAggregation
+    ?? planCanonicalDamageAggregation
+  const canonicalDamageSum =
+    dependencies.sumCanonicalDamage
+    ?? sumCanonicalDamage
+  const canonicalTotalDamageSummary =
+    dependencies.getCanonicalTotalDamageSummary
+    ?? getCanonicalTotalDamageSummary
   const hasRuntimeScoreDependencies =
     typeof dependencies.calculateScore === 'function' &&
     typeof dependencies.calculateDxDistribution === 'function'
@@ -522,6 +606,48 @@ export function createCalculationClient(
         return {
           totalDamage,
           totalDamageSummary: dependencies.getDamageSummary(totalDamage),
+        }
+      } finally {
+        lease.release()
+      }
+    },
+
+    async calculateCanonicalTotalDamage(canonicalDamages, options = {}) {
+      // Snapshot the caller's array before planning or waiting for a resource
+      // lease. The aggregation plan is then tied to this private snapshot.
+      const canonicalDamageSnapshot = Array.isArray(canonicalDamages)
+        ? canonicalDamages.map(copyCanonicalTotalDamageEnvelope)
+        : canonicalDamages
+      const calculationOptions = options ?? {}
+      const aggregationOptions =
+        createCanonicalTotalDamageAggregationOptions(
+          calculationOptions,
+          dependencies.onFftLength
+        )
+      const plan = canonicalDamagePlan(
+        canonicalDamageSnapshot,
+        aggregationOptions
+      )
+      const leaseRequest = resourceGuard.acquirePlan(plan, {
+        signal: calculationOptions.signal,
+        requestId: calculationOptions.requestId,
+        operation: 'canonical-total-damage',
+      })
+      const lease = isPromiseLike(leaseRequest)
+        ? await leaseRequest
+        : leaseRequest
+
+      try {
+        throwIfAborted(calculationOptions, 'Canonical total damage')
+        const aggregate = canonicalDamageSum(
+          canonicalDamageSnapshot,
+          { ...aggregationOptions, plan },
+        )
+        throwIfAborted(calculationOptions, 'Canonical total damage')
+        const summary = canonicalTotalDamageSummary(aggregate)
+        return {
+          canonicalTotalDamage: copyCanonicalTotalDamageEnvelope(aggregate),
+          canonicalTotalDamageSummary: summary,
         }
       } finally {
         lease.release()

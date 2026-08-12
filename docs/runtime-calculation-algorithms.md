@@ -365,7 +365,7 @@ exact overflowの確率を`p`、lower boundを`L`、finite supportの最大値�
 
 ## Phase 2-H canonical independent damage aggregation（第5単位）
 
-`sumCanonicalDamage(canonicalDamages, options = {})`は、`metadata.modeledDistribution === true`と`metadata.sourceSupport`を持つcanonical damage envelopeだけを受け取るpure coreである。各`result`は既存`validateDistributionResult`で検証し、入力のresult、metadata、values、overflowは変更しない。0件は`values: [1]`、offset 0、finite support max 0、overflow nullのdamage 0 identityを返す。1件は不要なFFTを実行せず、既にfreezeされたresultを安全に再利用する。
+`sumCanonicalDamage(canonicalDamages, options = {})`は、`metadata.modeledDistribution === true`と`metadata.sourceSupport`を持つcanonical damage envelopeだけを受け取るpure coreである。各`result`は既存`validateDistributionResult`で検証し、入力のresult、metadata、values、overflowは変更しない。0件は`values: [1]`、offset 0、finite support max 0、overflow nullのdamage 0 identityを返す。1件でも不要なFFTは実行せず、planが所有する係数列のコピーから独立したresultを返す。
 
 複数件の明示valuesは、各offsetを座標の基点として完全線形畳み込みする。配列長は同一である必要はなく、必要長`L1 + L2 - 1`以上の最小2冪FFTを使う。明示valuesが一つでも空なら明示結果は空のままとし、overflowのlowerBoundを一点値として配列へ挿入しない。新しい`convolveDistributions` helperは旧private実装を公開したものであり、既存`sumDistribution`と`subDistribution`の丸め・末尾集約の挙動は変えない。
 
@@ -378,3 +378,13 @@ FFT逆変換後の係数は既存runtimeと整合する`1e-12`までの微小負
 values length、offset/supportの加算、linear convolution length、FFT length、推定buffer bytesは配列確保前に検証する。既定absolute limitはvaluesとFFT lengthが`1 << 20`、component countが`1 << 12`、resource bytesが512 MiBであり、component、inspected、steps、descriptors、metadata、outputのpersistent estimateに各FFT peakを加えた値をguardする。optionsは`maxValuesLength`、`maxFftLength`、`maxResourceBytes`、`maxComponents`、`signal`、`onFftLength`だけを受け付け、各上限を下げることだけを許可する。`signal`は入力検証前、畳み込み前後、FFTの各stage境界、mass補正前後で確認し、標準AbortError名のtyped abortを返す。`onFftLength`は実使用FFT長をcomponent間の各畳み込みで通知する。
 
 この単位の変更はpure aggregation core、公開FFT helper、unit tests、設計文書と`calculation/index.js` exportに限定した。`CalculationClient`、UI、legacy `getTotalDamage`、combo ViewModel、Worker/JSON protocol、display再集約、total summary、既存の公開bucket契約は接続しない。
+
+## Phase 2-H canonical total damage consumer（第6単位）
+
+`planCanonicalDamageAggregation(canonicalDamages, options = {})`は、canonical damage配列を検証して、畳み込みsteps、出力長、support、persistent/FFT peakを含むfreeze済みread-only planを返す。`plan.estimates.float64Bytes`、`operations`、`timeMs`はResourceGuardの`acquirePlan()`へ渡せる見積りであり、planは内部識別も持つため、外部で似たshapeを作ったplanや改変後の見積りを`sumCanonicalDamage()`へ渡すことはできない。
+
+`sumCanonicalDamage(canonicalDamages, { plan, ...options })`は、plan作成時と同じ入力snapshotに対して検証・計画を繰り返さず、保存された同一planのstepsを実行する。`signal`と`onFftLength`は実行時のabort確認・実FFT通知として渡し、clientはFFT長やresource量を再実装しない。
+
+`getCanonicalTotalDamageSummary({ result, metadata })`はtotal damage専用の`{ expectedValue, mass }` adapterである。upper-bound aggregateの期待値下限は、明示一次モーメントに`metadata.overflowProbabilityLowerBound * overflow.lowerBound`を加える。finite supportの上限は明示一次モーメントに`probabilityUpperBound * support.max`を加え、infinite supportではlower-boundを返す。exact/nullは既存summary semanticsを使い、`sourceMassDrift`や`errorBound`を期待値・確率区間へ加算せず診断metadataとして保持する。
+
+`CalculationClient.calculateCanonicalTotalDamage(canonicalDamages, options = {})`は入力配列snapshot、aggregation plan、単一ResourceGuard lease、同じplanによるaggregation、total summaryの順に実行し、成功時に`{ canonicalTotalDamage, canonicalTotalDamageSummary }`を返す。既存`calculateTotalDamage`、UI、combo ViewModel、Worker/JSON、display再集約、公開1024 bucket結果はこのopt-in経路から変更しない。
