@@ -5,6 +5,7 @@ import {
   CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS,
   CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
   CanonicalDamageAggregationError,
+  planCanonicalDamageAggregation,
   sumCanonicalDamage,
 } from '../src/calculation'
 import {
@@ -74,7 +75,7 @@ describe('canonical damage aggregation', () => {
     expect(Object.isFrozen(aggregate.metadata.componentDescriptors)).toBe(true)
   })
 
-  it('reuses one immutable result without invoking FFT and creates aggregate metadata', () => {
+  it('copies one result without invoking FFT and creates aggregate metadata', () => {
     const input = createEnvelope({
       values: [0.25, 0.75],
       offset: 3,
@@ -84,7 +85,9 @@ describe('canonical damage aggregation', () => {
     const onFftLength = vi.fn()
     const aggregate = sumCanonicalDamage([input], { onFftLength })
 
-    expect(aggregate.result).toBe(input.result)
+    expect(aggregate.result).not.toBe(input.result)
+    expect(aggregate.result).toStrictEqual(input.result)
+    expect(aggregate.result.values).not.toBe(input.result.values)
     expect(onFftLength).not.toHaveBeenCalled()
     expect(aggregate.metadata.componentCount).toBe(1)
     expect(aggregate.metadata.sourceSupport).toEqual({ kind: 'finite', max: 12 })
@@ -425,6 +428,72 @@ describe('canonical damage aggregation', () => {
       CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.ABORTED
     )
     expect(observed).toEqual([4])
+  })
+
+  it('publishes a frozen resource plan and executes that exact plan', () => {
+    const first = createEnvelope({ values: [0.5, 0.5] })
+    const second = createEnvelope({ values: [0.25, 0.75] })
+    const canonicalDamages = [first, second]
+    const onFftLength = vi.fn()
+    const plan = planCanonicalDamageAggregation(canonicalDamages)
+
+    expect(Object.isFrozen(plan)).toBe(true)
+    expect(Object.isFrozen(plan.estimates)).toBe(true)
+    expect(Object.isFrozen(plan.steps)).toBe(true)
+    expect(plan.estimates.float64Bytes).toBeGreaterThan(0)
+    expect(plan.estimates.fftLengths).toEqual([4])
+    expect(onFftLength).not.toHaveBeenCalled()
+
+    const aggregate = sumCanonicalDamage(canonicalDamages, {
+      plan,
+      onFftLength,
+    })
+
+    expect(onFftLength).toHaveBeenCalledOnce()
+    expect(onFftLength).toHaveBeenCalledWith(plan.steps[0].fftLength)
+    expect(Array.from(aggregate.result.values)).toEqual([
+      expect.closeTo(0.125, 12),
+      expect.closeTo(0.5, 12),
+      expect.closeTo(0.375, 12),
+    ])
+  })
+
+  it('keeps planned coefficients private from later caller mutation', () => {
+    const first = createEnvelope({ values: [0.5, 0.5] })
+    const second = createEnvelope({ values: [0.25, 0.75] })
+    const canonicalDamages = [first, second]
+    const plan = planCanonicalDamageAggregation(canonicalDamages)
+
+    first.result.values[0] = 1
+    first.result.values[1] = 0
+    const aggregate = sumCanonicalDamage(canonicalDamages, {
+      plan,
+      onFftLength: () => {
+        second.result.values[0] = 1
+        second.result.values[1] = 0
+      },
+    })
+
+    expect(Array.from(aggregate.result.values)).toEqual([
+      expect.closeTo(0.125, 12),
+      expect.closeTo(0.5, 12),
+      expect.closeTo(0.375, 12),
+    ])
+  })
+
+  it('rejects forged or mismatched plans before execution', () => {
+    const canonicalDamages = [createEnvelope({ values: [1] })]
+    const plan = planCanonicalDamageAggregation(canonicalDamages)
+    const forgedPlan = { ...plan, estimates: { ...plan.estimates } }
+
+    expectAggregationError(
+      () => sumCanonicalDamage(canonicalDamages, { plan: forgedPlan }),
+      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+    )
+    expectAggregationError(
+      () => sumCanonicalDamage([...canonicalDamages], { plan }),
+      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+    )
   })
 
   it('rejects invalid options with a typed code', () => {

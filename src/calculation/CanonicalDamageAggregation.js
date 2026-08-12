@@ -19,6 +19,13 @@ const PERSISTENT_STEP_BYTES = 512
 const PERSISTENT_DESCRIPTOR_BYTES = 512
 const PERSISTENT_COMPONENT_METADATA_BYTES = 512
 const PERSISTENT_OUTPUT_BUFFER_COUNT = 2
+const CANONICAL_DAMAGE_AGGREGATION_PLAN_VERSION = 1
+
+// The public plan is intentionally opaque to the execution path. A frozen
+// object protects the published contract from ordinary mutation; this private
+// registry also prevents a caller from forging a look-alike plan with altered
+// estimates or convolution steps.
+const PLAN_RECORDS = new WeakMap()
 
 // Values and FFT length share the existing runtime ceiling. The aggregation
 // options may lower these values for a caller, but never raise any absolute
@@ -143,7 +150,7 @@ function validateOptionLimit(value, name, absolute, allowZero = true) {
   return value
 }
 
-function normalizeOptions(options) {
+function normalizeOptions(options, allowPlan = false) {
   if (options === undefined) {
     options = {}
   }
@@ -162,6 +169,9 @@ function normalizeOptions(options) {
     'signal',
     'onFftLength',
   ])
+  if (allowPlan) {
+    allowedOptionNames.add('plan')
+  }
   for (const name of Reflect.ownKeys(options)) {
     if (typeof name !== 'string' || !allowedOptionNames.has(name)) {
       const displayName = typeof name === 'symbol' ? name.toString() : name
@@ -229,6 +239,7 @@ function normalizeOptions(options) {
     maxComponents,
     signal,
     onFftLength,
+    plan: allowPlan && hasOwn(options, 'plan') ? options.plan : null,
   })
 }
 
@@ -554,7 +565,11 @@ function multiplyResourceBytes(left, right, field, details = {}) {
   return left * right
 }
 
-function estimatePersistentBytes(componentCount, outputLength) {
+function estimatePersistentBytes(
+  componentCount,
+  outputLength,
+  sourceValuesLength = 0
+) {
   let bytes = PERSISTENT_METADATA_BYTES
   const perComponentBytes =
     PERSISTENT_COMPONENT_REFERENCE_BYTES
@@ -580,7 +595,60 @@ function estimatePersistentBytes(componentCount, outputLength) {
     ),
     'persistent aggregation'
   )
+  bytes = addResourceBytes(
+    bytes,
+    multiplyResourceBytes(
+      sourceValuesLength,
+      FLOAT64_BYTES,
+      'persistent source snapshot'
+    ),
+    'persistent aggregation'
+  )
   return bytes
+}
+
+function getSourceValuesLength(inspected) {
+  let length = 0
+  for (const component of inspected) {
+    length = addResourceBytes(
+      length,
+      component.values.length,
+      'source values length'
+    )
+  }
+  return length
+}
+
+function snapshotInspectedComponents(inspected, signal) {
+  return inspected.map((component) => {
+    checkAbort(signal)
+    let result
+    try {
+      result = createDistributionResult({
+        values: component.values,
+        offset: component.offset,
+        support: component.support,
+        overflow: component.overflow,
+      })
+    } catch (error) {
+      fail(
+        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+        `canonical damage envelope[${component.index}] changed while planning`,
+        {
+          index: component.index,
+          causeCode: error?.code,
+          causeName: error?.name,
+        }
+      )
+    }
+    return {
+      ...component,
+      result,
+      values: result.values,
+      support: result.support,
+      overflow: result.overflow,
+    }
+  })
 }
 
 function ensureLengthLimit(length, options, field, index) {
@@ -672,6 +740,8 @@ function buildPlan(inspected, options, persistentBytes) {
 
   const hasEmptyValues = inspected.some((component) => component.values.length === 0)
   const steps = []
+  let peakResourceBytes = persistentBytes
+  let operations = 0
   let currentLength = hasEmptyValues ? 0 : inspected[0]?.values.length ?? 0
   if (!hasEmptyValues) {
     for (let index = 1; index < inspected.length; index += 1) {
@@ -732,6 +802,13 @@ function buildPlan(inspected, options, persistentBytes) {
           }
         )
       }
+      peakResourceBytes = Math.max(peakResourceBytes, peakWithPersistentBytes)
+      operations = addFiniteNumbers(
+        operations,
+        fftLength * Math.log2(fftLength),
+        'convolution operation estimate',
+        { index }
+      )
       steps.push({
         index,
         leftLength: currentLength,
@@ -769,6 +846,8 @@ function buildPlan(inspected, options, persistentBytes) {
     hasEmptyValues,
     outputLength: currentLength,
     persistentBytes,
+    peakResourceBytes,
+    operations,
     steps,
   }
 }
@@ -1019,13 +1098,38 @@ function createMetadata(inspected, plan, diagnostics) {
   })
 }
 
-/**
- * Add independent canonical damage distributions without collapsing overflow
- * into a point value. Every component must be a modeled canonical damage
- * envelope with a source-support descriptor.
- */
-export function sumCanonicalDamage(canonicalDamages, options = {}) {
-  const normalizedOptions = normalizeOptions(options)
+function createPlanContract(canonicalDamages, inspected, plan, normalizedOptions) {
+  const steps = Object.freeze(plan.steps.map((step) => Object.freeze({ ...step })))
+  const estimates = Object.freeze({
+    float64Bytes: plan.peakResourceBytes,
+    operations: plan.operations,
+    timeMs: null,
+    persistentBytes: plan.persistentBytes,
+    peakResourceBytes: plan.peakResourceBytes,
+    fftLengths: Object.freeze(steps.map((step) => step.fftLength)),
+  })
+  const publicPlan = Object.freeze({
+    version: CANONICAL_DAMAGE_AGGREGATION_PLAN_VERSION,
+    operation: 'canonical-damage-aggregation',
+    componentCount: canonicalDamages.length,
+    outputLength: plan.outputLength,
+    offset: plan.offset,
+    modeledSupport: copySupport(plan.modeledSupport),
+    sourceSupport: copySupport(plan.sourceSupport),
+    steps,
+    estimates,
+  })
+
+  PLAN_RECORDS.set(publicPlan, {
+    canonicalDamages,
+    inspected,
+    plan,
+    normalizedOptions,
+  })
+  return publicPlan
+}
+
+function createCanonicalDamagePlan(canonicalDamages, normalizedOptions) {
   checkAbort(normalizedOptions.signal)
 
   if (!Array.isArray(canonicalDamages)) {
@@ -1037,7 +1141,10 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
   if (canonicalDamages.length > normalizedOptions.maxComponents) {
     failResource(
       'canonical damage component count exceeds the configured resource limit',
-      { componentCount: canonicalDamages.length, limit: normalizedOptions.maxComponents }
+      {
+        componentCount: canonicalDamages.length,
+        limit: normalizedOptions.maxComponents,
+      }
     )
   }
 
@@ -1066,13 +1173,8 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
         { length: 1, limit: normalizedOptions.maxValuesLength }
       )
     }
-    const result = createDistributionResult({
-      values: [1],
-      offset: 0,
-      support: { kind: 'finite', max: 0 },
-      overflow: null,
-    })
     const plan = {
+      offset: 0,
       modeledSupport: Object.freeze({ kind: 'finite', max: 0 }),
       sourceSupport: Object.freeze({ kind: 'finite', max: 0 }),
       exactUnion: 0,
@@ -1081,20 +1183,25 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
       expectedExplicitMass: 1,
       allOverflowNull: true,
       sourceErrorBound: 0,
+      potentialOverflowLowerBound: 0,
+      hasEmptyValues: false,
+      outputLength: 1,
       persistentBytes,
+      peakResourceBytes: persistentBytes,
+      operations: 0,
+      steps: [],
     }
-    const metadata = createMetadata([], plan, {
-      aggregationErrorBound: 0,
-      rawExplicitMass: 1,
-      explicitMass: 1,
-      fftMassDrift: 0,
-      sourceMassDrift: 0,
-    })
-    return Object.freeze({ result, metadata })
+    return createPlanContract(
+      canonicalDamages,
+      [],
+      plan,
+      normalizedOptions
+    )
   }
 
   const inspected = canonicalDamages.map((envelope, index) =>
-    inspectEnvelope(envelope, index, normalizedOptions.signal))
+    inspectEnvelope(envelope, index, normalizedOptions.signal)
+  )
   for (const component of inspected) {
     ensureLengthLimit(
       component.values.length,
@@ -1109,7 +1216,8 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
   )
   persistentBytes = estimatePersistentBytes(
     canonicalDamages.length,
-    outputLength
+    outputLength,
+    getSourceValuesLength(inspected)
   )
   if (persistentBytes > normalizedOptions.maxResourceBytes) {
     failResource(
@@ -1122,8 +1230,112 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
       }
     )
   }
-  const plan = buildPlan(inspected, normalizedOptions, persistentBytes)
+  // Own a validated copy of each coefficient array before publishing the
+  // plan. The public plan can then represent fixed work even if the caller
+  // mutates its original canonical results while waiting for admission.
+  const ownedInspected = snapshotInspectedComponents(
+    inspected,
+    normalizedOptions.signal
+  )
+  const plan = buildPlan(ownedInspected, normalizedOptions, persistentBytes)
   checkAbort(normalizedOptions.signal)
+  return createPlanContract(
+    canonicalDamages,
+    ownedInspected,
+    plan,
+    normalizedOptions
+  )
+}
+
+function getPlanRecord(plan) {
+  const record = PLAN_RECORDS.get(plan)
+  if (!record) {
+    fail(
+      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'canonical damage aggregation plan is not an approved immutable plan'
+    )
+  }
+  return record
+}
+
+function assertPlanMatchesInput(planRecord, canonicalDamages) {
+  if (planRecord.canonicalDamages !== canonicalDamages) {
+    fail(
+      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'canonical damage aggregation plan does not match the input snapshot'
+    )
+  }
+}
+
+function assertPlanLimitsMatch(planRecord, options) {
+  for (const name of [
+    'maxValuesLength',
+    'maxFftLength',
+    'maxResourceBytes',
+    'maxComponents',
+  ]) {
+    if (
+      hasOwn(options, name)
+      && options[name] !== planRecord.normalizedOptions[name]
+    ) {
+      fail(
+        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+        `canonical damage aggregation plan does not match ${name}`,
+        { name, planned: planRecord.normalizedOptions[name], value: options[name] }
+      )
+    }
+  }
+}
+
+function getExecutionOptions(planRecord, normalizedOptions) {
+  return Object.freeze({
+    ...planRecord.normalizedOptions,
+    signal: normalizedOptions.signal ?? planRecord.normalizedOptions.signal,
+    onFftLength:
+      normalizedOptions.onFftLength ?? planRecord.normalizedOptions.onFftLength,
+    plan: null,
+  })
+}
+
+/**
+ * Validate and plan an independent canonical damage sum without allocating
+ * convolution buffers. The returned plan is an immutable, opaque contract;
+ * pass it back to sumCanonicalDamage to execute the exact planned work.
+ */
+export function planCanonicalDamageAggregation(
+  canonicalDamages,
+  options = {}
+) {
+  const normalizedOptions = normalizeOptions(options)
+  return createCanonicalDamagePlan(canonicalDamages, normalizedOptions)
+}
+
+/**
+ * Add independent canonical damage distributions without collapsing overflow
+ * into a point value. Every component must be a modeled canonical damage
+ * envelope with a source-support descriptor.
+ */
+function executeCanonicalDamagePlan(planRecord, normalizedOptions) {
+  const { inspected, plan } = planRecord
+  const executionOptions = getExecutionOptions(planRecord, normalizedOptions)
+  checkAbort(executionOptions.signal)
+
+  if (inspected.length === 0) {
+    const result = createDistributionResult({
+      values: [1],
+      offset: 0,
+      support: { kind: 'finite', max: 0 },
+      overflow: null,
+    })
+    const metadata = createMetadata([], plan, {
+      aggregationErrorBound: 0,
+      rawExplicitMass: 1,
+      explicitMass: 1,
+      fftMassDrift: 0,
+      sourceMassDrift: 0,
+    })
+    return Object.freeze({ result, metadata })
+  }
 
   let values
   let singleResult = null
@@ -1135,20 +1347,23 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
   } else {
     values = inspected[0].values
     for (const step of plan.steps) {
-      checkAbort(normalizedOptions.signal)
+      checkAbort(executionOptions.signal)
       try {
         values = convolveDistributions(values, inspected[step.index].values, {
           fftLength: step.fftLength,
-          signal: normalizedOptions.signal,
-          onFftLength: normalizedOptions.onFftLength,
+          signal: executionOptions.signal,
+          onFftLength: executionOptions.onFftLength,
         })
       } catch (error) {
-        if (normalizedOptions.signal?.aborted || error?.name === 'AbortError') {
+        if (
+          executionOptions.signal?.aborted
+          || error?.name === 'AbortError'
+        ) {
           throw new CanonicalDamageAggregationAbortError()
         }
         throw error
       }
-      checkAbort(normalizedOptions.signal)
+      checkAbort(executionOptions.signal)
     }
   }
 
@@ -1161,7 +1376,7 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
     rawExplicitMass = inspected[0].explicitMass
     explicitMass = rawExplicitMass
   } else {
-    rawExplicitMass = sanitizeConvolvedValues(values, normalizedOptions.signal)
+    rawExplicitMass = sanitizeConvolvedValues(values, executionOptions.signal)
     fftMassDrift = Math.abs(rawExplicitMass - plan.expectedExplicitMass)
     if (fftMassDrift > DISTRIBUTION_RESULT_TOLERANCE) {
       failNumerical(
@@ -1187,7 +1402,7 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
           values,
           1,
           rawExplicitMass,
-          normalizedOptions.signal
+          executionOptions.signal
         )
       } else {
         explicitMass = rawExplicitMass
@@ -1209,7 +1424,7 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
           values,
           targetExplicitMass,
           rawExplicitMass,
-          normalizedOptions.signal
+          executionOptions.signal
         )
       }
     }
@@ -1259,7 +1474,7 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
     plan,
     outputOverflow,
     singleResult,
-    normalizedOptions.signal
+    executionOptions.signal
   )
   const metadata = createMetadata(inspected, plan, {
     aggregationErrorBound,
@@ -1268,6 +1483,45 @@ export function sumCanonicalDamage(canonicalDamages, options = {}) {
     fftMassDrift,
     sourceMassDrift,
   })
-  checkAbort(normalizedOptions.signal)
+  checkAbort(executionOptions.signal)
   return Object.freeze({ result, metadata })
+}
+
+/**
+ * Execute a canonical damage sum. When `options.plan` (or the optional third
+ * argument) is supplied, no envelope validation or resource planning is
+ * repeated: the approved immutable plan is executed directly.
+ */
+export function sumCanonicalDamage(
+  canonicalDamages,
+  options = {},
+  explicitPlan = undefined
+) {
+  let rawOptions = options
+  if (explicitPlan !== undefined) {
+    if (!isRecord(options)) {
+      fail(
+        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+        'canonical damage aggregation options must be an object'
+      )
+    }
+    rawOptions = { ...options, plan: explicitPlan }
+  }
+
+  const normalizedOptions = normalizeOptions(rawOptions, true)
+  let planRecord
+  if (normalizedOptions.plan === null) {
+    const publicPlan = createCanonicalDamagePlan(
+      canonicalDamages,
+      normalizedOptions
+    )
+    planRecord = getPlanRecord(publicPlan)
+  } else {
+    planRecord = getPlanRecord(normalizedOptions.plan)
+    assertPlanMatchesInput(planRecord, canonicalDamages)
+    assertPlanLimitsMatch(planRecord, rawOptions)
+    checkAbort(normalizedOptions.signal)
+  }
+
+  return executeCanonicalDamagePlan(planRecord, normalizedOptions)
 }
