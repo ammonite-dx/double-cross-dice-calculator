@@ -303,3 +303,9 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `sumCanonicalDamage()`が同一planを実行できるようにし、client側でFFT長・resource量を再実装しない。`getCanonicalTotalDamageSummary()`はupper-bound aggregateの`overflowProbabilityLowerBound × lowerBound`を期待値下限へ反映し、sourceMassDrift/errorBoundを区間へ加算しない
 - 完了: `CalculationClient.calculateCanonicalTotalDamage()`をopt-inで追加し、入力snapshot、plan、単一lease、同一planのaggregation、summary、finally releaseの順序、abort/requestId/onFftLength、入力非変更・返却alias防止をテストした
 - 対象外: 既存`calculateTotalDamage`、UI、combo ViewModel、Worker/JSON、display再集約、公開1024結果は変更しない
+
+### Dynamic distribution range Phase 2-H 第7単位
+
+- 完了: `src/presentation/DistributionPresenter.js`にsingle damageとtotal damageのcanonical envelopeを同じUI非依存display modelへ変換するopt-in presenterを追加し、`src/presentation/index.js`から公開した。`modeledDistribution === true`と`validateDistributionResult`を境界で要求し、metadata・summaryの必須値はown data propertyとして扱う
+- 完了: 明示係数はoffsetと通常配列で全件保持し、0確率を残したまま`explicitMax`を導出する。overflow/tailを末尾へ加算せず、support・overflow union、caller提供のmass・expectedValue summary、structured warningを防御コピーして深くfreezeする。point object列は生成しない。JSON copyは循環・accessorをtyped errorで拒否し、深度64・総ノード数10,000、DAG memoを適用する。optionsの`null`等を拒否し、planner warningの`reject` severityをそのまま受理する
+- 対象外: UI、ViewModel、Worker、JSON serialization、legacy calculator/adapter、既存consumer、公開結果の切替、canonical resultの生成・serialization、既存1024 bucketの解釈は変更しない

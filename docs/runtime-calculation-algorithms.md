@@ -388,3 +388,13 @@ values length、offset/supportの加算、linear convolution length、FFT length
 `getCanonicalTotalDamageSummary({ result, metadata })`はtotal damage専用の`{ expectedValue, mass }` adapterである。upper-bound aggregateの期待値下限は、明示一次モーメントに`metadata.overflowProbabilityLowerBound * overflow.lowerBound`を加える。finite supportの上限は明示一次モーメントに`probabilityUpperBound * support.max`を加え、infinite supportではlower-boundを返す。exact/nullは既存summary semanticsを使い、`sourceMassDrift`や`errorBound`を期待値・確率区間へ加算せず診断metadataとして保持する。
 
 `CalculationClient.calculateCanonicalTotalDamage(canonicalDamages, options = {})`は入力配列snapshot、aggregation plan、単一ResourceGuard lease、同じplanによるaggregation、total summaryの順に実行し、成功時に`{ canonicalTotalDamage, canonicalTotalDamageSummary }`を返す。既存`calculateTotalDamage`、UI、combo ViewModel、Worker/JSON、display再集約、公開1024 bucket結果はこのopt-in経路から変更しない。
+
+## Phase 2-H canonical distribution presentation（第7単位）
+
+`src/presentation/DistributionPresenter.js`の`presentCanonicalDistribution(canonicalEnvelope, { summary, warnings = [] })`は、`modeledDistribution === true`のcanonical damageまたはcanonical total damage envelopeを、UI非依存の`canonical-distribution-display`へ変換するopt-in presenterである。single damageには`getCanonicalDamageSummary`、total damageには`getCanonicalTotalDamageSummary`で得たsummaryをcallerが渡し、presenterはmassやexpected valueを再計算しない。`summary`、`warnings`、metadataの必須値はown data propertyとして検証し、optionsが`null`などの非plain recordの場合もtyped errorで拒否する。
+
+displayの`explicit`は`offset`と明示`values`の全係数を通常配列で保持し、値座標は`offset + index`で解釈する。0確率も保持し、overflow、tail、graph上限を末尾係数へ加算せず、広い配列に対するpoint object列も生成しない。`explicitMax`は空配列なら`null`、それ以外は`offset + length - 1`であり、supportとoverflowはcanonicalのfinite/infinite、null/exact/upper-bound unionを独立コピーする。
+
+summaryとwarningsはJSON-safeな深い防御コピーとして保持し、返却値全体をfreezeする。accessorと循環参照は実行せずtyped errorで拒否し、コピーは最大深度64、総ノード数10,000の固定上限と`WeakMap` memoを持つため、深い入力やDAGの再展開でstack overflow・増幅を起こさない。warningは日本語化せず、plain record、`code`文字列、`severity`（`info`・`warning`・`error`・`reject`）を要求する。plannerのhard-limit warningが持つ`reject`はそのまま保持する。presenterは`src/presentation/index.js`からのみ公開し、既存calculation indexへ混ぜない。
+
+この単位の対象外はUI、ViewModel、Worker、JSON serialization、legacy calculator/adapter、既存consumer、公開結果の切替であり、canonical distributionの生成・serialization契約や既存1024 bucketの解釈も変更しない。
