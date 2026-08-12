@@ -309,3 +309,10 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `src/presentation/DistributionPresenter.js`にsingle damageとtotal damageのcanonical envelopeを同じUI非依存display modelへ変換するopt-in presenterを追加し、`src/presentation/index.js`から公開した。`modeledDistribution === true`と`validateDistributionResult`を境界で要求し、metadata・summaryの必須値はown data propertyとして扱う
 - 完了: 明示係数はoffsetと通常配列で全件保持し、0確率を残したまま`explicitMax`を導出する。overflow/tailを末尾へ加算せず、support・overflow union、caller提供のmass・expectedValue summary、structured warningを防御コピーして深くfreezeする。point object列は生成しない。JSON copyは循環・accessorをtyped errorで拒否し、深度64・総ノード数10,000、DAG memoを適用する。optionsの`null`等を拒否し、planner warningの`reject` severityをそのまま受理する
 - 対象外: UI、ViewModel、Worker、JSON serialization、legacy calculator/adapter、既存consumer、公開結果の切替、canonical resultの生成・serialization、既存1024 bucketの解釈は変更しない
+
+### Dynamic distribution range Phase 2-H 第8前半
+
+- 完了: `createCalculationClient()`へopt-inの`calculateAttackCanonicalBatch(entries, options = {})`を追加し、entry順序・idを保持したcombo配列とcanonical total damage・summaryを一つの成功結果として返す。各entryは既存attack canonical経路を正確に1回通し、全combo成功後にcanonical total aggregationを正確に1回実行する
+- 完了: batch専用validatorはentries、entry、id、paramsの構造・own enumerable data property境界とoptionsを開始時に検証し、stringまたはfinite number以外のid、重複id、構造不正な入力/optionsを`CalculationBatchInputError`でtyped rejectする。dice・critical等のゲーム入力leafは既存RangePlannerを唯一の検証元として維持し、空entriesは既存canonical aggregationのdamage 0 identityへ接続し、caller入力・返却combo配列のaliasを作らない
+- 完了: batch optionsを開始時にsnapshotし、total aggregationのlimitと`entries.length <= maxComponents`をattack開始前に既存option validatorで検証した。batchを直列実行し、既存RangePlanner preflight、`onRangePlan`、attack/totalの個別ResourceGuard plan・lease・finally release、abort確認、signal・requestId・rangePolicy・onFftLength・runtime options伝播を再利用した。attack leasesをbatch全体で二重予約せず、partial resultを返さない失敗・abort・total失敗の解放順序をspyで固定した
+- 対象外: Vue/UI、presentation import、legacy `calculateAttackCombo`・`calculateTotalDamage`、既存canonical単体APIのreturn shape、Worker/JSON protocol、公開1024 bucket、batch専用callback、full-tail、入力上限は変更しない

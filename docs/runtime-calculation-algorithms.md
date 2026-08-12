@@ -398,3 +398,13 @@ displayの`explicit`は`offset`と明示`values`の全係数を通常配列で�
 summaryとwarningsはJSON-safeな深い防御コピーとして保持し、返却値全体をfreezeする。accessorと循環参照は実行せずtyped errorで拒否し、コピーは最大深度64、総ノード数10,000の固定上限と`WeakMap` memoを持つため、深い入力やDAGの再展開でstack overflow・増幅を起こさない。warningは日本語化せず、plain record、`code`文字列、`severity`（`info`・`warning`・`error`・`reject`）を要求する。plannerのhard-limit warningが持つ`reject`はそのまま保持する。presenterは`src/presentation/index.js`からのみ公開し、既存calculation indexへ混ぜない。
 
 この単位の対象外はUI、ViewModel、Worker、JSON serialization、legacy calculator/adapter、既存consumer、公開結果の切替であり、canonical distributionの生成・serialization契約や既存1024 bucketの解釈も変更しない。
+
+## Phase 2-H canonical attack batch consumer（第8前半）
+
+`createCalculationClient()`へopt-inの`calculateAttackCanonicalBatch(entries, options = {})`を追加し、`entries`の順序を維持した`{ combos, canonicalTotalDamage, canonicalTotalDamageSummary }`を返す。各`combo`は`{ id, score, scoreSummary, canonicalDamage, canonicalDamageSummary }`であり、`id`はJSON-safeなstringまたはfinite numberに限定する。batch専用validatorはentries、entry、id、paramsのオブジェクト構造とoptions、own enumerable data property境界だけを検証し、dice・critical・skillなどゲーム入力のleaf validationは既存RangePlannerを唯一の検証元として維持する。重複id、配列でないentries、構造不正なentry・params、構造不正なoptionsは`CalculationBatchInputError`のtyped errorで計算開始前に拒否し、空entriesはcanonical damage 0 identityのtotalとして許可する。
+
+batchはentries配列、各entryのattack params、optionsを開始時に防御snapshotし、呼び出し元の後続変更を計算へ反映しない。total aggregationのlimitと`entries.length <= maxComponents`もattack開始前に既存aggregation option validatorで検証する。entryごとに既存のRangePlanner preflight、`onRangePlan`通知、attack用ResourceGuard plan/lease、score計算、canonical damage計算、finally releaseを正確に1回ずつ順番に実行する。既存`calculateAttackCanonical`と同じtop-level attack plan、DR/D10 provider、`signal`、`requestId`、`rangePolicy`、`onFftLength`、runtime optionsを使い、`onRangePlan`のcallback shapeは変更しない。
+
+全comboが成功した後だけ、canonical damage配列を既存`calculateCanonicalTotalDamage`相当の内部helperへ渡してaggregation plan、total用ResourceGuard lease、aggregation、summaryを正確に1回実行する。batch全体の巨大な追加leaseは取得せず、既定は直列実行でattack leaseをentry間に解放する。開始前、entry間、total前後でabortを確認し、entry失敗・abort・total失敗ではpartial resultを返さず、取得済みleaseを各処理のfinallyで解放する。
+
+この単位の対象外はVue/UI、presentation import、legacy `calculateAttackCombo`・`calculateTotalDamage`、既存canonical単体APIの戻り値、Worker/JSON protocol、公開1024 bucket、batch専用callback、full-tail、入力上限の変更である。batchはcanonical damageの生成とtotal aggregationを原子的に束ねるapplication APIに限定し、presentation接続や公開結果の切替は次段階へ残す。

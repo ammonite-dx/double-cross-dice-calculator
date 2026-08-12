@@ -1298,6 +1298,15 @@ function getExecutionOptions(planRecord, normalizedOptions) {
 }
 
 /**
+ * Validate aggregation options without inspecting or planning any damage
+ * envelopes. CalculationClient uses this narrow preflight for batch input so
+ * invalid resource limits are rejected before an attack starts.
+ */
+export function validateCanonicalDamageAggregationOptions(options = {}) {
+  return normalizeOptions(options)
+}
+
+/**
  * Validate and plan an independent canonical damage sum without allocating
  * convolution buffers. The returned plan is an immutable, opaque contract;
  * pass it back to sumCanonicalDamage to execute the exact planned work.
