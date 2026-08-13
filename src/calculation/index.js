@@ -25,6 +25,17 @@ export {
   getExpectedValueSummary,
 } from './DistributionResult'
 export {
+  LEGACY_CANONICAL_COMPARISON_DEFAULT_THRESHOLDS,
+  LEGACY_CANONICAL_COMPARISON_ERROR_CODES,
+  LEGACY_CANONICAL_COMPARISON_THRESHOLDS,
+  LegacyCanonicalComparisonError,
+  compareLegacyAndCanonicalDamage,
+  compareLegacyAndCanonicalDistributions,
+  compareLegacyAndCanonicalTotalDamage,
+  compareLegacyCanonicalDistributions,
+  isLegacyCanonicalComparisonError,
+} from './LegacyCanonicalComparison'
+export {
   CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES,
   CANONICAL_DAMAGE_AGGREGATION_LIMITS,
   CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS,

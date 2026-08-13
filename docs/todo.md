@@ -333,3 +333,13 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: empty combosではcanonical damage 0 identityをcommitし、combo追加・削除・複製・reorderのid順、plan warning mapping、入力snapshot alias防止をpure application testsで固定した
 - 対象外: Vue template、Chart/Summary表示、InputForm/ComboForm template、legacy calculator/state、Worker、JSON、公開1024 bucket、canonical resultの表示切替は変更しない
 - 次段階: canonical presentationの表示設計とlegacy結果との比較実測を行い、表示接続・移行条件・dynamic outputのproduction採用可否を決める
+
+### Dynamic distribution range Phase 2-H 第10単位
+
+- 完了: `src/calculation/LegacyCanonicalComparison.js`にUI非依存のlegacy/canonical数値比較coreを追加し、legacy 1024 published distributionとcanonical envelopeを既存`fromPublishedBucketDistribution()`・`toPublishedBucketDistribution()`で防御的に投影して比較する契約を固定した。legacy側はlength/indexed own data propertyを比較境界でsnapshotし、canonical既知schemaはown data propertyのplain snapshot境界を通す。両者の入力と`values`・metadata overflowを防御コピーし、legacy projectionのsupportは`infinite`であり、index 1023を有限maxとは解釈しない
+- 完了: `comparable` / `not-comparable`のdiscriminated result、max absolute difference、L1 difference、mass difference、閾値、passedを追加した。暫定閾値はmass `1e-8`、max absolute `2e-6`、L1 `2e-4`とし、入力配列・canonical values・overflowを変更しない
+- 完了: invalid legacy inputは既存`DistributionResultAdapterError`のtyped codeを維持し、optionsのaccessor/reflection failureは`LegacyCanonicalComparisonError(INVALID_OPTIONS)`へ変換した。component descriptor overflowはlowerBound・probability・probabilityUpperBound・errorBoundをcanonical overflowと同等に検証し、不正値を`INVALID_SCHEMA`へ変換する。validなupper-bound overflowまたは安全に1023へ投影できないexact overflowは`not-comparable`へ分け、exactは`probability > 0 || errorBound > 0`、upper-boundは潜在massがある場合だけtotal overflow関与とした。totalはactiveなcomponent/source overflowが関与する場合に直接一致を主張しない
+- 完了: `tests/legacyCanonicalComparison.test.js`へ、実計算を使った固定値shift・防御、`kazanari > 0`、failure mass、multi-combo total、1023以上へ安全投影できるexact overflow、upper-bound、1023未満のexact overflow、入力非変更のfixtureを追加した。revoked Proxy、result/metadata/options/thresholds accessor、inactive overflow、active component overflow、閾値直上の`passed: false`も固定した
+- 完了: expected valueは比較対象へ追加せず、canonicalのexact/bounded/lower-bound summaryとlegacyのraw moment・小数1桁表示丸めを混同しない方針を文書化した
+- 対象外: canonical/UI表示切替、performance計測、browser cold/warm計測、Worker/JSON serialization、legacy/canonical return shape、入力上限、依存追加
+- 次段階: 比較fixtureのブラウザ実測と表示接続・移行条件・dynamic output採用可否を別単位で判断する
