@@ -1,13 +1,23 @@
 <script setup>
 
-    import { computed, reactive } from 'vue';
-    import { calculationClient } from '@/application/CalculationClient';
+    import { computed, inject, onUnmounted, reactive, watch } from 'vue';
+    import {
+        CALCULATION_CLIENT_KEY,
+        calculationClient,
+    } from '@/application/CalculationClient';
     import {
         areAllComboResultsReady,
         createCalculationFeedbackState,
         createTotalDamageState,
         runInitialCalculation,
     } from '@/application/CalculationFeedback';
+    import { createAttackCanonicalRunner } from '@/application/AttackCanonicalRunner';
+    import {
+        clearCanonicalAttackState,
+        createCanonicalAttackState,
+        createCanonicalComboDataState,
+        ensureCanonicalComboData,
+    } from '@/application/AttackCanonicalState';
     import InputPanel from '@/components/Attack/InputPanel.vue';
     import ScoreChartPanel from '@/components/Attack/ScoreChartPanel.vue';
     import DamageChartPanel from '@/components/Attack/DamageChartPanel.vue';
@@ -24,6 +34,10 @@
             damage: {dice:0, value:0},
         }
     };
+    const canonicalCalculationClient = inject(
+        CALCULATION_CLIENT_KEY,
+        calculationClient
+    );
     const rangeFeedback = createCalculationFeedbackState();
     const initialCalculation = await runInitialCalculation({
         feedback: rangeFeedback,
@@ -52,11 +66,54 @@
                 damageSummary: initialCalculation?.damageSummary ?? null,
                 resultReady: initialCalculation !== null,
                 rangeFeedback: reactive(rangeFeedback),
+                ...createCanonicalComboDataState(),
             },
         }],
         ...createTotalDamageState(initialCalculation),
         totalDamageFeedback: reactive(createCalculationFeedbackState()),
+        ...createCanonicalAttackState(),
+        canonicalOptIn: false,
     });
+
+    const canonicalCalculationRunner = createAttackCanonicalRunner({
+        state: attackData,
+        calculationClient: canonicalCalculationClient,
+        onError: (error) => {
+            console.error('Failed to update canonical attack', error);
+        },
+    });
+
+    watch(
+        () => ({
+            canonicalOptIn: attackData.canonicalOptIn,
+            combos: attackData.combos.map((combo) => ({
+                id: combo.id,
+                params: combo.data.params,
+            })),
+        }),
+        (current, previous) => {
+            for (const combo of attackData.combos) {
+                ensureCanonicalComboData(combo.data);
+            }
+
+            if (!current.canonicalOptIn) {
+                if (previous?.canonicalOptIn === true) {
+                    canonicalCalculationRunner.invalidate();
+                    clearCanonicalAttackState(attackData);
+                }
+                return;
+            }
+
+            void canonicalCalculationRunner.run();
+        },
+        { deep: true, immediate: true }
+    );
+
+    onUnmounted(() => {
+        canonicalCalculationRunner.invalidate();
+        clearCanonicalAttackState(attackData);
+    });
+
     const resultsReady = computed(() =>
         areAllComboResultsReady(attackData.combos)
         && attackData.totalDamageReady

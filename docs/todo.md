@@ -324,3 +324,12 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: combo/planの返却wrapperとmutableなscore/summary/plan内容を入力から分離し、canonical envelopeは既存freeze/defensive contractを保持する。score、scoreSummary、range plan snapshotはplain record・dense/sparse arrayのindexed entries・ArrayBuffer/DataView/TypedArrayに限定したsafe defensive cloneであり、accessor、symbol key、unknown class、cycle、深度/ノード上限超過、Proxy reflection failureをtyped rejectする。payload root、combo配列、combo、mutable snapshotをfreezeし、presenter既存契約によりexplicit probability、overflow/tail、exact・bounded・lower-bound summary、warningのdeep copy/freezeとJSON round-tripを維持する
 - 対象外: Vue/template、Attack Viewのscript、legacy表示・`calculateAttackCombo`・`calculateTotalDamage`、Worker/JSON protocol、公開1024 bucket、batch計算経路、full-tail、既存入力上限は変更しない。専用runnerも追加せず、`onRangePlan`収集とstale/AbortSignal制御はcaller責務のまま残す
 - 次段階: Attack Vue scriptへopt-in接続し、batch計算成功後に収集したplan配列とpresentation payloadを一回のstate commitへ渡す。必要ならその接続時にのみ、既存`onRangePlan`を保持する薄いrunnerを追加する
+
+### Dynamic distribution range Phase 2-H 第9単位
+
+- 完了: `attackData.canonicalOptIn`を既定falseのscript-only opt-inとして追加し、falseの初期watch、params変更、combo追加・複製・削除・並べ替えでは`calculateAttackCanonicalBatch`を呼ばないようにした。新規comboのcanonical fieldsはapplication helperで遅延初期化し、legacy fieldsと完全分離した
+- 完了: opt-in true時は現在のcombo順の`[{ id, params }]`をnested aliasなしでsnapshotし、全comboのcanonical batchを最新runnerへ渡す。`onRangePlan`をentry順に収集し、成功時の`createAttackCanonicalPresentation`を一回に限定した
+- 完了: batch開始時のordered entries snapshotとcommit直前の現在canonical入力をID・順序・全paramsで明示比較し、不一致の旧結果をcommitしないようにした。batch resultとpresentation payloadをgeneration/request検証後にatomic commitし、rapid changeのabort/stale抑止、disable中のabortとlate result無視、range/resource reject・error時のcanonical専用clear/feedbackをテストした。legacy resultReady、damage、totalDamage、legacy feedbackは変更しない
+- 完了: empty combosではcanonical damage 0 identityをcommitし、combo追加・削除・複製・reorderのid順、plan warning mapping、入力snapshot alias防止をpure application testsで固定した
+- 対象外: Vue template、Chart/Summary表示、InputForm/ComboForm template、legacy calculator/state、Worker、JSON、公開1024 bucket、canonical resultの表示切替は変更しない
+- 次段階: canonical presentationの表示設計とlegacy結果との比較実測を行い、表示接続・移行条件・dynamic outputのproduction採用可否を決める
