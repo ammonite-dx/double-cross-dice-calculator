@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 2-H browser benchmark</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+
+      body {
+        margin: 2rem;
+        max-width: 90rem;
+      }
+
+      pre {
+        background: color-mix(in srgb, Canvas 92%, currentColor);
+        border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+        overflow: auto;
+        padding: 1rem;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Phase 2-H 第12単位 ブラウザ実測</h1>
+    <p id="status">ベンチマークのモジュールとアセットを読み込んでいます...</p>
+    <pre id="result">結果を待っています。</pre>
+    <script type="module" src="./browser-benchmark.js"></script>
+  </body>
+</html>

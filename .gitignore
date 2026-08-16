@@ -2,6 +2,7 @@
 node_modules/
 /dist
 /dist-dynamic-distribution-ranges
+/dist-phase2h-browser
 .wrangler/
 coverage/
 generated-data/

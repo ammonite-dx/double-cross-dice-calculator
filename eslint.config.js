@@ -11,6 +11,7 @@ export default [
       '.wrangler/**',
       'coverage/**',
       'dist/**',
+      'dist-phase2h-browser/**',
       'generator/.pytest_cache/**',
       'generator/.ruff_cache/**',
       'generator/.venv/**',

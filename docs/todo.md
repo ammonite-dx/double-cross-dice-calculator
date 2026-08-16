@@ -351,3 +351,12 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `performance.now()`によるcold/warm分離、nearest-rank median/p95/min/max、machine/Node/local commit metadata、`--json`、`--iterations`、`--warmup`、結果を捨てないdigestを追加した。統計関数、出力shape、引数validationは軽量テストで固定した。JSONは`npm run --silent benchmark:phase2h -- --json`またはscript直接実行で機械可読stdoutになる
 - 完了: Nodeのcold/warmはmodule/Vite load、fixture準備、共有asset登録、browser Worker、fetch/JSON、event-loop delay、Vue/Chart/Summary描画を含まないため、ブラウザ結果と混同せず、Node結果だけでcanonical/dynamic outputの採用判断をしないことを文書化した。Node結果は計算coreの比較基準に限定する
 - 残作業: Chrome/Firefox/WebKitの同一fixture、低速実機/低速機相当、Worker起動・往復・cancel/error、fetch/JSON serializationとasset setup、Vue/Chart/Summary描画、fallback、canonical/dynamic outputの採用判断
+
+### Dynamic distribution range Phase 2-H 第12単位
+
+- 完了: `experiments/phase2h-browser/`へ、Node第11単位と同じ7 fixtureを現行公開APIと公開repositoryで測定するブラウザページ、専用Vite config、READMEを追加した。通常、fixed/defence、`kazanari=0/>0`、failure mass、3 combo total、`planner-only`、`planner-rejected`を同じcase idで保持し、production UIと既存srcは変更していない
+- 完了: asset fetch、JSON parse、repository registrationをcase計算のwarmup前に独立cold/warm stageとして測定し、`performance.getEntriesByType('resource')`の`dx`/`dr`/`d10` data pathだけをreportへ残すようにした。URLはdata pathへ縮約し、外部URLや個人情報を含めない
+- 完了: preflight、legacy damage/total、canonical on-demand damage/total aggregation、canonical presentation、legacy/canonical comparisonを個別stageで測り、main-thread invocation elapsed、queued zero-delay timer delay、cold/warm nearest-rank median/p95/min/max、numeric digest、Long Task supported/nullを保持する。comparisonは`comparable`/`not-comparable`をcase reportへ保存する
+- 完了: `window.__phase2hBrowserBenchmarkResult`/`window.__phase2hBrowserBenchmarkError`と画面JSON、browser userAgent、viewport、case counts、pageErrors/unhandledrejections、resource fetch countを公開した。Workerは現行canonical Attack stateが未接続のため`not-connected`と記録し、Worker経路を偽装しない
+- 完了: `iterations`/`warmup` query overrideに安全な上限を設け、`npm run benchmark:phase2h:browser`をローカルVite起動案内として追加した。npm testへブラウザ起動を追加せず、READMEへtimer delayがCPU時間ではないこと、Chrome実測後にFirefox/WebKit/低速機を検討すること、production切替対象外であることを記録した
+- 残作業: 親タスクでChromeの実ブラウザページを確認し、必要に応じてFirefox/WebKit、低速実機・低速機相当、Workerが必要になった場合の別経路、Vue/Chart/Summary描画を追加測定する。結果だけでcanonical Worker接続、JSON削除、入力上限、production UI切替を行わない

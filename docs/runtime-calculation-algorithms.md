@@ -454,3 +454,15 @@ fixtureは、小規模通常（`kazanari=0`）、固定値差と防御ダイス�
 このNode値は、module/Vite load、fixture準備、score生成、全caseで共有するasset登録などを除いた計算coreの同一プロセス基準であり、ブラウザ値と混同しない。Node計測にはbrowser engine差、event-loop delay、Worker生成・postMessage・transfer、fetch、JSON serialization、DOM、Chart.js描画、低速端末のmemory/CPU条件が含まれない。また、asset登録を除外するため、初回fetch・JSON parse・cache warmの実運用コストを表さない。したがって本単位の結果だけでJSON削除、Worker採用、UI入力上限拡張、canonical公開切替、dynamic outputの採用判断を行わない。
 
 残作業は、Chrome/Firefox/WebKitの同一fixture実測、低速実機または低速機相当のCPU・メモリ条件、Workerの起動・往復・cancel/error、fetch/JSON serialization、Vue/Chart/Summary描画を含むブラウザ測定である。これらを同じ入力とcomparison契約で確認し、数値一致、許容応答時間、資源上限、表示意味、fallback経路を合わせてから、canonical/dynamic outputのproduction採用可否を別単位で判断する。
+
+## Phase 2-H ブラウザ実測（第12単位）
+
+第12単位では、Node第11単位と同じ7 fixtureを`experiments/phase2h-browser/browser-benchmark.html`で実ブラウザから測定する。ページは`npm run benchmark:phase2h:browser`で既存Viteを起動した後、`/experiments/phase2h-browser/browser-benchmark.html`を開いて使用する。`?iterations=N&warmup=N`でcaseごとの反復数を上書きできるが、ブラウザページ側で上限を検証し、既定値はNodeより軽いwarm 3回、warmup 1回（combo/planner caseはfixture既定値）とする。重い上限近辺caseはNodeと同じく`planner-only`、明示hard limit caseは`planner-rejected`として計算へ進めない。
+
+アセットはcase実測のwarmup前に、必要な`dx`、`dr`、`d10`を`fetch`、`response.json()`、公開repositoryのregister APIまで含む独立stageでcold/warm測定する。このstageを計算stageへ混ぜず、同じアセットを共有した後にscoreとdamage fixtureを準備する。`performance.getEntriesByType('resource')`からは`data/schema-v2/revision-1/`以下のdata pathだけを抽出し、外部URLや個人情報をreportへ出さない。resource timingがcache hitをネットワーク転送として区別できないブラウザでも、ページ側のfetch call countとdata path件数を別診断として残す。
+
+各full caseは、`RangePlanner`、legacy `getDamage`、準備済みlegacy結果への`getTotalDamage`、canonical `calculateCanonicalDamageOnDemand`、`sumCanonicalDamage`、`createAttackCanonicalPresentation`、legacy/canonical comparisonを個別stageとして測る。各stageのcold/warmにはメインスレッドのinvocation elapsedと、同時にキューへ入れたzero-delay timerの遅延を別々に記録する。timer遅延はイベントループのスケジューリング観測であり、CPU時間そのものではない。`longtask` PerformanceObserverが利用できない場合は`supported: false`かつcount/entriesを`null`にし、0件とは扱わない。数値digest、failure/hit mass、case status、comparisonの`comparable`/`not-comparable`も保持する。
+
+この実験は現行の公開APIと公開repositoryを測るだけで、production UI、Attack state、canonical Worker接続、Worker protocol、JSON、入力上限、既存legacy/canonical APIは変更しない。現在のcanonical Attack stateは`RuntimeDamageRollWorker`へ接続されていないため、ブラウザreportのWorker pathは`not-connected`と明記し、存在しない経路の往復時間を偽装しない。結果は`window.__phase2hBrowserBenchmarkResult`または`window.__phase2hBrowserBenchmarkError`と画面上のJSONへ公開する。
+
+まずChromeの実測結果を同一fixtureの基準とし、Firefox、WebKit、低速実機または低速機相当の条件を追加確認してから、canonical表示、dynamic output、JSON削除、Worker、production接続の採否を別途判断する。Chrome一回の結果だけでproductionの計算経路や入力上限を変更しない。
