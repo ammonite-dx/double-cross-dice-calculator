@@ -453,7 +453,7 @@ fixtureは、小規模通常（`kazanari=0`）、固定値差と防御ダイス�
 
 このNode値は、module/Vite load、fixture準備、score生成、全caseで共有するasset登録などを除いた計算coreの同一プロセス基準であり、ブラウザ値と混同しない。Node計測にはbrowser engine差、event-loop delay、Worker生成・postMessage・transfer、fetch、JSON serialization、DOM、Chart.js描画、低速端末のmemory/CPU条件が含まれない。また、asset登録を除外するため、初回fetch・JSON parse・cache warmの実運用コストを表さない。したがって本単位の結果だけでJSON削除、Worker採用、UI入力上限拡張、canonical公開切替、dynamic outputの採用判断を行わない。
 
-残作業は、Chrome/Firefox/WebKitの同一fixture実測、低速実機または低速機相当のCPU・メモリ条件、Workerの起動・往復・cancel/error、fetch/JSON serialization、Vue/Chart/Summary描画を含むブラウザ測定である。これらを同じ入力とcomparison契約で確認し、数値一致、許容応答時間、資源上限、表示意味、fallback経路を合わせてから、canonical/dynamic outputのproduction採用可否を別単位で判断する。
+残作業は、Chrome/Firefox/WebKitの同一fixture実測、低速実機または低速機相当のCPU・メモリ条件、Workerの起動・往復・cancel/error、fetch/JSON serialization、Vue/Chart/Summary描画を含むブラウザ測定である。第13単位では、そのうちChrome channelのCDP CPU throttleによる低速相当条件を再現するrunnerを追加するが、実測結果そのものは親タスクで取得する。これらを同じ入力とcomparison契約で確認し、数値一致、許容応答時間、資源上限、表示意味、fallback経路を合わせてから、canonical/dynamic outputのproduction採用可否を別単位で判断する。
 
 ## Phase 2-H ブラウザ実測（第12単位）
 
@@ -467,4 +467,12 @@ fixtureは、小規模通常（`kazanari=0`）、固定値差と防御ダイス�
 
 まずChromeの実測結果を同一fixtureの基準とし、Firefox、WebKit、低速実機または低速機相当の条件を追加確認してから、canonical表示、dynamic output、JSON削除、Worker、production接続の採否を別途判断する。Chrome一回の結果だけでproductionの計算経路や入力上限を変更しない。
 
-Firefox/WebKitの自動実測には`npm run benchmark:phase2h:browser:playwright`を使う。これは`experiments/phase2h-browser/playwright-runner.mjs`が専用Viteを起動し、Playwright管理の各engineを順次起動して同じページのreportを検証する。ブラウザの起動・終了、ページエラー、7ケースのstatus/count、asset setup、numeric digest、終了時の一時profile削除をJSONへ記録する。`--iterations`と`--warmup`でページのquery overrideを再現できる。Firefox/WebKitの実測はengine差を知るための補助データであり、既存Chrome実測との比較やproduction採否の単独根拠ではない。2026-08-16の標準条件（warm 3回、warmup 1回）では、Firefox 153.0のcanonical damage warm中央値最大値は54 ms、WebKit 26.5は23 msだった。legacy damageの同値は両engineとも2 ms、asset setup warm中央値はFirefox 23 ms、WebKit 26 msで、両方ともreport errorは0件だった。これは同一Windows環境の一回の測定であり、端末差や低速条件を代表しない。
+Firefox/WebKitとChrome 4xの自動実測には`npm run benchmark:phase2h:browser:playwright`を使う。これは`experiments/phase2h-browser/playwright-runner.mjs`が専用Viteを起動し、Playwright管理のFirefox、WebKit、Chrome channelを順次起動して同じページのreportを検証する。Chrome channelではCDPの`Emulation.setCPUThrottlingRate`へrate 4を設定し、rendererのスケジューリングを遅くする。ブラウザの起動・終了、CDP throttleの適用・解除、ページエラー、7ケースのstatus/count、asset setup、numeric digest、Long Task、終了時の一時profile削除をJSONへ記録する。`--iterations`と`--warmup`でページのquery overrideを再現でき、短縮条件は`npm run benchmark:phase2h:browser:playwright:short`で再現できる。通常Chromeは既存の親Chrome実測との重複を避けて既定では省略し、`--include-chrome`指定時だけ追加する。CDPのCPU throttleは実CPU時間、低速端末のCPU・メモリ、電池・熱特性を再現するものではない。したがって、このrunnerの測定値をproductionのWorker接続、JSON削除、入力上限、canonical表示、dynamic outputの採用へ直結させず、実測結果と別途のWorker・低速実機・UI測定を踏まえて判断する。2026-08-16の標準条件（warm 3回、warmup 1回）では、Firefox 153.0のcanonical damage warm中央値最大値は46 ms、WebKit 26.5は22 ms、Chrome channelのCPU 4xは143.3 msだった。legacy damageの同値は2 ms、1 ms、4.4 ms、asset setup warm中央値は22 ms、20 ms、67.5 msで、全engineのreport errorは0件だった。これは同一Windows環境の一回の測定であり、端末差や低速条件を代表しない。
+
+## Phase 2-H 低速相当Chrome runner（第13単位）
+
+第13単位では、第12単位と同じページ・7 fixtureをPlaywright管理のFirefox、WebKit、Chrome channelで測るrunnerを拡張した。Chrome channelのengineだけにCDPの`Emulation.setCPUThrottlingRate`をrate 4で適用し、測定完了後にrate 1へ戻してからCDP session、page、context、一時profileを順にcleanupする。CPU throttleはrendererのスケジューリング倍率をエミュレートするだけで、実CPU時間や低速実機のCPU・メモリ条件ではない。
+
+reportは標準出力だけへJSONで出し、実測結果ファイルやdistを生成しない。metadataにはthrottle方法・rate・解釈、既定で省略した通常Chromeの理由、`resultsPersisted: false`を残す。各engineについてpage error、ページ側のunhandled rejection、7ケースのstatus/count、case id、stage error、asset setup、numeric digest、Long Task、result sink、cleanupを検証する。`--iterations`と`--warmup`の転送を維持し、短縮条件は`npm run benchmark:phase2h:browser:playwright:short`、通常Chromeの比較を加える場合は`--include-chrome`で指定する。重い上限ケースの`planner-only`/`planner-rejected`契約、入力上限、core cap、production UI、canonical Worker接続、既存APIは変更しない。
+
+この単位はcanonical on-demandをメインスレッドのまま許容できるか、またはWorker接続を優先すべきかを検討するための補助データ収集である。2026-08-16の標準条件ではChrome CPU 4xのcanonical warm中央値最大値が143.3 msまで増加したため、低速相当条件ではWorker接続を候補として扱う。ただしCPU throttle結果だけでproduction採用を決めず、低速実機・メモリ条件、Worker起動・往復・cancel/error、Vue/Chart/Summary描画を親タスクまたは後続単位で別途実施する。

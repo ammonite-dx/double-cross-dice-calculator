@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 
-import { firefox, webkit } from 'playwright'
+import { chromium, firefox, webkit } from 'playwright'
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const VITE_CONFIG = fileURLToPath(new URL('./vite.config.mjs', import.meta.url))
@@ -33,18 +33,49 @@ const EXPECTED_CASE_IDS = [
   'range-reject-boundary',
 ]
 
-const ENGINE_CONFIGS = [
+const BASE_ENGINE_CONFIGS = [
   {
     id: 'firefox',
     label: 'Playwright Firefox',
     browserType: firefox,
+    launchOptions: { headless: true },
+    cpuThrottlingRate: null,
   },
   {
     id: 'webkit',
     label: 'Playwright WebKit',
     browserType: webkit,
+    launchOptions: { headless: true },
+    cpuThrottlingRate: null,
+  },
+  {
+    id: 'chrome-cpu-4x',
+    label: "Playwright Chrome channel 'chrome' with CDP CPU throttling 4x",
+    browserType: chromium,
+    launchOptions: {
+      channel: 'chrome',
+      headless: true,
+    },
+    cpuThrottlingRate: 4,
   },
 ]
+
+const OPTIONAL_ENGINE_CONFIG = {
+  id: 'chrome',
+  label: "Playwright Chrome channel 'chrome' without CPU throttling",
+  browserType: chromium,
+  launchOptions: {
+    channel: 'chrome',
+    headless: true,
+  },
+  cpuThrottlingRate: null,
+}
+
+function getEngineConfigs(options) {
+  return options.includeChrome
+    ? [...BASE_ENGINE_CONFIGS, OPTIONAL_ENGINE_CONFIG]
+    : BASE_ENGINE_CONFIGS
+}
 
 function formatError(error) {
   return String(error?.stack ?? error)
@@ -74,6 +105,7 @@ function parseArgs(args = process.argv.slice(2)) {
   const options = {
     iterations: null,
     warmup: null,
+    includeChrome: false,
     help: false,
   }
 
@@ -81,6 +113,10 @@ function parseArgs(args = process.argv.slice(2)) {
     const argument = args[index]
     if (argument === '--help' || argument === '-h') {
       options.help = true
+      continue
+    }
+    if (argument === '--include-chrome') {
+      options.includeChrome = true
       continue
     }
 
@@ -111,6 +147,7 @@ function helpText() {
     'Options:',
     `  --iterations N  Override warm samples (1..${MAX_ITERATIONS})`,
     `  --warmup N      Override warmup samples (0..${MAX_WARMUP_ITERATIONS})`,
+    "  --include-chrome  Include an unthrottled Chrome channel comparison",
     '  --help          Show this message',
   ].join('\n')
 }
@@ -274,6 +311,7 @@ function validateReport(report, capturedPageErrors = []) {
       .filter((stage) => stage?.status === 'error')
       .map((stage) => `${entry.id}:${stage.name}`)
   ))
+  const numericDigestValidation = validateNumericDigests(report)
   const checks = {
     reportStatus: report?.status === 'measured',
     caseCounts: counts.total === EXPECTED_CASE_IDS.length
@@ -283,6 +321,7 @@ function validateReport(report, capturedPageErrors = []) {
       && counts.error === 0,
     caseIds: JSON.stringify(sortedActualIds) === JSON.stringify(expectedIds),
     stageErrors: stageErrors.length === 0,
+    numericDigests: numericDigestValidation.valid,
     assetSetup: report?.assetSetup?.status === 'measured',
     resultSink: Number.isFinite(report?.resultSink),
     pageErrors: capturedPageErrors.length === 0
@@ -293,7 +332,43 @@ function validateReport(report, capturedPageErrors = []) {
     valid: Object.values(checks).every(Boolean),
     checks,
     stageErrors,
+    numericDigestValidation,
     reportedCaseCounts: counts,
+  }
+}
+
+function validateNumericDigests(report) {
+  const issues = []
+  const stageReports = []
+  if (report?.assetSetup) {
+    stageReports.push(['assetSetup', report.assetSetup])
+  }
+  for (const caseReport of report?.cases ?? []) {
+    for (const stage of caseReport?.stages ?? []) {
+      stageReports.push([`${caseReport.id}:${stage.name}`, stage])
+    }
+  }
+
+  for (const [path, stage] of stageReports) {
+    if (stage?.status !== 'measured') {
+      continue
+    }
+    const digest = stage.numericDigest
+    if (
+      !digest
+      || !Number.isFinite(digest.cold)
+      || !Number.isFinite(digest.warm)
+    ) {
+      issues.push({ path, digest: digest ?? null })
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    measuredStageCount: stageReports.filter(
+      ([, stage]) => stage?.status === 'measured',
+    ).length,
+    issues,
   }
 }
 
@@ -327,10 +402,19 @@ function summarizeTimings(report) {
 async function runEngine(engineConfig, baseUrl, options) {
   const profileDirectory = await mkdtemp(join(tmpdir(), 'phase2h-playwright-'))
   let context = null
+  let browser = null
+  let page = null
+  let cdpSession = null
+  let cpuThrottlingApplied = false
   const capturedPageErrors = []
   const cleanupErrors = []
   const cleanup = {
+    page: 'not-created',
+    browser: 'not-created',
     context: 'not-created',
+    cpuThrottling: engineConfig.cpuThrottlingRate === null
+      ? 'not-applicable'
+      : 'not-applied',
     temporaryProfile: 'not-removed',
     errors: cleanupErrors,
   }
@@ -338,6 +422,7 @@ async function runEngine(engineConfig, baseUrl, options) {
     id: engineConfig.id,
     label: engineConfig.label,
     status: 'error',
+    cpuThrottlingRate: engineConfig.cpuThrottlingRate,
     error: null,
     capturedPageErrors,
     cleanup,
@@ -346,13 +431,25 @@ async function runEngine(engineConfig, baseUrl, options) {
   try {
     context = await engineConfig.browserType.launchPersistentContext(
       profileDirectory,
-      { headless: true },
+      engineConfig.launchOptions,
     )
     cleanup.context = 'created'
-    const page = await context.newPage()
+    browser = context.browser()
+    cleanup.browser = browser ? 'created' : 'not-exposed'
+    const browserVersion = browser?.version?.() ?? null
+    page = await context.newPage()
+    cleanup.page = 'created'
     page.on('pageerror', (error) => {
       capturedPageErrors.push({ type: 'pageerror', message: formatError(error) })
     })
+    if (engineConfig.cpuThrottlingRate !== null) {
+      cdpSession = await context.newCDPSession(page)
+      await cdpSession.send('Emulation.setCPUThrottlingRate', {
+        rate: engineConfig.cpuThrottlingRate,
+      })
+      cpuThrottlingApplied = true
+      cleanup.cpuThrottling = 'applied'
+    }
     await page.goto(buildBenchmarkUrl(baseUrl, options), {
       waitUntil: 'load',
       timeout: DEFAULT_TIMEOUT_MILLISECONDS,
@@ -377,17 +474,15 @@ async function runEngine(engineConfig, baseUrl, options) {
       throw new Error('browser benchmark did not publish a result')
     }
     const validation = validateReport(result, capturedPageErrors)
-    const browser = context.browser()
     engineReport = {
       ...engineReport,
       status: validation.valid ? 'measured' : 'error',
-      browserVersion: browser?.version?.() ?? null,
+      browserVersion,
       report: result,
       validation,
       timingSummary: summarizeTimings(result),
       error: validation.valid ? null : 'browser benchmark report failed validation',
     }
-    await page.close()
   } catch (error) {
     engineReport = {
       ...engineReport,
@@ -395,12 +490,44 @@ async function runEngine(engineConfig, baseUrl, options) {
       error: formatError(error),
     }
   } finally {
+    if (cdpSession && cpuThrottlingApplied) {
+      try {
+        await cdpSession.send('Emulation.setCPUThrottlingRate', { rate: 1 })
+        cleanup.cpuThrottling = 'reset'
+      } catch (error) {
+        cleanupErrors.push(`CPU throttling reset: ${formatError(error)}`)
+      }
+    }
+    if (cdpSession) {
+      try {
+        await cdpSession.detach()
+      } catch (error) {
+        cleanupErrors.push(`CDP session detach: ${formatError(error)}`)
+      }
+    }
+    if (page) {
+      try {
+        await page.close()
+        cleanup.page = 'closed'
+      } catch (error) {
+        cleanupErrors.push(`page close: ${formatError(error)}`)
+      }
+    }
     if (context) {
       try {
         await context.close()
         cleanup.context = 'closed'
+        cleanup.browser = 'closed'
       } catch (error) {
         cleanupErrors.push(`context close: ${formatError(error)}`)
+        if (browser) {
+          try {
+            await browser.close()
+            cleanup.browser = 'closed'
+          } catch (browserError) {
+            cleanupErrors.push(`browser close: ${formatError(browserError)}`)
+          }
+        }
       }
     }
     try {
@@ -432,6 +559,7 @@ async function run(options) {
     )
   }
 
+  const engineConfigs = getEngineConfigs(options)
   const report = {
     metadata: {
       benchmark: 'phase2h-browser-playwright',
@@ -440,7 +568,21 @@ async function run(options) {
       benchmarkPath: BENCHMARK_PATH,
       requestedIterations: options.iterations,
       requestedWarmup: options.warmup,
-      engines: ENGINE_CONFIGS.map(({ id }) => id),
+      engines: engineConfigs.map(({ id }) => id),
+      includeChrome: options.includeChrome,
+      cpuThrottling: {
+        engine: 'chrome-cpu-4x',
+        method: 'Emulation.setCPUThrottlingRate via CDP',
+        rate: 4,
+        interpretation: 'renderer scheduling emulation multiplier; not physical CPU time',
+      },
+      omittedEngines: options.includeChrome
+        ? []
+        : [{
+            id: 'chrome',
+            status: 'omitted',
+            reason: 'unthrottled Chrome is omitted by default to avoid duplicating the parent Chrome measurement; use --include-chrome to opt in',
+          }],
       resultsPersisted: false,
     },
     status: 'error',
@@ -463,7 +605,7 @@ async function run(options) {
       cleanup: null,
     }
     const baseUrl = `http://127.0.0.1:${viteServer.port}`
-    for (const engineConfig of ENGINE_CONFIGS) {
+    for (const engineConfig of engineConfigs) {
       report.engines.push(await runEngine(engineConfig, baseUrl, options))
     }
     report.status = report.engines.every(
