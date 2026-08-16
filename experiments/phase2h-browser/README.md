@@ -31,6 +31,28 @@ window.__phase2hBrowserBenchmarkError
 
 実際のブラウザ起動、操作、Playwright実行はこのREADMEのnpm scriptには含めていません。親タスクがブラウザで確認し、終了後にViteを停止します。
 
+## Firefox/WebKitの自動実測
+
+Playwright管理のFirefoxとWebKitで同じページを順次実測する場合は、次を実行します。結果は標準出力へJSONとして出し、ファイルへ保存しません。
+
+```shell
+npm run benchmark:phase2h:browser:playwright
+```
+
+短い確認には次を使えます。
+
+```shell
+npm run benchmark:phase2h:browser:playwright -- --iterations 1 --warmup 0
+```
+
+Firefox/WebKitが未取得の環境では、Playwright管理ブラウザとして次を一度だけ実行します。ユーザーのFirefoxやSafariをインストールする必要はありません。
+
+```shell
+npx playwright install firefox webkit
+```
+
+このrunnerはFirefox/WebKitのengine差を確認するための実験用で、Chromeの親タスク実測や既存のPhase 2-F runnerとは別に動作します。測定値だけを根拠にproductionのWorker接続、JSON削除、入力上限、canonical表示を変更しません。
+
 ## 測定範囲
 
 アセットはcase実測のwarmup前に、必要な`dx`、`dr`、`d10`のfetch、JSON parse、公開repositoryへのregistrationを独立stageでcold/warm測定します。アセットのresource entryは`data/schema-v2/revision-1/`以下のdata pathだけへ縮約して報告します。ブラウザのresource timingはcache hitとネットワーク取得を常に同じ粒度で表せるとは限らないため、resource entry countとページ側fetch call countを分けて記録します。
