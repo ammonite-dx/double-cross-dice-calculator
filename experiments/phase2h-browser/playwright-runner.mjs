@@ -10,6 +10,8 @@ import { chromium, firefox, webkit } from 'playwright'
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const VITE_CONFIG = fileURLToPath(new URL('./vite.config.mjs', import.meta.url))
 const BENCHMARK_PATH = '/experiments/phase2h-browser/browser-benchmark.html'
+const CANONICAL_ATTACK_BENCHMARK_PATH =
+  '/experiments/phase2h-browser/canonical-attack-worker-benchmark.html'
 const EXPECTED_NODE_VERSION = (
   await readFile(new URL('../../.node-version', import.meta.url), 'utf8')
 ).trim()
@@ -32,6 +34,33 @@ const EXPECTED_CASE_IDS = [
   'range-warning-boundary',
   'range-reject-boundary',
 ]
+
+const TARGET_CONFIGS = {
+  core: {
+    id: 'core',
+    benchmarkPath: BENCHMARK_PATH,
+    resultGlobal: '__phase2hBrowserBenchmarkResult',
+    errorGlobal: '__phase2hBrowserBenchmarkError',
+    benchmarkName: 'phase2h-browser-playwright',
+  },
+  'canonical-attack': {
+    id: 'canonical-attack',
+    benchmarkPath: CANONICAL_ATTACK_BENCHMARK_PATH,
+    resultGlobal: '__phase2hCanonicalAttackWorkerBenchmarkResult',
+    errorGlobal: '__phase2hCanonicalAttackWorkerBenchmarkError',
+    benchmarkName: 'phase2h-browser-playwright-canonical-attack',
+  },
+}
+
+function getTargetConfig(targetId) {
+  const target = TARGET_CONFIGS[targetId]
+  if (!target) {
+    throw new Error(
+      `--target must be one of: ${Object.keys(TARGET_CONFIGS).join(', ')}`
+    )
+  }
+  return target
+}
 
 const BASE_ENGINE_CONFIGS = [
   {
@@ -103,6 +132,7 @@ function parseBoundedInteger(rawValue, name, maximum, allowZero) {
 
 function parseArgs(args = process.argv.slice(2)) {
   const options = {
+    target: 'core',
     iterations: null,
     warmup: null,
     includeChrome: false,
@@ -117,6 +147,17 @@ function parseArgs(args = process.argv.slice(2)) {
     }
     if (argument === '--include-chrome') {
       options.includeChrome = true
+      continue
+    }
+
+    const targetMatch = /^(--target)(?:=(.*))?$/.exec(argument)
+    if (targetMatch) {
+      const targetId = targetMatch[2] ?? args[++index]
+      if (targetId === undefined) {
+        throw new Error('--target requires a value')
+      }
+      options.target = targetId
+      getTargetConfig(options.target)
       continue
     }
 
@@ -145,6 +186,7 @@ function helpText() {
     'Usage: node experiments/phase2h-browser/playwright-runner.mjs [options]',
     '',
     'Options:',
+    '  --target NAME    Measure core or canonical-attack (default: core)',
     `  --iterations N  Override warm samples (1..${MAX_ITERATIONS})`,
     `  --warmup N      Override warmup samples (0..${MAX_WARMUP_ITERATIONS})`,
     "  --include-chrome  Include an unthrottled Chrome channel comparison",
@@ -194,7 +236,7 @@ function waitForChildExit(child) {
   return new Promise((resolve) => child.once('exit', resolve))
 }
 
-async function startViteServer() {
+async function startViteServer(target) {
   const port = await getFreePort()
   const child = spawn(
     process.execPath,
@@ -229,7 +271,7 @@ async function startViteServer() {
     stderr += chunk
   })
 
-  const url = `http://127.0.0.1:${port}${BENCHMARK_PATH}`
+  const url = `http://127.0.0.1:${port}${target.benchmarkPath}`
   try {
     const started = Date.now()
     let lastError = null
@@ -288,7 +330,7 @@ async function stopViteServer(server) {
   }
 }
 
-function buildBenchmarkUrl(baseUrl, options) {
+function buildBenchmarkUrl(baseUrl, options, target) {
   const params = new URLSearchParams()
   if (options.iterations !== null) {
     params.set('iterations', String(options.iterations))
@@ -297,10 +339,18 @@ function buildBenchmarkUrl(baseUrl, options) {
     params.set('warmup', String(options.warmup))
   }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  return `${baseUrl}${BENCHMARK_PATH}${suffix}`
+  return `${baseUrl}${target.benchmarkPath}${suffix}`
 }
 
-function validateReport(report, capturedPageErrors = []) {
+function validateReport(
+  report,
+  capturedPageErrors = [],
+  target = TARGET_CONFIGS.core,
+) {
+  if (target.id === 'canonical-attack') {
+    return validateCanonicalAttackReport(report, capturedPageErrors)
+  }
+
   const counts = report?.caseCounts ?? {}
   const cases = Array.isArray(report?.cases) ? report.cases : []
   const actualIds = cases.map((entry) => entry?.id)
@@ -334,6 +384,149 @@ function validateReport(report, capturedPageErrors = []) {
     stageErrors,
     numericDigestValidation,
     reportedCaseCounts: counts,
+  }
+}
+
+function isFiniteNonNegative(value) {
+  return Number.isFinite(value) && value >= 0
+}
+
+function summarizeCanonicalTimings(report) {
+  const caseTimings = (report?.cases ?? []).map((entry) => ({
+    id: entry?.id ?? null,
+    status: entry?.status ?? null,
+    coldInvocationMedianMs:
+      entry?.stage?.cold?.invocationElapsedMs?.medianMs ?? null,
+    warmInvocationMedianMs:
+      entry?.stage?.warm?.invocationElapsedMs?.medianMs ?? null,
+  }))
+  const measuredTimings = caseTimings.filter(
+    (entry) => entry.status === 'measured'
+      && isFiniteNonNegative(entry.coldInvocationMedianMs)
+      && isFiniteNonNegative(entry.warmInvocationMedianMs),
+  )
+  const warmValues = measuredTimings.map(
+    (entry) => entry.warmInvocationMedianMs,
+  )
+  const coldValues = measuredTimings.map(
+    (entry) => entry.coldInvocationMedianMs,
+  )
+  return {
+    measuredCaseCount: measuredTimings.length,
+    warmInvocationMedianMaximumMs: warmValues.length > 0
+      ? Math.max(...warmValues)
+      : null,
+    coldInvocationMedianMaximumMs: coldValues.length > 0
+      ? Math.max(...coldValues)
+      : null,
+    caseTimings,
+  }
+}
+
+function summarizeCanonicalWorker(report) {
+  const counters = report?.worker?.counters ?? {}
+  return {
+    status: report?.worker?.status ?? null,
+    counters: {
+      workerCreated: counters.workerCreated ?? null,
+      workerPostMessage: counters.workerPostMessage ?? null,
+      workerMessage: counters.workerMessage ?? null,
+      workerTransferCount: counters.workerTransferCount ?? null,
+      workerTransferBytes: counters.workerTransferBytes ?? null,
+      workerErrors: counters.workerErrors ?? null,
+      workerMessageErrors: counters.workerMessageErrors ?? null,
+      workerTerminated: counters.workerTerminated ?? null,
+    },
+    instanceCount: Array.isArray(report?.worker?.instances)
+      ? report.worker.instances.length
+      : null,
+  }
+}
+
+function summarizeCanonicalAssets(report) {
+  const fetches = Array.isArray(report?.assets?.fetches)
+    ? report.assets.fetches
+    : []
+  const d10Fetches = fetches.filter((entry) => (
+    /(?:^|\/)d10(?:\/|\.|$)/i.test(entry?.path ?? '')
+  ))
+  return {
+    fetchCallCount: report?.assets?.fetchCallCount ?? null,
+    d10Fetches,
+    resourceEntries: Array.isArray(report?.assets?.resourceEntries)
+      ? report.assets.resourceEntries.filter((entry) => (
+          /(?:^|\/)d10(?:\/|\.|$)/i.test(entry?.path ?? '')
+        ))
+      : [],
+  }
+}
+
+function validateCanonicalAttackReport(report, capturedPageErrors) {
+  const counts = report?.caseCounts ?? {}
+  const cases = Array.isArray(report?.cases) ? report.cases : []
+  const actualIds = cases.map((entry) => entry?.id)
+  const expectedIds = EXPECTED_CASE_IDS.slice().sort()
+  const sortedActualIds = actualIds.slice().sort()
+  const reportedIds = Array.isArray(report?.caseIds)
+    ? report.caseIds.slice().sort()
+    : []
+  const workerSummary = summarizeCanonicalWorker(report)
+  const workerCounters = workerSummary.counters
+  const timingSummary = summarizeCanonicalTimings(report)
+  const assetSummary = summarizeCanonicalAssets(report)
+  const d10Successes = assetSummary.d10Fetches.filter((entry) => (
+    entry?.status === 200
+      && entry?.error === null
+      && isFiniteNonNegative(entry?.elapsedMs)
+  ))
+  const cancel = report?.diagnostics?.cancel
+  const stale = report?.diagnostics?.stale
+  const checks = {
+    reportStatus: report?.status === 'measured',
+    caseCounts: counts.total === EXPECTED_CASE_IDS.length
+      && counts.measured === 5
+      && counts.plannerOnly === 1
+      && counts.plannerRejected === 1
+      && counts.error === 0,
+    caseIds: JSON.stringify(sortedActualIds) === JSON.stringify(expectedIds)
+      && JSON.stringify(reportedIds) === JSON.stringify(expectedIds),
+    timingSummary: timingSummary.measuredCaseCount === 5
+      && isFiniteNonNegative(timingSummary.warmInvocationMedianMaximumMs)
+      && isFiniteNonNegative(timingSummary.coldInvocationMedianMaximumMs),
+    pageErrors: capturedPageErrors.length === 0
+      && (report?.pageErrors?.length ?? 0) === 0
+      && (report?.unhandledRejections?.length ?? 0) === 0,
+    worker: workerSummary.status === 'production-runtime-observed'
+      && workerSummary.instanceCount > 0
+      && workerCounters.workerCreated > 0
+      && workerCounters.workerPostMessage > 0
+      && workerCounters.workerMessage > 0
+      && workerCounters.workerTransferCount > 0
+      && workerCounters.workerTransferBytes > 0
+      && workerCounters.workerErrors === 0
+      && workerCounters.workerMessageErrors === 0
+      && (report?.worker?.errors?.length ?? 0) === 0
+      && report?.worker?.installError === null,
+    cancel: cancel?.status === 'measured'
+      && cancel.abortBoundary === 'onRangePlan-preflight'
+      && cancel.abortSent === true
+      && cancel.result?.status === 'aborted'
+      && cancel.result?.error?.name === 'AbortError',
+    stale: stale?.status === 'measured'
+      && stale.firstCommit === false
+      && stale.secondCommit === true
+      && Array.isArray(stale.runnerErrors)
+      && stale.runnerErrors.length === 0,
+    d10Fetch: d10Successes.length > 0,
+    fetchDiagnostics: report?.diagnostics?.fetchInstallError === null,
+  }
+  return {
+    valid: Object.values(checks).every(Boolean),
+    checks,
+    reportedCaseCounts: counts,
+    timingSummary,
+    workerSummary,
+    assetSummary,
   }
 }
 
@@ -377,7 +570,11 @@ function getStageMedian(caseReport, stageName) {
   return stage?.warm?.invocationElapsedMs?.medianMs ?? null
 }
 
-function summarizeTimings(report) {
+function summarizeTimings(report, target = TARGET_CONFIGS.core) {
+  if (target.id === 'canonical-attack') {
+    return summarizeCanonicalTimings(report)
+  }
+
   const measuredCases = (report?.cases ?? [])
     .filter((entry) => entry.status === 'measured')
   const canonical = measuredCases
@@ -399,7 +596,7 @@ function summarizeTimings(report) {
   }
 }
 
-async function runEngine(engineConfig, baseUrl, options) {
+async function runEngine(engineConfig, baseUrl, options, target) {
   const profileDirectory = await mkdtemp(join(tmpdir(), 'phase2h-playwright-'))
   let context = null
   let browser = null
@@ -450,22 +647,27 @@ async function runEngine(engineConfig, baseUrl, options) {
       cpuThrottlingApplied = true
       cleanup.cpuThrottling = 'applied'
     }
-    await page.goto(buildBenchmarkUrl(baseUrl, options), {
+    await page.goto(buildBenchmarkUrl(baseUrl, options, target), {
       waitUntil: 'load',
       timeout: DEFAULT_TIMEOUT_MILLISECONDS,
     })
     await page.waitForFunction(
-      () => Boolean(
-        window.__phase2hBrowserBenchmarkResult
-        || window.__phase2hBrowserBenchmarkError
+      ({ resultGlobal, errorGlobal }) => Boolean(
+        window[resultGlobal] || window[errorGlobal]
       ),
+      {
+        resultGlobal: target.resultGlobal,
+        errorGlobal: target.errorGlobal,
+      },
       { timeout: DEFAULT_TIMEOUT_MILLISECONDS },
     )
     const result = await page.evaluate(
-      () => window.__phase2hBrowserBenchmarkResult ?? null,
+      (resultGlobal) => window[resultGlobal] ?? null,
+      target.resultGlobal,
     )
     const pageFailure = await page.evaluate(
-      () => window.__phase2hBrowserBenchmarkError ?? null,
+      (errorGlobal) => window[errorGlobal] ?? null,
+      target.errorGlobal,
     )
     if (pageFailure) {
       throw new Error(`browser benchmark failed: ${pageFailure}`)
@@ -473,14 +675,20 @@ async function runEngine(engineConfig, baseUrl, options) {
     if (!result) {
       throw new Error('browser benchmark did not publish a result')
     }
-    const validation = validateReport(result, capturedPageErrors)
+    const validation = validateReport(result, capturedPageErrors, target)
     engineReport = {
       ...engineReport,
       status: validation.valid ? 'measured' : 'error',
       browserVersion,
       report: result,
       validation,
-      timingSummary: summarizeTimings(result),
+      timingSummary: summarizeTimings(result, target),
+      ...(target.id === 'canonical-attack'
+        ? {
+            workerSummary: summarizeCanonicalWorker(result),
+            assetSummary: summarizeCanonicalAssets(result),
+          }
+        : {}),
       error: validation.valid ? null : 'browser benchmark report failed validation',
     }
   } catch (error) {
@@ -559,13 +767,15 @@ async function run(options) {
     )
   }
 
+  const target = getTargetConfig(options.target)
   const engineConfigs = getEngineConfigs(options)
   const report = {
     metadata: {
-      benchmark: 'phase2h-browser-playwright',
+      benchmark: target.benchmarkName,
+      target: target.id,
       node: process.version,
       playwright: PLAYWRIGHT_VERSION,
-      benchmarkPath: BENCHMARK_PATH,
+      benchmarkPath: target.benchmarkPath,
       requestedIterations: options.iterations,
       requestedWarmup: options.warmup,
       engines: engineConfigs.map(({ id }) => id),
@@ -597,7 +807,7 @@ async function run(options) {
   let viteServer = null
 
   try {
-    viteServer = await startViteServer()
+    viteServer = await startViteServer(target)
     report.vite = {
       status: 'started',
       port: viteServer.port,
@@ -606,7 +816,9 @@ async function run(options) {
     }
     const baseUrl = `http://127.0.0.1:${viteServer.port}`
     for (const engineConfig of engineConfigs) {
-      report.engines.push(await runEngine(engineConfig, baseUrl, options))
+      report.engines.push(
+        await runEngine(engineConfig, baseUrl, options, target),
+      )
     }
     report.status = report.engines.every(
       (engine) => engine.status === 'measured',

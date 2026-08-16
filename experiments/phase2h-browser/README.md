@@ -65,6 +65,58 @@ npx playwright install firefox webkit
 
 このrunnerはFirefox/WebKitのengine差と、Chrome channelの低速相当条件を確認するための実験用で、Chromeの親タスク実測や既存のPhase 2-F runnerとは別に動作します。CDPのCPU throttleはrendererのスケジューリングを遅くするエミュレーション倍率であり、実CPU時間、低速端末のCPU・メモリ、電池・熱特性を再現するものではありません。測定値だけを根拠にproductionのWorker接続、JSON削除、入力上限、canonical表示を変更しません。
 
+## canonical Attack batch / Worker経路の実測（Phase 2-H 第14単位）
+
+既存の`browser-benchmark.html`は`calculateCanonicalDamageOnDemand`を直接呼ぶcore比較ページであり、production `CalculationClient`のAttack batch経路やRuntime Workerを測りません。これらを確認する場合は、同じVite serverで次のページを開きます。
+
+```shell
+npm run benchmark:phase2h:browser:canonical-attack -- --host 127.0.0.1
+```
+
+ページURL:
+
+```text
+http://127.0.0.1:3000/experiments/phase2h-browser/canonical-attack-worker-benchmark.html
+```
+
+短い確認には`?iterations=1&warmup=0`を付けます。ページは既存7 fixtureの同じ入力を使い、5件を`calculationClient.calculateAttackCanonicalBatch`、warning境界を`planAttackCombo`、reject境界をpublic batchのpreflight rejectとして測定します。成功batchの処理にはscore生成、D10 asset読込、防御畳み込み、既存`RuntimeDamageRollClient`経由のDR Worker、canonical total aggregationが含まれます。結果は次で取得できます。
+
+```js
+window.__phase2hCanonicalAttackWorkerBenchmarkResult
+window.__phase2hCanonicalAttackWorkerBenchmarkError
+```
+
+ページは既存Workerを置き換えず、native `Worker`を薄くラップして生成数、postMessage/message、transfer bytes、error/messageerror、terminateを記録します。`fetch`のラップではdata assetの呼出し回数とresource timingを記録します。cancelは実際の`AbortSignal`を`CalculationClient`の同期`onRangePlan`通知で発火させ、preflight後かつWorker実行前の境界で1件測定します。staleは既存`AttackCanonicalRunner`を2連続起動して診断します。Workerを意図的に壊すsynthetic error probeは行わず、自然発生したerrorだけを記録します。`Attack.vue`の`canonicalOptIn`は既定`false`のため、このページはproduction UIではなく明示的な実験consumerです。
+
+標準条件（In-app Chrome、Chromium 151.0.0.0、Windows、`iterations=3`、`warmup=1`）の実測では、7 casesはmeasured 5、planner-only 1、planner-rejected 1、error 0でした。canonical Attack batchのwarm invocation median最大は`combo-total-3`の2.4 ms、cold最大は40.9 ms、小規模caseのcoldは25.3 msでした。Workerは1 instance、8 postMessage/8 message、transfer 8回・12,992 bytes、error/messageerror 0、terminate 0、D10 asset fetchは1回（status 200、encodedBodySize 373,168 bytes、fetch 3.7 ms、resource 1.8 ms）でした。cancelは`abortSent=true`で`AbortError`、staleは`firstCommit=false`、`secondCommit=true`、`runnerErrors=0`、pageErrors/unhandledRejectionsは0件だった。短縮条件（`?iterations=1&warmup=0`）も成功した。数値は単一ブラウザ・単一実行条件の参考値です。
+
+この実測で確認したWorker接続は既存のDR部分のみです。score/DXなどの判定計算、preflight、D10、固定値差、防御畳み込み、failure合成、canonical envelope/total aggregationはmain threadに残るため、このページの結果だけでWorker protocol追加やcanonical UI切替を行いません。
+
+## canonical Attack batchのFirefox/WebKit/Chrome 4x自動実測（Phase 2-H 第15単位）
+
+第14単位のcanonical Attackページを第13単位のPlaywright実測基盤で測る場合は、既存core直呼び出しrunnerを壊さない明示的なtarget分岐を使います。core runnerの既定targetは従来どおり`browser-benchmark.html`で、canonical targetだけが`canonical-attack-worker-benchmark.html`と専用の結果globalを読みます。
+
+標準条件（ページ既定の`iterations=3`、`warmup=1`）は次です。
+
+```shell
+npm run benchmark:phase2h:browser:playwright:canonical-attack
+```
+
+短縮条件とCLI overrideは次です。
+
+```shell
+npm run benchmark:phase2h:browser:playwright:canonical-attack:short
+npm run benchmark:phase2h:browser:playwright:canonical-attack -- --iterations 3 --warmup 1
+```
+
+runnerはFirefox、WebKit、Chrome channel CPU 4xを順次起動し、`--include-chrome`指定時だけ通常Chrome channelも追加します。専用Viteの空きport、temporary profile、engine/CDP/page/context/Viteをcleanupし、結果は標準出力JSONだけへ出して結果ファイルを保存しません。`metadata.target`、`metadata.benchmarkPath`、`metadata.engines`、`metadata.omittedEngines`で対象を識別できます。
+
+canonical reportは、`status=measured`、7 fixture id/count（measured 5、planner-only 1、planner-rejected 1、error 0）、pageErrors/unhandledRejections 0、`production-runtime-observed` Worker、Worker error/messageerror 0、preflight boundary cancelの`status=measured`かつ`AbortError`、staleの`firstCommit=false`/`secondCommit=true`、D10 asset fetchのstatus 200をrunner側で検証します。cancel probeの`completed-before-abort`は許容しません。各engineのJSONにはcanonical case timing summaryと、Worker生成/postMessage/message/transfer/error counters、D10 fetch summaryを残します。
+
+親タスクの昇格実行（`npm run --silent benchmark:phase2h:browser:playwright:canonical-attack -- --iterations 3 --warmup 1`、`resultsPersisted=false`）で、修正後の3 engine実測が完了しました。Firefox 153.0はwarm invocation median最大3 ms、cold最大52 ms、WebKit 26.5はwarm最大2 ms、cold最大40 ms、Chrome channel 151.0.7922.138（CPU throttle 4x）はwarm最大7.4 ms、cold最大110.4 msでした。各engineでWorkerは1 instance、7 postMessage/7 message、transfer 7回・11,368 bytes、worker error 0・messageErrors 0でした。
+
+全engineで7 case（measured 5、planner-only 1、planner-rejected 1、error 0）、case IDs、pageErrors/unhandledRejections 0、D10 status 200、cancelの`status=measured`/`AbortError`/`abortBoundary=onRangePlan-preflight`、staleの`firstCommit=false`/`secondCommit=true`を検証し、cleanupも成功しました。ChromeはCDP throttle resetを含めてcleanup成功です。これは標準条件の単一実行であり、CPU throttleは実CPU・低速端末のCPU/メモリを再現しません。Worker接続は既存DR部分だけで、score/DX等はmain threadに残るため、実測だけで新しいWorker protocolやcanonical UI切替を決めません。
+
 ## 測定範囲
 
 アセットはcase実測のwarmup前に、必要な`dx`、`dr`、`d10`のfetch、JSON parse、公開repositoryへのregistrationを独立stageでcold/warm測定します。アセットのresource entryは`data/schema-v2/revision-1/`以下のdata pathだけへ縮約して報告します。ブラウザのresource timingはcache hitとネットワーク取得を常に同じ粒度で表せるとは限らないため、resource entry countとページ側fetch call countを分けて記録します。
