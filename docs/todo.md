@@ -343,3 +343,11 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: expected valueは比較対象へ追加せず、canonicalのexact/bounded/lower-bound summaryとlegacyのraw moment・小数1桁表示丸めを混同しない方針を文書化した
 - 対象外: canonical/UI表示切替、performance計測、browser cold/warm計測、Worker/JSON serialization、legacy/canonical return shape、入力上限、依存追加
 - 次段階: 比較fixtureのブラウザ実測と表示接続・移行条件・dynamic output採用可否を別単位で判断する
+
+### Dynamic distribution range Phase 2-H 第11単位
+
+- 完了: `scripts/benchmark-phase2h.mjs`と`npm run benchmark:phase2h`を追加し、RangePlanner/preflight、legacy JSON damage、準備済みlegacy combo結果に対するlegacy total、canonical damage、canonical total aggregation、canonical presentation、legacy/canonical comparisonを既存API境界で分離計測した。legacy totalは`getTotalDamage`呼出しだけを計時し、planner・score・asset setupは区間外とした。内部helperへの侵入、公開経路の切替、UI/Worker/JSON変更は行っていない
+- 完了: 小規模通常、fixed shift/defence、`kazanari=0`と`kazanari>0`、failure mass、3 combo total、warning-onlyの`planner-only`、明示hard rejectの`planner-rejected`をfixtureとして固定した。`planner-rejected`は`accepted=false`を検出した時点で重い計算へ進まない。各caseの入力、route、execution、executionReason、plan、反復数、warmup、結果digestと制約をJSONへ含めた
+- 完了: `performance.now()`によるcold/warm分離、nearest-rank median/p95/min/max、machine/Node/local commit metadata、`--json`、`--iterations`、`--warmup`、結果を捨てないdigestを追加した。統計関数、出力shape、引数validationは軽量テストで固定した。JSONは`npm run --silent benchmark:phase2h -- --json`またはscript直接実行で機械可読stdoutになる
+- 完了: Nodeのcold/warmはmodule/Vite load、fixture準備、共有asset登録、browser Worker、fetch/JSON、event-loop delay、Vue/Chart/Summary描画を含まないため、ブラウザ結果と混同せず、Node結果だけでcanonical/dynamic outputの採用判断をしないことを文書化した。Node結果は計算coreの比較基準に限定する
+- 残作業: Chrome/Firefox/WebKitの同一fixture、低速実機/低速機相当、Worker起動・往復・cancel/error、fetch/JSON serializationとasset setup、Vue/Chart/Summary描画、fallback、canonical/dynamic outputの採用判断

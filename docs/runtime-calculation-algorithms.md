@@ -440,3 +440,17 @@ invalid inputは既存`DistributionResultAdapterError`のtyped codeをそのま�
 この単位ではexpected valueを比較しない。canonicalの`getExpectedValueSummary()`が返す`exact`・`bounded`・`lower-bound`の意味を保ち、upper/lower boundを一点値に変換しないためである。legacyの小数1桁summaryはraw momentではないため、表示値一致の判定にも使わない。必要なexpected-value移行条件は、raw moment、overflow bound、表示丸めを別契約として後続単位で設計する。
 
 テストは、実際の`planCalculationRanges`、`calculateScore`、`calculateDxDistribution`、`generateMixedDamageDistribution`、防御D10、legacy/canonical damage計算を通した固定値shift・防御、`kazanari > 0`、failure mass、multi-combo totalをfixtureにした。validな1023以上のexact overflowは比較可能、upper-boundと1023未満のexact overflowはnot-comparableとなることも、狭い実計算planで固定している。不活性exactとcomponent descriptorのactive overflow、revoked Proxy・accessorのtyped error、閾値直上の`passed: false`も固定している。性能計測、browser cold/warm計測、UI表示・切替、入力上限、Worker/JSON serializationは次単位の対象外である。
+
+## Phase 2-H Node性能計測基盤（第11単位）
+
+第11単位では、公開経路を切り替えずに第10単位の比較fixtureをNodeで再現する`scripts/benchmark-phase2h.mjs`を追加した。`npm run benchmark:phase2h`は人間向けの行形式、機械可読JSONは`npm run --silent benchmark:phase2h -- --json`（またはscriptの直接実行）で標準出力へ出す。`--iterations N`と`--warmup N`で全ケースの反復数を上書きでき、既定値はwarm 3回、warmup 1回である。結果はファイルへ保存せず、実行時のmetadataへNode version、実行ファイル、OS/architecture、CPU、メモリ、可能な場合のlocal commitを含める。
+
+計測区間は既存の公開関数境界で分ける。各ケースで`RangePlanner/preflight`、既存JSONアセットを使うlegacy `getDamage`、準備済みlegacy combo結果に対する`getTotalDamage`、`calculateCanonicalDamageOnDemand`、`sumCanonicalDamage`、`createAttackCanonicalPresentation`、`compareLegacyAndCanonicalDistributions`/`compareLegacyAndCanonicalTotalDamage`を個別に測定する。legacy totalはcanonical totalと同じreport内の独立stageであり、`getTotalDamage`の呼出しだけを計時する。score生成、asset登録、fixture作成、canonical/legacy summaryの準備は各stageの測定区間から除外する。内部helperへ無理に侵入せず、provider・FFT・defence convolutionを含む既存API呼出しをそのAPIの計算区間として扱う。
+
+fixtureは、小規模通常（`kazanari=0`）、固定値差と防御ダイス、`kazanari=3`、failure mass、3 combo total、現行入力上限近辺のwarning-only `planner-only`ケース、明示hard limitの`planner-rejected`ケースの7ケースである。`planner-only`はplanがacceptedでも意図的にpreflightだけを測るstatus、`planner-rejected`は`accepted=false`のためfixture作成やscore/damage計算へ進まないstatusであり、両者を混同しない。上限近辺ケースはpreflightだけを測定し、重いscore/damageを既定実行しない。各caseの入力、route、execution、executionReason、iterations、warmup、planのaccepted/warnings/rejectionReasons、failure/hit mass診断はJSONへ残す。
+
+時間は`performance.now()`で測る。coldはモジュール、fixture、アセットの準備後に行う最初のtimed invocationであり、process起動とVite/module loadは含めない。warmupはcold後の未計時呼出しで、warmはwarmup後のtimed invocationである。coldは1サンプル、warmはcaseごとの反復サンプルからnearest-rank median/p95、min/maxを返す。各結果をdigestへ通してから次へ進むため、戻り値を捨てるだけの計測にはしない。
+
+このNode値は、module/Vite load、fixture準備、score生成、全caseで共有するasset登録などを除いた計算coreの同一プロセス基準であり、ブラウザ値と混同しない。Node計測にはbrowser engine差、event-loop delay、Worker生成・postMessage・transfer、fetch、JSON serialization、DOM、Chart.js描画、低速端末のmemory/CPU条件が含まれない。また、asset登録を除外するため、初回fetch・JSON parse・cache warmの実運用コストを表さない。したがって本単位の結果だけでJSON削除、Worker採用、UI入力上限拡張、canonical公開切替、dynamic outputの採用判断を行わない。
+
+残作業は、Chrome/Firefox/WebKitの同一fixture実測、低速実機または低速機相当のCPU・メモリ条件、Workerの起動・往復・cancel/error、fetch/JSON serialization、Vue/Chart/Summary描画を含むブラウザ測定である。これらを同じ入力とcomparison契約で確認し、数値一致、許容応答時間、資源上限、表示意味、fallback経路を合わせてから、canonical/dynamic outputのproduction採用可否を別単位で判断する。

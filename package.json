@@ -14,6 +14,7 @@
     "prebuild": "node scripts/check-node-version.mjs",
     "build": "vite build",
     "benchmark:calculators": "node scripts/benchmark-calculators.mjs",
+    "benchmark:phase2h": "node scripts/benchmark-phase2h.mjs",
     "benchmark:runtime-dr": "node scripts/benchmark-runtime-dr-experiment.mjs",
     "benchmark:dynamic-distribution-ranges:browser": "node experiments/dynamic-distribution-ranges/playwright-runner.mjs",
     "preview": "vite preview",
