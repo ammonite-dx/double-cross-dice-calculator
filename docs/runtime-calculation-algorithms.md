@@ -500,3 +500,11 @@ In-app Chrome（userAgent: Chromium 151.0.0.0、Windows）の標準条件（`ite
 全engineでstatus measured、7 cases（measured 5、planner-only 1、planner-rejected 1、error 0）、case IDs、pageErrors/unhandledRejections 0、D10 status 200、cleanup成功を確認した。Workerは各engineで1 instance、7 postMessage/7 message、transfer 7回・11,368 bytes、worker errors 0・messageErrors 0だった。cancelは`status=measured`、`AbortError`、`abortBoundary=onRangePlan-preflight`、staleは`firstCommit=false`/`secondCommit=true`で、ChromeもCDP throttle resetを含めてcleanup成功した。cancelは速度差に依存せず、CalculationClientの同期`onRangePlan`通知でpreflight後・Worker実行前にabortする測定境界である。
 
 この数値は標準条件の単一ブラウザ実行であり、Chrome CPU throttleは実CPU・低速端末のCPU/メモリを再現しない。実測で確認したWorker接続は既存DR部分だけで、score/DX、preflight、D10、固定値差、防御畳み込み、failure合成、canonical envelope/total aggregationはmain threadに残る。したがって、この実測だけで新しいWorker protocol、score/DXのWorker移行、canonical UI表示切替は決めず、必要な変更は別単位で判断する。
+
+## Phase 2-H canonical Attack opt-in diagnostic UI（第16単位）
+
+第16単位では、`src/views/Attack.vue`に既存canonical runnerを使う独立した`CanonicalAttackPanel`を接続した。`canonicalOptIn`は既定値を`false`とし、トグルを有効化したときだけcanonical計算と結果表示を行う。パネルは`RangePlanNotice`を再利用し、canonical totalとcombo別のexpected value、support、explicitMax、overflowを欠損・非有限値に耐える純粋表示helperで安全に表示する。expected valueは`exact`、`bounded`、`lower-bound`、overflowは`exact`、`upper-bound`を区別し、巨大な`probabilities`配列はDOMへ列挙しない。表示用の契約テストとhelperのunit testも追加した。
+
+この単位では既存のlegacyチャート、サマリー、レイアウト、`resultsReady`、legacy fieldsを変更しない。`canonicalOptIn=true`で全comboとcanonical totalがexactかつ有限の期待値を持ち、安全なprojectionに成功した場合だけderived display dataを既存の`DamageChartPanel`と`SummaryPanel`へ渡し、それ以外は従来のlegacy `attackData`へfallbackする。`ScoreChartPanel`、`InputPanel`、デバッグ用`CanonicalAttackPanel`は変更せず、canonical結果による無条件の本番表示置換、dynamic outputの採用、新しいWorker protocolの追加・変更は対象外とする。
+
+`CanonicalLegacyDisplayAdapter`は、既存`DamageChart`へ接続する前段のpure projection boundaryである。`toPublishedBucketDistribution`と`getUpperTailProbability`を再利用して新しい1024 bucketと上側確率を作り、canonical overflowとpresentationを保持するが、summaryの期待値を丸めない。`upper-bound` overflowと、`lowerBound`が1023未満でpotential massを持つexact overflowは`not-projectable`としてlegacy表示へ自動投入しない。Attack表示helperはこのadapterとcanonical summaryを検証し、安全なexact finiteケースだけをlegacy chart/summary shapeへ複製して渡す。UIのレイアウトや既存コンポーネント自体は変更していない。

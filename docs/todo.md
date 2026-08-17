@@ -2,6 +2,8 @@
 
 リポジトリ内で判明している、後続作業が必要な技術課題を記録します。完了した項目は、対応したコミットまたはPull Requestを記録したうえでこの一覧から削除します。
 
+canonical移行の横断的な実装順序と判断は [canonical-migration-roadmap.md](./canonical-migration-roadmap.md) を参照してください。
+
 ## 推奨実装順
 
 大きな変更は以下の順に独立ブランチで実施します。各段階で現行実装との適合テストを維持し、オンデマンド計算、入力範囲の拡張、外部API公開を同時に導入しません。
@@ -396,3 +398,14 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: 各engineでWorkerは1 instance、7 postMessage/7 message、transfer 7回・11,368 bytes、worker errors 0・messageErrors 0だった。cancelは`status=measured`、`AbortError`、`abortBoundary=onRangePlan-preflight`、staleは`firstCommit=false`/`secondCommit=true`で、ChromeもCDP resetを含めてcleanup成功した
 - 判断: 結果は標準条件の単一実行であり、CPU throttleは実CPU・低速端末のCPU/メモリを再現しない。Worker接続は既存DR部分のみで、score/DX、preflight、D10、固定値差、防御畳み込み、failure合成、canonical envelope/total aggregationはmain threadに残る。実測だけで新しいWorker protocolやcanonical UI切替を決めない
 - 次段階: 3 engine結果の数値・validation・cleanupを基準に、canonical UI接続やWorker範囲の変更可否を別単位で判断する。score/DXを含む新しいWorker経路やprotocolは推測で追加しない
+
+### Dynamic distribution range Phase 2-H 第16単位
+
+- 完了: `src/views/Attack.vue`に独立した`CanonicalAttackPanel`を接続し、`canonicalOptIn`を既定`false`として、トグル有効時だけcanonical計算と結果表示を行う。既存legacyチャート、サマリー、`resultsReady`、legacy fieldsは変更していない
+- 完了: `RangePlanNotice`を再利用し、canonical expected value、support、explicitMax、overflowを欠損・非有限値に耐える純粋表示helperで安全に表示する。`exact`/`bounded`/`lower-bound`とoverflowの`exact`/`upper-bound`を区別し、巨大な`probabilities`配列をDOMへ列挙しない
+- 完了: canonical panelの接続契約、legacy表示との分離、表示helperの安全なフォーマットをunit testで固定した
+- 完了: `CanonicalLegacyDisplayAdapter`にcanonical damage envelopeからlegacy chart互換の1024 bucketと上側確率を作る安全なprojection boundaryを追加し、`DamageChartPanel`/`SummaryPanel`へ接続する前段としてcanonical overflowとpresentationを保持した。summaryの期待値丸めは行わない
+- 完了: `upper-bound` overflowとlegacy bucketへ安全に投影できないexact overflowは`not-projectable`として理由を保持し、自動投影しない。上界を実確率として表示配列へ変換しない
+- 完了: `canonicalOptIn=true`で全comboとtotalが安全なexact finite projectionに成功した場合だけderived display dataを既存`DamageChartPanel`/`SummaryPanel`へ渡し、それ以外はlegacy `attackData`へfallbackする。ScoreChart、InputPanel、レイアウト、既存コンポーネント、`resultsReady`は変更していない
+- 対象外: canonical結果によるlegacyチャート・サマリーの無条件または全面置換、bounded/lower-boundの一点値化、dynamic outputの採用、新しいWorker protocolの追加・変更、score/DXのWorker移行
+- 次段階: exact finite以外のcanonical表示範囲、legacyとの比較条件、Score/Worker範囲を別単位で判断する。実測だけで既存表示やprotocolを切り替えない
