@@ -4,6 +4,7 @@
     import { getChartColor } from '@/data/ColorSetter';
 
     const props = defineProps(['side', 'params']);
+    const emit = defineEmits(['validated']);
     const form = ref();
     const showDetails = ref(false);
     const backgroundColor = props.side=='action' ? getChartColor(0) : getChartColor(1);
@@ -15,6 +16,7 @@
         yousei: props.params.yousei,
         shihai: props.params.shihai,
     });
+    let validationGeneration = 0;
     const diceRule = [
         value => value!=="" || 'ダイス数を入力して下さい。',
         value => Number.isInteger(value) || 'ダイス数は整数値として下さい。',
@@ -47,14 +49,33 @@
         value => value<=19 || '《支配の領域》の対象となるダイス数は19以下として下さい。',
         value => (currentParams.yousei===0 || value===0) || '《妖精の手》と《支配の領域》の同時利用には対応していません。',
     ];
+    watch(() => [
+        props.params.dice,
+        props.params.critical,
+        props.params.skill,
+        props.params.yousei,
+        props.params.shihai,
+    ], (values) => {
+        validationGeneration += 1;
+        [
+            'dice',
+            'critical',
+            'skill',
+            'yousei',
+            'shihai',
+        ].forEach((field, index) => {
+            currentParams[field] = values[index];
+        });
+    });
     watch(currentParams, async () => {
-        const validResult = await form.value.validate();
-        if (validResult.valid) {
-            props.params.dice = currentParams.dice;
-            props.params.critical = currentParams.critical;
-            props.params.skill = currentParams.skill;
-            props.params.yousei = currentParams.yousei;
-            props.params.shihai = currentParams.shihai;
+        const generation = ++validationGeneration;
+        const draft = { ...currentParams };
+        const validResult = await form.value?.validate?.();
+        if (generation !== validationGeneration) {
+            return;
+        }
+        if (validResult?.valid) {
+            emit('validated', draft);
         }
     });
     watch(showDetails, () => {
