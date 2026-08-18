@@ -57,6 +57,53 @@ describe('presentCanonicalDistribution', () => {
     expect(display.explicitMax).toBe(20)
     expect(display.explicit.probabilities).not.toBe(result.values)
     expect(display).not.toHaveProperty('points')
+    expect(display).not.toHaveProperty('displayWindow')
+  })
+
+  it('keeps an optional safe display window separate from canonical coverage', () => {
+    const result = createResult({
+      values: [0.25, 0.5, 0.25],
+      offset: 10,
+      support: { kind: 'finite', max: 12 },
+    })
+    const summary = getCanonicalDamageSummary(createEnvelope(result))
+    const inputWindow = { min: 0, max: Number.MAX_SAFE_INTEGER }
+    const display = presentCanonicalDistribution(createEnvelope(result), {
+      summary,
+      displayWindow: inputWindow,
+    })
+
+    expect(display.displayWindow).toEqual(inputWindow)
+    expect(display.displayWindow).not.toBe(inputWindow)
+    expect(Object.isFrozen(display.displayWindow)).toBe(true)
+    inputWindow.min = 4
+    expect(display.displayWindow.min).toBe(0)
+    expect(display.explicit).toEqual({
+      offset: 10,
+      probabilities: [0.25, 0.5, 0.25],
+    })
+    expect(display.explicitMax).toBe(12)
+  })
+
+  it.each([
+    { label: 'missing min', displayWindow: { max: 1 } },
+    { label: 'missing max', displayWindow: { min: 0 } },
+    { label: 'negative min', displayWindow: { min: -1, max: 1 } },
+    { label: 'fractional max', displayWindow: { min: 0, max: 1.5 } },
+    {
+      label: 'unsafe max',
+      displayWindow: { min: 0, max: Number.MAX_SAFE_INTEGER + 1 },
+    },
+    { label: 'reversed bounds', displayWindow: { min: 2, max: 1 } },
+    { label: 'null', displayWindow: null },
+  ])('rejects invalid display window data: $label', ({ displayWindow }) => {
+    const result = createResult()
+    const summary = getCanonicalDamageSummary(createEnvelope(result))
+
+    expect(() => presentCanonicalDistribution(
+      createEnvelope(result),
+      { summary, displayWindow }
+    )).toThrow(DistributionPresentationError)
   })
 
   it('represents empty explicit values without inventing a maximum', () => {

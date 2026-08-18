@@ -12,6 +12,7 @@ export const DISTRIBUTION_PRESENTATION_MAX_JSON_NODES = 10_000
 export const DISTRIBUTION_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_ENVELOPE: 'invalid-envelope',
   INVALID_OPTIONS: 'invalid-options',
+  INVALID_DISPLAY_WINDOW: 'invalid-display-window',
   INVALID_SUMMARY: 'invalid-summary',
   INVALID_WARNING: 'invalid-warning',
   UNSAFE_JSON: 'unsafe-json',
@@ -959,9 +960,80 @@ function copyOverflow(overflow) {
   }
 }
 
+function copyDisplayWindow(options) {
+  const descriptor = getPropertyDescriptorSafely(
+    options,
+    'displayWindow',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+    'options'
+  )
+  if (!descriptor) {
+    return null
+  }
+
+  const displayWindow = requireOwnDataProperty(
+    options,
+    'displayWindow',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+    'options'
+  )
+  if (!isPlainRecord(displayWindow)) {
+    fail(
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
+      'options.displayWindow must be a plain record'
+    )
+  }
+  validatePlainRecordDataProperties(
+    displayWindow,
+    'options.displayWindow',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW
+  )
+
+  const min = requireOwnDataProperty(
+    displayWindow,
+    'min',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
+    'options.displayWindow'
+  )
+  const max = requireOwnDataProperty(
+    displayWindow,
+    'max',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
+    'options.displayWindow'
+  )
+  if (!Number.isSafeInteger(min) || min < 0) {
+    fail(
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
+      'options.displayWindow.min must be a non-negative safe integer',
+      { min }
+    )
+  }
+  if (!Number.isSafeInteger(max) || max < 0) {
+    fail(
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
+      'options.displayWindow.max must be a non-negative safe integer',
+      { max }
+    )
+  }
+  if (min > max) {
+    fail(
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
+      'options.displayWindow.min must not exceed max',
+      { min, max }
+    )
+  }
+
+  // This is a request boundary only. The presenter deliberately keeps the
+  // complete canonical explicit coverage; Phase 3 owns projection,
+  // recalculation, and resource-budget decisions.
+  return { min, max }
+}
+
 /**
  * Convert a modeled canonical distribution into a UI-independent display
  * model. Summary values are supplied by the caller and are never recomputed.
+ * An optional displayWindow is retained as a request boundary and never
+ * truncates the canonical explicit coverage.
  */
 export function presentCanonicalDistribution(
   canonicalEnvelope,
@@ -1000,6 +1072,7 @@ export function presentCanonicalDistribution(
           'options'
         )
       : []
+    const displayWindow = copyDisplayWindow(options)
 
     const validated = validateCanonicalEnvelope(canonicalEnvelope)
     const cloneState = createJsonCloneState()
@@ -1010,7 +1083,7 @@ export function presentCanonicalDistribution(
     )
     const probabilities = Array.from(validated.values)
 
-    return deepFreeze({
+    const display = {
       version: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
       kind: 'canonical-distribution-display',
       explicit: {
@@ -1025,7 +1098,11 @@ export function presentCanonicalDistribution(
       mass: copiedSummary.mass,
       expectedValue: copiedSummary.expectedValue,
       warnings: copiedWarnings,
-    })
+    }
+    if (displayWindow !== null) {
+      display.displayWindow = displayWindow
+    }
+    return deepFreeze(display)
   } catch (error) {
     if (isDistributionPresentationError(error)) {
       throw error

@@ -83,6 +83,12 @@ Phase 1を表示範囲plannerとcanonical display contractの前提として完�
 
 display contractが未確定のままCheckやバックトラックを個別実装すると、経路ごとにoverflowと期待値の意味が分裂し、後から共通化する際に表示上の損失を隠すことになる。したがってPhase 2の完了をPhase 3以降の依存条件にする。
 
+#### 現在の実装状態（部分完了）
+
+`presentCanonicalDistribution`を三経路で再利用できるUI非依存の成功表示契約として採用し、finite/infinite support、`explicit.offset` と `explicitMax` による明示coverage、`null`/`exact`/`upper-bound` overflow、各overflowの`lowerBound`と`errorBound`、mass、`exact`/`bounded`/`lower-bound` expected value、warnings、JSON-safeな防御コピーを既存の単一validation層で検証する。任意の`displayWindow`は非負safe integerの`min`/`max`だけを受け付け、canonicalの明示coverageを切り詰めず要求境界として保持する。表示範囲の再計算・projection・resource budgetはここでは行わない。
+
+Phase 2はまだ完了していない。Attack/Check/バックトラックが共有できる最小のgolden fixtureと契約テストは追加したが、Check/バックトラックのcanonical producer接続、`not-ready`/`not-projectable`/`resource-rejected`状態の統合、window長・描画点数・メモリのbudget、再計算またはprojectionの判定は未実装である。前者の状態はそれぞれproducer、display adapter、coordinator/ResourceGuardの責務を維持し、後者はPhase 3の`DisplayRangePlanner`/Chart adapterへ委譲する。したがってこの段階ではproduction UIやlegacy fallbackの挙動を変更しない。
+
 ### Phase 3: 共通display range plannerとChart adapterを作る
 
 - 成果物: Check、Attack Score、Attack Damageで共有する`DisplayRangePlanner`相当の設計・実装、canonical coverageとdisplay windowの再計算/再利用規則、Chart.jsへのcoordinate/typed/sparse data adapter、contract test。

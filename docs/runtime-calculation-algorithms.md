@@ -391,7 +391,7 @@ values length、offset/supportの加算、linear convolution length、FFT length
 
 ## Phase 2-H canonical distribution presentation（第7単位）
 
-`src/presentation/DistributionPresenter.js`の`presentCanonicalDistribution(canonicalEnvelope, { summary, warnings = [] })`は、`modeledDistribution === true`のcanonical damageまたはcanonical total damage envelopeを、UI非依存の`canonical-distribution-display`へ変換するopt-in presenterである。single damageには`getCanonicalDamageSummary`、total damageには`getCanonicalTotalDamageSummary`で得たsummaryをcallerが渡し、presenterはmassやexpected valueを再計算しない。`summary`、`warnings`、metadataの必須値はown data propertyとして検証し、optionsが`null`などの非plain recordの場合もtyped errorで拒否する。
+`src/presentation/DistributionPresenter.js`の`presentCanonicalDistribution(canonicalEnvelope, { summary, warnings = [], displayWindow })`は、`modeledDistribution === true`のcanonical damageまたはcanonical total damage envelopeを、UI非依存の`canonical-distribution-display`へ変換するopt-in presenterである。single damageには`getCanonicalDamageSummary`、total damageには`getCanonicalTotalDamageSummary`で得たsummaryをcallerが渡し、presenterはmassやexpected valueを再計算しない。`summary`、`warnings`、metadataの必須値はown data propertyとして検証し、optionsが`null`などの非plain recordの場合もtyped errorで拒否する。`displayWindow`を指定する場合は非負safe integerの`min`/`max`と順序だけを検証し、結果には要求境界としてコピーする。presenterはwindowへ再計算・projectionせず、canonicalの明示coverageを保持する。
 
 displayの`explicit`は`offset`と明示`values`の全係数を通常配列で保持し、値座標は`offset + index`で解釈する。0確率も保持し、overflow、tail、graph上限を末尾係数へ加算せず、広い配列に対するpoint object列も生成しない。`explicitMax`は空配列なら`null`、それ以外は`offset + length - 1`であり、supportとoverflowはcanonicalのfinite/infinite、null/exact/upper-bound unionを独立コピーする。
 
