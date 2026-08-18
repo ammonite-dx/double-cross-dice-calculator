@@ -6,6 +6,7 @@
 
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
 - Attackにはcanonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、exact finite caseだけを既存1024 published bucketへ安全に投影するdisplay adapterがある。これらのpanel、toggle、診断表示、安全投影は移行中の検証用であり、本番移行完了時には削除する。
+- Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - Checkとバックトラックはcanonical resultを既存表示経路へ接続していない。core側に蓄積された範囲・資源・計算機能の有無と、canonical表示経路へ接続済みであることは別の状態として扱う。
 - 既定経路は現時点ではlegacy計算、legacy UI、1024要素のpublished distributionである。1024と表示UIの上限1000未満（`max=999`）は事前計算・固定長配列由来の暫定制限であり、canonical schemaや最終production表示の上限とは扱わない。
 
@@ -43,15 +44,15 @@ Checkやバックトラックを個別の都合で実装する前に、Attackに
 
 ## 入力データフローと要求ライフサイクルの現状と方針
 
-- `src/components/Check/InputForm.vue`はdifficulty/action/reactionをwatchし、`src/components/Backtrack/InputForm.vue`はparams全体をwatchする。`src/components/Attack/ComboForm.vue`はscore、damage、reaction modeをwatchし、Attackのtotal計算はcombo結果のready状態をwatchして別Runnerを起動する。
-- 各Formはlocal reactive mirrorを持ち、`v-model.number`で入力を受け、非同期の`form.validate()`が成功した後だけprops内の親stateへ値をコピーする。入力制約と正規化・validationは各Formへ分散しており、async validationの世代管理はまだ共通化されていない。今後は入力途中の`draft`、検証済みでimmutableな`CalculationInputSnapshot`、計算結果を投影する`DisplayRequest`を分離し、Formが親のnested stateを直接変更しないcontrolled inputへ移行する。
-- `createLatestCalculationRunner`はrevisionと`AbortController`で旧要求のresult/error/plan commitを防ぐが、debounceはなく、有効な親state変更ごとに要求を発火する。UIのcommitはlatest-winsだが、実計算がlatest-onlyになることは保証しない。
+- `src/components/Check/DfcltyForm.vue`、`src/components/Check/ScoreForm.vue`、`src/components/Backtrack/BacktrackForm.vue`はlocal reactive draftをwatchし、非同期の`form.validate()`が完了した世代だけvalidated eventを発行する。`src/components/Attack/ComboForm.vue`のlegacy入力経路はPhase 1のcontrolled input移行対象外である。
+- Checkとバックトラックのviewはvalidated eventを受けて親stateを更新し、`CheckInputSnapshot`または`BacktrackInputSnapshot`を作って計算へ渡す。canonical Attackは`AttackCanonicalState`でcombo順、id、計算paramsだけをsubmit時にsnapshotし、結果・表示状態を入力へ含めない。
+- `createCalculationRequestCoordinator`と`createLatestCalculationRunner`はrevision、snapshot、`AbortSignal`、commit guardを共有し、各laneを実行中1件と最新の待機1件に制限する。staleなresult/error/planは破棄し、`CalculationFeedback`のloading、ready、idle、rejected、errorへ対応させる。
 - `ResourceGuard`は`maxActive=4`、`maxQueued=32`のFIFO queueを持ち、queued要求はabort時にqueueから除去する。`RuntimeDamageRollClient`はsingletonのブラウザWeb Workerと`pendingById`を持ち、既に`postMessage`した処理はabortしても停止しない。`RuntimeDamageRollWorker`は同期計算でcancel protocolを持たないため、旧Worker計算は完了後に破棄され、結果がcacheへ再利用される場合がある。
 - したがって、UIのlatest-wins、ResourceGuardのFIFO待ち行列、Workerのpending計算は別の層であり、「最新要求のみ実計算」と同一ではない。legacy fallbackの採否はこの要求ライフサイクルとは別の表示・移行判断として扱う。
 
-対話的SPAの通常要求はCheck、Attack、バックトラックともlatest-winsを基本方針とする。latest-winsは、古い結果をcommitしないこと、未開始の古い要求を新しい要求で置き換えること、実行中の古い計算を停止することに分けて管理する。Phase 1では各request laneについて「実行中1件と最新の待機1件」を上限とし、未開始の要求を無制限にブラウザWeb Workerへ送信しない。実行中の旧Worker計算は現状では完了後に破棄してcache再利用を許し、terminateやcancel protocolは実測後の別判断とする。初期化計算、Attack全combo batchのatomic commit、共有可能なasset/cacheはrequest laneのlatest-winsから分離する。
+対話的SPAの通常要求はCheck、Attack、バックトラックともlatest-winsを基本方針とする。latest-winsは、古い結果をcommitしないこと、未開始の古い要求を新しい要求で置き換えること、実行中の古い計算を停止することに分けて管理する。Phase 1では各request laneについて「実行中1件と最新の待機1件」を上限とし、未開始の要求を無制限にブラウザWeb Workerへ送信しない。実行中の旧Worker計算は現状では完了後に破棄してcache再利用を許し、terminateやcancel protocolは実測後の別判断とする。初期化計算、Attack全combo batchのatomic commit、共有可能なasset/cacheはrequest laneのlatest-winsから分離した。
 
-共通`CalculationRequestCoordinator`または`createLatestCalculationRunner`を置き換える同等のstate machineを、snapshot、revision、`AbortSignal`、commit guard、`idle/pending/running/success/error/cancelled/resource-rejected`状態とともに設ける。別のstate machineを並列に増やさず、既存の`CalculationFeedback`との対応を定義する。Form側はdraftから純粋なnormalize/validationを経てsnapshotを作り、async validationの競合を世代で防止する。実装順はCheck、バックトラック、canonical Attack batchとし、削除予定のlegacy Attack combo/totalへ新しいライフサイクルを重複実装しない。ResourceGuardのFIFO queueとは責務を分離する。連続入力、未開始要求の置換、Worker postMessage数、stale commit、unmount、combo追加・削除を完了条件に含める。
+共通`CalculationRequestCoordinator`と`createLatestCalculationRunner`を、snapshot、revision、`AbortSignal`、commit guard、`idle/pending/running/success/error/cancelled/resource-rejected`状態とともに実装した。Form側はdraftからnormalize/validationを経てsnapshotを作り、async validationの競合を世代で防止する。ResourceGuardは資源のFIFO予約だけを担い、coordinatorのlatest-wins queueとは責務を分離した。連続入力、未開始要求の置換、Worker境界、stale commit、unmount、combo追加・削除、初期化、atomic batch、共有asset/cache例外をテストで確認した。
 
 表示範囲plannerでは`DisplayRequest`を計算snapshotと分け、calculation keyが同じで明示coverageが足りる場合はprojectionだけを更新する。coverageが不足する場合だけcoordinatorへ拡張計算を要求する。入力snapshotと要求状態を先に整え、その後にcanonical表示契約とdynamic chart adapterを実装する。
 
@@ -66,13 +67,13 @@ Checkやバックトラックを個別の都合で実装する前に、Attackに
 
 Phase 0を先に行うのは、後続の比較結果が未レビューのAttack差分や既存UIの変更と混ざるのを防ぐためである。現行の安全投影とdebug表示は移行の完成ではなく、共通契約へ移す前の参照実装として扱う。
 
-### Phase 1: 入力データフローとlatest-wins coordinatorを整える
+### Phase 1: 入力データフローとlatest-wins coordinatorを整える（完了）
 
-- 成果物: Check、バックトラック、canonical Attack batchへ適用できる共通request coordinator/state machine、draftからの入力snapshot、純粋normalize/validation境界、async validation世代管理、ResourceGuard queueとの責務分離。
-- 完了条件: 最新要求だけがUIへcommitされ、旧要求のresult/error/planがcommitされない。各request laneで未開始要求が最新要求へ置き換わり、実行中1件と最新待機1件を超えてWorkerへ送信しない。連続入力、Worker postMessage数、stale commit、unmount、combo追加・削除、初期化、atomic batch、共有asset/cacheの例外をテストで確認し、既存`CalculationFeedback`との対応を保ったまま状態を整理する。
-- 対象外: ブラウザWeb Workerのterminate、cancel protocol、新しいWorker protocol、canonical表示UI、legacy fallbackの最終削除、表示windowのdynamic chart実装、削除予定のlegacy Attack combo/totalへの新coordinator重複実装。
+- 実装: `CalculationRequestCoordinator`と既存feedback adapterで、snapshot、revision、AbortSignal、commit guard、`idle/pending/running/success/error/cancelled/resource-rejected`を共通化し、実行中1件と最新待機1件へ制限した。Checkとバックトラックはcontrolled input、normalize、async validation世代管理、unmount disposeを接続し、canonical Attackはsubmit-time combo snapshot、入力世代guard、atomic batch commit、combo追加・削除・並べ替えを接続した。
+- 検証: `calculationRequestCoordinator.test.js`と`calculationFeedback.test.js`でlatest queued置換、snapshot alias防止、stale result/error/plan抑止、unmount、初期化成功・reject、feedback対応を固定した。`checkInputSnapshot.test.js`と`backtrackInputSnapshot.test.js`でcontrolled event、snapshot alias防止、async validation世代、unmountを固定し、`attackCanonicalState.test.js`でbatch、atomic commit、stale/disable/dispose、combo順・追加削除・並べ替えを固定した。`resourceGuard.test.js`、`runtimeDamageRollClient.test.js`、`canonicalAttackRuntimeWorkerContract.test.js`でFIFO資源予約、asset/Worker例外、cache/dedup、Worker postMessage境界を確認した。
+- 対象外: 実行中ブラウザWeb Workerの強制停止、cancel protocol、新しいWorker protocol、legacy Attackフォーム全体のcontrolled input移行、canonical display UI、legacy fallbackの最終削除、表示windowのdynamic chart実装、JSON整理、入力上限変更、Cloudflare Workers/API/MCP。
 
-Phase 1を表示範囲plannerとcanonical display contractの前提にする。表示範囲plannerは要求snapshotと再計算・再利用状態を必要とし、canonical display contractは安定したcommit/error/cancel境界を必要とするため、Phase 1を完了せずにPhase 2以降の表示接続へ進めない。
+Phase 1を表示範囲plannerとcanonical display contractの前提として完了した。表示範囲plannerは要求snapshotと再計算・再利用状態を必要とし、canonical display contractは安定したcommit/error/cancel境界を必要とするため、Phase 2以降ではこの責務境界を再利用する。
 
 ### Phase 2: 共通canonical display contractを設計する
 

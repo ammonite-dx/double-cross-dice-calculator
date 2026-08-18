@@ -297,6 +297,28 @@ describe('CalculationFeedback', () => {
     expect(onError).not.toHaveBeenCalled()
   })
 
+  it('commits a successful initial calculation and keeps its range plan', async () => {
+    const feedback = createCalculationFeedbackState()
+    const initialPlan = { accepted: true, id: 'initial-plan' }
+    const onError = vi.fn()
+
+    await expect(runInitialCalculation({
+      feedback,
+      onError,
+      calculate: async ({ onRangePlan }) => {
+        onRangePlan(initialPlan)
+        return { score: 'initial result' }
+      },
+    })).resolves.toEqual({ score: 'initial result' })
+
+    expect(feedback).toEqual({
+      status: 'ready',
+      plan: initialPlan,
+      error: null,
+    })
+    expect(onError).not.toHaveBeenCalled()
+  })
+
   it('ignores a result after the runner is invalidated by unmount', async () => {
     const feedback = createCalculationFeedbackState()
     const deferred = createDeferred()
