@@ -20,3 +20,16 @@ export {
   isDisplayRangePlannerValidationError,
   planDisplayRange,
 } from './DisplayRangePlanner'
+export {
+  CANONICAL_CHART_SERIES_ERROR_CODES,
+  CANONICAL_CHART_SERIES_MODES,
+  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
+  CANONICAL_CHART_SERIES_VERSION,
+  CanonicalChartSeriesError,
+  CanonicalChartSeriesValidationError,
+  createCanonicalChartSeries,
+  isCanonicalChartSeriesError,
+  isCanonicalChartSeriesValidationError,
+  materializeCanonicalChartJsData,
+} from './CanonicalChartSeriesAdapter'

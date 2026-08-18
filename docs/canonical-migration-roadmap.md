@@ -105,7 +105,15 @@ windowの`max - min + 1`、explicit coverageの終端、Float64Array相当の最
 
 `DistributionResult`は`explicit.offset`未満を暗黙に0と保証していないため、低側windowの不足は再計算扱いにする。この判断をテストで固定し、低側を根拠なく既知0へ補完しない。既存1024 coverageでは`0..999`と`0..1023`の再利用をfixtureで固定した。productionの`Check/ChartSetter.js`、`Attack/ChartSetter.js`、既定UI、canonical producer、legacy fallbackは変更していない。
 
-この単位でPhase 3全体が完了したわけではない。残る作業はChart.js向けcoordinate/typed/sparse data adapterの設計・実装、PMFとupper-tailの投影、丸め・描画点数の実測および各経路への接続であり、次単位へ残す。
+#### Phase 3第2単位: canonical chart series adapter（実装済み）
+
+`src/presentation/CanonicalChartSeriesAdapter.js`の`createCanonicalChartSeries(display, plan, { mode })`は、plannerのacceptedな`reuse`または`known-zero`だけを、整数座標の`displayWindow`と所有する`Float64Array values`へ変換するpure adapterである。ready結果の公開shapeは`version`、`kind`、`status`、`mode`、`displayWindow`、`values`だけであり、座標の開始値と点数は`displayWindow.min`/`pointCount`から導く。adapterはdisplayの確率配列から独立した新規`Float64Array`を1本だけ作り、windowごとの`labels`、`{x, y}` point object列、確率値の百分率化・丸めを行わない。外側の結果はfreezeするがtyped array自体はfreezeできないため、`values`はcallerがread-only契約で扱う。`explicit.offset`未満は補完せず、plannerの`recalculate`と`resource-rejected`は確率を作らない`not-ready`結果として返す。finite supportの右側だけはplannerの`knownZero`を根拠に0を生成する。
+
+`mode: 'pmf'`は各座標の`P(X = x)`、`mode: 'upper-tail'`は既存`getUpperTailProbability`と同じ`P(X >= x)`である。offsetが0のupper-tailは既存の「1から下側PMFを順に減算する」計算順を保ち、offset付きwindowでは明示suffixから計算を開始する。activeなexact overflowがwindowの`max`以下にある場合、lowerBoundは分布一点を意味しないため`not-projectable`とする。lowerBoundが全thresholdより上のexact overflowだけはsuffixへmassを含められる。activeなupper-bound overflowはupper-tailへ変換せず、PMFでもwindowに重なる場合は拒否する。finite support外の既知0だけはoverflowの種類に関係なく0として投影できる。
+
+Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する一方、`parsing: false`のline dataには内部形式の座標が必要であるため、canonical seriesと最終materializerを分離した。`materializeCanonicalChartJsData`はCategoryScaleへ接続する最後の境界でのみ数値labelsを生成し、datasetにはseriesが所有する同じ`Float64Array`を`data`としてread-only参照し、`parsing: true`を渡す。これはdisplay入力とのaliasではなく、Chart.js用の二重コピーを避ける意図的なseries-to-Chart.js viewである。ローカル実装は数値要素を変更せず配列監視用のmetadataだけを扱うため、materialize後もcallerは`series.values`を変更しない。productionの`Check/ChartSetter.js`、`Attack/ChartSetter.js`、既定UI、producer接続、legacy fallbackは変更していない。
+
+この単位でPhase 3全体が完了したわけではない。残る作業は各経路のproducer接続、Chart/Summaryへの供給、ブラウザでの描画点数・丸め・メモリ実測、および接続時のerror/re-input表示である。
 
 ### Phase 4: 通常のCheckをcanonical化する
 
