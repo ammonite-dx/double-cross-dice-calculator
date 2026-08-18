@@ -97,6 +97,16 @@ Phase 2はまだ完了していない。Attack/Check/バックトラックが共
 
 Phase 3を先に行うことで、固定`range()`、`clipData()`、999以下のSettingForm制約を、経路ごとに別の暫定上限へ置き換えずに済む。無制限の入力を許可することと、無制限の配列・描画を実行することを分離する。
 
+#### Phase 3第1単位: 共通DisplayRangePlanner（実装済み）
+
+`src/presentation/DisplayRangePlanner.js`を追加し、`presentCanonicalDistribution`が返すdisplay payloadの`explicit.offset`、`explicitMax`、`support`、`overflow`と要求`displayWindow`をUI非依存に判定できるようにした。明示coverage内は`reuse`、finite supportの右側だけを既知0で補える場合は`explicit-coverage-with-known-zero`、coverage不足でfinite/infinite support内の値が必要な場合は`recalculate`、window全体がfinite supportより右側なら`finite-support-outside`として`known-zero`とする。overflowは一点の確率へ変換せず、upper-boundもcoverageの代わりにはしない。
+
+windowの`max - min + 1`、explicit coverageの終端、Float64Array相当の最小メモリ見積りをsafe integerとして事前検証し、`pointCount`、`float64Bytes`、`chartPoints`をfreeze済みの`estimates`へ返す。係数値の検証はversioned `presentCanonicalDistribution`の責務とし、plannerはArray/Float64Arrayの種別、length、offset/explicitMaxの整合だけをO(1)で検証する。返却rootは`version`、`kind`、`status`、`accepted`、`decision`、`reason`、`displayWindow`、`coverage`、`estimates`、`warnings`、`rejectionReasons`だけを持ち、同じ意味のtop-level/resource入れ子aliasは作らない。`pointCount`は配列長、`chartPoints`は描画負荷という別budgetであり、現在は1座標1描画点の保守的見積りのため数値が同じでもpolicy warningは独立に判定する。既定のwarning/hard thresholdは999/1000のlegacy表示上限ではなく、差し替え可能な資源policyであり、hard超過は`resource-rejected`として返す。ResourceGuardとの接続、計算RangePlannerへの拡張要求、実際の配列・Chart.jsデータ生成はまだ行わない。
+
+`DistributionResult`は`explicit.offset`未満を暗黙に0と保証していないため、低側windowの不足は再計算扱いにする。この判断をテストで固定し、低側を根拠なく既知0へ補完しない。既存1024 coverageでは`0..999`と`0..1023`の再利用をfixtureで固定した。productionの`Check/ChartSetter.js`、`Attack/ChartSetter.js`、既定UI、canonical producer、legacy fallbackは変更していない。
+
+この単位でPhase 3全体が完了したわけではない。残る作業はChart.js向けcoordinate/typed/sparse data adapterの設計・実装、PMFとupper-tailの投影、丸め・描画点数の実測および各経路への接続であり、次単位へ残す。
+
 ### Phase 4: 通常のCheckをcanonical化する
 
 - 成果物: Checkのcanonical result producer、Phase 3 adapterとの接続、既存Checkチャート・サマリーへの表示供給、legacyとの同一入力・同一条件の比較テスト。
