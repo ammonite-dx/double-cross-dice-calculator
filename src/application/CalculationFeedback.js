@@ -2,6 +2,10 @@ import {
   isResourceGuardError,
   RESOURCE_GUARD_ERROR_CODES,
 } from './ResourceGuard'
+import {
+  CALCULATION_REQUEST_STATUS,
+  createCalculationRequestCoordinator,
+} from './CalculationRequestCoordinator'
 
 const RANGE_REASON_BY_CODE = Object.freeze({
   'display-points': '表示する点数が多すぎるため、計算結果を表示できません。',
@@ -273,41 +277,6 @@ export function formatRangeFeedback(feedback) {
   }
 }
 
-function combineAbortSignals(externalSignal, internalSignal) {
-  const signals = [externalSignal, internalSignal].filter(Boolean)
-  if (signals.length <= 1) {
-    return signals[0]
-  }
-  if (
-    typeof AbortSignal !== 'undefined'
-    && typeof AbortSignal.any === 'function'
-  ) {
-    return AbortSignal.any(signals)
-  }
-  if (typeof AbortController !== 'function') {
-    return externalSignal ?? internalSignal
-  }
-
-  const controller = new AbortController()
-  const cleanup = []
-  const abort = () => {
-    for (const removeListener of cleanup.splice(0)) {
-      removeListener()
-    }
-    controller.abort()
-  }
-  for (const signal of signals) {
-    if (signal.aborted) {
-      abort()
-      break
-    }
-    const listener = () => abort()
-    signal.addEventListener('abort', listener, { once: true })
-    cleanup.push(() => signal.removeEventListener('abort', listener))
-  }
-  return controller.signal
-}
-
 export async function runInitialCalculation({ feedback, calculate, onError }) {
   beginCalculation(feedback)
   try {
@@ -330,8 +299,11 @@ export async function runInitialCalculation({ feedback, calculate, onError }) {
 }
 
 /**
- * Runs only the latest request. The optional caller signal is composed with
- * the controller owned by this runner, so neither cancellation source is
+ * Compatibility adapter for existing feedback-aware callers. New request
+ * lanes can use createCalculationRequestCoordinator directly; this adapter
+ * preserves the existing run(options)/invalidate() contract while sharing
+ * the same one-running-plus-one-pending coordinator. The caller signal is
+ * composed with the coordinator-owned signal, so neither source is
  * overwritten.
  */
 export function createLatestCalculationRunner({
@@ -340,74 +312,41 @@ export function createLatestCalculationRunner({
   clearResult,
   commitResult,
   onError,
+  snapshotRequest,
 }) {
-  let revision = 0
-  let abortController = null
-
-  const run = async (options = {}) => {
-    const requestRevision = ++revision
-    abortController?.abort()
-    abortController = typeof AbortController === 'function'
-      ? new AbortController()
-      : null
-
-    beginCalculation(feedback)
-    clearResult?.()
-
-    const providedOnRangePlan = options.onRangePlan
-    const requestOptions = {
-      ...options,
-      ...(abortController || options.signal
-        ? {
-            signal: combineAbortSignals(
-              options.signal,
-              abortController?.signal
-            ),
-          }
-        : {}),
-      onRangePlan: (plan) => {
-        if (requestRevision !== revision) {
-          return
-        }
-        publishRangePlan(feedback, plan)
-        providedOnRangePlan?.(plan)
-      },
-    }
-
-    try {
-      const result = await calculate(requestOptions)
-      if (requestRevision !== revision) {
-        return false
-      }
-      const committed = commitResult?.(result)
-      if (committed === false) {
-        return false
-      }
-      completeCalculation(feedback)
-      return true
-    } catch (error) {
-      if (requestRevision !== revision) {
-        return false
-      }
-      if (isAbortError(error)) {
-        markCalculationAborted(feedback)
-        return false
-      }
+  const coordinator = createCalculationRequestCoordinator({
+    snapshotRequest,
+    execute: (request, context) => calculate({
+      ...(request ?? {}),
+      signal: context.signal,
+      onRangePlan: context.onRangePlan,
+    }),
+    onStart: () => {
+      beginCalculation(feedback)
+      clearResult?.()
+    },
+    onPlan: (plan) => publishRangePlan(feedback, plan),
+    commit: (result) => commitResult?.(result),
+    onCommitted: () => completeCalculation(feedback),
+    onCancelled: () => markCalculationAborted(feedback),
+    onError: (error) => {
       recordCalculationError(feedback, error)
       if (isCalculationRangeError(error)) {
         clearResult?.()
       } else {
         onError?.(error)
       }
-      return false
-    }
-  }
+    },
+  })
 
-  const invalidate = () => {
-    revision += 1
-    abortController?.abort()
-    abortController = null
+  return {
+    run(options = {}) {
+      return coordinator.run(options, options)
+    },
+    invalidate: coordinator.invalidate,
+    dispose: coordinator.dispose,
+    snapshot: coordinator.snapshot,
   }
-
-  return { run, invalidate }
 }
+
+export { CALCULATION_REQUEST_STATUS, createCalculationRequestCoordinator }

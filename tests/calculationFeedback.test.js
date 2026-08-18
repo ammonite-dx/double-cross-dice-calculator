@@ -179,6 +179,43 @@ describe('CalculationFeedback', () => {
     }
   )
 
+  it('uses a snapshot of queued runner options when the request starts', async () => {
+    const feedback = createCalculationFeedbackState()
+    const first = createDeferred()
+    const receivedOptions = []
+    let callCount = 0
+    const runner = createLatestCalculationRunner({
+      feedback,
+      calculate: (options) => {
+        callCount += 1
+        receivedOptions.push(options)
+        return callCount === 1
+          ? first.promise
+          : Promise.resolve('latest result')
+      },
+      commitResult: vi.fn(),
+    })
+
+    const firstRequest = runner.run({ id: 'first' })
+    const queuedOptions = {
+      id: 'queued',
+      payload: { value: 'before queue starts' },
+    }
+    const latestRequest = runner.run(queuedOptions)
+    queuedOptions.payload.value = 'mutated after submit'
+
+    first.resolve('first result')
+    await expect(firstRequest).resolves.toBe(false)
+    await expect(latestRequest).resolves.toBe(true)
+
+    expect(receivedOptions).toHaveLength(2)
+    expect(receivedOptions[1]).not.toBe(queuedOptions)
+    expect(receivedOptions[1]).toMatchObject({
+      id: 'queued',
+      payload: { value: 'before queue starts' },
+    })
+  })
+
   it('does not expose AbortError as a user-facing error', async () => {
     const feedback = createCalculationFeedbackState()
     const onError = vi.fn()
