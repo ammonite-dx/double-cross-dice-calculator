@@ -30,6 +30,7 @@ describe('Attack canonical integration contract', () => {
     expect(attackSource).toContain('canonicalOptIn: false')
     expect(attackSource).toContain('{ deep: true, immediate: true }')
     expect(attackSource).toContain('canonicalCalculationRunner.invalidate()')
+    expect(attackSource).toContain('canonicalCalculationRunner.dispose()')
   })
 
   it('keeps score on legacy data and gates damage/summary through the display adapter', () => {

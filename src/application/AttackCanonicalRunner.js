@@ -23,20 +23,20 @@ export function createAttackCanonicalRunner({
 
   const latestRunner = createLatestCalculationRunner({
     feedback: state.canonicalFeedback,
-    calculate: (options) => {
-      const requestEntries = snapshotCanonicalAttackEntries(state.combos)
+    calculate: ({ entries, calculationOptions, signal, onRangePlan }) => {
       const requestRangePlans = []
       activeRequest = {
-        entries: requestEntries,
+        entries,
         rangePlans: requestRangePlans,
       }
       return calculationClient.calculateAttackCanonicalBatch(
-        requestEntries,
+        entries,
         {
-          ...options,
+          ...calculationOptions,
+          signal,
           onRangePlan: (plan) => {
             requestRangePlans.push(plan)
-            options.onRangePlan?.(plan)
+            onRangePlan?.(plan)
           },
         }
       )
@@ -78,9 +78,20 @@ export function createAttackCanonicalRunner({
       if (state.canonicalOptIn !== true) {
         return Promise.resolve(false)
       }
-      return latestRunner.run(options)
+      const {
+        signal,
+        onRangePlan,
+        ...calculationOptions
+      } = options ?? {}
+      return latestRunner.run({
+        entries: snapshotCanonicalAttackEntries(state.combos),
+        calculationOptions,
+        signal,
+        onRangePlan,
+      })
     },
     invalidate: latestRunner.invalidate,
+    dispose: latestRunner.dispose,
   }
 }
 

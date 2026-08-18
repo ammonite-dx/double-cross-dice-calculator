@@ -114,7 +114,7 @@
     );
 
     onUnmounted(() => {
-        canonicalCalculationRunner.invalidate();
+        canonicalCalculationRunner.dispose();
         clearCanonicalAttackState(attackData);
     });
 

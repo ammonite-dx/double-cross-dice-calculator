@@ -280,6 +280,67 @@ describe('createAttackCanonicalRunner', () => {
       .toBe(true)
   })
 
+  it('snapshots queued entries and calculation options at submit time', async () => {
+    const state = createState()
+    const first = createDeferred()
+    const calls = []
+    let callCount = 0
+    const submittedOnRangePlan = vi.fn()
+    const mutatedOnRangePlan = vi.fn()
+    const queuedOptions = {
+      rangePolicy: {
+        limits: { maxDisplayPoints: 64 },
+      },
+      requestMetadata: {
+        label: 'submitted',
+      },
+      onRangePlan: submittedOnRangePlan,
+    }
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn((entries, options) => {
+        calls.push({ entries, options })
+        callCount += 1
+        if (callCount === 2) {
+          options.onRangePlan({ id: 'latest-plan' })
+        }
+        return callCount === 1
+          ? first.promise
+          : Promise.resolve(createBatch(['first', 'second'], 'latest'))
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: vi.fn(createPresentation),
+    })
+
+    const firstRequest = runner.run()
+    const latestRequest = runner.run(queuedOptions)
+
+    state.combos[0].data.params.action.score.dice = 99
+    state.combos.splice(1, 1)
+    queuedOptions.rangePolicy.limits.maxDisplayPoints = 8
+    queuedOptions.requestMetadata.label = 'mutated after submit'
+    queuedOptions.onRangePlan = mutatedOnRangePlan
+
+    first.resolve(createBatch(['first', 'second'], 'old'))
+    await Promise.all([firstRequest, latestRequest])
+
+    expect(calls).toHaveLength(2)
+    expect(calls[1].entries.map((entry) => entry.id))
+      .toEqual(['first', 'second'])
+    expect(calls[1].entries[0].params.action.score.dice).toBe(1)
+    expect(calls[1].options.rangePolicy).toEqual({
+      limits: { maxDisplayPoints: 64 },
+    })
+    expect(calls[1].options.requestMetadata).toEqual({ label: 'submitted' })
+    expect(calls[1].options.signal).toBeInstanceOf(AbortSignal)
+    expect(calls[1].options.onRangePlan).toBeTypeOf('function')
+    expect(submittedOnRangePlan).toHaveBeenCalledWith({ id: 'latest-plan' })
+    expect(mutatedOnRangePlan).not.toHaveBeenCalled()
+    expect(state.canonicalTotalDamageReady).toBe(false)
+  })
+
   it('aborts and suppresses stale results during rapid changes', async () => {
     const state = createState()
     const first = createDeferred()
@@ -344,6 +405,27 @@ describe('createAttackCanonicalRunner', () => {
     expect(state.canonicalFeedback.status).toBe('idle')
     expect(state.combos.every(({ data }) => !data.canonicalResultReady))
       .toBe(true)
+  })
+
+  it('exposes dispose for unmount lifecycle cancellation', async () => {
+    const state = createState()
+    const deferred = createDeferred()
+    const presentation = vi.fn(createPresentation)
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient: {
+        calculateAttackCanonicalBatch: vi.fn(() => deferred.promise),
+      },
+      createPresentation: presentation,
+    })
+
+    const request = runner.run()
+    runner.dispose()
+    deferred.resolve(createBatch(['first', 'second'], 'disposed'))
+
+    await expect(request).resolves.toBe(false)
+    expect(presentation).not.toHaveBeenCalled()
+    await expect(runner.run()).resolves.toBe(false)
   })
 
   it('keeps legacy fields unchanged on range reject and generic errors', async () => {
