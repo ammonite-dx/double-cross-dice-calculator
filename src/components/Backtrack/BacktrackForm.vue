@@ -3,6 +3,7 @@
     import { ref,reactive,watch } from 'vue';
 
     const props = defineProps(['params']);
+    const emit = defineEmits(['validated']);
     const form = ref();
     const currentParams = reactive({
         encroachment: props.params.encroachment,
@@ -12,6 +13,15 @@
         value: props.params.value,
         dlois: props.params.dlois,
     });
+    let validationGeneration = 0;
+    const backtrackFields = [
+        'encroachment',
+        'lois',
+        'elois',
+        'dice',
+        'value',
+        'dlois',
+    ];
     const dloisItem = ['なし', '戦闘用人格・生きる伝説', '生還者', '不死者・悪夢', '屍人', '戦友(通常)', '戦友(強化)']
     const encroachmentRule = [
         value => value!=="" || '現在侵蝕率を入力して下さい。',
@@ -41,15 +51,28 @@
         value => value>=0 || '減少量(固定値)は0以上として下さい。',
         value => value<=999 || '減少量(固定値)は999以下として下さい。',
     ];
+    watch(() => [
+        props.params.encroachment,
+        props.params.lois,
+        props.params.elois,
+        props.params.dice,
+        props.params.value,
+        props.params.dlois,
+    ], (values) => {
+        validationGeneration += 1;
+        backtrackFields.forEach((field, index) => {
+            currentParams[field] = values[index];
+        });
+    });
     watch(currentParams, async () => {
-        const validResult = await form.value.validate();
-        if (validResult.valid) {
-            props.params.encroachment = currentParams.encroachment;
-            props.params.lois = currentParams.lois;
-            props.params.elois = currentParams.elois;
-            props.params.dice = currentParams.dice;
-            props.params.value = currentParams.value;
-            props.params.dlois = currentParams.dlois;
+        const generation = ++validationGeneration;
+        const draft = { ...currentParams };
+        const validResult = await form.value?.validate?.();
+        if (generation !== validationGeneration) {
+            return;
+        }
+        if (validResult?.valid) {
+            emit('validated', draft);
         }
     });
 
