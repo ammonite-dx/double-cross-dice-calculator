@@ -334,6 +334,14 @@ export function createCalculationRequestCoordinator({
     if (outcome.kind === 'success') {
       try {
         const committed = commit?.(outcome.value, outcome.context)
+        if (!isCurrent(item)) {
+          // A commit may synchronously enqueue/start a newer request (for
+          // example, when a canonical result requests an extended range).
+          // The newer request owns feedback and lifecycle notifications now;
+          // never let this superseded finish publish SUCCESS/onCommitted.
+          settle(item, false)
+          return
+        }
         if (committed === false) {
           publishState(CALCULATION_REQUEST_STATUS.CANCELLED)
           onCancelled?.(outcome.context)
@@ -343,9 +351,16 @@ export function createCalculationRequestCoordinator({
           onCommitted?.(outcome.value, outcome.context)
           settle(item, true)
         }
-      } catch (error) {
-        publishState(
-          isResourceRejected(error)
+        } catch (error) {
+          if (!isCurrent(item)) {
+            // The commit itself may have started a newer request and then
+            // failed. Its error must not replace the newer request's loading
+            // state either.
+            settle(item, false)
+            return
+          }
+          publishState(
+            isResourceRejected(error)
             ? CALCULATION_REQUEST_STATUS.RESOURCE_REJECTED
             : CALCULATION_REQUEST_STATUS.ERROR
         )

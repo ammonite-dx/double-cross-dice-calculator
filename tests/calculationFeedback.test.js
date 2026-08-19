@@ -143,6 +143,33 @@ describe('CalculationFeedback', () => {
     expect(display.action).toContain('入力値を下げる')
   })
 
+  it('formats DisplayRangePlanner resource reasons without exposing internal codes', () => {
+    const display = formatRangeFeedback({
+      status: 'rejected',
+      plan: {
+        accepted: false,
+        rejectionReasons: [
+          'display-point-count',
+          'display-float64-memory',
+          'chart-point-count',
+        ],
+        warnings: [
+          { code: 'display-point-count', severity: 'reject' },
+          { code: 'display-float64-memory', severity: 'reject' },
+          { code: 'chart-point-count', severity: 'reject' },
+        ],
+        estimates: { pointCount: 1201, float64Bytes: 9608, chartPoints: 1201 },
+      },
+    })
+
+    expect(display.type).toBe('error')
+    expect(display.reasons).toEqual([
+      '表示する点数が多すぎるため、計算結果を表示できません。',
+      '表示用メモリの見積りが大きすぎるため、計算結果を表示できません。',
+      'チャートへ描画する点数が多すぎるため、計算結果を表示できません。',
+    ])
+  })
+
   it.each(['check', 'attack', 'backtrack'])(
     'ignores stale range plans and stale errors for the %s request path',
     async () => {
@@ -214,6 +241,47 @@ describe('CalculationFeedback', () => {
       id: 'queued',
       payload: { value: 'before queue starts' },
     })
+  })
+
+  it('keeps feedback loading when commit synchronously starts a newer request', async () => {
+    const feedback = createCalculationFeedbackState()
+    const first = createDeferred()
+    const latest = createDeferred()
+    const committed = []
+    let visibleResult = null
+    let latestRequest
+    let runner
+    runner = createLatestCalculationRunner({
+      feedback,
+      calculate: ({ phase }) => phase === 'first'
+        ? first.promise
+        : latest.promise,
+      clearResult: () => {
+        visibleResult = null
+      },
+      commitResult: (result) => {
+        committed.push(result)
+        visibleResult = result
+        if (result === 'first') {
+          latestRequest = runner.run({ phase: 'latest' })
+        }
+      },
+    })
+
+    const firstRequest = runner.run({ phase: 'first' })
+    first.resolve('first')
+
+    await expect(firstRequest).resolves.toBe(false)
+    expect(latestRequest).toBeDefined()
+    expect(feedback.status).toBe('loading')
+    expect(visibleResult).toBeNull()
+
+    latest.resolve('latest')
+    await expect(latestRequest).resolves.toBe(true)
+
+    expect(feedback.status).toBe('ready')
+    expect(visibleResult).toBe('latest')
+    expect(committed).toEqual(['first', 'latest'])
   })
 
   it('does not expose AbortError as a user-facing error', async () => {

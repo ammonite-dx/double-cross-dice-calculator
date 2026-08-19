@@ -19,6 +19,7 @@ export {
   isDisplayRangePlannerError,
   isDisplayRangePlannerValidationError,
   planDisplayRange,
+  planDisplayWindowResources,
 } from './DisplayRangePlanner'
 export {
   CANONICAL_CHART_SERIES_ERROR_CODES,

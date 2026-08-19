@@ -9,6 +9,12 @@ import {
 
 const RANGE_REASON_BY_CODE = Object.freeze({
   'display-points': '表示する点数が多すぎるため、計算結果を表示できません。',
+  'display-point-count': '表示する点数が多すぎるため、計算結果を表示できません。',
+  'display-float64-memory': '表示用メモリの見積りが大きすぎるため、計算結果を表示できません。',
+  'chart-point-count': 'チャートへ描画する点数が多すぎるため、計算結果を表示できません。',
+  'check-exact-overflow-overlap': '表示範囲に正確なoverflowが重なるため、表示範囲を拡張して再計算してください。',
+  'check-upper-bound-overflow': '上限だけが分かるoverflowを表示範囲へ安全に投影できません。表示範囲を狭めて再試行してください。',
+  'check-not-projectable': 'このcanonical計算結果を指定の表示範囲へ安全に投影できません。表示範囲を狭めて再試行してください。',
   'incompatible-input': '《妖精の手》と《支配の領域》は同時に使用できません。',
   'score-working-length': '判定計算の作業範囲が大きくなっています。',
   'score-fft-length': '判定計算のFFT範囲が大きくなっています。',

@@ -20,6 +20,10 @@ import {
   calculationClient,
   createCalculationClient,
 } from '../src/application/CalculationClient'
+import {
+  CHECK_DISPLAY_MODES,
+  createCheckRangePolicy,
+} from '../src/application/CheckDisplayRequestSnapshot'
 
 function scoreParams(overrides = {}) {
   return {
@@ -280,6 +284,24 @@ describe('canonical normal check score producer', () => {
     expect(result.score.action.metadata.modeledDistribution).toBe(true)
     expect(result.score.reaction.metadata.modeledDistribution).toBe(true)
     expect(result).toHaveProperty('scoreSummary')
+  })
+
+  it('extends canonical Check score coverage beyond the legacy display range', async () => {
+    const displayRequest = { min: 0, max: 1200, mode: CHECK_DISPLAY_MODES.PMF }
+    const result = await calculationClient.calculateCheckCanonical(
+      {
+        action: scoreParams(),
+        reaction: scoreParams(),
+      },
+      { opposed: true, target: 0 },
+      {
+        displayRequest,
+        rangePolicy: createCheckRangePolicy(displayRequest),
+      }
+    )
+
+    expect(result.score.action.result.values.length).toBeGreaterThan(1200)
+    expect(result.score.reaction.result.values.length).toBeGreaterThan(1200)
   })
 
   it('matches the existing calculateCheck summary for a fixed finite fixture', async () => {

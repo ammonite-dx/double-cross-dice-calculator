@@ -887,6 +887,44 @@ export function planDisplayRange(display, options, policyOverride) {
 }
 
 /**
+ * Plan only the resource cost of a display window.
+ *
+ * This is used before a canonical result exists (for example when the user
+ * enters a window while the previous calculation is still unavailable). It
+ * deliberately does not inspect or fabricate a distribution, and therefore
+ * cannot make a coverage decision. Callers should treat the returned plan as
+ * a resource preflight only and use `planDisplayRange` once a canonical
+ * display is available.
+ */
+export function planDisplayWindowResources(displayWindow, policy) {
+  const normalizedWindow = normalizeDisplayWindow(displayWindow)
+  const normalizedPolicy = normalizePolicy(policy)
+  const estimates = {
+    pointCount: normalizedWindow.pointCount,
+    float64Bytes: normalizedWindow.float64Bytes,
+    chartPoints: normalizedWindow.chartPoints,
+  }
+  const resource = classifyResources(estimates, normalizedPolicy)
+
+  return deepFreeze({
+    version: DISPLAY_RANGE_PLANNER_VERSION,
+    kind: 'display-window-resource-plan',
+    status: resource.accepted ? 'ready' : 'resource-rejected',
+    accepted: resource.accepted,
+    decision: 'recalculate',
+    reason: 'resource-preflight',
+    displayWindow: {
+      min: normalizedWindow.min,
+      max: normalizedWindow.max,
+      pointCount: normalizedWindow.pointCount,
+    },
+    estimates,
+    warnings: resource.warnings,
+    rejectionReasons: resource.rejectionReasons,
+  })
+}
+
+/**
  * Create a small policy-bound planner facade for callers that plan multiple
  * windows against the same resource budget.
  */

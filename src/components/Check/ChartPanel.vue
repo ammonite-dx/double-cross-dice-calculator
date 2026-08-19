@@ -1,12 +1,29 @@
 <script setup>
 
-    import { ref } from 'vue';
     import ScoreChart from './ScoreChart.vue';
     import SettingForm from './SettingForm.vue';
-    import { mdiChartLine } from '@mdi/js'
+    import RangePlanNotice from '@/components/RangePlanNotice.vue';
+    import { mdiChartLine } from '@mdi/js';
 
-    const props = defineProps(['checkData']);
-    const setting = ref({min:0, max:30, mode:'達成値がXとなる確率を表示'});
+    const props = defineProps({
+        checkData: {
+            type: Object,
+            required: true,
+        },
+        displayRequest: {
+            type: Object,
+            required: true,
+        },
+        presentation: {
+            type: Object,
+            default: null,
+        },
+        displayFeedback: {
+            type: Object,
+            default: null,
+        },
+    });
+    const emit = defineEmits(['display-validated']);
 
 </script>
 
@@ -16,8 +33,15 @@
         <v-divider class="mx-2" />
         <v-container class="pa-0">
             <v-card-text class="text-md-body-1 text-caption">
-                <ScoreChart :checkData="props.checkData" :setting="setting"/>
-                <SettingForm :setting="setting"/>
+                <RangePlanNotice :feedback="props.displayFeedback" />
+                <ScoreChart
+                    :checkData="props.checkData"
+                    :presentation="props.presentation"
+                />
+                <SettingForm
+                    :displayRequest="props.displayRequest"
+                    @validated="(request) => emit('display-validated', request)"
+                />
             </v-card-text>
         </v-container>
     </v-card>

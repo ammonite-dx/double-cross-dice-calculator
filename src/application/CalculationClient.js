@@ -41,6 +41,7 @@ import {
   isCalculationBatchInputError,
   snapshotCanonicalAttackBatchRequest,
 } from './CanonicalAttackBatchInput'
+import { createCheckRangePolicy } from './CheckDisplayRequestSnapshot'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 import { createResourceGuard } from './ResourceGuard'
 
@@ -153,14 +154,27 @@ function fixedReactionScoreForPlanning(request) {
   }
 }
 
-function createCheckRangeParams(request) {
-  return {
+function createCheckRangeParams(request, displayRequest) {
+  const params = {
     operation: 'check',
     score: {
       action: request.action,
       reaction: request.reaction,
     },
   }
+  if (displayRequest !== undefined) {
+    params.display = {
+      min: displayRequest.min,
+      max: displayRequest.max,
+    }
+  }
+  return params
+}
+
+function getCheckRangePolicy(options) {
+  return options.displayRequest === undefined
+    ? options.rangePolicy
+    : createCheckRangePolicy(options.displayRequest, options.rangePolicy)
 }
 
 function createAttackRangeParams(request) {
@@ -599,8 +613,8 @@ export function createCalculationClient(
       const difficultyRequest = { ...difficulty }
       const plan = runRangePreflight(
         planner,
-        createCheckRangeParams(request),
-        options.rangePolicy,
+        createCheckRangeParams(request, options.displayRequest),
+        getCheckRangePolicy(options),
         options.onRangePlan
       )
       const leaseRequest = acquirePlanLease(
@@ -640,8 +654,8 @@ export function createCalculationClient(
       const difficultyRequest = { ...difficulty }
       const plan = runRangePreflight(
         planner,
-        createCheckRangeParams(request),
-        options.rangePolicy,
+        createCheckRangeParams(request, options.displayRequest),
+        getCheckRangePolicy(options),
         options.onRangePlan
       )
       const leaseRequest = acquirePlanLease(

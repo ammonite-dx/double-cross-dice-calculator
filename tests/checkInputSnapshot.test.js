@@ -34,6 +34,14 @@ const scoreFormSource = readFileSync(
   new URL('../src/components/Check/ScoreForm.vue', import.meta.url),
   'utf8'
 )
+const settingFormSource = readFileSync(
+  new URL('../src/components/Check/SettingForm.vue', import.meta.url),
+  'utf8'
+)
+const chartPanelSource = readFileSync(
+  new URL('../src/components/Check/ChartPanel.vue', import.meta.url),
+  'utf8'
+)
 
 function createDraft() {
   return {
@@ -84,8 +92,9 @@ describe('Check input flow contracts', () => {
     expect(checkViewSource).toContain('calculationClient.calculateCheckCanonical(')
     expect(checkViewSource).not.toContain('calculationClient.calculateCheck(')
     expect(checkViewSource).toContain(
-      'snapshotRequest: createCheckInputSnapshot'
+      'snapshotRequest: createCheckCalculationRequestSnapshot'
     )
+    expect(checkViewSource).toContain('displayRequest: initialCalculationRequest.displayRequest')
     expect(checkViewSource).toContain('calculationRunner.dispose()')
     expect(checkViewSource).toContain('@dfclty-validated="onDfcltyValidated"')
     expect(checkViewSource).toContain('@score-validated="onScoreValidated"')
@@ -93,27 +102,14 @@ describe('Check input flow contracts', () => {
   })
 
   it('connects Check charts to canonical presentation without a legacy data path', () => {
-    expect(scoreChartSource).toContain('createCheckCanonicalPresentation')
-    expect(scoreChartSource).toContain('displayWindow:')
-    expect(scoreChartSource).toContain('min: props.setting.min')
-    expect(scoreChartSource).toContain('max: props.setting.max')
-    expect(scoreChartSource).toContain('opposed: props.checkData.dfclty.opposed')
+    expect(scoreChartSource).not.toContain('createCheckCanonicalPresentation')
+    expect(scoreChartSource).not.toContain('displayRequest')
+    expect(scoreChartSource).not.toContain('CHECK_DISPLAY_MODE_LABELS')
+    expect(scoreChartSource).not.toContain('CHECK_DISPLAY_MODES')
     expect(scoreChartSource).toContain(
-      "'達成値がXとなる確率を表示': CHECK_CANONICAL_PRESENTATION_MODES.PMF"
+      "props.presentation?.status === 'ready'"
     )
-    expect(scoreChartSource).toContain(
-      "'達成値がX以上となる確率を表示': CHECK_CANONICAL_PRESENTATION_MODES.UPPER_TAIL"
-    )
-    expect(scoreChartSource).toContain(
-      'function getCanonicalChartMode(settingMode)'
-    )
-    expect(scoreChartSource).toContain('throw new Error(')
-    expect(scoreChartSource).toContain(
-      'mode: getCanonicalChartMode(props.setting.mode)'
-    )
-    expect(scoreChartSource).not.toContain(
-      '?? CHECK_CANONICAL_PRESENTATION_MODES.PMF'
-    )
+    expect(scoreChartSource).toContain('props.presentation.chart')
     expect(scoreChartSource).toContain(
       '<Line v-if="data !== null" :data="data"'
     )
@@ -144,5 +140,47 @@ describe('Check input flow contracts', () => {
   it('does not let Check forms assign nested props', () => {
     expect(difficultyFormSource).not.toMatch(/props\.dfclty\.[\w]+\s*=/)
     expect(scoreFormSource).not.toMatch(/props\.params\.[\w]+\s*=/)
+    expect(settingFormSource).not.toMatch(/props\.displayRequest\.[\w]+\s*=/)
+    expect(settingFormSource).not.toContain('max=999')
+    expect(settingFormSource).not.toContain('max="999"')
+    expect(settingFormSource).toContain('Number.isSafeInteger')
+    expect(settingFormSource).toContain('let validationGeneration = 0')
+    expect(settingFormSource).toContain('const generation = ++validationGeneration')
+    expect(settingFormSource).toContain('if (generation !== validationGeneration)')
+    expect(settingFormSource).toContain("emit('validated', snapshot)")
+  })
+
+  it('keeps display ownership in Check and wires explicit props/events through the chart panel', () => {
+    expect(checkViewSource).toContain('const displayRequest = reactive')
+    expect(checkViewSource).toContain('planDisplayWindowResources')
+    expect(checkViewSource).toContain('if (!windowChanged)')
+    expect(checkViewSource).toContain('requestDisplayRecalculation(snapshot)')
+    expect(checkViewSource).toContain('void submitCheck(request)')
+    expect(checkViewSource).toContain('displayRecalculationKey')
+    expect(chartPanelSource).toContain(':displayRequest="props.displayRequest"')
+    expect(chartPanelSource).toContain('@validated="(request) => emit(\'display-validated\', request)"')
+    expect(chartPanelSource).toContain('<RangePlanNotice :feedback="props.displayFeedback" />')
+    expect(scoreChartSource).not.toContain('getCheckChartData')
+    expect(scoreChartSource).not.toContain('legacy')
+  })
+
+  it('gates every Check calculation through display preflight and validates before commit', () => {
+    expect(checkViewSource).toContain('function preflightDisplayRequest(')
+    expect(checkViewSource).toContain(
+      'if (!preflightDisplayRequest(request))'
+    )
+    expect(checkViewSource).toContain(
+      'if (!preflightDisplayRequest(snapshot))'
+    )
+
+    const presentationIndex = checkViewSource.indexOf(
+      'committedPresentation = buildPresentationForScore(result.score)'
+    )
+    const scoreCommitIndex = checkViewSource.indexOf(
+      'checkData.score = result.score'
+    )
+    expect(presentationIndex).toBeGreaterThanOrEqual(0)
+    expect(scoreCommitIndex).toBeGreaterThan(presentationIndex)
+    expect(checkViewSource).toContain('publishDisplayError(error)')
   })
 })

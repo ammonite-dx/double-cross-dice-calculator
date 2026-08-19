@@ -80,11 +80,13 @@ describe('createCheckCanonicalPresentation', () => {
           status: 'ready',
           decision: 'reuse',
         },
+        decision: 'reuse',
         status: 'ready',
         reason: null,
       },
       reaction: {
         plan: { status: 'ready', decision: 'reuse' },
+        decision: 'reuse',
         status: 'ready',
         reason: null,
       },
@@ -92,6 +94,7 @@ describe('createCheckCanonicalPresentation', () => {
     expect(presentation.action).not.toHaveProperty('display')
     expect(presentation.action).not.toHaveProperty('series')
     expect(Object.keys(presentation.action).sort()).toEqual([
+      'decision',
       'plan',
       'reason',
       'status',
@@ -134,7 +137,9 @@ describe('createCheckCanonicalPresentation', () => {
     })
 
     expect(presentation.status).toBe('not-projectable')
+    expect(presentation.decision).toBe('recalculate')
     expect(presentation.action.plan.decision).toBe('reuse')
+    expect(presentation.action.decision).toBe('recalculate')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.action.reason)
       .toBe(CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP)
@@ -161,6 +166,7 @@ describe('createCheckCanonicalPresentation', () => {
     })
 
     expect(presentation.status).toBe('ready')
+    expect(presentation.decision).toBe('reuse')
     expect(presentation.action.plan.decision).toBe('reuse')
     expect(Array.from(presentation.chart.datasets[0].data))
       .toEqual([25, 50])
@@ -192,6 +198,7 @@ describe('createCheckCanonicalPresentation', () => {
     })
 
     expect(presentation.status).toBe('not-ready')
+    expect(presentation.decision).toBe('recalculate')
     expect(presentation.action.plan).toMatchObject({
       status: 'ready',
       decision: 'recalculate',
@@ -206,14 +213,44 @@ describe('createCheckCanonicalPresentation', () => {
     expect(presentation.chart).toBeNull()
   })
 
+  it('keeps upper-bound overflow terminal when coverage is also missing', () => {
+    const action = createScoreResult({
+      values: [0.4, 0.4],
+      support: { kind: 'finite', max: 4 },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 2,
+        probabilityUpperBound: 0.2,
+        errorBound: 0,
+      },
+    })
+
+    const presentation = present(createCheckResult(action, null), {
+      min: 0,
+      max: 3,
+      opposed: false,
+    })
+
+    expect(presentation.action.plan.decision).toBe('recalculate')
+    expect(presentation.action.plan.coverage.missingSegments).toEqual([
+      { min: 2, max: 3, pointCount: 2 },
+    ])
+    expect(presentation.status).toBe('not-ready')
+    expect(presentation.decision).toBe('not-projectable')
+    expect(presentation.action.decision).toBe('not-projectable')
+    expect(presentation.action.reason)
+      .toBe(CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)
+    expect(presentation.chart).toBeNull()
+  })
+
   it('prioritizes non-projectable status over a recalculating side', () => {
     const action = createScoreResult({
       values: [0.4, 0.2],
       support: { kind: 'finite', max: 3 },
       overflow: {
-        kind: 'exact',
+        kind: 'upper-bound',
         lowerBound: 1,
-        probability: 0.4,
+        probabilityUpperBound: 0.4,
         errorBound: 0,
       },
     })
@@ -229,6 +266,7 @@ describe('createCheckCanonicalPresentation', () => {
     })
 
     expect(presentation.status).toBe('not-projectable')
+    expect(presentation.decision).toBe('not-projectable')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.reaction.status).toBe('not-ready')
     expect(presentation.reaction.reason)
@@ -253,6 +291,7 @@ describe('createCheckCanonicalPresentation', () => {
     })
 
     expect(presentation.status).toBe('not-ready')
+    expect(presentation.decision).toBe('resource-rejected')
     expect(presentation.action.plan).toMatchObject({
       status: 'resource-rejected',
       accepted: false,
@@ -292,6 +331,7 @@ describe('createCheckCanonicalPresentation', () => {
 
     expect(presentation.mode).toBe('upper-tail')
     expect(presentation.status).toBe('not-projectable')
+    expect(presentation.decision).toBe('not-projectable')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.action.reason)
       .toBe(CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)

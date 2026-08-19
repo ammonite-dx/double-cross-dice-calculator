@@ -4,6 +4,7 @@ import {
   BACKTRACK_ASSET_SUPPORT_MAX,
   getBacktrackGenerationOperationEstimate,
 } from './BacktrackLimits'
+import { LEGACY_PUBLISHED_OVERFLOW_INDEX } from './DistributionResult'
 import {
   getBacktrackDiceCounts,
   getBacktrackRule,
@@ -12,6 +13,7 @@ import {
 
 const DEFAULT_ERROR_BUDGET = 1e-8
 const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
+const LEGACY_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
 
 function getPublishedScoreUpperBound(calculationMax) {
   return Math.max(calculationMax + 1, PUBLISHED_SCORE_MAX_INDEX)
@@ -191,7 +193,7 @@ function getPublishedScoreUpperBound(calculationMax) {
 export const DEFAULT_POLICY = {
   // Preserve the current public-score-to-damage contract.
   scorePropagation: 'published-bucket',
-  calculationMax: 1022,
+  calculationMax: LEGACY_CALCULATION_MAX,
   errorBudget: {
     total: DEFAULT_ERROR_BUDGET,
     scoreTail: 8e-9,
