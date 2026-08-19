@@ -29,7 +29,7 @@
     const rangeFeedback = reactive(createCalculationFeedbackState());
     const initialCalculation = await runInitialCalculation({
         feedback: rangeFeedback,
-        calculate: (options) => calculationClient.calculateCheck(
+        calculate: (options) => calculationClient.calculateCheckCanonical(
             initialSnapshot.params,
             initialSnapshot.difficulty,
             options
@@ -52,7 +52,7 @@
     const calculationRunner = createLatestCalculationRunner({
         feedback: rangeFeedback,
         snapshotRequest: createCheckInputSnapshot,
-        calculate: (snapshot) => calculationClient.calculateCheck(
+        calculate: (snapshot) => calculationClient.calculateCheckCanonical(
             snapshot.params,
             snapshot.difficulty,
             snapshot

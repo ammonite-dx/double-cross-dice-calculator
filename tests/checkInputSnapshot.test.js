@@ -10,6 +10,14 @@ const checkViewSource = readFileSync(
   new URL('../src/views/Check.vue', import.meta.url),
   'utf8'
 )
+const scoreChartSource = readFileSync(
+  new URL('../src/components/Check/ScoreChart.vue', import.meta.url),
+  'utf8'
+)
+const chartSetterSource = readFileSync(
+  new URL('../src/components/Check/ChartSetter.js', import.meta.url),
+  'utf8'
+)
 const inputFormSource = readFileSync(
   new URL('../src/components/Check/InputForm.vue', import.meta.url),
   'utf8'
@@ -71,8 +79,10 @@ describe('CheckInputSnapshot', () => {
 describe('Check input flow contracts', () => {
   it('keeps calculation ownership and snapshot expansion in Check.vue', () => {
     expect(checkViewSource).toContain(
-      'calculationClient.calculateCheck(\n            snapshot.params,\n            snapshot.difficulty'
+      'calculationClient.calculateCheckCanonical(\n            snapshot.params,\n            snapshot.difficulty'
     )
+    expect(checkViewSource).toContain('calculationClient.calculateCheckCanonical(')
+    expect(checkViewSource).not.toContain('calculationClient.calculateCheck(')
     expect(checkViewSource).toContain(
       'snapshotRequest: createCheckInputSnapshot'
     )
@@ -80,6 +90,38 @@ describe('Check input flow contracts', () => {
     expect(checkViewSource).toContain('@dfclty-validated="onDfcltyValidated"')
     expect(checkViewSource).toContain('@score-validated="onScoreValidated"')
     expect(checkViewSource).not.toContain('watch(props.checkData')
+  })
+
+  it('connects Check charts to canonical presentation without a legacy data path', () => {
+    expect(scoreChartSource).toContain('createCheckCanonicalPresentation')
+    expect(scoreChartSource).toContain('displayWindow:')
+    expect(scoreChartSource).toContain('min: props.setting.min')
+    expect(scoreChartSource).toContain('max: props.setting.max')
+    expect(scoreChartSource).toContain('opposed: props.checkData.dfclty.opposed')
+    expect(scoreChartSource).toContain(
+      "'達成値がXとなる確率を表示': CHECK_CANONICAL_PRESENTATION_MODES.PMF"
+    )
+    expect(scoreChartSource).toContain(
+      "'達成値がX以上となる確率を表示': CHECK_CANONICAL_PRESENTATION_MODES.UPPER_TAIL"
+    )
+    expect(scoreChartSource).toContain(
+      'function getCanonicalChartMode(settingMode)'
+    )
+    expect(scoreChartSource).toContain('throw new Error(')
+    expect(scoreChartSource).toContain(
+      'mode: getCanonicalChartMode(props.setting.mode)'
+    )
+    expect(scoreChartSource).not.toContain(
+      '?? CHECK_CANONICAL_PRESENTATION_MODES.PMF'
+    )
+    expect(scoreChartSource).toContain(
+      '<Line v-if="data !== null" :data="data"'
+    )
+    expect(scoreChartSource).not.toContain('getCheckChartData')
+    expect(chartSetterSource).toContain('getCheckChartOptions')
+    expect(chartSetterSource).toContain('getCheckChartStyle')
+    expect(chartSetterSource).not.toContain('@/data/Distribution')
+    expect(chartSetterSource).not.toContain('getCheckChartData')
   })
 
   it('forwards only validated child events through the input components', () => {
