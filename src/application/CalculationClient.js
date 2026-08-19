@@ -7,6 +7,7 @@ import {
 import {
   createDistributionResult,
   getCanonicalTotalDamageSummary,
+  toPublishedBucketDistribution,
 } from '../calculation/DistributionResult'
 import {
   planCanonicalDamageAggregation,
@@ -21,6 +22,7 @@ import {
   getDamageSummary,
   getTotalDamage,
 } from '../data/DamageCalculator'
+import { getUpperTailProbability } from '../data/Distribution'
 import {
   getD10Distribution,
   loadD10Asset,
@@ -211,6 +213,15 @@ function isPromiseLike(value) {
   return value !== null
     && value !== undefined
     && typeof value.then === 'function'
+}
+
+function createPublishedScoreFromCanonicalEnvelope(envelope) {
+  const distribution = toPublishedBucketDistribution(envelope.result)
+  return {
+    distribution,
+    upperTailProbability: getUpperTailProbability(distribution),
+    failureProbability: envelope.metadata.failureProbability,
+  }
 }
 
 function multiplySafeInteger(left, right) {
@@ -621,11 +632,12 @@ export function createCalculationClient(
       }
     },
 
-    async calculateCheckCanonical(params, options = {}) {
+    async calculateCheckCanonical(params, difficulty, options = {}) {
       const request = {
         action: snapshotScoreParams(params.action),
         reaction: snapshotScoreParams(params.reaction),
       }
+      const difficultyRequest = { ...difficulty }
       const plan = runRangePreflight(
         planner,
         createCheckRangeParams(request),
@@ -659,8 +671,18 @@ export function createCalculationClient(
             plan.scores?.[1]
           ),
         }
+        const summaryScore = {
+          action: createPublishedScoreFromCanonicalEnvelope(score.action),
+          reaction: createPublishedScoreFromCanonicalEnvelope(score.reaction),
+        }
         throwIfAborted(options, 'Canonical check')
-        return { score }
+        return {
+          score,
+          scoreSummary: dependencies.getScoreSummary(
+            summaryScore,
+            difficultyRequest
+          ),
+        }
       } finally {
         lease.release()
       }

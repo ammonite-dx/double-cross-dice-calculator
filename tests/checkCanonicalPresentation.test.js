@@ -22,7 +22,13 @@ function createScoreResult({
   support = { kind: 'finite', max: 0 },
   overflow = null,
 } = {}) {
-  return createDistributionResult({ values, offset, support, overflow })
+  return {
+    result: createDistributionResult({ values, offset, support, overflow }),
+    metadata: {
+      modeledDistribution: true,
+      failureProbability: 0,
+    },
+  }
 }
 
 function createCheckResult(action, reaction = action) {
@@ -327,8 +333,8 @@ describe('createCheckCanonicalPresentation', () => {
     const inputBefore = {
       score: { action, reaction },
     }
-    const actionBefore = Array.from(action.values)
-    const reactionBefore = Array.from(reaction.values)
+    const actionBefore = Array.from(action.result.values)
+    const reactionBefore = Array.from(reaction.result.values)
 
     createCheckCanonicalPresentation(input, {
       displayWindow: window,
@@ -338,8 +344,8 @@ describe('createCheckCanonicalPresentation', () => {
 
     expect(input).toEqual(inputBefore)
     expect(window).toEqual({ min: 0, max: 1 })
-    expect(Array.from(action.values)).toEqual(actionBefore)
-    expect(Array.from(reaction.values)).toEqual(reactionBefore)
+    expect(Array.from(action.result.values)).toEqual(actionBefore)
+    expect(Array.from(reaction.result.values)).toEqual(reactionBefore)
   })
 
   it('accepts only the options-object invocation', () => {

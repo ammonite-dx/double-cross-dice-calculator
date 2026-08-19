@@ -308,12 +308,18 @@ export function calculateScoreCanonical(
     false,
     scoreRangePlan
   )
-  return createCanonicalScoreResult(
+  const result = createCanonicalScoreResult(
     params,
     workingDistribution,
     failureProbability,
     scoreRangePlan
   )
+  const metadata = Object.freeze({
+    modeledDistribution: true,
+    failureProbability,
+  })
+
+  return Object.freeze({ result, metadata })
 }
 
 export function getScoreSummary(

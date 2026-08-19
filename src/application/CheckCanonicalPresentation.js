@@ -236,18 +236,10 @@ function normalizeCheckResult(checkResult, opposed) {
   return { action, reaction }
 }
 
-function createScoreEnvelope(result) {
-  return {
-    result,
-    metadata: { modeledDistribution: true },
-  }
-}
-
-function createScorePresentation(result, displayWindow, mode, policy) {
-  const envelope = createScoreEnvelope(result)
+function createScorePresentation(envelope, displayWindow, mode, policy) {
   const summary = {
-    mass: getProbabilityMassSummary(result),
-    expectedValue: getExpectedValueSummary(result),
+    mass: getProbabilityMassSummary(envelope.result),
+    expectedValue: getExpectedValueSummary(envelope.result),
   }
   const display = presentCanonicalDistribution(envelope, {
     summary,
