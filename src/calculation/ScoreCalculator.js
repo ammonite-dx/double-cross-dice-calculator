@@ -8,6 +8,10 @@ import {
   shiftDistribution,
 } from '../data/Distribution'
 import { sumDistribution } from '../data/FFT'
+import {
+  DISTRIBUTION_RESULT_TOLERANCE,
+  createDistributionResult,
+} from './DistributionResult'
 
 function validateScoreRangePlan(scoreRangePlan) {
   if (scoreRangePlan === undefined || scoreRangePlan === null) {
@@ -73,7 +77,7 @@ function validateProbabilityDistribution(distribution, label) {
   }
 }
 
-export function calculateScore(
+function calculateScoreWorking(
   params,
   { getDxDistribution },
   fix = false,
@@ -89,9 +93,10 @@ export function calculateScore(
     )
     distribution[fixedScore] = 1
     return {
-      distribution,
-      upperTailProbability: getUpperTailProbability(distribution),
+      workingDistribution: distribution,
       failureProbability: 0,
+      alreadyShifted: true,
+      plan,
     }
   }
 
@@ -171,18 +176,144 @@ export function calculateScore(
     diceResult[1] = 0
   }
 
-  const shiftedDiceResult = shiftDistribution(diceResult, params.skill)
-  shiftedDiceResult[0] += fumble
-  if (plan) {
-    validateProbabilityDistribution(shiftedDiceResult, 'skill-shifted score')
+  return {
+    workingDistribution: diceResult,
+    failureProbability: fumble,
+    alreadyShifted: false,
+    plan,
   }
-  const distribution = collapseDistribution(shiftedDiceResult)
+}
+
+export function calculateScore(
+  params,
+  dependencies,
+  fix = false,
+  scoreRangePlan
+) {
+  const {
+    workingDistribution,
+    failureProbability,
+    alreadyShifted,
+  } = calculateScoreWorking(params, dependencies, fix, scoreRangePlan)
+  const shiftedDistribution = alreadyShifted
+    ? workingDistribution
+    : shiftDistribution(workingDistribution, params.skill)
+  if (!alreadyShifted) {
+    shiftedDistribution[0] += failureProbability
+    if (scoreRangePlan) {
+      validateProbabilityDistribution(shiftedDistribution, 'skill-shifted score')
+    }
+  }
+  const distribution = collapseDistribution(shiftedDistribution)
 
   return {
     distribution,
     upperTailProbability: getUpperTailProbability(distribution),
-    failureProbability: fumble,
+    failureProbability,
   }
+}
+
+function getFiniteRawSupportMax(params) {
+  if (params.dice === 0 || params.dice <= (params.shihai ?? 0)) {
+    return 0
+  }
+  if (params.critical === 11) {
+    return 10
+  }
+  return null
+}
+
+function getCanonicalSupport(params) {
+  const finiteRawSupportMax = getFiniteRawSupportMax(params)
+  if (finiteRawSupportMax === null) {
+    return { kind: 'infinite' }
+  }
+  if (finiteRawSupportMax === 0) {
+    return { kind: 'finite', max: 0 }
+  }
+  return {
+    kind: 'finite',
+    max: Math.max(0, finiteRawSupportMax + params.skill),
+  }
+}
+
+function createCanonicalScoreResult(
+  params,
+  workingDistribution,
+  failureProbability,
+  scoreRangePlan
+) {
+  const workingMax = scoreRangePlan?.workingLength !== undefined
+    ? scoreRangePlan.workingLength - 2
+    : workingDistribution.length - 2
+  const overflowIndex = workingDistribution.length - 1
+  const support = getCanonicalSupport(params)
+  const finiteSupport = support.kind === 'finite'
+  const explicitMax = finiteSupport
+    ? support.max
+    : Math.max(0, workingMax + params.skill)
+  const values = new Float64Array(explicitMax + 1)
+
+  for (let rawValue = 0; rawValue < overflowIndex; rawValue += 1) {
+    const probability = workingDistribution[rawValue]
+    if (probability === 0) {
+      continue
+    }
+    const scoreValue = Math.max(0, rawValue + params.skill)
+    if (scoreValue <= explicitMax) {
+      values[scoreValue] += probability
+    }
+  }
+
+  values[0] += failureProbability
+
+  const tailProbability = workingDistribution[overflowIndex] ?? 0
+  if (
+    finiteSupport
+    && Math.abs(tailProbability) > DISTRIBUTION_RESULT_TOLERANCE
+  ) {
+    throw new RangeError(
+      'finite canonical score support contains non-zero working tail'
+    )
+  }
+
+  const overflowProbability = finiteSupport
+    ? 0
+    : tailProbability
+  const overflow = finiteSupport
+    ? null
+    : {
+        kind: 'exact',
+        lowerBound: Math.max(0, workingMax + 1 + params.skill),
+        probability: overflowProbability,
+        errorBound: DISTRIBUTION_RESULT_TOLERANCE,
+      }
+
+  return createDistributionResult({
+    values,
+    offset: 0,
+    support,
+    overflow,
+  })
+}
+
+export function calculateScoreCanonical(
+  params,
+  dependencies,
+  scoreRangePlan
+) {
+  const { workingDistribution, failureProbability } = calculateScoreWorking(
+    params,
+    dependencies,
+    false,
+    scoreRangePlan
+  )
+  return createCanonicalScoreResult(
+    params,
+    workingDistribution,
+    failureProbability,
+    scoreRangePlan
+  )
 }
 
 export function getScoreSummary(

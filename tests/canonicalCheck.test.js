@@ -1,0 +1,414 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import {
+  calculateDxDistribution,
+  calculateScore,
+  calculateScoreCanonical,
+  planCalculationRanges,
+} from '../src/calculation'
+import {
+  DISTRIBUTION_RESULT_ERROR_CODES,
+  toPublishedBucketDistribution,
+  validateDistributionResult,
+} from '../src/calculation/DistributionResult'
+import {
+  calculateScoreCanonical as calculateDataScoreCanonical,
+} from '../src/data/ScoreCalculator'
+import {
+  CalculationRangeError,
+  calculationClient,
+  createCalculationClient,
+} from '../src/application/CalculationClient'
+
+function scoreParams(overrides = {}) {
+  return {
+    dice: 1,
+    critical: 10,
+    skill: 0,
+    yousei: 0,
+    shihai: 0,
+    ...overrides,
+  }
+}
+
+function getScorePlan(params, policy) {
+  return planCalculationRanges({
+    operation: 'score',
+    score: params,
+  }, policy).scores[0]
+}
+
+function getDxDistribution(shihai, dice, critical, options) {
+  return calculateDxDistribution({ dice, critical, shihai }, options)
+}
+
+function calculateCanonical(params, policy) {
+  const plan = getScorePlan(params, policy)
+  return {
+    plan,
+    result: calculateScoreCanonical(
+      params,
+      { getDxDistribution },
+      plan
+    ),
+  }
+}
+
+function calculateLegacy(params, plan) {
+  return calculateScore(
+    params,
+    { getDxDistribution },
+    false,
+    plan
+  )
+}
+
+describe('canonical normal check score producer', () => {
+  it('keeps an independently supplied working tail as exact overflow', () => {
+    const params = scoreParams({ skill: 2 })
+    const provider = vi.fn(() => new Float64Array([0.1, 0.2, 0.3, 0.4]))
+    const result = calculateScoreCanonical(
+      params,
+      { getDxDistribution: provider },
+      { workingLength: 4, fftLength: 0 }
+    )
+
+    expect(provider).toHaveBeenCalledWith(
+      params.shihai,
+      params.dice,
+      params.critical,
+      { workingLength: 4, rounding: 'unrounded' }
+    )
+    expect(result.offset).toBe(0)
+    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.values).toHaveLength(5)
+    expect(result.values[0]).toBeCloseTo(0.3, 12)
+    expect(result.values[1]).toBe(0)
+    expect(result.values[2]).toBe(0)
+    expect(result.values[3]).toBe(0)
+    expect(result.values[4]).toBeCloseTo(0.3, 12)
+    expect(result.overflow).toEqual({
+      kind: 'exact',
+      lowerBound: 5,
+      probability: 0.4,
+      errorBound: expect.any(Number),
+    })
+    expect(validateDistributionResult(result)).toBe(true)
+  })
+
+  it('rejects non-negligible working tail when support is proven finite', () => {
+    const provider = vi.fn(() => new Float64Array([0.1, 0.2, 0.3, 0.4]))
+
+    expect(() => calculateScoreCanonical(
+      scoreParams({ critical: 11 }),
+      { getDxDistribution: provider },
+      { workingLength: 4, fftLength: 0 }
+    )).toThrow('finite canonical score support contains non-zero working tail')
+  })
+
+  it('rejects legacy projection when exact overflow may be below bucket 1023', () => {
+    const result = calculateScoreCanonical(
+      scoreParams({ skill: 2 }),
+      { getDxDistribution: () => new Float64Array([0.1, 0.2, 0.3, 0.4]) },
+      { workingLength: 4, fftLength: 0 }
+    )
+
+    let error
+    try {
+      toPublishedBucketDistribution(result)
+    } catch (caught) {
+      error = caught
+    }
+    expect(error?.code).toBe(
+      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION
+    )
+  })
+
+  it('does not allow the data wrapper to fall back to fixed precomputed data', () => {
+    expect(() => calculateDataScoreCanonical(
+      scoreParams(),
+      undefined,
+      { workingLength: 4097, fftLength: 0 }
+    )).toThrow('requires a runtime distribution provider')
+  })
+
+  it('uses the planned working coverage and models the DX tail as exact overflow', () => {
+    const params = scoreParams({ skill: -3 })
+    const { plan, result } = calculateCanonical(params, {
+      calculationMax: 0,
+      display: { defaultMax: 0 },
+    })
+
+    expect(validateDistributionResult(result)).toBe(true)
+    expect(result.offset).toBe(0)
+    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.values).toHaveLength(plan.workingMax + params.skill + 1)
+    expect(result.overflow).toEqual(expect.objectContaining({
+      kind: 'exact',
+      lowerBound: plan.workingMax + 1 + params.skill,
+    }))
+    expect(result.overflow.probability).toBeGreaterThan(0)
+    expect(result.overflow.probability).toBeLessThanOrEqual(
+      plan.tail.bound + 1e-12
+    )
+    expect(result.values[0]).toBeGreaterThan(0)
+  })
+
+  it('keeps critical 11 finite and applies the skill shift to support', () => {
+    const params = scoreParams({
+      dice: 2,
+      critical: 11,
+      skill: -3,
+    })
+    const { plan, result } = calculateCanonical(params, {
+      calculationMax: 0,
+      display: { defaultMax: 0 },
+    })
+
+    expect(plan.finiteSupport).toBe(false)
+    expect(result.support).toEqual({ kind: 'finite', max: 7 })
+    expect(result.values).toHaveLength(8)
+    expect(result.overflow).toBeNull()
+    expect(result.values[0]).toBeGreaterThan(0)
+    expect(Array.from(result.values).reduce((sum, value) => sum + value, 0))
+      .toBeCloseTo(1, 10)
+  })
+
+  it('passes the planned long working length through yousei convolution', () => {
+    const params = scoreParams({
+      dice: 99,
+      critical: 2,
+      skill: -7,
+      yousei: 9,
+    })
+    const { plan, result } = calculateCanonical(params)
+    const legacy = calculateLegacy(params, plan)
+    const projected = toPublishedBucketDistribution(result)
+
+    expect(plan.workingLength).toBe(4173)
+    expect(result.values).toHaveLength(plan.workingMax + params.skill + 1)
+    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.overflow.lowerBound)
+      .toBe(plan.workingMax + params.skill + 1)
+    expect(projected[1023]).toBeCloseTo(legacy.distribution[1023], 8)
+  })
+
+  it.each([
+    scoreParams({ dice: 0, critical: 11, skill: 9 }),
+    scoreParams({ dice: 0, critical: 2, skill: -9, yousei: 4 }),
+    scoreParams({ dice: 1, critical: 2, skill: 7, shihai: 2 }),
+  ])('represents a proven zero-score finite support for %o', (params) => {
+    const { result } = calculateCanonical(params, {
+      calculationMax: 0,
+      display: { defaultMax: 0 },
+    })
+
+    expect(result.offset).toBe(0)
+    expect(result.values).toEqual(new Float64Array([1]))
+    expect(result.support).toEqual({ kind: 'finite', max: 0 })
+    expect(result.overflow).toBeNull()
+  })
+
+  it('keeps fumble and both signs of skill in the canonical score coordinate', () => {
+    for (const skill of [-7, 7]) {
+      const params = scoreParams({ skill })
+      const { plan, result } = calculateCanonical(params)
+      const legacy = calculateLegacy(params, plan)
+      const projected = toPublishedBucketDistribution(result)
+
+      expect(result.values[0]).toBeGreaterThanOrEqual(
+        legacy.failureProbability - 1e-12
+      )
+      expect(projected).toHaveLength(1024)
+      for (let value = 0; value < projected.length; value += 1) {
+        expect(projected[value]).toBeCloseTo(legacy.distribution[value], 8)
+      }
+    }
+  })
+
+  it.each([
+    scoreParams({ dice: 1, critical: 10, skill: -7 }),
+    scoreParams({ dice: 3, critical: 5, skill: 6, yousei: 1 }),
+    scoreParams({ dice: 4, critical: 8, skill: 2, shihai: 1 }),
+    scoreParams({ dice: 2, critical: 11, skill: 4 }),
+  ])('projects to the current published score within migration tolerance for %o', (params) => {
+    const { plan, result } = calculateCanonical(params)
+    const legacy = calculateLegacy(params, plan)
+    const projected = toPublishedBucketDistribution(result)
+
+    let maxAbsoluteDifference = 0
+    let l1Difference = 0
+    for (let value = 0; value < projected.length; value += 1) {
+      const difference = Math.abs(projected[value] - legacy.distribution[value])
+      maxAbsoluteDifference = Math.max(maxAbsoluteDifference, difference)
+      l1Difference += difference
+    }
+
+    expect(maxAbsoluteDifference).toBeLessThanOrEqual(2e-6)
+    expect(l1Difference).toBeLessThanOrEqual(2e-4)
+  })
+
+  it('is exposed through the default CalculationClient without a summary dependency', async () => {
+    const result = await calculationClient.calculateCheckCanonical({
+      action: scoreParams({ skill: 2 }),
+      reaction: scoreParams({ skill: -1 }),
+    })
+
+    expect(validateDistributionResult(result.score.action)).toBe(true)
+    expect(validateDistributionResult(result.score.reaction)).toBe(true)
+    expect(result).not.toHaveProperty('scoreSummary')
+  })
+})
+
+function createClientDependencies(overrides = {}) {
+  const plan = {
+    accepted: true,
+    operation: 'check',
+    scores: [{ id: 'action' }, { id: 'reaction' }],
+    estimates: {
+      float64Bytes: 64,
+      operations: 10,
+      timeMs: 1,
+    },
+  }
+  const resourceGuard = {
+    acquirePlan: vi.fn(() => ({ release: vi.fn() })),
+  }
+  return {
+    calculateScore: vi.fn(),
+    calculateScoreCanonical: vi.fn((params) => ({
+      params,
+      kind: 'canonical-score',
+    })),
+    calculateDxDistribution: vi.fn(),
+    getScore: vi.fn(),
+    getScoreSummary: vi.fn(),
+    planCalculationRanges: vi.fn(() => plan),
+    resourceGuard,
+    ...overrides,
+    plan,
+  }
+}
+
+function checkParams() {
+  return {
+    action: scoreParams({ skill: 2 }),
+    reaction: scoreParams({ skill: -1 }),
+  }
+}
+
+describe('CalculationClient canonical normal check API', () => {
+  it('snapshots input, publishes preflight, and uses a resource lease', async () => {
+    const dependencies = createClientDependencies()
+    const client = createCalculationClient(dependencies)
+    const onRangePlan = vi.fn()
+    const signal = new AbortController().signal
+    const options = {
+      signal,
+      requestId: 'canonical-check-1',
+      rangePolicy: { calculationMax: 12 },
+      onRangePlan,
+    }
+    const params = checkParams()
+
+    const resultPromise = client.calculateCheckCanonical(params, options)
+    params.action.dice = 99
+    params.reaction.skill = 99
+    const result = await resultPromise
+
+    expect(result.score.action.kind).toBe('canonical-score')
+    expect(result.score.reaction.kind).toBe('canonical-score')
+    expect(dependencies.planCalculationRanges).toHaveBeenCalledWith({
+      operation: 'check',
+      score: {
+        action: scoreParams({ skill: 2 }),
+        reaction: scoreParams({ skill: -1 }),
+      },
+    }, options.rangePolicy)
+    expect(onRangePlan).toHaveBeenCalledWith(dependencies.plan)
+    expect(dependencies.calculateScoreCanonical).toHaveBeenNthCalledWith(
+      1,
+      scoreParams({ skill: 2 }),
+      expect.any(Function),
+      dependencies.plan.scores[0]
+    )
+    expect(dependencies.calculateScoreCanonical).toHaveBeenNthCalledWith(
+      2,
+      scoreParams({ skill: -1 }),
+      expect.any(Function),
+      dependencies.plan.scores[1]
+    )
+    expect(dependencies.getScoreSummary).not.toHaveBeenCalled()
+    expect(dependencies.resourceGuard.acquirePlan).toHaveBeenCalledWith(
+      dependencies.plan,
+      { signal, requestId: 'canonical-check-1', operation: 'check' }
+    )
+    expect(dependencies.resourceGuard.acquirePlan.mock.results[0].value.release)
+      .toHaveBeenCalledOnce()
+  })
+
+  it('rejects before score production on a range preflight failure', async () => {
+    const plan = {
+      accepted: false,
+      operation: 'check',
+      rejectionReasons: ['estimated-memory'],
+    }
+    const dependencies = createClientDependencies({
+      planCalculationRanges: vi.fn(() => plan),
+    })
+    const client = createCalculationClient(dependencies)
+    const onRangePlan = vi.fn()
+
+    await expect(client.calculateCheckCanonical(checkParams(), {
+      onRangePlan,
+    })).rejects.toSatisfy((error) => {
+      expect(error).toBeInstanceOf(CalculationRangeError)
+      expect(error.plan).toBe(plan)
+      return true
+    })
+    expect(onRangePlan).toHaveBeenCalledWith(plan)
+    expect(dependencies.resourceGuard.acquirePlan).not.toHaveBeenCalled()
+    expect(dependencies.calculateScoreCanonical).not.toHaveBeenCalled()
+  })
+
+  it('aborts after admission and always releases the lease', async () => {
+    const controller = new AbortController()
+    const release = vi.fn()
+    const dependencies = createClientDependencies({
+      resourceGuard: {
+        acquirePlan: vi.fn(() => {
+          controller.abort()
+          return { release }
+        }),
+      },
+    })
+    const client = createCalculationClient(dependencies)
+
+    await expect(client.calculateCheckCanonical(checkParams(), {
+      signal: controller.signal,
+    })).rejects.toMatchObject({ name: 'AbortError' })
+    expect(dependencies.calculateScoreCanonical).not.toHaveBeenCalled()
+    expect(release).toHaveBeenCalledOnce()
+  })
+
+  it('releases the lease when canonical score production aborts or fails', async () => {
+    const release = vi.fn()
+    const controller = new AbortController()
+    const canonicalError = new Error('canonical score failure')
+    const dependencies = createClientDependencies({
+      resourceGuard: {
+        acquirePlan: vi.fn(() => ({ release })),
+      },
+      calculateScoreCanonical: vi.fn(() => {
+        controller.abort()
+        throw canonicalError
+      }),
+    })
+    const client = createCalculationClient(dependencies)
+
+    await expect(client.calculateCheckCanonical(checkParams(), {
+      signal: controller.signal,
+    })).rejects.toBe(canonicalError)
+    expect(release).toHaveBeenCalledOnce()
+  })
+})

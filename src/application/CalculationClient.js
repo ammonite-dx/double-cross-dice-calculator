@@ -28,6 +28,7 @@ import {
 } from '../data/PrecomputedDataRepository'
 import {
   calculateScore,
+  calculateScoreCanonical,
   getScoreSummary,
 } from '../data/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
@@ -67,6 +68,7 @@ const defaultDependencies = {
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore,
+  calculateScoreCanonical,
   getCanonicalDamageSummary,
   getCanonicalTotalDamageSummary,
   getDamageSummary,
@@ -358,11 +360,11 @@ export function createCalculationClient(
     typeof dependencies.calculateScore === 'function' &&
     typeof dependencies.calculateDxDistribution === 'function'
   const hasLegacyScoreDependency = typeof dependencies.getScore === 'function'
+  const getDxDistribution = hasRuntimeScoreDependencies
+    ? createRuntimeDxProvider(dependencies.calculateDxDistribution)
+    : null
   const scoreCalculator = (() => {
     if (hasRuntimeScoreDependencies) {
-      const getDxDistribution = createRuntimeDxProvider(
-        dependencies.calculateDxDistribution
-      )
       return (params, fix = false, scoreRangePlan) => {
         if (scoreRangePlan === undefined) {
           return dependencies.calculateScore(params, getDxDistribution, fix)
@@ -380,6 +382,25 @@ export function createCalculationClient(
       fix
         ? dependencies.getScore(params, true)
         : dependencies.getScore(params)
+  })()
+  const canonicalScoreCalculator = (() => {
+    if (typeof dependencies.calculateScoreCanonical === 'function') {
+      if (getDxDistribution === null) {
+        return (params, scoreRangePlan) =>
+          dependencies.calculateScoreCanonical(params, undefined, scoreRangePlan)
+      }
+      return (params, scoreRangePlan) =>
+        dependencies.calculateScoreCanonical(
+          params,
+          getDxDistribution,
+          scoreRangePlan
+        )
+    }
+    if (getDxDistribution !== null) {
+      return (params, scoreRangePlan) =>
+        calculateScoreCanonical(params, getDxDistribution, scoreRangePlan)
+    }
+    return null
   })()
 
   if (!hasRuntimeScoreDependencies && !hasLegacyScoreDependency) {
@@ -595,6 +616,51 @@ export function createCalculationClient(
             difficultyRequest
           ),
         }
+      } finally {
+        lease.release()
+      }
+    },
+
+    async calculateCheckCanonical(params, options = {}) {
+      const request = {
+        action: snapshotScoreParams(params.action),
+        reaction: snapshotScoreParams(params.reaction),
+      }
+      const plan = runRangePreflight(
+        planner,
+        createCheckRangeParams(request),
+        options.rangePolicy,
+        options.onRangePlan
+      )
+      const leaseRequest = acquirePlanLease(
+        resourceGuard,
+        plan,
+        options,
+        'check'
+      )
+      const lease = isPromiseLike(leaseRequest)
+        ? await leaseRequest
+        : leaseRequest
+
+      try {
+        throwIfAborted(options, 'Canonical check')
+        if (canonicalScoreCalculator === null) {
+          throw new Error(
+            'CalculationClient requires calculateScoreCanonical or runtime score dependencies'
+          )
+        }
+        const score = {
+          action: canonicalScoreCalculator(
+            request.action,
+            plan.scores?.[0]
+          ),
+          reaction: canonicalScoreCalculator(
+            request.reaction,
+            plan.scores?.[1]
+          ),
+        }
+        throwIfAborted(options, 'Canonical check')
+        return { score }
       } finally {
         lease.release()
       }

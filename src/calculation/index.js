@@ -52,6 +52,7 @@ export {
 } from './CanonicalDamageAggregation'
 export {
   calculateScore,
+  calculateScoreCanonical,
   getScoreSummary,
 } from './ScoreCalculator'
 export {
