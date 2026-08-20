@@ -1,18 +1,39 @@
 import {
+  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
   DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
+  createCanonicalChartSeries,
+  materializeCanonicalChartJsData,
+  planDisplayRange,
   presentCanonicalDistribution,
 } from '../presentation'
+import {
+  ATTACK_DISPLAY_MODES,
+  createAttackDisplayRequestSnapshot,
+  DEFAULT_ATTACK_DISPLAY_REQUEST,
+} from './AttackDisplayRequestSnapshot'
 
 export const ATTACK_CANONICAL_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_BATCH_RESULT: 'invalid-batch-result',
   INVALID_BATCH_SUMMARY: 'invalid-batch-summary',
   INVALID_CLONE: 'invalid-clone',
   INVALID_COMBO: 'invalid-combo',
+  INVALID_DISPLAY_OPTIONS: 'invalid-display-options',
   INVALID_RANGE_PLAN: 'invalid-range-plan',
   INVALID_RANGE_PLANS: 'invalid-range-plans',
   RANGE_PLAN_COUNT_MISMATCH: 'range-plan-count-mismatch',
   UNSAFE_CLONE: 'unsafe-clone',
+})
+
+export const ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION = 1
+
+export const ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS = Object.freeze({
+  REUSE: 'reuse',
+  KNOWN_ZERO: 'known-zero',
+  RECALCULATE: 'recalculate',
+  RESOURCE_REJECTED: 'resource-rejected',
+  NOT_PROJECTABLE: 'not-projectable',
 })
 
 export class AttackCanonicalPresentationError extends Error {
@@ -171,6 +192,21 @@ function requireOwnDataProperty(value, property, path, code) {
     fail(
       code,
       `${path}.${property} must be an own enumerable data property`,
+      { path: `${path}.${property}` }
+    )
+  }
+  return descriptor.value
+}
+
+function readOptionalOwnDataProperty(value, property, path, code) {
+  const descriptor = safeGetOwnPropertyDescriptor(value, property, path, code)
+  if (descriptor === undefined) {
+    return undefined
+  }
+  if (!isDataDescriptor(descriptor) || !descriptor.enumerable) {
+    fail(
+      code,
+      `${path}.${property} must be an enumerable data property`,
       { path: `${path}.${property}` }
     )
   }
@@ -777,6 +813,201 @@ function addEntryId(warning, entryId) {
   }
 }
 
+function normalizeAttackCanonicalDisplayOptions(options) {
+  requirePlainRecord(
+    options,
+    'options',
+    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+  )
+
+  const rawDisplayRequest = readOptionalOwnDataProperty(
+    options,
+    'displayRequest',
+    'options',
+    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+  )
+  const rangePlans = readOptionalOwnDataProperty(
+    options,
+    'rangePlans',
+    'options',
+    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+  )
+  const policy = readOptionalOwnDataProperty(
+    options,
+    'policy',
+    'options',
+    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+  )
+
+  // An own `undefined` value keeps the existing optional-property semantics;
+  // null is an explicit value and must not silently become an omission.
+  if (rawDisplayRequest === null) {
+    fail(
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      'options.displayRequest must not be null',
+      { path: 'options.displayRequest' }
+    )
+  }
+  if (rangePlans === null) {
+    fail(
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      'options.rangePlans must not be null',
+      { path: 'options.rangePlans' }
+    )
+  }
+  if (policy === null) {
+    fail(
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      'options.policy must not be null',
+      { path: 'options.policy' }
+    )
+  }
+
+  return {
+    displayRequest: createAttackDisplayRequestSnapshot(
+      rawDisplayRequest === undefined
+        ? DEFAULT_ATTACK_DISPLAY_REQUEST
+        : rawDisplayRequest
+    ),
+    rangePlans: rangePlans === undefined ? [] : rangePlans,
+    policy,
+  }
+}
+
+function hasPotentialUpperBoundOverflow(overflow) {
+  return overflow?.kind === 'upper-bound'
+    && (overflow.errorBound > 0 || overflow.probabilityUpperBound > 0)
+}
+
+function hasTerminalUpperBoundEvidence(side) {
+  if (
+    side.plan.status === 'resource-rejected'
+    || side.plan.decision === 'known-zero'
+  ) {
+    return false
+  }
+
+  const overflow = side.plan.coverage.overflow
+  if (!hasPotentialUpperBoundOverflow(overflow)) {
+    return false
+  }
+
+  return side.series.mode === ATTACK_DISPLAY_MODES.UPPER_TAIL
+    || overflow.lowerBound <= side.plan.displayWindow.max
+}
+
+function getAttackCanonicalDisplaySideDecision(side) {
+  if (
+    side.plan.status === 'resource-rejected'
+    || side.series.reason === CANONICAL_CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED
+  ) {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+  }
+
+  if (hasTerminalUpperBoundEvidence(side)) {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+  }
+
+  if (side.series.status === 'not-projectable') {
+    if (
+      side.series.reason
+      === CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
+    ) {
+      return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    }
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+  }
+
+  if (side.series.status === 'not-ready') {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+  }
+
+  if (side.plan.decision === 'known-zero') {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
+  }
+
+  return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.REUSE
+}
+
+function getAttackCanonicalDisplaySideReason(side) {
+  if (hasTerminalUpperBoundEvidence(side)) {
+    return CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW
+  }
+  return side.series.reason ?? null
+}
+
+function getAttackCanonicalDisplayStatus(sides) {
+  if (sides.some(({ series }) => series.status === 'not-projectable')) {
+    return 'not-projectable'
+  }
+  if (sides.some(({ series }) => series.status === 'not-ready')) {
+    return 'not-ready'
+  }
+  return 'ready'
+}
+
+function getAttackCanonicalDisplayDecision(sides) {
+  const decisions = sides.map(getAttackCanonicalDisplaySideDecision)
+  if (decisions.includes(
+    ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+  )) {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+  }
+  if (decisions.includes(
+    ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+  )) {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+  }
+  if (decisions.includes(
+    ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+  )) {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+  }
+  if (decisions.every((decision) => (
+    decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
+  ))) {
+    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
+  }
+  return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.REUSE
+}
+
+function createAttackCanonicalDisplaySide(
+  display,
+  displayRequest,
+  policy,
+  id
+) {
+  const plannerOptions = {
+    displayWindow: {
+      min: displayRequest.min,
+      max: displayRequest.max,
+    },
+  }
+  if (policy !== undefined) {
+    plannerOptions.policy = policy
+  }
+
+  const plan = planDisplayRange(display, plannerOptions)
+  const series = createCanonicalChartSeries(display, plan, {
+    mode: displayRequest.mode,
+  })
+  const chart = series.status === 'ready'
+    ? materializeCanonicalChartJsData(series)
+    : null
+  const side = {
+    ...(id === undefined ? {} : { id }),
+    display,
+    plan,
+    series,
+    chart,
+    status: series.status,
+    reason: null,
+  }
+  side.reason = getAttackCanonicalDisplaySideReason(side)
+  side.decision = getAttackCanonicalDisplaySideDecision(side)
+  return Object.freeze(side)
+}
+
 /**
  * Build one UI-independent presentation payload for a canonical attack batch.
  * The batch result is consumed as a completed value; no calculation or
@@ -842,5 +1073,53 @@ export function createAttackCanonicalPresentation(
     canonicalTotalDamage: snapshot.canonicalTotalDamage,
     canonicalTotalDamageSummary: snapshot.canonicalTotalDamageSummary,
     canonicalTotalDamagePresentation,
+  })
+}
+
+/**
+ * Connect a completed canonical Attack batch to the shared dynamic display
+ * contract. The calculation result is first passed through the existing
+ * Attack canonical presenter, then each combo and the canonical total are
+ * independently planned and adapted to a dense chart series. No calculation,
+ * legacy projection, or fallback is performed here.
+ *
+ * `options` is `{ displayRequest, rangePlans, policy }`. `rangePlans` are the
+ * calculation plans already collected by AttackCanonicalRunner; they are only
+ * used by the existing presenter to retain calculation warnings. `policy` is
+ * the independent DisplayRangePlanner resource policy.
+ */
+export function createAttackCanonicalDisplayPresentation(
+  batchResult,
+  options = {}
+) {
+  const normalized = normalizeAttackCanonicalDisplayOptions(options)
+  const canonical = createAttackCanonicalPresentation(
+    batchResult,
+    normalized.rangePlans
+  )
+  const combos = canonical.combos.map((combo) => (
+    createAttackCanonicalDisplaySide(
+      combo.canonicalDamagePresentation,
+      normalized.displayRequest,
+      normalized.policy,
+      combo.id
+    )
+  ))
+  const total = createAttackCanonicalDisplaySide(
+    canonical.canonicalTotalDamagePresentation,
+    normalized.displayRequest,
+    normalized.policy,
+  )
+  const sides = [...combos, total]
+
+  return Object.freeze({
+    version: ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION,
+    kind: 'attack-canonical-display-presentation',
+    status: getAttackCanonicalDisplayStatus(sides),
+    decision: getAttackCanonicalDisplayDecision(sides),
+    mode: normalized.displayRequest.mode,
+    displayRequest: normalized.displayRequest,
+    combos: Object.freeze(combos),
+    total,
   })
 }
