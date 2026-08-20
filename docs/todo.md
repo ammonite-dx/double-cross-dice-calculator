@@ -19,7 +19,7 @@ canonical移行の横断的な実装順序と判断は [canonical-migration-road
 
 第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。残るtotal damage課題はresource guardと将来のdynamic output契約であり、低速実機、入力拡張候補のブラウザ実測、入力上限とJSON経路は残課題です。
 
-第4段階と第5段階ではまず現在の入力範囲と表示範囲を維持します。上限拡張は第6段階で誤差、計算時間、メモリ使用量、描画点数を同時に設計した後に行います。
+第4段階では通常Checkのcontrolled SettingForm、999上限撤廃、dynamic display windowを実装し、resource rejectionで広い表示範囲を制御しました。Attack、バックトラック、三経路全体の入力・表示上限拡張は、誤差、計算時間、メモリ使用量、描画点数を同時に検証した後に判断します。
 
 ## オーバーフローバケットを利用者へ表示する
 
@@ -409,3 +409,9 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `canonicalOptIn=true`で全comboとtotalが安全なexact finite projectionに成功した場合だけderived display dataを既存`DamageChartPanel`/`SummaryPanel`へ渡し、それ以外はlegacy `attackData`へfallbackする。ScoreChart、InputPanel、レイアウト、既存コンポーネント、`resultsReady`は変更していない
 - 対象外: canonical結果によるlegacyチャート・サマリーの無条件または全面置換、bounded/lower-boundの一点値化、dynamic outputの採用、新しいWorker protocolの追加・変更、score/DXのWorker移行
 - 次段階: exact finite以外のcanonical表示範囲、legacyとの比較条件、Score/Worker範囲を別単位で判断する。実測だけで既存表示やprotocolを切り替えない
+
+## Canonical migration Phase 4: 通常のCheck（完了）
+
+- 完了: `ef14744`、`dfe25fe`、`cdef582`、`b0bede7`、`fac55bb`で、通常Checkのcanonical producer、presentation/chart/summary接続、既定Check接続、dynamic display window、controlled SettingForm、999上限撤廃、coverage再利用・不足時latest-wins再計算、resource拒否時のclient未呼出、upper-bound terminal、legacy fallbackなしを実装した。
+- 検証: 全715テスト、lint、Markdown、buildが成功した。2026-08-20のin-app browserで`/check`を確認し、初期`0..30`、`0..1200`への拡張、`0..20000`のdisplay resource rejection（警告表示）、`30`への復旧、canvas 1、console warn/error 0を確認した。
+- 次段階: Phase 5としてAttackのScore/Damageをdynamic displayへ接続する。Attackとバックトラックのcanonical化、三経路全体の既定化、legacy削除は未完了である。

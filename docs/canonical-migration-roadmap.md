@@ -7,12 +7,12 @@
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
 - Attackにはcanonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、exact finite caseだけを既存1024 published bucketへ安全に投影するdisplay adapterがある。これらのpanel、toggle、診断表示、安全投影は移行中の検証用であり、本番移行完了時には削除する。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
-- Checkとバックトラックはcanonical resultを既存表示経路へ接続していない。core側に蓄積された範囲・資源・計算機能の有無と、canonical表示経路へ接続済みであることは別の状態として扱う。
-- 既定経路は現時点ではlegacy計算、legacy UI、1024要素のpublished distributionである。1024と表示UIの上限1000未満（`max=999`）は事前計算・固定長配列由来の暫定制限であり、canonical schemaや最終production表示の上限とは扱わない。
+- 通常のCheckはcanonical resultを既存表示経路と既定経路へ接続済みである。バックトラックはcanonical resultを既存表示経路へ接続しておらず、Attackもcanonical batchの検証用接続からproduction表示へは移行していない。
+- Attackとバックトラックの既定経路はまだlegacy計算、legacy UI、1024要素のpublished distributionである。通常のCheckの既定経路はPhase 4でcanonicalへ接続済みだが、三経路全体の既定化は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
 
 ## 表示範囲と明示coverageの移行対象
 
-現行コードでは、`src/data/Distribution.js`の`range()`が`DISTRIBUTION_SIZE=1024`に依存し、`src/components/Check/ChartSetter.js`と`src/components/Attack/ChartSetter.js`の`clipData()`が固定長配列を`slice`している。Check/AttackのSettingForm系（`src/components/Check/SettingForm.vue`、`src/components/Attack/ScoreSettingForm.vue`、`src/components/Attack/DamageSettingForm.vue`）も表示`min`/`max`を999以下（1000未満）に固定している。これらは現状の事実として移行比較に残すが、最終表示の上限にはしない。
+現行のlegacy経路では、`src/data/Distribution.js`の`range()`が`DISTRIBUTION_SIZE=1024`に依存し、`src/components/Attack/ChartSetter.js`の`clipData()`が固定長配列を`slice`している。通常のCheckではPhase 4でdynamic display windowを接続し、`src/components/Check/SettingForm.vue`をcontrolled化して表示`min`/`max`の999上限を撤廃した。AttackのSettingForm系（`src/components/Attack/ScoreSettingForm.vue`、`src/components/Attack/DamageSettingForm.vue`）に残る固定上限やlegacy経路は、各経路の移行時に別途扱う。
 
 数学的なsupport、canonical resultが明示的に保持するcoverage、ユーザーが選ぶ表示windowを分離する。`support`は結果が取り得る値の範囲であり、`explicitMax`は現在のresultに確率値が明示されている上限である。表示windowは非負safe integerの`min`/`max`を原則任意に指定でき、windowが明示coverage内ならresultを再利用する。windowがcoverage外でも有限supportの外側なら確率0として再計算せず、support内で明示値が不足する場合だけ計算範囲を拡張する。upper-tailを正確に得られない場合は拡張計算またはresource rejectionとする。safe integerでも配列長、メモリ、計算量、Chart.js描画負荷が問題になる場合は、preflight、`ResourceGuard`、`DisplayRangePlanner`で制限または拒否する。
 
@@ -75,7 +75,7 @@ Phase 0を先に行うのは、後続の比較結果が未レビューのAttack�
 
 Phase 1を表示範囲plannerとcanonical display contractの前提として完了した。表示範囲plannerは要求snapshotと再計算・再利用状態を必要とし、canonical display contractは安定したcommit/error/cancel境界を必要とするため、Phase 2以降ではこの責務境界を再利用する。
 
-### Phase 2: 共通canonical display contractを設計する
+### Phase 2: 共通canonical display contractを設計する（完了）
 
 - 成果物: 三経路共通の型・状態・validation規則、supportと明示coverageの表現、overflow/expected valueの表現、display windowとcanonical coverageの境界、tailと描画点数のbudget、fallback理由の契約、Attack/Check/バックトラックのgolden fixture。
 - 完了条件: exact/upper-bound overflowと各`lowerBound`、lower-bound expected value、finite/infinite、明示coverage、safe integer window、not-ready、resource rejectionを含む契約テストがあり、入力配列やcanonical envelopeのaliasを作らず、legacy比較の期待値が固定される。
@@ -83,19 +83,19 @@ Phase 1を表示範囲plannerとcanonical display contractの前提として完�
 
 display contractが未確定のままCheckやバックトラックを個別実装すると、経路ごとにoverflowと期待値の意味が分裂し、後から共通化する際に表示上の損失を隠すことになる。したがってPhase 2の完了をPhase 3以降の依存条件にする。
 
-#### 現在の実装状態（部分完了）
+#### 現在の実装状態（完了）
 
 `presentCanonicalDistribution`を三経路で再利用できるUI非依存の成功表示契約として採用し、finite/infinite support、`explicit.offset` と `explicitMax` による明示coverage、`null`/`exact`/`upper-bound` overflow、各overflowの`lowerBound`と`errorBound`、mass、`exact`/`bounded`/`lower-bound` expected value、warnings、JSON-safeな防御コピーを既存の単一validation層で検証する。任意の`displayWindow`は非負safe integerの`min`/`max`だけを受け付け、canonicalの明示coverageを切り詰めず要求境界として保持する。表示範囲の再計算・projection・resource budgetはここでは行わない。
 
-Phase 2はまだ完了していない。Attack/Check/バックトラックが共有できる最小のgolden fixtureと契約テストは追加したが、Check/バックトラックのcanonical producer接続、`not-ready`/`not-projectable`/`resource-rejected`状態の統合、window長・描画点数・メモリのbudget、再計算またはprojectionの判定は未実装である。前者の状態はそれぞれproducer、display adapter、coordinator/ResourceGuardの責務を維持し、後者はPhase 3の`DisplayRangePlanner`/Chart adapterへ委譲する。したがってこの段階ではproduction UIやlegacy fallbackの挙動を変更しない。
+Phase 2の共通canonical display contract、golden fixture、契約テストは完了した。Phase 3の`DisplayRangePlanner`/Chart adapterとPhase 4の通常Check接続でこの契約を再利用している。Attack/バックトラックのcanonical producer接続と、三経路全体の既定化・legacy削除は後続Phaseに残る。
 
 ### Phase 3: 共通display range plannerとChart adapterを作る
 
 - 成果物: Check、Attack Score、Attack Damageで共有する`DisplayRangePlanner`相当の設計・実装、canonical coverageとdisplay windowの再計算/再利用規則、Chart.jsへのcoordinate/typed/sparse data adapter、contract test。
 - 完了条件: 非負safe integerの任意windowを受け取り、明示coverage内なら再利用し、coverage不足かつsupport内なら再計算し、有限support外は再計算せず扱える。window長、配列長、メモリ、計算量、描画点数をpreflight/`ResourceGuard`で検証できる。PMFとupper-tail、従来の丸め、既存1024 fixtureの比較が固定される。
-- 対象外: productionのcanonical debug panel追加、Check/Attack/バックトラックのcanonical producer接続、既定経路切替、legacy計算/fallback削除。
+- 対象外: productionのcanonical debug panel追加、Attack/バックトラックのcanonical producer接続、三経路全体の既定経路切替、legacy計算/fallback削除。
 
-Phase 3を先に行うことで、固定`range()`、`clipData()`、999以下のSettingForm制約を、経路ごとに別の暫定上限へ置き換えずに済む。無制限の入力を許可することと、無制限の配列・描画を実行することを分離する。
+Phase 3を先に行うことで、固定`range()`、`clipData()`、各経路に残る固定上限を、経路ごとに別の暫定上限へ置き換えずに済む。無制限の入力を許可することと、無制限の配列・描画を実行することを分離する。
 
 #### Phase 3第1単位: 共通DisplayRangePlanner（実装済み）
 
@@ -103,7 +103,7 @@ Phase 3を先に行うことで、固定`range()`、`clipData()`、999以下のS
 
 windowの`max - min + 1`、explicit coverageの終端、Float64Array相当の最小メモリ見積りをsafe integerとして事前検証し、`pointCount`、`float64Bytes`、`chartPoints`をfreeze済みの`estimates`へ返す。係数値の検証はversioned `presentCanonicalDistribution`の責務とし、plannerはArray/Float64Arrayの種別、length、offset/explicitMaxの整合だけをO(1)で検証する。返却rootは`version`、`kind`、`status`、`accepted`、`decision`、`reason`、`displayWindow`、`coverage`、`estimates`、`warnings`、`rejectionReasons`だけを持ち、同じ意味のtop-level/resource入れ子aliasは作らない。`pointCount`は配列長、`chartPoints`は描画負荷という別budgetであり、現在は1座標1描画点の保守的見積りのため数値が同じでもpolicy warningは独立に判定する。既定のwarning/hard thresholdは999/1000のlegacy表示上限ではなく、差し替え可能な資源policyであり、hard超過は`resource-rejected`として返す。ResourceGuardとの接続、計算RangePlannerへの拡張要求、実際の配列・Chart.jsデータ生成はまだ行わない。
 
-`DistributionResult`は`explicit.offset`未満を暗黙に0と保証していないため、低側windowの不足は再計算扱いにする。この判断をテストで固定し、低側を根拠なく既知0へ補完しない。既存1024 coverageでは`0..999`と`0..1023`の再利用をfixtureで固定した。productionの`Check/ChartSetter.js`、`Attack/ChartSetter.js`、既定UI、canonical producer、legacy fallbackは変更していない。
+`DistributionResult`は`explicit.offset`未満を暗黙に0と保証していないため、低側windowの不足は再計算扱いにする。この判断をテストで固定し、低側を根拠なく既知0へ補完しない。既存1024 coverageでは`0..999`と`0..1023`の再利用をfixtureで固定した。Phase 3単位ではproductionのCheck接続を変更していないが、通常Checkのcanonical producer、既定UI、Chart/Summary接続はPhase 4で実装した。
 
 #### Phase 3第2単位: canonical chart series adapter（実装済み）
 
@@ -111,19 +111,20 @@ windowの`max - min + 1`、explicit coverageの終端、Float64Array相当の最
 
 `mode: 'pmf'`は各座標の`P(X = x)`、`mode: 'upper-tail'`は既存`getUpperTailProbability`と同じ`P(X >= x)`である。offsetが0のupper-tailは既存の「1から下側PMFを順に減算する」計算順を保ち、offset付きwindowでは明示suffixから計算を開始する。activeなexact overflowがwindowの`max`以下にある場合、lowerBoundは分布一点を意味しないため`not-projectable`とする。lowerBoundが全thresholdより上のexact overflowだけはsuffixへmassを含められる。activeなupper-bound overflowはupper-tailへ変換せず、PMFでもwindowに重なる場合は拒否する。finite support外の既知0だけはoverflowの種類に関係なく0として投影できる。
 
-Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する一方、`parsing: false`のline dataには内部形式の座標が必要であるため、canonical seriesと最終materializerを分離した。`materializeCanonicalChartJsData`はCategoryScaleへ接続する最後の境界でのみ数値labelsを生成し、datasetにはseriesが所有する同じ`Float64Array`を`data`としてread-only参照し、`parsing: true`を渡す。これはdisplay入力とのaliasではなく、Chart.js用の二重コピーを避ける意図的なseries-to-Chart.js viewである。ローカル実装は数値要素を変更せず配列監視用のmetadataだけを扱うため、materialize後もcallerは`series.values`を変更しない。productionの`Check/ChartSetter.js`、`Attack/ChartSetter.js`、既定UI、producer接続、legacy fallbackは変更していない。
+Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する一方、`parsing: false`のline dataには内部形式の座標が必要であるため、canonical seriesと最終materializerを分離した。`materializeCanonicalChartJsData`はCategoryScaleへ接続する最後の境界でのみ数値labelsを生成し、datasetにはseriesが所有する同じ`Float64Array`を`data`としてread-only参照し、`parsing: true`を渡す。これはdisplay入力とのaliasではなく、Chart.js用の二重コピーを避ける意図的なseries-to-Chart.js viewである。ローカル実装は数値要素を変更せず配列監視用のmetadataだけを扱うため、materialize後もcallerは`series.values`を変更しない。Phase 3単位ではproduction接続を変更していないが、通常Checkのproducer接続、既定UI、Chart/Summary供給はPhase 4で実装した。Attack/バックトラックのproducer接続とlegacy fallbackの最終削除は未完了である。
 
-この単位でPhase 3全体が完了したわけではない。残る作業は各経路のproducer接続、Chart/Summaryへの供給、ブラウザでの描画点数・丸め・メモリ実測、および接続時のerror/re-input表示である。
+この単位でPhase 3全体が完了したわけではない。通常Checkのproducer接続、Chart/Summaryへの供給、ブラウザ確認はPhase 4で完了した。残る作業はAttack/バックトラックのproducer接続、各経路の表示供給、三経路全体の既定化、およびlegacy fallback削除である。
 
-### Phase 4: 通常のCheckをcanonical化する
+### Phase 4: 通常のCheckをcanonical化（完了）
 
-- 成果物: Checkのcanonical result producer、Phase 3 adapterとの接続、既存Checkチャート・サマリーへの表示供給、legacyとの同一入力・同一条件の比較テスト。
-- 完了条件: exact finiteとsupport/明示coverage/overflow付き結果がdisplay contractどおりに扱われ、upper-boundを一点値化せず、display window変更の再計算/再利用、資源拒否、cancel/stale、error/re-input案内が確認できる。既存UIの見た目と丸めは変えない。
-- 対象外: Check専用debug panelをproductionへ残すこと、Attack/バックトラックの本接続、既定canonical化、JSON削除、Cloudflare Workers/API/MCP。
+- 成果物（完了）: Checkのcanonical result producer、Phase 3 adapterとの接続、既存Checkチャート・サマリーへの表示供給、legacyとの同一入力・同一条件の比較テスト。
+- 完了: `ef14744`、`dfe25fe`、`cdef582`、`b0bede7`、`fac55bb`で、通常Checkのcanonical producer、presentation/chart/summary接続、既定Check接続、dynamic display window、controlled SettingForm、999上限撤廃、coverage再利用・不足時latest-wins再計算、resource拒否時のclient未呼出、upper-bound terminal、legacy fallbackなしを実装した。
+- 検証: 全715テスト、lint、Markdown、buildが成功した。2026-08-20のin-app browserで`/check`を確認し、初期`0..30`、`0..1200`への拡張、`0..20000`のdisplay resource rejection（警告表示）、`30`への復旧、canvas 1、console warn/error 0を確認した。
+- 対象外: Check専用debug panelをproductionへ残すこと、Attack/バックトラックの本接続、三経路全体の既定canonical化、JSON削除、Cloudflare Workers/API/MCP。
 
-CheckはAttack固有のcomboやdamage totalに依存しないため、共通display range plannerとChart adapterを実データで検証する先になる。ここでresource拒否と再入力案内を確認してからAttackへ進む。
+通常CheckはAttack固有のcomboやdamage totalに依存しないため、共通display range plannerとChart adapterを実データで検証する先になり、resource拒否と再入力案内まで確認してPhase 4を完了した。次段階はPhase 5であり、AttackのScore/Damageをdynamic displayへ接続する。バックトラックのcanonical化と三経路全体の既定化はさらに後続である。
 
-### Phase 5: AttackのScore/Damageをdynamic displayへ接続する
+### Phase 5: AttackのScore/Damageをdynamic displayへ接続する（次段階）
 
 - 成果物: Attack Score/Damageのcanonical producerとPhase 3 adapterの接続、既存ScoreChart/DamageChart/SummaryTableへの表示供給、canonical total、任意display window、legacy比較fixtureとブラウザ実測。
 - 完了条件: 1024を超えるsupportを固定配列へ黙って切り詰めず、exact overflowだけが定義済み条件で内部集約され、upper-bound overflowの`lowerBound`やbounded/lower-bound expected valueを一点表示しない。既存チャート・サマリーの見た目、丸め、コンポーネントを維持する。
