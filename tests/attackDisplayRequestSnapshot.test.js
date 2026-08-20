@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
   ATTACK_DISPLAY_MODES,
   ATTACK_DISPLAY_REQUEST_ERROR_CODES,
+  createAttackRangePolicy,
   createAttackDisplayRequestSnapshot,
 } from '../src/application/AttackDisplayRequestSnapshot'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 describe('Attack display request snapshot', () => {
   it('creates an alias-free frozen snapshot beyond the legacy 999 boundary', () => {
@@ -128,5 +130,67 @@ describe('Attack display request snapshot', () => {
         code: ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
       })
     )
+  })
+
+  it('creates a frozen calculation policy that expands with the display window', () => {
+    const suppliedPolicy = {
+      calculationMax: 100,
+      display: { maxPoints: 2 },
+      limits: { hard: { workingLength: 20 } },
+    }
+    const policy = createAttackRangePolicy({
+      min: 10,
+      max: 1200,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }, suppliedPolicy)
+
+    expect(policy.calculationMax).toBe(1200)
+    expect(policy.display).toMatchObject({
+      defaultMin: 10,
+      defaultMax: 1200,
+      maxPoints: 1191,
+    })
+    expect(policy.limits).toEqual(suppliedPolicy.limits)
+    expect(policy).not.toBe(suppliedPolicy)
+    expect(Object.isFrozen(policy)).toBe(true)
+    expect(Object.isFrozen(policy.display)).toBe(true)
+
+    suppliedPolicy.calculationMax = 9999
+    suppliedPolicy.display.maxPoints = 1
+    expect(policy.calculationMax).toBe(1200)
+    expect(policy.display.maxPoints).toBe(1191)
+  })
+
+  it('passes the expanded display boundary through the existing RangePlanner', () => {
+    const policy = createAttackRangePolicy({
+      min: 0,
+      max: 1200,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    })
+    const plan = planCalculationRanges({
+      operation: 'attack',
+      score: {
+        action: {
+          dice: 1,
+          critical: 10,
+          skill: 0,
+          yousei: 0,
+          shihai: 0,
+        },
+        reaction: {
+          dice: 1,
+          critical: 10,
+          skill: 0,
+          yousei: 0,
+          shihai: 0,
+        },
+      },
+      attack: { dice: 0, value: 1, kazanari: 0 },
+      defence: { dice: 0, value: 0 },
+    }, policy)
+
+    expect(plan.display).toMatchObject({ min: 0, max: 1200, points: 1201 })
+    expect(plan.propagation.calculationMax).toBe(1200)
+    expect(plan.damage.workingMax).toBeGreaterThanOrEqual(1200)
   })
 })

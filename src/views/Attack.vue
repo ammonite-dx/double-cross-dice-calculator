@@ -23,6 +23,7 @@
     } from '@/application/AttackCanonicalState';
     import {
         DEFAULT_ATTACK_DISPLAY_REQUEST,
+        createAttackRangePolicy,
         createAttackDisplayRequestSnapshot,
     } from '@/application/AttackDisplayRequestSnapshot';
     import {
@@ -31,6 +32,7 @@
     } from '@/application/AttackCanonicalPresentation';
     import {
         DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
+        planDisplayWindowResources,
     } from '@/presentation';
     import InputPanel from '@/components/Attack/InputPanel.vue';
     import ScoreChartPanel from '@/components/Attack/ScoreChartPanel.vue';
@@ -117,21 +119,22 @@
     const canonicalCalculationRunner = createAttackCanonicalRunner({
         state: attackData,
         calculationClient: canonicalCalculationClient,
-        createPresentation: (batchResult, rangePlans) =>
+        createPresentation: (batchResult, rangePlans, request) =>
             createAttackCanonicalDisplayPresentation(batchResult, {
-                displayRequest,
+                displayRequest: request ?? createAttackDisplayRequestSnapshot(displayRequest),
                 rangePlans,
                 policy: displayRangePolicy,
             }),
-        createDisplayPresentation: ({ state }) =>
+        createDisplayPresentation: ({ state, displayRequest: request }) =>
             createAttackCanonicalDisplayPresentationFromCanonical(
                 createCanonicalDisplaySource(state),
                 {
-                    displayRequest,
+                    displayRequest: request ?? createAttackDisplayRequestSnapshot(displayRequest),
                     policy: displayRangePolicy,
                 }
             ),
         onPresentation: publishCanonicalDisplayFeedback,
+        onDisplayRejected: publishCanonicalDisplayFeedback,
         onError: (error) => {
             attackData.canonicalDisplayPresentation = null;
             attackData.canonicalDisplayFeedback.status = 'error';
@@ -140,6 +143,52 @@
             console.error('Failed to update canonical attack', error);
         },
     });
+
+    function publishCanonicalDisplayResourceRejection(plan) {
+        attackData.canonicalDisplayPresentation = null;
+        attackData.canonicalDisplayFeedback.status = 'rejected';
+        attackData.canonicalDisplayFeedback.plan = plan;
+        attackData.canonicalDisplayFeedback.error = null;
+    }
+
+    function publishCanonicalDisplayError(error) {
+        attackData.canonicalDisplayPresentation = null;
+        attackData.canonicalDisplayFeedback.status = 'error';
+        attackData.canonicalDisplayFeedback.plan = null;
+        attackData.canonicalDisplayFeedback.error = error;
+    }
+
+    function preflightCanonicalDisplay(request) {
+        try {
+            const plan = planDisplayWindowResources(
+                { min: request.min, max: request.max },
+                displayRangePolicy
+            );
+            if (!plan.accepted) {
+                canonicalCalculationRunner.invalidate();
+                clearCanonicalAttackState(attackData);
+                publishCanonicalDisplayResourceRejection(plan);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            canonicalCalculationRunner.invalidate();
+            clearCanonicalAttackState(attackData);
+            publishCanonicalDisplayError(error);
+            return false;
+        }
+    }
+
+    function runCanonicalCalculation(request = displayRequest) {
+        const snapshot = createAttackDisplayRequestSnapshot(request);
+        if (!preflightCanonicalDisplay(snapshot)) {
+            return Promise.resolve(false);
+        }
+        return canonicalCalculationRunner.run({
+            displayRequest: snapshot,
+            rangePolicy: createAttackRangePolicy(snapshot),
+        });
+    }
 
     watch(
         () => ({
@@ -169,7 +218,7 @@
                 return;
             }
 
-            void canonicalCalculationRunner.run();
+            void runCanonicalCalculation();
         },
         { deep: true, immediate: true }
     );
@@ -201,23 +250,31 @@
         displayRequest.max = snapshot.max;
         displayRequest.mode = snapshot.mode;
 
-        if (
-            attackData.canonicalOptIn !== true
-            || attackData.canonicalTotalDamageReady !== true
-        ) {
+        if (attackData.canonicalOptIn !== true) {
+            return;
+        }
+
+        if (!preflightCanonicalDisplay(snapshot)) {
+            return;
+        }
+
+        if (attackData.canonicalTotalDamageReady !== true) {
+            void runCanonicalCalculation(snapshot);
             return;
         }
 
         try {
-            const refreshed = canonicalCalculationRunner.refreshPresentation();
+            const refreshed = canonicalCalculationRunner.refreshPresentation({
+                displayRequest: snapshot,
+                calculationOptions: {
+                    rangePolicy: createAttackRangePolicy(snapshot),
+                },
+            });
             if (!refreshed) {
                 attackData.canonicalDisplayPresentation = null;
             }
         } catch (error) {
-            attackData.canonicalDisplayPresentation = null;
-            attackData.canonicalDisplayFeedback.status = 'error';
-            attackData.canonicalDisplayFeedback.plan = null;
-            attackData.canonicalDisplayFeedback.error = error;
+            publishCanonicalDisplayError(error);
         }
     }
 

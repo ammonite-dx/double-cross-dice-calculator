@@ -42,7 +42,7 @@ describe('Attack canonical integration contract', () => {
       'createAttackCanonicalDisplayPresentation(batchResult'
     )
     expect(attackSource).toContain(
-      'canonicalCalculationRunner.refreshPresentation()'
+      'canonicalCalculationRunner.refreshPresentation({'
     )
     expect(attackTemplate).toContain(
       '<ScoreChartPanel :attackData="attackData"/>'

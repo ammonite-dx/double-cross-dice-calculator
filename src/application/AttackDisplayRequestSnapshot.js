@@ -1,3 +1,7 @@
+import {
+  LEGACY_PUBLISHED_OVERFLOW_INDEX,
+} from '../calculation/DistributionResult'
+
 export const ATTACK_DISPLAY_REQUEST_VERSION = 1
 
 export const ATTACK_DISPLAY_MODES = Object.freeze({
@@ -11,6 +15,7 @@ export const ATTACK_DISPLAY_REQUEST_ERROR_CODES = Object.freeze({
   INVALID_MAX: 'invalid-attack-display-max',
   INVALID_MODE: 'invalid-attack-display-mode',
   INVALID_POINT_COUNT: 'invalid-attack-display-point-count',
+  INVALID_POLICY: 'invalid-attack-range-policy',
 })
 
 export const DEFAULT_ATTACK_DISPLAY_REQUEST = Object.freeze({
@@ -18,6 +23,8 @@ export const DEFAULT_ATTACK_DISPLAY_REQUEST = Object.freeze({
   max: 100,
   mode: ATTACK_DISPLAY_MODES.PMF,
 })
+
+const LEGACY_SAFE_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
 
 function isPlainRecord(value) {
   if (value === null || typeof value !== 'object') {
@@ -31,6 +38,60 @@ function isPlainRecord(value) {
     return prototype === Object.prototype || prototype === null
   } catch {
     return false
+  }
+}
+
+function clonePolicyValue(value, seen = new WeakMap()) {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+  if (seen.has(value)) {
+    return seen.get(value)
+  }
+  if (Array.isArray(value)) {
+    const copy = []
+    seen.set(value, copy)
+    for (const entry of value) {
+      copy.push(clonePolicyValue(entry, seen))
+    }
+    return copy
+  }
+  if (!isPlainRecord(value)) {
+    fail(
+      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
+      'rangePolicy must contain only plain records and arrays',
+      { path: 'rangePolicy' }
+    )
+  }
+  const copy = {}
+  seen.set(value, copy)
+  for (const [key, entry] of Object.entries(value)) {
+    copy[key] = clonePolicyValue(entry, seen)
+  }
+  return copy
+}
+
+function deepFreeze(value, seen = new WeakSet()) {
+  if (value === null || typeof value !== 'object' || seen.has(value)) {
+    return value
+  }
+  seen.add(value)
+  for (const child of Object.values(value)) {
+    deepFreeze(child, seen)
+  }
+  return Object.freeze(value)
+}
+
+function validateOptionalPolicyInteger(value, path) {
+  if (value === undefined) {
+    return
+  }
+  if (!Number.isSafeInteger(value) || value < 0) {
+    fail(
+      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
+      `${path} must be a non-negative safe integer`,
+      { path, value }
+    )
   }
 }
 
@@ -161,4 +222,59 @@ export function createAttackDisplayRequestSnapshot(
     max: normalized.max,
     mode: normalized.mode,
   })
+}
+
+/**
+ * Expand the calculation range policy only when an Attack display request
+ * needs coverage beyond the published calculation boundary. The independent
+ * DisplayRangePlanner remains responsible for display resource rejection;
+ * this policy only carries the accepted request into RangePlanner.
+ */
+export function createAttackRangePolicy(
+  displayRequest,
+  suppliedPolicy = {}
+) {
+  const display = createAttackDisplayRequestSnapshot(displayRequest)
+  if (!isPlainRecord(suppliedPolicy)) {
+    fail(
+      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
+      'rangePolicy must be a plain record',
+      { path: 'rangePolicy' }
+    )
+  }
+
+  const policy = clonePolicyValue(suppliedPolicy)
+  const suppliedCalculationMax = policy.calculationMax
+  validateOptionalPolicyInteger(
+    suppliedCalculationMax,
+    'rangePolicy.calculationMax'
+  )
+  const suppliedDisplay = policy.display ?? {}
+  if (!isPlainRecord(suppliedDisplay)) {
+    fail(
+      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
+      'rangePolicy.display must be a plain record',
+      { path: 'rangePolicy.display' }
+    )
+  }
+  validateOptionalPolicyInteger(
+    suppliedDisplay.maxPoints,
+    'rangePolicy.display.maxPoints'
+  )
+
+  const pointCount = display.max - display.min + 1
+  policy.calculationMax = Math.max(
+    suppliedCalculationMax ?? LEGACY_SAFE_CALCULATION_MAX,
+    display.max,
+    LEGACY_SAFE_CALCULATION_MAX
+  )
+  policy.display = {
+    ...suppliedDisplay,
+    defaultMin: display.min,
+    defaultMax: display.max,
+    // RangePlanner's display guard is not a second UI input limit. The
+    // independent DisplayRangePlanner has already checked this window.
+    maxPoints: Math.max(suppliedDisplay.maxPoints ?? 0, pointCount),
+  }
+  return deepFreeze(policy)
 }
