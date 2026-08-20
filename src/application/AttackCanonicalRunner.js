@@ -1,6 +1,7 @@
 import { createAttackCanonicalPresentation } from './AttackCanonicalPresentation'
 import {
   commitCanonicalAttackResult,
+  commitCanonicalAttackDisplayPresentation,
   invalidateCanonicalAttackState,
   isCanonicalAttackInputCurrent,
   snapshotCanonicalAttackEntries,
@@ -16,10 +17,15 @@ export function createAttackCanonicalRunner({
   state,
   calculationClient,
   createPresentation = createAttackCanonicalPresentation,
+  createDisplayPresentation,
+  onPresentation,
   onError,
 }) {
   let requestGeneration = null
   let activeRequest = null
+  let lastBatchResult = null
+  let lastRangePlans = []
+  let lastCanonicalEntries = null
 
   const latestRunner = createLatestCalculationRunner({
     feedback: state.canonicalFeedback,
@@ -44,6 +50,9 @@ export function createAttackCanonicalRunner({
     clearResult: () => {
       requestGeneration = invalidateCanonicalAttackState(state)
       activeRequest = null
+      lastBatchResult = null
+      lastRangePlans = []
+      lastCanonicalEntries = null
     },
     commitResult: (batchResult) => {
       if (
@@ -68,9 +77,25 @@ export function createAttackCanonicalRunner({
       if (!committed && requestGeneration === state.canonicalGeneration) {
         throw new Error('Canonical attack result was incomplete')
       }
+      if (committed) {
+        lastBatchResult = batchResult
+        lastRangePlans = activeRequest.rangePlans.slice()
+        lastCanonicalEntries = activeRequest.entries
+        onPresentation?.(presentation)
+      }
       return committed
     },
-    onError,
+    onError: (error) => {
+      // Generic/resource errors do not pass through the coordinator's
+      // range-rejection clearResult hook. Drop the canonical result here so
+      // an old canonical panel cannot survive an error as a stale display.
+      requestGeneration = invalidateCanonicalAttackState(state)
+      activeRequest = null
+      lastBatchResult = null
+      lastRangePlans = []
+      lastCanonicalEntries = null
+      onError?.(error)
+    },
   })
 
   return {
@@ -90,8 +115,55 @@ export function createAttackCanonicalRunner({
         onRangePlan,
       })
     },
-    invalidate: latestRunner.invalidate,
-    dispose: latestRunner.dispose,
+    invalidate() {
+      latestRunner.invalidate()
+      requestGeneration = null
+      activeRequest = null
+      lastBatchResult = null
+      lastRangePlans = []
+      lastCanonicalEntries = null
+    },
+    refreshPresentation(options = {}) {
+      if (
+        state.canonicalOptIn !== true
+        || requestGeneration === null
+        || lastBatchResult === null
+        || lastCanonicalEntries === null
+        || !isCanonicalAttackInputCurrent(
+          state.combos,
+          lastCanonicalEntries
+        )
+      ) {
+        return false
+      }
+
+      const presentation = createDisplayPresentation
+        ? createDisplayPresentation({
+            state,
+            generation: requestGeneration,
+            batchResult: lastBatchResult,
+            rangePlans: lastRangePlans,
+            ...options,
+          })
+        : createPresentation(lastBatchResult, lastRangePlans)
+      const committed = commitCanonicalAttackDisplayPresentation(
+        state,
+        requestGeneration,
+        presentation
+      )
+      if (committed) {
+        onPresentation?.(presentation)
+      }
+      return committed
+    },
+    dispose() {
+      latestRunner.dispose()
+      requestGeneration = null
+      activeRequest = null
+      lastBatchResult = null
+      lastRangePlans = []
+      lastCanonicalEntries = null
+    },
   }
 }
 

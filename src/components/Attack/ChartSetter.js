@@ -1,5 +1,6 @@
 import { range } from '@/data/Distribution'
 import { getChartColor } from '@/data/ColorSetter';
+import { ATTACK_DISPLAY_MODES } from '@/application/AttackDisplayRequestSnapshot';
 
 function clipData (data, min, max) {
 
@@ -286,7 +287,9 @@ export function getAttackDamageChartData (attackData, setting) {
 
     const labels = range(setting.min,setting.max);
     var datasets;
-    if (setting.mode=='ダメージがXとなる確率を表示') {
+    const isPmfMode = setting.mode===ATTACK_DISPLAY_MODES.PMF
+        || setting.mode==='ダメージがXとなる確率を表示';
+    if (isPmfMode) {
         datasets = attackData.combos.map((combo) => ({label:combo.name, data:clipData(combo.data.damage.distribution,setting.min,setting.max), backgroundColor:getChartColor(combo.id) ,borderColor:getChartColor(combo.id)}));
         if (attackData.combos.length>1 && attackData.totalDamageReady) {
             datasets.push({label:'合計', data:clipData(attackData.totalDamage.distribution,setting.min,setting.max), backgroundColor:"secondary" ,borderColor:"secondary"});
@@ -299,6 +302,74 @@ export function getAttackDamageChartData (attackData, setting) {
     }
     return {labels:labels, datasets:datasets};
 
+}
+
+function getCanonicalChartColor(id, index) {
+    return Number.isFinite(id) ? getChartColor(id) : getChartColor(index);
+}
+
+function toCanonicalAttackDamagePercentages(data) {
+    if (!data) {
+        return data;
+    }
+    return Array.from(data, (element) => Math.round(element * 1000) / 10);
+}
+
+/**
+ * Combine the independently planned canonical combo/total chart views into
+ * the dataset shape consumed by the existing DamageChart component. This
+ * boundary converts canonical probability data into the percentage array
+ * expected by the existing damage chart without mutating the canonical data.
+ */
+export function getCanonicalAttackDamageChartData(presentation, attackData) {
+    if (
+        presentation?.status !== 'ready'
+        || !Array.isArray(presentation.combos)
+        || !presentation.total?.chart
+    ) {
+        return null;
+    }
+
+    const comboCount = Array.isArray(attackData?.combos)
+        ? attackData.combos.length
+        : presentation.combos.length;
+    const datasets = presentation.combos.map((side, index) => {
+        const dataset = side?.chart?.datasets?.[0];
+        if (!dataset) {
+            return null;
+        }
+        const combo = attackData?.combos?.[index];
+        const id = combo?.id ?? side.id;
+        return {
+            ...dataset,
+            data: toCanonicalAttackDamagePercentages(dataset.data),
+            label: combo?.name ?? `コンボ${index + 1}`,
+            backgroundColor: getCanonicalChartColor(id, index),
+            borderColor: getCanonicalChartColor(id, index),
+        };
+    });
+    if (datasets.some((dataset) => dataset === null)) {
+        return null;
+    }
+
+    if (comboCount > 1) {
+        const totalDataset = presentation.total.chart.datasets?.[0];
+        if (!totalDataset) {
+            return null;
+        }
+        datasets.push({
+            ...totalDataset,
+            data: toCanonicalAttackDamagePercentages(totalDataset.data),
+            label: '合計',
+            backgroundColor: 'secondary',
+            borderColor: 'secondary',
+        });
+    }
+
+    return {
+        labels: presentation.total.chart.labels,
+        datasets,
+    };
 }
 
 export function getAttackDamageChartOptions () {

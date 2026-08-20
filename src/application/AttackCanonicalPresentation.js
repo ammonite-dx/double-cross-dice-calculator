@@ -1088,23 +1088,24 @@ export function createAttackCanonicalPresentation(
  * used by the existing presenter to retain calculation warnings. `policy` is
  * the independent DisplayRangePlanner resource policy.
  */
-export function createAttackCanonicalDisplayPresentation(
-  batchResult,
-  options = {}
+function buildAttackCanonicalDisplayPresentationFromCanonical(
+  canonical,
+  normalized
 ) {
-  const normalized = normalizeAttackCanonicalDisplayOptions(options)
-  const canonical = createAttackCanonicalPresentation(
-    batchResult,
-    normalized.rangePlans
-  )
-  const combos = canonical.combos.map((combo) => (
-    createAttackCanonicalDisplaySide(
+  const combos = canonical.combos.map((combo) => {
+    const side = createAttackCanonicalDisplaySide(
       combo.canonicalDamagePresentation,
       normalized.displayRequest,
       normalized.policy,
       combo.id
     )
-  ))
+    return Object.freeze({
+      ...side,
+      // Keep the calculation plan available to the application feedback
+      // lane while `plan` remains the display-window plan.
+      canonicalRangePlan: combo.canonicalRangePlan,
+    })
+  })
   const total = createAttackCanonicalDisplaySide(
     canonical.canonicalTotalDamagePresentation,
     normalized.displayRequest,
@@ -1122,4 +1123,58 @@ export function createAttackCanonicalDisplayPresentation(
     combos: Object.freeze(combos),
     total,
   })
+}
+
+/**
+ * Re-plan an already presented canonical Attack result for a new display
+ * window or mode. The canonical distribution presenter has already made the
+ * defensive copy at the calculation-result boundary, so changing the window
+ * only creates the window-sized chart series.
+ */
+export function createAttackCanonicalDisplayPresentationFromCanonical(
+  canonical,
+  options = {}
+) {
+  const normalized = normalizeAttackCanonicalDisplayOptions(options)
+  if (
+    canonical === null
+    || typeof canonical !== 'object'
+    || Array.isArray(canonical)
+    || !Array.isArray(canonical.combos)
+  ) {
+    fail(
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
+      'canonical presentation must contain a combos array',
+      { path: 'canonical.combos' }
+    )
+  }
+  if (!Object.prototype.hasOwnProperty.call(
+    canonical,
+    'canonicalTotalDamagePresentation'
+  )) {
+    fail(
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY,
+      'canonical presentation must contain a total damage presentation',
+      { path: 'canonical.canonicalTotalDamagePresentation' }
+    )
+  }
+  return buildAttackCanonicalDisplayPresentationFromCanonical(
+    canonical,
+    normalized
+  )
+}
+
+export function createAttackCanonicalDisplayPresentation(
+  batchResult,
+  options = {}
+) {
+  const normalized = normalizeAttackCanonicalDisplayOptions(options)
+  const canonical = createAttackCanonicalPresentation(
+    batchResult,
+    normalized.rangePlans
+  )
+  return buildAttackCanonicalDisplayPresentationFromCanonical(
+    canonical,
+    normalized
+  )
 }

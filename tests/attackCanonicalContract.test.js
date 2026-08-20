@@ -10,6 +10,10 @@ const canonicalPanelSource = readFileSync(
   new URL('../src/components/Attack/CanonicalAttackPanel.vue', import.meta.url),
   'utf8'
 )
+const damageFormSource = readFileSync(
+  new URL('../src/components/Attack/DamageSettingForm.vue', import.meta.url),
+  'utf8'
+)
 
 describe('Attack canonical integration contract', () => {
   it('connects the independent canonical panel without replacing legacy output', () => {
@@ -33,26 +37,24 @@ describe('Attack canonical integration contract', () => {
     expect(attackSource).toContain('canonicalCalculationRunner.dispose()')
   })
 
-  it('keeps score on legacy data and gates damage/summary through the display adapter', () => {
+  it('keeps score on legacy data and supplies canonical damage presentation directly', () => {
     expect(attackSource).toContain(
-      "import {\n        createCanonicalLegacyAttackDisplay,\n    } from '@/application/CanonicalLegacyAttackDisplay'"
+      'createAttackCanonicalDisplayPresentation(batchResult'
     )
     expect(attackSource).toContain(
-      'createCanonicalLegacyAttackDisplay(attackData)'
+      'canonicalCalculationRunner.refreshPresentation()'
     )
     expect(attackTemplate).toContain(
       '<ScoreChartPanel :attackData="attackData"/>'
     )
     expect(attackTemplate).toContain(
-      '<DamageChartPanel :attackData="displayAttackData"/>'
+      ':displayRequest="displayRequest"'
     )
     expect(attackTemplate).toContain(
-      '<SummaryPanel :attackData="displayAttackData"/>'
+      ':presentation="canonicalDisplayPresentation"'
     )
-    expect(attackSource).toContain(
-      'canonicalLegacyDisplay.value.kind === \'projected\''
-    )
-    expect(attackSource).toContain(': attackData')
+    expect(attackSource).not.toContain('displayAttackData')
+    expect(attackSource).not.toContain('createCanonicalLegacyAttackDisplay')
   })
 
   it('keeps the canonical panel isolated from legacy result fields', () => {
@@ -62,5 +64,13 @@ describe('Attack canonical integration contract', () => {
     for (const legacyField of ['score', 'damage', 'resultReady']) {
       expect(canonicalPanelSource).not.toMatch(new RegExp(`\\b${legacyField}\\b`))
     }
+  })
+
+  it('keeps the damage display form controlled and canonical at its boundary', () => {
+    expect(damageFormSource).toContain("defineEmits(['validated'])")
+    expect(damageFormSource).toContain('createAttackDisplayRequestSnapshot')
+    expect(damageFormSource).toContain('ATTACK_DISPLAY_MODES.PMF')
+    expect(damageFormSource).toContain('ATTACK_DISPLAY_MODES.UPPER_TAIL')
+    expect(damageFormSource).not.toMatch(/props\.displayRequest\.[\w]+\s*=/)
   })
 })

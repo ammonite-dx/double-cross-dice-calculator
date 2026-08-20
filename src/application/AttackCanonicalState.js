@@ -193,9 +193,11 @@ export function createCanonicalAttackState() {
     canonicalTotalDamage: null,
     canonicalTotalDamageSummary: null,
     canonicalTotalDamagePresentation: null,
+    canonicalDisplayPresentation: null,
     canonicalTotalDamageReady: false,
     canonicalGeneration: 0,
     canonicalFeedback: createCalculationFeedbackState(),
+    canonicalDisplayFeedback: createCalculationFeedbackState(),
   }
 }
 
@@ -203,7 +205,12 @@ function clearCanonicalResults(state) {
   state.canonicalTotalDamage = null
   state.canonicalTotalDamageSummary = null
   state.canonicalTotalDamagePresentation = null
+  state.canonicalDisplayPresentation = null
   state.canonicalTotalDamageReady = false
+
+  if (state.canonicalDisplayFeedback) {
+    markCalculationAborted(state.canonicalDisplayFeedback)
+  }
 
   if (!Array.isArray(state.combos)) {
     return
@@ -313,6 +320,42 @@ function hasBatchResultShape(batchResult, presentation, combos) {
   ) {
     return false
   }
+  const isDisplayPresentation = hasOwn(presentation, 'total')
+    && hasOwn(presentation, 'displayRequest')
+
+  if (isDisplayPresentation) {
+    if (
+      !hasOwn(batchResult, 'canonicalTotalDamage')
+      || !hasOwn(batchResult, 'canonicalTotalDamageSummary')
+      || !isRecord(presentation.total)
+    ) {
+      return false
+    }
+    for (let index = 0; index < combos.length; index += 1) {
+      const stateCombo = combos[index]
+      const batchCombo = batchResult.combos[index]
+      const presentedCombo = presentation.combos[index]
+      if (
+        !isRecord(stateCombo)
+        || !isRecord(stateCombo.data)
+        || !isRecord(batchCombo)
+        || !isRecord(presentedCombo)
+        || !hasOwn(batchCombo, 'id')
+        || !hasOwn(batchCombo, 'canonicalDamage')
+        || !hasOwn(batchCombo, 'canonicalDamageSummary')
+        || !hasOwn(presentedCombo, 'id')
+        || !hasOwn(presentedCombo, 'display')
+        || !hasOwn(presentedCombo, 'plan')
+        || !sameId(batchCombo.id, stateCombo.id)
+        || !sameId(presentedCombo.id, stateCombo.id)
+      ) {
+        return false
+      }
+    }
+    return hasOwn(presentation.total, 'display')
+      && hasOwn(presentation.total, 'plan')
+  }
+
   if (
     !hasOwn(batchResult, 'canonicalTotalDamage')
     || !hasOwn(batchResult, 'canonicalTotalDamageSummary')
@@ -371,6 +414,9 @@ export function commitCanonicalAttackResult(
     return false
   }
 
+  const isDisplayPresentation = hasOwn(presentation, 'total')
+    && hasOwn(presentation, 'displayRequest')
+
   const comboValues = state.combos.map((combo, index) => {
     const data = requireRecord(combo.data, `combos[${index}].data`)
     const batchCombo = batchResult.combos[index]
@@ -379,8 +425,12 @@ export function commitCanonicalAttackResult(
       data,
       canonicalDamage: batchCombo.canonicalDamage,
       canonicalDamageSummary: batchCombo.canonicalDamageSummary,
-      canonicalDamagePresentation: presentedCombo.canonicalDamagePresentation,
-      canonicalRangePlan: presentedCombo.canonicalRangePlan,
+      canonicalDamagePresentation: isDisplayPresentation
+        ? presentedCombo.display
+        : presentedCombo.canonicalDamagePresentation,
+      canonicalRangePlan: isDisplayPresentation
+        ? presentedCombo.canonicalRangePlan ?? presentedCombo.plan
+        : presentedCombo.canonicalRangePlan,
     }
   })
 
@@ -401,9 +451,60 @@ export function commitCanonicalAttackResult(
 
   state.canonicalTotalDamage = batchResult.canonicalTotalDamage
   state.canonicalTotalDamageSummary = batchResult.canonicalTotalDamageSummary
-  state.canonicalTotalDamagePresentation =
-    presentation.canonicalTotalDamagePresentation
+  state.canonicalTotalDamagePresentation = isDisplayPresentation
+    ? presentation.total.display
+    : presentation.canonicalTotalDamagePresentation
+  state.canonicalDisplayPresentation = isDisplayPresentation
+    ? presentation
+    : null
   state.canonicalTotalDamageReady = true
+  return true
+}
+
+function hasCanonicalDisplayPresentationShape(presentation, combos) {
+  if (
+    !isRecord(presentation)
+    || !hasOwn(presentation, 'total')
+    || !hasOwn(presentation, 'displayRequest')
+    || !Array.isArray(presentation.combos)
+    || presentation.combos.length !== combos.length
+    || !isRecord(presentation.total)
+    || !hasOwn(presentation.total, 'display')
+    || !hasOwn(presentation.total, 'plan')
+  ) {
+    return false
+  }
+
+  return combos.every((combo, index) => {
+    const presentedCombo = presentation.combos[index]
+    return isRecord(combo)
+      && isRecord(presentedCombo)
+      && hasOwn(presentedCombo, 'id')
+      && hasOwn(presentedCombo, 'display')
+      && hasOwn(presentedCombo, 'plan')
+      && sameId(presentedCombo.id, combo.id)
+  })
+}
+
+/**
+ * Publish a new chart/summary presentation for an already committed
+ * canonical result. No canonical result fields are copied or recalculated.
+ */
+export function commitCanonicalAttackDisplayPresentation(
+  state,
+  generation,
+  presentation
+) {
+  if (
+    generation !== state.canonicalGeneration
+    || state.canonicalOptIn !== true
+    || state.canonicalTotalDamageReady !== true
+    || !Array.isArray(state.combos)
+    || !hasCanonicalDisplayPresentationShape(presentation, state.combos)
+  ) {
+    return false
+  }
+  state.canonicalDisplayPresentation = presentation
   return true
 }
 

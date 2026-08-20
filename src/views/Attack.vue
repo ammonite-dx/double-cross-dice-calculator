@@ -13,14 +13,25 @@
     } from '@/application/CalculationFeedback';
     import { createAttackCanonicalRunner } from '@/application/AttackCanonicalRunner';
     import {
+        createAttackCanonicalDisplayFeedback,
+    } from '@/application/AttackCanonicalDisplayFeedback';
+    import {
         clearCanonicalAttackState,
         createCanonicalAttackState,
         createCanonicalComboDataState,
         ensureCanonicalComboData,
     } from '@/application/AttackCanonicalState';
     import {
-        createCanonicalLegacyAttackDisplay,
-    } from '@/application/CanonicalLegacyAttackDisplay';
+        DEFAULT_ATTACK_DISPLAY_REQUEST,
+        createAttackDisplayRequestSnapshot,
+    } from '@/application/AttackDisplayRequestSnapshot';
+    import {
+        createAttackCanonicalDisplayPresentation,
+        createAttackCanonicalDisplayPresentationFromCanonical,
+    } from '@/application/AttackCanonicalPresentation';
+    import {
+        DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
+    } from '@/presentation';
     import InputPanel from '@/components/Attack/InputPanel.vue';
     import ScoreChartPanel from '@/components/Attack/ScoreChartPanel.vue';
     import DamageChartPanel from '@/components/Attack/DamageChartPanel.vue';
@@ -42,6 +53,10 @@
         CALCULATION_CLIENT_KEY,
         calculationClient
     );
+    const displayRangePolicy = DEFAULT_DISPLAY_RANGE_PLANNER_POLICY;
+    const displayRequest = reactive({
+        ...createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST),
+    });
     const rangeFeedback = createCalculationFeedbackState();
     const initialCalculation = await runInitialCalculation({
         feedback: rangeFeedback,
@@ -79,10 +94,49 @@
         canonicalOptIn: false,
     });
 
+    function createCanonicalDisplaySource(state) {
+        return {
+            combos: state.combos.map((combo) => ({
+                id: combo.id,
+                canonicalDamagePresentation:
+                    combo.data.canonicalDamagePresentation,
+                canonicalRangePlan: combo.data.canonicalRangePlan,
+            })),
+            canonicalTotalDamagePresentation:
+                state.canonicalTotalDamagePresentation,
+        };
+    }
+
+    function publishCanonicalDisplayFeedback(presentation) {
+        Object.assign(
+            attackData.canonicalDisplayFeedback,
+            createAttackCanonicalDisplayFeedback(presentation)
+        );
+    }
+
     const canonicalCalculationRunner = createAttackCanonicalRunner({
         state: attackData,
         calculationClient: canonicalCalculationClient,
+        createPresentation: (batchResult, rangePlans) =>
+            createAttackCanonicalDisplayPresentation(batchResult, {
+                displayRequest,
+                rangePlans,
+                policy: displayRangePolicy,
+            }),
+        createDisplayPresentation: ({ state }) =>
+            createAttackCanonicalDisplayPresentationFromCanonical(
+                createCanonicalDisplaySource(state),
+                {
+                    displayRequest,
+                    policy: displayRangePolicy,
+                }
+            ),
+        onPresentation: publishCanonicalDisplayFeedback,
         onError: (error) => {
+            attackData.canonicalDisplayPresentation = null;
+            attackData.canonicalDisplayFeedback.status = 'error';
+            attackData.canonicalDisplayFeedback.plan = null;
+            attackData.canonicalDisplayFeedback.error = error;
             console.error('Failed to update canonical attack', error);
         },
     });
@@ -105,6 +159,13 @@
                     canonicalCalculationRunner.invalidate();
                     clearCanonicalAttackState(attackData);
                 }
+                if (displayRequest.max > 999 || displayRequest.min > 999) {
+                    displayRequest.min = Math.min(displayRequest.min, 999);
+                    displayRequest.max = Math.min(
+                        Math.max(displayRequest.max, displayRequest.min),
+                        999
+                    );
+                }
                 return;
             }
 
@@ -123,15 +184,42 @@
         && attackData.totalDamageReady
     );
 
-    const canonicalLegacyDisplay = computed(() =>
-        createCanonicalLegacyAttackDisplay(attackData)
+    const canonicalDisplayPresentation = computed(() =>
+        attackData.canonicalOptIn === true
+            ? attackData.canonicalDisplayPresentation
+            : null
     );
 
-    const displayAttackData = computed(() =>
-        canonicalLegacyDisplay.value.kind === 'projected'
-            ? canonicalLegacyDisplay.value.displayAttackData
-            : attackData
+    const canonicalSummaryReady = computed(() =>
+        attackData.canonicalOptIn === true
+        && attackData.canonicalDisplayPresentation?.status === 'ready'
     );
+
+    function onDisplayValidated(request) {
+        const snapshot = createAttackDisplayRequestSnapshot(request);
+        displayRequest.min = snapshot.min;
+        displayRequest.max = snapshot.max;
+        displayRequest.mode = snapshot.mode;
+
+        if (
+            attackData.canonicalOptIn !== true
+            || attackData.canonicalTotalDamageReady !== true
+        ) {
+            return;
+        }
+
+        try {
+            const refreshed = canonicalCalculationRunner.refreshPresentation();
+            if (!refreshed) {
+                attackData.canonicalDisplayPresentation = null;
+            }
+        } catch (error) {
+            attackData.canonicalDisplayPresentation = null;
+            attackData.canonicalDisplayFeedback.status = 'error';
+            attackData.canonicalDisplayFeedback.plan = null;
+            attackData.canonicalDisplayFeedback.error = error;
+        }
+    }
 
 </script>
 
@@ -141,8 +229,23 @@
         <v-row><v-col cols="12"><CanonicalAttackPanel :attackData="attackData" /></v-col></v-row>
         <v-row>
             <v-col v-if="resultsReady" md="6" cols="12"><ScoreChartPanel :attackData="attackData"/></v-col>
-            <v-col v-if="resultsReady" md="6" cols="12"><DamageChartPanel :attackData="displayAttackData"/></v-col>
+            <v-col v-if="resultsReady || attackData.canonicalOptIn" md="6" cols="12">
+                <DamageChartPanel
+                    :attackData="attackData"
+                    :displayRequest="displayRequest"
+                    :presentation="canonicalDisplayPresentation"
+                    :canonicalOptIn="attackData.canonicalOptIn"
+                    :displayFeedback="attackData.canonicalDisplayFeedback"
+                    @display-validated="onDisplayValidated"
+                />
+            </v-col>
         </v-row>
-        <v-row v-if="resultsReady"><v-col cols="12"><SummaryPanel :attackData="displayAttackData"/></v-col></v-row>
+        <v-row v-if="attackData.canonicalOptIn ? canonicalSummaryReady : resultsReady"><v-col cols="12">
+            <SummaryPanel
+                :attackData="attackData"
+                :presentation="canonicalDisplayPresentation"
+                :canonicalOptIn="attackData.canonicalOptIn"
+            />
+        </v-col></v-row>
     </v-container>
 </template>
