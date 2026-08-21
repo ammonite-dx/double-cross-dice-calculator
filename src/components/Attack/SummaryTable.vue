@@ -3,6 +3,9 @@
     import {
         findCanonicalComboPresentation,
         formatCanonicalSummaryExpectedValue,
+        formatCanonicalScoreSuccessRate,
+        formatCanonicalScoreSummaryExpectedValue,
+        getCanonicalScoreSummaryForCombo,
     } from './SummaryTable';
 
     const props = defineProps({
@@ -11,6 +14,10 @@
             required: true,
         },
         presentation: {
+            type: Object,
+            default: null,
+        },
+        scorePresentation: {
             type: Object,
             default: null,
         },
@@ -33,6 +40,32 @@
         );
         return formatCanonicalSummaryExpectedValue(
             display?.display?.expectedValue
+        );
+    }
+
+    function getComboScoreExpectedValue(combo) {
+        if (!props.canonicalOptIn) {
+            return combo?.data?.scoreSummary?.action?.expectedValue ?? '—';
+        }
+        const summary = getCanonicalScoreSummaryForCombo(
+            props.scorePresentation,
+            combo?.id
+        );
+        return formatCanonicalScoreSummaryExpectedValue(
+            summary?.action?.expectedValue
+        );
+    }
+
+    function getComboScoreSuccessRate(combo) {
+        if (!props.canonicalOptIn) {
+            return combo?.data?.scoreSummary?.action?.successRate ?? '—';
+        }
+        const summary = getCanonicalScoreSummaryForCombo(
+            props.scorePresentation,
+            combo?.id
+        );
+        return formatCanonicalScoreSuccessRate(
+            summary?.action?.successRate
         );
     }
 
@@ -63,8 +96,8 @@
         <tbody>
             <tr v-for="combo in props.attackData.combos" :key="combo.id">
                 <td class="pa-0" style="font-size:80%">{{ combo.name }}</td>
-                <td class="pa-0 text-right" style="font-size:80%">{{ combo.data.scoreSummary?.action?.expectedValue ?? '—' }}</td>
-                <td class="pa-0 text-right" style="font-size:80%">{{ combo.data.scoreSummary?.action?.successRate ?? '—' }}%</td>
+                <td class="pa-0 text-right" style="font-size:80%">{{ getComboScoreExpectedValue(combo) }}</td>
+                <td class="pa-0 text-right" style="font-size:80%">{{ getComboScoreSuccessRate(combo) }}%</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ getComboDamageExpectedValue(combo) }}</td>
             </tr>
             <tr v-if="props.attackData.combos.length > 1 && (props.canonicalOptIn ? props.presentation?.status === 'ready' : props.attackData.totalDamageReady)">

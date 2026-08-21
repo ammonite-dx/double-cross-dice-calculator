@@ -5,6 +5,28 @@ import {
   createCalculationClient,
 } from '../src/application/CalculationClient'
 import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
+import { createDistributionResult } from '../src/calculation/DistributionResult'
+
+function createCanonicalScoreEnvelope(
+  params,
+  _getDistribution,
+  _scoreRangePlan,
+  fix = false
+) {
+  const value = fix ? Math.max(0, params.skill) : 0
+  return {
+    result: createDistributionResult({
+      values: [1],
+      offset: value,
+      support: { kind: 'finite', max: value },
+      overflow: null,
+    }),
+    metadata: {
+      modeledDistribution: true,
+      failureProbability: 0,
+    },
+  }
+}
 
 function createDependencies(overrides = {}) {
   return {
@@ -27,11 +49,13 @@ function createDependencies(overrides = {}) {
       return 'damage'
     }),
     getCanonicalDamageSummary: vi.fn(() => 'canonical damage summary'),
+    calculateScoreCanonical: vi.fn(createCanonicalScoreEnvelope),
     getDamageSummary: vi.fn(() => 'damage summary'),
     getDamageRollDistribution: vi.fn(async () => {}),
     getFinalEncroachment: vi.fn(() => 'backtrack'),
     getD10Distribution: vi.fn(),
     getScore: vi.fn((params, fix = false) => ({ params, fix })),
+    getCanonicalScoreSummary: vi.fn(() => 'canonical score summary'),
     getScoreSummary: vi.fn(() => 'score summary'),
     getTotalDamage: vi.fn(() => 'total damage'),
     loadD10Asset: vi.fn(async () => {}),
@@ -293,7 +317,7 @@ describe('CalculationClient', () => {
     const dependencies = createDependencies({
       calculateCanonicalDamageOnDemand,
       calculateDamageOnDemand: vi.fn(),
-      getScoreSummary: vi.fn(() => 'canonical score summary'),
+      getCanonicalScoreSummary: vi.fn(() => 'canonical score summary'),
       onFftLength,
       planCalculationRanges,
     })
@@ -302,11 +326,13 @@ describe('CalculationClient', () => {
     const result = await client.calculateAttackCanonical(attackParams(), options)
 
     expect(result).toEqual({
-      score: {
-        action: { params: expect.any(Object), fix: false },
-        reaction: { params: expect.any(Object), fix: true },
-      },
+      score: expect.objectContaining({
+        action: { result: expect.any(Object), metadata: expect.any(Object) },
+        reaction: { result: expect.any(Object), metadata: expect.any(Object) },
+      }),
       scoreSummary: 'canonical score summary',
+      canonicalScore: result.score,
+      canonicalScoreBatchSummary: 'canonical score summary',
       canonicalDamage,
       canonicalDamageSummary: 'canonical damage summary',
     })
@@ -316,8 +342,10 @@ describe('CalculationClient', () => {
     expect(planCalculationRanges).toHaveBeenCalledOnce()
     expect(onRangePlan).toHaveBeenCalledOnce()
     expect(onRangePlan).toHaveBeenCalledWith(plan)
-    expect(dependencies.getScore).toHaveBeenCalledTimes(2)
-    expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
+    expect(dependencies.getScore).not.toHaveBeenCalled()
+    expect(dependencies.calculateScoreCanonical).toHaveBeenCalledTimes(2)
+    expect(dependencies.getScoreSummary).not.toHaveBeenCalled()
+    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledOnce()
     expect(dependencies.getCanonicalDamageSummary)
       .toHaveBeenCalledOnce()
     expect(dependencies.getCanonicalDamageSummary)
@@ -328,7 +356,9 @@ describe('CalculationClient', () => {
 
     const [score, attack, defence, damageDependencies, runtimeOptions, passedPlan] =
       calculateCanonicalDamageOnDemand.mock.calls[0]
-    expect(score).toEqual(result.score)
+    expect(score).not.toBe(result.score)
+    expect(score.action.distribution).toBeInstanceOf(Float64Array)
+    expect(score.reaction.distribution).toBeInstanceOf(Float64Array)
     expect(attack).toEqual({ dice: 0, value: 3, kazanari: 4 })
     expect(defence).toEqual({ dice: 2, value: 1 })
     expect(damageDependencies).toEqual({

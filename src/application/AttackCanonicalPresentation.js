@@ -1,4 +1,8 @@
 import {
+  getExpectedValueSummary,
+  getProbabilityMassSummary,
+} from '../calculation/DistributionResult'
+import {
   CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
   CANONICAL_CHART_SERIES_NOT_READY_REASONS,
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
@@ -35,6 +39,9 @@ export const ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS = Object.freeze({
   RESOURCE_REJECTED: 'resource-rejected',
   NOT_PROJECTABLE: 'not-projectable',
 })
+
+export const ATTACK_CANONICAL_SCORE_DISPLAY_PRESENTATION_DECISIONS =
+  ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS
 
 export class AttackCanonicalPresentationError extends Error {
   constructor(code, message, details = {}) {
@@ -813,6 +820,54 @@ function addEntryId(warning, entryId) {
   }
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isCanonicalScoreEnvelope(value) {
+  return isRecord(value)
+    && isRecord(value.result)
+    && isRecord(value.metadata)
+    && value.metadata.modeledDistribution === true
+}
+
+function createCanonicalScoreSidePresentation(envelope) {
+  if (!isCanonicalScoreEnvelope(envelope)) {
+    return null
+  }
+
+  const summary = {
+    mass: getProbabilityMassSummary(envelope.result),
+    expectedValue: getExpectedValueSummary(envelope.result),
+  }
+  return presentCanonicalDistribution(envelope, { summary })
+}
+
+/**
+ * Keep the complete canonical score display separate from the selected chart
+ * window. The action side is the side currently shown by Attack's score
+ * chart; the reaction side is retained for the same canonical batch and for
+ * future consumers without making it a reason to recalculate this chart.
+ */
+function createCanonicalScorePresentation(score) {
+  if (!isRecord(score)) {
+    return null
+  }
+
+  const action = createCanonicalScoreSidePresentation(score.action)
+  if (action === null) {
+    return null
+  }
+  const reaction = createCanonicalScoreSidePresentation(score.reaction)
+  return Object.freeze({
+    action,
+    ...(reaction === null ? {} : { reaction }),
+  })
+}
+
+export const createAttackCanonicalScorePresentation =
+  createCanonicalScorePresentation
+
 function normalizeAttackCanonicalDisplayOptions(options) {
   requirePlainRecord(
     options,
@@ -848,11 +903,24 @@ function normalizeAttackCanonicalDisplayOptions(options) {
       { path: 'options.displayRequest' }
     )
   }
+  const rawScoreDisplayRequest = readOptionalOwnDataProperty(
+    options,
+    'scoreDisplayRequest',
+    'options',
+    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+  )
   if (rangePlans === null) {
     fail(
       ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
       'options.rangePlans must not be null',
       { path: 'options.rangePlans' }
+    )
+  }
+  if (rawScoreDisplayRequest === null) {
+    fail(
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      'options.scoreDisplayRequest must not be null',
+      { path: 'options.scoreDisplayRequest' }
     )
   }
   if (policy === null) {
@@ -868,6 +936,13 @@ function normalizeAttackCanonicalDisplayOptions(options) {
       rawDisplayRequest === undefined
         ? DEFAULT_ATTACK_DISPLAY_REQUEST
         : rawDisplayRequest
+    ),
+    scoreDisplayRequest: createAttackDisplayRequestSnapshot(
+      rawScoreDisplayRequest === undefined
+        ? rawDisplayRequest === undefined
+          ? DEFAULT_ATTACK_DISPLAY_REQUEST
+          : rawDisplayRequest
+        : rawScoreDisplayRequest
     ),
     rangePlans: rangePlans === undefined ? [] : rangePlans,
     policy,
@@ -1008,6 +1083,50 @@ function createAttackCanonicalDisplaySide(
   return Object.freeze(side)
 }
 
+function createAttackCanonicalScoreDisplayPresentation(
+  canonicalScorePresentation,
+  displayRequest,
+  policy
+) {
+  if (
+    !isRecord(canonicalScorePresentation)
+    || !isRecord(canonicalScorePresentation.action)
+  ) {
+    return null
+  }
+
+  const action = createAttackCanonicalDisplaySide(
+    canonicalScorePresentation.action,
+    displayRequest,
+    policy
+  )
+  if (action === null) {
+    return null
+  }
+  const reaction = !isRecord(canonicalScorePresentation.reaction)
+    ? null
+    : createAttackCanonicalDisplaySide(
+        canonicalScorePresentation.reaction,
+        displayRequest,
+        policy
+      )
+
+  // Attack's existing score chart displays the action side only. Retain the
+  // reaction side in the atomic payload, but do not make an undisplayed side
+  // trigger a score chart recalculation or hide the action chart.
+  const displayedSides = [action]
+  return Object.freeze({
+    version: ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION,
+    kind: 'attack-canonical-score-display-presentation',
+    status: getAttackCanonicalDisplayStatus(displayedSides),
+    decision: getAttackCanonicalDisplayDecision(displayedSides),
+    mode: displayRequest.mode,
+    displayRequest,
+    action,
+    reaction,
+  })
+}
+
 /**
  * Build one UI-independent presentation payload for a canonical attack batch.
  * The batch result is consumed as a completed value; no calculation or
@@ -1037,18 +1156,28 @@ export function createAttackCanonicalPresentation(
       totalWarnings.push(addEntryId(warning, combo.id))
     }
 
+    const canonicalScore = cloneAndFreeze(
+      combo.score,
+      `batchResult.combos[${index}].score`,
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+    )
+    const canonicalScoreBatchSummary = cloneAndFreeze(
+      combo.scoreSummary,
+      `batchResult.combos[${index}].scoreSummary`,
+      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+    )
+    const canonicalScorePresentation = createCanonicalScorePresentation(
+      canonicalScore
+    )
+
     combos.push(Object.freeze({
       id: combo.id,
-      score: cloneAndFreeze(
-        combo.score,
-        `batchResult.combos[${index}].score`,
-        ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
-      ),
-      scoreSummary: cloneAndFreeze(
-        combo.scoreSummary,
-        `batchResult.combos[${index}].scoreSummary`,
-        ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
-      ),
+      score: canonicalScore,
+      scoreSummary: canonicalScoreBatchSummary,
+      canonicalScore,
+      canonicalScoreBatchSummary,
+      canonicalScorePresentation,
+      canonicalScoreSummary: canonicalScoreBatchSummary,
       canonicalDamage: combo.canonicalDamage,
       canonicalDamageSummary: combo.canonicalDamageSummary,
       canonicalDamagePresentation,
@@ -1092,7 +1221,22 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
   canonical,
   normalized
 ) {
-  const combos = canonical.combos.map((combo) => {
+  const scoreCombos = canonical.combos.map((combo) => {
+    const scorePresentation = createAttackCanonicalScoreDisplayPresentation(
+      combo.canonicalScorePresentation,
+      normalized.scoreDisplayRequest,
+      normalized.policy
+    )
+    if (scorePresentation === null) {
+      return null
+    }
+    return Object.freeze({
+      id: combo.id,
+      canonicalScoreBatchSummary: combo.canonicalScoreBatchSummary,
+      ...scorePresentation,
+    })
+  })
+  const combos = canonical.combos.map((combo, index) => {
     const side = createAttackCanonicalDisplaySide(
       combo.canonicalDamagePresentation,
       normalized.displayRequest,
@@ -1104,6 +1248,11 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
       // Keep the calculation plan available to the application feedback
       // lane while `plan` remains the display-window plan.
       canonicalRangePlan: combo.canonicalRangePlan,
+      canonicalScore: combo.canonicalScore ?? null,
+      canonicalScorePresentation: combo.canonicalScorePresentation ?? null,
+      canonicalScoreSummary: combo.canonicalScoreSummary ?? null,
+      canonicalScoreBatchSummary: combo.canonicalScoreBatchSummary ?? null,
+      score: scoreCombos[index],
     })
   })
   const total = createAttackCanonicalDisplaySide(
@@ -1112,6 +1261,25 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
     normalized.policy,
   )
   const sides = [...combos, total]
+  const scoreSides = scoreCombos
+    .filter((score) => score !== null)
+    .map((score) => score.action)
+  const hasMissingScore = scoreCombos.some((score) => score === null)
+  const score = scoreSides.length === 0
+    ? null
+    : Object.freeze({
+        version: ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION,
+        kind: 'attack-canonical-score-display-presentation',
+        status: hasMissingScore
+          ? 'not-ready'
+          : getAttackCanonicalDisplayStatus(scoreSides),
+        decision: hasMissingScore
+          ? ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+          : getAttackCanonicalDisplayDecision(scoreSides),
+        mode: normalized.scoreDisplayRequest.mode,
+        displayRequest: normalized.scoreDisplayRequest,
+        combos: Object.freeze(scoreCombos),
+      })
 
   return Object.freeze({
     version: ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION,
@@ -1122,6 +1290,7 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
     displayRequest: normalized.displayRequest,
     combos: Object.freeze(combos),
     total,
+    score,
   })
 }
 

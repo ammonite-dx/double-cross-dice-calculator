@@ -31,6 +31,7 @@ import {
 import {
   calculateScore,
   calculateScoreCanonical,
+  getCanonicalScoreSummary,
   getScoreSummary,
 } from '../data/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
@@ -72,6 +73,7 @@ const defaultDependencies = {
   calculateDxDistribution,
   calculateScore,
   calculateScoreCanonical,
+  getCanonicalScoreSummary,
   getCanonicalDamageSummary,
   getCanonicalTotalDamageSummary,
   getDamageSummary,
@@ -411,22 +413,58 @@ export function createCalculationClient(
   const canonicalScoreCalculator = (() => {
     if (typeof dependencies.calculateScoreCanonical === 'function') {
       if (getDxDistribution === null) {
-        return (params, scoreRangePlan) =>
-          dependencies.calculateScoreCanonical(params, undefined, scoreRangePlan)
+        return (params, scoreRangePlan, fix = false) => {
+          if (!fix) {
+            return dependencies.calculateScoreCanonical(
+              params,
+              undefined,
+              scoreRangePlan
+            )
+          }
+          return dependencies.calculateScoreCanonical(
+            params,
+            undefined,
+            scoreRangePlan,
+            true
+          )
+        }
       }
-      return (params, scoreRangePlan) =>
-        dependencies.calculateScoreCanonical(
+      return (params, scoreRangePlan, fix = false) => {
+        if (!fix) {
+          return dependencies.calculateScoreCanonical(
+            params,
+            getDxDistribution,
+            scoreRangePlan
+          )
+        }
+        return dependencies.calculateScoreCanonical(
           params,
           getDxDistribution,
-          scoreRangePlan
+          scoreRangePlan,
+          true
         )
+      }
     }
     if (getDxDistribution !== null) {
-      return (params, scoreRangePlan) =>
-        calculateScoreCanonical(params, getDxDistribution, scoreRangePlan)
+      return (params, scoreRangePlan, fix = false) =>
+        fix
+          ? calculateScoreCanonical(
+              params,
+              getDxDistribution,
+              scoreRangePlan,
+              true
+            )
+          : calculateScoreCanonical(
+              params,
+              getDxDistribution,
+              scoreRangePlan
+            )
     }
     return null
   })()
+
+  const canonicalScoreSummaryCalculator =
+    dependencies.getCanonicalScoreSummary ?? getCanonicalScoreSummary
 
   if (!hasRuntimeScoreDependencies && !hasLegacyScoreDependency) {
     throw new Error(
@@ -438,7 +476,8 @@ export function createCalculationClient(
     params,
     options,
     finalizeDamage,
-    buildResult
+    buildResult,
+    useCanonicalScore = false
   ) {
     const request = snapshotAttackParams(params)
     const plan = runRangePreflight(
@@ -464,20 +503,43 @@ export function createCalculationClient(
       }
       throwIfAborted(options, 'Attack')
 
-      const score = {
-        action: scoreCalculator(
-          request.action.score,
-          false,
-          plan.scores?.[0]
-        ),
-        reaction: scoreCalculator(
-          request.reaction.score,
-          request.reaction.mode === EVASION_MODE,
-          plan.scores?.[1]
-        ),
+      if (useCanonicalScore && canonicalScoreCalculator === null) {
+        throw new Error(
+          'CalculationClient requires calculateScoreCanonical or runtime score dependencies'
+        )
       }
+      const score = useCanonicalScore
+        ? {
+            action: canonicalScoreCalculator(
+              request.action.score,
+              plan.scores?.[0]
+            ),
+            reaction: canonicalScoreCalculator(
+              request.reaction.score,
+              plan.scores?.[1],
+              request.reaction.mode === EVASION_MODE
+            ),
+          }
+        : {
+            action: scoreCalculator(
+              request.action.score,
+              false,
+              plan.scores?.[0]
+            ),
+            reaction: scoreCalculator(
+              request.reaction.score,
+              request.reaction.mode === EVASION_MODE,
+              plan.scores?.[1]
+            ),
+          }
+      const scoreForDamage = useCanonicalScore
+        ? {
+            action: createPublishedScoreFromCanonicalEnvelope(score.action),
+            reaction: createPublishedScoreFromCanonicalEnvelope(score.reaction),
+          }
+        : score
       const finalizedDamage = await finalizeDamage(
-        score,
+        scoreForDamage,
         request,
         plan,
         getRuntimeOptions(options)
@@ -486,7 +548,10 @@ export function createCalculationClient(
 
       return buildResult({
         score,
-        scoreSummary: dependencies.getScoreSummary(score),
+        scoreSummary: useCanonicalScore
+          ? canonicalScoreSummaryCalculator(score)
+          : dependencies.getScoreSummary(score),
+        scoreForDamage,
         finalizedDamage,
       })
     } finally {
@@ -515,10 +580,13 @@ export function createCalculationClient(
       ({ score, scoreSummary, finalizedDamage }) => ({
         score,
         scoreSummary,
+        canonicalScore: score,
+        canonicalScoreBatchSummary: scoreSummary,
         canonicalDamage: finalizedDamage,
         canonicalDamageSummary:
           dependencies.getCanonicalDamageSummary(finalizedDamage),
-      })
+      }),
+      true
     )
   }
 

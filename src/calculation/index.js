@@ -53,6 +53,7 @@ export {
 export {
   calculateScore,
   calculateScoreCanonical,
+  getCanonicalScoreSummary,
   getScoreSummary,
 } from './ScoreCalculator'
 export {

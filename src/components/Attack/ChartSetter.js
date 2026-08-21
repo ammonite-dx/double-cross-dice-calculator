@@ -109,13 +109,67 @@ export function getAttackScoreChartData (attackData, setting) {
 
     const labels = range(setting.min,setting.max);
     var datasets;
-    if (setting.mode=='達成値がXとなる確率を表示') {
+    const isPmfMode = setting.mode===ATTACK_DISPLAY_MODES.PMF
+        || setting.mode==='達成値がXとなる確率を表示';
+    if (isPmfMode) {
         datasets = attackData.combos.map((combo) => ({label:combo.name, data:clipData(combo.data.score.action.distribution,setting.min,setting.max), backgroundColor:getChartColor(combo.id) ,borderColor:getChartColor(combo.id)}));
     } else {
         datasets = attackData.combos.map((combo) => ({label:combo.name, data:clipData(combo.data.score.action.upperTailProbability,setting.min,setting.max), backgroundColor:getChartColor(combo.id) ,borderColor:getChartColor(combo.id)}));
     }
     return {labels:labels, datasets:datasets};
 
+}
+
+/**
+ * Adapt the action side of the canonical Attack score presentation to the
+ * existing score chart. Attack's current chart has one series per combo and
+ * intentionally does not draw the reaction side; the reaction canonical side
+ * remains available in the atomic presentation for summary/future consumers.
+ */
+export function getCanonicalAttackScoreChartData (presentation, attackData) {
+    const scorePresentation = presentation?.score ?? presentation;
+    if (
+        scorePresentation?.status !== 'ready'
+        || !Array.isArray(scorePresentation.combos)
+    ) {
+        return null;
+    }
+
+    const comboCount = Array.isArray(attackData?.combos)
+        ? attackData.combos.length
+        : scorePresentation.combos.length;
+    const datasets = scorePresentation.combos.map((combo, index) => {
+        const action = combo?.action;
+        const dataset = action?.chart?.datasets?.[0];
+        if (!dataset) {
+            return null;
+        }
+        const attackCombo = attackData?.combos?.[index];
+        const id = attackCombo?.id ?? combo.id ?? index;
+        const color = Number.isFinite(id)
+            ? getChartColor(id)
+            : getChartColor(index);
+        return {
+            ...dataset,
+            data: toCanonicalAttackDamagePercentages(dataset.data),
+            label: attackCombo?.name ?? `コンボ${index + 1}`,
+            backgroundColor: color,
+            borderColor: color,
+        };
+    });
+    if (
+        datasets.some((dataset) => dataset === null)
+        || datasets.length !== comboCount
+    ) {
+        return null;
+    }
+
+    return {
+        labels: (
+            scorePresentation.combos[0]?.action
+        )?.chart?.labels ?? [],
+        datasets,
+    };
 }
 
 export function getAttackScoreChartOptions () {

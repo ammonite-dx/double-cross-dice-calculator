@@ -51,6 +51,27 @@ function canonicalEnvelope(value = 0) {
   })
 }
 
+function canonicalScoreEnvelope(
+  params,
+  _getDistribution,
+  _scoreRangePlan,
+  fix = false
+) {
+  const value = fix ? Math.max(0, params.skill) : 0
+  return Object.freeze({
+    result: createDistributionResult({
+      values: [1],
+      offset: value,
+      support: { kind: 'finite', max: value },
+      overflow: null,
+    }),
+    metadata: Object.freeze({
+      modeledDistribution: true,
+      failureProbability: 0,
+    }),
+  })
+}
+
 function createRecordingResourceGuard(events = []) {
   return {
     acquirePlan: vi.fn((plan, options) => {
@@ -68,6 +89,7 @@ function createDependencies(overrides = {}) {
       canonicalCall += 1
       return canonicalEnvelope(canonicalCall - 1)
     }),
+    calculateScoreCanonical: vi.fn(canonicalScoreEnvelope),
     getCanonicalDamageSummary: vi.fn((damage) => damage),
     getCanonicalTotalDamageSummary,
     getD10Distribution: vi.fn(),

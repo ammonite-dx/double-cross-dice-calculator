@@ -1,11 +1,16 @@
 import {
   calculateScore as calculateCoreScore,
   calculateScoreCanonical as calculateCoreScoreCanonical,
+  getCanonicalScoreSummary as getCoreCanonicalScoreSummary,
   getScoreSummary,
 } from '../calculation/ScoreCalculator'
 import { getDxDistribution } from './PrecomputedDataRepository'
 
 export { getScoreSummary }
+
+export function getCanonicalScoreSummary(score, difficulty) {
+  return getCoreCanonicalScoreSummary(score, difficulty)
+}
 
 export function calculateScore(
   params,
@@ -24,7 +29,8 @@ export function calculateScore(
 export function calculateScoreCanonical(
   params,
   getDistribution,
-  scoreRangePlan
+  scoreRangePlan,
+  fix = false
 ) {
   if (typeof getDistribution !== 'function') {
     throw new TypeError(
@@ -34,7 +40,8 @@ export function calculateScoreCanonical(
   return calculateCoreScoreCanonical(
     params,
     { getDxDistribution: getDistribution },
-    scoreRangePlan
+    scoreRangePlan,
+    fix
   )
 }
 

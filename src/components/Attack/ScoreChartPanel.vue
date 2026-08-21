@@ -1,12 +1,33 @@
 <script setup>
 
-    import { ref } from 'vue';
     import ScoreChart from './ScoreChart.vue';
     import ScoreSettingForm from './ScoreSettingForm.vue';
-    import { mdiChartLine } from '@mdi/js'
+    import RangePlanNotice from '@/components/RangePlanNotice.vue';
+    import { mdiChartLine } from '@mdi/js';
 
-    const props = defineProps(['attackData']);
-    const setting = ref({min:0, max:100, mode:'達成値がXとなる確率を表示'});
+    const props = defineProps({
+        attackData: {
+            type: Object,
+            required: true,
+        },
+        displayRequest: {
+            type: Object,
+            required: true,
+        },
+        presentation: {
+            type: Object,
+            default: null,
+        },
+        canonicalOptIn: {
+            type: Boolean,
+            default: false,
+        },
+        displayFeedback: {
+            type: Object,
+            default: null,
+        },
+    });
+    const emit = defineEmits(['display-validated']);
 
 </script>
 
@@ -16,8 +37,18 @@
         <v-divider class="mx-2" />
         <v-container class="pa-0">
             <v-card-text class="text-md-body-1 text-caption">
-                <ScoreChart :attackData="props.attackData" :setting="setting"/>
-                <ScoreSettingForm :setting="setting"/>
+                <RangePlanNotice :feedback="props.displayFeedback" />
+                <ScoreChart
+                    :attackData="props.attackData"
+                    :displayRequest="props.displayRequest"
+                    :presentation="props.presentation"
+                    :canonicalOptIn="props.canonicalOptIn"
+                />
+                <ScoreSettingForm
+                    :displayRequest="props.displayRequest"
+                    :canonicalOptIn="props.canonicalOptIn"
+                    @validated="(request) => emit('display-validated', request)"
+                />
             </v-card-text>
         </v-container>
     </v-card>

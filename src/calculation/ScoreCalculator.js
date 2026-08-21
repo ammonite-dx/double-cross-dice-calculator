@@ -11,6 +11,8 @@ import { sumDistribution } from '../data/FFT'
 import {
   DISTRIBUTION_RESULT_TOLERANCE,
   createDistributionResult,
+  getExpectedValueSummary,
+  validateDistributionResult,
 } from './DistributionResult'
 
 function validateScoreRangePlan(scoreRangePlan) {
@@ -223,7 +225,16 @@ function getFiniteRawSupportMax(params) {
   return null
 }
 
-function getCanonicalSupport(params) {
+function getCanonicalSupport(params, alreadyShifted = false) {
+  if (alreadyShifted) {
+    return {
+      kind: 'finite',
+      max: Math.min(
+        OUTPUT_DISTRIBUTION_SIZE - 1,
+        Math.max(0, params.skill)
+      ),
+    }
+  }
   const finiteRawSupportMax = getFiniteRawSupportMax(params)
   if (finiteRawSupportMax === null) {
     return { kind: 'infinite' }
@@ -241,13 +252,14 @@ function createCanonicalScoreResult(
   params,
   workingDistribution,
   failureProbability,
-  scoreRangePlan
+  scoreRangePlan,
+  alreadyShifted = false
 ) {
   const workingMax = scoreRangePlan?.workingLength !== undefined
     ? scoreRangePlan.workingLength - 2
     : workingDistribution.length - 2
   const overflowIndex = workingDistribution.length - 1
-  const support = getCanonicalSupport(params)
+  const support = getCanonicalSupport(params, alreadyShifted)
   const finiteSupport = support.kind === 'finite'
   const explicitMax = finiteSupport
     ? support.max
@@ -259,7 +271,9 @@ function createCanonicalScoreResult(
     if (probability === 0) {
       continue
     }
-    const scoreValue = Math.max(0, rawValue + params.skill)
+    const scoreValue = alreadyShifted
+      ? rawValue
+      : Math.max(0, rawValue + params.skill)
     if (scoreValue <= explicitMax) {
       values[scoreValue] += probability
     }
@@ -300,19 +314,25 @@ function createCanonicalScoreResult(
 export function calculateScoreCanonical(
   params,
   dependencies,
-  scoreRangePlan
+  scoreRangePlan,
+  fix = false
 ) {
-  const { workingDistribution, failureProbability } = calculateScoreWorking(
+  const {
+    workingDistribution,
+    failureProbability,
+    alreadyShifted,
+  } = calculateScoreWorking(
     params,
     dependencies,
-    false,
+    fix,
     scoreRangePlan
   )
   const result = createCanonicalScoreResult(
     params,
     workingDistribution,
     failureProbability,
-    scoreRangePlan
+    scoreRangePlan,
+    alreadyShifted
   )
   const metadata = Object.freeze({
     modeledDistribution: true,
@@ -320,6 +340,188 @@ export function calculateScoreCanonical(
   })
 
   return Object.freeze({ result, metadata })
+}
+
+function createCanonicalScoreRateSummary(kind, details = {}) {
+  return Object.freeze({ kind, ...details })
+}
+
+function getExactCanonicalScoreBuckets(envelope) {
+  if (
+    envelope === null
+    || typeof envelope !== 'object'
+    || envelope.result === null
+    || typeof envelope.result !== 'object'
+  ) {
+    return null
+  }
+
+  validateDistributionResult(envelope.result)
+  const result = envelope.result
+  const buckets = []
+  for (let index = 0; index < result.values.length; index += 1) {
+    const probability = result.values[index]
+    if (probability !== 0) {
+      buckets.push({
+        value: result.offset + index,
+        probability,
+      })
+    }
+  }
+
+  const overflow = result.overflow
+  if (overflow === null) {
+    return buckets
+  }
+  if (overflow.kind === 'upper-bound') {
+    return overflow.probabilityUpperBound === 0
+      ? buckets
+      : null
+  }
+  if (overflow.probability === 0) {
+    return buckets
+  }
+  if (
+    result.support.kind === 'finite'
+    && overflow.lowerBound === result.support.max
+  ) {
+    buckets.push({
+      value: result.support.max,
+      probability: overflow.probability,
+    })
+    return buckets
+  }
+  return null
+}
+
+/**
+ * Calculate P(action > reaction) for ascending, sparse score buckets.
+ * `onReactionVisit` is intentionally optional and exists for structural tests
+ * of the linear two-pointer walk; production callers do not allocate stats.
+ */
+export function calculateCanonicalScoreSuccessProbability(
+  actionBuckets,
+  reactionBuckets,
+  onReactionVisit
+) {
+  let reactionIndex = 0
+  let reactionBelow = 0
+  let actionSuccessProbability = 0
+
+  for (const actionBucket of actionBuckets) {
+    while (
+      reactionIndex < reactionBuckets.length
+      && reactionBuckets[reactionIndex].value < actionBucket.value
+    ) {
+      const reactionBucket = reactionBuckets[reactionIndex]
+      reactionBelow += reactionBucket.probability
+      onReactionVisit?.(reactionBucket, reactionIndex)
+      reactionIndex += 1
+    }
+    actionSuccessProbability +=
+      actionBucket.probability * reactionBelow
+  }
+
+  return actionSuccessProbability
+}
+
+function getCanonicalScoreSuccessRateSummary(action, reaction) {
+  const actionBuckets = getExactCanonicalScoreBuckets(action)
+  const reactionBuckets = getExactCanonicalScoreBuckets(reaction)
+  if (actionBuckets === null || reactionBuckets === null) {
+    return {
+      action: createCanonicalScoreRateSummary('bounded', {
+        lowerBound: 0,
+        upperBound: 100,
+      }),
+      reaction: createCanonicalScoreRateSummary('bounded', {
+        lowerBound: 0,
+        upperBound: 100,
+      }),
+    }
+  }
+
+  const actionSuccessRate = calculateCanonicalScoreSuccessProbability(
+    actionBuckets,
+    reactionBuckets
+  )
+
+  const roundedActionSuccessRate = Math.round(actionSuccessRate * 1000) / 10
+  return {
+    action: createCanonicalScoreRateSummary('exact', {
+      value: roundedActionSuccessRate,
+    }),
+    reaction: createCanonicalScoreRateSummary('exact', {
+      value: Math.round((100 - roundedActionSuccessRate) * 10) / 10,
+    }),
+  }
+}
+
+/**
+ * Summarize the two canonical Attack score envelopes without projecting them
+ * into the legacy 1024 buckets. Expected values retain the canonical
+ * exact/bounded/lower-bound semantics; success rates are point values only
+ * when both score supports are fully represented.
+ */
+export function getCanonicalScoreSummary(
+  score,
+  dfclty = { opposed: true, target: 0 }
+) {
+  if (
+    score === null
+    || typeof score !== 'object'
+    || score.action === null
+    || typeof score.action !== 'object'
+    || score.reaction === null
+    || typeof score.reaction !== 'object'
+  ) {
+    throw new TypeError('canonical score must contain action and reaction envelopes')
+  }
+
+  const actionExpectedValue = getExpectedValueSummary(score.action.result)
+  const reactionExpectedValue = getExpectedValueSummary(score.reaction.result)
+  let rates
+  if (dfclty.opposed) {
+    rates = getCanonicalScoreSuccessRateSummary(
+      score.action,
+      score.reaction
+    )
+  } else {
+    const actionBuckets = getExactCanonicalScoreBuckets(score.action)
+    if (actionBuckets === null) {
+      rates = {
+        action: createCanonicalScoreRateSummary('bounded', {
+          lowerBound: 0,
+          upperBound: 100,
+        }),
+        reaction: createCanonicalScoreRateSummary('exact', { value: 0 }),
+      }
+    } else {
+      const target = dfclty.target ?? 0
+      const successProbability = actionBuckets
+        .filter(({ value }) => value >= target)
+        .reduce((sum, bucket) => sum + bucket.probability, 0)
+        - (target === 0
+          ? (score.action.metadata?.failureProbability ?? 0)
+          : 0)
+      const value = Math.round(successProbability * 1000) / 10
+      rates = {
+        action: createCanonicalScoreRateSummary('exact', { value }),
+        reaction: createCanonicalScoreRateSummary('exact', { value: 0 }),
+      }
+    }
+  }
+
+  return Object.freeze({
+    action: Object.freeze({
+      expectedValue: actionExpectedValue,
+      successRate: rates.action,
+    }),
+    reaction: Object.freeze({
+      expectedValue: reactionExpectedValue,
+      successRate: rates.reaction,
+    }),
+  })
 }
 
 export function getScoreSummary(

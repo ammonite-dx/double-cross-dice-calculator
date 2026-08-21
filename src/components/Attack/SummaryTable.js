@@ -20,10 +20,36 @@ export function formatCanonicalSummaryExpectedValue(expectedValue) {
     : CANONICAL_SUMMARY_UNAVAILABLE
 }
 
+export function formatCanonicalScoreSummaryExpectedValue(expectedValue) {
+  if (!isExactFiniteExpectedValue(expectedValue)) {
+    return '—'
+  }
+  const rounded = Math.round(expectedValue.value * 10) / 10
+  return Number.isFinite(rounded) ? rounded : '—'
+}
+
+export function formatCanonicalScoreSuccessRate(successRate) {
+  if (
+    successRate?.kind !== 'exact'
+    || typeof successRate.value !== 'number'
+    || !Number.isFinite(successRate.value)
+  ) {
+    return '—'
+  }
+  return successRate.value
+}
+
+export function getCanonicalScoreSummaryForCombo(presentation, comboId) {
+  if (presentation?.status !== 'ready') {
+    return null
+  }
+  const combo = findCanonicalComboPresentation(presentation, comboId)
+  return combo?.canonicalScoreBatchSummary ?? null
+}
+
 export function findCanonicalComboPresentation(presentation, comboId) {
   if (!Array.isArray(presentation?.combos)) {
     return null
   }
   return presentation.combos.find((combo) => combo?.id === comboId) ?? null
 }
-

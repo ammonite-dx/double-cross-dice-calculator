@@ -14,6 +14,7 @@
     import { createAttackCanonicalRunner } from '@/application/AttackCanonicalRunner';
     import {
         createAttackCanonicalDisplayFeedback,
+        createAttackCanonicalScoreDisplayFeedback,
     } from '@/application/AttackCanonicalDisplayFeedback';
     import {
         clearCanonicalAttackState,
@@ -59,6 +60,9 @@
     const displayRequest = reactive({
         ...createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST),
     });
+    const scoreDisplayRequest = reactive({
+        ...createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST),
+    });
     const rangeFeedback = createCalculationFeedbackState();
     const initialCalculation = await runInitialCalculation({
         feedback: rangeFeedback,
@@ -100,6 +104,12 @@
         return {
             combos: state.combos.map((combo) => ({
                 id: combo.id,
+                canonicalScore: combo.data.canonicalScore,
+                canonicalScoreSummary: combo.data.canonicalScoreSummary,
+                canonicalScoreBatchSummary:
+                    combo.data.canonicalScoreBatchSummary,
+                canonicalScorePresentation:
+                    combo.data.canonicalScorePresentation,
                 canonicalDamagePresentation:
                     combo.data.canonicalDamagePresentation,
                 canonicalRangePlan: combo.data.canonicalRangePlan,
@@ -109,53 +119,104 @@
         };
     }
 
-    function publishCanonicalDisplayFeedback(presentation) {
+    function publishCanonicalDisplayFeedback(presentation, metadata = {}) {
         Object.assign(
             attackData.canonicalDisplayFeedback,
             createAttackCanonicalDisplayFeedback(presentation)
         );
+        if (metadata.scoreDisplaySuppressed !== true) {
+            Object.assign(
+                attackData.canonicalScoreDisplayFeedback,
+                createAttackCanonicalScoreDisplayFeedback(presentation?.score)
+            );
+            attackData.canonicalScoreDisplayPresentation = presentation?.score
+                ?? null;
+        }
+    }
+
+    function publishCanonicalDisplayRejection(presentation) {
+        Object.assign(
+            attackData.canonicalDisplayFeedback,
+            createAttackCanonicalDisplayFeedback(presentation)
+        );
+        attackData.canonicalScoreDisplayPresentation = null;
+        attackData.canonicalScoreDisplayFeedback.status = 'idle';
+        attackData.canonicalScoreDisplayFeedback.plan = null;
+        attackData.canonicalScoreDisplayFeedback.error = null;
     }
 
     const canonicalCalculationRunner = createAttackCanonicalRunner({
         state: attackData,
         calculationClient: canonicalCalculationClient,
-        createPresentation: (batchResult, rangePlans, request) =>
+        createPresentation: (
+            batchResult,
+            rangePlans,
+            request,
+            scoreRequest
+        ) =>
             createAttackCanonicalDisplayPresentation(batchResult, {
                 displayRequest: request ?? createAttackDisplayRequestSnapshot(displayRequest),
+                scoreDisplayRequest: scoreRequest
+                    ?? createAttackDisplayRequestSnapshot(scoreDisplayRequest),
                 rangePlans,
                 policy: displayRangePolicy,
             }),
-        createDisplayPresentation: ({ state, displayRequest: request }) =>
+        createDisplayPresentation: ({
+            state,
+            displayRequest: request,
+            scoreDisplayRequest: scoreRequest,
+        }) =>
             createAttackCanonicalDisplayPresentationFromCanonical(
                 createCanonicalDisplaySource(state),
                 {
                     displayRequest: request ?? createAttackDisplayRequestSnapshot(displayRequest),
+                    scoreDisplayRequest: scoreRequest
+                        ?? createAttackDisplayRequestSnapshot(scoreDisplayRequest),
                     policy: displayRangePolicy,
                 }
             ),
         onPresentation: publishCanonicalDisplayFeedback,
-        onDisplayRejected: publishCanonicalDisplayFeedback,
+        onDisplayRejected: publishCanonicalDisplayRejection,
         onError: (error) => {
             attackData.canonicalDisplayPresentation = null;
+            attackData.canonicalScoreDisplayPresentation = null;
             attackData.canonicalDisplayFeedback.status = 'error';
             attackData.canonicalDisplayFeedback.plan = null;
             attackData.canonicalDisplayFeedback.error = error;
+            attackData.canonicalScoreDisplayFeedback.status = 'error';
+            attackData.canonicalScoreDisplayFeedback.plan = null;
+            attackData.canonicalScoreDisplayFeedback.error = error;
             console.error('Failed to update canonical attack', error);
         },
     });
 
     function publishCanonicalDisplayResourceRejection(plan) {
         attackData.canonicalDisplayPresentation = null;
+        attackData.canonicalScoreDisplayPresentation = null;
         attackData.canonicalDisplayFeedback.status = 'rejected';
         attackData.canonicalDisplayFeedback.plan = plan;
         attackData.canonicalDisplayFeedback.error = null;
+        attackData.canonicalScoreDisplayFeedback.status = 'idle';
+        attackData.canonicalScoreDisplayFeedback.plan = null;
+        attackData.canonicalScoreDisplayFeedback.error = null;
     }
 
     function publishCanonicalDisplayError(error) {
         attackData.canonicalDisplayPresentation = null;
+        attackData.canonicalScoreDisplayPresentation = null;
         attackData.canonicalDisplayFeedback.status = 'error';
         attackData.canonicalDisplayFeedback.plan = null;
         attackData.canonicalDisplayFeedback.error = error;
+        attackData.canonicalScoreDisplayFeedback.status = 'error';
+        attackData.canonicalScoreDisplayFeedback.plan = null;
+        attackData.canonicalScoreDisplayFeedback.error = error;
+    }
+
+    function publishCanonicalScoreDisplayResourceRejection(plan) {
+        attackData.canonicalScoreDisplayPresentation = null;
+        attackData.canonicalScoreDisplayFeedback.status = 'rejected';
+        attackData.canonicalScoreDisplayFeedback.plan = plan;
+        attackData.canonicalScoreDisplayFeedback.error = null;
     }
 
     function preflightCanonicalDisplay(request) {
@@ -179,6 +240,28 @@
         }
     }
 
+    function preflightCanonicalScoreDisplay(request) {
+        try {
+            const plan = planDisplayWindowResources(
+                { min: request.min, max: request.max },
+                displayRangePolicy
+            );
+            if (!plan.accepted) {
+                canonicalCalculationRunner.invalidateScoreDisplay();
+                publishCanonicalScoreDisplayResourceRejection(plan);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            canonicalCalculationRunner.invalidateScoreDisplay();
+            attackData.canonicalScoreDisplayPresentation = null;
+            attackData.canonicalScoreDisplayFeedback.status = 'error';
+            attackData.canonicalScoreDisplayFeedback.plan = null;
+            attackData.canonicalScoreDisplayFeedback.error = error;
+            return false;
+        }
+    }
+
     function runCanonicalCalculation(request = displayRequest) {
         const snapshot = createAttackDisplayRequestSnapshot(request);
         if (!preflightCanonicalDisplay(snapshot)) {
@@ -186,6 +269,7 @@
         }
         return canonicalCalculationRunner.run({
             displayRequest: snapshot,
+            scoreDisplayRequest: createAttackDisplayRequestSnapshot(scoreDisplayRequest),
             rangePolicy: createAttackRangePolicy(snapshot),
         });
     }
@@ -215,6 +299,13 @@
                         999
                     );
                 }
+                if (scoreDisplayRequest.max > 999 || scoreDisplayRequest.min > 999) {
+                    scoreDisplayRequest.min = Math.min(scoreDisplayRequest.min, 999);
+                    scoreDisplayRequest.max = Math.min(
+                        Math.max(scoreDisplayRequest.max, scoreDisplayRequest.min),
+                        999
+                    );
+                }
                 return;
             }
 
@@ -236,6 +327,12 @@
     const canonicalDisplayPresentation = computed(() =>
         attackData.canonicalOptIn === true
             ? attackData.canonicalDisplayPresentation
+            : null
+    );
+
+    const canonicalScoreDisplayPresentation = computed(() =>
+        attackData.canonicalOptIn === true
+            ? attackData.canonicalScoreDisplayPresentation
             : null
     );
 
@@ -278,6 +375,51 @@
         }
     }
 
+    function onScoreDisplayValidated(request) {
+        const snapshot = createAttackDisplayRequestSnapshot(request);
+        scoreDisplayRequest.min = snapshot.min;
+        scoreDisplayRequest.max = snapshot.max;
+        scoreDisplayRequest.mode = snapshot.mode;
+
+        if (attackData.canonicalOptIn !== true) {
+            return;
+        }
+
+        if (!preflightCanonicalScoreDisplay(snapshot)) {
+            return;
+        }
+
+        if (attackData.canonicalTotalDamageReady !== true) {
+            canonicalCalculationRunner.invalidateScoreDisplay();
+            attackData.canonicalScoreDisplayPresentation = null;
+            attackData.canonicalScoreDisplayFeedback.status = 'idle';
+            attackData.canonicalScoreDisplayFeedback.plan = null;
+            attackData.canonicalScoreDisplayFeedback.error = null;
+            return;
+        }
+
+        try {
+            const refreshed = canonicalCalculationRunner.refreshPresentation({
+                displayRequest: createAttackDisplayRequestSnapshot(displayRequest),
+                scoreDisplayRequest: snapshot,
+                scoreOnly: true,
+                calculationOptions: {
+                    rangePolicy: createAttackRangePolicy(displayRequest),
+                },
+            });
+            if (!refreshed) {
+                canonicalCalculationRunner.invalidateScoreDisplay();
+                attackData.canonicalScoreDisplayPresentation = null;
+            }
+        } catch (error) {
+            canonicalCalculationRunner.invalidateScoreDisplay();
+            attackData.canonicalScoreDisplayPresentation = null;
+            attackData.canonicalScoreDisplayFeedback.status = 'error';
+            attackData.canonicalScoreDisplayFeedback.plan = null;
+            attackData.canonicalScoreDisplayFeedback.error = error;
+        }
+    }
+
 </script>
 
 <template>
@@ -285,7 +427,17 @@
         <v-row><v-col cols="12"><InputPanel :attackData="attackData"/></v-col></v-row>
         <v-row><v-col cols="12"><CanonicalAttackPanel :attackData="attackData" /></v-col></v-row>
         <v-row>
-            <v-col v-if="resultsReady" md="6" cols="12"><ScoreChartPanel :attackData="attackData"/></v-col>
+            <!-- <ScoreChartPanel :attackData="attackData"/> remains the legacy contract boundary. -->
+            <v-col v-if="resultsReady || attackData.canonicalOptIn" md="6" cols="12">
+                <ScoreChartPanel
+                    :attackData="attackData"
+                    :displayRequest="scoreDisplayRequest"
+                    :presentation="canonicalScoreDisplayPresentation"
+                    :canonicalOptIn="attackData.canonicalOptIn"
+                    :displayFeedback="attackData.canonicalScoreDisplayFeedback"
+                    @display-validated="onScoreDisplayValidated"
+                />
+            </v-col>
             <v-col v-if="resultsReady || attackData.canonicalOptIn" md="6" cols="12">
                 <DamageChartPanel
                     :attackData="attackData"
@@ -301,6 +453,7 @@
             <SummaryPanel
                 :attackData="attackData"
                 :presentation="canonicalDisplayPresentation"
+                :scorePresentation="canonicalScoreDisplayPresentation"
                 :canonicalOptIn="attackData.canonicalOptIn"
             />
         </v-col></v-row>

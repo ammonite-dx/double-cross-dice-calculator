@@ -85,6 +85,7 @@ function createHarness() {
   const client = createCalculationClient({
     calculateCanonicalDamageOnDemand,
     calculateDamageOnDemand: vi.fn(),
+    calculateScoreCanonical: vi.fn(() => canonicalEnvelope()),
     getCanonicalDamageSummary: vi.fn(() => 'canonical summary'),
     getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
     getDamageRollDistribution: runtimeDamageRollClient.calculate,

@@ -83,6 +83,36 @@ function createBatch(supportMax = 1, values = [0.25, 0.75]) {
   }
 }
 
+function createCanonicalScoreBatch() {
+  const damage = createEnvelope([1], 0)
+  const total = createEnvelope([1], 0)
+  const score = {
+    action: createEnvelope([0.25, 0.75], 1),
+    reaction: createEnvelope([0.5, 0.5], 1),
+  }
+  const scoreSummary = {
+    action: {
+      expectedValue: { kind: 'exact', value: 0.75 },
+      successRate: { kind: 'exact', value: 0 },
+    },
+    reaction: {
+      expectedValue: { kind: 'exact', value: 0.5 },
+      successRate: { kind: 'exact', value: 100 },
+    },
+  }
+  return {
+    combos: [{
+      id: 'combo-1',
+      score,
+      scoreSummary,
+      canonicalDamage: damage,
+      canonicalDamageSummary: getCanonicalDamageSummary(damage),
+    }],
+    canonicalTotalDamage: total,
+    canonicalTotalDamageSummary: getCanonicalDamageSummary(total),
+  }
+}
+
 function createCanonicalSource(state) {
   return {
     combos: state.combos.map((combo) => ({
@@ -418,4 +448,79 @@ describe('Attack canonical display integration', () => {
     expect(Array.from(state.canonicalDisplayPresentation.combos[0].series.values))
       .toEqual([0.1, 0.2, 0.3, 0.4])
   })
+
+  it.each(['invalid', 'resource', 'error'])(
+    'keeps an in-flight Damage batch commit after Score-only %s',
+    async (failureKind) => {
+      const state = createState()
+      const displayRequest = {
+        min: 0,
+        max: 0,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      }
+      const scoreDisplayRequest = {
+        min: 0,
+        max: 1,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      }
+      const initialBatch = createCanonicalScoreBatch()
+      const deferredBatch = createDeferred()
+      let calculationCount = 0
+      const presentations = []
+      const calculationClient = {
+        calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+          calculationCount += 1
+          options.onRangePlan({
+            id: `plan-${calculationCount}`,
+            operation: 'attack',
+            warnings: [],
+          })
+          return calculationCount === 1
+            ? initialBatch
+            : deferredBatch.promise
+        }),
+      }
+      const createPresentation = (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? displayRequest,
+          scoreDisplayRequest: scoreRequest ?? scoreDisplayRequest,
+          rangePlans,
+        })
+      const runner = createAttackCanonicalRunner({
+        state,
+        calculationClient,
+        createPresentation,
+        onPresentation: (presentation, metadata) => {
+          presentations.push({ presentation, metadata })
+        },
+      })
+
+      await expect(runner.run({
+        displayRequest,
+        scoreDisplayRequest,
+      })).resolves.toBe(true)
+      expect(state.canonicalScoreDisplayPresentation).not.toBeNull()
+
+      const deferredCalculation = runner.run({
+        displayRequest,
+        scoreDisplayRequest,
+      })
+      state.canonicalScoreDisplayFeedback.status = failureKind === 'error'
+        ? 'error'
+        : 'rejected'
+      runner.invalidateScoreDisplay()
+      deferredBatch.resolve(createCanonicalScoreBatch())
+
+      await expect(deferredCalculation).resolves.toBe(true)
+      expect(state.canonicalTotalDamageReady).toBe(true)
+      expect(state.canonicalDisplayPresentation).not.toBeNull()
+      expect(state.canonicalDisplayPresentation.total).toBeDefined()
+      expect(state.canonicalDisplayPresentation.score).toBeNull()
+      expect(state.canonicalScoreDisplayPresentation).toBeNull()
+      expect(presentations.at(-1).metadata.scoreDisplaySuppressed).toBe(true)
+      expect(state.canonicalScoreDisplayFeedback.status).toBe(
+        failureKind === 'error' ? 'error' : 'rejected'
+      )
+    }
+  )
 })

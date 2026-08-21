@@ -4,6 +4,11 @@ import {
 } from './CalculationFeedback'
 
 const CANONICAL_COMBO_DEFAULTS = Object.freeze({
+  canonicalScore: null,
+  canonicalScoreSummary: null,
+  canonicalScoreBatchSummary: null,
+  canonicalScorePresentation: null,
+  canonicalScoreReady: false,
   canonicalDamage: null,
   canonicalDamageSummary: null,
   canonicalDamagePresentation: null,
@@ -190,6 +195,7 @@ export function ensureCanonicalComboData(data) {
 export function createCanonicalAttackState() {
   return {
     canonicalOptIn: false,
+    canonicalScoreDisplayPresentation: null,
     canonicalTotalDamage: null,
     canonicalTotalDamageSummary: null,
     canonicalTotalDamagePresentation: null,
@@ -197,11 +203,13 @@ export function createCanonicalAttackState() {
     canonicalTotalDamageReady: false,
     canonicalGeneration: 0,
     canonicalFeedback: createCalculationFeedbackState(),
+    canonicalScoreDisplayFeedback: createCalculationFeedbackState(),
     canonicalDisplayFeedback: createCalculationFeedbackState(),
   }
 }
 
 function clearCanonicalResults(state) {
+  state.canonicalScoreDisplayPresentation = null
   state.canonicalTotalDamage = null
   state.canonicalTotalDamageSummary = null
   state.canonicalTotalDamagePresentation = null
@@ -210,6 +218,9 @@ function clearCanonicalResults(state) {
 
   if (state.canonicalDisplayFeedback) {
     markCalculationAborted(state.canonicalDisplayFeedback)
+  }
+  if (state.canonicalScoreDisplayFeedback) {
+    markCalculationAborted(state.canonicalScoreDisplayFeedback)
   }
 
   if (!Array.isArray(state.combos)) {
@@ -220,6 +231,11 @@ function clearCanonicalResults(state) {
       continue
     }
     const data = ensureCanonicalComboData(combo.data)
+    data.canonicalScore = null
+    data.canonicalScoreSummary = null
+    data.canonicalScoreBatchSummary = null
+    data.canonicalScorePresentation = null
+    data.canonicalScoreReady = false
     data.canonicalDamage = null
     data.canonicalDamageSummary = null
     data.canonicalDamagePresentation = null
@@ -423,6 +439,24 @@ export function commitCanonicalAttackResult(
     const presentedCombo = presentation.combos[index]
     return {
       data,
+      canonicalScore: hasOwn(presentedCombo, 'canonicalScore')
+        ? presentedCombo.canonicalScore
+        : null,
+      canonicalScoreSummary: hasOwn(presentedCombo, 'canonicalScoreSummary')
+        ? presentedCombo.canonicalScoreSummary
+        : null,
+      canonicalScoreBatchSummary: hasOwn(
+        presentedCombo,
+        'canonicalScoreBatchSummary'
+      )
+        ? presentedCombo.canonicalScoreBatchSummary
+        : null,
+      canonicalScorePresentation: hasOwn(
+        presentedCombo,
+        'canonicalScorePresentation'
+      )
+        ? presentedCombo.canonicalScorePresentation
+        : null,
       canonicalDamage: batchCombo.canonicalDamage,
       canonicalDamageSummary: batchCombo.canonicalDamageSummary,
       canonicalDamagePresentation: isDisplayPresentation
@@ -436,12 +470,22 @@ export function commitCanonicalAttackResult(
 
   for (const {
     data,
+    canonicalScore,
+    canonicalScoreSummary,
+    canonicalScoreBatchSummary,
+    canonicalScorePresentation,
     canonicalDamage,
     canonicalDamageSummary,
     canonicalDamagePresentation,
     canonicalRangePlan,
   } of comboValues) {
     ensureCanonicalComboData(data)
+    data.canonicalScore = canonicalScore
+    data.canonicalScoreSummary = canonicalScoreSummary
+    data.canonicalScoreBatchSummary = canonicalScoreBatchSummary
+    data.canonicalScorePresentation = canonicalScorePresentation
+    data.canonicalScoreReady = canonicalScore !== null
+      && canonicalScore !== undefined
     data.canonicalDamage = canonicalDamage
     data.canonicalDamageSummary = canonicalDamageSummary
     data.canonicalDamagePresentation = canonicalDamagePresentation
@@ -454,6 +498,9 @@ export function commitCanonicalAttackResult(
   state.canonicalTotalDamagePresentation = isDisplayPresentation
     ? presentation.total.display
     : presentation.canonicalTotalDamagePresentation
+  state.canonicalScoreDisplayPresentation = isDisplayPresentation
+    ? presentation.score ?? null
+    : null
   state.canonicalDisplayPresentation = isDisplayPresentation
     ? presentation
     : null
@@ -505,6 +552,7 @@ export function commitCanonicalAttackDisplayPresentation(
     return false
   }
   state.canonicalDisplayPresentation = presentation
+  state.canonicalScoreDisplayPresentation = presentation.score ?? null
   return true
 }
 

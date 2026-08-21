@@ -28,21 +28,100 @@ export function createAttackCanonicalRunner({
 }) {
   let requestGeneration = null
   let displayRequestGeneration = 0
+  let scoreDisplayRequestGeneration = 0
+  let scoreDisplayEnabled = true
   let activeRequest = null
   let lastBatchResult = null
   let lastRangePlans = []
   let lastCanonicalEntries = null
+  let lastScoreDisplayRequest = null
 
   function clearRequestCache() {
     activeRequest = null
     lastBatchResult = null
     lastRangePlans = []
     lastCanonicalEntries = null
+    lastScoreDisplayRequest = null
+  }
+
+  function clearScoreDisplayPresentation() {
+    state.canonicalScoreDisplayPresentation = null
+    const current = state.canonicalDisplayPresentation
+    if (
+      current !== null
+      && typeof current === 'object'
+      && Object.prototype.hasOwnProperty.call(current, 'score')
+    ) {
+      state.canonicalDisplayPresentation = Object.freeze({
+        ...current,
+        score: null,
+      })
+    }
+  }
+
+  function suppressScoreDisplay(presentation, score = null) {
+    if (
+      presentation === null
+      || typeof presentation !== 'object'
+      || !Object.prototype.hasOwnProperty.call(presentation, 'score')
+    ) {
+      return presentation
+    }
+    return Object.freeze({
+      ...presentation,
+      score,
+    })
+  }
+
+  function createBatchPresentation(batchResult, request, scoreRequest) {
+    if (request === null) {
+      if (scoreRequest === null) {
+        return createPresentation(batchResult, activeRequest.rangePlans)
+      }
+      return createPresentation(
+        batchResult,
+        activeRequest.rangePlans,
+        undefined,
+        scoreRequest
+      )
+    }
+    if (scoreRequest === null) {
+      return createPresentation(
+        batchResult,
+        activeRequest.rangePlans,
+        request
+      )
+    }
+    return createPresentation(
+      batchResult,
+      activeRequest.rangePlans,
+      request,
+      scoreRequest
+    )
+  }
+
+  function mergeScoreOnlyPresentation(presentation) {
+    const current = state.canonicalDisplayPresentation
+    if (
+      current === null
+      || typeof current !== 'object'
+      || presentation === null
+      || typeof presentation !== 'object'
+      || !Object.prototype.hasOwnProperty.call(current, 'score')
+    ) {
+      return presentation
+    }
+    return Object.freeze({
+      ...current,
+      score: presentation.score ?? null,
+    })
   }
 
   function invalidateDisplayResult(presentation) {
     latestRunner.invalidate()
     displayRequestGeneration += 1
+    scoreDisplayRequestGeneration += 1
+    scoreDisplayEnabled = false
     requestGeneration = invalidateCanonicalAttackState(state)
     clearRequestCache()
     onDisplayRejected?.(presentation)
@@ -57,6 +136,9 @@ export function createAttackCanonicalRunner({
       onRangePlan,
       displayRequest,
       displayRequestGeneration: requestDisplayGeneration,
+      scoreDisplayRequest,
+      scoreDisplayRequestGeneration: requestScoreDisplayGeneration,
+      scoreDisplayEnabled: requestScoreDisplayEnabled,
     }) => {
       const requestRangePlans = []
       activeRequest = {
@@ -64,6 +146,9 @@ export function createAttackCanonicalRunner({
         rangePlans: requestRangePlans,
         displayRequest: displayRequest ?? null,
         displayRequestGeneration: requestDisplayGeneration ?? null,
+        scoreDisplayRequest: scoreDisplayRequest ?? null,
+        scoreDisplayRequestGeneration: requestScoreDisplayGeneration ?? null,
+        scoreDisplayEnabled: requestScoreDisplayEnabled === true,
       }
       return calculationClient.calculateAttackCanonicalBatch(
         entries,
@@ -96,18 +181,28 @@ export function createAttackCanonicalRunner({
       ) {
         return false
       }
-      const presentation = activeRequest.displayRequest === null
-        ? createPresentation(batchResult, activeRequest.rangePlans)
-        : createPresentation(
-            batchResult,
-            activeRequest.rangePlans,
-            activeRequest.displayRequest
+      const scoreDisplaySuppressed = !activeRequest.scoreDisplayEnabled
+        || (
+          activeRequest.scoreDisplayRequestGeneration !== null
+          && activeRequest.scoreDisplayRequestGeneration
+            !== scoreDisplayRequestGeneration
+        )
+      const presentation = createBatchPresentation(
+        batchResult,
+        activeRequest.displayRequest,
+        activeRequest.scoreDisplayRequest
+      )
+      const committedPresentation = scoreDisplaySuppressed
+        ? suppressScoreDisplay(
+            presentation,
+            state.canonicalScoreDisplayPresentation ?? null
           )
+        : presentation
       const committed = commitCanonicalAttackResult(
         state,
         requestGeneration,
         batchResult,
-        presentation
+        committedPresentation
       )
       if (!committed && requestGeneration === state.canonicalGeneration) {
         throw new Error('Canonical attack result was incomplete')
@@ -116,7 +211,12 @@ export function createAttackCanonicalRunner({
         lastBatchResult = batchResult
         lastRangePlans = activeRequest.rangePlans.slice()
         lastCanonicalEntries = activeRequest.entries
-        onPresentation?.(presentation)
+        if (!scoreDisplaySuppressed && activeRequest.scoreDisplayRequest !== null) {
+          lastScoreDisplayRequest = activeRequest.scoreDisplayRequest
+        }
+        onPresentation?.(committedPresentation, {
+          scoreDisplaySuppressed,
+        })
       }
       return committed
     },
@@ -139,6 +239,8 @@ export function createAttackCanonicalRunner({
       onRangePlan,
       displayRequest,
       displayRequestGeneration: suppliedDisplayRequestGeneration,
+      scoreDisplayRequest,
+      scoreDisplayRequestGeneration: suppliedScoreDisplayRequestGeneration,
       ...calculationOptions
     } = options ?? {}
     const requestDisplay = displayRequest === undefined
@@ -155,6 +257,27 @@ export function createAttackCanonicalRunner({
     ) {
       displayRequestGeneration = requestDisplayGeneration
     }
+
+    const hasScoreDisplayRequest = scoreDisplayRequest !== undefined
+    const requestScoreDisplay = hasScoreDisplayRequest
+      ? createAttackDisplayRequestSnapshot(scoreDisplayRequest)
+      : lastScoreDisplayRequest
+    if (hasScoreDisplayRequest) {
+      scoreDisplayEnabled = true
+    }
+    const requestScoreDisplayGeneration = requestScoreDisplay === null
+      ? null
+      : Number.isSafeInteger(suppliedScoreDisplayRequestGeneration)
+        ? suppliedScoreDisplayRequestGeneration
+        : hasScoreDisplayRequest
+          ? ++scoreDisplayRequestGeneration
+          : scoreDisplayRequestGeneration
+    if (
+      requestScoreDisplayGeneration !== null
+      && requestScoreDisplayGeneration > scoreDisplayRequestGeneration
+    ) {
+      scoreDisplayRequestGeneration = requestScoreDisplayGeneration
+    }
     return latestRunner.run({
       entries: snapshotCanonicalAttackEntries(state.combos),
       calculationOptions,
@@ -162,6 +285,9 @@ export function createAttackCanonicalRunner({
       onRangePlan,
       displayRequest: requestDisplay,
       displayRequestGeneration: requestDisplayGeneration,
+      scoreDisplayRequest: requestScoreDisplay,
+      scoreDisplayRequestGeneration: requestScoreDisplayGeneration,
+      scoreDisplayEnabled,
     })
   }
 
@@ -170,8 +296,27 @@ export function createAttackCanonicalRunner({
     invalidate() {
       latestRunner.invalidate()
       displayRequestGeneration += 1
+      scoreDisplayRequestGeneration += 1
+      scoreDisplayEnabled = false
       requestGeneration = null
       clearRequestCache()
+    },
+    invalidateScoreDisplay() {
+      // Score-only failures must not touch the Damage/batch generation. The
+      // next batch commit may still publish Damage, but its Score payload is
+      // suppressed by this independent generation and state flag.
+      scoreDisplayRequestGeneration += 1
+      scoreDisplayEnabled = false
+      lastScoreDisplayRequest = null
+      clearScoreDisplayPresentation()
+    },
+    invalidateDisplayPresentation() {
+      // Keep the old hook as a Score-only alias for callers that have not yet
+      // switched to the explicit method name.
+      scoreDisplayRequestGeneration += 1
+      scoreDisplayEnabled = false
+      lastScoreDisplayRequest = null
+      clearScoreDisplayPresentation()
     },
     refreshPresentation(options = {}) {
       if (
@@ -187,8 +332,19 @@ export function createAttackCanonicalRunner({
         return false
       }
 
-      const nextDisplayRequestGeneration = ++displayRequestGeneration
-      const presentation = createDisplayPresentation
+      const scoreOnly = options.scoreOnly === true
+      const nextDisplayRequestGeneration = scoreOnly
+        ? displayRequestGeneration
+        : ++displayRequestGeneration
+      if (scoreOnly) {
+        scoreDisplayRequestGeneration += 1
+        scoreDisplayEnabled = true
+      }
+      const requestedScoreDisplayRequest =
+        Object.prototype.hasOwnProperty.call(options, 'scoreDisplayRequest')
+          ? createAttackDisplayRequestSnapshot(options.scoreDisplayRequest)
+          : lastScoreDisplayRequest
+      let presentation = createDisplayPresentation
         ? createDisplayPresentation({
             ...options,
             state,
@@ -202,26 +358,45 @@ export function createAttackCanonicalRunner({
                   ),
                 }
               : {}),
+            ...(requestedScoreDisplayRequest !== null
+              ? { scoreDisplayRequest: requestedScoreDisplayRequest }
+              : {}),
           })
-        : Object.prototype.hasOwnProperty.call(options, 'displayRequest')
-          ? createPresentation(
-              lastBatchResult,
-              lastRangePlans,
-              createAttackDisplayRequestSnapshot(options.displayRequest)
-            )
-          : createPresentation(lastBatchResult, lastRangePlans)
+        : createPresentation(
+            lastBatchResult,
+            lastRangePlans,
+            Object.prototype.hasOwnProperty.call(options, 'displayRequest')
+              ? createAttackDisplayRequestSnapshot(options.displayRequest)
+              : undefined,
+            requestedScoreDisplayRequest ?? undefined
+          )
 
       const decision = presentation?.decision
       if (
-        decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
-        || decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+        scoreOnly
+        && (
+          decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+          || decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+          || decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+        )
+      ) {
+        presentation = mergeScoreOnlyPresentation(presentation)
+      }
+      if (
+        !scoreOnly
+        && (
+          decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+          || decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+        )
       ) {
         invalidateDisplayResult(presentation)
         return false
       }
 
       if (
-        decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+        !scoreOnly
+        && decision
+          === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
       ) {
         let requestedDisplayRequest
         if (Object.prototype.hasOwnProperty.call(options, 'displayRequest')) {
@@ -242,22 +417,38 @@ export function createAttackCanonicalRunner({
           ...calculationOptions,
           displayRequest: requestedDisplayRequest,
           displayRequestGeneration: nextDisplayRequestGeneration,
+          ...(requestedScoreDisplayRequest !== null
+            ? { scoreDisplayRequest: requestedScoreDisplayRequest }
+            : {}),
         })
       }
 
+      const committedPresentation = scoreDisplayEnabled
+        ? presentation
+        : suppressScoreDisplay(
+            presentation,
+            state.canonicalScoreDisplayPresentation ?? null
+          )
       const committed = commitCanonicalAttackDisplayPresentation(
         state,
         requestGeneration,
-        presentation
+        committedPresentation
       )
       if (committed) {
-        onPresentation?.(presentation)
+        if (scoreOnly && requestedScoreDisplayRequest !== null) {
+          lastScoreDisplayRequest = requestedScoreDisplayRequest
+        }
+        onPresentation?.(committedPresentation, {
+          scoreDisplaySuppressed: !scoreDisplayEnabled,
+        })
       }
       return committed
     },
     dispose() {
       latestRunner.dispose()
       displayRequestGeneration += 1
+      scoreDisplayRequestGeneration += 1
+      scoreDisplayEnabled = false
       requestGeneration = null
       clearRequestCache()
     },

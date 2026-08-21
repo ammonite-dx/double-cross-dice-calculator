@@ -7,6 +7,9 @@ const DISPLAY_FEEDBACK_CODES = Object.freeze({
   RESOURCE_REJECTED: 'attack-display-resource-rejected',
   NOT_PROJECTABLE: 'attack-display-not-projectable',
   SUMMARY_NOT_PROJECTABLE: 'attack-summary-not-projectable',
+  SCORE_RECALCULATE: 'attack-score-display-recalculate',
+  SCORE_RESOURCE_REJECTED: 'attack-score-display-resource-rejected',
+  SCORE_NOT_PROJECTABLE: 'attack-score-display-not-projectable',
 })
 
 function isRecord(value) {
@@ -25,6 +28,15 @@ function getSides(presentation) {
     ...(Array.isArray(presentation?.combos) ? presentation.combos : []),
     ...(isRecord(presentation?.total) ? [presentation.total] : []),
   ]
+}
+
+function getScoreSides(presentation) {
+  return (Array.isArray(presentation?.combos)
+    ? presentation.combos
+    : []
+  )
+    .map((combo) => combo?.action)
+    .filter((side) => isRecord(side))
 }
 
 function getDisplayWindow(presentation, side) {
@@ -166,4 +178,75 @@ export function createAttackCanonicalDisplayFeedback(presentation) {
   }
 }
 
+/**
+ * Adapt the independent canonical Score display decision to the same
+ * RangePlanNotice feedback lane. Score coverage is deliberately terminal in
+ * this phase: this helper never asks the calculation runner to recalculate.
+ */
+export function createAttackCanonicalScoreDisplayFeedback(presentation) {
+  if (!isRecord(presentation)) {
+    return {
+      status: 'idle',
+      plan: null,
+      error: null,
+    }
+  }
+
+  const sides = getScoreSides(presentation)
+  const decision = presentation.decision
+  if (decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED) {
+    return {
+      status: 'rejected',
+      plan: createRejectedPlan(
+        presentation,
+        sides,
+        DISPLAY_FEEDBACK_CODES.SCORE_RESOURCE_REJECTED
+      ),
+      error: null,
+    }
+  }
+
+  if (decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE) {
+    return {
+      status: 'rejected',
+      plan: createRejectedPlan(
+        presentation,
+        sides,
+        DISPLAY_FEEDBACK_CODES.SCORE_NOT_PROJECTABLE
+      ),
+      error: null,
+    }
+  }
+
+  if (
+    decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    || presentation.status === 'not-ready'
+  ) {
+    return {
+      status: 'rejected',
+      plan: createRejectedPlan(
+        presentation,
+        sides,
+        DISPLAY_FEEDBACK_CODES.SCORE_RECALCULATE
+      ),
+      error: null,
+    }
+  }
+
+  const warningPlan = sides.find((side) =>
+    Array.isArray(side?.plan?.warnings) && side.plan.warnings.length > 0
+  )?.plan ?? null
+  return {
+    status: 'idle',
+    plan: warningPlan,
+    error: null,
+  }
+}
+
 export const ATTACK_CANONICAL_DISPLAY_FEEDBACK_CODES = DISPLAY_FEEDBACK_CODES
+
+export const ATTACK_CANONICAL_SCORE_DISPLAY_FEEDBACK_CODES = Object.freeze({
+  RECALCULATE: DISPLAY_FEEDBACK_CODES.SCORE_RECALCULATE,
+  RESOURCE_REJECTED: DISPLAY_FEEDBACK_CODES.SCORE_RESOURCE_REJECTED,
+  NOT_PROJECTABLE: DISPLAY_FEEDBACK_CODES.SCORE_NOT_PROJECTABLE,
+})
