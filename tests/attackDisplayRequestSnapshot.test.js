@@ -193,4 +193,31 @@ describe('Attack display request snapshot', () => {
     expect(plan.propagation.calculationMax).toBe(1200)
     expect(plan.damage.workingMax).toBeGreaterThanOrEqual(1200)
   })
+
+  it('composes Damage and Score display windows without shrinking either range', () => {
+    const policy = createAttackRangePolicy(
+      {
+        min: 0,
+        max: 300,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      },
+      { calculationMax: 100 },
+      {
+        min: 900,
+        max: 1200,
+        mode: ATTACK_DISPLAY_MODES.UPPER_TAIL,
+      }
+    )
+
+    expect(policy.calculationMax).toBe(1200)
+    expect(policy.display).toMatchObject({
+      defaultMin: 0,
+      defaultMax: 1200,
+      maxPoints: 1201,
+    })
+    expect(policy.calculationMax).toBeGreaterThanOrEqual(300)
+    expect(policy.calculationMax).toBeGreaterThanOrEqual(1200)
+    expect(Object.isFrozen(policy)).toBe(true)
+    expect(Object.isFrozen(policy.display)).toBe(true)
+  })
 })

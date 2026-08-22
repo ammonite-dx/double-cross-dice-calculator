@@ -170,6 +170,142 @@ describe('Attack canonical score display adapter', () => {
     expect(chart.datasets[0].data).toEqual([100, 0, 0, 0])
   })
 
+  it('reaches ready Score coverage through the production calculation client after expansion', async () => {
+    const damage = createEnvelope([1], 0)
+    const planningPolicies = []
+    const client = createCalculationClient({
+      calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+      calculateDxDistribution,
+      calculateScore: vi.fn((...args) => calculateScore(...args)),
+      calculateScoreCanonical,
+      getCanonicalDamageSummary,
+      getCanonicalTotalDamageSummary,
+      getDamageRollDistribution: vi.fn(),
+      getD10Distribution: vi.fn(),
+      loadD10Asset: vi.fn(async () => {}),
+      planCalculationRanges: vi.fn((_params, policy = {}) => {
+        planningPolicies.push(policy)
+        const calculationMax = policy.calculationMax ?? 1
+        return {
+          accepted: true,
+          operation: 'attack',
+          propagation: { score: 'published-bucket' },
+          scores: [
+            { workingLength: calculationMax + 2, fftLength: 0, tail: {} },
+            { workingLength: calculationMax + 2, fftLength: 0, tail: {} },
+          ],
+          damage: {
+            scoreValueMode: 'published-bucket',
+            fixedDifference: 0,
+            rawSupportMax: 0,
+            workingMax: 0,
+            workingLength: 2,
+            defenceMax: 0,
+            fftLength: 2,
+            defenceFftLength: 2,
+          },
+        }
+      }),
+      resourceGuard: {
+        acquirePlan: vi.fn(() => ({ release: vi.fn() })),
+      },
+      sumCanonicalDamage,
+    })
+    const state = {
+      ...createCanonicalAttackState(),
+      canonicalOptIn: true,
+      combos: [{
+        id: 'production-score-expansion',
+        data: {
+          params: {
+            action: {
+              score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+              damage: { dice: 0, value: 0, kazanari: 0 },
+            },
+            reaction: {
+              mode: 'ドッジ',
+              score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+              damage: { dice: 0, value: 0 },
+            },
+          },
+          ...createCanonicalComboDataState(),
+        },
+      }],
+    }
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 1022,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const expandedScoreRequest = {
+      min: 0,
+      max: 1025,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const createSource = (currentState) => ({
+      combos: currentState.combos.map((combo) => ({
+        id: combo.id,
+        canonicalScore: combo.data.canonicalScore,
+        canonicalScoreSummary: combo.data.canonicalScoreSummary,
+        canonicalScoreBatchSummary: combo.data.canonicalScoreBatchSummary,
+        canonicalScorePresentation: combo.data.canonicalScorePresentation,
+        canonicalDamagePresentation:
+          combo.data.canonicalDamagePresentation,
+        canonicalRangePlan: combo.data.canonicalRangePlan,
+      })),
+      canonicalTotalDamagePresentation:
+        currentState.canonicalTotalDamagePresentation,
+    })
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient: client,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? damageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createSource(currentState),
+        {
+          displayRequest: displayRequest ?? damageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+        }
+      ),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+      rangePolicy: { calculationMax: 1022 },
+    })).resolves.toBe(true)
+    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
+
+    await expect(runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: expandedScoreRequest,
+      scoreOnly: true,
+      calculationOptions: { rangePolicy: { calculationMax: 1025 } },
+    })).resolves.toBe(true)
+
+    expect(planningPolicies).toEqual([
+      { calculationMax: 1022 },
+      { calculationMax: 1025 },
+    ])
+    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
+    expect(state.canonicalScoreDisplayPresentation.displayRequest)
+      .toEqual(expandedScoreRequest)
+  })
+
   it('projects the action side with one-decimal percentages and keeps reaction atomic', () => {
     const score = createEnvelope([0.12345, 0.87655], 1)
     const presentation = createAttackCanonicalDisplayPresentation(

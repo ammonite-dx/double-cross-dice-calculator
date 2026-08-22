@@ -10,7 +10,11 @@ import {
   snapshotCanonicalAttackEntries,
 } from './AttackCanonicalState'
 import { createAttackDisplayRequestSnapshot } from './AttackDisplayRequestSnapshot'
-import { createLatestCalculationRunner } from './CalculationFeedback'
+import {
+  beginCalculation,
+  createLatestCalculationRunner,
+  markCalculationAborted,
+} from './CalculationFeedback'
 
 /**
  * Connect the canonical attack batch client to a latest-request runner.
@@ -35,6 +39,8 @@ export function createAttackCanonicalRunner({
   let lastRangePlans = []
   let lastCanonicalEntries = null
   let lastScoreDisplayRequest = null
+  let preserveCanonicalResultOnNextRun = false
+  let scoreDisplayRecalculationActive = false
 
   function clearRequestCache() {
     activeRequest = null
@@ -42,6 +48,7 @@ export function createAttackCanonicalRunner({
     lastRangePlans = []
     lastCanonicalEntries = null
     lastScoreDisplayRequest = null
+    preserveCanonicalResultOnNextRun = false
   }
 
   function clearScoreDisplayPresentation() {
@@ -57,6 +64,42 @@ export function createAttackCanonicalRunner({
         score: null,
       })
     }
+  }
+
+  function beginScoreDisplayRecalculation() {
+    // Keep the canonical batch and the Damage presentation available while
+    // the expanded Score batch is pending, but never expose the old Score as
+    // if it belonged to the new window.
+    scoreDisplayRecalculationActive = true
+    lastScoreDisplayRequest = null
+    clearScoreDisplayPresentation()
+    if (state.canonicalScoreDisplayFeedback) {
+      beginCalculation(state.canonicalScoreDisplayFeedback)
+    }
+  }
+
+  function cancelScoreDisplayRecalculation() {
+    if (!scoreDisplayRecalculationActive) {
+      return
+    }
+    scoreDisplayRecalculationActive = false
+    if (
+      state.canonicalScoreDisplayFeedback
+      && state.canonicalScoreDisplayFeedback.status === 'loading'
+    ) {
+      markCalculationAborted(state.canonicalScoreDisplayFeedback)
+    }
+  }
+
+  function invalidateScoreDisplay() {
+    // Score-only failures must not touch the Damage/batch generation. The
+    // next batch commit may still publish Damage, but its Score payload is
+    // suppressed by this independent generation and state flag.
+    scoreDisplayRequestGeneration += 1
+    scoreDisplayEnabled = false
+    lastScoreDisplayRequest = null
+    cancelScoreDisplayRecalculation()
+    clearScoreDisplayPresentation()
   }
 
   function suppressScoreDisplay(presentation, score = null) {
@@ -163,8 +206,31 @@ export function createAttackCanonicalRunner({
       )
     },
     clearResult: () => {
+      if (preserveCanonicalResultOnNextRun) {
+        preserveCanonicalResultOnNextRun = false
+        return
+      }
+      cancelScoreDisplayRecalculation()
+      const scoreFeedback = state.canonicalScoreDisplayFeedback
+      const preservedScoreFeedback = !scoreDisplayEnabled
+        && (
+          scoreFeedback?.status === 'rejected'
+          || scoreFeedback?.status === 'error'
+        )
+        ? {
+            status: scoreFeedback.status,
+            plan: scoreFeedback.plan ?? null,
+            error: scoreFeedback.error ?? null,
+          }
+        : null
       requestGeneration = invalidateCanonicalAttackState(state)
       clearRequestCache()
+      if (preservedScoreFeedback !== null) {
+        Object.assign(
+          state.canonicalScoreDisplayFeedback,
+          preservedScoreFeedback
+        )
+      }
     },
     commitResult: (batchResult) => {
       if (
@@ -214,6 +280,15 @@ export function createAttackCanonicalRunner({
         if (!scoreDisplaySuppressed && activeRequest.scoreDisplayRequest !== null) {
           lastScoreDisplayRequest = activeRequest.scoreDisplayRequest
         }
+        if (scoreDisplayRecalculationActive) {
+          scoreDisplayRecalculationActive = false
+          if (
+            scoreDisplaySuppressed
+            && state.canonicalScoreDisplayFeedback?.status === 'loading'
+          ) {
+            markCalculationAborted(state.canonicalScoreDisplayFeedback)
+          }
+        }
         onPresentation?.(committedPresentation, {
           scoreDisplaySuppressed,
         })
@@ -226,7 +301,11 @@ export function createAttackCanonicalRunner({
       // an old canonical panel cannot survive an error as a stale display.
       requestGeneration = invalidateCanonicalAttackState(state)
       clearRequestCache()
+      scoreDisplayRecalculationActive = false
       onError?.(error)
+    },
+    onCancelled: () => {
+      cancelScoreDisplayRecalculation()
     },
   })
 
@@ -241,6 +320,7 @@ export function createAttackCanonicalRunner({
       displayRequestGeneration: suppliedDisplayRequestGeneration,
       scoreDisplayRequest,
       scoreDisplayRequestGeneration: suppliedScoreDisplayRequestGeneration,
+      preserveCanonicalResult,
       ...calculationOptions
     } = options ?? {}
     const requestDisplay = displayRequest === undefined
@@ -278,8 +358,12 @@ export function createAttackCanonicalRunner({
     ) {
       scoreDisplayRequestGeneration = requestScoreDisplayGeneration
     }
+    const entries = snapshotCanonicalAttackEntries(state.combos)
+    preserveCanonicalResultOnNextRun = preserveCanonicalResult === true
+      && lastBatchResult !== null
+      && lastCanonicalEntries !== null
     return latestRunner.run({
-      entries: snapshotCanonicalAttackEntries(state.combos),
+      entries,
       calculationOptions,
       signal,
       onRangePlan,
@@ -302,21 +386,12 @@ export function createAttackCanonicalRunner({
       clearRequestCache()
     },
     invalidateScoreDisplay() {
-      // Score-only failures must not touch the Damage/batch generation. The
-      // next batch commit may still publish Damage, but its Score payload is
-      // suppressed by this independent generation and state flag.
-      scoreDisplayRequestGeneration += 1
-      scoreDisplayEnabled = false
-      lastScoreDisplayRequest = null
-      clearScoreDisplayPresentation()
+      invalidateScoreDisplay()
     },
     invalidateDisplayPresentation() {
       // Keep the old hook as a Score-only alias for callers that have not yet
       // switched to the explicit method name.
-      scoreDisplayRequestGeneration += 1
-      scoreDisplayEnabled = false
-      lastScoreDisplayRequest = null
-      clearScoreDisplayPresentation()
+      invalidateScoreDisplay()
     },
     refreshPresentation(options = {}) {
       if (
@@ -344,6 +419,12 @@ export function createAttackCanonicalRunner({
         Object.prototype.hasOwnProperty.call(options, 'scoreDisplayRequest')
           ? createAttackDisplayRequestSnapshot(options.scoreDisplayRequest)
           : lastScoreDisplayRequest
+      let requestedDisplayRequest
+      if (Object.prototype.hasOwnProperty.call(options, 'displayRequest')) {
+        requestedDisplayRequest = createAttackDisplayRequestSnapshot(
+          options.displayRequest
+        )
+      }
       let presentation = createDisplayPresentation
         ? createDisplayPresentation({
             ...options,
@@ -371,16 +452,73 @@ export function createAttackCanonicalRunner({
             requestedScoreDisplayRequest ?? undefined
           )
 
-      const decision = presentation?.decision
+      if (requestedDisplayRequest === undefined) {
+        if (presentation?.displayRequest !== undefined) {
+          requestedDisplayRequest = createAttackDisplayRequestSnapshot(
+            presentation.displayRequest
+          )
+        } else if (activeRequest?.displayRequest !== null
+          && activeRequest?.displayRequest !== undefined) {
+          requestedDisplayRequest = createAttackDisplayRequestSnapshot(
+            activeRequest.displayRequest
+          )
+        }
+      }
+
+      // Score coverage is a presentation-local decision. Do not let a Score
+      // miss accidentally take the Damage path, because a Score expansion
+      // must recalculate the whole canonical batch atomically only when the
+      // Score action side itself needs new coverage.
+      const damageDecision = presentation?.decision
+      const scoreDecision = presentation?.score?.decision
+      const decision = scoreOnly
+        ? scoreDecision
+        : damageDecision
+      let scoreDisplaySuppressedForRefresh = false
+      if (
+        scoreOnly
+        && decision
+          === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+      ) {
+        // The caller normally performs this preflight before entering the
+        // runner. Keep the runner safe for direct callers too: a Score-only
+        // resource rejection invalidates Score presentation only and never
+        // clears or recalculates the committed Damage batch.
+        invalidateScoreDisplay()
+        return false
+      }
       if (
         scoreOnly
         && (
-          decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
-          || decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
-          || decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+          damageDecision
+            === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+          || damageDecision
+            === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+          || damageDecision
+            === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+          || decision
+            === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
         )
+        && decision
+          !== ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
       ) {
         presentation = mergeScoreOnlyPresentation(presentation)
+      }
+      if (
+        !scoreOnly
+        && (
+          scoreDecision
+            === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+          || scoreDecision
+            === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+        )
+      ) {
+        // A Score-only resource/projection failure must not turn a normal
+        // Damage refresh into a rejected request. Suppress the Score payload
+        // locally, then continue with the independent Damage decision.
+        scoreDisplaySuppressedForRefresh = true
+        invalidateScoreDisplay()
+        presentation = suppressScoreDisplay(presentation, null)
       }
       if (
         !scoreOnly
@@ -395,19 +533,30 @@ export function createAttackCanonicalRunner({
 
       if (
         !scoreOnly
+        && scoreDecision
+          === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+        && requestedScoreDisplayRequest !== null
+        && !scoreDisplaySuppressedForRefresh
+      ) {
+        if (requestedDisplayRequest === undefined) {
+          invalidateDisplayResult(presentation)
+          return false
+        }
+        const calculationOptions = options.calculationOptions ?? {}
+        beginScoreDisplayRecalculation()
+        return run({
+          ...calculationOptions,
+          displayRequest: requestedDisplayRequest,
+          displayRequestGeneration: nextDisplayRequestGeneration,
+          scoreDisplayRequest: requestedScoreDisplayRequest,
+        })
+      }
+
+      if (
+        !scoreOnly
         && decision
           === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
       ) {
-        let requestedDisplayRequest
-        if (Object.prototype.hasOwnProperty.call(options, 'displayRequest')) {
-          requestedDisplayRequest = createAttackDisplayRequestSnapshot(
-            options.displayRequest
-          )
-        } else if (presentation?.displayRequest !== undefined) {
-          requestedDisplayRequest = createAttackDisplayRequestSnapshot(
-            presentation.displayRequest
-          )
-        }
         if (requestedDisplayRequest === undefined) {
           invalidateDisplayResult(presentation)
           return false
@@ -417,9 +566,39 @@ export function createAttackCanonicalRunner({
           ...calculationOptions,
           displayRequest: requestedDisplayRequest,
           displayRequestGeneration: nextDisplayRequestGeneration,
-          ...(requestedScoreDisplayRequest !== null
+          ...(
+            requestedScoreDisplayRequest !== null
+            && !scoreDisplaySuppressedForRefresh
             ? { scoreDisplayRequest: requestedScoreDisplayRequest }
-            : {}),
+          : {}),
+        })
+      }
+
+      if (
+        scoreOnly
+        && decision
+          === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+      ) {
+        if (
+          requestedDisplayRequest === undefined
+          || requestedScoreDisplayRequest === null
+        ) {
+          // There is no safe batch snapshot to run. Preserve the committed
+          // Damage result while suppressing the stale Score independently.
+          invalidateScoreDisplay()
+          return false
+        }
+        const calculationOptions = options.calculationOptions ?? {}
+        const recalculationDisplayRequestGeneration =
+          ++displayRequestGeneration
+        beginScoreDisplayRecalculation()
+        return run({
+          ...calculationOptions,
+          displayRequest: requestedDisplayRequest,
+          displayRequestGeneration: recalculationDisplayRequestGeneration,
+          scoreDisplayRequest: requestedScoreDisplayRequest,
+          scoreDisplayRequestGeneration: scoreDisplayRequestGeneration,
+          preserveCanonicalResult: true,
         })
       }
 
@@ -435,7 +614,10 @@ export function createAttackCanonicalRunner({
         committedPresentation
       )
       if (committed) {
-        if (scoreOnly && requestedScoreDisplayRequest !== null) {
+        if (
+          requestedScoreDisplayRequest !== null
+          && scoreDisplayEnabled
+        ) {
           lastScoreDisplayRequest = requestedScoreDisplayRequest
         }
         onPresentation?.(committedPresentation, {

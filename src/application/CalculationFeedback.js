@@ -325,6 +325,7 @@ export function createLatestCalculationRunner({
   clearResult,
   commitResult,
   onError,
+  onCancelled,
   snapshotRequest,
 }) {
   const coordinator = createCalculationRequestCoordinator({
@@ -341,7 +342,10 @@ export function createLatestCalculationRunner({
     onPlan: (plan) => publishRangePlan(feedback, plan),
     commit: (result) => commitResult?.(result),
     onCommitted: () => completeCalculation(feedback),
-    onCancelled: () => markCalculationAborted(feedback),
+    onCancelled: (context) => {
+      markCalculationAborted(feedback)
+      onCancelled?.(context)
+    },
     onError: (error) => {
       recordCalculationError(feedback, error)
       if (isCalculationRangeError(error)) {

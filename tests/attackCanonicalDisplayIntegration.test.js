@@ -32,6 +32,21 @@ function createEnvelope(values, max = values.length - 1) {
   }
 }
 
+function createInfiniteEnvelope(values) {
+  return {
+    result: createDistributionResult({
+      values,
+      offset: 0,
+      support: { kind: 'infinite' },
+      overflow: null,
+    }),
+    metadata: {
+      modeledDistribution: true,
+      sourceSupport: { kind: 'infinite' },
+    },
+  }
+}
+
 function createParams() {
   return {
     action: {
@@ -113,12 +128,55 @@ function createCanonicalScoreBatch() {
   }
 }
 
+function createCanonicalScoreBatchWithInfiniteScoreSupport() {
+  const batch = createCanonicalScoreBatch()
+  batch.combos[0].score = {
+    action: createInfiniteEnvelope([0.25, 0.75]),
+    reaction: createInfiniteEnvelope([0.5, 0.5]),
+  }
+  return batch
+}
+
+function createCanonicalScoreExpansion(actionValues, reactionValues = actionValues) {
+  const damage = createEnvelope([1], 0)
+  const score = {
+    action: createInfiniteEnvelope(actionValues),
+    reaction: createInfiniteEnvelope(reactionValues),
+  }
+  const scoreSummary = {
+    action: {
+      expectedValue: { kind: 'exact', value: 1 },
+      successRate: { kind: 'exact', value: 50 },
+    },
+    reaction: {
+      expectedValue: { kind: 'exact', value: 1 },
+      successRate: { kind: 'exact', value: 50 },
+    },
+  }
+  return {
+    combos: [{
+      id: 'combo-1',
+      score,
+      scoreSummary,
+      canonicalDamage: damage,
+      canonicalDamageSummary: getCanonicalDamageSummary(damage),
+    }],
+    canonicalTotalDamage: damage,
+    canonicalTotalDamageSummary: getCanonicalDamageSummary(damage),
+  }
+}
+
 function createCanonicalSource(state) {
   return {
     combos: state.combos.map((combo) => ({
       id: combo.id,
+      canonicalScore: combo.data.canonicalScore,
+      canonicalScoreSummary: combo.data.canonicalScoreSummary,
+      canonicalScoreBatchSummary: combo.data.canonicalScoreBatchSummary,
+      canonicalScorePresentation: combo.data.canonicalScorePresentation,
       canonicalDamagePresentation:
         combo.data.canonicalDamagePresentation,
+      canonicalRangePlan: combo.data.canonicalRangePlan,
     })),
     canonicalTotalDamagePresentation: state.canonicalTotalDamagePresentation,
   }
@@ -192,6 +250,749 @@ describe('Attack canonical display integration', () => {
 
     runner.dispose()
     expect(runner.refreshPresentation()).toBe(false)
+  })
+
+  it('reuses Score coverage and finite-support known-zero without a client call', async () => {
+    const state = createState()
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 1,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const batch = createCanonicalScoreBatch()
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+        options.onRangePlan({ operation: 'attack', warnings: [] })
+        return batch
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? damageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createCanonicalSource(currentState),
+        {
+          displayRequest: displayRequest ?? damageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+        }
+      ),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+    })).resolves.toBe(true)
+
+    expect(runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+      scoreOnly: true,
+    })).toBe(true)
+    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
+    expect(calculationClient.calculateAttackCanonicalBatch)
+      .toHaveBeenCalledOnce()
+
+    expect(runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: {
+        min: 2,
+        max: 3,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      },
+      scoreOnly: true,
+    })).toBe(true)
+    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
+    expect(Array.from(
+      state.canonicalScoreDisplayPresentation.combos[0].action.series.values
+    )).toEqual([0, 0])
+    expect(calculationClient.calculateAttackCanonicalBatch)
+      .toHaveBeenCalledOnce()
+  })
+
+  it('recalculates the canonical batch once when Score coverage is missing', async () => {
+    const state = createState()
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 1,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const expandedScoreRequest = {
+      min: 0,
+      max: 2,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialBatch = createCanonicalScoreBatchWithInfiniteScoreSupport()
+    const expandedBatch = createCanonicalScoreExpansion(
+      [0.2, 0.3, 0.5],
+      [0.5, 0.3, 0.2]
+    )
+    let calculationCount = 0
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        return calculationCount === 1 ? initialBatch : expandedBatch
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? damageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createCanonicalSource(currentState),
+        {
+          displayRequest: displayRequest ?? damageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+        }
+      ),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+    })).resolves.toBe(true)
+
+    const recalculation = runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: expandedScoreRequest,
+      scoreOnly: true,
+      calculationOptions: {
+        rangePolicy: { calculationMax: 1200 },
+      },
+    })
+
+    await expect(recalculation).resolves.toBe(true)
+    expect(calculationCount).toBe(2)
+    expect(calculationClient.calculateAttackCanonicalBatch)
+      .toHaveBeenCalledTimes(2)
+    const [, options] = calculationClient.calculateAttackCanonicalBatch
+      .mock.calls[1]
+    expect(options.rangePolicy).toEqual({ calculationMax: 1200 })
+    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
+    expect(state.canonicalScoreDisplayPresentation.displayRequest)
+      .toEqual(expandedScoreRequest)
+    expect(state.canonicalDisplayPresentation.displayRequest)
+      .toEqual(damageRequest)
+    expect(state.canonicalTotalDamage).toBe(expandedBatch.canonicalTotalDamage)
+  })
+
+  it('clears only public Score while a deferred Score expansion is running', async () => {
+    const state = createState()
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const expandedScoreRequest = {
+      min: 0,
+      max: 2,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialBatch = createCanonicalScoreBatchWithInfiniteScoreSupport()
+    const expandedBatch = createCanonicalScoreExpansion(
+      [0.2, 0.3, 0.5]
+    )
+    const deferredExpansion = createDeferred()
+    let calculationCount = 0
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        return calculationCount === 1
+          ? initialBatch
+          : deferredExpansion.promise
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? damageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createCanonicalSource(currentState),
+        {
+          displayRequest: displayRequest ?? damageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+        }
+      ),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+    })).resolves.toBe(true)
+    const previousDamagePresentation = state.canonicalDisplayPresentation
+    const previousDamageCombos = previousDamagePresentation.combos
+    const previousDamageTotal = previousDamagePresentation.total
+
+    const recalculation = runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: expandedScoreRequest,
+      scoreOnly: true,
+    })
+
+    expect(state.canonicalDisplayPresentation.score).toBeNull()
+    expect(state.canonicalScoreDisplayPresentation).toBeNull()
+    expect(state.canonicalScoreDisplayFeedback.status).toBe('loading')
+    expect(state.canonicalDisplayPresentation.combos)
+      .toBe(previousDamageCombos)
+    expect(state.canonicalDisplayPresentation.total)
+      .toBe(previousDamageTotal)
+    expect(state.canonicalTotalDamageReady).toBe(true)
+    expect(state.combos[0].data.canonicalScore).not.toBeNull()
+
+    deferredExpansion.resolve(expandedBatch)
+    await expect(recalculation).resolves.toBe(true)
+
+    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
+    expect(state.canonicalScoreDisplayPresentation.displayRequest)
+      .toEqual(expandedScoreRequest)
+    expect(state.canonicalScoreDisplayPresentation.combos[0]
+      .action.series.values)
+      .toEqual(new Float64Array([0.2, 0.3, 0.5]))
+    expect(calculationCount).toBe(2)
+  })
+
+  it.each(['abort', 'error'])(
+    'does not restore the old public Score after a deferred expansion %s',
+    async (failureKind) => {
+      const state = createState()
+      const damageRequest = {
+        min: 0,
+        max: 0,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      }
+      const initialScoreRequest = {
+        min: 0,
+        max: 0,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      }
+      const expandedScoreRequest = {
+        min: 0,
+        max: 2,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      }
+      const initialBatch = createCanonicalScoreBatchWithInfiniteScoreSupport()
+      const deferredExpansion = createDeferred()
+      const externalController = new AbortController()
+      let calculationCount = 0
+      const calculationClient = {
+        calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+          calculationCount += 1
+          options.onRangePlan({
+            id: `plan-${calculationCount}`,
+            operation: 'attack',
+            warnings: [],
+          })
+          if (calculationCount === 1) {
+            return initialBatch
+          }
+          if (failureKind === 'abort') {
+            return deferredExpansion.promise
+          }
+          throw new Error('score expansion failed')
+        }),
+      }
+      const runner = createAttackCanonicalRunner({
+        state,
+        calculationClient,
+        createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+          createAttackCanonicalDisplayPresentation(batchResult, {
+            displayRequest: request ?? damageRequest,
+            scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+            rangePlans,
+          }),
+        createDisplayPresentation: ({
+          state: currentState,
+          displayRequest,
+          scoreDisplayRequest,
+        }) => createAttackCanonicalDisplayPresentationFromCanonical(
+          createCanonicalSource(currentState),
+          {
+            displayRequest: displayRequest ?? damageRequest,
+            scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+          }
+        ),
+      })
+
+      await expect(runner.run({
+        displayRequest: damageRequest,
+        scoreDisplayRequest: initialScoreRequest,
+      })).resolves.toBe(true)
+      const recalculation = runner.refreshPresentation({
+        displayRequest: damageRequest,
+        scoreDisplayRequest: expandedScoreRequest,
+        scoreOnly: true,
+        calculationOptions: {
+          signal: externalController.signal,
+        },
+      })
+
+      expect(state.canonicalScoreDisplayPresentation).toBeNull()
+      expect(state.canonicalScoreDisplayFeedback.status).toBe('loading')
+      if (failureKind === 'abort') {
+        externalController.abort()
+        deferredExpansion.resolve(createCanonicalScoreExpansion(
+          [0.2, 0.3, 0.5]
+        ))
+      }
+
+      await expect(recalculation).resolves.toBe(false)
+      expect(state.canonicalScoreDisplayPresentation).toBeNull()
+      expect(state.canonicalDisplayPresentation?.score ?? null).toBeNull()
+      expect(state.canonicalScoreDisplayFeedback.status)
+        .not.toBe('loading')
+    }
+  )
+
+  it('rejects a Score display resource plan without clearing Damage or calling the client', async () => {
+    const state = createState()
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const rejectedScoreRequest = {
+      min: 0,
+      max: 1,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const batch = createCanonicalScoreBatch()
+    const displayPolicy = {
+      warning: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
+      hard: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
+    }
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+        options.onRangePlan({ operation: 'attack', warnings: [] })
+        return batch
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? damageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+          policy: displayPolicy,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createCanonicalSource(currentState),
+        {
+          displayRequest: displayRequest ?? damageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+          policy: displayPolicy,
+        }
+      ),
+    })
+
+    const initialResult = await runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+    })
+    expect(initialResult).toBe(true)
+    const previousDamage = state.canonicalDisplayPresentation.combos[0]
+      .display
+
+    expect(runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: rejectedScoreRequest,
+      scoreOnly: true,
+    })).toBe(false)
+
+    expect(calculationClient.calculateAttackCanonicalBatch)
+      .toHaveBeenCalledOnce()
+    expect(state.canonicalDisplayPresentation.combos[0].display)
+      .toBe(previousDamage)
+    expect(state.canonicalScoreDisplayPresentation).toBeNull()
+    expect(state.canonicalTotalDamageReady).toBe(true)
+  })
+
+  it('continues the Damage refresh when Score is resource-rejected', async () => {
+    const state = createState()
+    const initialDamageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const expandedDamageRequest = {
+      min: 0,
+      max: 1,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const rejectedScoreRequest = {
+      min: 0,
+      max: 2,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialBatch = createCanonicalScoreBatch()
+    const initialDamage = createInfiniteEnvelope([1])
+    initialBatch.combos[0].canonicalDamage = initialDamage
+    initialBatch.combos[0].canonicalDamageSummary =
+      getCanonicalDamageSummary(initialDamage)
+    initialBatch.canonicalTotalDamage = initialDamage
+    initialBatch.canonicalTotalDamageSummary =
+      getCanonicalDamageSummary(initialDamage)
+    const expandedBatch = createCanonicalScoreBatch()
+    const expandedDamage = createEnvelope([0.5, 0.5], 1)
+    expandedBatch.combos[0].canonicalDamage = expandedDamage
+    expandedBatch.combos[0].canonicalDamageSummary =
+      getCanonicalDamageSummary(expandedDamage)
+    expandedBatch.canonicalTotalDamage = expandedDamage
+    expandedBatch.canonicalTotalDamageSummary =
+      getCanonicalDamageSummary(expandedDamage)
+    const displayPolicy = {
+      warning: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
+      hard: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
+    }
+    let calculationCount = 0
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        return calculationCount === 1 ? initialBatch : expandedBatch
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? initialDamageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+          policy: displayPolicy,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createCanonicalSource(currentState),
+        {
+          displayRequest: displayRequest ?? initialDamageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+          policy: displayPolicy,
+        }
+      ),
+    })
+
+    await expect(runner.run({
+      displayRequest: initialDamageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+    })).resolves.toBe(true)
+
+    expect(runner.refreshPresentation({
+      displayRequest: initialDamageRequest,
+      scoreDisplayRequest: rejectedScoreRequest,
+    })).toBe(true)
+    expect(calculationCount).toBe(1)
+    expect(state.canonicalDisplayPresentation.displayRequest)
+      .toEqual(initialDamageRequest)
+    expect(state.canonicalDisplayPresentation.score).toBeNull()
+
+    await expect(runner.refreshPresentation({
+      displayRequest: expandedDamageRequest,
+      scoreDisplayRequest: rejectedScoreRequest,
+      calculationOptions: {
+        rangePolicy: { calculationMax: 1 },
+      },
+    })).resolves.toBe(true)
+
+    expect(calculationCount).toBe(2)
+    const [, options] = calculationClient.calculateAttackCanonicalBatch
+      .mock.calls[1]
+    expect(options.rangePolicy).toEqual({ calculationMax: 1 })
+    expect(state.canonicalDisplayPresentation.displayRequest)
+      .toEqual(expandedDamageRequest)
+    expect(state.canonicalDisplayPresentation.score).toBeNull()
+    expect(state.canonicalTotalDamage).toBe(expandedDamage)
+  })
+
+  it('keeps rapid Score expansions latest-wins', async () => {
+    const state = createState()
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const firstScoreRequest = {
+      min: 0,
+      max: 2,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const latestScoreRequest = {
+      min: 0,
+      max: 3,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialBatch = createCanonicalScoreBatchWithInfiniteScoreSupport()
+    const oldExpansion = createCanonicalScoreExpansion(
+      [0.2, 0.3, 0.3, 0.2]
+    )
+    const latestExpansion = createCanonicalScoreExpansion(
+      [0.1, 0.2, 0.3, 0.4]
+    )
+    const deferredExpansion = createDeferred()
+    const signals = []
+    let calculationCount = 0
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        signals.push(options.signal)
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        if (calculationCount === 1) {
+          return initialBatch
+        }
+        if (calculationCount === 2) {
+          return deferredExpansion.promise
+        }
+        return latestExpansion
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? damageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createCanonicalSource(currentState),
+        {
+          displayRequest: displayRequest ?? damageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+        }
+      ),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+    })).resolves.toBe(true)
+
+    const first = runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: firstScoreRequest,
+      scoreOnly: true,
+    })
+    const latest = runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: latestScoreRequest,
+      scoreOnly: true,
+    })
+    deferredExpansion.resolve(oldExpansion)
+
+    await expect(first).resolves.toBe(false)
+    await expect(latest).resolves.toBe(true)
+    expect(calculationCount).toBe(3)
+    expect(signals[1].aborted).toBe(true)
+    expect(state.canonicalScoreDisplayPresentation.displayRequest)
+      .toEqual(latestScoreRequest)
+    expect(Array.from(
+      state.canonicalScoreDisplayPresentation.combos[0].action.series.values
+    )).toEqual([0.1, 0.2, 0.3, 0.4])
+  })
+
+  it('blocks stale Score batches after input changes and opt-in invalidation', async () => {
+    const state = createState()
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialScoreRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const expandedScoreRequest = {
+      min: 0,
+      max: 2,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const initialBatch = createCanonicalScoreBatchWithInfiniteScoreSupport()
+    const oldExpansion = createCanonicalScoreExpansion(
+      [0.2, 0.3, 0.5]
+    )
+    const latestBatch = createCanonicalScoreExpansion(
+      [0.1, 0.2, 0.3, 0.4]
+    )
+    const deferredExpansion = createDeferred()
+    const deferredInvalidatedExpansion = createDeferred()
+    const signals = []
+    let calculationCount = 0
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        signals.push(options.signal)
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        if (calculationCount === 1) {
+          return initialBatch
+        }
+        if (calculationCount === 2) {
+          return deferredExpansion.promise
+        }
+        if (calculationCount === 3) {
+          return latestBatch
+        }
+        return deferredInvalidatedExpansion.promise
+      }),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
+        createAttackCanonicalDisplayPresentation(batchResult, {
+          displayRequest: request ?? damageRequest,
+          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
+          rangePlans,
+        }),
+      createDisplayPresentation: ({
+        state: currentState,
+        displayRequest,
+        scoreDisplayRequest,
+      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+        createCanonicalSource(currentState),
+        {
+          displayRequest: displayRequest ?? damageRequest,
+          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
+        }
+      ),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: initialScoreRequest,
+    })).resolves.toBe(true)
+
+    const scoreRecalculation = runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: expandedScoreRequest,
+      scoreOnly: true,
+    })
+    state.combos[0].data.params.action.score.dice = 2
+    const latestCalculation = runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: expandedScoreRequest,
+      rangePolicy: { calculationMax: 3 },
+    })
+    deferredExpansion.resolve(oldExpansion)
+
+    await expect(scoreRecalculation).resolves.toBe(false)
+    await expect(latestCalculation).resolves.toBe(true)
+    expect(signals[1].aborted).toBe(true)
+    expect(state.canonicalScoreDisplayPresentation.displayRequest)
+      .toEqual(expandedScoreRequest)
+    expect(state.combos[0].data.params.action.score.dice).toBe(2)
+
+    const invalidatedRecalculation = runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: {
+        min: 0,
+        max: 4,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      },
+      scoreOnly: true,
+    })
+    state.canonicalOptIn = false
+    runner.invalidate()
+    deferredInvalidatedExpansion.resolve(
+      createCanonicalScoreExpansion([0.1, 0.2, 0.3, 0.2, 0.2])
+    )
+
+    await expect(invalidatedRecalculation).resolves.toBe(false)
+    expect(signals[3].aborted).toBe(true)
+    expect(state.canonicalScoreDisplayPresentation).toBeNull()
   })
 
   it('recalculates once when coverage is insufficient inside finite support', async () => {

@@ -262,15 +262,33 @@
         }
     }
 
-    function runCanonicalCalculation(request = displayRequest) {
+    function runCanonicalCalculation(
+        request = displayRequest,
+        scoreRequest = scoreDisplayRequest
+    ) {
         const snapshot = createAttackDisplayRequestSnapshot(request);
+        const scoreSnapshot = createAttackDisplayRequestSnapshot(scoreRequest);
         if (!preflightCanonicalDisplay(snapshot)) {
             return Promise.resolve(false);
         }
+        const scoreDisplayReady = preflightCanonicalScoreDisplay(scoreSnapshot);
+        if (!scoreDisplayReady) {
+            // A Score display resource rejection is presentation-local. The
+            // input/Damage lane must still replace the old canonical batch,
+            // while the rejected Score request stays suppressed.
+            return canonicalCalculationRunner.run({
+                displayRequest: snapshot,
+                rangePolicy: createAttackRangePolicy(snapshot),
+            });
+        }
         return canonicalCalculationRunner.run({
             displayRequest: snapshot,
-            scoreDisplayRequest: createAttackDisplayRequestSnapshot(scoreDisplayRequest),
-            rangePolicy: createAttackRangePolicy(snapshot),
+            scoreDisplayRequest: scoreSnapshot,
+            rangePolicy: createAttackRangePolicy(
+                snapshot,
+                {},
+                scoreSnapshot
+            ),
         });
     }
 
@@ -361,10 +379,23 @@
         }
 
         try {
+            const scoreSnapshot = createAttackDisplayRequestSnapshot(
+                scoreDisplayRequest
+            );
+            const scoreDisplayReady = preflightCanonicalScoreDisplay(
+                scoreSnapshot
+            );
             const refreshed = canonicalCalculationRunner.refreshPresentation({
                 displayRequest: snapshot,
+                scoreDisplayRequest: scoreSnapshot,
                 calculationOptions: {
-                    rangePolicy: createAttackRangePolicy(snapshot),
+                    rangePolicy: scoreDisplayReady
+                        ? createAttackRangePolicy(
+                            snapshot,
+                            {},
+                            scoreSnapshot
+                        )
+                        : createAttackRangePolicy(snapshot),
                 },
             });
             if (!refreshed) {
@@ -390,11 +421,7 @@
         }
 
         if (attackData.canonicalTotalDamageReady !== true) {
-            canonicalCalculationRunner.invalidateScoreDisplay();
-            attackData.canonicalScoreDisplayPresentation = null;
-            attackData.canonicalScoreDisplayFeedback.status = 'idle';
-            attackData.canonicalScoreDisplayFeedback.plan = null;
-            attackData.canonicalScoreDisplayFeedback.error = null;
+            void runCanonicalCalculation(displayRequest, snapshot);
             return;
         }
 
@@ -404,7 +431,11 @@
                 scoreDisplayRequest: snapshot,
                 scoreOnly: true,
                 calculationOptions: {
-                    rangePolicy: createAttackRangePolicy(displayRequest),
+                    rangePolicy: createAttackRangePolicy(
+                        createAttackDisplayRequestSnapshot(displayRequest),
+                        {},
+                        snapshot
+                    ),
                 },
             });
             if (!refreshed) {
