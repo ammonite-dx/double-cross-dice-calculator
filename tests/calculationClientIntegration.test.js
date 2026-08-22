@@ -4,7 +4,19 @@ import {
   CalculationRangeError,
   createCalculationClient,
 } from '../src/application/CalculationClient'
-import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
+import {
+  ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
+  createAttackCanonicalDisplayPresentation,
+} from '../src/application/AttackCanonicalPresentation'
+import {
+  ATTACK_DISPLAY_MODES,
+  createAttackRangePolicy,
+} from '../src/application/AttackDisplayRequestSnapshot'
+import {
+  calculateCanonicalDamageOnDemand,
+  calculateDamageOnDemand,
+  getCanonicalDamageSummary,
+} from '../src/calculation/DamageCalculator'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
@@ -46,6 +58,7 @@ registerDxAsset(dxShihai19)
 registerLivingdeadAsset(livingdead)
 
 const calculationClient = createCalculationClient({
+  calculateCanonicalDamageOnDemand,
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore,
@@ -56,6 +69,7 @@ const calculationClient = createCalculationClient({
   getScoreSummary,
   getTotalDamage,
   getDamageSummary,
+  getCanonicalDamageSummary,
   loadD10Asset,
   loadLivingdeadAsset,
 })
@@ -87,6 +101,52 @@ const scoreParams = {
 }
 
 describe('CalculationClient integration', () => {
+  it('covers the default Attack damage display window in the production client', async () => {
+    const params = {
+      action: {
+        score: { ...scoreParams },
+        damage: { dice: 0, value: 0, kazanari: 0 },
+      },
+      reaction: {
+        mode: 'ドッジ',
+        score: { ...scoreParams },
+        damage: { dice: 0, value: 0 },
+      },
+    }
+    const displayRequest = {
+      min: 0,
+      max: 100,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const rangePlans = []
+    const batch = await calculationClient.calculateAttackCanonicalBatch(
+      [{ id: 0, params }],
+      {
+        rangePolicy: createAttackRangePolicy(
+          displayRequest,
+          {},
+          displayRequest
+        ),
+        onRangePlan: (plan) => rangePlans.push(plan),
+      }
+    )
+    const presentation = createAttackCanonicalDisplayPresentation(batch, {
+      displayRequest,
+      scoreDisplayRequest: displayRequest,
+      rangePlans,
+    })
+
+    expect(presentation.combos[0].decision).not.toBe(
+      ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    )
+    expect(presentation.total.decision).not.toBe(
+      ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    )
+    expect(presentation.total.status).toBe('ready')
+    expect(presentation.combos[0].chart).not.toBeNull()
+    expect(presentation.total.chart).not.toBeNull()
+  })
+
   it('accepts representative current UI upper bounds with the default policy', () => {
     const checkPlan = calculationClient.planCheck({
       action: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },

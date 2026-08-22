@@ -229,6 +229,32 @@ describe('canonical damage aggregation', () => {
     })
   })
 
+  it('preserves the lower bound when overflow has only numerical uncertainty', () => {
+    const aggregate = sumCanonicalDamage([
+      createEnvelope({
+        values: [0.5, 0.5],
+        support: { kind: 'finite', max: 10 },
+        overflow: {
+          kind: 'exact',
+          lowerBound: 10,
+          probability: 0,
+          errorBound: 1e-9,
+        },
+      }),
+      createEnvelope({
+        values: [1],
+        support: { kind: 'finite', max: 2 },
+      }),
+    ])
+
+    expect(aggregate.result.overflow).toEqual({
+      kind: 'exact',
+      lowerBound: 10,
+      probability: 0,
+      errorBound: 1e-9,
+    })
+  })
+
   it('keeps an empty explicit range empty and preserves inert error metadata', () => {
     const aggregate = sumCanonicalDamage([
       createEnvelope({

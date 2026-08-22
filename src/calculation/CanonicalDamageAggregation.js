@@ -443,9 +443,10 @@ function hasPotentialTail(overflow) {
   if (overflow === null) {
     return false
   }
-  return overflow.kind === 'exact'
-    ? overflow.probability > 0
-    : overflow.probabilityUpperBound > 0
+  return overflow.errorBound > 0
+    || (overflow.kind === 'exact'
+      ? overflow.probability > 0
+      : overflow.probabilityUpperBound > 0)
 }
 
 function getTailProbability(overflow) {
