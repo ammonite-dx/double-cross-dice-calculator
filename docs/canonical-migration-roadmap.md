@@ -127,14 +127,14 @@ Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する�
 ### Phase 5: AttackのScore/Damageをdynamic displayへ接続する（進行中）
 
 - 成果物: Attack Score/Damageのcanonical producerとPhase 3 adapterの接続、既存ScoreChart/DamageChart/SummaryTableへの表示供給、canonical total、任意display window、legacy比較fixtureとブラウザ実測。
-- 途中成果（完了）: `c457b5c`でDamage/Totalのdisplay coverage拡張、`b305eb7`でcanonical Attack Scoreの表示接続、`1401695`でAttack Scoreのdisplay coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正を実装した。
+- 途中成果（完了）: `c457b5c`でDamage/Totalのdisplay coverage拡張、`b305eb7`でcanonical Attack Scoreの表示接続、`1401695`でAttack Scoreのdisplay coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正、`00b5b3f`でScore期待値tail certificate・両側tail成功率区間・丸め安定時だけの既存サマリー表示を実装した。
 - 実装済みの表示契約: ScoreとDamageを独立laneで扱い、coverage内はreuse、finite support外はknown-zero、coverage不足時はlatest-winsでcanonical batchを再計算する。resource reject時はclientを呼ばず、Score-only rejectではDamageを保持し、legacy fallbackは行わない。
-- ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-inの既定入力でScore/Damage各`0..100`は計算完了、2 chart、alertなし。各`0..1200`も計算完了、2 chart、alertなし。Score `0..20000`ではScoreだけ描画点数resource rejectとなりDamage chartを保持した。`0..100`へ戻すと2 chartが復旧しalertはなかった。新規セッションのconsole warn/errorは0件だった。
+- ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-inの既定入力でScore/Damage各`0..100`は計算完了、2 chart、alertなし。各`0..1200`も計算完了、2 chart、alertなし。Score `0..20000`ではScoreだけ描画点数resource rejectとなりDamage chartを保持した。`0..100`へ戻すと2 chartが復旧しalertはなかった。`00b5b3f`後の既定サマリーは達成値期待値`6`、命中率`45.5%`、ダメージ期待値`3.1`となり、新規セッションのconsole warn/errorは0件だった。
 - 完了条件: 1024を超えるsupportを固定配列へ黙って切り詰めず、exact overflowだけが定義済み条件で内部集約され、upper-bound overflowの`lowerBound`やbounded/lower-bound expected valueを一点表示しない。既存チャート・サマリーの見た目、丸め、コンポーネントを維持する。
-- 残タスク: 通常ケースでcanonical Score summaryが`bounded`となり既存SummaryTableに「—」表示になる点について、不確かさを一点値化せず既存の見た目を守る表示・計算方針を設計して実装する。UI入力データフローのcontrolled化とlatest-only発火を整理する。Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
+- 残タスク: Score期待値certificateが未対応の無限support（`shihai>0`、`yousei>0`、負の`skill`）を段階的に扱うか、`—`を正式仕様とするかを判断する。UI入力データフローのcontrolled化とlatest-only発火を整理する。Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
 - 対象外: `CanonicalAttackPanel`や`canonicalOptIn`のproduction残置、1024へ無条件collapseするlegacy projection、既定経路の切替、legacy計算/fallback削除、JSON整理、Cloudflare Workers/API/MCP。
 
-Attackでは1024比較用のsafe projectionを残したまま、Phase 5の途中成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続している。Phase 5は完了扱いにせず、Score summaryの不確かさの扱い、入力ライフサイクル、legacy比較fixtureと追加実測を残す。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
+Attackでは1024比較用のsafe projectionを残したまま、Phase 5の途中成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続している。Phase 5は完了扱いにせず、未対応Score summary条件、入力ライフサイクル、legacy比較fixtureと追加実測を残す。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
 
 ### Phase 6: バックトラックをcanonical化する
 

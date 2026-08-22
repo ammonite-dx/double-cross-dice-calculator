@@ -530,3 +530,15 @@ plannerの`decision: 'recalculate'`または`status: 'resource-rejected'`は`kin
 Chart.js 4.5.1をローカル実装で確認した結果、`helpers.dataset.isArray()`はtyped arrayを配列として扱い、`DatasetController.parsePrimitiveData()`は`parsing: true`の数値datasetをCategoryScaleのlabelsと対応付ける。一方、`parsing: false`は内部形式の`{x, y}`または配列座標を要求するため、dense scalar Float64Arrayをそのままcoordinate dataとして扱う契約にはしない。このため`materializeCanonicalChartJsData()`を最終境界として分離し、CategoryScale用の数値labelsと`parsing: true`をそこでだけ生成する。materializerの`dataset.data`はseriesの`values`を同じbufferのread-only viewとして参照し、二重コピーを作らない。これはdisplay入力とのaliasではない。ローカル実装は数値要素を変更せず、配列監視のためのmetadataを扱うだけなので、callerはChart.js利用中に`series.values`を変更しない。canonical series本体にはlabelsやpoint object列を保持しない。
 
 このadapterは確率値を丸めず、既存UIの確率パーセント1桁丸めやsummary丸めも担当しない。現行`DistributionResult`はoverflowのlowerBoundを「そこ以上にある下限」として保持するが、overflow massがexplicit coverage内へどう分配されたかを証明しないため、overlapを拒否するのが現契約の安全境界である。producerが「overflowはexplicitMaxより上」と強化できれば、adapter側の拒否範囲を狭められるが、既存producerを壊す契約変更は後続の親判断へ残す。production ChartSetterと各producerへの接続はこの単位の対象外である。
+
+## Phase 5 canonical Attack Score summary certificate
+
+通常のDXは無限supportを持つため、有限のexplicit distributionだけから作る期待値は`lower-bound`になり、対決成功率も両側のtailが残ると`bounded`になる。`00b5b3f`では、内部の不確かさを一点値へ変換せず、最終的な小数1桁表示だけを安全に回復するScore専用certificateを追加した。`SummaryTable`は`exact`を従来どおり表示し、`bounded`ではlower boundとupper boundが同じ小数1桁へ丸まる場合だけその共通値を表示する。区間が丸め境界をまたぐ場合は`—`を維持する。
+
+期待値certificateの初期対応範囲は`shihai=0`、`yousei=0`、`skill>=0`の無限supportである。raw DX最大値を$Z$、計算済み境界を$M$とすると、非負整数値確率変数のtail-sum formulaから$E[Z]=\sum_{x=0}^{\infty}P(Z>x)$を使う。`maxTailBound(x, dice, critical)`が返す$P(Z>x)$を$x=0,\ldots,M$で補償和し、残りは`maxTailFirstMomentUpperBound()`で上から包む。このhelperは$P(\max_i Z_i>x)\leq nP(Z_1>x)$というunion boundと、1個のDXのtailが10ごとにcritical確率$q=(11-c)/10$倍になる性質を使い、10個の剰余類ごとの幾何級数として無限和を有限計算する。DPのexplicit bucketやoverflow probabilityから一次モーメントを作らないため、分布bucketの個別誤差を期待値誤差と取り違えない。
+
+通常判定ではraw score 1がファンブルとして0へ移る。`dice=n>0`では$P(Z=1)=0.1^n$なので、非負の技能値$s$を含む期待値は$E[Score]=E[Z]-0.1^n+s(1-0.1^n)$である。tail evaluatorの各項は集中管理された`DISTRIBUTION_RESULT_TOLERANCE`で外向きに広げ、$M+1$項分、ファンブル・技能値補正分、幾何級数残差の算術分を別々の数値誤差metadataとして保持する。`shihai>0`、`yousei>0`、負の`skill`を持つ無限supportではこのcertificateを作らず、既存の`lower-bound`と`—`表示を維持する。
+
+対決成功率は、action/reactionの明示bucketを$A_0,R_0$、tailを$A_T,R_T$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示bucket同士の$P_{00}=P(A_0>R_0)$は既存の昇順2ポインタ走査で$O(a+r)$に計算し、排他的な4組を分けて$S_{lower}=P_{00}+a_-P(R_0<L_A)$、$S_{upper}=P_{00}+a_+P(R_0)+r_+P(A_0>L_R)+a_+r_+$とする。最終区間だけを`DISTRIBUTION_RESULT_TOLERANCE`で一度外向きに広げる。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
+
+`errorBound`は従来契約どおり補助的な診断metadataであり、tail probabilityへ加算しない。exact overflowの正の`probability`はactual mass、upper-bound overflowの`probabilityUpperBound`はすでに安全側へ広げた上限として扱う。stored massが0でも`errorBound>0`ならpotential tailなので、独立したRangePlannerのtail boundがある場合だけ`[0,bound]`を採用し、証明がなければ成功率を安全な`0..100`へ戻す。これにより既定の両側`dice=1`、`critical=10`、`skill=0`では内部boundを保持したまま期待値`6.0`、action成功率`45.5%`、reaction成功率`54.5%`を従来形式で表示できる。
