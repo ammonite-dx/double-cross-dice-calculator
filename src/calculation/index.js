@@ -53,6 +53,7 @@ export {
 export {
   calculateScore,
   calculateScoreCanonical,
+  calculateCanonicalScoreSuccessProbabilityInterval,
   getCanonicalScoreSummary,
   getScoreSummary,
 } from './ScoreCalculator'
@@ -86,6 +87,7 @@ export {
 export {
   DEFAULT_POLICY as DEFAULT_RANGE_PLANNER_POLICY,
   findTailCutoff,
+  maxTailFirstMomentUpperBound,
   maxTailBound,
   nextPowerOfTwo,
   oneDieCumulative,

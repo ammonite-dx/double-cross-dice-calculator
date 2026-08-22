@@ -636,6 +636,48 @@ export function maxTailBound(value, dice, critical) {
   )
 }
 
+/**
+ * Upper-bound the first-moment contribution strictly above an integer cutoff
+ * for the maximum of `dice` independent DX rolls.
+ *
+ * This is deliberately a DX-specific helper.  It uses the union bound
+ * P(max > x) <= dice * P(one die > x), then groups x by residue modulo ten.
+ * The one-die tail is geometric across each residue, so the infinite
+ * remainder is finite without allocating a tail array.
+ *
+ * The returned value is an upper bound for
+ *   sum(x = cutoff + 1 .. infinity) P(max > x).
+ */
+export function maxTailFirstMomentUpperBound(cutoff, dice, critical) {
+  nonNegativeInteger(cutoff, 'cutoff')
+  nonNegativeInteger(dice, 'dice')
+  if (!Number.isSafeInteger(critical) || critical < 2 || critical > 11) {
+    throw new RangeError('critical must be an integer between 2 and 11')
+  }
+  if (dice === 0) {
+    return 0
+  }
+
+  const criticalProbability = (11 - critical) / 10
+  const firstValue = cutoff + 1
+  let result = 0
+
+  for (let residue = 0; residue < 10; residue += 1) {
+    const distance = (residue - (firstValue % 10) + 10) % 10
+    const first = firstValue + distance
+    const firstTail = oneDieTail(first, critical)
+    if (firstTail === 0) {
+      continue
+    }
+    result += dice * firstTail / (1 - criticalProbability)
+  }
+
+  if (!Number.isFinite(result) || result < 0) {
+    throw new RangeError('DX tail first-moment bound is not finite')
+  }
+  return result
+}
+
 // For shihai>0, the maximum-of-all-dice tail is deliberately conservative.
 // It is independent of the finite work array and therefore suitable for a
 // planner certificate even though the production DP uses an order statistic.

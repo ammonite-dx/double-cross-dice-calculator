@@ -14,6 +14,13 @@ import {
   getExpectedValueSummary,
   validateDistributionResult,
 } from './DistributionResult'
+import {
+  maxTailFirstMomentUpperBound,
+  maxTailBound,
+} from './RangePlanner'
+
+const SCORE_TAIL_CERTIFICATE_VERSION = 1
+const SCORE_EXPECTATION_CERTIFICATE_VERSION = 1
 
 function validateScoreRangePlan(scoreRangePlan) {
   if (scoreRangePlan === undefined || scoreRangePlan === null) {
@@ -311,6 +318,179 @@ function createCanonicalScoreResult(
   })
 }
 
+function sumDxTailThrough(cutoff, dice, critical) {
+  let result = 0
+  let compensation = 0
+  for (let value = 0; value <= cutoff; value += 1) {
+    const term = maxTailBound(value, dice, critical)
+    const correctedTerm = term - compensation
+    const nextResult = result + correctedTerm
+    compensation = (nextResult - result) - correctedTerm
+    result = nextResult
+  }
+  return result
+}
+
+/**
+ * The generic DistributionResult errorBound is not an expected-value bound.
+ * For canonical score producers only, this metadata records a defensive
+ * probability interval without treating errorBound as probability mass.
+ * Exact overflow probability is actual mass, while probabilityUpperBound
+ * already includes the producer's safety margin. A zero-mass overflow with
+ * positive diagnostic error uses the independent planner bound; without one,
+ * no probability certificate is produced.
+ */
+function createCanonicalScoreTailCertificate(result, scoreRangePlan) {
+  const overflow = result.overflow
+  if (overflow === null) {
+    return Object.freeze({
+      version: SCORE_TAIL_CERTIFICATE_VERSION,
+      kind: 'canonical-score-tail-certificate',
+      massLowerBound: 0,
+      massUpperBound: 0,
+      lowerBound: null,
+      probabilityErrorBound: 0,
+    })
+  }
+
+  const probabilityErrorBound = overflow.errorBound ?? 0
+  const plannedTailBound = scoreRangePlan?.tail?.bound
+  const hasPlannedTailBound = Number.isFinite(plannedTailBound)
+  if (
+    hasPlannedTailBound
+    && (plannedTailBound < 0 || plannedTailBound > 1)
+  ) {
+    return null
+  }
+
+  let massLowerBound = 0
+  let massUpperBound = 0
+  if (overflow.kind === 'exact') {
+    if (overflow.probability > 0) {
+      if (
+        hasPlannedTailBound
+        && overflow.probability
+          > plannedTailBound + DISTRIBUTION_RESULT_TOLERANCE
+      ) {
+        return null
+      }
+      massLowerBound = overflow.probability
+      massUpperBound = overflow.probability
+    } else if (probabilityErrorBound > 0) {
+      if (!hasPlannedTailBound) {
+        return null
+      }
+      massUpperBound = plannedTailBound
+    }
+  } else {
+    if (overflow.probabilityUpperBound > 0) {
+      massUpperBound = hasPlannedTailBound
+        ? Math.min(overflow.probabilityUpperBound, plannedTailBound)
+        : overflow.probabilityUpperBound
+    } else if (probabilityErrorBound > 0) {
+      if (!hasPlannedTailBound) {
+        return null
+      }
+      massUpperBound = plannedTailBound
+    }
+  }
+
+  return Object.freeze({
+    version: SCORE_TAIL_CERTIFICATE_VERSION,
+    kind: 'canonical-score-tail-certificate',
+    massLowerBound,
+    massUpperBound,
+    lowerBound: Number.isFinite(overflow.lowerBound)
+      ? overflow.lowerBound
+      : null,
+    probabilityErrorBound,
+  })
+}
+
+/**
+ * Build a finite expected-value interval for the initial safe migration
+ * slice: an infinite DX maximum with no Yousei/Shihai and non-negative skill.
+ * Unsupported score shapes intentionally return null and keep the existing
+ * lower-bound summary contract.
+ */
+function createCanonicalScoreExpectationCertificate(
+  params,
+  scoreRangePlan,
+  alreadyShifted
+) {
+  if (
+    alreadyShifted
+    || params.dice <= 0
+    || params.critical === 11
+    || params.shihai !== 0
+    || params.yousei !== 0
+    || params.skill < 0
+    || scoreRangePlan?.tail?.model !== 'exact-max'
+  ) {
+    return null
+  }
+
+  const modeledMax = scoreRangePlan.workingLength - 2
+  const oneScoreProbability = 0.1 ** params.dice
+  const partialRawExpectedValue = sumDxTailThrough(
+    modeledMax,
+    params.dice,
+    params.critical
+  )
+  const residualUpperBound = maxTailFirstMomentUpperBound(
+    modeledMax,
+    params.dice,
+    params.critical
+  )
+  const skillContribution = params.skill * (1 - oneScoreProbability)
+  const partialExpectedValue =
+    partialRawExpectedValue - oneScoreProbability + skillContribution
+  const lowerExpectedValue = partialExpectedValue
+  const upperExpectedValue = partialExpectedValue + residualUpperBound
+
+  if (
+    !Number.isFinite(lowerExpectedValue)
+    || !Number.isFinite(upperExpectedValue)
+    || upperExpectedValue < lowerExpectedValue
+  ) {
+    return null
+  }
+
+  // This certificate is independent of the DP buckets. Each exact-max tail
+  // evaluation is widened by the centralized numeric tolerance, and the
+  // fumble/skill adjustment is widened separately. The geometric residual is
+  // an analytic upper bound and receives one additional arithmetic margin.
+  const tailEvaluationErrorBound =
+    (modeledMax + 1) * DISTRIBUTION_RESULT_TOLERANCE
+  const fumbleCorrectionErrorBound =
+    (1 + params.skill) * DISTRIBUTION_RESULT_TOLERANCE
+  const residualArithmeticErrorBound =
+    Math.max(1, residualUpperBound) * DISTRIBUTION_RESULT_TOLERANCE
+  const numericalErrorBound =
+    tailEvaluationErrorBound
+    + fumbleCorrectionErrorBound
+    + residualArithmeticErrorBound
+  const lowerBound = Math.max(
+    0,
+    lowerExpectedValue - numericalErrorBound
+  )
+  const upperBound = upperExpectedValue + numericalErrorBound
+
+  return Object.freeze({
+    version: SCORE_EXPECTATION_CERTIFICATE_VERSION,
+    kind: 'canonical-score-expectation-certificate',
+    model: 'dx-max-tail',
+    modeledMax,
+    lowerBound,
+    upperBound,
+    residualUpperBound,
+    tailEvaluationErrorBound,
+    fumbleCorrectionErrorBound,
+    residualArithmeticErrorBound,
+    numericalErrorBound,
+  })
+}
+
 export function calculateScoreCanonical(
   params,
   dependencies,
@@ -334,9 +514,23 @@ export function calculateScoreCanonical(
     scoreRangePlan,
     alreadyShifted
   )
+  const scoreTailCertificate = createCanonicalScoreTailCertificate(
+    result,
+    scoreRangePlan
+  )
+  const scoreExpectationCertificate =
+    createCanonicalScoreExpectationCertificate(
+      params,
+      scoreRangePlan,
+      alreadyShifted
+    )
   const metadata = Object.freeze({
     modeledDistribution: true,
     failureProbability,
+    scoreTailCertificate,
+    ...(scoreExpectationCertificate === null
+      ? {}
+      : { scoreExpectationCertificate }),
   })
 
   return Object.freeze({ result, metadata })
@@ -346,7 +540,7 @@ function createCanonicalScoreRateSummary(kind, details = {}) {
   return Object.freeze({ kind, ...details })
 }
 
-function getExactCanonicalScoreBuckets(envelope) {
+function getCanonicalScoreBuckets(envelope) {
   if (
     envelope === null
     || typeof envelope !== 'object'
@@ -369,21 +563,34 @@ function getExactCanonicalScoreBuckets(envelope) {
     }
   }
 
+  return { result, buckets }
+}
+
+function getExactCanonicalScoreBuckets(envelope) {
+  const inspected = getCanonicalScoreBuckets(envelope)
+  if (inspected === null) {
+    return null
+  }
+
+  const { result, buckets } = inspected
+
   const overflow = result.overflow
   if (overflow === null) {
     return buckets
   }
   if (overflow.kind === 'upper-bound') {
     return overflow.probabilityUpperBound === 0
+      && overflow.errorBound === 0
       ? buckets
       : null
   }
-  if (overflow.probability === 0) {
+  if (overflow.probability === 0 && overflow.errorBound === 0) {
     return buckets
   }
   if (
     result.support.kind === 'finite'
     && overflow.lowerBound === result.support.max
+    && overflow.errorBound === 0
   ) {
     buckets.push({
       value: result.support.max,
@@ -392,6 +599,56 @@ function getExactCanonicalScoreBuckets(envelope) {
     return buckets
   }
   return null
+}
+
+function getScorePartition(envelope) {
+  const inspected = getCanonicalScoreBuckets(envelope)
+  if (inspected === null) {
+    return null
+  }
+
+  const exactBuckets = getExactCanonicalScoreBuckets(envelope)
+  if (exactBuckets !== null) {
+    return {
+      buckets: exactBuckets,
+      tail: {
+        massLowerBound: 0,
+        massUpperBound: 0,
+        lowerBound: null,
+        probabilityErrorBound: 0,
+      },
+    }
+  }
+
+  const certificate = envelope.metadata?.scoreTailCertificate
+  const overflow = inspected.result.overflow
+  if (
+    certificate === null
+    || typeof certificate !== 'object'
+    || certificate.version !== SCORE_TAIL_CERTIFICATE_VERSION
+    || certificate.kind !== 'canonical-score-tail-certificate'
+    || !Number.isFinite(certificate.massLowerBound)
+    || !Number.isFinite(certificate.massUpperBound)
+    || certificate.massLowerBound < 0
+    || certificate.massUpperBound < certificate.massLowerBound
+    || certificate.massUpperBound > 1
+    || !Number.isFinite(certificate.probabilityErrorBound)
+    || certificate.probabilityErrorBound < 0
+    || !Number.isFinite(certificate.lowerBound)
+    || overflow === null
+  ) {
+    return null
+  }
+
+  return {
+    buckets: inspected.buckets,
+    tail: {
+      massLowerBound: certificate.massLowerBound,
+      massUpperBound: certificate.massUpperBound,
+      lowerBound: certificate.lowerBound,
+      probabilityErrorBound: certificate.probabilityErrorBound ?? 0,
+    },
+  }
 }
 
 /**
@@ -425,10 +682,96 @@ export function calculateCanonicalScoreSuccessProbability(
   return actionSuccessProbability
 }
 
+/**
+ * Return a conservative interval for P(action > reaction) while keeping the
+ * explicit/explicit, action-tail/reaction-explicit,
+ * action-explicit/reaction-tail, and tail/tail events disjoint.
+ */
+export function calculateCanonicalScoreSuccessProbabilityInterval(
+  action,
+  reaction
+) {
+  const actionPartition = getScorePartition(action)
+  const reactionPartition = getScorePartition(reaction)
+  if (actionPartition === null || reactionPartition === null) {
+    return null
+  }
+
+  const actionBuckets = actionPartition.buckets
+  const reactionBuckets = reactionPartition.buckets
+  const actionTail = actionPartition.tail
+  const reactionTail = reactionPartition.tail
+  const explicitSuccess = calculateCanonicalScoreSuccessProbability(
+    actionBuckets,
+    reactionBuckets
+  )
+  const probabilityMargin =
+    actionTail.massUpperBound > 0 || reactionTail.massUpperBound > 0
+      ? DISTRIBUTION_RESULT_TOLERANCE
+      : 0
+  let reactionBelowActionTail = 0
+  for (const bucket of reactionBuckets) {
+    if (bucket.value < actionTail.lowerBound) {
+      reactionBelowActionTail += bucket.probability
+    }
+  }
+  let actionAboveReactionTail = 0
+  for (const bucket of actionBuckets) {
+    if (bucket.value > reactionTail.lowerBound) {
+      actionAboveReactionTail += bucket.probability
+    }
+  }
+  let reactionExplicitMass = 0
+  for (const bucket of reactionBuckets) {
+    reactionExplicitMass += bucket.probability
+  }
+
+  const lowerBound = Math.max(
+    0,
+    Math.min(
+      1,
+      explicitSuccess
+      + actionTail.massLowerBound * reactionBelowActionTail
+      - probabilityMargin
+    )
+  )
+  const upperBound = Math.max(
+    lowerBound,
+    Math.min(
+      1,
+      explicitSuccess
+      + actionTail.massUpperBound * reactionExplicitMass
+      + reactionTail.massUpperBound * actionAboveReactionTail
+      + actionTail.massUpperBound * reactionTail.massUpperBound
+      + probabilityMargin
+    )
+  )
+
+  return Object.freeze({ lowerBound, upperBound })
+}
+
 function getCanonicalScoreSuccessRateSummary(action, reaction) {
   const actionBuckets = getExactCanonicalScoreBuckets(action)
   const reactionBuckets = getExactCanonicalScoreBuckets(reaction)
   if (actionBuckets === null || reactionBuckets === null) {
+    const interval = calculateCanonicalScoreSuccessProbabilityInterval(
+      action,
+      reaction
+    )
+    if (interval !== null) {
+      const actionLowerBound = interval.lowerBound * 100
+      const actionUpperBound = interval.upperBound * 100
+      return {
+        action: createCanonicalScoreRateSummary('bounded', {
+          lowerBound: actionLowerBound,
+          upperBound: actionUpperBound,
+        }),
+        reaction: createCanonicalScoreRateSummary('bounded', {
+          lowerBound: 100 - actionUpperBound,
+          upperBound: 100 - actionLowerBound,
+        }),
+      }
+    }
     return {
       action: createCanonicalScoreRateSummary('bounded', {
         lowerBound: 0,
@@ -457,11 +800,30 @@ function getCanonicalScoreSuccessRateSummary(action, reaction) {
   }
 }
 
+function getCanonicalExpectedValueSummary(envelope) {
+  const certificate = envelope?.metadata?.scoreExpectationCertificate
+  if (
+    certificate?.version === SCORE_EXPECTATION_CERTIFICATE_VERSION
+    && certificate?.kind === 'canonical-score-expectation-certificate'
+    && Number.isFinite(certificate.lowerBound)
+    && Number.isFinite(certificate.upperBound)
+    && certificate.lowerBound >= 0
+    && certificate.upperBound >= certificate.lowerBound
+  ) {
+    return Object.freeze({
+      kind: 'bounded',
+      lowerBound: certificate.lowerBound,
+      upperBound: certificate.upperBound,
+    })
+  }
+  return getExpectedValueSummary(envelope.result)
+}
+
 /**
  * Summarize the two canonical Attack score envelopes without projecting them
  * into the legacy 1024 buckets. Expected values retain the canonical
- * exact/bounded/lower-bound semantics; success rates are point values only
- * when both score supports are fully represented.
+ * exact/bounded/lower-bound semantics; bounded success-rate intervals are
+ * retained unless both score supports are fully represented.
  */
 export function getCanonicalScoreSummary(
   score,
@@ -478,8 +840,8 @@ export function getCanonicalScoreSummary(
     throw new TypeError('canonical score must contain action and reaction envelopes')
   }
 
-  const actionExpectedValue = getExpectedValueSummary(score.action.result)
-  const reactionExpectedValue = getExpectedValueSummary(score.reaction.result)
+  const actionExpectedValue = getCanonicalExpectedValueSummary(score.action)
+  const reactionExpectedValue = getCanonicalExpectedValueSummary(score.reaction)
   let rates
   if (dfclty.opposed) {
     rates = getCanonicalScoreSuccessRateSummary(

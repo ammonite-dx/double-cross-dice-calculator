@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   findTailCutoff,
+  maxTailFirstMomentUpperBound,
   nextPowerOfTwo,
   planCalculationRanges,
   scoreTailBound,
 } from '../src/calculation/RangePlanner'
 import { OUTPUT_DISTRIBUTION_SIZE } from '../src/data/Distribution'
+import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 
 function scoreParams(overrides = {}) {
   return {
@@ -142,6 +144,55 @@ describe('production range planner', () => {
       expect(current).toBeLessThanOrEqual(previous + 1e-12)
       previous = current
     }
+  })
+
+  it('bounds the DX first-moment residual with a ten-residue geometric tail', () => {
+    const cases = [
+      { dice: 1, critical: 10, cutoff: 20 },
+      { dice: 7, critical: 5, cutoff: 80 },
+      { dice: 20, critical: 2, cutoff: 200 },
+    ]
+
+    for (const params of cases) {
+      const bound = maxTailFirstMomentUpperBound(
+        params.cutoff,
+        params.dice,
+        params.critical
+      )
+      const extended = maxTailFirstMomentUpperBound(
+        params.cutoff + 10,
+        params.dice,
+        params.critical
+      )
+
+      expect(Number.isFinite(bound)).toBe(true)
+      expect(bound).toBeGreaterThanOrEqual(0)
+      expect(extended).toBeLessThanOrEqual(bound + 1e-12)
+    }
+
+    expect(maxTailFirstMomentUpperBound(0, 1, 11))
+      .toBeCloseTo(4.5, 12)
+    expect(maxTailFirstMomentUpperBound(100, 0, 10)).toBe(0)
+  })
+
+  it('contains a long finite simulation of the first-moment residual', () => {
+    const cutoff = 40
+    const params = { dice: 3, critical: 5, shihai: 0 }
+    const distribution = calculateDxDistribution(params, {
+      workingLength: 4098,
+      rounding: 'unrounded',
+    })
+    let simulatedResidual = 0
+    for (let value = cutoff + 2; value < distribution.length - 1; value += 1) {
+      simulatedResidual += (value - cutoff - 1) * distribution[value]
+    }
+
+    const bound = maxTailFirstMomentUpperBound(
+      cutoff,
+      params.dice,
+      params.critical
+    )
+    expect(simulatedResidual).toBeLessThanOrEqual(bound + 1e-12)
   })
 
   it('keeps zero dice and critical 11 at an exact zero-tail cutoff', () => {

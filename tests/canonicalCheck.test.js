@@ -4,6 +4,7 @@ import {
   calculateDxDistribution,
   calculateScore,
   calculateScoreCanonical,
+  getCanonicalScoreSummary,
   planCalculationRanges,
 } from '../src/calculation'
 import {
@@ -81,6 +82,44 @@ function calculateLegacy(params, plan) {
     false,
     plan
   )
+}
+
+function oneDieTailReference(value, critical) {
+  const criticalProbability = (11 - critical) / 10
+  let result = 0
+  for (let face = 1; face < critical; face += 1) {
+    const firstExcludedRepeat = value < face
+      ? 0
+      : Math.floor((value - face) / 10) + 1
+    if (criticalProbability === 0) {
+      if (firstExcludedRepeat === 0) {
+        result += 0.1
+      }
+      continue
+    }
+    result += 0.1 * criticalProbability ** firstExcludedRepeat /
+      (1 - criticalProbability)
+  }
+  return Math.max(0, Math.min(1, result))
+}
+
+function maxTailReference(value, dice, critical) {
+  const oneDieTail = oneDieTailReference(value, critical)
+  if (oneDieTail === 1) {
+    return 1
+  }
+  return Math.max(0, Math.min(
+    1,
+    -Math.expm1(dice * Math.log1p(-oneDieTail))
+  ))
+}
+
+function expectedMaxReference(dice, critical, cutoff = 20000) {
+  let expectedValue = 0
+  for (let value = 0; value <= cutoff; value += 1) {
+    expectedValue += maxTailReference(value, dice, critical)
+  }
+  return expectedValue
 }
 
 describe('canonical normal check score producer', () => {
@@ -177,6 +216,143 @@ describe('canonical normal check score producer', () => {
       plan.tail.bound + 1e-12
     )
     expect(result.values[0]).toBeGreaterThan(0)
+  })
+
+  it('certifies the default two-sided DX expectation and success intervals', () => {
+    const action = calculateCanonical(scoreParams())
+    const reaction = calculateCanonical(scoreParams())
+    const summary = getCanonicalScoreSummary({
+      action: action.envelope,
+      reaction: reaction.envelope,
+    })
+
+    expect(action.envelope.metadata.scoreExpectationCertificate).toEqual(
+      expect.objectContaining({
+        kind: 'canonical-score-expectation-certificate',
+        modeledMax: action.plan.workingMax,
+      })
+    )
+    expect(Object.isFrozen(
+      action.envelope.metadata.scoreExpectationCertificate
+    )).toBe(true)
+    expect(Object.isFrozen(
+      action.envelope.metadata.scoreTailCertificate
+    )).toBe(true)
+    const actionTailCertificate =
+      action.envelope.metadata.scoreTailCertificate
+    const explicitMass = Array.from(action.envelope.result.values)
+      .reduce((sum, probability) => sum + probability, 0)
+    const omittedMass = 1 - explicitMass
+    expect(omittedMass).toBeGreaterThanOrEqual(
+      actionTailCertificate.massLowerBound - 1e-12
+    )
+    expect(omittedMass).toBeLessThanOrEqual(
+      actionTailCertificate.massUpperBound + 1e-12
+    )
+    expect(summary.action.expectedValue.kind).toBe('bounded')
+    expect(summary.action.expectedValue.lowerBound)
+      .toBeLessThanOrEqual(6.0111111112)
+    expect(summary.action.expectedValue.upperBound)
+      .toBeGreaterThanOrEqual(6.0111111110)
+    expect(summary.action.successRate.kind).toBe('bounded')
+    expect(summary.action.successRate.lowerBound)
+      .toBeLessThanOrEqual(45.45454546)
+    expect(summary.action.successRate.upperBound)
+      .toBeGreaterThanOrEqual(45.45454544)
+    expect(summary.reaction.successRate.lowerBound)
+      .toBeLessThanOrEqual(54.54545456)
+    expect(summary.reaction.successRate.upperBound)
+      .toBeGreaterThanOrEqual(54.54545454)
+  })
+
+  it('keeps unsupported infinite score expectation summaries unavailable', () => {
+    for (const params of [
+      scoreParams({ skill: -1 }),
+      scoreParams({ dice: 2, critical: 2, shihai: 1 }),
+      scoreParams({ yousei: 1 }),
+    ]) {
+      const calculated = calculateCanonical(params)
+      const summary = getCanonicalScoreSummary({
+        action: calculated.envelope,
+        reaction: calculated.envelope,
+      })
+
+      expect(summary.action.expectedValue.kind, JSON.stringify(params))
+        .toBe('lower-bound')
+      expect(calculated.envelope.metadata)
+        .not.toHaveProperty('scoreExpectationCertificate')
+    }
+  })
+
+  it('keeps high-dice expectation certificates around a closed-form reference', () => {
+    const params = scoreParams({ dice: 99, critical: 2 })
+    const { plan, envelope } = calculateCanonical(params)
+    const certificate = envelope.metadata.scoreExpectationCertificate
+    const reference = expectedMaxReference(params.dice, params.critical)
+
+    expect(plan.workingMax).toBeGreaterThan(1000)
+    expect(certificate.lowerBound).toBeLessThanOrEqual(reference)
+    expect(certificate.upperBound).toBeGreaterThanOrEqual(reference)
+    expect(certificate.tailEvaluationErrorBound)
+      .toBeGreaterThanOrEqual((plan.workingMax + 1) * 1e-8)
+  })
+
+  it('keeps exact tail mass and isolates expectation from DP bucket drift', () => {
+    const params = scoreParams()
+    const provider = () => new Float64Array([0.1, 0.1, 0.2, 0.6])
+    const basePlan = {
+      workingLength: 4,
+      fftLength: 0,
+      tail: { model: 'exact-max', bound: 0.600000005 },
+    }
+    const envelope = calculateScoreCanonical(
+      params,
+      { getDxDistribution: provider },
+      basePlan
+    )
+    const certificate = envelope.metadata.scoreTailCertificate
+    expect(certificate.massLowerBound).toBeCloseTo(0.6, 12)
+    expect(certificate.massUpperBound).toBeCloseTo(0.6, 12)
+    const expectation = envelope.metadata.scoreExpectationCertificate
+    expect(expectation).toEqual(expect.objectContaining({
+      model: 'dx-max-tail',
+    }))
+
+    const contradictory = calculateScoreCanonical(
+      params,
+      { getDxDistribution: provider },
+      {
+        ...basePlan,
+        tail: { model: 'exact-max', bound: 0.5 },
+      }
+    )
+    expect(contradictory.metadata.scoreTailCertificate).toBeNull()
+    expect(contradictory.metadata.scoreExpectationCertificate)
+      .toEqual(expectation)
+  })
+
+  it('uses the planner bound for zero stored tail with diagnostic error', () => {
+    const params = scoreParams()
+    const envelope = calculateScoreCanonical(
+      params,
+      { getDxDistribution: () => new Float64Array([0.1, 0.9, 0]) },
+      {
+        workingLength: 3,
+        fftLength: 0,
+        tail: { model: 'exact-max', bound: 0.25 },
+      }
+    )
+
+    expect(envelope.result.overflow).toEqual(expect.objectContaining({
+      probability: 0,
+      errorBound: 1e-8,
+    }))
+    expect(envelope.metadata.scoreTailCertificate).toEqual(
+      expect.objectContaining({
+        massLowerBound: 0,
+        massUpperBound: 0.25,
+      })
+    )
   })
 
   it('keeps critical 11 finite and applies the skill shift to support', () => {

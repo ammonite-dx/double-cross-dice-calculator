@@ -5,7 +5,9 @@ import {
   createAttackCanonicalDisplayPresentation,
   createAttackCanonicalDisplayPresentationFromCanonical,
 } from '../src/application/AttackCanonicalPresentation'
-import { createCalculationClient } from '../src/application/CalculationClient'
+import {
+  createCalculationClient,
+} from '../src/application/CalculationClient'
 import { createAttackCanonicalRunner } from '../src/application/AttackCanonicalRunner'
 import {
   createCanonicalAttackState,
@@ -25,6 +27,7 @@ import {
   calculateDxDistribution,
 } from '../src/calculation/DxCalculator'
 import {
+  calculateCanonicalScoreSuccessProbabilityInterval,
   calculateCanonicalScoreSuccessProbability,
 } from '../src/calculation/ScoreCalculator'
 import {
@@ -55,6 +58,59 @@ function createEnvelope(values, supportMax = values.length - 1) {
       modeledDistribution: true,
       sourceSupport: { kind: 'finite', max: supportMax },
       failureProbability: 0,
+    },
+  }
+}
+
+function createTailEnvelope(
+  values,
+  lowerBound,
+  probability,
+  {
+    kind = 'exact',
+    errorBound = 0,
+    probabilityUpperBound,
+    plannedTailBound,
+  } = {}
+) {
+  const overflow = kind === 'upper-bound'
+    ? {
+        kind,
+        lowerBound,
+        probabilityUpperBound: probabilityUpperBound ?? probability,
+        errorBound,
+      }
+    : {
+        kind,
+        lowerBound,
+        probability,
+        errorBound,
+      }
+  const result = createDistributionResult({
+    values,
+    offset: 0,
+    support: { kind: 'infinite' },
+    overflow,
+  })
+  const storedUpperBound = kind === 'upper-bound'
+    ? probabilityUpperBound ?? probability
+    : probability
+  const potentialZeroTail = storedUpperBound === 0 && errorBound > 0
+  const massUpperBound = potentialZeroTail
+    ? plannedTailBound ?? 0
+    : storedUpperBound
+  return {
+    result,
+    metadata: {
+      modeledDistribution: true,
+      scoreTailCertificate: {
+        version: 1,
+        kind: 'canonical-score-tail-certificate',
+        massLowerBound: kind === 'upper-bound' ? 0 : probability,
+        massUpperBound,
+        lowerBound,
+        probabilityErrorBound: errorBound,
+      },
     },
   }
 }
@@ -411,6 +467,194 @@ describe('Attack canonical score display adapter', () => {
       kind: 'lower-bound',
       lowerBound: 0,
     })).toBe('—')
+  })
+
+  it('displays bounded Score values only when both rounded bounds agree', () => {
+    expect(formatCanonicalScoreSummaryExpectedValue({
+      kind: 'bounded',
+      lowerBound: 6.011111,
+      upperBound: 6.011112,
+    })).toBe(6)
+    expect(formatCanonicalScoreSuccessRate({
+      kind: 'bounded',
+      lowerBound: 45.4545,
+      upperBound: 45.4546,
+    })).toBe(45.5)
+    expect(formatCanonicalScoreSummaryExpectedValue({
+      kind: 'bounded',
+      lowerBound: 6.04,
+      upperBound: 6.06,
+    })).toBe('—')
+    expect(formatCanonicalScoreSuccessRate({
+      kind: 'bounded',
+      lowerBound: 45.04,
+      upperBound: 45.06,
+    })).toBe('—')
+    expect(formatCanonicalScoreSummaryExpectedValue({
+      kind: 'bounded',
+      lowerBound: 6.05,
+      upperBound: 6.05,
+    })).toBe(6.1)
+    expect(formatCanonicalScoreSuccessRate({
+      kind: 'bounded',
+      lowerBound: 45.05,
+      upperBound: 45.05,
+    })).toBe(45.1)
+    expect(formatCanonicalScoreSummaryExpectedValue({
+      kind: 'bounded',
+      lowerBound: 6.049999999,
+      upperBound: 6.05,
+    })).toBe('—')
+    expect(formatCanonicalScoreSuccessRate({
+      kind: 'bounded',
+      lowerBound: 45.049999999,
+      upperBound: 45.05,
+    })).toBe('—')
+    expect(formatCanonicalScoreSummaryExpectedValue({
+      kind: 'bounded',
+      lowerBound: -0.05,
+      upperBound: -0.05,
+    })).toBe(0)
+    expect(formatCanonicalScoreSummaryExpectedValue({
+      kind: 'exact',
+      value: 6.04,
+    })).toBe(6)
+  })
+
+  it('keeps the four success interval event classes disjoint', () => {
+    const action = createTailEnvelope([0.1, 0, 0, 0, 0, 0.2], 10, 0.7)
+    const reaction = createTailEnvelope([0.15], 4, 0.85)
+    const interval = calculateCanonicalScoreSuccessProbabilityInterval(
+      action,
+      reaction
+    )
+
+    // P00=.2*.15, AT*R0=.7*.15, A0*RT=.2*.85, AT*RT=.7*.85.
+    expect(interval.lowerBound).toBeCloseTo(0.135, 7)
+    expect(interval.upperBound).toBeCloseTo(0.9, 7)
+  })
+
+  it('keeps finite/no-tail and tail-mass-zero cases exact', () => {
+    const finiteAction = createEnvelope([0, 1], 1)
+    const finiteReaction = createEnvelope([1], 0)
+    const finiteInterval = calculateCanonicalScoreSuccessProbabilityInterval(
+      finiteAction,
+      finiteReaction
+    )
+    expect(finiteInterval.lowerBound).toBeCloseTo(1, 12)
+    expect(finiteInterval.upperBound).toBeCloseTo(1, 12)
+
+    const zeroTail = createTailEnvelope([0.25, 0.25], 2, 0.5)
+    const zeroTailCertificate = {
+      ...zeroTail,
+      result: createDistributionResult({
+        values: [0.75, 0.25],
+        offset: 0,
+        support: { kind: 'infinite' },
+        overflow: {
+          kind: 'exact',
+          lowerBound: 2,
+          probability: 0,
+          errorBound: 0,
+        },
+      }),
+      metadata: {
+        modeledDistribution: true,
+        scoreTailCertificate: {
+          version: 1,
+          kind: 'canonical-score-tail-certificate',
+          massLowerBound: 0,
+          massUpperBound: 0,
+          lowerBound: 2,
+          probabilityErrorBound: 0,
+        },
+      },
+    }
+    const exactInterval = calculateCanonicalScoreSuccessProbabilityInterval(
+      zeroTailCertificate,
+      finiteReaction
+    )
+    expect(exactInterval.lowerBound).toBeCloseTo(0.25, 12)
+    expect(exactInterval.upperBound).toBeCloseTo(0.25, 12)
+  })
+
+  it('keeps zero-probability overflow with numeric error in the interval lane', () => {
+    const finiteReaction = createEnvelope([0, 1], 1)
+    const exactPotentialTail = createTailEnvelope(
+      [1],
+      2,
+      0,
+      { errorBound: 0.1, plannedTailBound: 0.1 }
+    )
+    const upperPotentialTail = createTailEnvelope(
+      [1],
+      2,
+      0,
+      { kind: 'upper-bound', errorBound: 0.1, plannedTailBound: 0.1 }
+    )
+
+    for (const action of [exactPotentialTail, upperPotentialTail]) {
+      const interval = calculateCanonicalScoreSuccessProbabilityInterval(
+        action,
+        finiteReaction
+      )
+      expect(interval.lowerBound).toBe(0)
+      expect(interval.upperBound).toBeGreaterThan(0)
+      expect(action.metadata.scoreTailCertificate.massUpperBound)
+        .toBeCloseTo(0.1, 12)
+    }
+  })
+
+  it('recovers the default production canonical Attack summary values', async () => {
+    const rangePlans = []
+    const damage = createEnvelope([1], 0)
+    const legacyScore = vi.fn((...args) => calculateScore(...args))
+    const client = createCalculationClient({
+      calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+      calculateDxDistribution,
+      calculateScore: legacyScore,
+      calculateScoreCanonical,
+      getCanonicalDamageSummary,
+      getCanonicalTotalDamageSummary,
+      getDamageRollDistribution: vi.fn(),
+      getD10Distribution: vi.fn(),
+      loadD10Asset: vi.fn(async () => {}),
+      sumCanonicalDamage,
+    })
+    const result = await client.calculateAttackCanonicalBatch([
+      {
+        id: 'default-summary',
+        params: {
+          action: {
+            score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+            damage: { dice: 0, value: 0, kazanari: 0 },
+          },
+          reaction: {
+            mode: 'ドッジ',
+            score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+            damage: { dice: 0, value: 0 },
+          },
+        },
+      },
+    ], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
+    const presentation = createAttackCanonicalDisplayPresentation(result, {
+      displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
+      scoreDisplayRequest: { min: 0, max: 100, mode: ATTACK_DISPLAY_MODES.PMF },
+      rangePlans,
+    })
+    const summary = getCanonicalScoreSummaryForCombo(
+      presentation.score,
+      'default-summary'
+    )
+
+    expect(formatCanonicalScoreSummaryExpectedValue(
+      summary.action.expectedValue
+    )).toBe(6)
+    expect(formatCanonicalScoreSuccessRate(summary.action.successRate))
+      .toBe(45.5)
+    expect(formatCanonicalScoreSuccessRate(summary.reaction.successRate))
+      .toBe(54.5)
+    expect(legacyScore).not.toHaveBeenCalled()
   })
 
   it('does not recalculate the canonical batch for a score-only coverage miss', async () => {
