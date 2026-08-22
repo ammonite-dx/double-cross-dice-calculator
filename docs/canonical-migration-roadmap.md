@@ -5,9 +5,9 @@
 ## 現在地
 
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
-- Attackにはcanonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、exact finite caseだけを既存1024 published bucketへ安全に投影するdisplay adapterがある。これらのpanel、toggle、診断表示、安全投影は移行中の検証用であり、本番移行完了時には削除する。
+- Attackにはcanonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、exact finite caseだけを既存1024 published bucketへ安全に投影するdisplay adapterがある。Phase 5の途中成果として、Score/Damageのdynamic displayも`canonicalOptIn`付きで接続済みである。これらのpanel、toggle、診断表示、安全投影は移行中の検証用であり、本番移行完了時には削除する。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
-- 通常のCheckはcanonical resultを既存表示経路と既定経路へ接続済みである。バックトラックはcanonical resultを既存表示経路へ接続しておらず、Attackもcanonical batchの検証用接続からproduction表示へは移行していない。
+- 通常のCheckはcanonical resultを既存表示経路と既定経路へ接続済みである。バックトラックはcanonical resultを既存表示経路へ接続しておらず、Attackはcanonical batchとScore/Damageのdynamic displayを`canonicalOptIn`付きの検証用接続へ移行中だが、既定production表示へは移行していない。
 - Attackとバックトラックの既定経路はまだlegacy計算、legacy UI、1024要素のpublished distributionである。通常のCheckの既定経路はPhase 4でcanonicalへ接続済みだが、三経路全体の既定化は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
 
 ## 表示範囲と明示coverageの移行対象
@@ -122,15 +122,19 @@ Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する�
 - 検証: 全715テスト、lint、Markdown、buildが成功した。2026-08-20のin-app browserで`/check`を確認し、初期`0..30`、`0..1200`への拡張、`0..20000`のdisplay resource rejection（警告表示）、`30`への復旧、canvas 1、console warn/error 0を確認した。
 - 対象外: Check専用debug panelをproductionへ残すこと、Attack/バックトラックの本接続、三経路全体の既定canonical化、JSON削除、Cloudflare Workers/API/MCP。
 
-通常CheckはAttack固有のcomboやdamage totalに依存しないため、共通display range plannerとChart adapterを実データで検証する先になり、resource拒否と再入力案内まで確認してPhase 4を完了した。次段階はPhase 5であり、AttackのScore/Damageをdynamic displayへ接続する。バックトラックのcanonical化と三経路全体の既定化はさらに後続である。
+通常CheckはAttack固有のcomboやdamage totalに依存しないため、共通display range plannerとChart adapterを実データで検証する先になり、resource拒否と再入力案内まで確認してPhase 4を完了した。Phase 5ではAttackのScore/Damageをdynamic displayへ接続中である。バックトラックのcanonical化と三経路全体の既定化はさらに後続である。
 
-### Phase 5: AttackのScore/Damageをdynamic displayへ接続する（次段階）
+### Phase 5: AttackのScore/Damageをdynamic displayへ接続する（進行中）
 
 - 成果物: Attack Score/Damageのcanonical producerとPhase 3 adapterの接続、既存ScoreChart/DamageChart/SummaryTableへの表示供給、canonical total、任意display window、legacy比較fixtureとブラウザ実測。
+- 途中成果（完了）: `c457b5c`でDamage/Totalのdisplay coverage拡張、`b305eb7`でcanonical Attack Scoreの表示接続、`1401695`でAttack Scoreのdisplay coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正を実装した。
+- 実装済みの表示契約: ScoreとDamageを独立laneで扱い、coverage内はreuse、finite support外はknown-zero、coverage不足時はlatest-winsでcanonical batchを再計算する。resource reject時はclientを呼ばず、Score-only rejectではDamageを保持し、legacy fallbackは行わない。
+- ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-inの既定入力でScore/Damage各`0..100`は計算完了、2 chart、alertなし。各`0..1200`も計算完了、2 chart、alertなし。Score `0..20000`ではScoreだけ描画点数resource rejectとなりDamage chartを保持した。`0..100`へ戻すと2 chartが復旧しalertはなかった。新規セッションのconsole warn/errorは0件だった。
 - 完了条件: 1024を超えるsupportを固定配列へ黙って切り詰めず、exact overflowだけが定義済み条件で内部集約され、upper-bound overflowの`lowerBound`やbounded/lower-bound expected valueを一点表示しない。既存チャート・サマリーの見た目、丸め、コンポーネントを維持する。
+- 残タスク: 通常ケースでcanonical Score summaryが`bounded`となり既存SummaryTableに「—」表示になる点について、不確かさを一点値化せず既存の見た目を守る表示・計算方針を設計して実装する。UI入力データフローのcontrolled化とlatest-only発火を整理する。Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
 - 対象外: `CanonicalAttackPanel`や`canonicalOptIn`のproduction残置、1024へ無条件collapseするlegacy projection、既定経路の切替、legacy計算/fallback削除、JSON整理、Cloudflare Workers/API/MCP。
 
-Attackの現在のsafe projectionは1024比較を成立させる移行用の参照であり、dynamic displayの完成ではない。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らないことを確認する。
+Attackでは1024比較用のsafe projectionを残したまま、Phase 5の途中成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続している。Phase 5は完了扱いにせず、Score summaryの不確かさの扱い、入力ライフサイクル、legacy比較fixtureと追加実測を残す。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
 
 ### Phase 6: バックトラックをcanonical化する
 

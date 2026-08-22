@@ -414,4 +414,12 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 - 完了: `ef14744`、`dfe25fe`、`cdef582`、`b0bede7`、`fac55bb`で、通常Checkのcanonical producer、presentation/chart/summary接続、既定Check接続、dynamic display window、controlled SettingForm、999上限撤廃、coverage再利用・不足時latest-wins再計算、resource拒否時のclient未呼出、upper-bound terminal、legacy fallbackなしを実装した。
 - 検証: 全715テスト、lint、Markdown、buildが成功した。2026-08-20のin-app browserで`/check`を確認し、初期`0..30`、`0..1200`への拡張、`0..20000`のdisplay resource rejection（警告表示）、`30`への復旧、canvas 1、console warn/error 0を確認した。
-- 次段階: Phase 5としてAttackのScore/Damageをdynamic displayへ接続する。Attackとバックトラックのcanonical化、三経路全体の既定化、legacy削除は未完了である。
+- 状態: Phase 5は進行中で、AttackのScore/Damageをdynamic displayへ接続した。Attackとバックトラックのcanonical化、三経路全体の既定化、legacy削除は未完了である。
+
+## Canonical migration Phase 5: AttackのScore/Damageをdynamic displayへ接続する（進行中）
+
+- 途中成果（完了）: `c457b5c`でDamage/Total display coverage拡張、`b305eb7`でcanonical Attack Score表示接続、`1401695`でAttack Score display coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正を実装した。
+- 実装済み: Score/Damageの独立lane、coverage内reuse、finite known-zero、coverage不足時latest-wins batch再計算、resource reject時のclient未呼出、Score-only reject時のDamage保持、legacy fallbackなしを確認した。
+- ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-in既定入力のScore/Damage各`0..100`と各`0..1200`で計算完了・2 chart・alertなし、Score `0..20000`の描画点数resource reject時はDamage chart保持、`0..100`復帰時は2 chart復旧・alertなし、新規セッションconsole warn/error 0件を確認した。
+- 検証: ffb7785前のworkerで54 files/776 tests、`check:node`、lint、`lint:markdown`、build、diff checkが成功し、親の対象2 files/33 testsも成功した。独立レビューfindingはなかった。
+- 残タスク: 通常ケースのcanonical Score summaryが`bounded`となり既存SummaryTableに「—」表示になる点について、不確かさを一点値化しない表示・計算方針を設計・実装する。UI入力データフローのcontrolled化とlatest-only発火を整理し、Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
