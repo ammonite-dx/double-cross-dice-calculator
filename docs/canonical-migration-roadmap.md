@@ -133,11 +133,12 @@ Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する�
 - 実装済みの表示契約: ScoreとDamageを独立laneで扱い、coverage内はreuse、finite support外はknown-zero、coverage不足時はlatest-winsでcanonical batchを再計算する。resource reject時はclientを呼ばず、Score-only rejectではDamageを保持し、legacy fallbackは行わない。
 - legacy比較fixture（完了）: `tests/attackCanonicalLegacyFixture.test.js`で同じordered 2-combo入力をlegacy `calculateAttackCombo`/`calculateTotalDamage`とcanonical `calculateAttackCanonicalBatch`へ通し、fixed正負、防御、`kazanari > 0`、failure/fumble、input snapshot/order、Score action/reaction、各Damage、multi-combo Totalを比較した。canonical display presentationから既存Score/Damage chartとSummary境界までlegacyの既存丸め表示と一致し、DX/DR JSONには依存せずD10 assetだけを使用している。`c26d511`でproductionコードは変更していない。
 - ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-inの既定入力でScore/Damage各`0..100`は計算完了、2 chart、alertなし。各`0..1200`も計算完了、2 chart、alertなし。Score `0..20000`ではScoreだけ描画点数resource rejectとなりDamage chartを保持した。`0..100`へ戻すと2 chartが復旧しalertはなかった。`00b5b3f`後の既定サマリーは達成値期待値`6`、命中率`45.5%`、ダメージ期待値`3.1`となり、新規セッションのconsole warn/errorは0件だった。
+- 追加ブラウザ受入（2026-08-23、in-app Chromium / Vite local、canonical opt-in）: action diceを`2→20→3`と連続入力すると最終値`3`だけが残り、サマリーは達成値期待値`9.7`、命中率`71%`、ダメージ期待値`5.5`、chart 2だった。入力`99`直後にcomboを削除しても削除済み結果は復活せず、新規comboは既定dice `1`、サマリーは`6`、`45.5%`、`3.1`、chart 2だった。《妖精の手》`2`を設定後に詳細設定を閉じ、再度開くと`0`へ戻り、サマリーも既定値へ復帰した。console warning/errorとJavaScript dialogは0件だった。action dice `3`では、boundedなcanonicalダメージ期待値を安定した丸め値として表示する既存契約に伴い、「canonicalの期待値が正確値でない」という画面内の注意を確認した。明示的なresource warningは対象外とした。一時server/tabを終了し、port `3000`を解放したため、追加ブラウザ実測は完了とした。
 - 完了条件: 1024を超えるsupportを固定配列へ黙って切り詰めず、exact overflowだけが定義済み条件で内部集約され、upper-bound overflowの`lowerBound`やbounded/lower-bound expected valueを一点表示しない。既存チャート・サマリーの見た目、丸め、コンポーネントを維持する。
-- 残タスク: Score期待値certificateが未対応の無限support（`shihai>0`、`yousei>0`、負の`skill`）を段階的に扱うか、`—`を正式仕様とするかを判断する。追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
+- 残タスク: Score期待値certificateが未対応の無限support（`shihai>0`、`yousei>0`、負の`skill`）を段階的に扱うか、`—`を正式仕様とするかを判断する。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
 - 対象外: `CanonicalAttackPanel`や`canonicalOptIn`のproduction残置、1024へ無条件collapseするlegacy projection、既定経路の切替、legacy計算/fallback削除、JSON整理、Cloudflare Workers/API/MCP。
 
-Attackでは1024比較用のsafe projectionを残したまま、Phase 5の途中成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続している。Phase 5は完了扱いにせず、未対応Score summary条件と追加実測を残す。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
+Attackでは1024比較用のsafe projectionを残したまま、Phase 5の途中成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続している。Phase 5は完了扱いにせず、未対応Score summary条件を残す。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
 
 ### Phase 6: バックトラックをcanonical化する
 
