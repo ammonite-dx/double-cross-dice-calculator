@@ -657,6 +657,153 @@ describe('Attack canonical score display adapter', () => {
     expect(legacyScore).not.toHaveBeenCalled()
   })
 
+  it('keeps unsupported infinite expectation as lower-bound while canonical display stays ready', async () => {
+    const unsupportedCases = [
+      { label: 'negative skill', score: { skill: -1 } },
+      { label: 'yousei', score: { yousei: 1 } },
+      { label: 'shihai', score: { dice: 2, critical: 2, shihai: 1 } },
+    ]
+
+    for (const { label, score: overrides } of unsupportedCases) {
+      const damage = createEnvelope([1], 0)
+      const rangePlans = []
+      const client = createCalculationClient({
+        calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+        calculateDxDistribution,
+        calculateScore: (...args) => calculateScore(...args),
+        calculateScoreCanonical,
+        getCanonicalDamageSummary,
+        getCanonicalTotalDamageSummary,
+        getDamageRollDistribution: vi.fn(),
+        getD10Distribution: vi.fn(),
+        loadD10Asset: vi.fn(async () => {}),
+        sumCanonicalDamage,
+      })
+      const score = {
+        dice: 1,
+        critical: 10,
+        skill: 0,
+        yousei: 0,
+        shihai: 0,
+        ...overrides,
+      }
+      const result = await client.calculateAttackCanonicalBatch([
+        {
+          id: label,
+          params: {
+            action: {
+              score,
+              damage: { dice: 0, value: 0, kazanari: 0 },
+            },
+            reaction: {
+              mode: 'ドッジ',
+              score: { ...score },
+              damage: { dice: 0, value: 0 },
+            },
+          },
+        },
+      ], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
+
+      const summary = result.combos[0].scoreSummary
+      expect(summary.action.expectedValue.kind, label)
+        .toBe('lower-bound')
+      expect(summary.reaction.expectedValue.kind, label)
+        .toBe('lower-bound')
+      expect(result.combos[0].score.action.metadata)
+        .not.toHaveProperty('scoreExpectationCertificate')
+      expect(result.combos[0].score.reaction.metadata)
+        .not.toHaveProperty('scoreExpectationCertificate')
+
+      const presentation = createAttackCanonicalDisplayPresentation(result, {
+        displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
+        scoreDisplayRequest: {
+          min: 0,
+          max: 100,
+          mode: ATTACK_DISPLAY_MODES.PMF,
+        },
+        rangePlans,
+      })
+      const scoreSummary = getCanonicalScoreSummaryForCombo(
+        presentation.score,
+        label
+      )
+      expect(presentation.status, label).toBe('ready')
+      expect(presentation.score.status, label).toBe('ready')
+      expect(formatCanonicalScoreSummaryExpectedValue(
+        scoreSummary.action.expectedValue
+      ), label).toBe('—')
+      expect(formatCanonicalScoreSummaryExpectedValue(
+        scoreSummary.reaction.expectedValue
+      ), label).toBe('—')
+      expect(getCanonicalAttackScoreChartData(presentation, {
+        combos: [{ id: label, name: label }],
+      }), label).not.toBeNull()
+    }
+  })
+
+  it('keeps finite critical-11 Score expectation exact and numerically displayed', async () => {
+    const damage = createEnvelope([1], 0)
+    const rangePlans = []
+    const client = createCalculationClient({
+      calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+      calculateDxDistribution,
+      calculateScore: (...args) => calculateScore(...args),
+      calculateScoreCanonical,
+      getCanonicalDamageSummary,
+      getCanonicalTotalDamageSummary,
+      getDamageRollDistribution: vi.fn(),
+      getD10Distribution: vi.fn(),
+      loadD10Asset: vi.fn(async () => {}),
+      sumCanonicalDamage,
+    })
+    const result = await client.calculateAttackCanonicalBatch([{
+      id: 'finite-critical-11',
+      params: {
+        action: {
+          score: {
+            dice: 1,
+            critical: 11,
+            skill: 0,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: {
+            dice: 1,
+            critical: 11,
+            skill: 0,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 0, value: 0 },
+        },
+      },
+    }], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
+
+    const presentation = createAttackCanonicalDisplayPresentation(result, {
+      displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
+      scoreDisplayRequest: { min: 0, max: 100, mode: ATTACK_DISPLAY_MODES.PMF },
+      rangePlans,
+    })
+    const summary = getCanonicalScoreSummaryForCombo(
+      presentation.score,
+      'finite-critical-11'
+    )
+
+    expect(summary.action.expectedValue.kind).toBe('exact')
+    expect(summary.reaction.expectedValue.kind).toBe('exact')
+    expect(formatCanonicalScoreSummaryExpectedValue(
+      summary.action.expectedValue
+    )).toBe(5.4)
+    expect(formatCanonicalScoreSummaryExpectedValue(
+      summary.reaction.expectedValue
+    )).toBe(5.4)
+    expect(presentation.score.status).toBe('ready')
+  })
+
   it('does not recalculate the canonical batch for a score-only coverage miss', async () => {
     const score = createEnvelope([0.5, 0.5], 4)
     const batch = createBatch(score)
