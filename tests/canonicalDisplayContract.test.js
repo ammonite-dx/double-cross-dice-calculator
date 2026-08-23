@@ -4,7 +4,11 @@ import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
 import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
-import { presentCanonicalDistribution } from '../src/presentation'
+import {
+  DISTRIBUTION_PRESENTATION_ERROR_CODES,
+  DistributionPresentationError,
+  presentCanonicalDistribution,
+} from '../src/presentation'
 
 function createEnvelope({
   values,
@@ -133,4 +137,24 @@ describe('shared canonical display contract golden fixtures', () => {
       )
     }
   )
+
+  it('rejects signed result offsets at the non-negative display boundary', () => {
+    const envelope = createEnvelope({
+      values: [1],
+      offset: -1,
+      support: { kind: 'finite', max: -1 },
+      overflow: null,
+    })
+
+    expect(() => presentCanonicalDistribution(envelope, {
+      summary: getCanonicalDamageSummary(envelope),
+    })).toThrowError(
+      expect.objectContaining({
+        code: DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+      })
+    )
+    expect(() => presentCanonicalDistribution(envelope, {
+      summary: getCanonicalDamageSummary(envelope),
+    })).toThrow(DistributionPresentationError)
+  })
 })

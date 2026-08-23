@@ -120,6 +120,24 @@ describe('canonical distribution result', () => {
     expect(emptyResult.values.length).toBe(0)
   })
 
+  it('accepts signed finite offsets for canonical variables that can be negative', () => {
+    const result = createDistributionResult({
+      values: [1],
+      offset: -4,
+      support: { kind: 'finite', max: -4 },
+      overflow: null,
+    })
+
+    expect(result.offset).toBe(-4)
+    expect(result.support).toEqual({ kind: 'finite', max: -4 })
+    expect(getExplicitMax(result)).toBe(-4)
+    expect(getExpectedValueSummary(result)).toEqual({
+      kind: 'exact',
+      value: -4,
+    })
+    expect(validateDistributionResult(result)).toBe(true)
+  })
+
   it('copies generic ArrayLike input into the canonical Float64Array', () => {
     const result = createDistributionResult(
       { 0: 0.2, 1: 0.8, length: 2 },
@@ -553,15 +571,6 @@ describe('canonical distribution result', () => {
     expectTypedError(
       () => createDistributionResult({
         values: [1],
-        offset: -1,
-        support: { kind: 'finite', max: 0 },
-        overflow: null,
-      }),
-      DISTRIBUTION_RESULT_ERROR_CODES.INVALID_OFFSET
-    )
-    expectTypedError(
-      () => createDistributionResult({
-        values: [1],
         offset: Number.MAX_SAFE_INTEGER,
         support: { kind: 'finite', max: Number.MAX_SAFE_INTEGER },
         overflow: null,
@@ -745,6 +754,20 @@ describe('published bucket distribution adapters', () => {
       .toEqual(finiteWithoutTail)
     expect(finite.support).toEqual({ kind: 'finite', max: 2048 })
     expect(infinite.support).toEqual({ kind: 'infinite' })
+  })
+
+  it('rejects projecting signed canonical values into non-negative legacy buckets', () => {
+    const result = createDistributionResult({
+      values: [1],
+      offset: -1,
+      support: { kind: 'finite', max: -1 },
+      overflow: null,
+    })
+
+    expectTypedError(
+      () => toPublishedBucketDistribution(result),
+      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION
+    )
   })
 
   it('folds explicit values beyond 1022 and exact overflow into the final bucket', () => {

@@ -46,6 +46,18 @@ export function getBacktrackSupportMax(dlois, dice) {
 }
 
 /**
+ * Return the smallest possible finite support value for one backtrack
+ * distribution. Both ordinary D10 and 《屍人》 use at least one point per
+ * die when dice are present; the zero-dice case remains a point mass at 0.
+ */
+export function getBacktrackSupportMin(_dlois, dice) {
+  if (!Number.isSafeInteger(dice) || dice < 0) {
+    throw new RangeError('backtrack dice must be a non-negative safe integer')
+  }
+  return dice === 0 ? 0 : dice
+}
+
+/**
  * The repository stores datasets separately, so it uses this equivalent
  * dataset-level helper without depending on a display or planner policy.
  */

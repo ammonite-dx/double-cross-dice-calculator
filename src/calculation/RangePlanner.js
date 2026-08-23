@@ -14,6 +14,7 @@ import {
 const DEFAULT_ERROR_BUDGET = 1e-8
 const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
 const LEGACY_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
+const BACKTRACK_CANONICAL_RESULT_COUNT = 3
 
 function getPublishedScoreUpperBound(calculationMax) {
   return Math.max(calculationMax + 1, PUBLISHED_SCORE_MAX_INDEX)
@@ -149,6 +150,9 @@ function getPublishedScoreUpperBound(calculationMax) {
  * @property {number} fftLength
  * @property {number} operations
  * @property {number} float64Bytes
+ * @property {'canonical'} [calculationMode]
+ * @property {number} [baseFloat64Bytes] Canonical source/generation buffers.
+ * @property {number} [canonicalResultFloat64Bytes] Canonical owned results.
  * @property {true} finiteSupport
  * @property {'asset' | 'on-demand'} distributionMode
  * @property {number} assetSupportMax
@@ -934,7 +938,7 @@ function planScore(params, display, policy, tailBudget) {
   }
 }
 
-function planBacktrack(params, display) {
+function planBacktrack(params, display, canonical = false) {
   object(params, 'backtrack')
   const normalized = {
     encroachment: integer(
@@ -974,7 +978,7 @@ function planBacktrack(params, display) {
   // boundary, so it must not be used to classify asset overflow.
   const assetSupportMax = BACKTRACK_ASSET_SUPPORT_MAX
   const assetOverflow = rawSupportMax > assetSupportMax
-  const distributionMode = assetOverflow ? 'on-demand' : 'asset'
+  const distributionMode = canonical || assetOverflow ? 'on-demand' : 'asset'
   const dynamicSupport = distributionMode === 'on-demand'
   const generationOperations = dynamicSupport
     ? getBacktrackGenerationOperationEstimate(
@@ -989,8 +993,16 @@ function planBacktrack(params, display) {
       ? 22
       : 2
     : 0
+  const baseFloat64Bytes = (
+    3 + generationFloat64Arrays
+  ) * workingLength * Float64Array.BYTES_PER_ELEMENT
+  const canonicalResultFloat64Bytes = canonical
+    ? BACKTRACK_CANONICAL_RESULT_COUNT *
+      workingLength *
+      Float64Array.BYTES_PER_ELEMENT
+    : 0
 
-  return {
+  const plan = {
     params: normalized,
     display,
     rule: normalized.dlois,
@@ -1013,15 +1025,19 @@ function planBacktrack(params, display) {
     workingLength,
     fftLength: 0,
     operations,
-    float64Bytes: (
-      3 + generationFloat64Arrays
-    ) * workingLength * Float64Array.BYTES_PER_ELEMENT,
+    float64Bytes: baseFloat64Bytes + canonicalResultFloat64Bytes,
     finiteSupport: true,
     distributionMode,
     assetSupportMax,
     assetOverflow,
     assetOverflowLowerBound: assetSupportMax + 1,
   }
+  if (canonical) {
+    plan.calculationMode = 'canonical'
+    plan.baseFloat64Bytes = baseFloat64Bytes
+    plan.canonicalResultFloat64Bytes = canonicalResultFloat64Bytes
+  }
+  return plan
 }
 
 function normalizeAttack(params) {
@@ -1448,7 +1464,8 @@ export function planCalculationRanges(params, policy = {}) {
   if (operation === 'backtrack') {
     backtrack = planBacktrack(
       params.backtrack ?? params,
-      display
+      display,
+      params.canonicalBacktrack === true
     )
   } else {
     const scoreParams = operation === 'score'

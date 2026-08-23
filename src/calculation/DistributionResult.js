@@ -171,14 +171,14 @@ function validateResultValues(values) {
 }
 
 function validateOffset(offset, valuesLength) {
-  if (!Number.isSafeInteger(offset) || offset < 0) {
+  if (!Number.isSafeInteger(offset)) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_OFFSET,
-      'offset must be a non-negative safe integer',
+      'offset must be a safe integer',
       { offset }
     )
   }
-  if (valuesLength > MAX_SAFE_INTEGER - offset) {
+  if (offset > MAX_SAFE_INTEGER - valuesLength) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INDEX_OVERFLOW,
       'offset plus values.length must be a safe integer',
@@ -228,10 +228,10 @@ function validateSupport(support, explicitMax, overflow) {
       { kind: support.kind }
     )
   }
-  if (!Number.isSafeInteger(support.max) || support.max < 0) {
+  if (!Number.isSafeInteger(support.max)) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SUPPORT,
-      'finite support.max must be a non-negative safe integer',
+      'finite support.max must be a safe integer',
       { max: support.max }
     )
   }
@@ -883,6 +883,14 @@ export function toPublishedBucketDistribution(result, options) {
   const length = normalizeLegacyOutputLength(options)
   const inspected = inspectDistributionResult(result)
   const { values, offset, overflow } = inspected
+
+  if (offset < 0) {
+    failAdapter(
+      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION,
+      'canonical values below zero cannot be projected to legacy buckets without clamping',
+      { offset }
+    )
+  }
 
   if (overflow?.kind === 'upper-bound') {
     failAdapter(

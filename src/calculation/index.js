@@ -1,5 +1,6 @@
 export {
   calculateFinalEncroachment,
+  calculateFinalEncroachmentCanonical,
   calculateD10Distributions,
   calculateLivingdeadDistributions,
 } from './BacktrackCalculator'

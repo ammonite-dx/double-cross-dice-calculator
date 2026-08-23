@@ -1,5 +1,6 @@
 import {
   calculateFinalEncroachment,
+  calculateFinalEncroachmentCanonical,
 } from '../calculation/BacktrackCalculator'
 import {
   getD10Distribution,
@@ -17,6 +18,19 @@ export function getFinalEncroachment(
   backtrackRangePlan
 ) {
   return calculateFinalEncroachment(
+    params,
+    dependencies,
+    runtimeOptions,
+    backtrackRangePlan
+  )
+}
+
+export function getFinalEncroachmentCanonical(
+  params,
+  runtimeOptions = {},
+  backtrackRangePlan
+) {
+  return calculateFinalEncroachmentCanonical(
     params,
     dependencies,
     runtimeOptions,

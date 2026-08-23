@@ -147,6 +147,8 @@ Attackでは1024比較用のsafe projectionを残したまま、Phase 5の成果
 - 完了条件: 既存のバックトラック入力と資産条件でcanonical/legacy比較が再現でき、finite support、明示coverage不足、overflowを区別し、非投影可能な結果を一点値へ押し込まない。バックトラックのカテゴリ表示に表示windowが必要かは経路固有のadapterで判断し、不要なmin/max計算を要求しない。エラー時は旧結果ではなくerror/re-input案内へ接続する。
 - 対象外: Backtrack固有の新しいJSON形式、production debug panel、他経路のlegacy削除、計算パラメータ入力上限とJSONの同時変更、Cloudflare Workers/API/MCP。
 
+第1実装単位では、既存のVue・表示・`calculateBacktrack`を変更せず、明示opt-inの`calculateBacktrackCanonical`、完全finite supportを持つ`single`/`double`/`second`の`DistributionResult`、canonicalは常時on-demand・legacyは従来assetを維持する計画分離、ResourceGuardのcanonical専用防御コピー見積もり、signed `offset`の共通契約だけを接続する。現行の疎assetは完全supportのcanonical sourceに使わない。既存表示へ渡すカテゴリadapterとproduction接続は後続単位に残す。
+
 バックトラックは資産coverage、範囲計画、結果の集約条件がAttackやCheckと異なる可能性がある。共通display contractを再利用しつつ、asset不足をoverflowや確率ゼロと誤認しない固有validationを追加する。
 
 ### Phase 7: canonicalを既定化し、legacy計算とfallbackを削除する

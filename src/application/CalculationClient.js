@@ -1,4 +1,7 @@
-import { getFinalEncroachment } from '../data/BacktrackCalculator'
+import {
+  getFinalEncroachment,
+  getFinalEncroachmentCanonical,
+} from '../data/BacktrackCalculator'
 import {
   calculateCanonicalDamageOnDemand,
   getCanonicalDamageSummary,
@@ -79,6 +82,7 @@ const defaultDependencies = {
   getDamageSummary,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachment,
+  getFinalEncroachmentCanonical,
   getD10Distribution,
   getScoreSummary,
   getTotalDamage,
@@ -191,11 +195,17 @@ function createAttackRangeParams(request) {
   }
 }
 
-function createBacktrackRangeParams(request) {
-  return {
+function createBacktrackRangeParams(request, canonical = false) {
+  const params = {
     operation: 'backtrack',
     backtrack: { ...request },
   }
+  if (canonical) {
+    // This is an internal planner hint. The public operation remains
+    // `backtrack`; only the explicit canonical client route opts in.
+    params.canonicalBacktrack = true
+  }
+  return params
 }
 
 function getRuntimeOptions(options) {
@@ -902,6 +912,35 @@ export function createCalculationClient(
         }
         throwIfAborted(options, 'Backtrack')
         return dependencies.getFinalEncroachment(
+          request,
+          getRuntimeOptions(options),
+          plan.backtrack
+        )
+      } finally {
+        lease.release()
+      }
+    },
+
+    async calculateBacktrackCanonical(params, options = {}) {
+      const request = snapshotBacktrackParams(params)
+      const plan = runRangePreflight(
+        planner,
+        createBacktrackRangeParams(request, true),
+        options.rangePolicy,
+        options.onRangePlan
+      )
+      const leaseRequest = acquirePlanLease(
+        resourceGuard,
+        plan,
+        options,
+        'backtrack'
+      )
+      const lease = isPromiseLike(leaseRequest)
+        ? await leaseRequest
+        : leaseRequest
+      try {
+        throwIfAborted(options, 'Canonical backtrack')
+        return dependencies.getFinalEncroachmentCanonical(
           request,
           getRuntimeOptions(options),
           plan.backtrack

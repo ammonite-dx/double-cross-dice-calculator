@@ -424,6 +424,14 @@ describe('DisplayRangePlanner', () => {
       support: { kind: 'finite', max: 1 },
       overflow: null,
     }, { min: 0, max: 0 })).toThrow(DisplayRangePlannerError)
+    expect(() => planDisplayRange({
+      kind: 'canonical-distribution-display',
+      version: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+      explicit: { offset: -1, probabilities: [1] },
+      explicitMax: -1,
+      support: { kind: 'finite', max: -1 },
+      overflow: null,
+    }, { displayWindow: { min: 0, max: 0 } })).toThrow(DisplayRangePlannerError)
     expect(() => planDisplayRange(display, {
       displayWindow: { min: 0, max: 0 },
       policy: {

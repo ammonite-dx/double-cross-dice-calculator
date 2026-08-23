@@ -303,15 +303,17 @@ checkとbacktrackは画面単位、attackはコンボ単位でfeedbackと`result
 
 ## 16. Backtrack dynamic range 第2-D（完了）
 
-RangePlannerのbacktrack planは、通常backtrackの3種類（1倍、2倍、3倍）のダイス数を負値0 clamp後に求めます。通常D10の`rawSupportMax`は`10 * maxDice`、《屍人》は`maxDice === 0 ? 0 : 10 * maxDice - 9`であり、`workingMax = rawSupportMax`、`workingLength = workingMax + 1`です。backtrackは畳み込みを使わないため`fftLength`は0です。`rawSupportMax <= assetSupportMax`（1022）なら`asset`、超える場合は完全supportをcore内で生成する`on-demand`です。したがってn=103は通常D10では1030/1031でon-demand、《屍人》では1021/1022でassetです。
+RangePlannerのbacktrack planは、通常backtrackの3種類（1倍、2倍、3倍）のダイス数を負値0 clamp後に求めます。通常D10の`rawSupportMax`は`10 * maxDice`、《屍人》は`maxDice === 0 ? 0 : 10 * maxDice - 9`であり、`workingMax = rawSupportMax`、`workingLength = workingMax + 1`です。backtrackは畳み込みを使わないため`fftLength`は0です。legacy planでは`rawSupportMax <= assetSupportMax`（1022）なら`asset`、超える場合は完全supportをcore内で生成する`on-demand`です。したがってlegacyのn=103は通常D10では1030/1031でon-demand、《屍人》では1021/1022でassetになります。canonical client用の内部`canonicalBacktrack` hintはこのasset境界を使わず、常に`on-demand`を選びます。
 
-計画なしの経路は従来どおりproviderと1024要素アセットを必須とします。計画ありの`asset`経路だけがrepositoryで検証したアセットを使い、`on-demand`経路はアセットを読まずに、通常の`nD10`を前向きDP、《屍人》を`sum(d10) - max(d10) + 1`の最大値状態DPで完全support生成します。ダイス数0は両方とも値0の点分布です。on-demandで完全supportを生成できる場合、静的アセットのcoverage不足warningは出さず、`overflowInfo`も計算結果のoverflowとは扱いません。
+計画なしのlegacy経路は従来どおりproviderと1024要素アセットを必須とします。legacy計画の`asset`経路だけがrepositoryで検証したアセットを使い、legacyの`on-demand`経路はアセットを読まずに、通常の`nD10`を前向きDP、《屍人》を`sum(d10) - max(d10) + 1`の最大値状態DPで完全support生成します。canonical planも同じDPを使い、現行の疎なアセットをロード・参照しません。現行assetは`rawSupportMax <= 1022`でも数学的support全体を証明できないため、canonical sourceには使いません。ダイス数0は両方とも値0の点分布です。on-demandで完全supportを生成できる場合、静的アセットのcoverage不足warningは出さず、`overflowInfo`も計算結果のoverflowとは扱いません。
 
 純粋なbacktrack generatorにはplannerを迂回する直接呼出し向けの絶対安全上限があります。`BACKTRACK_MAX_GENERATION_LENGTH = 1 << 16`はDXの直接計算と同じ65536要素規模、`BACKTRACK_MAX_GENERATION_OPERATIONS = 100_000_000`はDPの概算O(n²)処理量を抑える値、`BACKTRACK_MAX_GENERATED_DICE = 1 << 12`は入力の明示上限です。これらはplannerのwarning/reject policyとは別に、配列確保前に検証されます。abortは配列確保前、主要DP境界、4096反復ごとのchunk境界、終了前に確認します。
 
 完全supportを得てから`encroachment - value - threshold`の境界でカテゴリへ集計するため、減算後に表示範囲へ戻る可能性があるoverflow質量を一点値として扱いません。カテゴリの公開配列は従来の1024相当の形状を保ちますが、計画あり経路の最後の区分は生成した有限support末端までを集計します。生成・provider配列は長さ、有限性、非負性、確率総和を検証し、許容した微小負値だけを0へ補正して総和を正規化します。`signal`はDPの途中でも確認し、既存のcancel/stale契約をruntime options側で維持します。
 
 既存1024要素アセットのsupport限界は`assetSupportMax = 1022`として計画metadataに残しますが、on-demandで完全supportを生成する場合は`assetOverflow`をwarningや`overflowInfo.backtrack`の実計算overflowとして表示しません。静的assetを選ぶ経路でcoverage不足が実際に残る場合だけ、asset warningを表示します。低い`calculationMax`をアセット境界の判定に流用せず、planなし経路、公開1024、UI入力上限、JSON削除、full-tail、total damageのdynamic outputは変更しません。
+
+Phase 6第1実装単位では、`calculateBacktrackCanonical`を明示opt-inで追加し、既存カテゴリ計算とは別に、実際の最終侵蝕率`F = encroachment - value - S`を値座標とする`single`、`double`、`second`の3つの`DistributionResult`を返します。各resultは完全finite support、`overflow: null`、未集約・未丸めの確率を持ち、`S`の実現可能な最小値から最大値だけを反転して`offset`と`support.max`へ写像します。負の`F`はclampせずsigned `offset`で保持します。canonical planだけがDPの生成作業配列とfactoryの3本の防御コピーを`float64Bytes`へ加算し、legacy planの見積りとasset経路は変更しません。Vue、既存表示、既存`calculateBacktrack`の戻り値はこの単位では変更しません。
 
 ## Phase 2-G resource guard
 
@@ -325,7 +327,7 @@ Guard errors are surfaced by the existing `CalculationFeedback` and `RangePlanNo
 
 ## Phase 2-H distribution result contract（第1単位）
 
-Phase 2-H第1単位では、`src/calculation/DistributionResult.js`に内部用のcanonical distribution result契約を追加した。契約は`version: 1`、`Float64Array`の明示一点確率、非負safe integerの`offset`、`finite`または`infinite`のdiscriminated unionである`support`、`null`または`exact`・`upper-bound`を区別する`overflow`から構成される。`explicitMax`は保存せず、空でないときだけ`offset + values.length - 1`から`getExplicitMax`で導出する。
+Phase 2-H第1単位では、`src/calculation/DistributionResult.js`に内部用のcanonical distribution result契約を追加した。契約は`version: 1`、`Float64Array`の明示一点確率、safe integerの`offset`、`finite`または`infinite`のdiscriminated unionである`support`、`null`または`exact`・`upper-bound`を区別する`overflow`から構成される。`offset`はcanonical確率変数の明示coverage下端なので負値を許可し、`explicitMax = offset + values.length - 1`を導出する。`finite.support.max`は実際の上界として`explicitMax`以上でなければならない。`explicitMax`は保存せず、空でないときだけ`offset + values.length - 1`から`getExplicitMax`で導出する。
 
 `exact` overflowは`probability`と`errorBound`を持ち、明示massと合計して一になることを検証する。`upper-bound` overflowは`probabilityUpperBound`を持ち、actual probabilityとして扱わず、明示massが一を超えないことと未明示massが上限以下であることを検証する。`errorBound`は補助的な数値誤差metadataであり、`probability`や`probabilityUpperBound`へ自動加算せず、mass summaryのactual massや上限にも自動加算しない。upper-boundを安全にする誤差はproducerが`probabilityUpperBound`へ織り込む。確率総和の浮動小数点許容値はこのmoduleの`DISTRIBUTION_RESULT_TOLERANCE = 1e-8`に集約し、NaN、Infinity、負値、1を超える値、safe integer overflow、support境界違反は`DistributionResultError`系のtyped errorとcodeで拒否する。
 
@@ -334,6 +336,8 @@ factoryは入力のArrayLikeを一度だけ`Float64Array`へコピーし、結�
 finite supportの`max`はexplicit max以上とし、potential massを持つoverflowでは`lowerBound <= support.max`を要求する。exact overflowの`probability=0`かつ`errorBound=0`、またはupper-bound overflowの`probabilityUpperBound=0`かつ`errorBound=0`はinertであり、finite supportの`max`が`lowerBound`未満でも許可する。inertであることはactual massの証明を追加するものではない。
 
 `fromPublishedBucketDistribution`は現行1024要素の0から1022を明示値、1023を`lowerBound: 1023`のexact overflowへ変換し、legacy arrayだけではfiniteまたはinfinite supportを証明できないため`options.support`を必須とする。`toPublishedBucketDistribution`は明示値のindex 1023以上と、lower boundが1023以上のexact overflowを末尾bucketへ合算するが、upper-bound overflowはactual probabilityではないためtyped errorで拒否する。exact overflowにpotential massがあり`lowerBound`が1023未満の場合は、明示範囲が影響範囲を覆っていてもmassが1023以上だけにある証明がないため`unsafe-projection`として拒否し、inert overflowだけを例外として許可する。
+
+signed `offset`を持つcanonical resultは、現在の表示window契約（`display.explicit.offset`と`displayWindow`は非負safe integer）へ直接渡さない。非負legacy bucketへ値を押し込む`toPublishedBucketDistribution`も、負の座標をクランプせず`unsafe-projection`として拒否する。Backtrackのcanonical producerは実現可能な最小減少量から最大減少量までだけを反転して保持し、ゼロ確率の余分な範囲を作らず、負の最終侵蝕率を`offset`で表現する。
 
 この単位は独立契約とadapter、validator、mass summary、境界テストだけを追加し、既存calculator、`CalculationClient`、UI戻り値、JSON asset経路、入力上限、現行1024 published bucketの解釈には接続していない。可変長`values`を導入しただけでmetadata-awareな演算や公開結果のdynamic outputが完成したとは扱わない。次段階では、計算経路ごとのsupport metadata生成、overflow証明の伝播、JSONとWorkerのserialization方針、公開結果・UIがcanonical resultを受け取る切替条件を別途確定する。
 

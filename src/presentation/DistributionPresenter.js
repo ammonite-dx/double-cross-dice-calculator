@@ -609,6 +609,14 @@ function validateCanonicalEnvelope(canonicalEnvelope) {
     )
   }
 
+  if (offset < 0) {
+    fail(
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+      'canonical distribution display does not support negative explicit offsets',
+      { offset }
+    )
+  }
+
   return {
     values,
     offset,
