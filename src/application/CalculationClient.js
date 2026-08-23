@@ -1,11 +1,7 @@
-import {
-  getFinalEncroachment,
-  getFinalEncroachmentCanonical,
-} from '../data/BacktrackCalculator'
+import { getFinalEncroachmentCanonical } from '../data/BacktrackCalculator'
 import {
   calculateCanonicalDamageOnDemand,
   getCanonicalDamageSummary,
-  calculateDamageOnDemand,
 } from '../calculation/DamageCalculator'
 import {
   createDistributionResult,
@@ -21,18 +17,12 @@ import {
   calculateDxDistribution,
   normalizeDxOptions,
 } from '../calculation/DxCalculator'
-import {
-  getDamageSummary,
-  getTotalDamage,
-} from '../data/DamageCalculator'
 import { getUpperTailProbability } from '../data/Distribution'
 import {
   getD10Distribution,
   loadD10Asset,
-  loadLivingdeadAsset,
 } from '../data/PrecomputedDataRepository'
 import {
-  calculateScore,
   calculateScoreCanonical,
   getCanonicalScoreSummary,
   getScoreSummary,
@@ -52,11 +42,6 @@ import { createResourceGuard } from './ResourceGuard'
 const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
 const defaultResourceGuard = createResourceGuard()
-const TOTAL_DAMAGE_OUTPUT_LENGTH = 1024
-const TOTAL_DAMAGE_FFT_LENGTH = 2048
-const TOTAL_DAMAGE_FFT_BUFFER_COUNT = 4
-const TOTAL_DAMAGE_CONVOLVED_BUFFER_LENGTH = TOTAL_DAMAGE_FFT_LENGTH
-const TOTAL_DAMAGE_OUTPUT_BUFFER_COUNT = 2
 
 function createAbortError(operation = 'Calculation') {
   const error = new Error(`${operation} calculation was aborted`)
@@ -72,22 +57,16 @@ function throwIfAborted(options, operation = 'Calculation') {
 
 const defaultDependencies = {
   calculateCanonicalDamageOnDemand,
-  calculateDamageOnDemand,
   calculateDxDistribution,
-  calculateScore,
   calculateScoreCanonical,
   getCanonicalScoreSummary,
   getCanonicalDamageSummary,
   getCanonicalTotalDamageSummary,
-  getDamageSummary,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
-  getFinalEncroachment,
   getFinalEncroachmentCanonical,
   getD10Distribution,
   getScoreSummary,
-  getTotalDamage,
   loadD10Asset,
-  loadLivingdeadAsset,
   planCanonicalDamageAggregation,
   planCalculationRanges,
   resourceGuard: defaultResourceGuard,
@@ -201,8 +180,8 @@ function createBacktrackRangeParams(request, canonical = false) {
     backtrack: { ...request },
   }
   if (canonical) {
-    // This is an internal planner hint. The public operation remains
-    // `backtrack`; only the explicit canonical client route opts in.
+    // Keep the public planner and canonical execution on the same
+    // on-demand plan. The operation remains `backtrack` for callers.
     params.canonicalBacktrack = true
   }
   return params
@@ -230,11 +209,6 @@ function acquirePlanLease(resourceGuard, plan, options, operation) {
   })
 }
 
-function acquireResourceLease(resourceGuard, request) {
-  const acquire = resourceGuard.acquireLease ?? resourceGuard.acquire
-  return acquire.call(resourceGuard, request)
-}
-
 function isPromiseLike(value) {
   return value !== null
     && value !== undefined
@@ -247,41 +221,6 @@ function createPublishedScoreFromCanonicalEnvelope(envelope) {
     distribution,
     upperTailProbability: getUpperTailProbability(distribution),
     failureProbability: envelope.metadata.failureProbability,
-  }
-}
-
-function multiplySafeInteger(left, right) {
-  const product = left * right
-  return Number.isSafeInteger(product)
-    ? product
-    : Number.MAX_SAFE_INTEGER
-}
-
-function createTotalDamageResourceRequest(combos, options) {
-  const comboCount = Array.isArray(combos) ? combos.length : 0
-  const operationCount = Math.max(1, comboCount)
-  // sumDistribution() uses two complex FFT buffers (four Float64Array
-  // buffers), a convolution result, and the previous/new aggregate arrays.
-  // The convolution result is bounded by the 2048-point FFT length because
-  // two 1024-element distributions produce 2047 values.
-  const float64WordsPerOperation =
-    TOTAL_DAMAGE_FFT_BUFFER_COUNT * TOTAL_DAMAGE_FFT_LENGTH
-    + TOTAL_DAMAGE_CONVOLVED_BUFFER_LENGTH
-    + TOTAL_DAMAGE_OUTPUT_BUFFER_COUNT * TOTAL_DAMAGE_OUTPUT_LENGTH
-  const bytesPerOperation = multiplySafeInteger(
-    float64WordsPerOperation,
-    Float64Array.BYTES_PER_ELEMENT
-  )
-  return {
-    operation: 'attack-total-damage',
-    requestId: options.requestId,
-    signal: options.signal,
-    float64Bytes: multiplySafeInteger(operationCount, bytesPerOperation),
-    operations: multiplySafeInteger(
-      operationCount,
-      TOTAL_DAMAGE_FFT_LENGTH * Math.log2(TOTAL_DAMAGE_FFT_LENGTH)
-    ),
-    timeMs: null,
   }
 }
 
@@ -393,33 +332,11 @@ export function createCalculationClient(
   const canonicalTotalDamageSummary =
     dependencies.getCanonicalTotalDamageSummary
     ?? getCanonicalTotalDamageSummary
-  const hasRuntimeScoreDependencies =
-    typeof dependencies.calculateScore === 'function' &&
+  const hasRuntimeDxDependency =
     typeof dependencies.calculateDxDistribution === 'function'
-  const hasLegacyScoreDependency = typeof dependencies.getScore === 'function'
-  const getDxDistribution = hasRuntimeScoreDependencies
+  const getDxDistribution = hasRuntimeDxDependency
     ? createRuntimeDxProvider(dependencies.calculateDxDistribution)
     : null
-  const scoreCalculator = (() => {
-    if (hasRuntimeScoreDependencies) {
-      return (params, fix = false, scoreRangePlan) => {
-        if (scoreRangePlan === undefined) {
-          return dependencies.calculateScore(params, getDxDistribution, fix)
-        }
-        return dependencies.calculateScore(
-          params,
-          getDxDistribution,
-          fix,
-          scoreRangePlan
-        )
-      }
-    }
-
-    return (params, fix = false) =>
-      fix
-        ? dependencies.getScore(params, true)
-        : dependencies.getScore(params)
-  })()
   const canonicalScoreCalculator = (() => {
     if (typeof dependencies.calculateScoreCanonical === 'function') {
       if (getDxDistribution === null) {
@@ -476,19 +393,7 @@ export function createCalculationClient(
   const canonicalScoreSummaryCalculator =
     dependencies.getCanonicalScoreSummary ?? getCanonicalScoreSummary
 
-  if (!hasRuntimeScoreDependencies && !hasLegacyScoreDependency) {
-    throw new Error(
-      'CalculationClient requires calculateScore/calculateDxDistribution'
-    )
-  }
-
-  async function runAttackCalculation(
-    params,
-    options,
-    finalizeDamage,
-    buildResult,
-    useCanonicalScore = false
-  ) {
+  async function runAttackCalculation(params, options) {
     const request = snapshotAttackParams(params)
     const plan = runRangePreflight(
       planner,
@@ -513,81 +418,42 @@ export function createCalculationClient(
       }
       throwIfAborted(options, 'Attack')
 
-      if (useCanonicalScore && canonicalScoreCalculator === null) {
+      if (canonicalScoreCalculator === null) {
         throw new Error(
           'CalculationClient requires calculateScoreCanonical or runtime score dependencies'
         )
       }
-      const score = useCanonicalScore
-        ? {
-            action: canonicalScoreCalculator(
-              request.action.score,
-              plan.scores?.[0]
-            ),
-            reaction: canonicalScoreCalculator(
-              request.reaction.score,
-              plan.scores?.[1],
-              request.reaction.mode === EVASION_MODE
-            ),
-          }
-        : {
-            action: scoreCalculator(
-              request.action.score,
-              false,
-              plan.scores?.[0]
-            ),
-            reaction: scoreCalculator(
-              request.reaction.score,
-              request.reaction.mode === EVASION_MODE,
-              plan.scores?.[1]
-            ),
-          }
-      const scoreForDamage = useCanonicalScore
-        ? {
-            action: createPublishedScoreFromCanonicalEnvelope(score.action),
-            reaction: createPublishedScoreFromCanonicalEnvelope(score.reaction),
-          }
-        : score
-      const finalizedDamage = await finalizeDamage(
+      const score = {
+        action: canonicalScoreCalculator(
+          request.action.score,
+          plan.scores?.[0]
+        ),
+        reaction: canonicalScoreCalculator(
+          request.reaction.score,
+          plan.scores?.[1],
+          request.reaction.mode === EVASION_MODE
+        ),
+      }
+      const scoreForDamage = {
+        action: createPublishedScoreFromCanonicalEnvelope(score.action),
+        reaction: createPublishedScoreFromCanonicalEnvelope(score.reaction),
+      }
+      const finalizedDamage = await dependencies.calculateCanonicalDamageOnDemand(
         scoreForDamage,
-        request,
-        plan,
-        getRuntimeOptions(options)
+        request.action.damage,
+        request.reaction.damage,
+        {
+          getDamageRollDistribution: dependencies.getDamageRollDistribution,
+          getD10Distribution: dependencies.getD10Distribution,
+          onFftLength: dependencies.onFftLength,
+        },
+        getRuntimeOptions(options),
+        plan
       )
       throwIfAborted(options, 'Attack')
 
-      return buildResult({
-        score,
-        scoreSummary: useCanonicalScore
-          ? canonicalScoreSummaryCalculator(score)
-          : dependencies.getScoreSummary(score),
-        scoreForDamage,
-        finalizedDamage,
-      })
-    } finally {
-      lease.release()
-    }
-  }
-
-  async function calculateCanonicalAttack(params, options = {}) {
-    return runAttackCalculation(
-      params,
-      options,
-      (score, request, plan, runtimeOptions) =>
-        dependencies.calculateCanonicalDamageOnDemand(
-          score,
-          request.action.damage,
-          request.reaction.damage,
-          {
-            getDamageRollDistribution:
-              dependencies.getDamageRollDistribution,
-            getD10Distribution: dependencies.getD10Distribution,
-            onFftLength: dependencies.onFftLength,
-          },
-          runtimeOptions,
-          plan
-        ),
-      ({ score, scoreSummary, finalizedDamage }) => ({
+      const scoreSummary = canonicalScoreSummaryCalculator(score)
+      return {
         score,
         scoreSummary,
         canonicalScore: score,
@@ -595,9 +461,14 @@ export function createCalculationClient(
         canonicalDamage: finalizedDamage,
         canonicalDamageSummary:
           dependencies.getCanonicalDamageSummary(finalizedDamage),
-      }),
-      true
-    )
+      }
+    } finally {
+      lease.release()
+    }
+  }
+
+  async function calculateCanonicalAttack(params, options = {}) {
+    return runAttackCalculation(params, options)
   }
 
   async function runCanonicalTotalDamage(
@@ -662,66 +533,7 @@ export function createCalculationClient(
 
     planBacktrack(params, policy = {}) {
       const request = snapshotBacktrackParams(params)
-      return planner(createBacktrackRangeParams(request), policy)
-    },
-
-    async prepare(routeName) {
-      if (routeName === 'check') {
-        return
-      }
-      if (routeName === 'attack') {
-        await dependencies.loadD10Asset()
-        return
-      }
-      if (routeName === 'backtrack') {
-        await Promise.all([
-          dependencies.loadD10Asset(),
-          dependencies.loadLivingdeadAsset(),
-        ])
-        return
-      }
-      throw new Error(`Unknown calculation route: ${routeName}`)
-    },
-
-    async calculateCheck(params, difficulty, options = {}) {
-      const request = {
-        action: snapshotScoreParams(params.action),
-        reaction: snapshotScoreParams(params.reaction),
-      }
-      const difficultyRequest = { ...difficulty }
-      const plan = runRangePreflight(
-        planner,
-        createCheckRangeParams(request, options.displayRequest),
-        getCheckRangePolicy(options),
-        options.onRangePlan
-      )
-      const leaseRequest = acquirePlanLease(
-        resourceGuard,
-        plan,
-        options,
-        'check'
-      )
-      const lease = isPromiseLike(leaseRequest)
-        ? await leaseRequest
-        : leaseRequest
-
-      try {
-        throwIfAborted(options, 'Check')
-        const score = {
-          action: scoreCalculator(request.action, false, plan.scores?.[0]),
-          reaction: scoreCalculator(request.reaction, false, plan.scores?.[1]),
-        }
-        throwIfAborted(options, 'Check')
-        return {
-          score,
-          scoreSummary: dependencies.getScoreSummary(
-            score,
-            difficultyRequest
-          ),
-        }
-      } finally {
-        lease.release()
-      }
+      return planner(createBacktrackRangeParams(request, true), policy)
     },
 
     async calculateCheckCanonical(params, difficulty, options = {}) {
@@ -780,33 +592,6 @@ export function createCalculationClient(
       }
     },
 
-    async calculateAttackCombo(params, options = {}) {
-      return runAttackCalculation(
-        params,
-        options,
-        (score, request, plan, runtimeOptions) =>
-          dependencies.calculateDamageOnDemand(
-            score,
-            request.action.damage,
-            request.reaction.damage,
-            {
-              getDamageRollDistribution:
-                dependencies.getDamageRollDistribution,
-              getD10Distribution: dependencies.getD10Distribution,
-              onFftLength: dependencies.onFftLength,
-            },
-            runtimeOptions,
-            plan.damage
-          ),
-        ({ score, scoreSummary, finalizedDamage }) => ({
-          score,
-          scoreSummary,
-          damage: finalizedDamage,
-          damageSummary: dependencies.getDamageSummary(finalizedDamage),
-        })
-      )
-    },
-
     async calculateAttackCanonical(params, options = {}) {
       return calculateCanonicalAttack(params, options)
     },
@@ -854,71 +639,8 @@ export function createCalculationClient(
       }
     },
 
-    async calculateTotalDamage(combos, options = {}) {
-      const leaseRequest = acquireResourceLease(
-        resourceGuard,
-        createTotalDamageResourceRequest(combos, options)
-      )
-      const lease = isPromiseLike(leaseRequest)
-        ? await leaseRequest
-        : leaseRequest
-      try {
-        throwIfAborted(options, 'Total damage')
-        const totalDamage = dependencies.getTotalDamage(combos)
-        throwIfAborted(options, 'Total damage')
-        return {
-          totalDamage,
-          totalDamageSummary: dependencies.getDamageSummary(totalDamage),
-        }
-      } finally {
-        lease.release()
-      }
-    },
-
     async calculateCanonicalTotalDamage(canonicalDamages, options = {}) {
       return runCanonicalTotalDamage(canonicalDamages, options)
-    },
-
-    async calculateBacktrack(params, options = {}) {
-      const request = snapshotBacktrackParams(params)
-      const plan = runRangePreflight(
-        planner,
-        createBacktrackRangeParams(request),
-        options.rangePolicy,
-        options.onRangePlan
-      )
-      const leaseRequest = acquirePlanLease(
-        resourceGuard,
-        plan,
-        options,
-        'backtrack'
-      )
-      const lease = isPromiseLike(leaseRequest)
-        ? await leaseRequest
-        : leaseRequest
-      try {
-        throwIfAborted(options, 'Backtrack')
-        if (plan.backtrack?.distributionMode === 'on-demand') {
-          return dependencies.getFinalEncroachment(
-            request,
-            getRuntimeOptions(options),
-            plan.backtrack
-          )
-        }
-        if (request.dlois === '屍人') {
-          await dependencies.loadLivingdeadAsset()
-        } else {
-          await dependencies.loadD10Asset()
-        }
-        throwIfAborted(options, 'Backtrack')
-        return dependencies.getFinalEncroachment(
-          request,
-          getRuntimeOptions(options),
-          plan.backtrack
-        )
-      } finally {
-        lease.release()
-      }
     },
 
     async calculateBacktrackCanonical(params, options = {}) {
@@ -940,11 +662,13 @@ export function createCalculationClient(
         : leaseRequest
       try {
         throwIfAborted(options, 'Canonical backtrack')
-        return dependencies.getFinalEncroachmentCanonical(
+        const result = await dependencies.getFinalEncroachmentCanonical(
           request,
           getRuntimeOptions(options),
           plan.backtrack
         )
+        throwIfAborted(options, 'Canonical backtrack')
+        return result
       } finally {
         lease.release()
       }

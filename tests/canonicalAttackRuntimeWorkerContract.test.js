@@ -84,13 +84,10 @@ function createHarness() {
   const release = vi.fn()
   const client = createCalculationClient({
     calculateCanonicalDamageOnDemand,
-    calculateDamageOnDemand: vi.fn(),
     calculateScoreCanonical: vi.fn(() => canonicalEnvelope()),
     getCanonicalDamageSummary: vi.fn(() => 'canonical summary'),
     getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
     getDamageRollDistribution: runtimeDamageRollClient.calculate,
-    getScore: vi.fn(() => ({ action: { distribution: [1] } })),
-    getScoreSummary: vi.fn(() => 'score summary'),
     loadD10Asset: vi.fn(async () => {}),
     planCalculationRanges: vi.fn(() => ({
       accepted: true,
@@ -141,7 +138,6 @@ describe('canonical Attack runtime Worker boundary', () => {
       expect.objectContaining({ result: expect.any(Object) })
     )
     expect(harness.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
-    expect(harness.client.calculateAttackCombo).toBeTypeOf('function')
     harness.runtimeDamageRollClient.dispose()
   })
 })

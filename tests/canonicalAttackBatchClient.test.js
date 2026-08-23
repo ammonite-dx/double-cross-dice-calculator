@@ -93,8 +93,6 @@ function createDependencies(overrides = {}) {
     getCanonicalDamageSummary: vi.fn((damage) => damage),
     getCanonicalTotalDamageSummary,
     getD10Distribution: vi.fn(),
-    getScore: vi.fn((params, fix = false) => ({ params, fix })),
-    getScoreSummary: vi.fn(() => 'score summary'),
     loadD10Asset: vi.fn(async () => {}),
     planCalculationRanges: vi.fn(() => ({
       accepted: true,

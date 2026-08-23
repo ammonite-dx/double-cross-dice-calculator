@@ -480,21 +480,6 @@ describe('canonical normal check score producer', () => {
     expect(result.score.reaction.result.values.length).toBeGreaterThan(1200)
   })
 
-  it('matches the existing calculateCheck summary for a fixed finite fixture', async () => {
-    const params = {
-      action: scoreParams({ dice: 0, critical: 11, skill: 8 }),
-      reaction: scoreParams({ dice: 0, critical: 11, skill: 3 }),
-    }
-    const difficulty = { opposed: true, target: 0 }
-
-    const legacy = await calculationClient.calculateCheck(params, difficulty)
-    const canonical = await calculationClient.calculateCheckCanonical(
-      params,
-      difficulty
-    )
-
-    expect(canonical.scoreSummary).toEqual(legacy.scoreSummary)
-  })
 })
 
 function createClientDependencies(overrides = {}) {
@@ -512,10 +497,8 @@ function createClientDependencies(overrides = {}) {
     acquirePlan: vi.fn(() => ({ release: vi.fn() })),
   }
   return {
-    calculateScore: vi.fn(),
     calculateScoreCanonical: vi.fn(() => createCanonicalScoreEnvelope()),
     calculateDxDistribution: vi.fn(),
-    getScore: vi.fn(),
     getScoreSummary: vi.fn(),
     planCalculationRanges: vi.fn(() => plan),
     resourceGuard,
@@ -593,7 +576,6 @@ describe('CalculationClient canonical normal check API', () => {
       }),
       { opposed: true, target: 0 }
     )
-    expect(dependencies.calculateScore).not.toHaveBeenCalled()
     expect(dependencies.resourceGuard.acquirePlan).toHaveBeenCalledWith(
       dependencies.plan,
       { signal, requestId: 'canonical-check-1', operation: 'check' }
@@ -656,7 +638,6 @@ describe('CalculationClient canonical normal check API', () => {
     expect(summaryScore.action.distribution[1023]).toBeCloseTo(0.6, 12)
     expect(summaryScore.action.failureProbability).toBe(0.25)
     expect(summaryScore.action.upperTailProbability[1023]).toBeCloseTo(0.6, 12)
-    expect(dependencies.calculateScore).not.toHaveBeenCalled()
   })
 
   it.each([

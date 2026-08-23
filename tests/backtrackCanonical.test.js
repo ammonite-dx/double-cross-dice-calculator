@@ -349,13 +349,9 @@ describe('backtrack canonical producer', () => {
     expect(canonicalLimited.rejectionReasons).toContain('estimated-memory')
   })
 
-  it('exposes the producer through the explicit client API without changing legacy output', async () => {
+  it('exposes the canonical producer through the CalculationClient API', async () => {
     const client = createCalculationClient({
-      getFinalEncroachment,
       getFinalEncroachmentCanonical,
-      getScore: vi.fn(),
-      loadD10Asset: vi.fn(async () => {}),
-      loadLivingdeadAsset: vi.fn(async () => {}),
     })
     const params = {
       encroachment: 79,
@@ -367,8 +363,10 @@ describe('backtrack canonical producer', () => {
     }
 
     const canonical = await client.calculateBacktrackCanonical(params)
-    const legacy = await client.calculateBacktrack(params)
-
-    expectLegacyShapeClose(summarizeLegacyShape(canonical, params), legacy)
+    expect(canonical).toMatchObject({
+      single: expect.objectContaining({ values: expect.any(Float64Array) }),
+      double: expect.objectContaining({ values: expect.any(Float64Array) }),
+      second: expect.objectContaining({ values: expect.any(Float64Array) }),
+    })
   })
 })

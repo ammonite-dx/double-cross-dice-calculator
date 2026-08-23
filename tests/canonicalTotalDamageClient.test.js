@@ -32,7 +32,6 @@ function createEnvelope(values, options = {}) {
 
 function createDependencies(overrides = {}) {
   return {
-    getScore: vi.fn(),
     getCanonicalTotalDamageSummary,
     planCanonicalDamageAggregation,
     sumCanonicalDamage,

@@ -28,9 +28,7 @@ function createDependencies(plan, canonicalResult = 'canonical-result') {
     planCalculationRanges: vi.fn(() => plan),
     resourceGuard,
     getFinalEncroachmentCanonical: vi.fn(() => canonicalResult),
-    getScore: vi.fn(),
     loadD10Asset: vi.fn(async () => {}),
-    loadLivingdeadAsset: vi.fn(async () => {}),
     release,
   }
 }
@@ -85,7 +83,6 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     expect(plan.backtrack.calculationMode).toBe('canonical')
     expect(plan.backtrack.distributionMode).toBe('on-demand')
     expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
-    expect(dependencies.loadLivingdeadAsset).not.toHaveBeenCalled()
     expect(dependencies.getFinalEncroachmentCanonical).toHaveBeenCalledWith(
       request,
       { signal, requestId: options.requestId },
@@ -105,7 +102,6 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     })).resolves.toBe('canonical-result')
 
     expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
-    expect(dependencies.loadLivingdeadAsset).not.toHaveBeenCalled()
     expect(dependencies.getFinalEncroachmentCanonical).toHaveBeenCalledOnce()
     expect(dependencies.release).toHaveBeenCalledOnce()
   })

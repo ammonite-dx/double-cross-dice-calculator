@@ -20,32 +20,13 @@ vi.mock('vue-router', () => ({
   }),
 }))
 
-import { calculationClient } from '../src/application/CalculationClient'
 import router from '../src/router/index.js'
 
 describe('Attack route behavior', () => {
   it('enters Attack without route-level calculation preparation', async () => {
-    const prepare = vi
-      .spyOn(calculationClient, 'prepare')
-      .mockResolvedValue(undefined)
-
     await expect(router.push('/attack')).resolves.toMatchObject({
       path: '/attack',
     })
-
-    expect(prepare).not.toHaveBeenCalled()
-    prepare.mockRestore()
-  })
-
-  it('keeps the explicit CalculationClient.prepare attack API available', async () => {
-    const prepare = vi
-      .spyOn(calculationClient, 'prepare')
-      .mockResolvedValue(undefined)
-
-    await calculationClient.prepare('attack')
-
-    expect(prepare).toHaveBeenCalledWith('attack')
-    prepare.mockRestore()
   })
 
   it('retains the Attack component and removes only its route guard', () => {
@@ -56,5 +37,14 @@ describe('Attack route behavior', () => {
     expect(attackRoute).toBeDefined()
     expect(attackRoute.component).toBeTypeOf('function')
     expect(attackRoute).not.toHaveProperty('beforeEnter')
+  })
+
+  it('has no calculation preload guard on any calculation route', async () => {
+    for (const path of ['/check', '/attack', '/backtrack']) {
+      const route = routerHarness.routes.find((entry) => entry.path === path)
+      expect(route).toBeDefined()
+      expect(route).not.toHaveProperty('beforeEnter')
+      await expect(router.push(path)).resolves.toMatchObject({ path })
+    }
   })
 })

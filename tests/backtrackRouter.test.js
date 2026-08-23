@@ -20,34 +20,24 @@ vi.mock('vue-router', () => ({
   }),
 }))
 
-import {
-  calculationClient,
-} from '../src/application/CalculationClient'
 import router from '../src/router/index.js'
 
 describe('Backtrack route behavior', () => {
   it('navigates to Backtrack without preparing its legacy assets', async () => {
-    const prepare = vi
-      .spyOn(calculationClient, 'prepare')
-      .mockResolvedValue(undefined)
-
     await expect(router.push('/backtrack')).resolves.toMatchObject({
       path: '/backtrack',
     })
-
-    expect(prepare).not.toHaveBeenCalled()
-    prepare.mockRestore()
   })
 
-  it('keeps route preparation for the Check view', async () => {
-    const prepare = vi
-      .spyOn(calculationClient, 'prepare')
-      .mockResolvedValue(undefined)
+  it('navigates to Check without a route-level calculation preload', async () => {
+    await expect(router.push('/check')).resolves.toMatchObject({
+      path: '/check',
+    })
 
-    await router.push('/check')
-
-    expect(prepare).toHaveBeenNthCalledWith(1, 'check')
-    prepare.mockRestore()
+    const checkRoute = routerHarness.routes.find(
+      (route) => route.path === '/check'
+    )
+    expect(checkRoute).not.toHaveProperty('beforeEnter')
   })
 
   it('keeps the Backtrack route component and removes only its guard', () => {

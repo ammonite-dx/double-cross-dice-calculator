@@ -7,8 +7,8 @@
 - `src/calculation/ScoreCalculator.js`: 一般判定・対決判定の達成値と成功率を計算するコア
 - `src/calculation/DamageCalculator.js`: ダメージ、期待値、複数コンボの合計を計算するコア
 - `src/calculation/BacktrackCalculator.js`: バックトラック後の侵蝕率を計算するコア
-- `src/application/CalculationClient.js`: UI向けの非同期計算境界、実行時DX計算器の注入、必要な事前計算データの取得、常駐runtime damage Workerの組み立て
-- `src/data/*Calculator.js`: 現行UIと公開APIを維持し、計算コアへ事前計算データ供給関数を注入する互換ラッパー
+- `src/application/CalculationClient.js`: UI向けの非同期canonical計算境界、実行時DX計算器の注入、AttackのD10遅延読込、常駐runtime damage Workerの組み立て
+- `src/data/*Calculator.js`: canonical計算のproviderと、比較・移行用に保持するlegacy計算ラッパー
 - `src/data/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
 - `src/data/FFT.js`: 独立な確率分布の加算・減算
 - `src/data/PrecomputedDataRepository.js`: 静的アセットの取得、検証、キャッシュ
@@ -20,15 +20,15 @@ Vueコンポーネントは入力状態と表示を管理し、`CalculationClien
 ## データフロー
 
 ```text
-route guard / input watcher / async view setup
+validated input / latest-wins runner / async view setup
           |
           v
 CalculationClient
-  snapshot -> calculate runtime dx / load d10 or livingdead -> calculate
+  snapshot -> runtime DX / (Attack: lazy D10 when defence dice > 0) -> canonical calculate
           |
           v
-runtime DX calculator / PrecomputedDataRepository
-  generate in main thread / fetch -> validate -> cache
+runtime DX calculator / lazy D10 repository / RuntimeDamageRollClient
+  generate in main thread / fetch only when needed / validate -> cache or DR Worker
           |
           v
 calculation core
@@ -42,7 +42,7 @@ resident RuntimeDamageRollClient -> RuntimeDamageRollWorker
 reactive view state -> Chart.js
 ```
 
-ルート表示前に`CalculationClient.prepare`が初期値で必要な非DXアセットを読み込みます。通常判定と攻撃の判定部分は`calculateDxDistribution`をメインスレッドで実行し、同一クライアント内の直近分布を再利用します。攻撃ルートでは`d10`を初期ロードし、`d10`は以降の防御計算で再利用します。バックトラックでは`d10`または`livingdead`だけを必要に応じてロードします。`kazanari`が変わってもJSONを取得せず、常駐Workerへダメージロール分布の再計算を依頼します。連続した入力変更では画面側のリビジョン番号を使い、古い非同期計算結果で新しい入力結果を上書きしないようにします。
+計算routeには`CalculationClient.prepare`やroute guardのpreloadを置かず、各canonical runnerがvalidated snapshotを受けてlatest-winsで実行します。通常のCheckは`calculateDxDistribution`によるruntime DXだけを使います。Attackは同じruntime DXに加えて防御側damage diceが1以上のときだけ計算時に`d10`をlazy loadし、damage-roll distributionは常駐`RuntimeDamageRollClient`からDR Workerへ依頼します。Backtrackは完全on-demandのcanonical generatorを使い、`d10`・`livingdead` assetを読みません。連続した入力変更では古い非同期計算結果で新しい入力結果を上書きしないようにします。
 
 `dr`の配信形式は圧縮効率を優先したダイス数ごとの疎な分布で、旧`src/data/DamageCalculator.js`経路と適合テストの参照用に保持します。本番の`CalculationClient`は`dr`をロードせず、攻撃ごとのweightsと`kazanari`を常駐`RuntimeDamageRollClient`へ渡してWorker内でダメージロール分布を計算します。Workerの結果は計算コアが固定値、d10防御ダイス、命中失敗を合成して画面向けの結果に仕上げます。
 
@@ -66,11 +66,11 @@ reactive view state -> Chart.js
 
 移行比較テストは旧実装から意図せず結果が変わっていないことを確認するために使用します。独立テストはルールから期待値を直接作り、旧実装と現行実装が同じ誤りを持つ場合にも検出できることを目的とします。
 
-`tests/calculationClient.test.js`はローダー、実行時DX計算関数、runtime providerを注入し、DXアセットをロードしないこと、入力スナップショット、反復入力のキャッシュ、weights・`kazanari`・optionsの受け渡し、コンボ単位の結果、バックトラック用データ選択を検証します。`tests/calculationClientIntegration.test.js`は実行時DX計算器、既存の`d10`・`dr`・`dx`参照アセットを使い、`shihai`、クリティカル境界、技能値、`yousei`を含む`CalculationClient`経由の判定結果が既存JSON経路と一致することを検証します。
+`tests/calculationClient.test.js`はcanonical operation surface、public Backtrack planと実行時planの一致、runtime DX、AttackのD10 lazy load、Check summary、Backtrackのasset非依存を検証します。`tests/calculationClientIntegration.test.js`はcanonical clientのCheck/Attack/Backtrack、latest-wins、resource lease、D10 lazy load、DR Worker、canonical totalの境界を検証します。旧JSON・legacy coreとの数値比較、migration、asset equivalenceは専用の下位テストが担当し、削除済みの`CalculationClient.prepare`やlegacy client APIを前提にしません。
 
 ## 計算実行境界
 
-計算ロジックはVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離しています。UIは非同期の`CalculationClient`だけを呼び出し、アプリケーション層が`calculateDxDistribution`を判定計算コアへ、`d10`・`livingdead`の取得と常駐`RuntimeDamageRollClient`の`calculate`を各計算コアのproviderへ注入します。DXの通常計算は実験結果に基づきメインスレッドで行い、ダメージロールのFFT本体だけをWorkerチャンクで実行します。固定値、d10防御ダイス、命中失敗の合成は計算コアで行います。公開`dx` JSONは参照・回帰検証用に保持します。
+計算ロジックはVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離しています。UIは非同期の`CalculationClient`だけを呼び出し、アプリケーション層が`calculateDxDistribution`を判定計算コアへ、Attackで必要になったときだけ`d10`をlazy loadし、常駐`RuntimeDamageRollClient`の`calculate`をDR providerとして注入します。Backtrackのcanonical producerはlegacyの`d10`・`livingdead` providerを参照せず、要求範囲をruntime生成します。DXの通常計算はメインスレッドで行い、ダメージロールのFFT本体だけをWorkerチャンクで実行します。固定値、d10防御ダイス、命中失敗の合成は計算コアで行います。公開`dx` JSONと下位legacy assetsは参照・回帰検証用に保持します。
 
 公開サイトは当面、Cloudflare Pages上の静的SPAとブラウザ内Web Workerを維持します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
 

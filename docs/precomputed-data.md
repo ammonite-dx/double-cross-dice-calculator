@@ -15,7 +15,7 @@
 
 現在の出力先は`public/data/schema-v2/revision-1/`です。schema-v1の旧データは移行比較の参照用として保持し、アプリからは参照しません。
 
-生成元の`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`は変換処理だけが参照します。本番アプリケーションから直接importせず、ViteのJavaScriptチャンクにも含めません。
+生成元の`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`は変換処理と比較・移行・asset equivalence testだけが参照します。本番アプリケーションから直接importせず、ViteのJavaScriptチャンクにも含めません。canonical Attackが必要とするD10は生成済みpublic assetを計算時にlazy loadします。
 
 ## 共通形式
 
@@ -98,13 +98,13 @@
 
 ## 実行時の読込
 
-各画面は必要なファイルだけを同一Pagesデプロイから取得し、取得済みのデータをメモリ上でキャッシュします。
+canonical UIはroute preloadを行わず、計算時に必要なruntime計算またはassetだけを同一Pagesデプロイから取得します。取得済みのD10はメモリ上でcacheします。
 
-- 一般判定: 初期値の`shihai-0`を読み込み、`shihai`変更時に対応するファイルを追加取得
-- 攻撃: `shihai-0`、`kazanari-0`、`d10`を初期読込し、`shihai`または`kazanari`変更時に追加取得
-- バックトラック: `d10`と`livingdead`を初期読込
+- 一般判定: `shihai`用の事前計算assetを読まず、`calculateDxDistribution`でruntime DXを生成
+- 攻撃: `shihai`・`kazanari`の事前計算assetを読まず、runtime DXを生成し、防御側damage diceが1以上のときだけ`d10`をlazy loadする。DRは常駐Workerでruntime生成する
+- バックトラック: 完全on-demandのcanonical generatorで要求範囲を生成し、`d10`・`livingdead` assetを読まない
 
-`d10`と`livingdead`の疎な分布は、計算で必要になったものだけを長さ1024の配列へ展開します。ダメージ軽減に使う最大99ダイスの`d10`だけは2048要素へゼロ拡張します。`dr`は読み込んだ`kazanari`ごとに、ダメージ計算の走査順に合わせた型付き配列のビューを構築し、最近使用した3種類をLRUとして保持します。データ取得・検証・これらのキャッシュは`PrecomputedDataRepository.js`に集約します。
+`d10`と`livingdead`の疎な分布形式は下位legacy経路とasset equivalence testの参照仕様として保持します。canonical Backtrackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`d10`のcanonical Attack利用とlegacy compatibility pathのデータ取得・検証・cacheは`PrecomputedDataRepository.js`に集約します。
 
 ## ファイル名と整合性
 
