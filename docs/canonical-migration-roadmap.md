@@ -141,10 +141,10 @@ Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する�
 
 Attackでは1024比較用のsafe projectionを残したまま、Phase 5の成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続した。Score期待値の未対応infinite support条件は内部lower-bound保持と`—`表示の契約として確定し、finite exceptionと独立したsuccessRate、chart、Damage/Totalの表示継続を確認した。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
 
-### Phase 6: バックトラックをcanonical化する
+### Phase 6: バックトラックをcanonical化する（完了）
 
-- 成果物: バックトラックのcanonical result producer、資産coverageとsupportを含むPhase 2/3 adapter、既存バックトラック表示への供給、asset不足・resource rejection・overflowの比較テスト。
-- 完了条件: 既存のバックトラック入力と資産条件でcanonical/legacy比較が再現でき、finite support、明示coverage不足、overflowを区別し、非投影可能な結果を一点値へ押し込まない。バックトラックのカテゴリ表示に表示windowが必要かは経路固有のadapterで判断し、不要なmin/max計算を要求しない。エラー時は旧結果ではなくerror/re-input案内へ接続する。
+- 成果物（完了）: バックトラックのcanonical result producer、資産coverageとsupportを含むPhase 2/3 adapter、既存バックトラック表示への供給、asset不足・resource rejection・overflowの比較テスト。
+- 完了条件（達成）: 既存のバックトラック入力と資産条件でcanonical/legacy比較が再現でき、finite support、明示coverage不足、overflowを区別し、非投影可能な結果を一点値へ押し込まない。バックトラックのカテゴリ表示に表示windowが必要かは経路固有のadapterで判断し、不要なmin/max計算を要求しない。エラー時は旧結果ではなくerror/re-input案内へ接続する。
 - 対象外: Backtrack固有の新しいJSON形式、production debug panel、他経路のlegacy削除、計算パラメータ入力上限とJSONの同時変更、Cloudflare Workers/API/MCP。
 
 第1実装単位では、既存のVue・表示・`calculateBacktrack`を変更せず、明示opt-inの`calculateBacktrackCanonical`、完全finite supportを持つ`single`/`double`/`second`の`DistributionResult`、canonicalは常時on-demand・legacyは従来assetを維持する計画分離、ResourceGuardのcanonical専用防御コピー見積もり、signed `offset`の共通契約だけを接続する。現行の疎assetは完全supportのcanonical sourceに使わない。既存表示へ渡すカテゴリadapterとproduction接続は後続単位に残す。
@@ -153,7 +153,9 @@ Attackでは1024比較用のsafe projectionを残したまま、Phase 5の成果
 
 第3実装単位では、バックトラック条件パネルに`canonicalOptIn=false`を既定とする一時的な「canonical検証経路（Phase 7で削除予定）」toggleをcontrolled eventとして追加する。legacyでは既存`calculateBacktrack`、canonicalでは`calculateBacktrackCanonical`から`createBacktrackCanonicalPresentation`を経て`finalEncroachment`だけを既存ChartPanel/ChartSetterへ渡す。同じ入力snapshot、RangePlanner通知、ResourceGuard、abort、latest-wins、feedback、unmount disposeを共有し、canonicalの失敗・resource reject・abortではlegacy fallbackせず結果をclearする。productionの既定canonical化、legacy計算削除、routerのasset preload削除、見た目変更はPhase 7まで行わない。
 
-2026-08-24のブラウザ受入（in-app Chromium / Vite local、新規セッション）では、既定の`canonicalOptIn=false`で3 chart、alertなし、JavaScript dialogなし、console warn/error 0を確認した。canonicalへ切り替えた後、現在侵蝕率を90→140→105と連続入力して最終値105が保持され、3 chart・alertなしだった。《不死者・悪夢》へ変更しても3 chart・alertなしで、legacyへ戻すとtoggleはuncheckedとなり、105とDロイスを保持したまま3 chart・alertなしだった。初回起動時は古いVite依存cacheがVuetify仮想moduleを参照して空白になったが、server停止後に`--force`で再最適化した新規セッションでは再発しなかった。これは受入結果とは区別すべき環境復旧事項であり、一時tab/serverは終了してport 3000を解放済みである。この時点のPhase 6の範囲はproducer、adapter、opt-in接続と基本browser受入までであり、resource rejectionのブラウザ実測とPhase 7の既定canonical化は未完了である。
+2026-08-24のブラウザ受入（in-app Chromium / Vite local、新規セッション）では、既定の`canonicalOptIn=false`で3 chart、alertなし、JavaScript dialogなし、console warn/error 0を確認した。canonicalへ切り替えた後、現在侵蝕率を90→140→105と連続入力して最終値105が保持され、3 chart・alertなしだった。《不死者・悪夢》へ変更しても3 chart・alertなしで、legacyへ戻すとtoggleはuncheckedとなり、105とDロイスを保持したまま3 chart・alertなしだった。初回起動時は古いVite依存cacheがVuetify仮想moduleを参照して空白になったが、server停止後に`--force`で再最適化した新規セッションでは再発しなかった。これは受入結果とは区別すべき環境復旧事項であり、一時tab/serverは終了してport 3000を解放済みである。
+
+production formの上限では最大diceは223、最大working lengthは約2231、canonical屍人の最大見積りは約0.5 MiBであり、既定ResourceGuardの64 MiB未満なので、通常ブラウザ操作からdeterministicなresource rejectionは発生させられない。resource rejectionはdebug hookを追加せずintegration境界で検証し、通常成功経路は2026-08-24のブラウザ受入で確認した。このためPhase 6のproducer、adapter、opt-in接続、error/re-input契約、基本browser受入の成果物と完了条件を満たしたものとしてPhase 6を完了とする。resource rejectionの実ブラウザ再現は未実施だがPhase 6の必須条件とはせず、Phase 7のcanonical既定化、toggle・legacy計算・router asset preload削除は未着手である。
 
 バックトラックは資産coverage、範囲計画、結果の集約条件がAttackやCheckと異なる可能性がある。共通display contractを再利用しつつ、asset不足をoverflowや確率ゼロと誤認しない固有validationを追加する。
 

@@ -7,7 +7,11 @@ import {
 } from '../src/application/BacktrackCalculationRunner'
 import {
   createCalculationFeedbackState,
+  formatRangeFeedback,
 } from '../src/application/CalculationFeedback'
+import {
+  CalculationRangeError,
+} from '../src/application/CalculationClient'
 import {
   ResourceGuardError,
   RESOURCE_GUARD_ERROR_CODES,
@@ -26,6 +30,10 @@ const chartPanelSource = readFileSync(
     '../src/components/Backtrack/FinalEncroachmentChartPanel.vue',
     import.meta.url
   ),
+  'utf8'
+)
+const rangeNoticeSource = readFileSync(
+  new URL('../src/components/RangePlanNotice.vue', import.meta.url),
   'utf8'
 )
 
@@ -260,15 +268,36 @@ describe('Backtrack canonical opt-in integration', () => {
     expect(setup.state.finalEncroachment).toBeNull()
   })
 
-  it('clears on canonical resource failure and never falls back to legacy', async () => {
+  it('shows resource feedback, clears without fallback, and recovers on retry', async () => {
     const resourceError = new ResourceGuardError(
       RESOURCE_GUARD_ERROR_CODES.OVERSIZE,
-      'resource rejected'
+      'resource rejected',
+      {
+        float64Bytes: 50 * 1024 * 1024,
+        reservedBytes: 75 * 1024 * 1024,
+        capacityBytes: 64 * 1024 * 1024,
+      }
     )
+    const canonicalResult = {
+      single: 'canonical-single-after-retry',
+      double: 'canonical-double-after-retry',
+      second: 'canonical-second-after-retry',
+    }
+    const presentation = {
+      version: 1,
+      kind: 'backtrack-canonical-presentation',
+      finalEncroachment: {
+        single: [11, 22],
+        double: [33, 44],
+        second: [55, 66],
+      },
+    }
+    const canonicalCalculate = vi.fn()
+      .mockRejectedValueOnce(resourceError)
+      .mockResolvedValueOnce(canonicalResult)
     const setup = createRunner({
-      canonicalCalculate: vi.fn(async () => {
-        throw resourceError
-      }),
+      canonicalCalculate,
+      createPresentation: vi.fn(() => presentation),
     })
 
     await expect(setup.runner.run({
@@ -281,6 +310,65 @@ describe('Backtrack canonical opt-in integration', () => {
     expect(setup.state.resultReady).toBe(false)
     expect(setup.feedback.status).toBe('error')
     expect(setup.onError).toHaveBeenCalledWith(resourceError)
+
+    const resourceDisplay = formatRangeFeedback(setup.feedback)
+    expect(resourceDisplay).toMatchObject({
+      type: 'error',
+      title: '計算資源の制約により計算できません',
+      action: '同時実行中の計算が終わるのを待つか、入力を小さくして再試行してください。',
+    })
+    expect(resourceDisplay.reasons).toContain(
+      'この計算の予約量（75 MiB）が上限（64 MiB）を超えています。'
+    )
+    expect(rangeNoticeSource).toContain('formatRangeFeedback(props.feedback)')
+    expect(rangeNoticeSource).toContain('v-if="display"')
+
+    await expect(setup.runner.run({
+      params: createParams({ encroachment: 105 }),
+      canonicalOptIn: true,
+    })).resolves.toBe(true)
+
+    expect(canonicalCalculate).toHaveBeenCalledTimes(2)
+    expect(setup.calculationClient.calculateBacktrack).not.toHaveBeenCalled()
+    expect(setup.createPresentation).toHaveBeenCalledWith(
+      canonicalResult,
+      createParams({ encroachment: 105 })
+    )
+    expect(setup.state.finalEncroachment)
+      .toBe(presentation.finalEncroachment)
+    expect(setup.state.resultReady).toBe(true)
+    expect(setup.feedback.status).toBe('ready')
+    expect(formatRangeFeedback(setup.feedback)).toBeNull()
+  })
+
+  it('keeps range rejection feedback distinct from ResourceGuardError', async () => {
+    const plan = {
+      accepted: false,
+      rejectionReasons: ['estimated-memory'],
+      warnings: [{ code: 'estimated-memory', severity: 'reject' }],
+      estimates: { float64Bytes: 65 * 1024 * 1024 },
+    }
+    const rangeError = new CalculationRangeError(plan)
+    const setup = createRunner({
+      canonicalCalculate: vi.fn(async () => {
+        throw rangeError
+      }),
+    })
+
+    await expect(setup.runner.run({
+      params: createParams(),
+      canonicalOptIn: true,
+    })).resolves.toBe(false)
+
+    expect(setup.state.finalEncroachment).toBeNull()
+    expect(setup.feedback.status).toBe('rejected')
+    expect(formatRangeFeedback(setup.feedback)).toMatchObject({
+      type: 'error',
+      title: 'この入力では計算できません',
+    })
+    expect(formatRangeFeedback(setup.feedback).reasons).toContain(
+      '計算に必要なメモリが大きくなっています。'
+    )
   })
 
   it('keeps the existing chart panel and makes the temporary toggle controlled', () => {
