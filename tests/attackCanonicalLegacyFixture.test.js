@@ -121,6 +121,119 @@ function createEntries() {
   ]
 }
 
+function createBoundaryEntries() {
+  return [
+    {
+      id: 2,
+      name: '自動失敗・critical 11',
+      params: {
+        action: {
+          score: {
+            dice: 0,
+            critical: 11,
+            skill: 9,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 0, value: -999, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: {
+            dice: 1,
+            critical: 2,
+            skill: -9,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 1, value: 999 },
+        },
+      },
+    },
+    {
+      id: 3,
+      name: 'critical 2・操作・再振り',
+      params: {
+        action: {
+          score: {
+            dice: 2,
+            critical: 2,
+            skill: 7,
+            yousei: 1,
+            shihai: 0,
+          },
+          damage: { dice: 4, value: 12, kazanari: 9 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: {
+            dice: 2,
+            critical: 11,
+            skill: -3,
+            yousei: 0,
+            shihai: 1,
+          },
+          damage: { dice: 2, value: 5 },
+        },
+      },
+    },
+    {
+      id: 4,
+      name: '上限近傍・critical 11',
+      params: {
+        action: {
+          score: {
+            dice: 99,
+            critical: 11,
+            skill: -7,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: {
+            dice: 99,
+            critical: 11,
+            skill: 6,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 1, value: 0 },
+        },
+      },
+    },
+    {
+      id: 5,
+      name: 'finite support・critical 11/dice 0',
+      params: {
+        action: {
+          score: {
+            dice: 0,
+            critical: 11,
+            skill: 9,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: {
+            dice: 0,
+            critical: 11,
+            skill: -9,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 1, value: 0 },
+        },
+      },
+    },
+  ]
+}
+
 function createRangePolicy() {
   return createAttackRangePolicy(
     DISPLAY_REQUEST,
@@ -340,5 +453,143 @@ describe('production Attack canonical/legacy comparison fixture', () => {
     expect(formatCanonicalSummaryExpectedValue(
       canonicalPresentation.total.display.expectedValue
     )).toBe(legacyTotal.totalDamageSummary.expectedValue)
+  })
+
+  it('compares high-value score and damage boundaries before legacy API removal', async () => {
+    const entries = createBoundaryEntries()
+    const canonicalBatch = await calculationClient.calculateAttackCanonicalBatch(
+      entries,
+      { rangePolicy: createRangePolicy() }
+    )
+    const legacyResults = []
+    for (const entry of entries) {
+      legacyResults.push(
+        await calculationClient.calculateAttackCombo(
+          entry.params,
+          { rangePolicy: createRangePolicy() }
+        )
+      )
+    }
+    const legacyTotal = await calculationClient.calculateTotalDamage(
+      legacyResults.map((result) => ({ data: { damage: result.damage } }))
+    )
+
+    for (let index = 0; index < entries.length; index += 1) {
+      const legacy = legacyResults[index]
+      const canonical = canonicalBatch.combos[index]
+
+      expectPublishedDistributionsToMatch(
+        legacy.score.action,
+        toPublishedScore(canonical.score.action)
+      )
+      expectPublishedDistributionsToMatch(
+        legacy.score.reaction,
+        toPublishedScore(canonical.score.reaction)
+      )
+      expectComparable(
+        compareLegacyAndCanonicalDamage(
+          legacy.damage.distribution,
+          canonical.canonicalDamage
+        ),
+        'damage'
+      )
+    }
+
+    const totalComparison = compareLegacyAndCanonicalTotalDamage(
+      legacyTotal.totalDamage.distribution,
+      canonicalBatch.canonicalTotalDamage
+    )
+    expect(totalComparison).toMatchObject({
+      kind: 'not-comparable',
+      scope: 'total',
+      reason: 'total-overflow',
+      passed: false,
+    })
+
+    const totalOverflow = canonicalBatch.canonicalTotalDamage.result.overflow
+    expect(totalOverflow).not.toBeNull()
+    expect(['exact', 'upper-bound']).toContain(totalOverflow.kind)
+    expect(Number.isSafeInteger(totalOverflow.lowerBound)).toBe(true)
+    expect(totalOverflow.lowerBound).toBeGreaterThan(0)
+    expect(Number.isFinite(totalOverflow.errorBound)).toBe(true)
+    expect(totalOverflow.errorBound).toBeGreaterThanOrEqual(0)
+    const overflowProbability = totalOverflow.kind === 'exact'
+      ? totalOverflow.probability
+      : totalOverflow.probabilityUpperBound
+    expect(Number.isFinite(overflowProbability)).toBe(true)
+    expect(overflowProbability).toBeGreaterThanOrEqual(0)
+    expect(totalOverflow.errorBound).toBeGreaterThan(0)
+    expect(canonicalBatch.canonicalTotalDamage.result.support.kind)
+      .toBe('finite')
+    expect(canonicalBatch.canonicalTotalDamage.metadata.componentCount)
+      .toBe(entries.length)
+    expect(canonicalBatch.canonicalTotalDamage.metadata.componentDescriptors)
+      .toHaveLength(entries.length)
+  })
+
+  it('compares finite-support boundary totals before legacy API removal', async () => {
+    const entries = createBoundaryEntries().filter(
+      (entry) => entry.id === 4 || entry.id === 5
+    )
+    const canonicalBatch = await calculationClient.calculateAttackCanonicalBatch(
+      entries,
+      { rangePolicy: createRangePolicy() }
+    )
+    const legacyResults = []
+    for (const entry of entries) {
+      legacyResults.push(
+        await calculationClient.calculateAttackCombo(
+          entry.params,
+          { rangePolicy: createRangePolicy() }
+        )
+      )
+    }
+    const legacyTotal = await calculationClient.calculateTotalDamage(
+      legacyResults.map((result) => ({ data: { damage: result.damage } }))
+    )
+
+    for (const combo of canonicalBatch.combos) {
+      expect(combo.canonicalDamage.result.support).toEqual({
+        kind: 'finite',
+        max: expect.any(Number),
+      })
+      expect(combo.canonicalDamage.result.overflow).toBeNull()
+      expect(combo.canonicalDamage.metadata.modeledSupport).toEqual(
+        combo.canonicalDamage.result.support
+      )
+    }
+
+    expect(canonicalBatch.canonicalTotalDamage.result.support).toEqual({
+      kind: 'finite',
+      max: expect.any(Number),
+    })
+    expect(canonicalBatch.canonicalTotalDamage.result.overflow).toBeNull()
+    expect(canonicalBatch.canonicalTotalDamage.metadata.componentCount)
+      .toBe(entries.length)
+    expect(canonicalBatch.canonicalTotalDamage.metadata.sourceOverflowProbability)
+      .toBe(0)
+    expect(
+      canonicalBatch.canonicalTotalDamage.metadata.sourceOverflowProbabilityUpperBound
+    ).toBe(0)
+    expect(
+      canonicalBatch.canonicalTotalDamage.metadata.componentDescriptors
+    ).toEqual([
+      expect.objectContaining({
+        overflow: null,
+        modeledSupport: canonicalBatch.combos[0].canonicalDamage.result.support,
+      }),
+      expect.objectContaining({
+        overflow: null,
+        modeledSupport: canonicalBatch.combos[1].canonicalDamage.result.support,
+      }),
+    ])
+
+    expectComparable(
+      compareLegacyAndCanonicalTotalDamage(
+        legacyTotal.totalDamage.distribution,
+        canonicalBatch.canonicalTotalDamage
+      ),
+      'total'
+    )
   })
 })
