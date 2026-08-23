@@ -426,3 +426,12 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 追加ブラウザ受入（2026-08-23、in-app Chromium / Vite local、canonical opt-in）: action diceを`2→20→3`と連続入力すると最終値`3`だけが残り、サマリーは達成値期待値`9.7`、命中率`71%`、ダメージ期待値`5.5`、chart 2だった。入力`99`直後にcomboを削除しても削除済み結果は復活せず、新規comboは既定dice `1`、サマリーは`6`、`45.5%`、`3.1`、chart 2だった。《妖精の手》`2`を設定後に詳細設定を閉じ、再度開くと`0`へ戻り、サマリーも既定値へ復帰した。console warning/errorとJavaScript dialogは0件だった。action dice `3`では、boundedなcanonicalダメージ期待値を安定した丸め値として表示する既存契約に伴い、「canonicalの期待値が正確値でない」という画面内の注意を確認した。明示的なresource warningは対象外とした。一時server/tabを終了し、port `3000`を解放したため、追加ブラウザ実測は完了とした。
 - Score期待値表示契約（完了）: 無限supportでScore期待値certificateが未対応の`skill<0`、`yousei>0`、`shihai>0`は、内部expected valueをlower-boundのまま保持し、通常UIの達成値期待値を`—`とする。これは期待値の保証範囲に限る契約であり、canonical分布・chart・計算自体の失敗を意味しない。successRateは独立したcertificate/区間規則に従い、丸めが確定すれば表示し、Damage/Totalも各自の契約で表示を継続する。`dice<=shihai`の自動失敗や`critical=11`などfinite supportでgeneric summaryがexactになる場合は従来どおり数値表示する。
 - 将来拡張TODO: 未対応の無限supportは恒久的な非対応とはせず、負の`skill`（clampを含むshifted tail-sum）、`yousei`（exact-youseiのfirst-moment residual）、`shihai`（DPに対応するtail first-moment certificate）の順に検討する。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
+
+## Canonical migration Phase 7 第1実装単位: バックトラックcanonical default（完了）
+
+- 完了: Backtrackの初期計算・再計算を`createBacktrackCanonicalRunner`の`calculateBacktrackCanonical`→`createBacktrackCanonicalPresentation`経路へ統合し、`Backtrack.vue`の初期計算も`onMounted`から同じrunnerで実行するようにした。
+- 完了: `InputPanel.vue`と`Backtrack.vue`から一時`canonicalOptIn` toggle、snapshot mode、legacy branchを削除した。canonicalのpresentation error、ResourceGuard rejection、range rejection、abort、stale result、disposeでは結果をclearし、retryで復旧する。
+- 完了: `/backtrack` routeの`prepareCalculation('backtrack')` beforeEnterだけを削除した。`CalculationClient.prepare('backtrack')`、legacy API/assets、legacy比較テストは維持した。
+- 検証: canonical adapter、resource rejectionのclear/no fallback、retry、abort/latest-wins、入力snapshotのtoggle削除、route preloadなしを`backtrackCanonicalIntegration.test.js`と`backtrackInputSnapshot.test.js`で固定した。
+- ブラウザ受入（2026-08-24、in-app browser / Vite local `--force`）: `/backtrack`で一時canonical toggleは表示されず、初回からcanvas 3、alertなしを確認した。侵蝕率`90→140→105`の連続入力後は最終値`105`、canvas 3、alertなしだった。Dロイス「なし」「不死者・悪夢」「屍人」の各ケースでもcanvas 3、alertなしだった。完全Vue mountはNode test環境制約で未実施だが、runner behavior/router module testで補完した。検証用tab/serverは終了し、port `3000`を解放した。
+- 状態: バックトラックのcanonical default化と第1実装単位のブラウザ受入は完了。Attackのcanonical default化、Phase 7全体のlegacy計算・fallback整理、最終受入は未完了。

@@ -7,8 +7,8 @@
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
 - Attackにはcanonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、exact finite caseだけを既存1024 published bucketへ安全に投影するdisplay adapterがある。Phase 5の途中成果として、Score/Damageのdynamic displayも`canonicalOptIn`付きで接続済みである。これらのpanel、toggle、診断表示、安全投影は移行中の検証用であり、本番移行完了時には削除する。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
-- 通常のCheckはcanonical resultを既存表示経路と既定経路へ接続済みである。バックトラックはcanonical resultを既存表示経路へ接続しておらず、Attackはcanonical batchとScore/Damageのdynamic displayを`canonicalOptIn`付きの検証用接続へ移行中だが、既定production表示へは移行していない。
-- Attackとバックトラックの既定経路はまだlegacy計算、legacy UI、1024要素のpublished distributionである。通常のCheckの既定経路はPhase 4でcanonicalへ接続済みだが、三経路全体の既定化は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
+- 通常のCheckとバックトラックはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackはcanonical batchとScore/Damageのdynamic displayを`canonicalOptIn`付きの検証用接続へ移行中で、既定production表示へはまだ移行していない。
+- バックトラックのcanonical default化はPhase 7第1実装単位で完了した。Attackの既定化、三経路全体のlegacy計算削除、JSON整理は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
 
 ## 表示範囲と明示coverageの移行対象
 
@@ -155,7 +155,7 @@ Attackでは1024比較用のsafe projectionを残したまま、Phase 5の成果
 
 2026-08-24のブラウザ受入（in-app Chromium / Vite local、新規セッション）では、既定の`canonicalOptIn=false`で3 chart、alertなし、JavaScript dialogなし、console warn/error 0を確認した。canonicalへ切り替えた後、現在侵蝕率を90→140→105と連続入力して最終値105が保持され、3 chart・alertなしだった。《不死者・悪夢》へ変更しても3 chart・alertなしで、legacyへ戻すとtoggleはuncheckedとなり、105とDロイスを保持したまま3 chart・alertなしだった。初回起動時は古いVite依存cacheがVuetify仮想moduleを参照して空白になったが、server停止後に`--force`で再最適化した新規セッションでは再発しなかった。これは受入結果とは区別すべき環境復旧事項であり、一時tab/serverは終了してport 3000を解放済みである。
 
-production formの上限では最大diceは223、最大working lengthは約2231、canonical屍人の最大見積りは約0.5 MiBであり、既定ResourceGuardの64 MiB未満なので、通常ブラウザ操作からdeterministicなresource rejectionは発生させられない。resource rejectionはdebug hookを追加せずintegration境界で検証し、通常成功経路は2026-08-24のブラウザ受入で確認した。このためPhase 6のproducer、adapter、opt-in接続、error/re-input契約、基本browser受入の成果物と完了条件を満たしたものとしてPhase 6を完了とする。resource rejectionの実ブラウザ再現は未実施だがPhase 6の必須条件とはせず、Phase 7のcanonical既定化、toggle・legacy計算・router asset preload削除は未着手である。
+production formの上限では最大diceは223、最大working lengthは約2231、canonical屍人の最大見積りは約0.5 MiBであり、既定ResourceGuardの64 MiB未満なので、通常ブラウザ操作からdeterministicなresource rejectionは発生させられない。resource rejectionはdebug hookを追加せずintegration境界で検証し、通常成功経路は2026-08-24のブラウザ受入で確認した。このためPhase 6のproducer、adapter、opt-in接続、error/re-input契約、基本browser受入の成果物と完了条件を満たしたものとしてPhase 6を完了とする。resource rejectionの実ブラウザ再現は未実施だがPhase 6の必須条件とはせず、Phase 7第1実装単位でバックトラックのcanonical既定化、toggle削除、legacy計算を残したままのrouter asset preload削除を完了した。
 
 バックトラックは資産coverage、範囲計画、結果の集約条件がAttackやCheckと異なる可能性がある。共通display contractを再利用しつつ、asset不足をoverflowや確率ゼロと誤認しない固有validationを追加する。
 
@@ -164,6 +164,11 @@ production formの上限では最大diceは223、最大working lengthは約2231�
 - 成果物: 三経路の比較結果、ブラウザ実測、性能・資源・cancel/stale・error確認、既存コンポーネントへcanonicalを渡す既定経路、`CanonicalAttackPanel`/`canonicalOptIn`/debug表示の削除、legacy計算・固定1024 projection・legacy fallbackの削除。
 - 完了条件: 主要fixtureで数値、support、明示coverage、tail、expected valueの意味、任意display window、表示点数、資源拒否、error/re-input案内がレビュー済みで、既存チャート・サマリーの見た目を保ったままcanonicalが既定になる。canonical計算の失敗時に旧結果を表示しないことを確認する。
 - 対象外: この段階での計算パラメータ入力上限の再設計、既存JSONの削除、Cloudflare Workers新規経路、HTTP API、MCP。
+
+第1実装単位（完了）では、バックトラックの初期計算・再計算を`createBacktrackCanonicalRunner`へ統合し、`calculateBacktrackCanonical`から`createBacktrackCanonicalPresentation`を通る既定経路へ切り替えた。条件パネルの一時`canonicalOptIn` toggleを削除し、初期計算も`onMounted`から同じlatest-wins runnerで実行する。canonicalのresource rejection・error・abortでは旧結果へfallbackせず結果をclearし、retry、latest-wins、disposeを維持する。バックトラックrouteの`prepareCalculation('backtrack')` guardだけを削除し、`CalculationClient.prepare('backtrack')`、legacy API・asset・比較テストは維持する。
+
+- ブラウザ受入（2026-08-24、in-app browser / Vite local `--force`）: `/backtrack`で一時canonical toggleは表示されず、初回からcanvas 3、alertなしを確認した。侵蝕率を`90→140→105`と連続入力した後は最終値`105`、canvas 3、alertなしだった。Dロイスを「なし」「不死者・悪夢」「屍人」に変更した各ケースでもcanvas 3、alertなしだった。完全Vue mountはNode test環境制約で未実施だが、runner behavior/router module testで補完した。検証用tab/serverは終了し、port `3000`を解放した。
+- 現在の状態: バックトラックのcanonical default化と第1実装単位のブラウザ受入は完了したが、Phase 7全体は未完了である。Attackの既定化、Attackのdebug/legacy整理、三経路のlegacy計算・fallback削除、最終的なブラウザ受入は後続作業とする。
 
 既定化は実装完了ではなく、三経路の比較・ブラウザ実測・resource/cancel/error確認後の受入判断である。legacy表示コンポーネントを残すことは互換UIの維持であり、legacy計算や固定1024を残すことではない。
 

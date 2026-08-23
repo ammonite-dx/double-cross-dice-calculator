@@ -9,17 +9,10 @@
             type: Object,
             required: true,
         },
-        canonicalOptIn: {
-            type: Boolean,
-            default: false,
-        },
     });
-    const emit = defineEmits(['validated', 'canonical-toggle']);
+    const emit = defineEmits(['validated']);
     const onValidated = (params) => {
         emit('validated', params);
-    };
-    const onCanonicalToggle = (value) => {
-        emit('canonical-toggle', value === true);
     };
 
 </script>
@@ -31,15 +24,6 @@
         <v-card-text class="pa-0 text-md-body-1 text-caption">
             <v-container class="pa-4">
                 <RangePlanNotice :feedback="props.backtrackData.rangeFeedback" />
-                <v-switch
-                    :model-value="props.canonicalOptIn"
-                    label="canonical検証経路（Phase 7で削除予定）"
-                    color="primary"
-                    hide-details="auto"
-                    density="compact"
-                    class="mb-2"
-                    @update:model-value="onCanonicalToggle"
-                />
                 <InputForm :backtrackData="props.backtrackData" @validated="onValidated"/>
             </v-container>
         </v-card-text>

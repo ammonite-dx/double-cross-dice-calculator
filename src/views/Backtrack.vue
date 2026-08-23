@@ -5,14 +5,10 @@
         CALCULATION_CLIENT_KEY,
         calculationClient as defaultCalculationClient,
     } from '@/application/CalculationClient';
-    import {
-        createCalculationFeedbackState,
-        runInitialCalculation,
-    } from '@/application/CalculationFeedback';
+    import { createCalculationFeedbackState } from '@/application/CalculationFeedback';
     import { createBacktrackInputSnapshot } from '@/application/BacktrackInputSnapshot';
     import {
-        createBacktrackCalculationRunner,
-        createBacktrackCalculationSnapshot,
+        createBacktrackCanonicalRunner,
     } from '@/application/BacktrackCalculationRunner';
     import InputPanel from '@/components/Backtrack/InputPanel.vue'
     import FinalEncroachmentChartPanel from '@/components/Backtrack/FinalEncroachmentChartPanel.vue';
@@ -32,24 +28,13 @@
         },
     });
     const rangeFeedback = reactive(createCalculationFeedbackState());
-    const initialFinalEncroachment = await runInitialCalculation({
-        feedback: rangeFeedback,
-        calculate: (options) => calculationClient.calculateBacktrack(
-            initialSnapshot.params,
-            options
-        ),
-        onError: (error) => {
-            console.error('Failed to initialize backtrack calculation', error);
-        },
-    });
     const backtrackData = reactive({
         params: {...initialSnapshot.params},
-        finalEncroachment: initialFinalEncroachment,
-        resultReady: initialFinalEncroachment !== null,
-        canonicalOptIn: false,
+        finalEncroachment: null,
+        resultReady: false,
         rangeFeedback,
     });
-    const calculationRunner = createBacktrackCalculationRunner({
+    const calculationRunner = createBacktrackCanonicalRunner({
         state: backtrackData,
         feedback: rangeFeedback,
         calculationClient,
@@ -58,26 +43,13 @@
         },
     });
     const onBacktrackValidated = (params) => {
-        const snapshot = createBacktrackCalculationSnapshot({
-            params,
-            canonicalOptIn: backtrackData.canonicalOptIn,
-        });
+        const snapshot = createBacktrackInputSnapshot({params});
         backtrackData.params = {...snapshot.params};
-        void calculationRunner.run(snapshot);
-    };
-    const onBacktrackCanonicalToggle = (canonicalOptIn) => {
-        const snapshot = createBacktrackCalculationSnapshot({
-            params: backtrackData.params,
-            canonicalOptIn,
-        });
-        backtrackData.canonicalOptIn = snapshot.canonicalOptIn;
         void calculationRunner.run(snapshot);
     };
 
     onMounted(() => {
-        if (!backtrackData.resultReady && rangeFeedback.status !== 'rejected') {
-            void calculationRunner.run(initialSnapshot);
-        }
+        void calculationRunner.run(initialSnapshot);
     });
     onUnmounted(() => calculationRunner.dispose());
 
@@ -87,9 +59,7 @@
     <v-container class="pa-6" fluid>
         <v-row><v-col cols="12"><InputPanel
             :backtrackData="backtrackData"
-            :canonicalOptIn="backtrackData.canonicalOptIn"
             @validated="onBacktrackValidated"
-            @canonical-toggle="onBacktrackCanonicalToggle"
         /></v-col></v-row>
         <v-row v-if="backtrackData.resultReady"><v-col cols="12"><FinalEncroachmentChartPanel :backtrackData="backtrackData"/></v-col></v-row>
     </v-container>

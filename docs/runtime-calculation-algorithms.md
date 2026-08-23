@@ -319,6 +319,8 @@ Phase 6第2実装単位では、`src/presentation/BacktrackCanonicalPresentation
 
 Phase 6第3実装単位では、`BacktrackCalculationRunner`がvalidated paramsと一時的な`canonicalOptIn`を同じrequest snapshotへ封じ、legacy/canonicalのclient API選択、最新要求のみのcommit、abort、feedback、ResourceGuardの計画通知、disposeを一つのBacktrack laneで扱います。既定値はlegacyで、canonical結果は`createBacktrackCanonicalPresentation(...).finalEncroachment`へ変換してから既存`FinalEncroachmentChartPanel`へ渡します。条件パネルのtoggleはcontrolled eventとして親がsnapshot化・再計算を起動し、canonical error/resource reject/abort時にlegacyへfallbackせず結果をclearします。toggleとdebug接続は移行検証用であり、Phase 7で削除予定です。
 
+Phase 7第1実装単位では、`createBacktrackCanonicalRunner`をcanonical専用runnerとして接続し、Backtrackの初期計算・入力再計算を`calculateBacktrackCanonical`から`createBacktrackCanonicalPresentation`へ一本化しました。`InputPanel.vue`と`Backtrack.vue`から一時`canonicalOptIn` toggleとlegacy分岐を削除し、初期計算も`onMounted`から同じlatest-wins runnerへ渡します。canonical adapterのpresentation error、ResourceGuard rejection、range rejection、abort、stale result、disposeでは旧結果へfallbackせず結果をclearし、retryで再度commitできます。route guardの`prepareCalculation('backtrack')`だけを削除しましたが、`CalculationClient.prepare('backtrack')`、legacy API、asset、比較fixtureは維持しています。
+
 ## Phase 2-G resource guard
 
 Phase 2-G adds a shared FIFO resource guard in `src/application/ResourceGuard.js` and injects the singleton through the application `CalculationClient` dependency factory. `check`, `attack`, and `backtrack` run the existing range preflight first, then reserve before asset loading or calculation, and release the lease from one `finally` path. A preflight hard reject therefore does not reserve anything.

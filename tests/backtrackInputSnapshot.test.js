@@ -68,32 +68,23 @@ describe('BacktrackInputSnapshot', () => {
 })
 
 describe('Backtrack input flow contracts', () => {
-  it('keeps state, runner, result commit, and snapshot submission in Backtrack.vue', () => {
-    expect(backtrackViewSource).toContain(
-      'createBacktrackCalculationRunner'
-    )
-    expect(backtrackViewSource).toContain(
-      'createBacktrackCalculationSnapshot({'
-    )
-    expect(backtrackViewSource).toContain(
-      'const initialSnapshot = createBacktrackInputSnapshot({'
-    )
-    expect(backtrackViewSource).toContain('void calculationRunner.run(snapshot)')
-    expect(backtrackViewSource).toContain('calculationRunner.dispose()')
-    expect(backtrackViewSource).toContain('@validated="onBacktrackValidated"')
-    expect(backtrackViewSource).toContain(
-      '@canonical-toggle="onBacktrackCanonicalToggle"'
-    )
-    expect(backtrackViewSource).not.toContain('watch(')
+  it('keeps the Backtrack template input boundary free of the temporary toggle', () => {
+    const backtrackTemplate = backtrackViewSource.match(
+      /<template>([\s\S]*)<\/template>/
+    )?.[1]
+    expect(backtrackTemplate).toMatch(/<InputPanel\b[\s\S]*@validated=/)
+    expect(backtrackTemplate).not.toMatch(/canonicalOptIn|canonical-toggle/)
   })
 
   it('forwards only validated events through InputForm and InputPanel', () => {
     expect(inputFormSource).toContain("defineEmits(['validated'])")
     expect(inputFormSource).toContain('@validated="onValidated"')
-    expect(inputPanelSource).toContain(
-      "defineEmits(['validated', 'canonical-toggle'])"
+    expect(inputPanelSource).toMatch(
+      /defineEmits\(\s*\[\s*['"]validated['"]\s*\]\s*\)/
     )
-    expect(inputPanelSource).toContain('@validated="onValidated"')
+    expect(inputPanelSource).toMatch(/@validated\s*=\s*['"]onValidated['"]/
+    )
+    expect(inputPanelSource).not.toMatch(/canonicalOptIn|canonical-toggle|<v-switch/)
     expect(inputFormSource).not.toContain('createLatestCalculationRunner')
     expect(inputPanelSource).not.toContain('createLatestCalculationRunner')
   })

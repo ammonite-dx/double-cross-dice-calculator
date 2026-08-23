@@ -8,34 +8,19 @@ import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'
 
-/**
- * Snapshot the validated Backtrack inputs together with the temporary
- * migration lane selection. The form continues to emit only its existing
- * validated params contract; the opt-in flag is added by the view boundary.
- */
-export function createBacktrackCalculationSnapshot(draft = {}) {
-  const inputSnapshot = createBacktrackInputSnapshot(draft)
+function createCalculationEnvelope(params, result) {
   return {
-    params: { ...inputSnapshot.params },
-    canonicalOptIn: draft?.canonicalOptIn === true,
-  }
-}
-
-function createCalculationEnvelope(canonicalOptIn, params, result) {
-  return {
-    canonicalOptIn,
     params: { ...params },
     result,
   }
 }
 
 /**
- * Connect one Backtrack request lane to either the unchanged legacy client
- * API or the explicit canonical API. Both modes share feedback, preflight,
- * abort, latest-wins, and disposal behavior. Canonical results cross the
- * Backtrack-specific presentation adapter before entering legacy chart state.
+ * Connect one Backtrack request lane to the canonical client API and the
+ * Backtrack-specific presentation adapter. The shared runner owns feedback,
+ * preflight, abort, latest-wins, and disposal behavior.
  */
-export function createBacktrackCalculationRunner({
+export function createBacktrackCanonicalRunner({
   state,
   feedback,
   calculationClient,
@@ -43,65 +28,50 @@ export function createBacktrackCalculationRunner({
   onError,
 }) {
   if (state === null || typeof state !== 'object') {
-    throw new TypeError('createBacktrackCalculationRunner requires state')
+    throw new TypeError('createBacktrackCanonicalRunner requires state')
   }
   if (feedback === null || typeof feedback !== 'object') {
-    throw new TypeError('createBacktrackCalculationRunner requires feedback')
+    throw new TypeError('createBacktrackCanonicalRunner requires feedback')
   }
   if (
     calculationClient === null
     || typeof calculationClient !== 'object'
-    || typeof calculationClient.calculateBacktrack !== 'function'
     || typeof calculationClient.calculateBacktrackCanonical !== 'function'
   ) {
     throw new TypeError(
-      'createBacktrackCalculationRunner requires both Backtrack client APIs'
+      'createBacktrackCanonicalRunner requires calculateBacktrackCanonical'
     )
   }
 
-  const latestRunner = createLatestCalculationRunner({
+  return createLatestCalculationRunner({
     feedback,
-    snapshotRequest: createBacktrackCalculationSnapshot,
+    snapshotRequest: createBacktrackInputSnapshot,
     calculate: (snapshot) => {
-      const {
-        params,
-        canonicalOptIn,
-        ...calculationOptions
-      } = snapshot
-      const calculation = canonicalOptIn
-        ? calculationClient.calculateBacktrackCanonical(
-            params,
-            calculationOptions
-          )
-        : calculationClient.calculateBacktrack(
-            params,
-            calculationOptions
-          )
-      return Promise.resolve(calculation).then((result) =>
-        createCalculationEnvelope(canonicalOptIn, params, result)
-      )
+      const { params, ...calculationOptions } = snapshot
+      return Promise.resolve(
+        calculationClient.calculateBacktrackCanonical(
+          params,
+          calculationOptions
+        )
+      ).then((result) => createCalculationEnvelope(params, result))
     },
     clearResult: () => {
       state.finalEncroachment = null
       state.resultReady = false
     },
     commitResult: (envelope) => {
-      const finalEncroachment = envelope.canonicalOptIn
-        ? createPresentation(envelope.result, envelope.params)
-            .finalEncroachment
-        : envelope.result
-      state.finalEncroachment = finalEncroachment
+      state.finalEncroachment = createPresentation(
+        envelope.result,
+        envelope.params
+      ).finalEncroachment
       state.resultReady = true
     },
     onError: (error) => {
-      // Resource and presentation errors must not leave the previous chart
-      // visible, and canonical errors never fall back to the legacy result.
+      // Canonical errors must not leave the previous chart visible or fall
+      // back to the legacy calculation. A later run can retry normally.
       state.finalEncroachment = null
       state.resultReady = false
       onError?.(error)
     },
   })
-
-  return latestRunner
 }
-
