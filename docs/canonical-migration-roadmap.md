@@ -44,7 +44,8 @@ Checkやバックトラックを個別の都合で実装する前に、Attackに
 
 ## 入力データフローと要求ライフサイクルの現状と方針
 
-- `src/components/Check/DfcltyForm.vue`、`src/components/Check/ScoreForm.vue`、`src/components/Backtrack/BacktrackForm.vue`はlocal reactive draftをwatchし、非同期の`form.validate()`が完了した世代だけvalidated eventを発行する。`src/components/Attack/ComboForm.vue`のlegacy入力経路はPhase 1のcontrolled input移行対象外である。
+- `src/components/Check/DfcltyForm.vue`、`src/components/Check/ScoreForm.vue`、`src/components/Backtrack/BacktrackForm.vue`、`src/components/Attack/AttackForm.vue`、`src/components/Attack/DefenceForm.vue`はlocal reactive draftをwatchし、非同期の`form.validate()`が完了した最新世代だけvalidated snapshotを発行する。Attackは`ComboForm.vue`がside paramsを一括置換し、1 validated eventにつきlegacy latest runnerを1回だけ発火する。showDetailsは明示eventで親へ渡し、snapshot aliasを防ぎ、Defenceのmode正規化を維持する。
+- Attackの入力formは`eb043a9`でcontrolled化を完了した。validation gateとlegacy runnerはunmount時にdisposeし、破棄後のemitと計算開始を抑止する。canonical Attack batch laneは従来どおり`AttackCanonicalState`のsubmit-time snapshot/latest-winsを使い、この作業単位ではcanonical runnerと表示を変更していない。
 - Checkとバックトラックのviewはvalidated eventを受けて親stateを更新し、`CheckInputSnapshot`または`BacktrackInputSnapshot`を作って計算へ渡す。canonical Attackは`AttackCanonicalState`でcombo順、id、計算paramsだけをsubmit時にsnapshotし、結果・表示状態を入力へ含めない。
 - `createCalculationRequestCoordinator`と`createLatestCalculationRunner`はrevision、snapshot、`AbortSignal`、commit guardを共有し、各laneを実行中1件と最新の待機1件に制限する。staleなresult/error/planは破棄し、`CalculationFeedback`のloading、ready、idle、rejected、errorへ対応させる。
 - `ResourceGuard`は`maxActive=4`、`maxQueued=32`のFIFO queueを持ち、queued要求はabort時にqueueから除去する。`RuntimeDamageRollClient`はsingletonのブラウザWeb Workerと`pendingById`を持ち、既に`postMessage`した処理はabortしても停止しない。`RuntimeDamageRollWorker`は同期計算でcancel protocolを持たないため、旧Worker計算は完了後に破棄され、結果がcacheへ再利用される場合がある。
@@ -71,7 +72,7 @@ Phase 0を先に行うのは、後続の比較結果が未レビューのAttack�
 
 - 実装: `CalculationRequestCoordinator`と既存feedback adapterで、snapshot、revision、AbortSignal、commit guard、`idle/pending/running/success/error/cancelled/resource-rejected`を共通化し、実行中1件と最新待機1件へ制限した。Checkとバックトラックはcontrolled input、normalize、async validation世代管理、unmount disposeを接続し、canonical Attackはsubmit-time combo snapshot、入力世代guard、atomic batch commit、combo追加・削除・並べ替えを接続した。
 - 検証: `calculationRequestCoordinator.test.js`と`calculationFeedback.test.js`でlatest queued置換、snapshot alias防止、stale result/error/plan抑止、unmount、初期化成功・reject、feedback対応を固定した。`checkInputSnapshot.test.js`と`backtrackInputSnapshot.test.js`でcontrolled event、snapshot alias防止、async validation世代、unmountを固定し、`attackCanonicalState.test.js`でbatch、atomic commit、stale/disable/dispose、combo順・追加削除・並べ替えを固定した。`resourceGuard.test.js`、`runtimeDamageRollClient.test.js`、`canonicalAttackRuntimeWorkerContract.test.js`でFIFO資源予約、asset/Worker例外、cache/dedup、Worker postMessage境界を確認した。
-- 対象外: 実行中ブラウザWeb Workerの強制停止、cancel protocol、新しいWorker protocol、legacy Attackフォーム全体のcontrolled input移行、canonical display UI、legacy fallbackの最終削除、表示windowのdynamic chart実装、JSON整理、入力上限変更、Cloudflare Workers/API/MCP。
+- 対象外: 実行中ブラウザWeb Workerの強制停止、cancel protocol、新しいWorker protocol、canonical display UI、legacy fallbackの最終削除、表示windowのdynamic chart実装、JSON整理、入力上限変更、Cloudflare Workers/API/MCP。legacy Attackフォーム全体のcontrolled input移行はPhase 1当時の対象外であり、後続のPhase 5で完了した。
 
 Phase 1を表示範囲plannerとcanonical display contractの前提として完了した。表示範囲plannerは要求snapshotと再計算・再利用状態を必要とし、canonical display contractは安定したcommit/error/cancel境界を必要とするため、Phase 2以降ではこの責務境界を再利用する。
 
@@ -127,14 +128,15 @@ Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する�
 ### Phase 5: AttackのScore/Damageをdynamic displayへ接続する（進行中）
 
 - 成果物: Attack Score/Damageのcanonical producerとPhase 3 adapterの接続、既存ScoreChart/DamageChart/SummaryTableへの表示供給、canonical total、任意display window、legacy比較fixtureとブラウザ実測。
-- 途中成果（完了）: `c457b5c`でDamage/Totalのdisplay coverage拡張、`b305eb7`でcanonical Attack Scoreの表示接続、`1401695`でAttack Scoreのdisplay coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正、`00b5b3f`でScore期待値tail certificate・両側tail成功率区間・丸め安定時だけの既存サマリー表示を実装した。
+- 途中成果（完了）: `c457b5c`でDamage/Totalのdisplay coverage拡張、`b305eb7`でcanonical Attack Scoreの表示接続、`1401695`でAttack Scoreのdisplay coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正、`00b5b3f`でScore期待値tail certificate・両側tail成功率区間・丸め安定時だけの既存サマリー表示、`eb043a9`でAttack入力のcontrolled化を実装した。
+- 入力データフロー（完了）: `AttackForm.vue`と`DefenceForm.vue`はlocal draftから最新async validationのvalidated snapshotだけをemitし、`ComboForm.vue`はside paramsを一括置換して1 eventにつきlegacy latest runnerを1回だけ発火する。showDetailsは明示eventとし、validation gateとrunnerをunmount時にdisposeして破棄後のemit/runを抑止する。snapshot alias防止、Defence mode正規化、latest ticket/disposeは`tests/attackInputSnapshot.test.js`で固定した。canonical batch laneの既存submit-time snapshot/latest-wins、canonical runner、表示は変更していない。
 - 実装済みの表示契約: ScoreとDamageを独立laneで扱い、coverage内はreuse、finite support外はknown-zero、coverage不足時はlatest-winsでcanonical batchを再計算する。resource reject時はclientを呼ばず、Score-only rejectではDamageを保持し、legacy fallbackは行わない。
 - ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-inの既定入力でScore/Damage各`0..100`は計算完了、2 chart、alertなし。各`0..1200`も計算完了、2 chart、alertなし。Score `0..20000`ではScoreだけ描画点数resource rejectとなりDamage chartを保持した。`0..100`へ戻すと2 chartが復旧しalertはなかった。`00b5b3f`後の既定サマリーは達成値期待値`6`、命中率`45.5%`、ダメージ期待値`3.1`となり、新規セッションのconsole warn/errorは0件だった。
 - 完了条件: 1024を超えるsupportを固定配列へ黙って切り詰めず、exact overflowだけが定義済み条件で内部集約され、upper-bound overflowの`lowerBound`やbounded/lower-bound expected valueを一点表示しない。既存チャート・サマリーの見た目、丸め、コンポーネントを維持する。
-- 残タスク: Score期待値certificateが未対応の無限support（`shihai>0`、`yousei>0`、負の`skill`）を段階的に扱うか、`—`を正式仕様とするかを判断する。UI入力データフローのcontrolled化とlatest-only発火を整理する。Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
+- 残タスク: Score期待値certificateが未対応の無限support（`shihai>0`、`yousei>0`、負の`skill`）を段階的に扱うか、`—`を正式仕様とするかを判断する。Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
 - 対象外: `CanonicalAttackPanel`や`canonicalOptIn`のproduction残置、1024へ無条件collapseするlegacy projection、既定経路の切替、legacy計算/fallback削除、JSON整理、Cloudflare Workers/API/MCP。
 
-Attackでは1024比較用のsafe projectionを残したまま、Phase 5の途中成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続している。Phase 5は完了扱いにせず、未対応Score summary条件、入力ライフサイクル、legacy比較fixtureと追加実測を残す。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
+Attackでは1024比較用のsafe projectionを残したまま、Phase 5の途中成果としてScore/Damageのdynamic displayを`canonicalOptIn`付きで接続している。Phase 5は完了扱いにせず、未対応Score summary条件、legacy比較fixtureと追加実測を残す。ScoreとDamageを共通plannerで扱い、totalのsupport・tail・expected valueを別計算の丸めや平均で作らない方針は維持する。
 
 ### Phase 6: バックトラックをcanonical化する
 

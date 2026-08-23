@@ -418,8 +418,9 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 ## Canonical migration Phase 5: AttackのScore/Damageをdynamic displayへ接続する（進行中）
 
-- 途中成果（完了）: `c457b5c`でDamage/Total display coverage拡張、`b305eb7`でcanonical Attack Score表示接続、`1401695`でAttack Score display coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正、`00b5b3f`でScore期待値tail certificate・両側tail成功率区間・丸め安定時だけの既存サマリー表示を実装した。
+- 途中成果（完了）: `c457b5c`でDamage/Total display coverage拡張、`b305eb7`でcanonical Attack Score表示接続、`1401695`でAttack Score display coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正、`00b5b3f`でScore期待値tail certificate・両側tail成功率区間・丸め安定時だけの既存サマリー表示、`eb043a9`でAttack入力のcontrolled化を実装した。
+- 入力データフロー（完了）: `AttackForm.vue`と`DefenceForm.vue`はlocal draftから最新async validationのvalidated snapshotだけをemitし、`ComboForm.vue`はside paramsを一括置換して1 validated eventにつきlegacy latest runnerを1回だけ発火する。showDetailsは明示eventとし、validation gateとrunnerをunmount時にdisposeして破棄後のemit/runを抑止する。snapshot alias防止、Defence mode正規化、latest ticket/disposeは`tests/attackInputSnapshot.test.js`で固定した。canonical batch laneの既存submit-time snapshot/latest-wins、canonical runner、表示は変更していない。
 - 実装済み: Score/Damageの独立lane、coverage内reuse、finite known-zero、coverage不足時latest-wins batch再計算、resource reject時のclient未呼出、Score-only reject時のDamage保持、legacy fallbackなしを確認した。
 - ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-in既定入力のScore/Damage各`0..100`と各`0..1200`で計算完了・2 chart・alertなし、Score `0..20000`の描画点数resource reject時はDamage chart保持、`0..100`復帰時は2 chart復旧・alertなしを確認した。`00b5b3f`後の既定サマリーは達成値期待値`6`、命中率`45.5%`、ダメージ期待値`3.1`となり、新規セッションconsole warn/error 0件だった。
 - 検証: `00b5b3f`で54 files/788 tests、`check:node`、lint、`lint:markdown`、build、diff checkが成功した。独立レビューのP1を受け、期待値をDP bucketから切り離したDX tail-sum certificateへ修正し、`errorBound`を確率massへ加算しない既存契約へ統一した。
-- 残タスク: Score期待値certificateが未対応の無限support（`shihai>0`、`yousei>0`、負の`skill`）を段階的に扱うか、`—`を正式仕様とするかを判断する。UI入力データフローのcontrolled化とlatest-only発火を整理し、Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
+- 残タスク: Score期待値certificateが未対応の無限support（`shihai>0`、`yousei>0`、負の`skill`）を段階的に扱うか、`—`を正式仕様とするかを判断する。Phase 5全体のlegacy比較fixtureと追加ブラウザ実測を行う。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
