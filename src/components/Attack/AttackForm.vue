@@ -1,16 +1,17 @@
 <script setup>
 
-    import { ref,reactive,watch } from 'vue';
+    import { onUnmounted, reactive, ref, watch } from 'vue';
+    import {
+        createAttackInputSnapshot,
+        createLatestValidationGate,
+    } from '@/application/AttackInputSnapshot';
 
     const props = defineProps(['params','comboColor','showDetails'])
+    const emit = defineEmits(['validated', 'show-details'])
     const form = ref();
-    const currentParams = reactive({
-        score: {dice:props.params.score.dice, critical:props.params.score.critical, skill:props.params.score.skill, yousei:props.params.score.yousei, shihai:props.params.score.shihai},
-        damage: {dice:props.params.damage.dice, value:props.params.damage.value, kazanari:props.params.damage.kazanari},
-    });
-    const currentShowDetails = reactive({
-        value: props.showDetails.value
-    });
+    const currentParams = reactive(createAttackInputSnapshot(props.params));
+    const showDetails = ref(props.showDetails?.value ?? false);
+    const validationGate = createLatestValidationGate();
     const diceRule = [
         value => value!=="" || 'ダイス数を入力して下さい。',
         value => Number.isInteger(value) || 'ダイス数は整数値として下さい。',
@@ -62,26 +63,29 @@
         value => value<=9 || '振り直せるダメージダイスの数は9以下として下さい。',
     ];
     watch(currentParams, async () => {
-        const validResult = await form.value.validate();
-        if (validResult.valid) {
-            props.params.score.dice = currentParams.score.dice;
-            props.params.score.critical = currentParams.score.critical;
-            props.params.score.skill = currentParams.score.skill;
-            props.params.score.yousei = currentParams.score.yousei;
-            props.params.score.shihai = currentParams.score.shihai;
-            props.params.damage.dice = currentParams.damage.dice;
-            props.params.damage.value = currentParams.damage.value;
-            props.params.damage.kazanari = currentParams.damage.kazanari;
+        const ticket = validationGate.begin();
+        const draft = createAttackInputSnapshot(currentParams);
+        const validResult = await form.value?.validate?.();
+        if (!validationGate.canCommit(ticket)) {
+            return;
+        }
+        if (validResult?.valid) {
+            emit('validated', draft);
         }
     });
-    watch(currentShowDetails, () => {
-        props.showDetails.value = currentShowDetails.value;
-        if (!currentShowDetails.value) {
+    watch(showDetails, (value) => {
+        const ticket = validationGate.invalidate();
+        if (!validationGate.canCommit(ticket)) {
+            return;
+        }
+        emit('show-details', value);
+        if (!value) {
             currentParams.score.yousei = 0;
             currentParams.score.shihai = 0;
             currentParams.damage.kazanari = 0;
         }
     });
+    onUnmounted(() => validationGate.dispose());
 
 </script>
 
@@ -89,7 +93,7 @@
     <v-container class="px-0 pt-2 pb-0">
         <v-row class="ma-0 px-1 py-0" :style="{backgroundColor:props.comboColor}" style="color:white">
             <v-col md="8" cols="6" class="pa-0 d-flex align-center">攻撃側</v-col>
-            <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="currentShowDetails.value" density="compact" class="h-50" />高度な設定</v-col>
+            <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="showDetails" density="compact" class="h-50" />高度な設定</v-col>
         </v-row>
         <v-form ref="form" class="pa-1">
             <v-row dense class="pt-2 ma-0">
@@ -103,7 +107,7 @@
                     </v-row>
                 </v-col>
             </v-row>
-            <v-row v-if="props.showDetails.value" dense class="pt-2 ma-0">
+            <v-row v-if="showDetails" dense class="pt-2 ma-0">
                 <v-col cols="4" class="pb-2"><v-text-field label="《妖精の手》等の回数" type="number" min=0 max=9 v-model.number="currentParams.score.yousei" :rules="youseiRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col cols="4" class="pb-2"><v-text-field label="《支配の領域》の対象ダイス数" type="number" min=0 max=19 v-model.number="currentParams.score.shihai" :rules="shihaiRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col cols="4" class="pb-2"><v-text-field label="振り直せるダメージダイスの数" type="number" min=0 max=9 v-model.number="currentParams.damage.kazanari" :rules="kazanariRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>

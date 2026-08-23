@@ -1,6 +1,6 @@
 <script setup>
 
-    import { inject, onMounted, onUnmounted, watch } from 'vue';
+    import { inject, onMounted, onUnmounted } from 'vue';
     import {
         CALCULATION_CLIENT_KEY,
         calculationClient as defaultCalculationClient,
@@ -9,10 +9,14 @@
         createCalculationFeedbackState,
         createLatestCalculationRunner,
     } from '@/application/CalculationFeedback';
+    import {
+        replaceAttackSideSnapshot,
+    } from '@/application/AttackInputSnapshot';
     import AttackForm from './AttackForm.vue';
     import DefenceForm from './DefenceForm.vue';
 
     const props = defineProps(['comboData','comboColor','showDetails']);
+    const emit = defineEmits(['show-details']);
     const calculationClient = inject(
         CALCULATION_CLIENT_KEY,
         defaultCalculationClient
@@ -20,6 +24,7 @@
     if (!props.comboData.rangeFeedback) {
         props.comboData.rangeFeedback = createCalculationFeedbackState();
     }
+    let disposed = false;
     const calculationRunner = createLatestCalculationRunner({
         feedback: props.comboData.rangeFeedback,
         calculate: (options) => calculationClient.calculateAttackCombo(
@@ -44,33 +49,48 @@
             console.error('Failed to update combo', error);
         },
     });
-    const updateCombo = () => calculationRunner.run();
+    const updateCombo = () => disposed
+        ? Promise.resolve(false)
+        : calculationRunner.run();
+    const onSideValidated = (side, snapshot) => {
+        if (disposed) {
+            return;
+        }
+        replaceAttackSideSnapshot(props.comboData.params, side, snapshot);
+        void updateCombo();
+    };
+    const onShowDetails = (side, value) => {
+        if (disposed) {
+            return;
+        }
+        emit('show-details', {side, value});
+    };
     onMounted(() => {
         if (!props.comboData.resultReady
             && props.comboData.rangeFeedback.status !== 'rejected') {
             void updateCombo();
         }
     });
-    onUnmounted(() => calculationRunner.invalidate());
-    watch(props.comboData.params.action.score, () => {
-        void updateCombo();
-    });
-    watch(props.comboData.params.reaction.score, () => {
-        void updateCombo();
-    });
-    watch(() => props.comboData.params.reaction.mode, () => {
-        void updateCombo();
-    });
-    watch(props.comboData.params.action.damage, () => {
-        void updateCombo();
-    });
-    watch(props.comboData.params.reaction.damage, () => {
-        void updateCombo();
+    onUnmounted(() => {
+        disposed = true;
+        calculationRunner.dispose();
     });
 
 </script>
 
 <template>
-    <AttackForm :params="comboData.params.action" :comboColor="comboColor" :showDetails="showDetails.action"/>
-    <DefenceForm :params="comboData.params.reaction" :comboColor="comboColor" :showDetails="showDetails.reaction"/>
+    <AttackForm
+        :params="comboData.params.action"
+        :comboColor="comboColor"
+        :showDetails="showDetails.action"
+        @validated="(snapshot) => onSideValidated('action', snapshot)"
+        @show-details="(value) => onShowDetails('action', value)"
+    />
+    <DefenceForm
+        :params="comboData.params.reaction"
+        :comboColor="comboColor"
+        :showDetails="showDetails.reaction"
+        @validated="(snapshot) => onSideValidated('reaction', snapshot)"
+        @show-details="(value) => onShowDetails('reaction', value)"
+    />
 </template>

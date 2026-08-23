@@ -133,6 +133,12 @@
         };
         props.attackData.combos.push(newCombo);
     };
+    const onShowDetails = (combo, {side, value}) => {
+        if (side !== 'action' && side !== 'reaction') {
+            return;
+        }
+        combo.showDetails[side].value = value;
+    };
     let totalRequestGeneration = null;
     const totalCalculationRunner = createLatestCalculationRunner({
         feedback: props.attackData.totalDamageFeedback,
@@ -199,7 +205,13 @@
                     </v-row>
                 </v-col>
             </v-row>
-            <ComboForm v-if="combo.show" :comboData="combo.data" :comboColor=getChartColor(combo.id) :showDetails="combo.showDetails" />
+            <ComboForm
+                v-if="combo.show"
+                :comboData="combo.data"
+                :comboColor=getChartColor(combo.id)
+                :showDetails="combo.showDetails"
+                @show-details="(change) => onShowDetails(combo, change)"
+            />
         </v-container>
         <v-divider class="mx-8"/>
     </template>
