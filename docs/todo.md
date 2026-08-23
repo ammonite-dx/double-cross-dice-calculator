@@ -22,7 +22,7 @@ canonical移行の横断的な実装順序と判断は [canonical-migration-road
 ## Canonical migration Phase 7 status
 
 - 完了: Attackの初期計算、validated input、combo操作、Score/Damage chart、Summary、totalをcanonical batch/presentationと一つのlatest-wins runnerへ統合し、temporary `canonicalOptIn`、debug panel、legacy combo/total runner、route preloadをproduction接続から削除した。
-- 維持: `CalculationClient.prepare('attack')` API、canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、legacy API/assets、比較用adapter/fixture、既存表示範囲999と計算上の1024/1022境界。
+- 維持: `CalculationClient.prepare('attack')` API、canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、legacy API/assets、比較fixture、既存表示範囲999と計算上の1024/1022境界。
 - 未完了: Phase 7全体のlegacy計算・fallback完全削除、legacy生成物/JSON整理、任意表示範囲拡張。Vue完全mountは既存Node test環境制約により未実施で、runner/router behavior testで補完している。Attackのブラウザ受入は2026-08-24に完了した。
 
 第4段階では通常Checkのcontrolled SettingForm、999上限撤廃、dynamic display windowを実装し、resource rejectionで広い表示範囲を制御しました。Attack、バックトラック、三経路全体の入力・表示上限拡張は、誤差、計算時間、メモリ使用量、描画点数を同時に検証した後に判断します。
@@ -410,9 +410,9 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: `src/views/Attack.vue`に独立した`CanonicalAttackPanel`を接続し、`canonicalOptIn`を既定`false`として、トグル有効時だけcanonical計算と結果表示を行う。既存legacyチャート、サマリー、`resultsReady`、legacy fieldsは変更していない
 - 完了: `RangePlanNotice`を再利用し、canonical expected value、support、explicitMax、overflowを欠損・非有限値に耐える純粋表示helperで安全に表示する。`exact`/`bounded`/`lower-bound`とoverflowの`exact`/`upper-bound`を区別し、巨大な`probabilities`配列をDOMへ列挙しない
 - 完了: canonical panelの接続契約、legacy表示との分離、表示helperの安全なフォーマットをunit testで固定した
-- 完了: `CanonicalLegacyDisplayAdapter`にcanonical damage envelopeからlegacy chart互換の1024 bucketと上側確率を作る安全なprojection boundaryを追加し、`DamageChartPanel`/`SummaryPanel`へ接続する前段としてcanonical overflowとpresentationを保持した。summaryの期待値丸めは行わない
+- 完了: canonical damage envelopeからlegacy chart互換の1024 bucketと上側確率を作る移行用projection boundaryを追加し、`DamageChartPanel`/`SummaryPanel`へ接続する前段としてcanonical overflowとpresentationを保持した。summaryの期待値丸めは行わない
 - 完了: `upper-bound` overflowとlegacy bucketへ安全に投影できないexact overflowは`not-projectable`として理由を保持し、自動投影しない。上界を実確率として表示配列へ変換しない
-- 完了: `canonicalOptIn=true`で全comboとtotalが安全なexact finite projectionに成功した場合だけderived display dataを既存`DamageChartPanel`/`SummaryPanel`へ渡し、それ以外はlegacy `attackData`へfallbackする。ScoreChart、InputPanel、レイアウト、既存コンポーネント、`resultsReady`は変更していない
+- 完了: `canonicalOptIn=true`で全comboとtotalが安全なexact finite projectionに成功した場合だけderived display dataを既存`DamageChartPanel`/`SummaryPanel`へ渡し、それ以外はlegacy `attackData`へfallbackする。ScoreChart、InputPanel、レイアウト、既存コンポーネント、`resultsReady`は変更していない。これらのtest-only projection adaptersと専用テストは最終比較完了後のPhase 7 cleanup第1単位で削除した
 - 対象外: canonical結果によるlegacyチャート・サマリーの無条件または全面置換、bounded/lower-boundの一点値化、dynamic outputの採用、新しいWorker protocolの追加・変更、score/DXのWorker移行
 - 次段階: exact finite以外のcanonical表示範囲、legacyとの比較条件、Score/Worker範囲を別単位で判断する。実測だけで既存表示やprotocolを切り替えない
 
@@ -441,4 +441,5 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 検証: canonical adapter、resource rejectionのclear/no fallback、retry、abort/latest-wins、入力snapshotのtoggle削除、route preloadなしを`backtrackCanonicalIntegration.test.js`と`backtrackInputSnapshot.test.js`で固定した。
 - ブラウザ受入（2026-08-24、in-app browser / Vite local `--force`）: `/backtrack`で一時canonical toggleは表示されず、初回からcanvas 3、alertなしを確認した。侵蝕率`90→140→105`の連続入力後は最終値`105`、canvas 3、alertなしだった。Dロイス「なし」「不死者・悪夢」「屍人」の各ケースでもcanvas 3、alertなしだった。完全Vue mountはNode test環境制約で未実施だが、runner behavior/router module testで補完した。検証用tab/serverは終了し、port `3000`を解放した。
 - legacy削除前の最終比較（2026-08-24、Node/Vitest）: Check/Attack/Backtrackのcomparison・migration・asset・runtime rule・range関連15ファイル229テストを実行し全件成功した。Checkはdice 0/1/99、critical 2/10/11、skill正負、yousei/shihai、failure/fumble、tail certificateを、Attackは既存2-combo fixtureと追加境界fixtureでdice 0/1/2/99、critical 2/11、skill正負、yousei/shihai、defence、fixed damage、kazanariを、Backtrackは7種Dロイス、標準/悪夢境界、負値、asset/on-demand境界をlegacyと比較した。比較可能なScore/Damageは既存のexactまたはtolerance契約で成功し、同じ境界fixtureのcritical 11/dice 0・99のfinite-support subsetではcanonical batchの個別DamageとTotalをlegacy per-combo→legacy totalへ直接比較して成功した。critical 2/youseiを含むfull boundary batchのTotalは`not-comparable`（`total-overflow`）とoverflow certificateを確認し、canonical tailを0扱いせず、legacy total API削除前の残余ギャップとして記録した。
+- legacy cleanup第1単位（完了）: 最終比較完了後、productionからimportされないtest-only legacy display adaptersと専用テストを削除した。実計算比較fixture、`LegacyCanonicalComparison`、`CalculationClient` legacy API、legacy core/wrappers、legacy assets/JSON/generatorは後続まで維持する。
 - 状態: バックトラックとAttackのcanonical default化、第1実装単位のブラウザ受入、legacy削除前の最終比較は完了。Phase 7全体のlegacy計算・fallback整理、legacy API/assets・生成物/JSON削除、任意表示範囲拡張、最終受入は未完了。

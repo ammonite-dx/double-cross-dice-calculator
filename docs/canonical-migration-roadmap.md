@@ -5,7 +5,7 @@
 ## 現在地
 
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
-- Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。legacy API/assets、比較用adapter/fixture、既存1024境界は移行検証用に残している。
+- Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。legacy API/assets、比較fixture、既存1024境界は移行検証用に残している。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
 - BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。Phase 7全体のlegacy計算・fallback削除、表示範囲拡張、JSON整理は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
@@ -62,7 +62,7 @@ Checkやバックトラックを個別の都合で実装する前に、Attackに
 ### Phase 0: 現在のAttack safe pathをレビュー・コミットする
 
 - 現在の作業単位にはcanonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、安全なlegacy projection、契約テストがすでに存在するため、このPhaseでは新しい表示機能を追加せず、差分レビュー、検証、統合、コミットを行う。
-- 成果物: canonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、`CanonicalLegacyDisplayAdapter`、Attack表示adapterと契約テストの現状レビュー、および既存チャート・サマリーの見た目を維持する接続方針。
+- 成果物: canonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、Attack表示projectionと契約テストの現状レビュー、および既存チャート・サマリーの見た目を維持する接続方針。
 - 完了条件: exact finiteの投影、upper-bound・unsafe exactの拒否、canonical resultのmetadata、legacy比較、cancel/stale/error/resource rejectionの挙動を確認し、debug panel・toggle・安全投影を本番へ残さない境界を明文化する。
 - 対象外: Check/バックトラックの接続、表示window planner、既定経路の切替、JSON削除、計算パラメータ入力上限変更、ブラウザWeb Worker protocol変更、Cloudflare Workers/API/MCP。
 
@@ -169,14 +169,15 @@ production formの上限では最大diceは223、最大working lengthは約2231�
 
 - ブラウザ受入（2026-08-24、in-app browser / Vite local `--force`）: `/backtrack`で一時canonical toggleは表示されず、初回からcanvas 3、alertなしを確認した。侵蝕率を`90→140→105`と連続入力した後は最終値`105`、canvas 3、alertなしだった。Dロイスを「なし」「不死者・悪夢」「屍人」に変更した各ケースでもcanvas 3、alertなしだった。完全Vue mountはNode test環境制約で未実施だが、runner behavior/router module testで補完した。検証用tab/serverは終了し、port `3000`を解放した。
 - Attack実装単位（完了）: Attackの初期計算、validated input、combo追加・削除・複製・並べ替えを`createAttackCanonicalRunner`の一つのlatest-wins laneへ統合し、unmount dispose、clear/no fallback、presentation errorからのretryを維持した。ScoreChart、DamageChart、Summary、totalはcanonical presentationだけを参照し、temporary `CanonicalAttackPanel`と`canonicalOptIn`を削除した。保証できないScore/Damage/Total期待値は`—`とし、通常の不確かさ・approximation warningは表示しない。
-- Attack route/依存境界（完了）: `/attack` routeの`prepareCalculation('attack')` beforeEnterだけを削除した。`CalculationClient.prepare('attack')`、canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、legacy API/assets、比較用adapter/fixtureは維持した。既存表示範囲999と計算上の1024/1022境界、任意表示範囲拡張は変更していない。
+- Attack route/依存境界（完了）: `/attack` routeの`prepareCalculation('attack')` beforeEnterだけを削除した。`CalculationClient.prepare('attack')`、canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、legacy API/assets、比較fixtureは維持した。既存表示範囲999と計算上の1024/1022境界、任意表示範囲拡張は変更していない。
 - Attack検証（完了）: canonical runnerの初期既定実行、latest-wins、abort、dispose、stale抑止、resource/range/generic/presentation error時のclear/no fallback/retry、canonical-only表示契約、route preloadなし、明示`CalculationClient.prepare('attack')` APIをNode/Vitestで確認した。Vue完全mountは既存Node test環境制約により実施していない。
 - legacy削除前の最終比較（2026-08-24、Node/Vitest）: Check/Attack/Backtrackのcomparison・migration・asset・runtime rule・range関連15ファイル229テストを実行し全件成功した。Checkはdice 0/1/99、critical 2/10/11、skill正負、yousei/shihai、failure/fumble、tail certificateを、Attackは既存2-combo fixtureと追加境界fixtureでdice 0/1/2/99、critical 2/11、skill正負、yousei/shihai、defence、fixed damage、kazanariを、Backtrackは7種Dロイス、標準/悪夢境界、負値、asset/on-demand境界をlegacyと比較した。比較可能なScore/Damageは既存のexactまたはtolerance契約で成功し、同じ境界fixtureのcritical 11/dice 0・99のfinite-support subsetではcanonical batchの個別DamageとTotalをlegacy per-combo→legacy totalへ直接比較して成功した。critical 2/youseiを含むfull boundary batchのTotalは`not-comparable`（`total-overflow`）とoverflow certificateを確認し、canonical tailを0扱いせず、legacy total API削除前の残余ギャップとして記録した。
+- Phase 7 legacy cleanup第1単位（完了）: 最終比較完了後、productionからimportされないtest-only legacy display adaptersと専用テストを削除した。実計算比較fixture、`LegacyCanonicalComparison`、`CalculationClient` legacy API、legacy core/wrappers、legacy assets/JSON/generatorは後続まで維持する。
 - Attackブラウザ受入（2026-08-24、in-app browser / Vite local）: 初回はcanvas 2、Summary `コンボ1 6 / 45.5% / 3.1`、alert 0、一時switch 0、canonical/support/overflow debug text 0を確認した。action dice `2→20→3`の連続入力後は最終値3、canvas 2、alert 0、Summary `9.7 / 71% / 5.5`だった。combo追加で2 combos・合計8.6、複製で3 combos、削除で2 combosへ戻り、各状態でcanvas 2・alert 0だった。
 - Attackブラウザ受入（続き）: 《妖精の手》等を1にすると達成値期待値は単独`—`、命中率95.9%、damage 12.8となり、uncertainty warning/alertは観測されなかった。振り直せるダメージダイス1ではdamage 15、合計18.1、alert 0だった。Score/Damage双方をX以上表示へ切り替えてもcanvas 2・alert 0だった。初回の`--force`依存最適化reload中だけdynamic import warningが一時発生したが画面は復旧し、最適化後のserver/new tab再起動では初回2 canvas・Summary・alert 0と追加server warningなしを確認した。tabs/serverは終了し、port `3000`を解放した。
 - 現在の状態: BacktrackとAttackのcanonical default化およびAttackのブラウザ受入は完了したが、Phase 7全体は未完了である。三経路のlegacy計算・fallback完全削除、legacy生成物/JSON整理、任意表示範囲拡張は後続作業とする。
 
-既定化は実装完了ではなく、三経路の比較・ブラウザ実測・resource/cancel/error確認後の受入判断である。legacy表示コンポーネントを残すことは互換UIの維持であり、legacy計算や固定1024を残すことではない。
+既定化は実装完了ではなく、三経路の比較・ブラウザ実測・resource/cancel/error確認後の受入判断である。既存チャート・サマリーの見た目を残すことは互換UIの維持であり、legacy計算や固定1024を残すことではない。
 
 ### Phase 8: 事前計算JSONを整理する
 

@@ -323,6 +323,8 @@ Phase 7第1実装単位では、`createBacktrackCanonicalRunner`をcanonical専�
 
 Phase 7のAttack実装単位では、`Attack.vue`の初期計算、validated input、combo操作を`createAttackCanonicalRunner`の一つのlatest-wins laneへ統合し、`calculateAttackCanonicalBatch`から`createAttackCanonicalDisplayPresentation`を通るcanonical batch/presentationだけをproduction chart、summary、totalへ渡します。legacy初期計算、combo runner、total runner、productionの`canonicalOptIn`/debug panel、legacy fallbackは接続から除き、canonicalのrange/resource/generic/presentation/asset errorでは結果をclearして同じrunnerでretryします。Scoreのunsupported expected valueを`—`とする契約を維持し、Damage/Totalの非保証値も`—`とし、通常の不確かさwarningはUIへ出しません。`/attack` routeの`prepareCalculation('attack')` guardは削除しましたが、明示`CalculationClient.prepare('attack')` API、canonical防御D10のlazy asset、既存`RuntimeDamageRollWorker`、legacy API/assets、比較fixtureは維持しています。表示範囲999、1024/1022境界、legacy生成物の整理、任意display window拡張は後続です。
 
+- Phase 7 legacy cleanup第1単位では、最終比較完了後にproductionから参照されないtest-only legacy display projection adaptersと専用テストを削除しました。実計算比較fixture、legacy API/assets、core/wrappers、JSON/generatorは維持しています。
+
 ## Phase 2-G resource guard
 
 Phase 2-G adds a shared FIFO resource guard in `src/application/ResourceGuard.js` and injects the singleton through the application `CalculationClient` dependency factory. `check`, `attack`, and `backtrack` run the existing range preflight first, then reserve before asset loading or calculation, and release the lease from one `finally` path. A preflight hard reject therefore does not reserve anything.
@@ -519,7 +521,7 @@ In-app Chrome（userAgent: Chromium 151.0.0.0、Windows）の標準条件（`ite
 
 この単位では既存のlegacyチャート、サマリー、レイアウト、`resultsReady`、legacy fieldsを変更しない。`canonicalOptIn=true`で全comboとcanonical totalがexactかつ有限の期待値を持ち、安全なprojectionに成功した場合だけderived display dataを既存の`DamageChartPanel`と`SummaryPanel`へ渡し、それ以外は従来のlegacy `attackData`へfallbackする。`ScoreChartPanel`、`InputPanel`、デバッグ用`CanonicalAttackPanel`は変更せず、canonical結果による無条件の本番表示置換、dynamic outputの採用、新しいWorker protocolの追加・変更は対象外とする。
 
-`CanonicalLegacyDisplayAdapter`は、既存`DamageChart`へ接続する前段のpure projection boundaryである。`toPublishedBucketDistribution`と`getUpperTailProbability`を再利用して新しい1024 bucketと上側確率を作り、canonical overflowとpresentationを保持するが、summaryの期待値を丸めない。`upper-bound` overflowと、`lowerBound`が1023未満でpotential massを持つexact overflowは`not-projectable`としてlegacy表示へ自動投入しない。Attack表示helperはこのadapterとcanonical summaryを検証し、安全なexact finiteケースだけをlegacy chart/summary shapeへ複製して渡す。UIのレイアウトや既存コンポーネント自体は変更していない。
+この移行単位で設けたlegacy chart/summary projectionは、`toPublishedBucketDistribution`と`getUpperTailProbability`を再利用して1024 bucketと上側確率を作り、canonical overflowとpresentationを保持する比較用境界だった。`upper-bound` overflowと、`lowerBound`が1023未満でpotential massを持つexact overflowは`not-projectable`としてlegacy表示へ自動投入しなかった。最終比較完了後のPhase 7 cleanup第1単位で、このtest-only projectionと専用テストを削除し、実計算比較fixture/API/assetsは維持している。
 
 ## Phase 3 共通DisplayRangePlanner（第1単位）
 
