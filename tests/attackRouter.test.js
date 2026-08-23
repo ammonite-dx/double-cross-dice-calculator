@@ -20,43 +20,41 @@ vi.mock('vue-router', () => ({
   }),
 }))
 
-import {
-  calculationClient,
-} from '../src/application/CalculationClient'
+import { calculationClient } from '../src/application/CalculationClient'
 import router from '../src/router/index.js'
 
-describe('Backtrack route behavior', () => {
-  it('navigates to Backtrack without preparing its legacy assets', async () => {
+describe('Attack route behavior', () => {
+  it('enters Attack without route-level calculation preparation', async () => {
     const prepare = vi
       .spyOn(calculationClient, 'prepare')
       .mockResolvedValue(undefined)
 
-    await expect(router.push('/backtrack')).resolves.toMatchObject({
-      path: '/backtrack',
+    await expect(router.push('/attack')).resolves.toMatchObject({
+      path: '/attack',
     })
 
     expect(prepare).not.toHaveBeenCalled()
     prepare.mockRestore()
   })
 
-  it('keeps route preparation for the Check view', async () => {
+  it('keeps the explicit CalculationClient.prepare attack API available', async () => {
     const prepare = vi
       .spyOn(calculationClient, 'prepare')
       .mockResolvedValue(undefined)
 
-    await router.push('/check')
+    await calculationClient.prepare('attack')
 
-    expect(prepare).toHaveBeenNthCalledWith(1, 'check')
+    expect(prepare).toHaveBeenCalledWith('attack')
     prepare.mockRestore()
   })
 
-  it('keeps the Backtrack route component and removes only its guard', () => {
-    const backtrackRoute = routerHarness.routes.find(
-      (route) => route.path === '/backtrack'
+  it('retains the Attack component and removes only its route guard', () => {
+    const attackRoute = routerHarness.routes.find(
+      (route) => route.path === '/attack'
     )
 
-    expect(backtrackRoute).toBeDefined()
-    expect(backtrackRoute.component).toBeTypeOf('function')
-    expect(backtrackRoute).not.toHaveProperty('beforeEnter')
+    expect(attackRoute).toBeDefined()
+    expect(attackRoute.component).toBeTypeOf('function')
+    expect(attackRoute).not.toHaveProperty('beforeEnter')
   })
 })

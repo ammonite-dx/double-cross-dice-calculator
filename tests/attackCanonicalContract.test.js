@@ -1,76 +1,65 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const attackSource = readFileSync(
-  new URL('../src/views/Attack.vue', import.meta.url),
-  'utf8'
-)
+function readSource(path) {
+  return readFileSync(new URL(path, import.meta.url), 'utf8')
+}
+
+const attackSource = readSource('../src/views/Attack.vue')
 const attackTemplate = attackSource.slice(attackSource.indexOf('<template>'))
-const canonicalPanelSource = readFileSync(
-  new URL('../src/components/Attack/CanonicalAttackPanel.vue', import.meta.url),
-  'utf8'
-)
-const damageFormSource = readFileSync(
-  new URL('../src/components/Attack/DamageSettingForm.vue', import.meta.url),
-  'utf8'
-)
+const inputFormSource = readSource('../src/components/Attack/InputForm.vue')
+const comboFormSource = readSource('../src/components/Attack/ComboForm.vue')
+const scoreChartSource = readSource('../src/components/Attack/ScoreChart.vue')
+const damageChartSource = readSource('../src/components/Attack/DamageChart.vue')
+const summaryTableSource = readSource('../src/components/Attack/SummaryTable.vue')
+const damageFormSource = readSource('../src/components/Attack/DamageSettingForm.vue')
 
 describe('Attack canonical integration contract', () => {
-  it('connects the independent canonical panel without replacing legacy output', () => {
-    expect(attackSource).toContain(
-      "import CanonicalAttackPanel from '@/components/Attack/CanonicalAttackPanel.vue'"
-    )
-    expect(attackTemplate).toContain(
-      '<CanonicalAttackPanel :attackData="attackData" />'
-    )
-  })
-
-  it('keeps legacy resultsReady derived from legacy fields', () => {
-    expect(attackSource).toContain('areAllComboResultsReady(attackData.combos)')
-    expect(attackSource).toContain('&& attackData.totalDamageReady')
-  })
-
-  it('keeps the opt-in watch lifecycle explicit', () => {
-    expect(attackSource).toContain('canonicalOptIn: false')
-    expect(attackSource).toContain('{ deep: true, immediate: true }')
-    expect(attackSource).toContain('canonicalCalculationRunner.invalidate()')
+  it('connects the production view to one canonical lifecycle', () => {
+    expect(attackSource).toMatch(/onMounted\s*\(/)
+    expect(attackSource).toContain('createAttackCanonicalRunner')
     expect(attackSource).toContain('canonicalCalculationRunner.dispose()')
+    expect(attackSource).toContain('canonicalCalculationRunner.run({')
+    expect(attackSource).toContain('RangePlanNotice')
+    expect(attackSource).not.toContain('canonicalOptIn')
+    expect(attackSource).not.toContain('runInitialCalculation')
+    expect(attackSource).not.toContain('calculateAttackCombo')
+    expect(attackSource).not.toContain('calculateTotalDamage')
   })
 
-  it('keeps score on legacy data and supplies canonical damage presentation directly', () => {
-    expect(attackSource).toContain(
-      'createAttackCanonicalDisplayPresentation(batchResult'
-    )
-    expect(attackSource).toContain(
-      'canonicalCalculationRunner.refreshPresentation({'
-    )
-    expect(attackTemplate).toContain(
-      '<ScoreChartPanel :attackData="attackData"/>'
-    )
-    expect(attackTemplate).toContain(
-      ':displayRequest="displayRequest"'
-    )
-    expect(attackTemplate).toContain(
-      ':presentation="canonicalDisplayPresentation"'
-    )
-    expect(attackSource).not.toContain('displayAttackData')
-    expect(attackSource).not.toContain('createCanonicalLegacyAttackDisplay')
-  })
-
-  it('keeps the canonical panel isolated from legacy result fields', () => {
-    expect(canonicalPanelSource).toContain('canonicalTotalDamageReady')
-    expect(canonicalPanelSource).toContain('canonicalTotalDamagePresentation')
-    expect(canonicalPanelSource).toContain('canonicalDamagePresentation')
-    for (const legacyField of ['score', 'damage', 'resultReady']) {
-      expect(canonicalPanelSource).not.toMatch(new RegExp(`\\b${legacyField}\\b`))
+  it('uses canonical presentation for every production output', () => {
+    for (const output of [
+      '<ScoreChartPanel',
+      '<DamageChartPanel',
+      '<SummaryPanel',
+    ]) {
+      expect(attackTemplate).toContain(output)
+    }
+    expect(attackTemplate).toContain(':presentation="canonicalDisplayPresentation"')
+    expect(attackTemplate).toContain(':presentation="canonicalScoreDisplayPresentation"')
+    expect(scoreChartSource).toContain('getCanonicalAttackScoreChartData')
+    expect(damageChartSource).toContain('getCanonicalAttackDamageChartData')
+    expect(summaryTableSource).toContain('getCanonicalScoreSummaryForCombo')
+    for (const source of [scoreChartSource, damageChartSource, summaryTableSource]) {
+      expect(source).not.toContain('canonicalOptIn')
     }
   })
 
-  it('keeps the damage display form controlled and canonical at its boundary', () => {
+  it('removes legacy calculation lanes and the temporary debug panel from input', () => {
+    for (const source of [inputFormSource, comboFormSource, attackTemplate]) {
+      expect(source).not.toContain('calculateAttackCombo')
+      expect(source).not.toContain('calculateTotalDamage')
+      expect(source).not.toContain('CanonicalAttackPanel')
+      expect(source).not.toContain('canonicalOptIn')
+    }
+  })
+
+  it('keeps the display range validation boundary at the existing 999 limit', () => {
     expect(damageFormSource).toContain("defineEmits(['validated'])")
     expect(damageFormSource).toContain('createAttackDisplayRequestSnapshot')
     expect(damageFormSource).toContain('ATTACK_DISPLAY_MODES.PMF')
     expect(damageFormSource).toContain('ATTACK_DISPLAY_MODES.UPPER_TAIL')
+    expect(damageFormSource).toContain('max="999"')
     expect(damageFormSource).not.toMatch(/props\.displayRequest\.[\w]+\s*=/)
   })
 })

@@ -18,8 +18,7 @@ import {
 
 /**
  * Connect the canonical attack batch client to a latest-request runner.
- * The runner is UI-independent; callers decide when the opt-in flag should
- * start or invalidate it.
+ * The runner is UI-independent and always represents the canonical lane.
  */
 export function createAttackCanonicalRunner({
   state,
@@ -170,6 +169,13 @@ export function createAttackCanonicalRunner({
     onDisplayRejected?.(presentation)
   }
 
+  function handlePresentationError(error) {
+    requestGeneration = invalidateCanonicalAttackState(state)
+    clearRequestCache()
+    scoreDisplayRecalculationActive = false
+    onError?.(error)
+  }
+
   const latestRunner = createLatestCalculationRunner({
     feedback: state.canonicalFeedback,
     calculate: ({
@@ -298,11 +304,8 @@ export function createAttackCanonicalRunner({
     onError: (error) => {
       // Generic/resource errors do not pass through the coordinator's
       // range-rejection clearResult hook. Drop the canonical result here so
-      // an old canonical panel cannot survive an error as a stale display.
-      requestGeneration = invalidateCanonicalAttackState(state)
-      clearRequestCache()
-      scoreDisplayRecalculationActive = false
-      onError?.(error)
+      // an old canonical result cannot survive an error as a stale display.
+      handlePresentationError(error)
     },
     onCancelled: () => {
       cancelScoreDisplayRecalculation()
@@ -310,9 +313,6 @@ export function createAttackCanonicalRunner({
   })
 
   const run = (options = {}) => {
-    if (state.canonicalOptIn !== true) {
-      return Promise.resolve(false)
-    }
     const {
       signal,
       onRangePlan,
@@ -395,8 +395,7 @@ export function createAttackCanonicalRunner({
     },
     refreshPresentation(options = {}) {
       if (
-        state.canonicalOptIn !== true
-        || requestGeneration === null
+        requestGeneration === null
         || lastBatchResult === null
         || lastCanonicalEntries === null
         || !isCanonicalAttackInputCurrent(
@@ -425,32 +424,38 @@ export function createAttackCanonicalRunner({
           options.displayRequest
         )
       }
-      let presentation = createDisplayPresentation
-        ? createDisplayPresentation({
-            ...options,
-            state,
-            generation: requestGeneration,
-            batchResult: lastBatchResult,
-            rangePlans: lastRangePlans,
-            ...(Object.prototype.hasOwnProperty.call(options, 'displayRequest')
-              ? {
-                  displayRequest: createAttackDisplayRequestSnapshot(
-                    options.displayRequest
-                  ),
-                }
-              : {}),
-            ...(requestedScoreDisplayRequest !== null
-              ? { scoreDisplayRequest: requestedScoreDisplayRequest }
-              : {}),
-          })
-        : createPresentation(
-            lastBatchResult,
-            lastRangePlans,
-            Object.prototype.hasOwnProperty.call(options, 'displayRequest')
-              ? createAttackDisplayRequestSnapshot(options.displayRequest)
-              : undefined,
-            requestedScoreDisplayRequest ?? undefined
-          )
+      let presentation
+      try {
+        presentation = createDisplayPresentation
+          ? createDisplayPresentation({
+              ...options,
+              state,
+              generation: requestGeneration,
+              batchResult: lastBatchResult,
+              rangePlans: lastRangePlans,
+              ...(Object.prototype.hasOwnProperty.call(options, 'displayRequest')
+                ? {
+                    displayRequest: createAttackDisplayRequestSnapshot(
+                      options.displayRequest
+                    ),
+                  }
+                : {}),
+              ...(requestedScoreDisplayRequest !== null
+                ? { scoreDisplayRequest: requestedScoreDisplayRequest }
+                : {}),
+            })
+          : createPresentation(
+              lastBatchResult,
+              lastRangePlans,
+              Object.prototype.hasOwnProperty.call(options, 'displayRequest')
+                ? createAttackDisplayRequestSnapshot(options.displayRequest)
+                : undefined,
+              requestedScoreDisplayRequest ?? undefined
+            )
+      } catch (error) {
+        handlePresentationError(error)
+        return false
+      }
 
       if (requestedDisplayRequest === undefined) {
         if (presentation?.displayRequest !== undefined) {

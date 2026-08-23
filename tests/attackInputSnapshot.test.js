@@ -169,11 +169,12 @@ describe('Attack input flow contracts', () => {
     }
   })
 
-  it('removes duplicate parameter watches and owns one runner call per side commit', () => {
+  it('passes validated snapshots to the parent canonical lane', () => {
     expect(comboFormSource).not.toContain('watch(')
-    expect(comboFormSource).toContain('let disposed = false')
-    expect(comboFormSource).toContain('calculationRunner.dispose()')
-    expect(comboFormSource).toContain('if (disposed)')
+    expect(comboFormSource).not.toContain('onMounted')
+    expect(comboFormSource).not.toContain('onUnmounted')
+    expect(comboFormSource).not.toContain('createLatestCalculationRunner')
+    expect(comboFormSource).not.toContain('calculateAttackCombo')
     expect(comboFormSource).toContain(
       'replaceAttackSideSnapshot(props.comboData.params, side, snapshot)'
     )
@@ -187,7 +188,8 @@ describe('Attack input flow contracts', () => {
     const handlerStart = comboFormSource.indexOf('const onSideValidated')
     const handlerEnd = comboFormSource.indexOf('const onShowDetails')
     const handler = comboFormSource.slice(handlerStart, handlerEnd)
-    expect((handler.match(/updateCombo\(\)/g) ?? []).length).toBe(1)
+    expect(handler).not.toContain('updateCombo')
+    expect(inputFormSource).not.toContain('calculateTotalDamage')
   })
 
   it('passes explicit show-details events through InputForm', () => {

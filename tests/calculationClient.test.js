@@ -275,7 +275,7 @@ describe('CalculationClient', () => {
     )
   })
 
-  it('exposes an opt-in canonical attack method', () => {
+  it('exposes the canonical attack method', () => {
     const client = createCalculationClient(createDependencies())
 
     expect(client.calculateAttackCanonical).toEqual(expect.any(Function))

@@ -76,16 +76,6 @@ function createRejectedPlan(presentation, sides, code) {
   }
 }
 
-function createWarningPlan(presentation, sides) {
-  const source = sides.find((side) =>
-    Array.isArray(side?.plan?.warnings) && side.plan.warnings.length > 0
-  )
-  if (source === undefined) {
-    return null
-  }
-  return source.plan
-}
-
 /**
  * Adapt the UI-independent Attack display decision to the existing feedback
  * state consumed by RangePlanNotice. This never creates a legacy display.
@@ -147,33 +137,18 @@ export function createAttackCanonicalDisplayFeedback(presentation) {
     !isExactExpectedValue(side?.display?.expectedValue)
   )
   if (summaryUnavailable) {
-    const plan = createWarningPlan(presentation, sides)
-      ?? createRejectedPlan(
-        presentation,
-        sides,
-        DISPLAY_FEEDBACK_CODES.SUMMARY_NOT_PROJECTABLE
-      )
-    if (plan.accepted === false) {
-      plan.accepted = true
-      plan.status = 'ready'
-      plan.decision = 'reuse'
-      plan.rejectionReasons = []
-      plan.warnings = [{
-        code: DISPLAY_FEEDBACK_CODES.SUMMARY_NOT_PROJECTABLE,
-        severity: 'warning',
-        message: 'Attack canonical summary is not an exact value',
-      }]
-    }
     return {
       status: 'idle',
-      plan,
+      plan: null,
       error: null,
     }
   }
 
   return {
     status: 'idle',
-    plan: createWarningPlan(presentation, sides),
+    // Range-plan warnings describe internal approximation/coverage metadata,
+    // not an actionable UI failure. Keep them out of the normal view.
+    plan: null,
     error: null,
   }
 }
@@ -233,12 +208,11 @@ export function createAttackCanonicalScoreDisplayFeedback(presentation) {
     }
   }
 
-  const warningPlan = sides.find((side) =>
-    Array.isArray(side?.plan?.warnings) && side.plan.warnings.length > 0
-  )?.plan ?? null
   return {
     status: 'idle',
-    plan: warningPlan,
+    // Score uncertainty is represented by the neutral summary value. Only
+    // terminal/rejected display decisions reach RangePlanNotice.
+    plan: null,
     error: null,
   }
 }

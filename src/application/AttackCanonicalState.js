@@ -194,7 +194,6 @@ export function ensureCanonicalComboData(data) {
 
 export function createCanonicalAttackState() {
   return {
-    canonicalOptIn: false,
     canonicalScoreDisplayPresentation: null,
     canonicalTotalDamage: null,
     canonicalTotalDamageSummary: null,
@@ -420,7 +419,7 @@ export function commitCanonicalAttackResult(
   batchResult,
   presentation
 ) {
-  if (generation !== state.canonicalGeneration || state.canonicalOptIn !== true) {
+  if (generation !== state.canonicalGeneration) {
     return false
   }
   if (!Array.isArray(state.combos)) {
@@ -544,7 +543,6 @@ export function commitCanonicalAttackDisplayPresentation(
 ) {
   if (
     generation !== state.canonicalGeneration
-    || state.canonicalOptIn !== true
     || state.canonicalTotalDamageReady !== true
     || !Array.isArray(state.combos)
     || !hasCanonicalDisplayPresentationShape(presentation, state.combos)

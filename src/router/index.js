@@ -15,9 +15,7 @@ const routes = [
     {path: '/check', component: () => import('@/views/Check.vue'), beforeEnter: async () => {
       await prepareCalculation('check')
     }},
-    {path: '/attack', component: () => import('@/views/Attack.vue'), beforeEnter: async () => {
-      await prepareCalculation('attack')
-    }},
+    {path: '/attack', component: () => import('@/views/Attack.vue')},
     {path: '/backtrack', component: () => import('@/views/Backtrack.vue')}
 ]
 

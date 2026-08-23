@@ -56,7 +56,6 @@ function combo(id, seed = 0) {
 function createState(combos = [combo('first', 0), combo('second', 1)]) {
   return {
     ...createCanonicalAttackState(),
-    canonicalOptIn: true,
     combos,
     totalDamage: { value: 'legacy total' },
     totalDamageSummary: { value: 'legacy total summary' },
@@ -204,16 +203,20 @@ describe('AttackCanonicalState', () => {
 })
 
 describe('createAttackCanonicalRunner', () => {
-  it('keeps the canonical API completely off by default', async () => {
+  it('runs the canonical API by default', async () => {
     const state = createState()
-    state.canonicalOptIn = false
+    const batch = createBatch(['first', 'second'])
     const calculationClient = {
-      calculateAttackCanonicalBatch: vi.fn(),
+      calculateAttackCanonicalBatch: vi.fn().mockResolvedValue(batch),
     }
-    const runner = createAttackCanonicalRunner({ state, calculationClient })
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: vi.fn(createPresentation),
+    })
 
-    await expect(runner.run()).resolves.toBe(false)
-    expect(calculationClient.calculateAttackCanonicalBatch).not.toHaveBeenCalled()
+    await expect(runner.run()).resolves.toBe(true)
+    expect(calculationClient.calculateAttackCanonicalBatch).toHaveBeenCalledOnce()
   })
 
   it('takes one ordered batch, collects plans, presents once, and commits once', async () => {
@@ -377,7 +380,7 @@ describe('createAttackCanonicalRunner', () => {
     expect(state.combos[0].data.canonicalDamage.value).toBe('damage-second-0')
   })
 
-  it('clears canonical state and ignores a late result after disable', async () => {
+  it('clears canonical state and ignores a late result after invalidation', async () => {
     const state = createState()
     const deferred = createDeferred()
     const presentation = vi.fn(createPresentation)
@@ -461,7 +464,6 @@ describe('createAttackCanonicalRunner', () => {
     expect(state.combos[0].data.damage).toBe(legacySnapshot.damage)
     expect(state.combos[0].data.resultReady).toBe(legacySnapshot.resultReady)
 
-    state.canonicalOptIn = true
     const genericError = new Error('canonical failed')
     calculationClient.calculateAttackCanonicalBatch.mockRejectedValueOnce(
       genericError
@@ -472,7 +474,6 @@ describe('createAttackCanonicalRunner', () => {
     expect(state.canonicalTotalDamageReady).toBe(false)
     expect(state.totalDamageReady).toBe(true)
 
-    state.canonicalOptIn = true
     const resourceError = Object.assign(new Error('resource rejected'), {
       name: 'ResourceGuardError',
     })
@@ -484,6 +485,40 @@ describe('createAttackCanonicalRunner', () => {
     expect(state.canonicalFeedback.status).toBe('error')
     expect(state.canonicalTotalDamageReady).toBe(false)
     expect(state.totalDamageReady).toBe(true)
+  })
+
+  it('clears presentation failures and retries successfully on the same runner', async () => {
+    const state = createState([combo('first')])
+    const batch = createBatch(['first'])
+    const presentationError = new Error('presentation failed')
+    const onError = vi.fn()
+    const createPresentationSpy = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw presentationError
+      })
+      .mockImplementationOnce(createPresentation)
+    const calculationClient = {
+      calculateAttackCanonicalBatch: vi.fn().mockResolvedValue(batch),
+    }
+    const runner = createAttackCanonicalRunner({
+      state,
+      calculationClient,
+      createPresentation: createPresentationSpy,
+      onError,
+    })
+
+    await expect(runner.run()).resolves.toBe(false)
+    expect(onError).toHaveBeenCalledWith(presentationError)
+    expect(state.canonicalFeedback.status).toBe('error')
+    expect(state.canonicalTotalDamageReady).toBe(false)
+    expect(state.combos[0].data.canonicalResultReady).toBe(false)
+
+    await expect(runner.run()).resolves.toBe(true)
+    expect(calculationClient.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(2)
+    expect(state.canonicalFeedback.status).toBe('ready')
+    expect(state.canonicalTotalDamageReady).toBe(true)
+    expect(state.combos[0].data.canonicalResultReady).toBe(true)
   })
 
   it('commits the canonical zero identity for an empty combo list', async () => {

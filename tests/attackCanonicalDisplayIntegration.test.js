@@ -71,7 +71,6 @@ function createScore() {
 function createState() {
   return {
     ...createCanonicalAttackState(),
-    canonicalOptIn: true,
     combos: [{
       id: 'combo-1',
       name: 'コンボ1',
@@ -984,7 +983,6 @@ describe('Attack canonical display integration', () => {
       },
       scoreOnly: true,
     })
-    state.canonicalOptIn = false
     runner.invalidate()
     deferredInvalidatedExpansion.resolve(
       createCanonicalScoreExpansion([0.1, 0.2, 0.3, 0.2, 0.2])

@@ -19,6 +19,12 @@ canonical移行の横断的な実装順序と判断は [canonical-migration-road
 
 第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、現行互換の`published-bucket`を既定とし、DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。残るtotal damage課題はresource guardと将来のdynamic output契約であり、低速実機、入力拡張候補のブラウザ実測、入力上限とJSON経路は残課題です。
 
+## Canonical migration Phase 7 status
+
+- 完了: Attackの初期計算、validated input、combo操作、Score/Damage chart、Summary、totalをcanonical batch/presentationと一つのlatest-wins runnerへ統合し、temporary `canonicalOptIn`、debug panel、legacy combo/total runner、route preloadをproduction接続から削除した。
+- 維持: `CalculationClient.prepare('attack')` API、canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、legacy API/assets、比較用adapter/fixture、既存表示範囲999と計算上の1024/1022境界。
+- 未完了: Phase 7全体のlegacy計算・fallback完全削除、legacy生成物/JSON整理、任意表示範囲拡張。Vue完全mountは既存Node test環境制約により未実施で、runner/router behavior testで補完している。Attackのブラウザ受入は2026-08-24に完了した。
+
 第4段階では通常Checkのcontrolled SettingForm、999上限撤廃、dynamic display windowを実装し、resource rejectionで広い表示範囲を制御しました。Attack、バックトラック、三経路全体の入力・表示上限拡張は、誤差、計算時間、メモリ使用量、描画点数を同時に検証した後に判断します。
 
 ## オーバーフローバケットを利用者へ表示する

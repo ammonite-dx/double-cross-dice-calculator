@@ -1,41 +1,11 @@
 <script setup>
 
-    import { inject, onUnmounted, watch } from 'vue';
-    import {
-        CALCULATION_CLIENT_KEY,
-        calculationClient as defaultCalculationClient,
-    } from '@/application/CalculationClient';
-    import {
-        areAllComboResultsReady,
-        beginCalculation,
-        commitTotalDamage,
-        copyCalculationFeedback,
-        createCalculationFeedbackState,
-        createLatestCalculationRunner,
-        invalidateTotalDamage,
-    } from '@/application/CalculationFeedback';
     import { getChartColor } from '@/data/ColorSetter';
+    import { createCanonicalComboDataState } from '@/application/AttackCanonicalState';
     import ComboForm from './ComboForm.vue';
-    import RangePlanNotice from '@/components/RangePlanNotice.vue';
     import { mdiChevronUp,mdiChevronDown,mdiContentCopy,mdiDelete,mdiPlus } from '@mdi/js'
 
     const props = defineProps(['attackData']);
-    const calculationClient = inject(
-        CALCULATION_CLIENT_KEY,
-        defaultCalculationClient
-    );
-    if (!props.attackData.totalDamageFeedback) {
-        props.attackData.totalDamageFeedback = createCalculationFeedbackState();
-    }
-    if (typeof props.attackData.totalDamageGeneration !== 'number') {
-        props.attackData.totalDamageGeneration = 0;
-    }
-    if (typeof props.attackData.totalDamageReady !== 'boolean') {
-        props.attackData.totalDamageReady = props.attackData.totalDamage !== null
-            && props.attackData.totalDamage !== undefined
-            && props.attackData.totalDamageSummary !== null
-            && props.attackData.totalDamageSummary !== undefined;
-    }
     let nextComboId = props.attackData.combos.reduce(
         (maximum, combo) => Math.max(maximum, combo.id),
         -1
@@ -51,7 +21,6 @@
     const duplicateCombo = (index) => {
         const nextId = allocateComboId();
         const source = props.attackData.combos[index];
-        const sourceReady = areAllComboResultsReady([source]);
         const initialShowDetails = {
             action: {value:source.showDetails.action.value},
             reaction: {value:source.showDetails.reaction.value},
@@ -67,21 +36,6 @@
                 damage: {dice:source.data.params.reaction.damage.dice, value:source.data.params.reaction.damage.value},
             }
         };
-        const initialScore = sourceReady ? {
-            action: {distribution:source.data.score.action.distribution.slice(), upperTailProbability:source.data.score.action.upperTailProbability.slice(), failureProbability:source.data.score.action.failureProbability},
-            reaction: {distribution:source.data.score.reaction.distribution.slice(), upperTailProbability:source.data.score.reaction.upperTailProbability.slice(), failureProbability:source.data.score.reaction.failureProbability},
-        } : null;
-        const initialScoreSummary = sourceReady ? {
-            action: {expectedValue:source.data.scoreSummary.action.expectedValue, successRate: source.data.scoreSummary.action.successRate},
-            reaction: {expectedValue:source.data.scoreSummary.reaction.expectedValue, successRate: source.data.scoreSummary.reaction.successRate},
-        } : null;
-        const initialDamage = sourceReady ? {
-            distribution:source.data.damage.distribution.slice(),
-            upperTailProbability:source.data.damage.upperTailProbability.slice(),
-        } : null;
-        const initialDamageSummary = sourceReady
-            ? {expectedValue: source.data.damageSummary.expectedValue}
-            : null;
         const newCombo = {
             id: nextId,
             name: source.name+'のコピー',
@@ -89,12 +43,7 @@
             showDetails: initialShowDetails,
             data: {
                 params: initialParams,
-                score: initialScore,
-                scoreSummary: initialScoreSummary,
-                damage: initialDamage,
-                damageSummary: initialDamageSummary,
-                resultReady: sourceReady,
-                rangeFeedback: copyCalculationFeedback(source.data.rangeFeedback),
+                ...createCanonicalComboDataState(),
             },
         };
         props.attackData.combos.push(newCombo);
@@ -123,12 +72,7 @@
             showDetails: initialShowDetails,
             data: {
                 params: initialParams,
-                score: null,
-                scoreSummary: null,
-                damage: null,
-                damageSummary: null,
-                resultReady: false,
-                rangeFeedback: createCalculationFeedbackState(),
+                ...createCanonicalComboDataState(),
             },
         };
         props.attackData.combos.push(newCombo);
@@ -139,59 +83,11 @@
         }
         combo.showDetails[side].value = value;
     };
-    let totalRequestGeneration = null;
-    const totalCalculationRunner = createLatestCalculationRunner({
-        feedback: props.attackData.totalDamageFeedback,
-        calculate: (options) => calculationClient.calculateTotalDamage(
-            props.attackData.combos,
-            options
-        ),
-        clearResult: () => {
-            totalRequestGeneration = invalidateTotalDamage(props.attackData);
-        },
-        commitResult: (result) => {
-            const committed = commitTotalDamage(
-                props.attackData,
-                totalRequestGeneration,
-                result
-            );
-            if (!committed
-                && totalRequestGeneration === props.attackData.totalDamageGeneration) {
-                throw new Error('Total damage result was incomplete');
-            }
-            return committed;
-        },
-        onError: (error) => {
-            console.error('Failed to update total damage', error);
-        },
-    });
-    watch(() => props.attackData.combos.map((combo) => ({
-        resultReady: combo.data.resultReady,
-        score: combo.data.score,
-        scoreSummary: combo.data.scoreSummary,
-        damage: combo.data.damage,
-        damageSummary: combo.data.damageSummary,
-    })), () => {
-        totalCalculationRunner.invalidate();
-        invalidateTotalDamage(props.attackData);
-        beginCalculation(props.attackData.totalDamageFeedback);
-        if (!areAllComboResultsReady(props.attackData.combos)) {
-            return;
-        }
-        void totalCalculationRunner.run();
-    });
-    onUnmounted(() => {
-        totalCalculationRunner.invalidate();
-        invalidateTotalDamage(props.attackData);
-    });
-
 </script>
 
 <template>
-    <RangePlanNotice :feedback="props.attackData.totalDamageFeedback" />
     <template v-for="(combo,index) in props.attackData.combos" :key="combo.id">
         <v-container class="pa-4">
-            <RangePlanNotice :feedback="combo.data.rangeFeedback" />
             <v-row class="ma-0">
                 <v-col sm="9" cols="7" class="pl-0 pr-3 pb-0"><v-text-field label="コンボ名" v-model="combo.name" variant="underlined" hide-details="auto" density="compact" class="text-md-body-1 text-caption"></v-text-field></v-col>
                 <v-col sm="3" cols="5" class="px-0">

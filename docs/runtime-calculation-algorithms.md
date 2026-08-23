@@ -321,6 +321,8 @@ Phase 6第3実装単位では、`BacktrackCalculationRunner`がvalidated params�
 
 Phase 7第1実装単位では、`createBacktrackCanonicalRunner`をcanonical専用runnerとして接続し、Backtrackの初期計算・入力再計算を`calculateBacktrackCanonical`から`createBacktrackCanonicalPresentation`へ一本化しました。`InputPanel.vue`と`Backtrack.vue`から一時`canonicalOptIn` toggleとlegacy分岐を削除し、初期計算も`onMounted`から同じlatest-wins runnerへ渡します。canonical adapterのpresentation error、ResourceGuard rejection、range rejection、abort、stale result、disposeでは旧結果へfallbackせず結果をclearし、retryで再度commitできます。route guardの`prepareCalculation('backtrack')`だけを削除しましたが、`CalculationClient.prepare('backtrack')`、legacy API、asset、比較fixtureは維持しています。
 
+Phase 7のAttack実装単位では、`Attack.vue`の初期計算、validated input、combo操作を`createAttackCanonicalRunner`の一つのlatest-wins laneへ統合し、`calculateAttackCanonicalBatch`から`createAttackCanonicalDisplayPresentation`を通るcanonical batch/presentationだけをproduction chart、summary、totalへ渡します。legacy初期計算、combo runner、total runner、productionの`canonicalOptIn`/debug panel、legacy fallbackは接続から除き、canonicalのrange/resource/generic/presentation/asset errorでは結果をclearして同じrunnerでretryします。Scoreのunsupported expected valueを`—`とする契約を維持し、Damage/Totalの非保証値も`—`とし、通常の不確かさwarningはUIへ出しません。`/attack` routeの`prepareCalculation('attack')` guardは削除しましたが、明示`CalculationClient.prepare('attack')` API、canonical防御D10のlazy asset、既存`RuntimeDamageRollWorker`、legacy API/assets、比較fixtureは維持しています。表示範囲999、1024/1022境界、legacy生成物の整理、任意display window拡張は後続です。
+
 ## Phase 2-G resource guard
 
 Phase 2-G adds a shared FIFO resource guard in `src/application/ResourceGuard.js` and injects the singleton through the application `CalculationClient` dependency factory. `check`, `attack`, and `backtrack` run the existing range preflight first, then reserve before asset loading or calculation, and release the lease from one `finally` path. A preflight hard reject therefore does not reserve anything.
@@ -493,7 +495,7 @@ reportは標準出力だけへJSONで出し、実測結果ファイルやdistを
 
 Workerの外側には、scoreのDX計算、attack preflightとResourceGuard、D10 asset fetch、固定値差、D10防御畳み込み、failure massのdamage 0への合成、canonical `DistributionResult` envelope、combo間のcanonical total aggregationが残る。したがって「canonical Attack全体をWorkerで実行する」経路ではなく、「canonical AttackのDR FFT部分だけが既存RuntimeDamageRollClient/Workerを利用する」経路である。`RuntimeDamageRollClient`のcache、pending dedup、caller単位のAbortSignal、Worker error後の再生成は既存契約のまま利用され、新しいWorker message protocolは追加していない。
 
-`src/application/AttackCanonicalRunner.js`はbatch clientの上位で最新requestのAbortSignalとcommit guardを持ち、stale結果をcommitしない。`src/views/Attack.vue`はこのrunnerをscriptへ接続しているが、`attackData.canonicalOptIn`を`false`で初期化し、templateはcanonical stateを読まないため、production UIの既定Attack表示は依然legacy経路である。`calculateAttackCanonicalBatch()`自体にはlatest-wins commit policyはなく、cancel/staleの責務はこのrunner側にある。
+`src/application/AttackCanonicalRunner.js`はbatch clientの上位で最新requestのAbortSignalとcommit guardを持ち、stale結果をcommitしない。Phase 7のAttack実装単位で`src/views/Attack.vue`はこのrunnerを初期計算、validated input、combo操作へ接続し、production chart、summary、totalはcanonical presentationだけを読む。`canonicalOptIn`、debug panel、legacy初期/combo/total runner、legacy fallbackはproduction接続から削除した。`calculateAttackCanonicalBatch()`自体にはlatest-wins commit policyはなく、cancel/staleの責務はこのrunner側にある。
 
 既存のcore直呼び出しページとは分離して、`experiments/phase2h-browser/canonical-attack-worker-benchmark.html`を追加した。このページは同じ7 fixtureを使い、5件を実際の`calculationClient.calculateAttackCanonicalBatch()`、warning境界を公開`planAttackCombo()`、reject境界をpublic batchのpreflight rejectとして測る。成功batchの測定区間にはproductionのscore、D10、既存Runtime Worker、canonical total aggregationが含まれ、`calculateCanonicalDamageOnDemand()`をページから直接呼び出さない。native Workerと`fetch`は実装を置き換えない薄い診断wrapperであり、Worker生成、postMessage/message、transfer bytes、error/messageerror、terminate、data asset fetch、resource timingをreportへ保存する。cancelは`CalculationClient`の同期`onRangePlan`通知でAbortSignalを発火させ、preflight後かつWorker実行前の境界を測る。staleは既存`AttackCanonicalRunner`の2連続requestで診断する。Workerを意図的に壊すsynthetic errorは行わず、自然発生したerrorだけを記録する。
 
@@ -511,7 +513,7 @@ In-app Chrome（userAgent: Chromium 151.0.0.0、Windows）の標準条件（`ite
 
 この数値は標準条件の単一ブラウザ実行であり、Chrome CPU throttleは実CPU・低速端末のCPU/メモリを再現しない。実測で確認したWorker接続は既存DR部分だけで、score/DX、preflight、D10、固定値差、防御畳み込み、failure合成、canonical envelope/total aggregationはmain threadに残る。したがって、この実測だけで新しいWorker protocol、score/DXのWorker移行、canonical UI表示切替は決めず、必要な変更は別単位で判断する。
 
-## Phase 2-H canonical Attack opt-in diagnostic UI（第16単位）
+## Phase 2-H canonical Attack opt-in diagnostic UI（第16単位、移行履歴）
 
 第16単位では、`src/views/Attack.vue`に既存canonical runnerを使う独立した`CanonicalAttackPanel`を接続した。`canonicalOptIn`は既定値を`false`とし、トグルを有効化したときだけcanonical計算と結果表示を行う。パネルは`RangePlanNotice`を再利用し、canonical totalとcombo別のexpected value、support、explicitMax、overflowを欠損・非有限値に耐える純粋表示helperで安全に表示する。expected valueは`exact`、`bounded`、`lower-bound`、overflowは`exact`、`upper-bound`を区別し、巨大な`probabilities`配列はDOMへ列挙しない。表示用の契約テストとhelperのunit testも追加した。
 

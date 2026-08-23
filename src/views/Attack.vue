@@ -1,16 +1,10 @@
 <script setup>
 
-    import { computed, inject, onUnmounted, reactive, watch } from 'vue';
+    import { computed, inject, onMounted, onUnmounted, reactive, watch } from 'vue';
     import {
         CALCULATION_CLIENT_KEY,
         calculationClient,
     } from '@/application/CalculationClient';
-    import {
-        areAllComboResultsReady,
-        createCalculationFeedbackState,
-        createTotalDamageState,
-        runInitialCalculation,
-    } from '@/application/CalculationFeedback';
     import { createAttackCanonicalRunner } from '@/application/AttackCanonicalRunner';
     import {
         createAttackCanonicalDisplayFeedback,
@@ -39,7 +33,7 @@
     import ScoreChartPanel from '@/components/Attack/ScoreChartPanel.vue';
     import DamageChartPanel from '@/components/Attack/DamageChartPanel.vue';
     import SummaryPanel from '@/components/Attack/SummaryPanel.vue';
-    import CanonicalAttackPanel from '@/components/Attack/CanonicalAttackPanel.vue';
+    import RangePlanNotice from '@/components/RangePlanNotice.vue';
 
     const initialParams = {
         action: {
@@ -63,17 +57,6 @@
     const scoreDisplayRequest = reactive({
         ...createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST),
     });
-    const rangeFeedback = createCalculationFeedbackState();
-    const initialCalculation = await runInitialCalculation({
-        feedback: rangeFeedback,
-        calculate: (options) => calculationClient.calculateAttackCombo(
-            initialParams,
-            options
-        ),
-        onError: (error) => {
-            console.error('Failed to initialize attack calculation', error);
-        },
-    });
     const attackData = reactive({
         combos: [{
             id: 0,
@@ -85,19 +68,10 @@
             },
             data: {
                 params: initialParams,
-                score: initialCalculation?.score ?? null,
-                scoreSummary: initialCalculation?.scoreSummary ?? null,
-                damage: initialCalculation?.damage ?? null,
-                damageSummary: initialCalculation?.damageSummary ?? null,
-                resultReady: initialCalculation !== null,
-                rangeFeedback: reactive(rangeFeedback),
                 ...createCanonicalComboDataState(),
             },
         }],
-        ...createTotalDamageState(initialCalculation),
-        totalDamageFeedback: reactive(createCalculationFeedbackState()),
         ...createCanonicalAttackState(),
-        canonicalOptIn: false,
     });
 
     function createCanonicalDisplaySource(state) {
@@ -293,70 +267,48 @@
     }
 
     watch(
-        () => ({
-            canonicalOptIn: attackData.canonicalOptIn,
-            combos: attackData.combos.map((combo) => ({
-                id: combo.id,
-                params: combo.data.params,
-            })),
-        }),
-        (current, previous) => {
+        () => attackData.combos.map((combo) => ({
+            id: combo.id,
+            params: combo.data.params,
+        })),
+        () => {
             for (const combo of attackData.combos) {
                 ensureCanonicalComboData(combo.data);
             }
-
-            if (!current.canonicalOptIn) {
-                if (previous?.canonicalOptIn === true) {
-                    canonicalCalculationRunner.invalidate();
-                    clearCanonicalAttackState(attackData);
-                }
-                if (displayRequest.max > 999 || displayRequest.min > 999) {
-                    displayRequest.min = Math.min(displayRequest.min, 999);
-                    displayRequest.max = Math.min(
-                        Math.max(displayRequest.max, displayRequest.min),
-                        999
-                    );
-                }
-                if (scoreDisplayRequest.max > 999 || scoreDisplayRequest.min > 999) {
-                    scoreDisplayRequest.min = Math.min(scoreDisplayRequest.min, 999);
-                    scoreDisplayRequest.max = Math.min(
-                        Math.max(scoreDisplayRequest.max, scoreDisplayRequest.min),
-                        999
-                    );
-                }
-                return;
-            }
-
             void runCanonicalCalculation();
         },
-        { deep: true, immediate: true }
+        { deep: true }
     );
+
+    onMounted(() => {
+        for (const combo of attackData.combos) {
+            ensureCanonicalComboData(combo.data);
+        }
+        void runCanonicalCalculation();
+    });
 
     onUnmounted(() => {
         canonicalCalculationRunner.dispose();
         clearCanonicalAttackState(attackData);
     });
 
-    const resultsReady = computed(() =>
-        areAllComboResultsReady(attackData.combos)
-        && attackData.totalDamageReady
-    );
-
     const canonicalDisplayPresentation = computed(() =>
-        attackData.canonicalOptIn === true
-            ? attackData.canonicalDisplayPresentation
-            : null
+        attackData.canonicalDisplayPresentation
     );
 
     const canonicalScoreDisplayPresentation = computed(() =>
-        attackData.canonicalOptIn === true
-            ? attackData.canonicalScoreDisplayPresentation
-            : null
+        attackData.canonicalScoreDisplayPresentation
     );
 
     const canonicalSummaryReady = computed(() =>
-        attackData.canonicalOptIn === true
-        && attackData.canonicalDisplayPresentation?.status === 'ready'
+        attackData.canonicalDisplayPresentation?.status === 'ready'
+    );
+
+    const canonicalFeedbackNotice = computed(() =>
+        attackData.canonicalFeedback?.status === 'rejected'
+            || attackData.canonicalFeedback?.status === 'error'
+            ? attackData.canonicalFeedback
+            : {status: 'idle', plan: null, error: null}
     );
 
     function onDisplayValidated(request) {
@@ -364,10 +316,6 @@
         displayRequest.min = snapshot.min;
         displayRequest.max = snapshot.max;
         displayRequest.mode = snapshot.mode;
-
-        if (attackData.canonicalOptIn !== true) {
-            return;
-        }
 
         if (!preflightCanonicalDisplay(snapshot)) {
             return;
@@ -412,10 +360,6 @@
         scoreDisplayRequest.max = snapshot.max;
         scoreDisplayRequest.mode = snapshot.mode;
 
-        if (attackData.canonicalOptIn !== true) {
-            return;
-        }
-
         if (!preflightCanonicalScoreDisplay(snapshot)) {
             return;
         }
@@ -456,36 +400,32 @@
 <template>
     <v-container class="pa-6" fluid>
         <v-row><v-col cols="12"><InputPanel :attackData="attackData"/></v-col></v-row>
-        <v-row><v-col cols="12"><CanonicalAttackPanel :attackData="attackData" /></v-col></v-row>
+        <v-row><v-col cols="12"><RangePlanNotice :feedback="canonicalFeedbackNotice" /></v-col></v-row>
         <v-row>
-            <!-- <ScoreChartPanel :attackData="attackData"/> remains the legacy contract boundary. -->
-            <v-col v-if="resultsReady || attackData.canonicalOptIn" md="6" cols="12">
+            <v-col md="6" cols="12">
                 <ScoreChartPanel
                     :attackData="attackData"
                     :displayRequest="scoreDisplayRequest"
                     :presentation="canonicalScoreDisplayPresentation"
-                    :canonicalOptIn="attackData.canonicalOptIn"
                     :displayFeedback="attackData.canonicalScoreDisplayFeedback"
                     @display-validated="onScoreDisplayValidated"
                 />
             </v-col>
-            <v-col v-if="resultsReady || attackData.canonicalOptIn" md="6" cols="12">
+            <v-col md="6" cols="12">
                 <DamageChartPanel
                     :attackData="attackData"
                     :displayRequest="displayRequest"
                     :presentation="canonicalDisplayPresentation"
-                    :canonicalOptIn="attackData.canonicalOptIn"
                     :displayFeedback="attackData.canonicalDisplayFeedback"
                     @display-validated="onDisplayValidated"
                 />
             </v-col>
         </v-row>
-        <v-row v-if="attackData.canonicalOptIn ? canonicalSummaryReady : resultsReady"><v-col cols="12">
+        <v-row v-if="canonicalSummaryReady"><v-col cols="12">
             <SummaryPanel
                 :attackData="attackData"
                 :presentation="canonicalDisplayPresentation"
                 :scorePresentation="canonicalScoreDisplayPresentation"
-                :canonicalOptIn="attackData.canonicalOptIn"
             />
         </v-col></v-row>
     </v-container>

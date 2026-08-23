@@ -42,6 +42,7 @@ import {
   CANONICAL_SUMMARY_UNAVAILABLE,
   formatCanonicalSummaryExpectedValue,
   formatCanonicalScoreSuccessRate,
+  formatCanonicalScoreSuccessRateDisplay,
   formatCanonicalScoreSummaryExpectedValue,
   getCanonicalScoreSummaryForCombo,
 } from '../src/components/Attack/SummaryTable'
@@ -269,7 +270,6 @@ describe('Attack canonical score display adapter', () => {
     })
     const state = {
       ...createCanonicalAttackState(),
-      canonicalOptIn: true,
       combos: [{
         id: 'production-score-expansion',
         data: {
@@ -449,6 +449,8 @@ describe('Attack canonical score display adapter', () => {
     )).toBe(12.3)
     expect(formatCanonicalScoreSuccessRate(summary.action.successRate))
       .toBe(56.7)
+    expect(formatCanonicalScoreSuccessRateDisplay(summary.action.successRate))
+      .toBe('56.7%')
     expect(formatCanonicalScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 1,
@@ -467,6 +469,10 @@ describe('Attack canonical score display adapter', () => {
       kind: 'lower-bound',
       lowerBound: 0,
     })).toBe('—')
+    expect(formatCanonicalScoreSuccessRateDisplay({
+      kind: 'lower-bound',
+      lowerBound: 0,
+    })).toBe('—')
   })
 
   it('displays bounded Score values only when both rounded bounds agree', () => {
@@ -480,6 +486,11 @@ describe('Attack canonical score display adapter', () => {
       lowerBound: 45.4545,
       upperBound: 45.4546,
     })).toBe(45.5)
+    expect(formatCanonicalScoreSuccessRateDisplay({
+      kind: 'bounded',
+      lowerBound: 45.4545,
+      upperBound: 45.4546,
+    })).toBe('45.5%')
     expect(formatCanonicalScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 6.04,
@@ -809,7 +820,6 @@ describe('Attack canonical score display adapter', () => {
     const batch = createBatch(score)
     const state = {
       ...createCanonicalAttackState(),
-      canonicalOptIn: true,
       combos: [{
         id: 0,
         data: {

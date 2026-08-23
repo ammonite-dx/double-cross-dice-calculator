@@ -5,10 +5,10 @@
 ## 現在地
 
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
-- Attackにはcanonical batch、`CanonicalAttackPanel`、`canonicalOptIn`、exact finite caseだけを既存1024 published bucketへ安全に投影するdisplay adapterがある。Phase 5の途中成果として、Score/Damageのdynamic displayも`canonicalOptIn`付きで接続済みである。これらのpanel、toggle、診断表示、安全投影は移行中の検証用であり、本番移行完了時には削除する。
+- Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。legacy API/assets、比較用adapter/fixture、既存1024境界は移行検証用に残している。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
-- 通常のCheckとバックトラックはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackはcanonical batchとScore/Damageのdynamic displayを`canonicalOptIn`付きの検証用接続へ移行中で、既定production表示へはまだ移行していない。
-- バックトラックのcanonical default化はPhase 7第1実装単位で完了した。Attackの既定化、三経路全体のlegacy計算削除、JSON整理は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
+- 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
+- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。Phase 7全体のlegacy計算・fallback削除、表示範囲拡張、JSON整理は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
 
 ## 表示範囲と明示coverageの移行対象
 
@@ -44,8 +44,8 @@ Checkやバックトラックを個別の都合で実装する前に、Attackに
 
 ## 入力データフローと要求ライフサイクルの現状と方針
 
-- `src/components/Check/DfcltyForm.vue`、`src/components/Check/ScoreForm.vue`、`src/components/Backtrack/BacktrackForm.vue`、`src/components/Attack/AttackForm.vue`、`src/components/Attack/DefenceForm.vue`はlocal reactive draftをwatchし、非同期の`form.validate()`が完了した最新世代だけvalidated snapshotを発行する。Attackは`ComboForm.vue`がside paramsを一括置換し、1 validated eventにつきlegacy latest runnerを1回だけ発火する。showDetailsは明示eventで親へ渡し、snapshot aliasを防ぎ、Defenceのmode正規化を維持する。
-- Attackの入力formは`eb043a9`でcontrolled化を完了した。validation gateとlegacy runnerはunmount時にdisposeし、破棄後のemitと計算開始を抑止する。canonical Attack batch laneは従来どおり`AttackCanonicalState`のsubmit-time snapshot/latest-winsを使い、この作業単位ではcanonical runnerと表示を変更していない。
+- `src/components/Check/DfcltyForm.vue`、`src/components/Check/ScoreForm.vue`、`src/components/Backtrack/BacktrackForm.vue`、`src/components/Attack/AttackForm.vue`、`src/components/Attack/DefenceForm.vue`はlocal reactive draftをwatchし、非同期の`form.validate()`が完了した最新世代だけvalidated snapshotを発行する。Attackは`ComboForm.vue`がside paramsを一括置換し、親のAttack-level canonical runnerがvalidated eventを同じlatest-wins laneへ渡す。showDetailsは明示eventで親へ渡し、snapshot aliasを防ぎ、Defenceのmode正規化を維持する。
+- Attackの入力formは`eb043a9`でcontrolled化を完了した。validation gateはunmount時にdisposeし、破棄後のemitを抑止する。legacy combo/total runnerと初期legacy計算はproduction接続から削除し、canonical Attack batch laneが初期計算、入力、combo追加・削除・複製・並べ替えを担当する。
 - Checkとバックトラックのviewはvalidated eventを受けて親stateを更新し、`CheckInputSnapshot`または`BacktrackInputSnapshot`を作って計算へ渡す。canonical Attackは`AttackCanonicalState`でcombo順、id、計算paramsだけをsubmit時にsnapshotし、結果・表示状態を入力へ含めない。
 - `createCalculationRequestCoordinator`と`createLatestCalculationRunner`はrevision、snapshot、`AbortSignal`、commit guardを共有し、各laneを実行中1件と最新の待機1件に制限する。staleなresult/error/planは破棄し、`CalculationFeedback`のloading、ready、idle、rejected、errorへ対応させる。
 - `ResourceGuard`は`maxActive=4`、`maxQueued=32`のFIFO queueを持ち、queued要求はabort時にqueueから除去する。`RuntimeDamageRollClient`はsingletonのブラウザWeb Workerと`pendingById`を持ち、既に`postMessage`した処理はabortしても停止しない。`RuntimeDamageRollWorker`は同期計算でcancel protocolを持たないため、旧Worker計算は完了後に破棄され、結果がcacheへ再利用される場合がある。
@@ -168,7 +168,12 @@ production formの上限では最大diceは223、最大working lengthは約2231�
 第1実装単位（完了）では、バックトラックの初期計算・再計算を`createBacktrackCanonicalRunner`へ統合し、`calculateBacktrackCanonical`から`createBacktrackCanonicalPresentation`を通る既定経路へ切り替えた。条件パネルの一時`canonicalOptIn` toggleを削除し、初期計算も`onMounted`から同じlatest-wins runnerで実行する。canonicalのresource rejection・error・abortでは旧結果へfallbackせず結果をclearし、retry、latest-wins、disposeを維持する。バックトラックrouteの`prepareCalculation('backtrack')` guardだけを削除し、`CalculationClient.prepare('backtrack')`、legacy API・asset・比較テストは維持する。
 
 - ブラウザ受入（2026-08-24、in-app browser / Vite local `--force`）: `/backtrack`で一時canonical toggleは表示されず、初回からcanvas 3、alertなしを確認した。侵蝕率を`90→140→105`と連続入力した後は最終値`105`、canvas 3、alertなしだった。Dロイスを「なし」「不死者・悪夢」「屍人」に変更した各ケースでもcanvas 3、alertなしだった。完全Vue mountはNode test環境制約で未実施だが、runner behavior/router module testで補完した。検証用tab/serverは終了し、port `3000`を解放した。
-- 現在の状態: バックトラックのcanonical default化と第1実装単位のブラウザ受入は完了したが、Phase 7全体は未完了である。Attackの既定化、Attackのdebug/legacy整理、三経路のlegacy計算・fallback削除、最終的なブラウザ受入は後続作業とする。
+- Attack実装単位（完了）: Attackの初期計算、validated input、combo追加・削除・複製・並べ替えを`createAttackCanonicalRunner`の一つのlatest-wins laneへ統合し、unmount dispose、clear/no fallback、presentation errorからのretryを維持した。ScoreChart、DamageChart、Summary、totalはcanonical presentationだけを参照し、temporary `CanonicalAttackPanel`と`canonicalOptIn`を削除した。保証できないScore/Damage/Total期待値は`—`とし、通常の不確かさ・approximation warningは表示しない。
+- Attack route/依存境界（完了）: `/attack` routeの`prepareCalculation('attack')` beforeEnterだけを削除した。`CalculationClient.prepare('attack')`、canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、legacy API/assets、比較用adapter/fixtureは維持した。既存表示範囲999と計算上の1024/1022境界、任意表示範囲拡張は変更していない。
+- Attack検証（完了）: canonical runnerの初期既定実行、latest-wins、abort、dispose、stale抑止、resource/range/generic/presentation error時のclear/no fallback/retry、canonical-only表示契約、route preloadなし、明示`CalculationClient.prepare('attack')` APIをNode/Vitestで確認した。Vue完全mountは既存Node test環境制約により実施していない。
+- Attackブラウザ受入（2026-08-24、in-app browser / Vite local）: 初回はcanvas 2、Summary `コンボ1 6 / 45.5% / 3.1`、alert 0、一時switch 0、canonical/support/overflow debug text 0を確認した。action dice `2→20→3`の連続入力後は最終値3、canvas 2、alert 0、Summary `9.7 / 71% / 5.5`だった。combo追加で2 combos・合計8.6、複製で3 combos、削除で2 combosへ戻り、各状態でcanvas 2・alert 0だった。
+- Attackブラウザ受入（続き）: 《妖精の手》等を1にすると達成値期待値は単独`—`、命中率95.9%、damage 12.8となり、uncertainty warning/alertは観測されなかった。振り直せるダメージダイス1ではdamage 15、合計18.1、alert 0だった。Score/Damage双方をX以上表示へ切り替えてもcanvas 2・alert 0だった。初回の`--force`依存最適化reload中だけdynamic import warningが一時発生したが画面は復旧し、最適化後のserver/new tab再起動では初回2 canvas・Summary・alert 0と追加server warningなしを確認した。tabs/serverは終了し、port `3000`を解放した。
+- 現在の状態: BacktrackとAttackのcanonical default化およびAttackのブラウザ受入は完了したが、Phase 7全体は未完了である。三経路のlegacy計算・fallback完全削除、legacy生成物/JSON整理、任意表示範囲拡張は後続作業とする。
 
 既定化は実装完了ではなく、三経路の比較・ブラウザ実測・resource/cancel/error確認後の受入判断である。legacy表示コンポーネントを残すことは互換UIの維持であり、legacy計算や固定1024を残すことではない。
 

@@ -6,7 +6,6 @@
     import { Line } from 'vue-chartjs';
     import annotationPlugin from 'chartjs-plugin-annotation';
     import {
-        getAttackScoreChartData,
         getCanonicalAttackScoreChartData,
         getAttackScoreChartOptions,
         getAttackScoreChartStyle,
@@ -27,21 +26,12 @@
             type: Object,
             default: null,
         },
-        canonicalOptIn: {
-            type: Boolean,
-            default: false,
-        },
     });
     const { mdAndUp } = useDisplay();
-    const data = computed(() => props.canonicalOptIn
-        ? getCanonicalAttackScoreChartData(
-            props.presentation,
-            props.attackData
-        )
-        : getAttackScoreChartData(
-            props.attackData,
-            props.displayRequest
-        ));
+    const data = computed(() => getCanonicalAttackScoreChartData(
+        props.presentation,
+        props.attackData
+    ));
     const options = computed(() => getAttackScoreChartOptions(props.attackData.dfclty));
     const style = computed(() => getAttackScoreChartStyle(mdAndUp.value));
 

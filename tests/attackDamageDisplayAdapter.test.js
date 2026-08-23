@@ -173,4 +173,27 @@ describe('Attack canonical damage display adapters', () => {
     expect(resourceFeedback.plan.warnings[0].code)
       .toBe('attack-display-resource-rejected')
   })
+
+  it('suppresses normal approximation and non-exact summary warnings', () => {
+    const presentation = createCanonicalPresentation()
+    presentation.combos[0].display.expectedValue = {
+      kind: 'lower-bound',
+      lowerBound: 1,
+    }
+    presentation.total.display.expectedValue = {
+      kind: 'bounded',
+      lowerBound: 1,
+      upperBound: 2,
+    }
+    presentation.combos[0].plan.warnings = [{
+      code: 'estimated-time',
+      severity: 'warning',
+    }]
+
+    expect(createAttackCanonicalDisplayFeedback(presentation)).toEqual({
+      status: 'idle',
+      plan: null,
+      error: null,
+    })
+  })
 })

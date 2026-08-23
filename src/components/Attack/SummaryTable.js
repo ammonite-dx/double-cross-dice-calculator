@@ -1,4 +1,4 @@
-export const CANONICAL_SUMMARY_UNAVAILABLE = '表示できません'
+export const CANONICAL_SUMMARY_UNAVAILABLE = '—'
 
 function isExactFiniteExpectedValue(expectedValue) {
   return expectedValue?.kind === 'exact'
@@ -62,6 +62,18 @@ export function formatCanonicalScoreSuccessRate(successRate) {
       : '—'
   }
   return getStableBoundedDisplayValue(successRate) ?? '—'
+}
+
+/**
+ * Format the already-certified success-rate value for the SummaryTable.
+ * Numeric values retain the published percent suffix; unavailable values are
+ * represented by the neutral dash without a misleading suffix.
+ */
+export function formatCanonicalScoreSuccessRateDisplay(successRate) {
+  const formatted = formatCanonicalScoreSuccessRate(successRate)
+  return typeof formatted === 'number' && Number.isFinite(formatted)
+    ? `${formatted}%`
+    : CANONICAL_SUMMARY_UNAVAILABLE
 }
 
 export function getCanonicalScoreSummaryForCombo(presentation, comboId) {

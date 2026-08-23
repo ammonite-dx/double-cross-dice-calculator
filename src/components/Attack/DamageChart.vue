@@ -6,7 +6,6 @@
     import { Line } from 'vue-chartjs';
     import annotationPlugin from 'chartjs-plugin-annotation';
     import {
-        getAttackDamageChartData,
         getCanonicalAttackDamageChartData,
         getAttackDamageChartOptions,
         getAttackDamageChartStyle,
@@ -27,21 +26,12 @@
             type: Object,
             default: null,
         },
-        canonicalOptIn: {
-            type: Boolean,
-            default: false,
-        },
     });
     const { mdAndUp } = useDisplay()
-    const data = computed(() => props.canonicalOptIn
-        ? getCanonicalAttackDamageChartData(
-            props.presentation,
-            props.attackData
-        )
-        : getAttackDamageChartData(
-            props.attackData,
-            props.displayRequest
-        ));
+    const data = computed(() => getCanonicalAttackDamageChartData(
+        props.presentation,
+        props.attackData
+    ));
     const options = computed(() => getAttackDamageChartOptions(props.attackData.dfclty));
     const style = computed(() => getAttackDamageChartStyle(mdAndUp.value));
 

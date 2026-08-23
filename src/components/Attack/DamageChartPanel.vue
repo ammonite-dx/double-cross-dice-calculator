@@ -18,10 +18,6 @@
             type: Object,
             default: null,
         },
-        canonicalOptIn: {
-            type: Boolean,
-            default: false,
-        },
         displayFeedback: {
             type: Object,
             default: null,
@@ -42,11 +38,9 @@
                     :attackData="props.attackData"
                     :displayRequest="props.displayRequest"
                     :presentation="props.presentation"
-                    :canonicalOptIn="props.canonicalOptIn"
                 />
                 <DamageSettingForm
                     :displayRequest="props.displayRequest"
-                    :canonicalOptIn="props.canonicalOptIn"
                     @validated="(request) => emit('display-validated', request)"
                 />
             </v-card-text>

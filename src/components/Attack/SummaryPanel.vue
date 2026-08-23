@@ -16,10 +16,6 @@
             type: Object,
             default: null,
         },
-        canonicalOptIn: {
-            type: Boolean,
-            default: false,
-        },
     });
 
 </script>
@@ -34,7 +30,6 @@
                     :attackData="props.attackData"
                     :presentation="props.presentation"
                     :scorePresentation="props.scorePresentation"
-                    :canonicalOptIn="props.canonicalOptIn"
                 />
             </v-card-text>
         </v-container>
