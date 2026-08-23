@@ -315,6 +315,8 @@ RangePlannerのbacktrack planは、通常backtrackの3種類（1倍、2倍、3�
 
 Phase 6第1実装単位では、`calculateBacktrackCanonical`を明示opt-inで追加し、既存カテゴリ計算とは別に、実際の最終侵蝕率`F = encroachment - value - S`を値座標とする`single`、`double`、`second`の3つの`DistributionResult`を返します。各resultは完全finite support、`overflow: null`、未集約・未丸めの確率を持ち、`S`の実現可能な最小値から最大値だけを反転して`offset`と`support.max`へ写像します。負の`F`はclampせずsigned `offset`で保持します。canonical planだけがDPの生成作業配列とfactoryの3本の防御コピーを`float64Bytes`へ加算し、legacy planの見積りとasset経路は変更しません。Vue、既存表示、既存`calculateBacktrack`の戻り値はこの単位では変更しません。
 
+Phase 6第2実装単位では、`src/presentation/BacktrackCanonicalPresentation.js`の`createBacktrackCanonicalPresentation`がcanonical resultの3キーを検証し、finite supportの`explicitMax === support.max`と`overflow: null`を要求します。resultの`offset`から最終侵蝕率を直接走査し、標準singleの`100/71/51/31`、悪夢singleの`120/100/71/51/31`、double/secondの標準`100`・悪夢`120`失敗境界へ集約した後だけ0.1%へ丸めます。戻り値は`kind: backtrack-canonical-presentation`、version、既存ChartSetterへ渡す`finalEncroachment`配列を持ち、signed resultをgeneric PMF/display-window adapterへ渡しません。invalid/infinite/overflow/key不足はtyped presentation errorとして拒否し、Vue、ChartSetter、runner、CalculationClient、legacy計算は変更しません。
+
 ## Phase 2-G resource guard
 
 Phase 2-G adds a shared FIFO resource guard in `src/application/ResourceGuard.js` and injects the singleton through the application `CalculationClient` dependency factory. `check`, `attack`, and `backtrack` run the existing range preflight first, then reserve before asset loading or calculation, and release the lease from one `finally` path. A preflight hard reject therefore does not reserve anything.

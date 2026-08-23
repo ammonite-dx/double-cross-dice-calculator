@@ -34,3 +34,12 @@ export {
   isCanonicalChartSeriesValidationError,
   materializeCanonicalChartJsData,
 } from './CanonicalChartSeriesAdapter'
+export {
+  BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES,
+  BACKTRACK_CANONICAL_PRESENTATION_VERSION,
+  BacktrackCanonicalPresentationError,
+  BacktrackCanonicalPresentationValidationError,
+  createBacktrackCanonicalPresentation,
+  isBacktrackCanonicalPresentationError,
+  isBacktrackCanonicalPresentationValidationError,
+} from './BacktrackCanonicalPresentation'

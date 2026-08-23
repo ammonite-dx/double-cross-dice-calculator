@@ -46,6 +46,12 @@ function sumMass(result) {
   return result.values.reduce((sum, probability) => sum + probability, 0)
 }
 
+function expectRelativeProbability(actual, expected) {
+  expect(actual).toBeGreaterThan(0)
+  expect(Number.isFinite(actual)).toBe(true)
+  expect(actual / expected).toBeCloseTo(1, 10)
+}
+
 function roundPercentage(probability) {
   const rounded = Math.round(probability * 1000) / 10
   return Object.is(rounded, -0) ? 0 : rounded
@@ -253,6 +259,12 @@ describe('backtrack canonical producer', () => {
     expect(plan.distributionMode).toBe('on-demand')
     expect(getD10).not.toHaveBeenCalled()
     expectCanonicalResult(canonical.single, params, 7)
+
+    // The canonical PMF is reversed into final-encroachment coordinates:
+    // index 0 is S=70 (all tens), and the last index is S=7 (all ones).
+    // Each endpoint has one seven-die path, so both probabilities are 10^-7.
+    expectRelativeProbability(canonical.single.values[0], 10 ** -7)
+    expectRelativeProbability(canonical.single.values.at(-1), 10 ** -7)
   })
 
   it('always generates livingdead support on demand instead of using the sparse asset', () => {
@@ -278,6 +290,13 @@ describe('backtrack canonical producer', () => {
     expect(plan.distributionMode).toBe('on-demand')
     expect(getLivingdead).not.toHaveBeenCalled()
     expectCanonicalResult(canonical.single, params, 103)
+
+    // The canonical PMF is reversed into final-encroachment coordinates:
+    // index 0 is S=1021 (all tens), while the last index is S=103. The
+    // S=103 endpoint has 1 all-ones path plus 103 * 9 paths with one die
+    // in 2..10, for 928 paths in total.
+    expectRelativeProbability(canonical.single.values[0], 10 ** -103)
+    expectRelativeProbability(canonical.single.values.at(-1), 928 * 10 ** -103)
   })
 
   it('separates canonical memory overhead from the unchanged legacy plan', () => {
