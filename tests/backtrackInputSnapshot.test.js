@@ -70,24 +70,29 @@ describe('BacktrackInputSnapshot', () => {
 describe('Backtrack input flow contracts', () => {
   it('keeps state, runner, result commit, and snapshot submission in Backtrack.vue', () => {
     expect(backtrackViewSource).toContain(
-      'snapshotRequest: createBacktrackInputSnapshot'
+      'createBacktrackCalculationRunner'
     )
     expect(backtrackViewSource).toContain(
-      'calculationClient.calculateBacktrack(\n            snapshot.params,\n            snapshot'
+      'createBacktrackCalculationSnapshot({'
     )
     expect(backtrackViewSource).toContain(
-      'const snapshot = createBacktrackInputSnapshot({ params })'
+      'const initialSnapshot = createBacktrackInputSnapshot({'
     )
     expect(backtrackViewSource).toContain('void calculationRunner.run(snapshot)')
     expect(backtrackViewSource).toContain('calculationRunner.dispose()')
     expect(backtrackViewSource).toContain('@validated="onBacktrackValidated"')
+    expect(backtrackViewSource).toContain(
+      '@canonical-toggle="onBacktrackCanonicalToggle"'
+    )
     expect(backtrackViewSource).not.toContain('watch(')
   })
 
   it('forwards only validated events through InputForm and InputPanel', () => {
     expect(inputFormSource).toContain("defineEmits(['validated'])")
     expect(inputFormSource).toContain('@validated="onValidated"')
-    expect(inputPanelSource).toContain("defineEmits(['validated'])")
+    expect(inputPanelSource).toContain(
+      "defineEmits(['validated', 'canonical-toggle'])"
+    )
     expect(inputPanelSource).toContain('@validated="onValidated"')
     expect(inputFormSource).not.toContain('createLatestCalculationRunner')
     expect(inputPanelSource).not.toContain('createLatestCalculationRunner')
@@ -108,4 +113,3 @@ describe('Backtrack input flow contracts', () => {
     expect(backtrackFormSource).not.toMatch(/props\.params\.[\w]+\s*=/)
   })
 })
-

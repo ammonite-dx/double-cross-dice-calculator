@@ -151,6 +151,8 @@ Attackでは1024比較用のsafe projectionを残したまま、Phase 5の成果
 
 第2実装単位では、`src/presentation/BacktrackCanonicalPresentation.js`にBacktrack専用adapterを追加し、canonicalの実最終侵蝕率をsigned coordinateのまま走査してlegacy ChartSetter用のsingle/double/secondカテゴリへ集約する。finite supportの明示coverage一致、`overflow: null`、3キーを必須とし、標準・悪夢・負値・全Dロイスの境界を0.1%表示契約で検証する。Vue、ChartSetter、既存runner、`CalculationClient`、legacy計算経路は接続せず、generic PMF/display-window adapterも経由しない。
 
+第3実装単位では、バックトラック条件パネルに`canonicalOptIn=false`を既定とする一時的な「canonical検証経路（Phase 7で削除予定）」toggleをcontrolled eventとして追加する。legacyでは既存`calculateBacktrack`、canonicalでは`calculateBacktrackCanonical`から`createBacktrackCanonicalPresentation`を経て`finalEncroachment`だけを既存ChartPanel/ChartSetterへ渡す。同じ入力snapshot、RangePlanner通知、ResourceGuard、abort、latest-wins、feedback、unmount disposeを共有し、canonicalの失敗・resource reject・abortではlegacy fallbackせず結果をclearする。productionの既定canonical化、legacy計算削除、routerのasset preload削除、見た目変更はPhase 7まで行わない。
+
 バックトラックは資産coverage、範囲計画、結果の集約条件がAttackやCheckと異なる可能性がある。共通display contractを再利用しつつ、asset不足をoverflowや確率ゼロと誤認しない固有validationを追加する。
 
 ### Phase 7: canonicalを既定化し、legacy計算とfallbackを削除する
