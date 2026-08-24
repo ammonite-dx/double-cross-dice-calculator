@@ -669,7 +669,7 @@ describe('production range planner', () => {
       defence: { dice: 1, value: 0 },
     },
   ])(
-    'derives the full-tail damage range from both canonical score plans ($label)',
+    'derives the full-tail damage range from the action canonical score plan ($label)',
     ({ score, attack, defence }) => {
       const plan = planCalculationRanges(attackParams({
         score,
@@ -680,9 +680,7 @@ describe('production range planner', () => {
         limits: PERMISSIVE_LIMITS,
       })
       const damage = plan.damage
-      const scoreValueUpperBound = Math.max(
-        ...plan.scores.map((scorePlan) => scorePlan.outputMax)
-      )
+      const scoreValueUpperBound = plan.scores[0].outputMax
       const maxDamageDice =
         Math.floor(scoreValueUpperBound / 10) + 1 + attack.dice
       const rawSupportMax = 10 * maxDamageDice
@@ -739,6 +737,132 @@ describe('production range planner', () => {
       )
     }
   )
+
+  it.each([
+    {
+      label: 'action output is below reaction output',
+      action: { dice: 0, critical: 11 },
+      reaction: { dice: 99, critical: 2 },
+      relation: 'below',
+    },
+    {
+      label: 'action output is above reaction output',
+      action: { dice: 99, critical: 2 },
+      reaction: { dice: 0, critical: 11 },
+      relation: 'above',
+    },
+    {
+      label: 'action and reaction outputs are equal',
+      action: { dice: 12, critical: 6 },
+      reaction: { dice: 12, critical: 6 },
+      relation: 'equal',
+    },
+  ])(
+    'uses only the action score upper bound for full-tail damage ($label)',
+    ({ action, reaction, relation }) => {
+      const attack = { dice: 3, value: 7, kazanari: 1 }
+      const defence = { dice: 2, value: -4 }
+      const plan = planCalculationRanges(attackParams({
+        score: {
+          action: scoreParams(action),
+          reaction: scoreParams(reaction),
+        },
+        attack,
+        defence,
+      }), {
+        scorePropagation: 'full-tail',
+        limits: PERMISSIVE_LIMITS,
+      })
+
+      const actionOutputMax = plan.scores[0].outputMax
+      const reactionOutputMax = plan.scores[1].outputMax
+
+      if (relation === 'below') {
+        expect(actionOutputMax).toBeLessThan(reactionOutputMax)
+      } else if (relation === 'above') {
+        expect(actionOutputMax).toBeGreaterThan(reactionOutputMax)
+      } else {
+        expect(actionOutputMax).toBe(reactionOutputMax)
+      }
+      expect(plan.damage.scoreValueUpperBound).toBe(actionOutputMax)
+      expect(plan.damage.maxDamageDice).toBe(
+        Math.floor(actionOutputMax / 10) + 1 + attack.dice
+      )
+    }
+  )
+
+  it('keeps published-bucket damage compatibility independent of reaction score size', () => {
+    const shared = {
+      action: scoreParams({ dice: 0, critical: 11 }),
+    }
+    const base = planCalculationRanges(attackParams({
+      score: {
+        ...shared,
+        reaction: scoreParams({ dice: 1, critical: 2 }),
+      },
+    }))
+    const largerReaction = planCalculationRanges(attackParams({
+      score: {
+        ...shared,
+        reaction: scoreParams({ dice: 99, critical: 2 }),
+      },
+    }))
+
+    expect(base.damage.scoreValueMode).toBe('published-bucket')
+    expect(largerReaction.damage.scoreValueMode).toBe('published-bucket')
+    expect(largerReaction.damage.scoreValueUpperBound).toBe(
+      base.damage.scoreValueUpperBound
+    )
+    expect(largerReaction.damage.maxDamageDice).toBe(base.damage.maxDamageDice)
+    expect(largerReaction.damage.rawSupportMax).toBe(base.damage.rawSupportMax)
+    expect(largerReaction.damage.workingMax).toBe(base.damage.workingMax)
+    expect(largerReaction.damage.fftLength).toBe(base.damage.fftLength)
+  })
+
+  it('keeps damage estimates stable when only the reaction score becomes large', () => {
+    const base = planCalculationRanges(attackParams({
+      score: {
+        action: scoreParams({ dice: 0, critical: 11 }),
+        reaction: scoreParams({ dice: 1, critical: 2 }),
+      },
+    }), {
+      scorePropagation: 'full-tail',
+      limits: PERMISSIVE_LIMITS,
+    })
+    const largerReaction = planCalculationRanges(attackParams({
+      score: {
+        action: scoreParams({ dice: 0, critical: 11 }),
+        reaction: scoreParams({ dice: 99, critical: 2 }),
+      },
+    }), {
+      scorePropagation: 'full-tail',
+      limits: PERMISSIVE_LIMITS,
+    })
+
+    expect(largerReaction.scores[1].outputMax).toBeGreaterThan(
+      base.scores[1].outputMax
+    )
+    expect(largerReaction.damage.scoreValueUpperBound).toBe(
+      base.damage.scoreValueUpperBound
+    )
+    expect(largerReaction.damage.maxDamageDice).toBe(base.damage.maxDamageDice)
+    expect(largerReaction.damage.rawSupportMax).toBe(base.damage.rawSupportMax)
+    expect(largerReaction.damage.workingMax).toBe(base.damage.workingMax)
+    expect(largerReaction.damage.workingLength).toBe(base.damage.workingLength)
+    expect(largerReaction.damage.fftLength).toBe(base.damage.fftLength)
+    expect(largerReaction.estimates.damageTimeMs).toBe(
+      base.estimates.damageTimeMs
+    )
+    expect(largerReaction.estimates.damageFftOperations).toBe(
+      base.estimates.damageFftOperations
+    )
+    expect(largerReaction.estimates.scoreOperations).toBeGreaterThan(
+      base.estimates.scoreOperations
+    )
+    expect(largerReaction.estimates.timeMs).toBeGreaterThan(
+      base.estimates.timeMs
+    )
+  })
 
   it('applies resource warning and hard-reject thresholds to dynamic full-tail ranges', () => {
     const params = attackParams({

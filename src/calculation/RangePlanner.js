@@ -1131,10 +1131,7 @@ function getScoreValueUpperBound(scorePlans, policy) {
     return getPublishedScoreUpperBound(policy.calculationMax)
   }
 
-  return scorePlans.reduce(
-    (upperBound, scorePlan) => Math.max(upperBound, scorePlan.outputMax),
-    0
-  )
+  return scorePlans[0].outputMax
 }
 
 function planResources(scorePlans, damagePlan, comboCount, policy) {
