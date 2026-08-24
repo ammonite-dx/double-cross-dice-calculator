@@ -25,7 +25,6 @@ import {
 import {
   calculateScoreCanonical,
   getCanonicalScoreSummary,
-  getScoreSummary,
 } from '../data/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
 import {
@@ -65,7 +64,6 @@ const defaultDependencies = {
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachmentCanonical,
   getD10Distribution,
-  getScoreSummary,
   loadD10Asset,
   planCanonicalDamageAggregation,
   planCalculationRanges,
@@ -575,15 +573,11 @@ export function createCalculationClient(
             plan.scores?.[1]
           ),
         }
-        const summaryScore = {
-          action: createPublishedScoreFromCanonicalEnvelope(score.action),
-          reaction: createPublishedScoreFromCanonicalEnvelope(score.reaction),
-        }
         throwIfAborted(options, 'Canonical check')
         return {
           score,
-          scoreSummary: dependencies.getScoreSummary(
-            summaryScore,
+          scoreSummary: canonicalScoreSummaryCalculator(
+            score,
             difficultyRequest
           ),
         }

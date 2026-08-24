@@ -8,6 +8,7 @@
 - Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。CalculationClient legacy APIとclient-level比較fixtureはcleanup第2単位で削除し、legacy core/assets、下位比較fixture、既存1024境界は移行検証用に残している。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
+- CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
 - BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。Phase 7全体のlegacy計算・fallback削除、表示範囲拡張、JSON整理は未完了である。1024は事前計算・固定長配列由来の比較用上限として扱い、canonical schemaや最終production表示の上限とはしない。
 
 ## 表示範囲と明示coverageの移行対象

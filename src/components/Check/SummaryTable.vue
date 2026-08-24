@@ -1,6 +1,32 @@
 <script setup>
 
-    const props = defineProps(['checkData'])
+    import {
+        formatCanonicalScoreSummaryExpectedValue,
+        formatCanonicalScoreSuccessRateDisplay,
+    } from '@/presentation';
+
+    const props = defineProps({
+        checkData: {
+            type: Object,
+            required: true,
+        },
+    });
+
+    function getCanonicalSideSummary(side) {
+        return props.checkData?.scoreSummary?.[side] ?? null;
+    }
+
+    function getExpectedValue(side) {
+        return formatCanonicalScoreSummaryExpectedValue(
+            getCanonicalSideSummary(side)?.expectedValue
+        );
+    }
+
+    function getSuccessRate(side) {
+        return formatCanonicalScoreSuccessRateDisplay(
+            getCanonicalSideSummary(side)?.successRate
+        );
+    }
 
 </script>
 
@@ -16,13 +42,13 @@
         <tbody>
             <tr>
                 <td class="pa-0" style="font-size:80%">アクション側</td>
-                <td class="pa-0 text-right" style="font-size:80%">{{ checkData.scoreSummary.action.expectedValue }}</td>
-                <td class="pa-0 text-right" style="font-size:80%">{{ checkData.scoreSummary.action.successRate }}%</td>
+                <td class="pa-0 text-right" style="font-size:80%">{{ getExpectedValue('action') }}</td>
+                <td class="pa-0 text-right" style="font-size:80%">{{ getSuccessRate('action') }}</td>
             </tr>
             <tr v-if="props.checkData.dfclty.opposed">
                 <td class="pa-0" style="font-size:80%">リアクション側</td>
-                <td class="pa-0 text-right" style="font-size:80%">{{ checkData.scoreSummary.reaction.expectedValue }}</td>
-                <td class="pa-0 text-right" style="font-size:80%">{{ checkData.scoreSummary.reaction.successRate }}%</td>
+                <td class="pa-0 text-right" style="font-size:80%">{{ getExpectedValue('reaction') }}</td>
+                <td class="pa-0 text-right" style="font-size:80%">{{ getSuccessRate('reaction') }}</td>
             </tr>
         </tbody>
     </v-table>

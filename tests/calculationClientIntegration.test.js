@@ -23,7 +23,6 @@ import {
 import {
   calculateScoreCanonical,
   getCanonicalScoreSummary,
-  getScoreSummary,
 } from '../src/data/ScoreCalculator'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 
@@ -36,7 +35,6 @@ const calculationClient = createCalculationClient({
   getCanonicalScoreSummary,
   getD10Distribution,
   getDamageRollDistribution: generateMixedDamageDistribution,
-  getScoreSummary,
   getCanonicalDamageSummary,
   loadD10Asset,
 })

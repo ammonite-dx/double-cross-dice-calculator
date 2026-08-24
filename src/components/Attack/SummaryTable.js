@@ -1,80 +1,10 @@
-export const CANONICAL_SUMMARY_UNAVAILABLE = '—'
-
-function isExactFiniteExpectedValue(expectedValue) {
-  return expectedValue?.kind === 'exact'
-    && typeof expectedValue.value === 'number'
-    && Number.isFinite(expectedValue.value)
-}
-
-function roundCanonicalScoreValue(value) {
-  const rounded = Math.round(value * 10) / 10
-  if (!Number.isFinite(rounded)) {
-    return null
-  }
-  return Object.is(rounded, -0) ? 0 : rounded
-}
-
-function getStableBoundedDisplayValue(value) {
-  if (
-    value?.kind !== 'bounded'
-    || typeof value.lowerBound !== 'number'
-    || typeof value.upperBound !== 'number'
-    || !Number.isFinite(value.lowerBound)
-    || !Number.isFinite(value.upperBound)
-    || value.lowerBound > value.upperBound
-  ) {
-    return null
-  }
-  const roundedLowerBound = roundCanonicalScoreValue(value.lowerBound)
-  const roundedUpperBound = roundCanonicalScoreValue(value.upperBound)
-  return roundedLowerBound !== null
-    && roundedLowerBound === roundedUpperBound
-    ? roundedLowerBound
-    : null
-}
-
-/**
- * Preserve the legacy one-decimal summary appearance without converting a
- * bounded or lower-bound canonical expected value into a point estimate.
- */
-export function formatCanonicalSummaryExpectedValue(expectedValue) {
-  if (!isExactFiniteExpectedValue(expectedValue)) {
-    return CANONICAL_SUMMARY_UNAVAILABLE
-  }
-  const rounded = Math.round(expectedValue.value * 10) / 10
-  return Number.isFinite(rounded)
-    ? rounded
-    : CANONICAL_SUMMARY_UNAVAILABLE
-}
-
-export function formatCanonicalScoreSummaryExpectedValue(expectedValue) {
-  if (isExactFiniteExpectedValue(expectedValue)) {
-    return roundCanonicalScoreValue(expectedValue.value) ?? '—'
-  }
-  return getStableBoundedDisplayValue(expectedValue) ?? '—'
-}
-
-export function formatCanonicalScoreSuccessRate(successRate) {
-  if (successRate?.kind === 'exact') {
-    return typeof successRate.value === 'number'
-      && Number.isFinite(successRate.value)
-      ? successRate.value
-      : '—'
-  }
-  return getStableBoundedDisplayValue(successRate) ?? '—'
-}
-
-/**
- * Format the already-certified success-rate value for the SummaryTable.
- * Numeric values retain the published percent suffix; unavailable values are
- * represented by the neutral dash without a misleading suffix.
- */
-export function formatCanonicalScoreSuccessRateDisplay(successRate) {
-  const formatted = formatCanonicalScoreSuccessRate(successRate)
-  return typeof formatted === 'number' && Number.isFinite(formatted)
-    ? `${formatted}%`
-    : CANONICAL_SUMMARY_UNAVAILABLE
-}
+export {
+  CANONICAL_SUMMARY_UNAVAILABLE,
+  formatCanonicalSummaryExpectedValue,
+  formatCanonicalScoreSummaryExpectedValue,
+  formatCanonicalScoreSuccessRate,
+  formatCanonicalScoreSuccessRateDisplay,
+} from '../../presentation/CanonicalSummaryFormatter'
 
 export function getCanonicalScoreSummaryForCombo(presentation, comboId) {
   if (presentation?.status !== 'ready') {

@@ -22,6 +22,7 @@ canonical移行の横断的な実装順序と判断は [canonical-migration-road
 ## Canonical migration Phase 7 status
 
 - 完了: Attackの初期計算、validated input、combo操作、Score/Damage chart、Summary、totalをcanonical batch/presentationと一つのlatest-wins runnerへ統合し、temporary `canonicalOptIn`、debug panel、legacy combo/total runner、route preloadをproduction接続から削除した。
+- 完了: Check Summaryをcanonical typed summaryへ切り替え、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterを共有presentation utilityとして再利用している。
 - 完了: `CalculationClient.prepare`、`calculateCheck`、`calculateAttackCombo`、`calculateTotalDamage`、`calculateBacktrack`とlegacy score/damage/backtrack dependency/fallbackを削除し、`/check`を含む全計算routeからpreload guardを外した。canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、RangePlanner、ResourceGuard、published-bucket propagationは維持している。
 - 維持: legacy core/wrappers、比較・migration・rule・asset tests、legacy API相当の下位実装、JSON/assets/generator、既存表示範囲999と計算上の1024/1022境界。
 - 未完了: Phase 7全体のlegacy core/wrapper・生成物/JSON整理、任意表示範囲拡張、最終受入。Vue完全mountは既存Node test環境制約により未実施で、runner/router behavior testで補完している。Attackのブラウザ受入は2026-08-24に完了した。

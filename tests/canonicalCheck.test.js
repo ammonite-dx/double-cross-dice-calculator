@@ -50,6 +50,19 @@ function createCanonicalScoreEnvelope({
   })
 }
 
+function createCanonicalScoreSummary() {
+  return {
+    action: {
+      expectedValue: { kind: 'exact', value: 0 },
+      successRate: { kind: 'exact', value: 0 },
+    },
+    reaction: {
+      expectedValue: { kind: 'exact', value: 0 },
+      successRate: { kind: 'exact', value: 0 },
+    },
+  }
+}
+
 function getScorePlan(params, policy) {
   return planCalculationRanges({
     operation: 'score',
@@ -449,7 +462,7 @@ describe('canonical normal check score producer', () => {
     expect(l1Difference).toBeLessThanOrEqual(2e-4)
   })
 
-  it('is exposed through the default CalculationClient with the compatibility summary', async () => {
+  it('is exposed through the default CalculationClient with a canonical summary', async () => {
     const result = await calculationClient.calculateCheckCanonical({
       action: scoreParams({ skill: 2 }),
       reaction: scoreParams({ skill: -1 }),
@@ -499,7 +512,7 @@ function createClientDependencies(overrides = {}) {
   return {
     calculateScoreCanonical: vi.fn(() => createCanonicalScoreEnvelope()),
     calculateDxDistribution: vi.fn(),
-    getScoreSummary: vi.fn(),
+    getCanonicalScoreSummary: vi.fn(() => createCanonicalScoreSummary()),
     planCalculationRanges: vi.fn(() => plan),
     resourceGuard,
     ...overrides,
@@ -561,19 +574,8 @@ describe('CalculationClient canonical normal check API', () => {
       expect.any(Function),
       dependencies.plan.scores[1]
     )
-    expect(dependencies.getScoreSummary).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: expect.objectContaining({
-          distribution: expect.any(Float64Array),
-          upperTailProbability: expect.any(Array),
-          failureProbability: 0,
-        }),
-        reaction: expect.objectContaining({
-          distribution: expect.any(Float64Array),
-          upperTailProbability: expect.any(Array),
-          failureProbability: 0,
-        }),
-      }),
+    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledWith(
+      result.score,
       { opposed: true, target: 0 }
     )
     expect(dependencies.resourceGuard.acquirePlan).toHaveBeenCalledWith(
@@ -610,7 +612,7 @@ describe('CalculationClient canonical normal check API', () => {
     expect(dependencies.calculateScoreCanonical).not.toHaveBeenCalled()
   })
 
-  it('projects safe exact overflow into the summary compatibility shape', async () => {
+  it('passes canonical envelopes to the typed summary without published projection', async () => {
     const safeEnvelope = createCanonicalScoreEnvelope({
       values: [0.4],
       support: { kind: 'infinite' },
@@ -622,8 +624,10 @@ describe('CalculationClient canonical normal check API', () => {
       },
       failureProbability: 0.25,
     })
+    const canonicalSummary = createCanonicalScoreSummary()
     const dependencies = createClientDependencies({
       calculateScoreCanonical: vi.fn(() => safeEnvelope),
+      getCanonicalScoreSummary: vi.fn(() => canonicalSummary),
     })
     const client = createCalculationClient(dependencies)
 
@@ -631,13 +635,12 @@ describe('CalculationClient canonical normal check API', () => {
       checkParams(),
       { opposed: false, target: 0 }
     )
-    const summaryScore = dependencies.getScoreSummary.mock.calls[0][0]
-
     expect(result.score.action).toBe(safeEnvelope)
-    expect(summaryScore.action.distribution[0]).toBeCloseTo(0.4, 12)
-    expect(summaryScore.action.distribution[1023]).toBeCloseTo(0.6, 12)
-    expect(summaryScore.action.failureProbability).toBe(0.25)
-    expect(summaryScore.action.upperTailProbability[1023]).toBeCloseTo(0.6, 12)
+    expect(result.scoreSummary).toBe(canonicalSummary)
+    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledWith(
+      { action: safeEnvelope, reaction: safeEnvelope },
+      { opposed: false, target: 0 }
+    )
   })
 
   it.each([
@@ -646,31 +649,31 @@ describe('CalculationClient canonical normal check API', () => {
       lowerBound: 1023,
       probabilityUpperBound: 0.6,
       errorBound: 0,
-      code: DISTRIBUTION_RESULT_ERROR_CODES.UPPER_BOUND_PROJECTION,
     },
     {
       kind: 'exact',
       lowerBound: 1000,
       probability: 0.6,
       errorBound: 0,
-      code: DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION,
     },
-  ])('rejects an unsafe canonical projection: $kind', async (overflow) => {
+  ])('keeps non-projectable canonical overflow in the typed summary path: $kind', async (overflow) => {
     const unsafeEnvelope = createCanonicalScoreEnvelope({
       values: [0.4],
       support: { kind: 'infinite' },
       overflow,
     })
+    const canonicalSummary = createCanonicalScoreSummary()
     const dependencies = createClientDependencies({
       calculateScoreCanonical: vi.fn(() => unsafeEnvelope),
+      getCanonicalScoreSummary: vi.fn(() => canonicalSummary),
     })
     const client = createCalculationClient(dependencies)
 
     await expect(client.calculateCheckCanonical(
       checkParams(),
       { opposed: true, target: 0 }
-    )).rejects.toMatchObject({ code: overflow.code })
-    expect(dependencies.getScoreSummary).not.toHaveBeenCalled()
+    )).resolves.toMatchObject({ scoreSummary: canonicalSummary })
+    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledOnce()
   })
 
   it('aborts after admission and always releases the lease', async () => {

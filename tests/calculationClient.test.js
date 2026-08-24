@@ -43,7 +43,6 @@ function createDependencies(overrides = {}) {
     getDamageRollDistribution: vi.fn(async () => new Float64Array([1])),
     getD10Distribution: vi.fn(),
     getFinalEncroachmentCanonical: vi.fn(() => 'canonical backtrack'),
-    getScoreSummary: vi.fn(() => 'compatibility score summary'),
     loadD10Asset: vi.fn(async () => {}),
     ...overrides,
   }
@@ -163,7 +162,7 @@ describe('canonical CalculationClient surface', () => {
     expect(dependencies.loadD10Asset).toHaveBeenCalledOnce()
     expect(dependencies.calculateScoreCanonical).toHaveBeenCalledTimes(2)
     expect(dependencies.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
-    expect(dependencies.getScoreSummary).not.toHaveBeenCalled()
+    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledOnce()
   })
 
   it('keeps canonical Check compatibility summary without a legacy score call', async () => {
@@ -178,8 +177,11 @@ describe('canonical CalculationClient surface', () => {
       { opposed: true, target: 10 }
     )
 
-    expect(result.scoreSummary).toBe('compatibility score summary')
-    expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
+    expect(result.scoreSummary).toBe('canonical score summary')
+    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledWith(
+      result.score,
+      { opposed: true, target: 10 }
+    )
     expect(dependencies.calculateScoreCanonical).toHaveBeenCalledTimes(2)
   })
 })

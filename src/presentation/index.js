@@ -43,3 +43,10 @@ export {
   isBacktrackCanonicalPresentationError,
   isBacktrackCanonicalPresentationValidationError,
 } from './BacktrackCanonicalPresentation'
+export {
+  CANONICAL_SUMMARY_UNAVAILABLE,
+  formatCanonicalSummaryExpectedValue,
+  formatCanonicalScoreSummaryExpectedValue,
+  formatCanonicalScoreSuccessRate,
+  formatCanonicalScoreSuccessRateDisplay,
+} from './CanonicalSummaryFormatter'
