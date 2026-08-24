@@ -14,11 +14,13 @@ import {
   MAX_DAMAGE_DICE,
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
+  RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
 } from './RuntimeDamageRollLimits'
 import {
   createDistributionResult,
   getExpectedValueSummary,
   getProbabilityMassSummary,
+  validateDistributionResult,
 } from './DistributionResult'
 
 const DAMAGE_DICE_COUNT = MAX_DAMAGE_DICE + 1
@@ -304,12 +306,15 @@ function validateCanonicalRangePlan(rangePlan, attack, defence) {
   if (rangePlan.operation !== 'attack' || rangePlan.accepted !== true) {
     throw new TypeError('rangePlan must be an accepted top-level attack plan')
   }
-  if (
-    rangePlan.propagation?.score !== 'published-bucket' ||
-    rangePlan.damage?.scoreValueMode !== 'published-bucket'
-  ) {
+  const scorePropagation = rangePlan.propagation?.score
+  if (!['published-bucket', 'full-tail'].includes(scorePropagation)) {
     throw new RangeError(
-      'canonical damage currently requires published-bucket score propagation'
+      'canonical damage requires a published-bucket or full-tail score propagation plan'
+    )
+  }
+  if (rangePlan.damage?.scoreValueMode !== scorePropagation) {
+    throw new RangeError(
+      'canonical damage score propagation must match the damage scoreValueMode'
     )
   }
   if (!Array.isArray(rangePlan.scores) || rangePlan.scores.length === 0) {
@@ -326,6 +331,7 @@ function validateCanonicalRangePlan(rangePlan, attack, defence) {
   return {
     damage: validateDamageRangePlan(rangePlan.damage, attack, defence),
     scoreTails: Object.freeze(scoreTails),
+    scorePropagation,
   }
 }
 
@@ -379,15 +385,96 @@ function sumProbabilities(values) {
   return values.reduce((total, probability) => total + probability, 0)
 }
 
+function validateCanonicalScoreEnvelope(envelope, label) {
+  if (
+    envelope === null ||
+    typeof envelope !== 'object' ||
+    Array.isArray(envelope) ||
+    envelope.result === null ||
+    typeof envelope.result !== 'object'
+  ) {
+    throw new TypeError(
+      `${label} must be a canonical score envelope with a result`
+    )
+  }
+
+  validateDistributionResult(envelope.result)
+  const { result } = envelope
+  let explicitMass = 0
+  for (const probability of result.values) {
+    explicitMass += probability
+  }
+
+  const overflow = result.overflow
+  const overflowMassUpperBound = overflow === null
+    ? 0
+    : overflow.kind === 'exact'
+      ? overflow.probability
+      : overflow.probabilityUpperBound
+  const errorBound = overflow?.errorBound ?? 0
+  const certificate = envelope.metadata?.scoreTailCertificate
+  const certificateErrorBound = Number.isFinite(
+    certificate?.probabilityErrorBound
+  )
+    ? certificate.probabilityErrorBound
+    : 0
+
+  return {
+    envelope,
+    result,
+    explicitMass,
+    overflowMassUpperBound,
+    errorBound,
+    certificateErrorBound,
+    certificate: certificate === null || typeof certificate !== 'object'
+      ? null
+      : Object.freeze({ ...certificate }),
+  }
+}
+
+function getReactionExplicitBelowLookup(reaction) {
+  const prefix = new Float64Array(reaction.result.values.length + 1)
+  for (let index = 0; index < reaction.result.values.length; index += 1) {
+    prefix[index + 1] = prefix[index] + reaction.result.values[index]
+  }
+
+  return (scoreValue) => {
+    if (scoreValue <= reaction.result.offset) {
+      return 0
+    }
+    const explicitMax = reaction.result.offset + reaction.result.values.length
+    if (scoreValue >= explicitMax) {
+      return prefix[prefix.length - 1]
+    }
+    return prefix[scoreValue - reaction.result.offset]
+  }
+}
+
+function getCanonicalScoreSourceSupport(action, reaction) {
+  if (
+    action.result.support.kind === 'finite' &&
+    reaction.result.support.kind === 'finite'
+  ) {
+    return Object.freeze({
+      kind: 'finite',
+      max: Math.max(action.result.support.max, reaction.result.support.max),
+    })
+  }
+  return Object.freeze({ kind: 'infinite' })
+}
+
 async function requestDamageRollDistribution(
   score,
   attack,
   defence,
   getDamageRollDistribution,
   runtimeOptions,
-  damageRangePlan
+  damageRangePlan,
+  scorePropagation = 'published-bucket'
 ) {
-  const request = createDamageRollRequest(score, attack)
+  const request = scorePropagation === 'full-tail'
+    ? createCanonicalDamageRollRequest(score, attack, damageRangePlan)
+    : createDamageRollRequest(score, attack)
   const planned = damageRangePlan !== undefined && damageRangePlan !== null
   const normalizedPlan = planned
     ? validateDamageRangePlan(damageRangePlan, attack, defence)
@@ -425,6 +512,11 @@ async function requestDamageRollDistribution(
     failureProbability: request.failureProbability,
     hitProbability,
     normalizedPlan,
+    unmodeledScoreProbabilityUpperBound:
+      request.unmodeledScoreProbabilityUpperBound ?? 0,
+    scoreTailErrorBound: request.scoreTailErrorBound ?? 0,
+    scoreTailCertificates: request.scoreTailCertificates ?? [],
+    sourceSupport: request.sourceSupport ?? Object.freeze({ kind: 'infinite' }),
   }
 }
 
@@ -464,6 +556,104 @@ export function createDamageRollRequest(score, attack) {
   }
 
   return { failureProbability, weights }
+}
+
+/**
+ * Build a damage-roll request directly from canonical score coverage.
+ * Explicit score values are paired with explicit reaction values only. Any
+ * score tail is retained as an unmodeled probability bound rather than being
+ * folded into the last damage-dice coefficient.
+ */
+export function createCanonicalDamageRollRequest(
+  score,
+  attack,
+  damageRangePlan
+) {
+  const action = validateCanonicalScoreEnvelope(score?.action, 'score.action')
+  const reaction = validateCanonicalScoreEnvelope(
+    score?.reaction,
+    'score.reaction'
+  )
+  const reactionExplicitBelow = getReactionExplicitBelowLookup(reaction)
+  const maxDamageDice = damageRangePlan?.maxDamageDice
+    ?? (
+      Math.floor(
+        Math.max(0, action.result.offset + action.result.values.length - 1) /
+          10
+      ) + 1 + attack.dice
+    )
+
+  if (
+    !Number.isSafeInteger(maxDamageDice) ||
+    maxDamageDice < 0 ||
+    maxDamageDice + 1 > RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH
+  ) {
+    throw new TypeError(
+      'full-tail damage plan maxDamageDice must fit the runtime damage weight length'
+    )
+  }
+  const weights = new Float64Array(maxDamageDice + 1)
+  let failureProbability = 0
+  let hitProbability = 0
+
+  for (let index = 0; index < action.result.values.length; index += 1) {
+    const actionProbability = action.result.values[index]
+    if (actionProbability === 0) {
+      continue
+    }
+
+    const scoreValue = action.result.offset + index
+    const reactionBelow = reactionExplicitBelow(scoreValue)
+    const reactionFailure = Math.max(
+      0,
+      reaction.explicitMass - reactionBelow
+    )
+    failureProbability += actionProbability * reactionFailure
+
+    const hit = actionProbability * reactionBelow
+    if (hit === 0) {
+      continue
+    }
+
+    const damageDice =
+      Math.floor(scoreValue / 10) + 1 + attack.dice
+    if (damageDice < 0 || damageDice >= weights.length) {
+      throw new RangeError(
+        `damage dice are outside the planned full-tail range: ${damageDice}`
+      )
+    }
+    weights[damageDice] += hit
+    hitProbability += hit
+  }
+
+  const explicitPairMass = action.explicitMass * reaction.explicitMass
+  const independentTailPairUpperBound =
+    action.overflowMassUpperBound +
+    reaction.overflowMassUpperBound -
+    action.overflowMassUpperBound * reaction.overflowMassUpperBound
+  const scoreTailMassUpperBound = Math.max(
+    0,
+    Math.min(
+      1,
+      Math.max(1 - explicitPairMass, independentTailPairUpperBound)
+    )
+  )
+  const scoreTailErrorBound =
+    Math.max(action.errorBound, action.certificateErrorBound) +
+    Math.max(reaction.errorBound, reaction.certificateErrorBound)
+
+  return {
+    failureProbability,
+    hitProbability,
+    weights,
+    unmodeledScoreProbabilityUpperBound: scoreTailMassUpperBound,
+    scoreTailErrorBound,
+    scoreTailCertificates: Object.freeze([
+      action.certificate,
+      reaction.certificate,
+    ]),
+    sourceSupport: getCanonicalScoreSourceSupport(action, reaction),
+  }
 }
 
 export function finalizeOnDemandDamage(
@@ -593,13 +783,17 @@ export async function calculateCanonicalDamageOnDemand(
     defence,
     getDamageRollDistribution,
     runtimeOptions,
-    canonicalPlan.damage
+    canonicalPlan.damage,
+    canonicalPlan.scorePropagation
   )
   const totalProbability =
     requested.failureProbability + requested.hitProbability
   if (
-    !Number.isFinite(totalProbability) ||
-    Math.abs(totalProbability - 1) > TOTAL_TOLERANCE
+    canonicalPlan.scorePropagation === 'published-bucket' &&
+    (
+      !Number.isFinite(totalProbability) ||
+      Math.abs(totalProbability - 1) > TOTAL_TOLERANCE
+    )
   ) {
     throw new RangeError(
       'failure probability plus hit probability must be approximately one'
@@ -624,7 +818,71 @@ export async function calculateCanonicalDamageOnDemand(
     kind: 'finite',
     max: modeledSupportMax,
   })
-  const sourceSupport = Object.freeze({ kind: 'infinite' })
+  const sourceSupport = canonicalPlan.scorePropagation === 'full-tail'
+    ? requested.sourceSupport
+    : Object.freeze({ kind: 'infinite' })
+
+  if (canonicalPlan.scorePropagation === 'full-tail') {
+    const explicitMax = Math.min(
+      composed.plan.workingMax,
+      modeledSupportMax
+    )
+    const values = explicitMax < 0
+      ? []
+      : composed.distribution.slice(0, explicitMax + 1)
+    const explicitMass = sumProbabilities(values)
+    const scoreTailProbabilityUpperBound = Math.min(
+      1,
+      Math.max(
+        requested.unmodeledScoreProbabilityUpperBound,
+        Math.max(0, 1 - explicitMass)
+      )
+    )
+    const scoreTailErrorBound = requested.scoreTailErrorBound
+    const overflowProbabilityUpperBound = Math.min(
+      1,
+      Math.max(
+        scoreTailProbabilityUpperBound,
+        scoreTailProbabilityUpperBound + composed.overflowProbability
+      )
+    )
+    const overflowErrorBound =
+      scoreTailErrorBound +
+      (composed.overflowProbability > 0 ? TOTAL_TOLERANCE : 0)
+    const hasUnmodeledTail =
+      overflowProbabilityUpperBound > 0 ||
+      overflowErrorBound > 0
+    const outputSupport = hasUnmodeledTail || sourceSupport.kind === 'infinite'
+      ? Object.freeze({ kind: 'infinite' })
+      : modeledSupport
+    const overflow = hasUnmodeledTail
+      ? {
+          kind: 'upper-bound',
+          lowerBound: 0,
+          probabilityUpperBound: overflowProbabilityUpperBound,
+          errorBound: overflowErrorBound,
+        }
+      : null
+    const result = createDistributionResult({
+      values,
+      offset: 0,
+      support: outputSupport,
+      overflow,
+    })
+    const metadata = Object.freeze({
+      modeledDistribution: true,
+      scorePropagation: 'full-tail',
+      scoreTails: canonicalPlan.scoreTails,
+      scoreTailCertificates: requested.scoreTailCertificates,
+      scoreTailProbabilityUpperBound,
+      scoreTailErrorBound,
+      modeledSupport,
+      sourceSupport,
+    })
+
+    return Object.freeze({ result, metadata })
+  }
+
   let explicitMax = Math.min(
     composed.plan.workingMax,
     modeledSupportMax

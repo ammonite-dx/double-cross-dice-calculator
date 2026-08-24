@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createCalculationClient } from '../src/application/CalculationClient'
 import {
@@ -13,6 +13,7 @@ import {
   calculateCanonicalDamageOnDemand,
   getCanonicalDamageSummary,
 } from '../src/calculation/DamageCalculator'
+import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import {
@@ -83,23 +84,30 @@ describe('CalculationClient integration', () => {
       rangePlans,
     })
 
+    expect(batch.combos[0].canonicalDamage.metadata.scorePropagation)
+      .toBe('full-tail')
+    expect(batch.combos[0].canonicalDamage.result.values)
+      .toBeInstanceOf(Float64Array)
+    expect(batch.canonicalTotalDamage.result.values)
+      .toBeInstanceOf(Float64Array)
+
     expect(presentation.combos[0].decision).not.toBe(
       ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
     )
     expect(presentation.total.decision).not.toBe(
       ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
     )
-    expect(presentation.total.status).toBe('ready')
-    expect(presentation.combos[0].chart).not.toBeNull()
-    expect(presentation.total.chart).not.toBeNull()
+    expect(presentation.total.status).toBe('not-projectable')
+    expect(presentation.combos[0].chart).toBeNull()
+    expect(presentation.total.chart).toBeNull()
   })
 
-  it('accepts representative current UI upper bounds with the default policy', () => {
+  it('keeps published comparison explicit while full-tail uses resource limits', () => {
     const checkPlan = calculationClient.planCheck({
       action: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
       reaction: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
     }, { opposed: true, target: 0 })
-    const attackPlan = calculationClient.planAttackCombo({
+    const attackParams = {
       action: {
         score: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
         damage: { dice: 99, value: 999, kazanari: 9 },
@@ -109,7 +117,12 @@ describe('CalculationClient integration', () => {
         score: { dice: 99, critical: 2, skill: 0, yousei: 0, shihai: 19 },
         damage: { dice: 99, value: -999 },
       },
-    })
+    }
+    const attackPlan = calculationClient.planAttackCombo(
+      attackParams,
+      { scorePropagation: 'published-bucket' }
+    )
+    const fullTailAttackPlan = calculationClient.planAttackCombo(attackParams)
     const backtrackPlan = calculationClient.planBacktrack({
       encroachment: 100,
       lois: 7,
@@ -121,7 +134,97 @@ describe('CalculationClient integration', () => {
 
     expect(checkPlan.accepted).toBe(true)
     expect(attackPlan.accepted).toBe(true)
+    expect(attackPlan.damage.scoreValueMode).toBe('published-bucket')
+    expect(attackPlan.damage.scoreValueUpperBound).toBe(1023)
+    expect(fullTailAttackPlan.damage.scoreValueMode).toBe('full-tail')
+    expect(fullTailAttackPlan.damage.scoreValueUpperBound).toBeGreaterThan(1023)
+    expect(fullTailAttackPlan.accepted).toBe(false)
     expect(backtrackPlan.accepted).toBe(true)
+  })
+
+  it('passes a 1023-plus canonical score tail to dynamic damage dice and total aggregation', async () => {
+    const observedPolicies = []
+    const observedWeights = []
+    let scoreCall = 0
+    const scoreEnvelope = (value) => ({
+      result: createDistributionResult({
+        values: value === 0 ? [1] : Object.assign(
+          new Float64Array(value + 1),
+          { [value]: 1 }
+        ),
+        offset: 0,
+        support: { kind: 'finite', max: value },
+        overflow: null,
+      }),
+      metadata: { modeledDistribution: true, failureProbability: 0 },
+    })
+    const planCalculationRanges = vi.fn((_params, policy) => {
+      observedPolicies.push(policy)
+      return {
+        accepted: true,
+        operation: 'attack',
+        propagation: { score: 'full-tail' },
+        scores: [
+          { tail: { kind: 'test-tail', bound: 0, modeledMax: 1030 } },
+          { tail: { kind: 'test-tail', bound: 0, modeledMax: 0 } },
+        ],
+        damage: {
+          fixedDifference: 0,
+          maxDamageDice: 104,
+          rawSupportMax: 1040,
+          rawMax: 1040,
+          workingMax: 1040,
+          workingLength: 1042,
+          defenceMax: 0,
+          fftLength: 2048,
+          defenceFftLength: 0,
+          scoreValueMode: 'full-tail',
+        },
+      }
+    })
+    const getDamageRollDistribution = vi.fn((weights, kazanari, options) => {
+      observedWeights.push(weights.slice())
+      return generateMixedDamageDistribution(weights, kazanari, options)
+    })
+    const client = createCalculationClient({
+      calculateCanonicalDamageOnDemand,
+      calculateScoreCanonical: vi.fn(() => {
+        scoreCall += 1
+        return scoreEnvelope(scoreCall === 1 ? 1030 : 0)
+      }),
+      getCanonicalDamageSummary,
+      getDamageRollDistribution,
+      getD10Distribution,
+      loadD10Asset: vi.fn(async () => {}),
+      planCalculationRanges,
+      resourceGuard: {
+        acquirePlan: vi.fn(() => ({ release: vi.fn() })),
+      },
+    })
+
+    const result = await client.calculateAttackCanonicalBatch([{
+      id: 'tail-combo',
+      params: {
+        action: {
+          score: { dice: 0, critical: 11, skill: 0, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: { dice: 0, critical: 11, skill: 0, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0 },
+        },
+      },
+    }])
+
+    expect(observedPolicies).toEqual([{ scorePropagation: 'full-tail' }])
+    expect(observedWeights[0]).toHaveLength(105)
+    expect(observedWeights[0][104]).toBeCloseTo(1, 12)
+    expect(observedWeights[0][102]).toBe(0)
+    expect(result.combos[0].score.action.result.values[1030]).toBe(1)
+    expect(result.combos[0].canonicalDamage.metadata.scorePropagation)
+      .toBe('full-tail')
+    expect(result.canonicalTotalDamage.result).toBeDefined()
   })
 
 })

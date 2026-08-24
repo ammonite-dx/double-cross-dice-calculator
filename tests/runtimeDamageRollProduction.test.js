@@ -5,6 +5,7 @@ import {
   MAX_DAMAGE_DICE,
   MAX_KAZANARI,
   RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
+  RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   validateRuntimeDamageRollInputs,
 } from '../src/calculation'
@@ -258,14 +259,28 @@ describe('production runtime damage roll calculator', () => {
   it('rejects invalid inputs at the calculation boundary', () => {
     expect(() => generateMixedDamageDistribution({}, 0)).toThrow(TypeError)
     expect(() => generateMixedDamageDistribution([], 0)).toThrow(RangeError)
+    const fullTailWeights = new Float64Array(MAX_DAMAGE_DICE + 2)
+    fullTailWeights[MAX_DAMAGE_DICE + 1] = 1
     expect(() => generateMixedDamageDistribution(
-      new Array(MAX_DAMAGE_DICE + 2).fill(0),
+      fullTailWeights,
       0
-    )).toThrow(RangeError)
+    )).not.toThrow()
+    const fullTailArrayWeights = new Array(MAX_DAMAGE_DICE + 2).fill(0)
+    fullTailArrayWeights[MAX_DAMAGE_DICE + 1] = 1
+    expect(() => generateMixedDamageDistribution(
+      fullTailArrayWeights,
+      0
+    )).not.toThrow()
+    expect(() => generateMixedDamageDistribution(
+      new Array(RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH + 1).fill(0),
+      0
+    )).toThrow('weights length')
     expect(() => generateMixedDamageDistribution([1, -1], 0))
       .toThrow('finite non-negative')
     expect(() => generateMixedDamageDistribution([1, Number.NaN], 0))
       .toThrow('finite non-negative')
+    expect(() => generateMixedDamageDistribution([Number.MAX_VALUE, Number.MAX_VALUE], 0))
+      .toThrow('weights total must be finite')
     expect(() => generateMixedDamageDistribution([1], -1)).toThrow(RangeError)
     expect(() => generateMixedDamageDistribution([1], 10)).toThrow(RangeError)
     expect(() => generateMixedDamageDistribution([1], 1.5)).toThrow(RangeError)

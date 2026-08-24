@@ -1126,6 +1126,17 @@ function planDamage(params, display, policy, maxScoreForDamage) {
   }
 }
 
+function getScoreValueUpperBound(scorePlans, policy) {
+  if (policy.scorePropagation !== 'full-tail') {
+    return getPublishedScoreUpperBound(policy.calculationMax)
+  }
+
+  return scorePlans.reduce(
+    (upperBound, scorePlan) => Math.max(upperBound, scorePlan.outputMax),
+    0
+  )
+}
+
 function planResources(scorePlans, damagePlan, comboCount, policy) {
   const scoreOperations = scorePlans.reduce(
     (sum, plan) => sum + plan.operations,
@@ -1488,9 +1499,7 @@ export function planCalculationRanges(params, policy = {}) {
         params,
         display,
         effectivePolicy,
-        effectivePolicy.scorePropagation === 'full-tail'
-          ? scores[0].outputMax
-          : getPublishedScoreUpperBound(effectivePolicy.calculationMax)
+        getScoreValueUpperBound(scores, effectivePolicy)
       )
     }
   }

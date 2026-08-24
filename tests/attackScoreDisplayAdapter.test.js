@@ -150,8 +150,10 @@ describe('Attack canonical score display adapter', () => {
     const legacyScore = vi.fn((...args) => calculateScore(...args))
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async (score) => {
-        expect(score.action.distribution).toBeInstanceOf(Float64Array)
-        expect(score.reaction.distribution).toBeInstanceOf(Float64Array)
+        expect(score.action.result.values).toBeInstanceOf(Float64Array)
+        expect(score.reaction.result.values).toBeInstanceOf(Float64Array)
+        expect(score.action).not.toHaveProperty('distribution')
+        expect(score.reaction).not.toHaveProperty('distribution')
         return damage
       }),
       calculateDxDistribution,
@@ -165,13 +167,13 @@ describe('Attack canonical score display adapter', () => {
       planCalculationRanges: vi.fn(() => ({
         accepted: true,
         operation: 'attack',
-        propagation: { score: 'published-bucket' },
+        propagation: { score: 'full-tail' },
         scores: [
           { workingLength: 16, fftLength: 16, tail: {} },
           { workingLength: 16, fftLength: 16, tail: {} },
         ],
         damage: {
-          scoreValueMode: 'published-bucket',
+          scoreValueMode: 'full-tail',
           fixedDifference: 0,
           rawSupportMax: 0,
           workingMax: 0,
@@ -354,8 +356,8 @@ describe('Attack canonical score display adapter', () => {
     })).resolves.toBe(true)
 
     expect(planningPolicies).toEqual([
-      { calculationMax: 1022 },
-      { calculationMax: 1025 },
+      { calculationMax: 1022, scorePropagation: 'full-tail' },
+      { calculationMax: 1025, scorePropagation: 'full-tail' },
     ])
     expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
     expect(state.canonicalScoreDisplayPresentation.displayRequest)

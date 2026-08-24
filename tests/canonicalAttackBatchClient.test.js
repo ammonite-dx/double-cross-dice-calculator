@@ -449,12 +449,12 @@ describe('CalculationClient canonical attack batch', () => {
     expect(planCalculationRanges).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ operation: 'attack' }),
-      { calculationMax: 10 }
+      { calculationMax: 10, scorePropagation: 'full-tail' }
     )
     expect(planCalculationRanges).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ operation: 'attack' }),
-      { calculationMax: 10 }
+      { calculationMax: 10, scorePropagation: 'full-tail' }
     )
     expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledTimes(2)
   })
@@ -592,12 +592,12 @@ describe('CalculationClient canonical attack batch', () => {
     expect(planCalculationRanges).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ operation: 'attack' }),
-      rangePolicy
+      { ...rangePolicy, scorePropagation: 'full-tail' }
     )
     expect(planCalculationRanges).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ operation: 'attack' }),
-      rangePolicy
+      { ...rangePolicy, scorePropagation: 'full-tail' }
     )
     expect(onRangePlan).toHaveBeenCalledTimes(2)
     expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledTimes(2)

@@ -42,6 +42,21 @@ function attackParams(overrides = {}) {
   }
 }
 
+const PERMISSIVE_LIMITS = {
+  warning: {
+    estimatedTimeMs: Number.MAX_SAFE_INTEGER,
+    estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
+    workingLength: Number.MAX_SAFE_INTEGER,
+    fftLength: Number.MAX_SAFE_INTEGER,
+  },
+  hard: {
+    estimatedTimeMs: Number.MAX_SAFE_INTEGER,
+    estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
+    workingLength: Number.MAX_SAFE_INTEGER,
+    fftLength: Number.MAX_SAFE_INTEGER,
+  },
+}
+
 function createOneDieOracle(critical, maxValue) {
   const distribution = Array(maxValue + 1).fill(0)
   const criticalProbability = (11 - critical) / 10
@@ -625,6 +640,182 @@ describe('production range planner', () => {
     )
   })
 
+  it.each([
+    {
+      label: 'critical and skill shifts at zero/max dice boundaries',
+      score: {
+        action: scoreParams({ dice: 0, critical: 11, skill: -50 }),
+        reaction: scoreParams({ dice: 99, critical: 2, skill: 75 }),
+      },
+      attack: { dice: 0, value: 0, kazanari: 0 },
+      defence: { dice: 0, value: 0 },
+    },
+    {
+      label: 'yousei with maximum attack and defence dice',
+      score: {
+        action: scoreParams({ dice: 99, critical: 2, yousei: 9 }),
+        reaction: scoreParams({ dice: 1, critical: 8, skill: -20 }),
+      },
+      attack: { dice: 99, value: 5, kazanari: 9 },
+      defence: { dice: 99, value: -5 },
+    },
+    {
+      label: 'shihai on the reaction score',
+      score: {
+        action: scoreParams({ dice: 1, critical: 10 }),
+        reaction: scoreParams({ dice: 99, critical: 2, skill: 30, shihai: 9 }),
+      },
+      attack: { dice: 1, value: 5, kazanari: 1 },
+      defence: { dice: 1, value: 0 },
+    },
+  ])(
+    'derives the full-tail damage range from both canonical score plans ($label)',
+    ({ score, attack, defence }) => {
+      const plan = planCalculationRanges(attackParams({
+        score,
+        attack,
+        defence,
+      }), {
+        scorePropagation: 'full-tail',
+        limits: PERMISSIVE_LIMITS,
+      })
+      const damage = plan.damage
+      const scoreValueUpperBound = Math.max(
+        ...plan.scores.map((scorePlan) => scorePlan.outputMax)
+      )
+      const maxDamageDice =
+        Math.floor(scoreValueUpperBound / 10) + 1 + attack.dice
+      const rawSupportMax = 10 * maxDamageDice
+      const fixedDifference = attack.value - defence.value
+      const defenceMax = defence.dice * 10
+      const workingMax = fixedDifference >= 0
+        ? Math.max(
+            0,
+            Math.min(
+              rawSupportMax + fixedDifference,
+              damage.calculationMax + defenceMax
+            )
+          )
+        : Math.max(
+            0,
+            Math.min(
+              rawSupportMax,
+              damage.calculationMax - fixedDifference + defenceMax
+            )
+          )
+      const workingLength = workingMax + 2
+      const fftLength = nextPowerOfTwo(rawSupportMax + 1)
+      const defenceFftLength = defence.dice > 0
+        ? nextPowerOfTwo(workingLength + defenceMax)
+        : 0
+      const operations =
+        (fftLength / 2 + 1) *
+        (maxDamageDice + 1) *
+        Math.max(1, 1 + 6 * attack.kazanari)
+      const float64Bytes = (
+        2 * fftLength +
+        workingLength +
+        (defence.dice > 0
+          ? 2 * defenceFftLength + 2 * workingLength
+          : 0)
+      ) * Float64Array.BYTES_PER_ELEMENT
+
+      expect(plan.accepted).toBe(true)
+      expect(damage.scoreValueMode).toBe('full-tail')
+      expect(damage.scoreValueUpperBound).toBe(scoreValueUpperBound)
+      expect(damage.scoreValueUpperBound).not.toBe(1023)
+      expect(damage.maxDamageDice).toBe(maxDamageDice)
+      expect(damage.rawSupportMax).toBe(rawSupportMax)
+      expect(damage.workingMax).toBe(workingMax)
+      expect(damage.workingLength).toBe(workingLength)
+      expect(damage.fftLength).toBe(fftLength)
+      expect(damage.defenceFftLength).toBe(defenceFftLength)
+      expect(damage.operations).toBe(operations)
+      expect(damage.float64Bytes).toBe(float64Bytes)
+      expect(plan.estimates.damageOperations).toBe(operations)
+      expect(plan.estimates.float64Bytes).toBe(
+        plan.scores.reduce((sum, scorePlan) => sum + scorePlan.float64Bytes, 0)
+          + float64Bytes
+      )
+    }
+  )
+
+  it('applies resource warning and hard-reject thresholds to dynamic full-tail ranges', () => {
+    const params = attackParams({
+      score: {
+        action: scoreParams({ dice: 99, critical: 2, skill: -20 }),
+        reaction: scoreParams({ dice: 1, critical: 11, skill: 0 }),
+      },
+      attack: { dice: 99, value: 5, kazanari: 9 },
+      defence: { dice: 99, value: -5 },
+    })
+    const baseline = planCalculationRanges(params, {
+      scorePropagation: 'full-tail',
+    })
+    const maximumScoreWorkingLength = Math.max(
+      ...baseline.scores.map((score) => score.workingLength)
+    )
+    const maximumScoreFftLength = Math.max(
+      ...baseline.scores.map((score) => score.fftLength),
+      baseline.damage.fftLength,
+      baseline.damage.defenceFftLength
+    )
+    const warning = planCalculationRanges(params, {
+      scorePropagation: 'full-tail',
+      limits: {
+        warning: {
+          estimatedTimeMs: Math.max(0, baseline.estimates.timeMs - 1e-6),
+          estimatedMemoryBytes: baseline.estimates.float64Bytes - 1,
+          workingLength: baseline.damage.workingLength - 1,
+          fftLength: baseline.damage.fftLength - 1,
+        },
+        hard: {
+          estimatedTimeMs: baseline.estimates.timeMs + 1,
+          estimatedMemoryBytes: baseline.estimates.float64Bytes + 1,
+          workingLength: Math.max(
+            maximumScoreWorkingLength,
+            baseline.damage.workingLength + 1
+          ),
+          fftLength: Math.max(maximumScoreFftLength, baseline.damage.fftLength + 1),
+        },
+      },
+    })
+
+    expect(warning.accepted).toBe(true)
+    expect(warning.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'damage-working-length', severity: 'warning' }),
+      expect.objectContaining({ code: 'damage-fft-length', severity: 'warning' }),
+      expect.objectContaining({ code: 'estimated-memory', severity: 'warning' }),
+      expect.objectContaining({ code: 'estimated-time', severity: 'warning' }),
+    ]))
+
+    const hardReject = planCalculationRanges(params, {
+      scorePropagation: 'full-tail',
+      limits: {
+        warning: {
+          estimatedTimeMs: 0,
+          estimatedMemoryBytes: 0,
+          workingLength: 0,
+          fftLength: 0,
+        },
+        hard: {
+          estimatedTimeMs: Math.max(0, baseline.estimates.timeMs - 1e-6),
+          estimatedMemoryBytes: baseline.estimates.float64Bytes - 1,
+          workingLength: baseline.damage.workingLength - 1,
+          fftLength: baseline.damage.fftLength - 1,
+        },
+      },
+    })
+
+    expect(hardReject.accepted).toBe(false)
+    expect(hardReject.rejectionReasons).toEqual(expect.arrayContaining([
+      'damage-working-length',
+      'damage-fft-length',
+      'estimated-memory',
+      'estimated-time',
+    ]))
+  })
+
   it('retains the public overflow score bucket for a lower calculation maximum', () => {
     const params = attackParams()
     const published = planCalculationRanges(params, {
@@ -646,7 +837,7 @@ describe('production range planner', () => {
     expect(published.damage.maxDamageDice).toBe(103)
     expect(published.damage.rawSupportMax).toBe(1030)
     expect(fullTail.damage.scoreValueUpperBound).toBe(
-      fullTail.scores[0].outputMax
+      Math.max(...fullTail.scores.map((score) => score.outputMax))
     )
     expect(fullTail.damage.rawSupportMax).toBe(10)
   })

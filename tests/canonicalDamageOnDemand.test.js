@@ -4,6 +4,7 @@ import {
   calculateCanonicalDamageOnDemand,
   calculateDamageOnDemand,
 } from '../src/calculation'
+import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { getUpperTailProbability } from '../src/data/Distribution'
 
 function probabilityResult(entries) {
@@ -54,16 +55,44 @@ function createRangePlan(attack, defence, overrides = {}, propagation = 'publish
   }
 }
 
-function pointProvider(rawValue, observedTotals = []) {
+function pointProvider(rawValue, observedTotals = [], observedWeights = []) {
   return vi.fn(async (weights, _kazanari, options) => {
     const total = weights.reduce((sum, weight) => sum + weight, 0)
     observedTotals.push(total)
+    observedWeights.push(weights.slice())
     const distribution = new Float64Array(options.distributionLength)
     if (total > 0) {
       distribution[Math.min(rawValue, distribution.length - 1)] = total
     }
     return distribution
   })
+}
+
+function canonicalScoreEnvelope(
+  entries,
+  {
+    support = { kind: 'finite', max: Math.max(...entries.map(([value]) => value)) },
+    overflow = null,
+    metadata = {},
+  } = {}
+) {
+  const maxValue = Math.max(...entries.map(([value]) => value))
+  const values = new Float64Array(maxValue + 1)
+  for (const [value, probability] of entries) {
+    values[value] = probability
+  }
+  return {
+    result: createDistributionResult({
+      values,
+      offset: 0,
+      support,
+      overflow,
+    }),
+    metadata: {
+      modeledDistribution: true,
+      ...metadata,
+    },
+  }
 }
 
 function weightedRawProvider(entries) {
@@ -396,18 +425,87 @@ describe('canonical on-demand damage calculation', () => {
     )).rejects.toThrow('top-level attack plan')
   })
 
-  it('rejects full-tail score propagation before calling the provider', async () => {
+  it('aggregates canonical full-tail coverage into a dynamic damage-dice request', async () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
-    const provider = pointProvider(2)
+    const observedWeights = []
+    const provider = pointProvider(0, [], observedWeights)
+    const rangePlan = createRangePlan(attack, noDefence, {
+      rawSupportMax: 2040,
+      rawMax: 2040,
+      workingMax: 2040,
+      workingLength: 2042,
+      fftLength: 4096,
+      maxDamageDice: 204,
+    }, 'full-tail')
+    const score = {
+      action: canonicalScoreEnvelope([[2030, 1]]),
+      reaction: canonicalScoreEnvelope([[0, 1]]),
+    }
 
-    await expect(calculateCanonicalDamageOnDemand(
-      scoreWithHitProbability(1),
+    const canonical = await calculateCanonicalDamageOnDemand(
+      score,
       attack,
       noDefence,
       { getDamageRollDistribution: provider },
       {},
+      rangePlan
+    )
+
+    expect(provider).toHaveBeenCalledOnce()
+    expect(observedWeights[0]).toHaveLength(205)
+    expect(observedWeights[0][204]).toBeCloseTo(1, 12)
+    expect(observedWeights[0][202]).toBe(0)
+    expect(canonical.result.overflow).toBeNull()
+    expect(canonical.result.support).toEqual({ kind: 'finite', max: 2040 })
+    expect(canonical.metadata).toMatchObject({
+      modeledDistribution: true,
+      scorePropagation: 'full-tail',
+      scoreTailProbabilityUpperBound: 0,
+    })
+  })
+
+  it('keeps canonical score tail mass as overflow metadata instead of a point bucket', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const tailCertificate = {
+      version: 1,
+      kind: 'canonical-score-tail-certificate',
+      massLowerBound: 0.4,
+      massUpperBound: 0.4,
+      lowerBound: 10,
+      probabilityErrorBound: 0,
+    }
+    const canonical = await calculateCanonicalDamageOnDemand(
+      {
+        action: canonicalScoreEnvelope([[1, 0.6]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 10,
+            probability: 0.4,
+            errorBound: 0,
+          },
+          metadata: { scoreTailCertificate: tailCertificate },
+        }),
+        reaction: canonicalScoreEnvelope([[0, 1]]),
+      },
+      attack,
+      noDefence,
+      { getDamageRollDistribution: pointProvider(0) },
+      {},
       createRangePlan(attack, noDefence, {}, 'full-tail')
-    )).rejects.toThrow('published-bucket')
-    expect(provider).not.toHaveBeenCalled()
+    )
+
+    expect(canonical.result.overflow).toEqual({
+      kind: 'upper-bound',
+      lowerBound: 0,
+      probabilityUpperBound: 0.4,
+      errorBound: 0,
+    })
+    expect(canonical.result.values[0]).toBeCloseTo(0.6, 12)
+    expect(canonical.metadata.scoreTailCertificates[0]).toEqual(
+      tailCertificate
+    )
+    expect(canonical.metadata.scoreTailProbabilityUpperBound)
+      .toBeCloseTo(0.4, 12)
   })
 })

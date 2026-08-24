@@ -58,6 +58,23 @@ function distributionAt(value, size = 2048) {
 }
 
 describe('production runtime damage roll Worker client', () => {
+  it('accepts a full-tail weight vector beyond the legacy 202-dice asset', async () => {
+    const { client, workers } = createHarness()
+    const weights = new Float64Array(204)
+    weights[203] = 1
+    const request = client.calculate(weights, 0, {
+      fftLength: 4096,
+      distributionLength: 2048,
+    })
+    const worker = workers[0]
+
+    expect(worker.messages[0].message.weights).toHaveLength(204)
+    expect(worker.messages[0].message.options.rawSupportMax).toBe(2030)
+    worker.respond(0, distributionAt(2030))
+
+    await expect(request).resolves.toEqual(distributionAt(2030))
+  })
+
   it('uses one resident Worker and returns defensive copies', async () => {
     const { client, workers } = createHarness()
     const request = client.calculate(new Float64Array([0.25, 0.75]), 3)

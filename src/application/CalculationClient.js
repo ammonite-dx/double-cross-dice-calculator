@@ -8,7 +8,6 @@ import {
 import {
   createDistributionResult,
   getCanonicalTotalDamageSummary,
-  toPublishedBucketDistribution,
 } from '../calculation/DistributionResult'
 import {
   planCanonicalDamageAggregation,
@@ -19,7 +18,6 @@ import {
   calculateDxDistribution,
   normalizeDxOptions,
 } from '../calculation/DxCalculator'
-import { getUpperTailProbability } from '../data/Distribution'
 import {
   getD10Distribution,
   loadD10Asset,
@@ -206,6 +204,24 @@ function createAttackRangeParams(request) {
   }
 }
 
+function getAttackRangePolicy(rangePolicy) {
+  if (rangePolicy === undefined) {
+    return { scorePropagation: 'full-tail' }
+  }
+  if (
+    rangePolicy === null ||
+    typeof rangePolicy !== 'object' ||
+    Array.isArray(rangePolicy) ||
+    Object.prototype.hasOwnProperty.call(rangePolicy, 'scorePropagation')
+  ) {
+    return rangePolicy
+  }
+  return {
+    ...rangePolicy,
+    scorePropagation: 'full-tail',
+  }
+}
+
 function createBacktrackRangeParams(request, canonical = false) {
   const params = {
     operation: 'backtrack',
@@ -245,15 +261,6 @@ function isPromiseLike(value) {
   return value !== null
     && value !== undefined
     && typeof value.then === 'function'
-}
-
-function createPublishedScoreFromCanonicalEnvelope(envelope) {
-  const distribution = toPublishedBucketDistribution(envelope.result)
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
-    failureProbability: envelope.metadata.failureProbability,
-  }
 }
 
 function hasOwn(object, property) {
@@ -430,7 +437,7 @@ export function createCalculationClient(
     const plan = runRangePreflight(
       planner,
       createAttackRangeParams(request),
-      options.rangePolicy,
+      getAttackRangePolicy(options.rangePolicy),
       options.onRangePlan
     )
     const leaseRequest = acquirePlanLease(
@@ -466,12 +473,8 @@ export function createCalculationClient(
           request.reaction.mode === EVASION_MODE
         ),
       }
-      const scoreForDamage = {
-        action: createPublishedScoreFromCanonicalEnvelope(score.action),
-        reaction: createPublishedScoreFromCanonicalEnvelope(score.reaction),
-      }
       const finalizedDamage = await dependencies.calculateCanonicalDamageOnDemand(
-        scoreForDamage,
+        score,
         request.action.damage,
         request.reaction.damage,
         {
@@ -560,7 +563,10 @@ export function createCalculationClient(
 
     planAttackCombo(params, policy = {}) {
       const request = snapshotAttackParams(params)
-      return planner(createAttackRangeParams(request), policy)
+      return planner(
+        createAttackRangeParams(request),
+        getAttackRangePolicy(policy)
+      )
     },
 
     planBacktrack(params, policy = {}) {

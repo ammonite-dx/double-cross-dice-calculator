@@ -3,8 +3,16 @@ export const RUNTIME_DAMAGE_DISTRIBUTION_SIZE = 2048
 export const RUNTIME_DAMAGE_MIN_FFT_SIZE = 2
 export const RUNTIME_DAMAGE_MAX_FFT_SIZE = 1 << 20
 export const RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE = 2
+// Legacy published DR assets stop at 202 dice. This remains available to the
+// published compatibility path, but is not a generic runtime weight limit.
 export const RUNTIME_DAMAGE_MAX_DAMAGE_DICE = 202
 export const RUNTIME_DAMAGE_MAX_KAZANARI = 9
+// A non-zero coefficient at index n needs raw support through 10n. Keep the
+// coefficient-length guard derived from the existing absolute FFT limit so a
+// caller cannot request an unhandleable polynomial while leaving the legacy
+// 202-dice asset boundary out of runtime input validation.
+export const RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH =
+  Math.floor((RUNTIME_DAMAGE_MAX_FFT_SIZE - 1) / 10) + 1
 
 export const MAX_DAMAGE_DICE = RUNTIME_DAMAGE_MAX_DAMAGE_DICE
 export const MAX_KAZANARI = RUNTIME_DAMAGE_MAX_KAZANARI
@@ -108,11 +116,12 @@ export function validateRuntimeDamageRollInputs(weights, kazanari) {
     throw new TypeError('weights must be an Array or Float64Array')
   }
   if (
-    weights.length === 0 ||
-    weights.length > MAX_DAMAGE_DICE + 1
+    !Number.isSafeInteger(weights.length) ||
+    weights.length < 1 ||
+    weights.length > RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH
   ) {
     throw new RangeError(
-      `weights must contain 1 to ${MAX_DAMAGE_DICE + 1} entries`
+      `weights length must be a safe integer between 1 and ${RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH}`
     )
   }
   let total = 0
