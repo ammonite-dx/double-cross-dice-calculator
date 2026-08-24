@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { createCalculationClient } from '../src/application/CalculationClient'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
+
+const calculationClientSource = readFileSync(
+  new URL('../src/application/CalculationClient.js', import.meta.url),
+  'utf8'
+)
 
 function createScoreEnvelope(params, _getDistribution, _plan, fix = false) {
   const offset = fix ? Math.max(0, params.skill) : 0
@@ -71,6 +78,52 @@ function attackParams() {
 }
 
 describe('canonical CalculationClient surface', () => {
+  it('keeps production canonical imports on calculation cores', () => {
+    expect(calculationClientSource).toContain(
+      "from '../calculation/ScoreCalculator'"
+    )
+    expect(calculationClientSource).toContain(
+      "from '../calculation/BacktrackCalculator'"
+    )
+    expect(calculationClientSource).not.toMatch(
+      /from ['"]\.\.\/data\/(?:Score|Backtrack)Calculator['"]/
+    )
+  })
+
+  it('runs default Check and Backtrack canonical adapters without data wrappers', async () => {
+    const client = createCalculationClient()
+    const score = {
+      dice: 1,
+      critical: 10,
+      skill: 0,
+      yousei: 0,
+      shihai: 0,
+    }
+
+    const check = await client.calculateCheckCanonical({
+      action: score,
+      reaction: { ...score },
+    }, { opposed: false, target: 0 })
+    expect(check.score.action).toMatchObject({
+      result: expect.objectContaining({ values: expect.any(Float64Array) }),
+      metadata: expect.objectContaining({ modeledDistribution: true }),
+    })
+
+    const backtrack = await client.calculateBacktrackCanonical({
+      encroachment: 79,
+      lois: 1,
+      elois: 2,
+      dice: 1,
+      value: 20,
+      dlois: 'なし',
+    })
+    expect(backtrack).toEqual(expect.objectContaining({
+      single: expect.objectContaining({ values: expect.any(Float64Array) }),
+      double: expect.objectContaining({ values: expect.any(Float64Array) }),
+      second: expect.objectContaining({ values: expect.any(Float64Array) }),
+    }))
+  })
+
   it('exposes canonical operations and no legacy calculation or prepare methods', () => {
     const client = createCalculationClient(createDependencies())
 

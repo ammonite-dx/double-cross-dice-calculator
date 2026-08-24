@@ -13,6 +13,8 @@
 - `src/data/FFT.js`: 独立な確率分布の加算・減算
 - `src/data/PrecomputedDataRepository.js`: 静的アセットの取得、検証、キャッシュ
 
+現行productionの`CalculationClient`はScoreとBacktrackのcanonical計算コア（`src/calculation/ScoreCalculator.js`、`src/calculation/BacktrackCalculator.js`）を直接参照する。`src/data/ScoreCalculator.js`と`src/data/BacktrackCalculator.js`を含むdata wrapperは、比較・migration用に維持する。
+
 Vueコンポーネントは入力状態と表示を管理し、`CalculationClient`だけを介して確率計算を利用します。`src/calculation/`の計算コアはVue、DOM、`fetch`、静的アセットの配置に依存せず、必要な分布は引数で渡される関数から取得します。
 
 各計算モジュールが事前計算済み分布へ加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載しています。

@@ -1,4 +1,6 @@
-import { getFinalEncroachmentCanonical } from '../data/BacktrackCalculator'
+import {
+  calculateFinalEncroachmentCanonical as calculateCoreFinalEncroachmentCanonical,
+} from '../calculation/BacktrackCalculator'
 import {
   calculateCanonicalDamageOnDemand,
   getCanonicalDamageSummary,
@@ -23,9 +25,9 @@ import {
   loadD10Asset,
 } from '../data/PrecomputedDataRepository'
 import {
-  calculateScoreCanonical,
+  calculateScoreCanonical as calculateCoreScoreCanonical,
   getCanonicalScoreSummary,
-} from '../data/ScoreCalculator'
+} from '../calculation/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
 import {
   CALCULATION_BATCH_INPUT_ERROR_CODES,
@@ -42,6 +44,38 @@ const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
 const defaultResourceGuard = createResourceGuard()
 
+function calculateScoreCanonicalAdapter(
+  params,
+  getDistribution,
+  scoreRangePlan,
+  fix = false
+) {
+  if (typeof getDistribution !== 'function') {
+    throw new TypeError(
+      'calculateScoreCanonical requires a runtime distribution provider'
+    )
+  }
+  return calculateCoreScoreCanonical(
+    params,
+    { getDxDistribution: getDistribution },
+    scoreRangePlan,
+    fix
+  )
+}
+
+function getFinalEncroachmentCanonicalAdapter(
+  params,
+  runtimeOptions = {},
+  backtrackRangePlan
+) {
+  return calculateCoreFinalEncroachmentCanonical(
+    params,
+    undefined,
+    runtimeOptions,
+    backtrackRangePlan
+  )
+}
+
 function createAbortError(operation = 'Calculation') {
   const error = new Error(`${operation} calculation was aborted`)
   error.name = 'AbortError'
@@ -57,12 +91,12 @@ function throwIfAborted(options, operation = 'Calculation') {
 const defaultDependencies = {
   calculateCanonicalDamageOnDemand,
   calculateDxDistribution,
-  calculateScoreCanonical,
+  calculateScoreCanonical: calculateScoreCanonicalAdapter,
   getCanonicalScoreSummary,
   getCanonicalDamageSummary,
   getCanonicalTotalDamageSummary,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
-  getFinalEncroachmentCanonical,
+  getFinalEncroachmentCanonical: getFinalEncroachmentCanonicalAdapter,
   getD10Distribution,
   loadD10Asset,
   planCanonicalDamageAggregation,
@@ -373,13 +407,13 @@ export function createCalculationClient(
     if (getDxDistribution !== null) {
       return (params, scoreRangePlan, fix = false) =>
         fix
-          ? calculateScoreCanonical(
+          ? calculateScoreCanonicalAdapter(
               params,
               getDxDistribution,
               scoreRangePlan,
               true
             )
-          : calculateScoreCanonical(
+          : calculateScoreCanonicalAdapter(
               params,
               getDxDistribution,
               scoreRangePlan
