@@ -591,3 +591,15 @@ Attackのplanner estimateと実測（ms、ratioはestimate/warm medianおよびe
 低負荷の99D/202DではNodeの実測ノイズを含むためestimateがwarm値を下回るが、kazanari=1/9とyousei9/shihai19の高負荷側は大幅な過小評価にならず、通常の300D/400Dも数倍以上の過大評価にはなっていない。高負荷yousei9/shihai19のestimateは200msを超えるため、現行production hard thresholdでは引き続き計算前rejectとなる。DEFAULT_POLICYの200msを含むwarning/hard threshold、production policy、runtimeの絶対安全上限、canonical結果の意味は変更していない。
 
 これはNode coreのcost model校正であり、Task 5のproduction warning/hard threshold最終判断、browser/低速端末、Worker往復、fetch/serialization、Vue/Chart/UI描画は未完了である。したがって、今回のratioだけでthreshold変更やproduction採用判断は行わない。
+
+## Full-tail Attack browser resource measurement (Task 6)
+
+Task 6では既存のPlaywright/Vite/Worker診断基盤を再利用し、`full-tail-attack-resource-benchmark.html`の専用targetを追加した。既存core/canonical-attack targetは変更せず、結果は`__phase2hFullTailAttackBrowserResourceResult`またはerror globalとstdoutだけへ出し、raw resultは保存しない。
+
+専用targetはChrome desktopとChrome channel CPU 4xを既定で測定する。matrixはactual `plan.damage.maxDamageDice`が202/400/600になる各`kazanari=0/1/9`の9ケースと、`yousei=9`・`shihai=19`のstress 2ケースで合計11ケースとした。各caseで`CalculationClient.planAttackCombo(params)`のproduction default planと、`scorePropagation: full-tail`およびRangePlanner thresholdsだけを広げたbenchmark policyのplanを別測定し、benchmark planがacceptedな場合だけ`calculateAttackCanonicalBatch`をScore→Damage→totalまで実行する。calculationMax/display/costModel、runtime absolute caps、production policy/thresholdは変更していない。
+
+2026-08-25の短縮条件（`iterations=1`、`warmup=0`）では、Chrome desktop/CPU 4xとも11 casesがbenchmark measured、production planner rejectは3件（600D・kazanari=9、yousei=9、shihai=19）で理由は`estimated-time`だった。Workerは各engineで1 instance、13 postMessage/13 message、transfer 42,192 bytes、error/messageerror 0、D10/data fetchは1件、cancel/staleはともにmeasuredだった。warm end-to-end最大はdesktop 25.4 ms、CPU 4x 116.3 ms、Worker request→response最大はdesktop 265.1 ms、CPU 4x 286.8 msだった。
+
+Long Taskはdesktop 0件、CPU 4x 2件で、両engineとも`PerformanceObserver`が対応していた。`performance.memory`も両engineで利用可能だったが、before/after `usedJSHeapSize`は正確なピーク割当量ではない。reportには各caseのplanner estimate time/memory、cold/warm timing、Worker request timing、Long Task、memory before/afterを保持している。
+
+これは短縮・単一Windows環境のブラウザ測定であり、Chrome CPU 4xは低速実機のCPU/メモリ、Worker/UI描画の全体コストを再現しない。したがって、Task 5では現行のproduction warning/hard threshold（推定時間50/200 ms）を当面維持する暫定判断とした。CPU 4xで高負荷ケースのend-to-endが100 msを超え、Worker応答も約300 msに達するため、今回の観測だけでhard thresholdを引き上げる根拠はない。低速実機、Firefox/WebKit、実際のUI描画を含む再評価は、別環境での計測後に行う。

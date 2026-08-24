@@ -173,3 +173,19 @@ stageには`longTasks`、`numericDigest`、制約、最後の結果の配列要�
 ## 解釈と対象外
 
 このページは計算coreとブラウザ固有のasset/event-loop診断を同じfixtureで突き合わせるためのものです。Nodeの値、Chromeの一回の値、CPU throttle後の値、timer delayだけからproductionの入力上限、canonical表示、dynamic output、JSON削除、Worker接続を決めません。CDP throttleは実CPU時間ではなく低速相当の補助条件なので、低速実機・メモリ制約・Worker経路などは別途確認が必要です。production canonical Worker経路が未接続であることは、現時点の対象外として報告に明記しています。
+
+## full-tail Attack resource measurement (Phase 2-H Task 6)
+
+Task 6の専用targetは既存canonical Attack targetを変更せず、`full-tail-attack-resource-benchmark.html`と`__phase2hFullTailAttackBrowserResourceResult`を使う。短縮実測は次で実行し、結果はstdoutとページglobalだけに出してファイルへ保存しない。
+
+```shell
+npm run benchmark:phase2h:browser:playwright:full-tail-attack:short
+```
+
+このtargetはChrome desktopとChrome channel CPU 4xを既定で測定する。Attack matrixはactual `plan.damage.maxDamageDice`が202/400/600になる各`kazanari=0/1/9`の9ケースに、`yousei=9`と`shihai=19`のstress 2ケースを加えた11ケースである。各caseは`CalculationClient.planAttackCombo(params)`のproduction default plannerと、thresholdだけを広げた明示benchmark policyのplannerを分け、後者がacceptedな場合だけ`calculateAttackCanonicalBatch`を通常のScore→Damage→total経路で実行する。
+
+reportはproduction/benchmarkのaccepted/status/rejection理由、estimate time/memory、planner cold/warm timing、Attack end-to-end cold/warm timing、RuntimeDamageRollClient→RuntimeDamageRollWorkerのrequest→response timing、Worker counters、D10/data fetch、Long Task、`performance.memory`のbefore/after、cancel/staleを保持する。`performance.memory`は対応時だけ記録し、before/after usedJSHeapSizeを正確なpeak allocationとは扱わない。Long Task非対応時は`supported=false`、count/entries=`null`であり、0件とは扱わない。
+
+短縮条件のChrome実測ではdesktop/CPU 4xとも11 casesがbenchmark measured、production planner rejectは3件（600D・kazanari=9、yousei=9、shihai=19）で理由は`estimated-time`、Workerは各1 instance・13 postMessage/13 message・transfer 42,192 bytes・error/messageerror 0、D10 fetch 1件、cancel/staleともmeasuredだった。warm end-to-end最大はdesktop 25.4 ms、CPU 4x 116.3 ms、Worker response最大はdesktop 265.1 ms、CPU 4x 286.8 msで、Long Taskはdesktop 0件、CPU 4x 2件、`performance.memory`は両engineで利用可能だった。これは短縮・単一環境の観測値であり、CPU 4xは低速実機を再現しない。
+
+benchmark policyは`scorePropagation: full-tail`とRangePlannerのwarning/hard thresholdsだけを変更し、calculationMax、display、costModel、runtime absolute caps、production thresholdは変更しない。Task 5では、今回の観測だけでhard thresholdを引き上げず、現行のproduction warning/hard threshold（推定時間50/200 ms）を当面維持する暫定判断とした。低速実機、Firefox/WebKit、実際のUI描画を含む再評価は別環境で行う。既存core/canonical-attack target、Vite/Playwright cleanup契約は維持する。

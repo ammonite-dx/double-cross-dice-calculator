@@ -22,6 +22,8 @@
     "benchmark:phase2h:browser:playwright:short": "node experiments/phase2h-browser/playwright-runner.mjs --iterations 1 --warmup 0",
     "benchmark:phase2h:browser:playwright:canonical-attack": "node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack",
     "benchmark:phase2h:browser:playwright:canonical-attack:short": "node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack --iterations 1 --warmup 0",
+    "benchmark:phase2h:browser:playwright:full-tail-attack": "node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource",
+    "benchmark:phase2h:browser:playwright:full-tail-attack:short": "node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource --iterations 1 --warmup 0",
     "benchmark:runtime-dr": "node scripts/benchmark-runtime-dr-experiment.mjs",
     "benchmark:dynamic-distribution-ranges:browser": "node experiments/dynamic-distribution-ranges/playwright-runner.mjs",
     "preview": "vite preview",

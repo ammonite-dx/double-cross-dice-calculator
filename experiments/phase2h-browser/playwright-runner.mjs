@@ -12,6 +12,8 @@ const VITE_CONFIG = fileURLToPath(new URL('./vite.config.mjs', import.meta.url))
 const BENCHMARK_PATH = '/experiments/phase2h-browser/browser-benchmark.html'
 const CANONICAL_ATTACK_BENCHMARK_PATH =
   '/experiments/phase2h-browser/canonical-attack-worker-benchmark.html'
+const FULL_TAIL_ATTACK_BENCHMARK_PATH =
+  '/experiments/phase2h-browser/full-tail-attack-resource-benchmark.html'
 const EXPECTED_NODE_VERSION = (
   await readFile(new URL('../../.node-version', import.meta.url), 'utf8')
 ).trim()
@@ -34,6 +36,19 @@ const EXPECTED_CASE_IDS = [
   'range-warning-boundary',
   'range-reject-boundary',
 ]
+const EXPECTED_FULL_TAIL_ATTACK_CASE_IDS = [
+  'matrix-202d-kazanari0',
+  'matrix-202d-kazanari1',
+  'matrix-202d-kazanari9',
+  'matrix-400d-kazanari0',
+  'matrix-400d-kazanari1',
+  'matrix-400d-kazanari9',
+  'matrix-600d-kazanari0',
+  'matrix-600d-kazanari1',
+  'matrix-600d-kazanari9',
+  'stress-yousei9',
+  'stress-shihai19',
+]
 
 const TARGET_CONFIGS = {
   core: {
@@ -49,6 +64,26 @@ const TARGET_CONFIGS = {
     resultGlobal: '__phase2hCanonicalAttackWorkerBenchmarkResult',
     errorGlobal: '__phase2hCanonicalAttackWorkerBenchmarkError',
     benchmarkName: 'phase2h-browser-playwright-canonical-attack',
+  },
+  'full-tail-attack-resource': {
+    id: 'full-tail-attack-resource',
+    benchmarkPath: FULL_TAIL_ATTACK_BENCHMARK_PATH,
+    resultGlobal: '__phase2hFullTailAttackBrowserResourceResult',
+    errorGlobal: '__phase2hFullTailAttackBrowserResourceError',
+    benchmarkName: 'phase2h-browser-playwright-full-tail-attack-resource',
+    chromeOnly: true,
+    omittedEngines: [
+      {
+        id: 'firefox',
+        status: 'omitted',
+        reason: 'dedicated Task 6 target measures Chrome desktop and CPU 4x only; use the existing canonical-attack target for cross-engine comparison',
+      },
+      {
+        id: 'webkit',
+        status: 'omitted',
+        reason: 'dedicated Task 6 target measures Chrome desktop and CPU 4x only; use the existing canonical-attack target for cross-engine comparison',
+      },
+    ],
   },
 }
 
@@ -100,7 +135,13 @@ const OPTIONAL_ENGINE_CONFIG = {
   cpuThrottlingRate: null,
 }
 
-function getEngineConfigs(options) {
+function getEngineConfigs(options, target) {
+  if (target.chromeOnly) {
+    return [
+      BASE_ENGINE_CONFIGS.find((engine) => engine.id === 'chrome-cpu-4x'),
+      OPTIONAL_ENGINE_CONFIG,
+    ]
+  }
   return options.includeChrome
     ? [...BASE_ENGINE_CONFIGS, OPTIONAL_ENGINE_CONFIG]
     : BASE_ENGINE_CONFIGS
@@ -350,6 +391,9 @@ function validateReport(
   if (target.id === 'canonical-attack') {
     return validateCanonicalAttackReport(report, capturedPageErrors)
   }
+  if (target.id === 'full-tail-attack-resource') {
+    return validateFullTailAttackReport(report, capturedPageErrors)
+  }
 
   const counts = report?.caseCounts ?? {}
   const cases = Array.isArray(report?.cases) ? report.cases : []
@@ -389,6 +433,85 @@ function validateReport(
 
 function isFiniteNonNegative(value) {
   return Number.isFinite(value) && value >= 0
+}
+
+function validateFullTailAttackReport(report, capturedPageErrors) {
+  const cases = Array.isArray(report?.cases) ? report.cases : []
+  const actualIds = cases.map((entry) => entry?.id).sort()
+  const expectedIds = EXPECTED_FULL_TAIL_ATTACK_CASE_IDS.slice().sort()
+  const matrixCases = cases.filter((entry) => entry?.id?.startsWith('matrix-'))
+  const stressCases = cases.filter((entry) => entry?.id?.startsWith('stress-'))
+  const engines = report?.engines ?? []
+  const chrome = engines.find((entry) => entry.id === 'chrome')
+  const chromeCpu = engines.find((entry) => entry.id === 'chrome-cpu-4x')
+  const d10Fetches = report?.assets?.d10Fetches ?? []
+  const longTasks = report?.diagnostics?.longTasks
+  const caseShape = cases.every((entry) => (
+    entry?.production?.timing
+    && entry?.benchmark?.timing
+    && entry?.benchmark?.targetMatches === true
+    && entry?.benchmark?.accepted === true
+    && entry?.execution?.memory
+    && typeof entry.execution.memory.supported === 'boolean'
+    && entry?.execution?.longTasks
+    && typeof entry.execution.longTasks.supported === 'boolean'
+    && entry?.execution?.timing
+    && entry?.execution?.worker
+  ))
+  const checks = {
+    reportStatus: report?.status === 'measured',
+    caseCounts: report?.caseCounts?.total === expectedIds.length
+      && report.caseCounts.measured === expectedIds.length
+      && report.caseCounts.executionError === 0
+      && report.caseCounts.productionRejected >= 2,
+    caseIds: JSON.stringify(actualIds) === JSON.stringify(expectedIds),
+    matrixCoverage: matrixCases.length === 9
+      && matrixCases.every((entry) => (
+        [202, 400, 600].some((target) => entry.id.includes(`${target}d`))
+        && [0, 1, 9].some((kazanari) => entry.id.endsWith(`kazanari${kazanari}`))
+      )),
+    stressCoverage: stressCases.length === 2
+      && stressCases.every((entry) => entry.production.status === 'planner-rejected'),
+    caseShape,
+    worker: report?.worker?.status === 'production-runtime-observed'
+      && report.worker.counters.workerCreated > 0
+      && report.worker.counters.workerPostMessage > 0
+      && report.worker.counters.workerMessage > 0
+      && report.worker.counters.workerErrors === 0
+      && report.worker.counters.workerMessageErrors === 0
+      && report.worker.installError === null
+      && report.worker.requestTimings.some((entry) => (
+        isFiniteNonNegative(entry.responseElapsedMs)
+      )),
+    d10Fetch: d10Fetches.some((entry) => (
+      entry.status === 200
+      && entry.error === null
+      && isFiniteNonNegative(entry.elapsedMs)
+    )),
+    longTasks: typeof longTasks?.supported === 'boolean'
+      && (longTasks.supported
+        ? Number.isSafeInteger(longTasks.count) && Array.isArray(longTasks.entries)
+        : longTasks.count === null && longTasks.entries === null),
+    cancel: report?.diagnostics?.cancel?.status === 'measured'
+      && report.diagnostics.cancel.abortSent === true
+      && report.diagnostics.cancel.error?.name === 'AbortError',
+    stale: report?.diagnostics?.stale?.status === 'measured'
+      && report.diagnostics.stale.firstCommit === false
+      && report.diagnostics.stale.secondCommit === true
+      && report.diagnostics.stale.runnerErrors.length === 0,
+    pageErrors: capturedPageErrors.length === 0
+      && (report?.pageErrors?.length ?? 0) === 0
+      && (report?.unhandledRejections?.length ?? 0) === 0,
+  }
+  return {
+    valid: Object.values(checks).every(Boolean),
+    checks,
+    reportedCaseCounts: report?.caseCounts ?? {},
+    chrome: {
+      desktop: chrome?.status ?? 'missing',
+      cpu4x: chromeCpu?.status ?? 'missing',
+    },
+  }
 }
 
 function summarizeCanonicalTimings(report) {
@@ -768,7 +891,8 @@ async function run(options) {
   }
 
   const target = getTargetConfig(options.target)
-  const engineConfigs = getEngineConfigs(options)
+  const engineConfigs = getEngineConfigs(options, target)
+  const includeChrome = options.includeChrome || target.chromeOnly === true
   const report = {
     metadata: {
       benchmark: target.benchmarkName,
@@ -779,20 +903,20 @@ async function run(options) {
       requestedIterations: options.iterations,
       requestedWarmup: options.warmup,
       engines: engineConfigs.map(({ id }) => id),
-      includeChrome: options.includeChrome,
+      includeChrome,
       cpuThrottling: {
         engine: 'chrome-cpu-4x',
         method: 'Emulation.setCPUThrottlingRate via CDP',
         rate: 4,
         interpretation: 'renderer scheduling emulation multiplier; not physical CPU time',
       },
-      omittedEngines: options.includeChrome
+      omittedEngines: target.omittedEngines ?? (includeChrome
         ? []
         : [{
             id: 'chrome',
             status: 'omitted',
             reason: 'unthrottled Chrome is omitted by default to avoid duplicating the parent Chrome measurement; use --include-chrome to opt in',
-          }],
+          }]),
       resultsPersisted: false,
     },
     status: 'error',
