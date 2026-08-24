@@ -15,6 +15,10 @@ const DEFAULT_ERROR_BUDGET = 1e-8
 const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
 const LEGACY_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
 const BACKTRACK_CANONICAL_RESULT_COUNT = 3
+// Runtime damage-roll work grows sublinearly across the supported reroll
+// counts in the measured Node workload. Keep the max-dice and FFT terms
+// explicit below, and use this coefficient only for the kazanari multiplier.
+const KAZANARI_COST_LOG_COEFFICIENT = 15
 
 function getPublishedScoreUpperBound(calculationMax) {
   return Math.max(calculationMax + 1, PUBLISHED_SCORE_MAX_INDEX)
@@ -836,6 +840,10 @@ function fftOperationCount(length) {
   return 3 * length * Math.log2(length)
 }
 
+function getDamageKazanariCostFactor(kazanari) {
+  return 1 + KAZANARI_COST_LOG_COEFFICIENT * Math.log1p(kazanari)
+}
+
 function normalizeScore(params, name) {
   object(params, name)
   const normalized = {
@@ -1084,7 +1092,7 @@ function planDamage(params, display, policy, maxScoreForDamage) {
   const damageOperations =
     (damageRollFftLength / 2 + 1) *
       (maxDamageDice + 1) *
-      Math.max(1, 1 + 6 * attack.kazanari)
+      getDamageKazanariCostFactor(attack.kazanari)
   const fftOperations = fftOperationCount(defenceFftLength)
   const float64Bytes =
     (2 * damageRollFftLength + workingLength +

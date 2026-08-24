@@ -562,8 +562,32 @@ Chart.js 4.5.1をローカル実装で確認した結果、`helpers.dataset.isAr
 
 `npm run --silent benchmark:full-tail-attack -- --json --iterations 3 --warmup 1`で、full-tail Attackのresource計画とcanonical Score→Damage経路をNode core境界で測定する専用benchmarkを追加した。DR単独は202/300/400/600/800D × `kazanari=0/1/9`、Attackは99D・critical=2・skill=+999・yousei=0/9・shihai=19/0・attack/defence dice=99・kazanari=9とし、stdoutの人間向け行形式/JSON、digest、planner telemetry、score cutoff、dynamic DR options、tail metadataを保持する。
 
-標準実測（Windows `win32/x64`、Node `v22.23.2`、Ryzen 7 9700X、warm=3、warmup=1）では、DR warm中央値（kazanari=0/1/9）は202D=`1.30/7.60/21.65 ms`、300D=`1.16/22.22/64.74 ms`、400D=`1.54/29.33/85.88 ms`、600D=`4.17/88.74/282.91 ms`、800D=`5.95/118.14/378.26 ms`だった。高負荷Attackはscore cutoff=`2271/4261`、maxDamageDice=`427/626`、rawSupportMax=`4270/6260`、FFT=`8192`、estimatedTime=`401.98/566.72 ms`となり、現行hard `estimated-time=200 ms`により計算前rejectとなった。閾値は変更していない。
+校正前の標準実測（Windows `win32/x64`、Node `v22.23.2`、Ryzen 7 9700X、warm=3、warmup=1）では、DR warm中央値（kazanari=0/1/9）は202D=`1.30/7.60/21.65 ms`、300D=`1.16/22.22/64.74 ms`、400D=`1.54/29.33/85.88 ms`、600D=`4.17/88.74/282.91 ms`、800D=`5.95/118.14/378.26 ms`だった。高負荷Attackはscore cutoff=`2271/4261`、maxDamageDice=`427/626`、rawSupportMax=`4270/6260`、FFT=`8192`、estimatedTime=`401.98/566.72 ms`となり、現行hard `estimated-time=200 ms`により計算前rejectとなった。閾値は変更していない。
 
 これはNodeのcanonical core/resource計測であり、browser/低速機/Worker往復・UI描画を含まないため、production採用判断ではない。後続で同一入力のbrowser/低速条件/Worker/UI測定を行ってから採用可否を判断する。
 
-Task 2/3では、full-tail Attack benchmarkの各caseでproduction相当policyを先にplanner計測し、productionのaccepted/status/rejection理由とestimated resourceを保持するようにした。続いてRangePlannerのthresholdだけを広げたbenchmark policyを適用し、acceptedなcaseだけをcanonical Score→hit→runtime DR→defence→Damage→canonical totalまで実行する。production policy、absolute safety cap、Task 4 cost model、Task 5 thresholdは変更せず、browser/低速機/Worker往復/UI描画は未測定である。
+Task 2/3では、full-tail Attack benchmarkの各caseでproduction相当policyを先にplanner計測し、productionのaccepted/status/rejection理由とestimated resourceを保持するようにした。続いてRangePlannerのthresholdだけを広げたbenchmark policyを適用し、acceptedなcaseだけをcanonical Score→hit→runtime DR→defence→Damage→canonical totalまで実行する。production policy、absolute safety cap、Task 5 thresholdは変更せず、Task 4のcost model校正は次項へ記録し、browser/低速機/Worker往復/UI描画は未測定である。
+
+## Full-tail Attack resource cost calibration (Task 4)
+
+Task 4では同じ標準条件（Windows `win32/x64`、Node `v22.23.2`、Ryzen 7 9700X、warm=3、warmup=1）で、DR 202/300/400/600/800D × `kazanari=0/1/9`とAttack 9ケースを再測定した。今回のreport digestは`663869755.858596`であり、raw resultは保存していない。
+
+校正式はdamage本体の`(damageRollFftLength / 2 + 1) × (maxDamageDice + 1)`、Score operations/Score FFT、defence FFTの分離を維持し、kazanari係数だけを従来の`1 + 6 × kazanari`から`1 + 15 × log1p(kazanari)`へ変更した。係数は測定したkazanari=1/9の実行時間を同時に保守側へ寄せるための経験校正で、係数値は`kazanari=0/1/9`で約`1/11.40/35.54`となる。maxDamageDiceとFFT長を式から外さないため、dice境界とFFT境界の増加は引き続きestimatedTimeMsへ反映される。
+
+Attackのplanner estimateと実測（ms、ratioはestimate/warm medianおよびestimate/warm p95）は次のとおりである。
+
+| case | maxDamageDice | estimate | warm median / p95 | ratio median / p95 |
+| --- | ---: | ---: | ---: | ---: |
+| 99D critical2 skill0 kazanari0 | 327 | 2.71 | 4.31 / 4.48 | 0.63 / 0.61 |
+| 202D boundary | 202 | 0.87 | 0.96 / 1.23 | 0.90 / 0.71 |
+| 300D boundary | 300 | 2.49 | 1.72 / 1.74 | 1.44 / 1.43 |
+| 400D boundary | 400 | 3.31 | 2.83 / 2.87 | 1.17 / 1.15 |
+| 600D boundary | 600 | 9.87 | 5.48 / 5.59 | 1.80 / 1.77 |
+| 99D kazanari1 | 327 | 30.66 | 25.82 / 26.37 | 1.19 / 1.16 |
+| 99D kazanari9 | 327 | 95.56 | 75.39 / 75.95 | 1.27 / 1.26 |
+| 99D yousei9 | 626 | 366.75 | 300.73 / 305.49 | 1.22 / 1.20 |
+| 99D shihai19 | 427 | 265.47 | 179.74 / 186.46 | 1.48 / 1.42 |
+
+低負荷の99D/202DではNodeの実測ノイズを含むためestimateがwarm値を下回るが、kazanari=1/9とyousei9/shihai19の高負荷側は大幅な過小評価にならず、通常の300D/400Dも数倍以上の過大評価にはなっていない。高負荷yousei9/shihai19のestimateは200msを超えるため、現行production hard thresholdでは引き続き計算前rejectとなる。DEFAULT_POLICYの200msを含むwarning/hard threshold、production policy、runtimeの絶対安全上限、canonical結果の意味は変更していない。
+
+これはNode coreのcost model校正であり、Task 5のproduction warning/hard threshold最終判断、browser/低速端末、Worker往復、fetch/serialization、Vue/Chart/UI描画は未完了である。したがって、今回のratioだけでthreshold変更やproduction採用判断は行わない。

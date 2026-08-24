@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  DEFAULT_POLICY,
   findTailCutoff,
   maxTailFirstMomentUpperBound,
   nextPowerOfTwo,
@@ -709,7 +710,7 @@ describe('production range planner', () => {
       const operations =
         (fftLength / 2 + 1) *
         (maxDamageDice + 1) *
-        Math.max(1, 1 + 6 * attack.kazanari)
+        (1 + 15 * Math.log1p(attack.kazanari))
       const float64Bytes = (
         2 * fftLength +
         workingLength +
@@ -1062,6 +1063,47 @@ describe('production range planner', () => {
     expect(plan.backtrack.distributionMode).toBe('asset')
     expect(plan.warnings).not.toContainEqual(
       expect.objectContaining({ code: 'backtrack-asset-overflow' })
+    )
+  })
+
+  it('calibrates damage-roll reroll cost without hiding dice or FFT work', () => {
+    expect(DEFAULT_POLICY.limits.hard.estimatedTimeMs).toBe(200)
+
+    const makePlan = ({ attackDice, kazanari }) => planCalculationRanges(
+      attackParams({
+        score: {
+          action: scoreParams({ critical: 11 }),
+          reaction: scoreParams({ critical: 11 }),
+        },
+        attack: { dice: attackDice, value: 0, kazanari },
+        defence: { dice: 0, value: 0 },
+      }),
+      {
+        scorePropagation: 'full-tail',
+        limits: PERMISSIVE_LIMITS,
+      }
+    )
+
+    const noRerolls = makePlan({ attackDice: 99, kazanari: 0 })
+    const oneReroll = makePlan({ attackDice: 99, kazanari: 1 })
+    const nineRerolls = makePlan({ attackDice: 99, kazanari: 9 })
+    const smallerDamageRange = makePlan({ attackDice: 0, kazanari: 0 })
+    const largerDamageRange = makePlan({ attackDice: 197, kazanari: 0 })
+
+    expect(
+      oneReroll.damage.operations / noRerolls.damage.operations
+    ).toBeCloseTo(1 + 15 * Math.log1p(1), 10)
+    expect(
+      nineRerolls.damage.operations / noRerolls.damage.operations
+    ).toBeCloseTo(1 + 15 * Math.log1p(9), 10)
+
+    expect(smallerDamageRange.damage.maxDamageDice).toBe(103)
+    expect(largerDamageRange.damage.maxDamageDice).toBe(300)
+    expect(largerDamageRange.damage.fftLength).toBeGreaterThan(
+      smallerDamageRange.damage.fftLength
+    )
+    expect(largerDamageRange.damage.operations).toBeGreaterThan(
+      smallerDamageRange.damage.operations
     )
   })
 
