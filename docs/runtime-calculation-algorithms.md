@@ -557,3 +557,11 @@ Chart.js 4.5.1をローカル実装で確認した結果、`helpers.dataset.isAr
 対決成功率は、action/reactionの明示bucketを$A_0,R_0$、tailを$A_T,R_T$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示bucket同士の$P_{00}=P(A_0>R_0)$は既存の昇順2ポインタ走査で$O(a+r)$に計算し、排他的な4組を分けて$S_{lower}=P_{00}+a_-P(R_0<L_A)$、$S_{upper}=P_{00}+a_+P(R_0)+r_+P(A_0>L_R)+a_+r_+$とする。最終区間だけを`DISTRIBUTION_RESULT_TOLERANCE`で一度外向きに広げる。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
 
 `errorBound`は従来契約どおり補助的な診断metadataであり、tail probabilityへ加算しない。exact overflowの正の`probability`はactual mass、upper-bound overflowの`probabilityUpperBound`はすでに安全側へ広げた上限として扱う。stored massが0でも`errorBound>0`ならpotential tailなので、独立したRangePlannerのtail boundがある場合だけ`[0,bound]`を採用し、証明がなければ成功率を安全な`0..100`へ戻す。これにより既定の両側`dice=1`、`critical=10`、`skill=0`では内部boundを保持したまま期待値`6.0`、action成功率`45.5%`、reaction成功率`54.5%`を従来形式で表示できる。
+
+## Full-tail Attack resource benchmark
+
+`npm run --silent benchmark:full-tail-attack -- --json --iterations 3 --warmup 1`で、full-tail Attackのresource計画とcanonical Score→Damage経路をNode core境界で測定する専用benchmarkを追加した。DR単独は202/300/400/600/800D × `kazanari=0/1/9`、Attackは99D・critical=2・skill=+999・yousei=0/9・shihai=19/0・attack/defence dice=99・kazanari=9とし、stdoutの人間向け行形式/JSON、digest、planner telemetry、score cutoff、dynamic DR options、tail metadataを保持する。
+
+標準実測（Windows `win32/x64`、Node `v22.23.2`、Ryzen 7 9700X、warm=3、warmup=1）では、DR warm中央値（kazanari=0/1/9）は202D=`1.30/7.60/21.65 ms`、300D=`1.16/22.22/64.74 ms`、400D=`1.54/29.33/85.88 ms`、600D=`4.17/88.74/282.91 ms`、800D=`5.95/118.14/378.26 ms`だった。高負荷Attackはscore cutoff=`2271/4261`、maxDamageDice=`427/626`、rawSupportMax=`4270/6260`、FFT=`8192`、estimatedTime=`401.98/566.72 ms`となり、現行hard `estimated-time=200 ms`により計算前rejectとなった。閾値は変更していない。
+
+これはNodeのcanonical core/resource計測であり、browser/低速機/Worker往復・UI描画を含まないため、production採用判断ではない。後続で同一入力のbrowser/低速条件/Worker/UI測定を行ってから採用可否を判断する。

@@ -448,3 +448,9 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - legacy cleanup第1単位（完了）: 最終比較完了後、productionからimportされないtest-only legacy display adaptersと専用テストを削除した。実計算比較fixture、`LegacyCanonicalComparison`、`CalculationClient` legacy API、legacy core/wrappers、legacy assets/JSON/generatorは後続まで維持する。
 - legacy cleanup第2単位（完了）: 最終比較完了後、`CalculationClient` legacy計算API、legacy score/damage/backtrack dependency、fallback、route `prepare`、全計算routeのpreload guardを削除した。client-level legacy比較fixtureと専用client/prepareテストを削除・canonical契約へ移植し、`LegacyCanonicalComparison`、下位core/migration/rule/asset tests、legacy JSON/assets/generatorは維持している。
 - 状態: バックトラックとAttackのcanonical default化、ブラウザ受入、legacy削除前の最終比較、CalculationClient/route cleanup第2単位は完了。Phase 7全体のlegacy core/wrapper・assets/生成物/JSON整理、任意表示範囲拡張、最終受入は未完了。
+
+### Full-tail Attack resource benchmark
+
+- 完了: `scripts/benchmark-full-tail-attack.mjs`と`benchmark:full-tail-attack`（`npm run --silent benchmark:full-tail-attack`）を追加し、DR単独の202/300/400/600/800D × `kazanari=0/1/9`と、full-tail Attackの99D・critical=2・skill=+999・yousei=0/9・shihai=19/0・attack/defence dice=99・kazanari=9を標準出力JSON/人間向け行形式で測定する契約を追加した。各caseはscore cutoff、maxDamageDice、rawSupportMax、workingLength、FFT長、distributionLength、kazanari、elapsed、RangePlannerのestimatedTimeMs/estimatedMemoryBytes、accepted/status/error、tail metadata、digestを記録する。
+- 標準実測（Windows `win32/x64`、Node `v22.23.2`、Ryzen 7 9700X、warm=3、warmup=1）: DRのwarm中央値（kazanari=0/1/9）は202D=`1.30/7.60/21.65 ms`、300D=`1.16/22.22/64.74 ms`、400D=`1.54/29.33/85.88 ms`、600D=`4.17/88.74/282.91 ms`、800D=`5.95/118.14/378.26 ms`だった。高負荷Attackはscore cutoff=`2271/4261`、maxDamageDice=`427/626`、rawSupportMax=`4270/6260`、FFT=`8192`、estimatedTime=`401.98/566.72 ms`となり、現行hard `estimated-time=200 ms`により計算前rejectとなった。planner閾値は変更していない。
+- 解釈: 今回はNodeのcanonical core/resource計測であり、browser/低速機/Worker往復・UI描画は未測定である。これらの後続実測とproduction採用判断は別単位で行う。

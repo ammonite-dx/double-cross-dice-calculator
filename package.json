@@ -15,6 +15,7 @@
     "build": "vite build",
     "benchmark:calculators": "node scripts/benchmark-calculators.mjs",
     "benchmark:phase2h": "node scripts/benchmark-phase2h.mjs",
+    "benchmark:full-tail-attack": "node scripts/benchmark-full-tail-attack.mjs",
     "benchmark:phase2h:browser": "vite --config experiments/phase2h-browser/vite.config.mjs",
     "benchmark:phase2h:browser:canonical-attack": "vite --config experiments/phase2h-browser/vite.config.mjs",
     "benchmark:phase2h:browser:playwright": "node experiments/phase2h-browser/playwright-runner.mjs",
