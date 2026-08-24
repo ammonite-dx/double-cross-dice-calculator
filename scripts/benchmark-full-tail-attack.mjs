@@ -12,6 +12,36 @@ export const DEFAULT_WARMUP_ITERATIONS = 1
 export const MAX_ITERATIONS = 1_000
 export const MAX_WARMUP_ITERATIONS = 1_000
 
+const PERMISSIVE_RESOURCE_LIMIT = Number.MAX_SAFE_INTEGER
+
+// This mirrors the production Attack policy selection without copying or
+// mutating the application's DEFAULT_POLICY object.
+export const PRODUCTION_RANGE_POLICY = Object.freeze({
+  scorePropagation: 'full-tail',
+})
+
+// Benchmark-only policy: only RangePlanner thresholds are widened. The
+// planner's calculationMax, display policy, and cost model remain unchanged,
+// while downstream runtime and aggregation absolute safety ceilings remain in
+// force.
+export const BENCHMARK_RANGE_POLICY = Object.freeze({
+  scorePropagation: 'full-tail',
+  limits: Object.freeze({
+    warning: Object.freeze({
+      estimatedTimeMs: PERMISSIVE_RESOURCE_LIMIT,
+      estimatedMemoryBytes: PERMISSIVE_RESOURCE_LIMIT,
+      workingLength: PERMISSIVE_RESOURCE_LIMIT,
+      fftLength: PERMISSIVE_RESOURCE_LIMIT,
+    }),
+    hard: Object.freeze({
+      estimatedTimeMs: PERMISSIVE_RESOURCE_LIMIT,
+      estimatedMemoryBytes: PERMISSIVE_RESOURCE_LIMIT,
+      workingLength: PERMISSIVE_RESOURCE_LIMIT,
+      fftLength: PERMISSIVE_RESOURCE_LIMIT,
+    }),
+  }),
+})
+
 const DIGEST_MODULUS = 1_000_000_007
 const DR_DICE_COUNTS = Object.freeze([202, 300, 400, 600, 800])
 const KAZANARI_VALUES = Object.freeze([0, 1, 9])
@@ -22,27 +52,35 @@ const D10_ASSET_URL = new URL(
 
 let resultSink = 0
 
-function createScoreParams(yousei, shihai) {
+function createScoreParams(overrides = {}) {
   return {
     dice: 99,
     critical: 2,
-    skill: 999,
-    yousei,
-    shihai,
+    skill: 0,
+    yousei: 0,
+    shihai: 0,
+    ...overrides,
   }
 }
 
-function createAttackParams(yousei, shihai) {
-  const score = createScoreParams(yousei, shihai)
+function createAttackParams({
+  score = {},
+  reactionScore = score,
+  attackDice = 99,
+  attackValue = 999,
+  kazanari = 9,
+  defenceDice = 99,
+  defenceValue = -999,
+} = {}) {
   return {
     action: {
-      score: { ...score },
-      damage: { dice: 99, value: 999, kazanari: 9 },
+      score: createScoreParams(score),
+      damage: { dice: attackDice, value: attackValue, kazanari },
     },
     reaction: {
       mode: 'guard',
-      score: { ...score },
-      damage: { dice: 99, value: -999 },
+      score: createScoreParams(reactionScore),
+      damage: { dice: defenceDice, value: defenceValue },
     },
   }
 }
@@ -65,16 +103,89 @@ export const DR_CASES = Object.freeze(
 
 export const ATTACK_CASES = Object.freeze([
   Object.freeze({
-    id: 'attack-99d-critical2-skill999-yousei0-shihai19',
-    label: 'full-tail Attack 99D critical=2 skill=+999 yousei=0 shihai=19',
+    id: 'attack-99d-critical2-skill0-kazanari0',
+    label: 'full-tail Attack 99D critical=2 skill=0 kazanari=0',
     kind: 'attack',
-    params: createAttackParams(0, 19),
+    params: createAttackParams({
+      score: { skill: 0 },
+      kazanari: 0,
+    }),
+  }),
+  Object.freeze({
+    id: 'attack-202d-critical11-skill0-attack99',
+    label: 'full-tail Attack 202D from 99D critical=11 skill=0 attackDice=99',
+    kind: 'attack',
+    params: createAttackParams({
+      score: { critical: 11, skill: 0 },
+      attackDice: 99,
+      kazanari: 0,
+    }),
+  }),
+  Object.freeze({
+    id: 'attack-300d-critical11-skill999-attack197',
+    label: 'full-tail Attack 300D from 99D critical=11 skill=+999 attackDice=197',
+    kind: 'attack',
+    params: createAttackParams({
+      score: { critical: 11, skill: 999 },
+      attackDice: 197,
+      kazanari: 0,
+    }),
+  }),
+  Object.freeze({
+    id: 'attack-400d-critical2-skill999-attack72',
+    label: 'full-tail Attack 400D from 99D critical=2 skill=+999 attackDice=72',
+    kind: 'attack',
+    params: createAttackParams({
+      score: { skill: 999 },
+      attackDice: 72,
+      kazanari: 0,
+    }),
+  }),
+  Object.freeze({
+    id: 'attack-600d-critical2-skill999-attack272',
+    label: 'full-tail Attack 600D from 99D critical=2 skill=+999 attackDice=272',
+    kind: 'attack',
+    params: createAttackParams({
+      score: { skill: 999 },
+      attackDice: 272,
+      kazanari: 0,
+    }),
+  }),
+  Object.freeze({
+    id: 'attack-99d-critical2-kazanari1',
+    label: 'full-tail Attack 99D critical=2 skill=0 kazanari=1',
+    kind: 'attack',
+    params: createAttackParams({
+      score: { skill: 0 },
+      kazanari: 1,
+    }),
+  }),
+  Object.freeze({
+    id: 'attack-99d-critical2-kazanari9',
+    label: 'full-tail Attack 99D critical=2 skill=0 kazanari=9',
+    kind: 'attack',
+    params: createAttackParams({
+      score: { skill: 0 },
+      kazanari: 9,
+    }),
   }),
   Object.freeze({
     id: 'attack-99d-critical2-skill999-yousei9-shihai0',
     label: 'full-tail Attack 99D critical=2 skill=+999 yousei=9 shihai=0',
     kind: 'attack',
-    params: createAttackParams(9, 0),
+    params: createAttackParams({
+      score: { skill: 999, yousei: 9, shihai: 0 },
+      kazanari: 9,
+    }),
+  }),
+  Object.freeze({
+    id: 'attack-99d-critical2-skill999-yousei0-shihai19',
+    label: 'full-tail Attack 99D critical=2 skill=+999 yousei=0 shihai=19',
+    kind: 'attack',
+    params: createAttackParams({
+      score: { skill: 999, yousei: 0, shihai: 19 },
+      kazanari: 9,
+    }),
   }),
 ])
 
@@ -416,6 +527,25 @@ function summarizeCanonicalDamage(envelope) {
   }
 }
 
+function summarizeCanonicalTotal(envelope) {
+  if (envelope === null || envelope === undefined) {
+    return null
+  }
+  return {
+    result: {
+      values: summarizeNumericArray(envelope.result.values),
+      offset: envelope.result.offset,
+      support: envelope.result.support,
+      overflow: envelope.result.overflow,
+    },
+    metadata: {
+      sourceSupport: envelope.metadata.sourceSupport ?? null,
+      aggregationErrorBound: envelope.metadata.aggregationErrorBound ?? null,
+      componentCount: envelope.metadata.componentCount ?? null,
+    },
+  }
+}
+
 function summarizeAttackResult(result) {
   return {
     score: {
@@ -423,6 +553,7 @@ function summarizeAttackResult(result) {
       reaction: summarizeScoreEnvelope(result.score.reaction),
     },
     damage: summarizeCanonicalDamage(result.damage),
+    total: summarizeCanonicalTotal(result.total),
     runtime: result.runtimeOptions,
   }
 }
@@ -440,17 +571,51 @@ function createAttackPlannerParams(params) {
 }
 
 function createRangePlanError(plan) {
-  const reasons = plan?.rejectionReasons ?? []
+  const reasons = getPlanRejectionReasons(plan)
   if (reasons.length > 0) {
     return `range plan rejected: ${Array.from(new Set(reasons)).join(', ')}`
   }
-  const warnings = plan?.warnings?.filter(
-    (warning) => warning.severity === 'reject'
-  ) ?? []
-  if (warnings.length > 0) {
-    return `range plan rejected: ${warnings.map(({ code }) => code).join(', ')}`
-  }
   return 'range plan rejected before calculation'
+}
+
+function getPlanRejectionReasons(plan) {
+  const reasons = plan?.rejectionReasons ?? []
+  if (reasons.length > 0) {
+    return Array.from(new Set(reasons))
+  }
+  return Array.from(new Set(
+    plan?.warnings
+      ?.filter((warning) => warning.severity === 'reject')
+      .map(({ code }) => code) ?? []
+  ))
+}
+
+function summarizePlannerOutcome(measurement) {
+  if (measurement.error !== null) {
+    return {
+      accepted: null,
+      status: 'planner-error',
+      rejectionReasons: [],
+      scoreCutoff: null,
+      estimatedTimeMs: null,
+      estimatedMemoryBytes: null,
+      warnings: [],
+      error: formatError(measurement.error),
+    }
+  }
+
+  const plan = measurement.measurement.lastResult
+  const accepted = plan.accepted === true
+  return {
+    accepted,
+    status: accepted ? 'accepted' : 'planner-rejected',
+    rejectionReasons: getPlanRejectionReasons(plan),
+    scoreCutoff: plan.scores?.map((score) => score.tail?.cutoff ?? null) ?? null,
+    estimatedTimeMs: plan.estimates?.timeMs ?? null,
+    estimatedMemoryBytes: plan.estimates?.float64Bytes ?? null,
+    warnings: summarizeWarnings(plan),
+    error: accepted ? null : createRangePlanError(plan),
+  }
 }
 
 function copyRuntimeOptions(options) {
@@ -595,26 +760,66 @@ async function runDrCase(testCase, dependencies) {
 }
 
 async function runAttackCase(testCase, dependencies, runtimeDx) {
-  const plannerMeasurement = await measureSafely(() =>
+  const plannerParams = createAttackPlannerParams(testCase.params)
+  const productionPlannerMeasurement = await measureSafely(() =>
     dependencies.planCalculationRanges(
-      createAttackPlannerParams(testCase.params),
-      { scorePropagation: 'full-tail' }
+      plannerParams,
+      PRODUCTION_RANGE_POLICY
     )
   )
-  const plan = plannerMeasurement.measurement?.lastResult ?? null
+  const benchmarkPlannerMeasurement = await measureSafely(() =>
+    dependencies.planCalculationRanges(
+      plannerParams,
+      BENCHMARK_RANGE_POLICY
+    )
+  )
+  const productionPlanner = summarizePlannerOutcome(
+    productionPlannerMeasurement
+  )
+  const benchmarkPlanner = summarizePlannerOutcome(
+    benchmarkPlannerMeasurement
+  )
+  const plan = benchmarkPlannerMeasurement.measurement?.lastResult ?? null
   const kazanari = testCase.params.action.damage.kazanari
   const planFields = summarizePlanFields(plan, kazanari)
+  const productionPlannerResultDigest =
+    productionPlannerMeasurement.measurement?.resultDigest ?? null
+  const plannerResultDigest =
+    benchmarkPlannerMeasurement.measurement?.resultDigest ?? null
+  const baseReport = {
+    ...planFields,
+    productionAccepted: productionPlanner.accepted,
+    productionStatus: productionPlanner.status,
+    productionRejectionReasons: productionPlanner.rejectionReasons,
+    productionScoreCutoff: productionPlanner.scoreCutoff,
+    productionEstimatedTimeMs: productionPlanner.estimatedTimeMs,
+    productionEstimatedMemoryBytes: productionPlanner.estimatedMemoryBytes,
+    productionWarnings: productionPlanner.warnings,
+    productionError: productionPlanner.error,
+    productionPlannerResultDigest,
+    benchmarkAccepted: benchmarkPlanner.accepted,
+    benchmarkStatus: benchmarkPlanner.status,
+    benchmarkRejectionReasons: benchmarkPlanner.rejectionReasons,
+    benchmarkWarnings: benchmarkPlanner.warnings,
+    benchmarkError: benchmarkPlanner.error,
+    benchmarkPlannerResultDigest: plannerResultDigest,
+    elapsed: {
+      productionPlanner: createTimingReport(
+        productionPlannerMeasurement.measurement
+      ),
+      planner: createTimingReport(benchmarkPlannerMeasurement.measurement),
+      execution: null,
+    },
+  }
 
-  if (plannerMeasurement.error !== null) {
+  if (benchmarkPlannerMeasurement.error !== null) {
     return createCommonCaseReport(testCase, {
-      ...planFields,
-      elapsed: {
-        planner: null,
-        execution: null,
-      },
+      ...baseReport,
       accepted: null,
       status: 'planner-error',
-      error: formatError(plannerMeasurement.error),
+      benchmarkAccepted: null,
+      benchmarkStatus: 'planner-error',
+      error: formatError(benchmarkPlannerMeasurement.error),
       tailMetadata: null,
       result: null,
       resultDigest: null,
@@ -622,12 +827,9 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
     })
   }
 
-  const plannerTiming = createTimingReport(plannerMeasurement.measurement)
-  const plannerResultDigest = plannerMeasurement.measurement.resultDigest
   if (plan.accepted !== true) {
     return createCommonCaseReport(testCase, {
-      ...planFields,
-      elapsed: { planner: plannerTiming, execution: null },
+      ...baseReport,
       accepted: false,
       status: 'planner-rejected',
       error: createRangePlanError(plan),
@@ -667,24 +869,29 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
       {},
       plan
     )
+    const total = dependencies.sumCanonicalDamage([damage])
     return {
       score,
       damage,
+      total,
       runtimeOptions: observed.runtimeOptions,
     }
   })
 
   if (executionMeasurement.error !== null) {
     return createCommonCaseReport(testCase, {
-      ...planFields,
+      ...baseReport,
       distributionLength: observed.runtimeOptions?.distributionLength ?? null,
       fftLength: observed.runtimeOptions?.fftLength ?? planFields.fftLength,
       elapsed: {
-        planner: plannerTiming,
+        ...baseReport.elapsed,
         execution: null,
       },
       accepted: true,
       status: 'execution-error',
+      benchmarkAccepted: true,
+      benchmarkStatus: 'execution-error',
+      benchmarkError: formatError(executionMeasurement.error),
       error: formatError(executionMeasurement.error),
       tailMetadata: null,
       result: null,
@@ -696,15 +903,18 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
   const execution = executionMeasurement.measurement
   const result = execution.lastResult
   return createCommonCaseReport(testCase, {
-    ...planFields,
+    ...baseReport,
     distributionLength: result.runtimeOptions?.distributionLength ?? null,
     fftLength: result.runtimeOptions?.fftLength ?? planFields.fftLength,
     elapsed: {
-      planner: plannerTiming,
+      ...baseReport.elapsed,
       execution: createTimingReport(execution),
     },
     accepted: true,
     status: 'measured',
+    benchmarkAccepted: true,
+    benchmarkStatus: 'measured',
+    benchmarkError: null,
     error: null,
     tailMetadata: summarizeAttackResult(result),
     result: {
@@ -713,6 +923,7 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
         reaction: summarizeScoreEnvelope(result.score.reaction),
       },
       damage: summarizeCanonicalDamage(result.damage),
+      total: summarizeCanonicalTotal(result.total),
     },
     resultDigest: execution.resultDigest,
     plannerResultDigest,
@@ -745,6 +956,7 @@ async function loadDependencies() {
         calculation.generateMixedDamageDistribution,
       getD10Distribution: repository.getD10Distribution,
       planCalculationRanges: calculation.planCalculationRanges,
+      sumCanonicalDamage: calculation.sumCanonicalDamage,
       registerD10Asset: repository.registerD10Asset,
     }
   } catch (error) {
@@ -775,6 +987,8 @@ function createMetadata(options) {
     requestedIterations: options.iterations,
     requestedWarmupIterations: options.warmupIterations,
     scorePropagation: 'full-tail',
+    productionRangePolicy: PRODUCTION_RANGE_POLICY,
+    benchmarkRangePolicy: BENCHMARK_RANGE_POLICY,
     drWeightMatrix: DR_CASES.map(({ dice, kazanari }) => ({ dice, kazanari })),
     attackCases: ATTACK_CASES.map(({ id }) => id),
   }
@@ -834,15 +1048,21 @@ export function formatHumanReport(report) {
   const lines = [
     'Full-tail Attack resource benchmark',
     `Node ${report.metadata.node.version}, ${report.metadata.machine.platform}/${report.metadata.machine.arch}, resultDigest=${formatValue(report.resultDigest)}`,
-    'elapsed: planner/execution; execution columns are cold and warm median/p95 milliseconds',
+    'elapsed: production-planner/planner/execution; columns are cold and warm median/p95 milliseconds',
   ]
   for (const testCase of report.cases) {
     const error = testCase.error === null || testCase.error === undefined
       ? '-'
       : String(testCase.error).replace(/\s+/g, ' ')
+    const benchmarkAccepted = testCase.benchmarkAccepted
+      ?? testCase.accepted
+    const benchmarkStatus = testCase.benchmarkStatus ?? testCase.status
     lines.push(
       `[${testCase.id}] kind=${testCase.kind} status=${testCase.status} `
       + `accepted=${formatValue(testCase.accepted)} `
+      + `production=${formatValue(testCase.productionAccepted)}/${formatValue(testCase.productionStatus)} `
+      + `productionReject=${formatValue(testCase.productionRejectionReasons)} `
+      + `benchmark=${formatValue(benchmarkAccepted)}/${formatValue(benchmarkStatus)} `
       + `scoreCutoff=${formatValue(testCase.scoreCutoff)} `
       + `maxDamageDice=${formatValue(testCase.maxDamageDice)} `
       + `rawSupportMax=${formatValue(testCase.rawSupportMax)} `
@@ -850,7 +1070,9 @@ export function formatHumanReport(report) {
       + `fftLength=${formatValue(testCase.fftLength)} `
       + `distributionLength=${formatValue(testCase.distributionLength)} `
       + `kazanari=${formatValue(testCase.kazanari)} `
-      + `elapsed=planner(${formatTiming(testCase.elapsed?.planner ?? null)})/execution(${formatTiming(testCase.elapsed?.execution ?? null)}) `
+      + `elapsed=production-planner(${formatTiming(testCase.elapsed?.productionPlanner ?? null)})/planner(${formatTiming(testCase.elapsed?.planner ?? null)})/execution(${formatTiming(testCase.elapsed?.execution ?? null)}) `
+      + `productionEstimatedTimeMs=${formatValue(testCase.productionEstimatedTimeMs)} `
+      + `productionEstimatedMemoryBytes=${formatValue(testCase.productionEstimatedMemoryBytes)} `
       + `estimatedTimeMs=${formatValue(testCase.estimatedTimeMs)} `
       + `estimatedMemoryBytes=${formatValue(testCase.estimatedMemoryBytes)} `
       + `error=${error} digest=${formatValue(testCase.resultDigest)}`

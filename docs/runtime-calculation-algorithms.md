@@ -565,3 +565,5 @@ Chart.js 4.5.1をローカル実装で確認した結果、`helpers.dataset.isAr
 標準実測（Windows `win32/x64`、Node `v22.23.2`、Ryzen 7 9700X、warm=3、warmup=1）では、DR warm中央値（kazanari=0/1/9）は202D=`1.30/7.60/21.65 ms`、300D=`1.16/22.22/64.74 ms`、400D=`1.54/29.33/85.88 ms`、600D=`4.17/88.74/282.91 ms`、800D=`5.95/118.14/378.26 ms`だった。高負荷Attackはscore cutoff=`2271/4261`、maxDamageDice=`427/626`、rawSupportMax=`4270/6260`、FFT=`8192`、estimatedTime=`401.98/566.72 ms`となり、現行hard `estimated-time=200 ms`により計算前rejectとなった。閾値は変更していない。
 
 これはNodeのcanonical core/resource計測であり、browser/低速機/Worker往復・UI描画を含まないため、production採用判断ではない。後続で同一入力のbrowser/低速条件/Worker/UI測定を行ってから採用可否を判断する。
+
+Task 2/3では、full-tail Attack benchmarkの各caseでproduction相当policyを先にplanner計測し、productionのaccepted/status/rejection理由とestimated resourceを保持するようにした。続いてRangePlannerのthresholdだけを広げたbenchmark policyを適用し、acceptedなcaseだけをcanonical Score→hit→runtime DR→defence→Damage→canonical totalまで実行する。production policy、absolute safety cap、Task 4 cost model、Task 5 thresholdは変更せず、browser/低速機/Worker往復/UI描画は未測定である。
