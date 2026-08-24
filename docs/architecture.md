@@ -48,7 +48,7 @@ reactive view state -> Chart.js
 
 `dr`の配信形式は圧縮効率を優先したダイス数ごとの疎な分布で、旧`src/data/DamageCalculator.js`経路と適合テストの参照用に保持します。本番の`CalculationClient`は`dr`をロードせず、攻撃ごとのweightsと`kazanari`を常駐`RuntimeDamageRollClient`へ渡してWorker内でダメージロール分布を計算します。Workerの結果は計算コアが固定値、d10防御ダイス、命中失敗を合成して画面向けの結果に仕上げます。
 
-判定とダメージの中間計算は2048要素で行い、画面へ返す直前に1024要素へ集約します。公開結果のインデックス1023は値1023以上を表します。この決定の根拠と厳密性の境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)を参照してください。
+canonicalの判定とダメージの中間計算は、要求windowとsupportに合わせて`RangePlanner`と`ResourceGuard`が計画する動的working rangeで行います。legacy published projection・compatibilityでは1024 bucketを使い、インデックス1023は値1023以上を表しますが、これはcanonical resultや最終表示の上限ではありません。この決定の根拠と厳密性の境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)を参照してください。
 
 ## 事前計算データ
 

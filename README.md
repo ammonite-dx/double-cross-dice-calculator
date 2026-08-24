@@ -12,7 +12,7 @@ TRPG『ダブルクロス The 3rd Edition』のダイスロールについて、
 - バックトラック後の侵蝕率分布の計算
 - 《妖精の手》《支配の領域》《絶対支配》《風鳴りの爪》、Dロイス《屍人》など、一部エフェクト・Dロイスの反映
 
-ダイスロールの解釈、対応範囲、事前計算するダイス数の根拠は[`docs/dice-rules.md`](./docs/dice-rules.md)に記載しています。画面へ返す確率分布はインデックス0から1023の配列で表現し、1023以上をインデックス1023へ集約します。判定とダメージの中間計算には2048要素を使用し、負の固定値やダイス軽減を適用する前に必要な情報を保持します。
+ダイスロールの解釈、対応範囲、事前計算するダイス数の根拠は[`docs/dice-rules.md`](./docs/dice-rules.md)に記載しています。canonicalの確率分布は`DistributionResult`としてsupport、explicit coverage、overflowを保持し、必要なworking rangeは`RangePlanner`と`ResourceGuard`で要求window・supportに応じて動的に計画します。legacy compatibility・migration comparison用の1024 bucketではインデックス1023に1023以上を集約しますが、これはcanonical resultや最終表示の上限ではありません。canonicalの中間計算は要求されたwindowとsupportに合わせたworking rangeを使い、legacy published projectionとの比較時だけ1024 bucketへ投影します。
 
 ## 技術構成
 
