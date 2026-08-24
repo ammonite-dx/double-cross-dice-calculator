@@ -23,8 +23,9 @@ canonical移行の横断的な実装順序と判断は [canonical-migration-road
 
 - 完了: Attackの初期計算、validated input、combo操作、Score/Damage chart、Summary、totalをcanonical batch/presentationと一つのlatest-wins runnerへ統合し、temporary `canonicalOptIn`、debug panel、legacy combo/total runner、route preloadをproduction接続から削除した。
 - 完了: Check Summaryをcanonical typed summaryへ切り替え、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterを共有presentation utilityとして再利用している。
+- 完了: AttackのScore/Damage表示フォームから999上限を撤廃し、任意の非負safe integerをcanonical display requestとして受け付ける。表示点数・メモリ・計算量のresource plannerによるrejectは維持している。
 - 完了: `CalculationClient.prepare`、`calculateCheck`、`calculateAttackCombo`、`calculateTotalDamage`、`calculateBacktrack`とlegacy score/damage/backtrack dependency/fallbackを削除し、`/check`を含む全計算routeからpreload guardを外した。canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、RangePlanner、ResourceGuard、published-bucket propagationは維持している。
-- 維持: legacy core/wrappers、比較・migration・rule・asset tests、legacy API相当の下位実装、JSON/assets/generator、既存表示範囲999と計算上の1024/1022境界。
+- 維持: legacy core/wrappers、比較・migration・rule・asset tests、legacy API相当の下位実装、JSON/assets/generator、legacy計算上の1024/1022境界。Attack表示フォームの999上限は撤廃済みで、未整理のlegacy core/assetsは維持する。
 - 未完了: Phase 7全体のlegacy core/wrapper・生成物/JSON整理、任意表示範囲拡張、最終受入。Vue完全mountは既存Node test環境制約により未実施で、runner/router behavior testで補完している。Attackのブラウザ受入は2026-08-24に完了した。
 
 第4段階では通常Checkのcontrolled SettingForm、999上限撤廃、dynamic display windowを実装し、resource rejectionで広い表示範囲を制御しました。Attack、バックトラック、三経路全体の入力・表示上限拡張は、誤差、計算時間、メモリ使用量、描画点数を同時に検証した後に判断します。

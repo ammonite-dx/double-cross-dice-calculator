@@ -36,13 +36,11 @@
     const minRule = [
         value => value !== '' || '最小値を入力して下さい。',
         value => isSafeCoordinate(value) || '最小値は0以上の安全な整数値として下さい。',
-        value => value <= 999 || '最小値は999以下として下さい。',
         value => value <= currentRequest.max || '最小値は最大値以下にして下さい',
     ];
     const maxRule = [
         value => value !== '' || '最大値を入力して下さい。',
         value => isSafeCoordinate(value) || '最大値は0以上の安全な整数値として下さい。',
-        value => value <= 999 || '最大値は999以下として下さい。',
         value => value >= currentRequest.min || '最大値は最小値以上にして下さい',
     ];
 
@@ -68,9 +66,6 @@
         if (generation !== validationGeneration || !validResult?.valid) {
             return;
         }
-        if (draft.min > 999 || draft.max > 999) {
-            return;
-        }
         try {
             emit('validated', createAttackDisplayRequestSnapshot(draft));
         } catch {
@@ -84,8 +79,8 @@
 <template>
     <v-form ref="form">
         <v-row dense class="pt-2 ma-0">
-            <v-col cols="6" class="pb-2"><v-text-field label="最小値" type="number" min="0" max="999" v-model.number="currentRequest.min" :rules="minRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
-            <v-col cols="6" class="pb-2"><v-text-field label="最大値" type="number" min="0" max="999" v-model.number="currentRequest.max" :rules="maxRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
+            <v-col cols="6" class="pb-2"><v-text-field label="最小値" type="number" min="0" v-model.number="currentRequest.min" :rules="minRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
+            <v-col cols="6" class="pb-2"><v-text-field label="最大値" type="number" min="0" v-model.number="currentRequest.max" :rules="maxRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
             <v-col cols="12" class="pb-2"><v-select label="表示モード" v-model="currentRequest.mode" :items="modeItem" variant="underlined" hide-details="auto" density="compact"/></v-col>
         </v-row>
     </v-form>

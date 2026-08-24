@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import {
+  ATTACK_DISPLAY_MODES,
+  createAttackDisplayRequestSnapshot,
+} from '../src/application/AttackDisplayRequestSnapshot'
 
 function readSource(path) {
   return readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -9,6 +13,7 @@ const attackSource = readSource('../src/views/Attack.vue')
 const attackTemplate = attackSource.slice(attackSource.indexOf('<template>'))
 const inputFormSource = readSource('../src/components/Attack/InputForm.vue')
 const comboFormSource = readSource('../src/components/Attack/ComboForm.vue')
+const scoreFormSource = readSource('../src/components/Attack/ScoreSettingForm.vue')
 const scoreChartSource = readSource('../src/components/Attack/ScoreChart.vue')
 const damageChartSource = readSource('../src/components/Attack/DamageChart.vue')
 const summaryTableSource = readSource('../src/components/Attack/SummaryTable.vue')
@@ -54,12 +59,26 @@ describe('Attack canonical integration contract', () => {
     }
   })
 
-  it('keeps the display range validation boundary at the existing 999 limit', () => {
-    expect(damageFormSource).toContain("defineEmits(['validated'])")
-    expect(damageFormSource).toContain('createAttackDisplayRequestSnapshot')
-    expect(damageFormSource).toContain('ATTACK_DISPLAY_MODES.PMF')
-    expect(damageFormSource).toContain('ATTACK_DISPLAY_MODES.UPPER_TAIL')
-    expect(damageFormSource).toContain('max="999"')
-    expect(damageFormSource).not.toMatch(/props\.displayRequest\.[\w]+\s*=/)
+  it('accepts arbitrary non-negative safe display ranges in both setting forms', () => {
+    for (const source of [scoreFormSource, damageFormSource]) {
+      expect(source).toContain("defineEmits(['validated'])")
+      expect(source).toContain('createAttackDisplayRequestSnapshot')
+      expect(source).toContain('ATTACK_DISPLAY_MODES.PMF')
+      expect(source).toContain('ATTACK_DISPLAY_MODES.UPPER_TAIL')
+      expect(source).not.toContain('max="999"')
+      expect(source).not.toMatch(/value\s*<=\s*999/)
+      expect(source).not.toMatch(/draft\.(min|max)\s*>\s*999/)
+      expect(source).not.toMatch(/props\.displayRequest\.[\w]+\s*=/)
+    }
+
+    const request = {
+      min: 0,
+      max: 1200,
+      mode: ATTACK_DISPLAY_MODES.UPPER_TAIL,
+    }
+    const snapshot = createAttackDisplayRequestSnapshot(request)
+    expect(snapshot).toEqual(request)
+    expect(snapshot).not.toBe(request)
+    expect(Object.isFrozen(snapshot)).toBe(true)
   })
 })
