@@ -88,6 +88,12 @@ describe('canonical CalculationClient surface', () => {
     expect(calculationClientSource).not.toMatch(
       /from ['"]\.\.\/data\/(?:Score|Backtrack)Calculator['"]/
     )
+    expect(calculationClientSource).not.toContain(
+      'toPublishedBucketDistribution'
+    )
+    expect(calculationClientSource).not.toContain(
+      'createPublishedScoreFromCanonicalEnvelope'
+    )
   })
 
   it('runs default Check and Backtrack canonical adapters without data wrappers', async () => {
@@ -198,8 +204,17 @@ describe('canonical CalculationClient surface', () => {
 
   it('runs canonical Attack through D10 lazy loading and canonical damage only', async () => {
     const canonicalDamage = createCanonicalDamage()
+    const planCalculationRangesSpy = vi.fn(planCalculationRanges)
+    const calculateCanonicalDamageOnDemand = vi.fn(async (score) => {
+      expect(score.action).toHaveProperty('result')
+      expect(score.reaction).toHaveProperty('result')
+      expect(score.action).not.toHaveProperty('distribution')
+      expect(score.reaction).not.toHaveProperty('distribution')
+      return canonicalDamage
+    })
     const dependencies = createDependencies({
-      calculateCanonicalDamageOnDemand: vi.fn(async () => canonicalDamage),
+      calculateCanonicalDamageOnDemand,
+      planCalculationRanges: planCalculationRangesSpy,
     })
     const client = createCalculationClient(dependencies)
 
@@ -216,6 +231,16 @@ describe('canonical CalculationClient surface', () => {
     expect(dependencies.calculateScoreCanonical).toHaveBeenCalledTimes(2)
     expect(dependencies.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
     expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledOnce()
+    expect(planCalculationRangesSpy.mock.calls[0][1]).toMatchObject({
+      scorePropagation: 'full-tail',
+    })
+
+    await client.calculateAttackCanonical(attackParams(), {
+      rangePolicy: { scorePropagation: 'published-bucket' },
+    })
+    expect(planCalculationRangesSpy.mock.calls[1][1]).toMatchObject({
+      scorePropagation: 'published-bucket',
+    })
   })
 
   it('keeps canonical Check compatibility summary without a legacy score call', async () => {
