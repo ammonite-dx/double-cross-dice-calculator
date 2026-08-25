@@ -9,6 +9,37 @@ import {
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 describe('Attack display request snapshot', () => {
+  it.each([
+    { label: '0..100', min: 0, max: 100 },
+    { label: '0..999', min: 0, max: 999 },
+    { label: '0..1000', min: 0, max: 1000 },
+    { label: '0..1023', min: 0, max: 1023 },
+    { label: '0..1024', min: 0, max: 1024 },
+    { label: '0..1200', min: 0, max: 1200 },
+    { label: '1000..1200', min: 1000, max: 1200 },
+    { label: '0..20000', min: 0, max: 20000 },
+  ])('accepts the arbitrary safe display window $label', ({ min, max }) => {
+    const request = {
+      min,
+      max,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+
+    expect(createAttackDisplayRequestSnapshot(request)).toEqual(request)
+  })
+
+  it('accepts a single-point window when min equals max', () => {
+    expect(createAttackDisplayRequestSnapshot({
+      min: 1200,
+      max: 1200,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    })).toEqual({
+      min: 1200,
+      max: 1200,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    })
+  })
+
   it('creates an alias-free frozen snapshot beyond the legacy 999 boundary', () => {
     const draft = {
       min: 1200,

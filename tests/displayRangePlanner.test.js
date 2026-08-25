@@ -120,6 +120,41 @@ describe('DisplayRangePlanner', () => {
     })
   })
 
+  it.each([
+    { label: '0..100', min: 0, max: 100, decision: 'reuse', accepted: true },
+    { label: '0..999', min: 0, max: 999, decision: 'reuse', accepted: true },
+    { label: '0..1000', min: 0, max: 1000, decision: 'reuse', accepted: true },
+    { label: '0..1023', min: 0, max: 1023, decision: 'reuse', accepted: true },
+    { label: '0..1024', min: 0, max: 1024, decision: 'recalculate', accepted: true },
+    { label: '0..1200', min: 0, max: 1200, decision: 'recalculate', accepted: true },
+    { label: '1000..1200', min: 1000, max: 1200, decision: 'recalculate', accepted: true },
+    { label: '0..20000', min: 0, max: 20000, decision: 'recalculate', accepted: false },
+  ])(
+    'classifies the arbitrary display window $label without a legacy cap',
+    ({ min, max, decision, accepted }) => {
+      const values = new Array(1024).fill(0)
+      values[0] = 1
+      const display = createDisplay({
+        values,
+        support: { kind: 'infinite' },
+      })
+      const result = plan(display, { min, max })
+
+      expect(result).toMatchObject({ accepted, decision })
+      expect(result.displayWindow).toMatchObject({
+        min,
+        max,
+        pointCount: max - min + 1,
+      })
+      if (accepted) {
+        expect(result.status).toBe('ready')
+      } else {
+        expect(result.status).toBe('resource-rejected')
+        expect(result.rejectionReasons).toContain('display-point-count')
+      }
+    }
+  )
+
   it('requires recalculation for both lower and upper coverage extensions', () => {
     const display = createDisplay({
       values: [0.25, 0.5, 0.25],
