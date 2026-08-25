@@ -858,7 +858,11 @@ export async function calculateCanonicalDamageOnDemand(
     const overflow = hasUnmodeledTail
       ? {
           kind: 'upper-bound',
-          lowerBound: 0,
+          // Every omitted coefficient is above the explicit prefix. The
+          // probability/error bound may be conservative, but it must not
+          // erase that positional fact: a lower bound of zero makes even a
+          // small default chart look non-projectable.
+          lowerBound: Math.max(0, explicitMax + 1),
           probabilityUpperBound: overflowProbabilityUpperBound,
           errorBound: overflowErrorBound,
         }

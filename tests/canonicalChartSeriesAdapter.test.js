@@ -255,6 +255,35 @@ describe('CanonicalChartSeriesAdapter', () => {
     })
   })
 
+  it('projects a covered PMF prefix when numeric tail error starts after it', () => {
+    const values = new Float64Array(1023)
+    values[0] = 1
+    const display = makeDisplay({
+      values,
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 1023,
+        probabilityUpperBound: 4e-16,
+        errorBound: 2e-8,
+      },
+    })
+    const plan = makePlan(display, { min: 0, max: 100 })
+    const series = createCanonicalChartSeries(display, plan)
+
+    expect(plan.decision).toBe('reuse')
+    expect(series).toMatchObject({
+      kind: 'canonical-chart-series',
+      status: 'ready',
+      mode: 'pmf',
+      displayWindow: { min: 0, max: 100, pointCount: 101 },
+    })
+    expect(series.values[0]).toBe(1)
+    expect(Array.from(series.values.slice(1))).toEqual(
+      new Array(100).fill(0)
+    )
+  })
+
   it('returns typed not-ready for resource rejection without generating values', () => {
     const display = makeDisplay({
       values: [1],

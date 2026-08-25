@@ -120,6 +120,35 @@ describe('DisplayRangePlanner', () => {
     })
   })
 
+  it('keeps a numerical upper-bound tail outside a covered low window', () => {
+    const values = new Array(1023).fill(0)
+    values[0] = 1
+    const display = createDisplay({
+      values,
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 1023,
+        probabilityUpperBound: 4e-16,
+        errorBound: 2e-8,
+      },
+    })
+    const result = plan(display, { min: 0, max: 100 })
+
+    expect(result).toMatchObject({
+      accepted: true,
+      decision: 'reuse',
+      reason: 'explicit-coverage',
+      coverage: {
+        explicit: { max: 1022 },
+        overflow: {
+          kind: 'upper-bound',
+          lowerBound: 1023,
+        },
+      },
+    })
+  })
+
   it.each([
     { label: '0..100', min: 0, max: 100, decision: 'reuse', accepted: true },
     { label: '0..999', min: 0, max: 999, decision: 'reuse', accepted: true },

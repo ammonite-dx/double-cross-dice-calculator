@@ -497,7 +497,7 @@ describe('canonical on-demand damage calculation', () => {
 
     expect(canonical.result.overflow).toEqual({
       kind: 'upper-bound',
-      lowerBound: 0,
+      lowerBound: 11,
       probabilityUpperBound: 0.4,
       errorBound: 0,
     })
