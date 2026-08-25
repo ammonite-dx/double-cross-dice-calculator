@@ -9,6 +9,7 @@ generated-data/
 .uv-cache/
 .venv/
 generator/.venv/
+generator/.uv-python/
 .pytest_cache/
 .ruff_cache/
 __pycache__/
