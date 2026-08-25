@@ -97,9 +97,9 @@ describe('CalculationClient integration', () => {
     expect(presentation.total.decision).not.toBe(
       ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
     )
-    expect(presentation.total.status).toBe('not-projectable')
-    expect(presentation.combos[0].chart).toBeNull()
-    expect(presentation.total.chart).toBeNull()
+    expect(presentation.total.status).toBe('ready')
+    expect(presentation.combos[0].chart).not.toBeNull()
+    expect(presentation.total.chart).not.toBeNull()
   })
 
   it('keeps published comparison explicit while full-tail uses resource limits', () => {
