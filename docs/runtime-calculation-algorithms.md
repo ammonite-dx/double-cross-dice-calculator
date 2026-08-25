@@ -590,7 +590,7 @@ Attackのplanner estimateと実測（ms、ratioはestimate/warm medianおよびe
 
 低負荷の99D/202DではNodeの実測ノイズを含むためestimateがwarm値を下回るが、kazanari=1/9とyousei9/shihai19の高負荷側は大幅な過小評価にならず、通常の300D/400Dも数倍以上の過大評価にはなっていない。高負荷yousei9/shihai19のestimateは200msを超えるため、現行production hard thresholdでは引き続き計算前rejectとなる。DEFAULT_POLICYの200msを含むwarning/hard threshold、production policy、runtimeの絶対安全上限、canonical結果の意味は変更していない。
 
-これはNode coreのcost model校正であり、Task 5のproduction warning/hard threshold最終判断、browser/低速端末、Worker往復、fetch/serialization、Vue/Chart/UI描画は未完了である。したがって、今回のratioだけでthreshold変更やproduction採用判断は行わない。
+これはNode coreのcost model校正時点の記録であり、当時はTask 5のproduction warning/hard threshold最終判断、browser/低速端末、Worker往復、fetch/serialization、Vue/Chart/UI描画を未測定だった。その後のTask 6 browser測定とTask 5暫定判断は次節へ記録する。今回のratioだけでthreshold変更やproduction採用判断を行わないという判断は維持する。
 
 ## Full-tail Attack browser resource measurement (Task 6)
 

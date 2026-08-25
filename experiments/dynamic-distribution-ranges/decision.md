@@ -620,3 +620,11 @@ overflowの計算はcomponent間の独立性を明示的に仮定する。null�
 配列長、offset/supportの合計、必要FFT長、推定buffer bytesはallocation前に確認する。absolute guardはvalues/FFTを`1 << 20`、component countを`1 << 12`、resourceを512 MiBとし、component・inspected・steps・descriptors・metadata・outputのpersistent bytesと各FFT peakの合計を検査する。optionsは`maxValuesLength`、`maxFftLength`、`maxResourceBytes`、`maxComponents`、`signal`、`onFftLength`だけを受け付け、旧aliasや未知keyを`INVALID_OPTIONS`で拒否する。`onFftLength`は実使用長を伝播し、`signal`はaggregation境界とFFT各stageで確認してAbortErrorで中断する。公開`convolveDistributions` helperは旧private線形畳み込みを異長対応へ整理したもので、既存`sumDistribution`と`subDistribution`の挙動は維持する。
 
 第5単位の対象はpure calculation API、unit tests、FFT helper、export、設計文書である。`CalculationClient`、UI、legacy `getTotalDamage`、combo ViewModel、Worker/JSON、display再集約、total summary、公開dynamic outputは変更しない。次段階ではcanonical aggregateをconsumerへ接続する境界と、support/overflow metadataを保持した公開契約を別途設計する。
+
+## 現行productionとの差分（2026-08-25）
+
+この文書のPhase 2-H第1〜5単位は、各単位の開始時点の設計判断と対象外を履歴として保持している。後続の実装でproduction Attackのcanonical batchへfull-tailが接続されたため、当時の「full-tail未接続」「published-bucketのみ」の記述は現行productionの説明ではない。
+
+現在のproduction `CalculationClient`はAttackのRangePlannerへ`scorePropagation: 'full-tail'`を明示し、Damage rangeをaction canonical Scoreの`outputMax`から導出する。reaction ScoreはDamageの`maxDamageDice`、raw support、FFT長、damage operation estimateの導出に使わない。Runtime DRのrangeとFFT長は同じRangePlanから動的に決まる。`DEFAULT_POLICY`の`published-bucket`はlegacy compatibility・migration comparison用の明示policyとして残している。
+
+202Dは現行の静的asset由来の比較境界であり、production semantic capではない。RangePlannerのruntime absolute safety ceilingとwarning/hard thresholdは別の防御として維持し、2026-08-25時点の推定時間warning/hard thresholdは50/200 msを暫定的に変更していない。低速実機、Firefox/WebKit、実UI描画を含む最終再評価とPhase 8のJSON/assets整理は後続作業である。
