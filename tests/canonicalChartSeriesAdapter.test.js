@@ -19,6 +19,7 @@ function makeDisplay({
   offset = 0,
   support = { kind: 'finite', max: offset + values.length - 1 },
   overflow = null,
+  projectionUncertainty,
 } = {}) {
   const probabilities = values instanceof Float64Array
     ? values
@@ -33,6 +34,9 @@ function makeDisplay({
     explicitMax,
     support,
     overflow,
+    ...(projectionUncertainty === undefined
+      ? {}
+      : { projectionUncertainty }),
   }
 }
 
@@ -251,6 +255,117 @@ describe('CanonicalChartSeriesAdapter', () => {
 
     expect(result).toMatchObject({
       kind: 'not-projectable',
+      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+    })
+  })
+
+  it('projects PMF and upper-tail when only a sub-pixel score tail is unknown', () => {
+    const display = makeDisplay({
+      values: [0.9, 0.1],
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 1e-8,
+        errorBound: 0,
+      },
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 1e-8,
+        outputOverflowLowerBound: null,
+      },
+    })
+    const plan = makePlan(display, { min: 0, max: 1 })
+    const pmf = createCanonicalChartSeries(display, plan)
+    const upperTail = createCanonicalChartSeries(display, plan, {
+      mode: CANONICAL_CHART_SERIES_MODES.UPPER_TAIL,
+    })
+
+    expect(plan.decision).toBe('reuse')
+    expect(pmf.status).toBe('ready')
+    expect(upperTail.status).toBe('ready')
+    expect(Array.from(pmf.values)).toEqual([0.9, 0.1])
+    expect(upperTail.values[0]).toBe(1)
+    expect(upperTail.values[1]).toBeCloseTo(0.1, 15)
+  })
+
+  it('accepts position uncertainty exactly at the display tolerance', () => {
+    const display = makeDisplay({
+      values: [0.9995, 0.0005],
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 5e-4,
+        errorBound: 0,
+      },
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 5e-4,
+        outputOverflowLowerBound: null,
+      },
+    })
+    const plan = makePlan(display, { min: 0, max: 1 })
+    const series = createCanonicalChartSeries(display, plan)
+
+    expect(plan.decision).toBe('reuse')
+    expect(series.status).toBe('ready')
+  })
+
+  it('keeps output overflow non-projectable even when score uncertainty is tiny', () => {
+    const display = makeDisplay({
+      values: new Array(101).fill(0).map((value, index) => (
+        index === 0 ? 0.8 : value
+      )),
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 0.2,
+        errorBound: 0,
+      },
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 1e-8,
+        outputOverflowLowerBound: 6,
+      },
+    })
+    const plan = makePlan(display, { min: 0, max: 100 })
+    const pmf = createCanonicalChartSeries(display, plan)
+    const upperTail = createCanonicalChartSeries(display, plan, {
+      mode: CANONICAL_CHART_SERIES_MODES.UPPER_TAIL,
+    })
+
+    expect(plan.decision).toBe('recalculate')
+    expect(pmf).toMatchObject({
+      status: 'not-projectable',
+      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+    })
+    expect(upperTail).toMatchObject({
+      status: 'not-projectable',
+      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+    })
+  })
+
+  it('rejects a covered window when position uncertainty exceeds tolerance', () => {
+    const display = makeDisplay({
+      values: [0.999, 0, 0, 0, 0, 0],
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 0.001,
+        errorBound: 0,
+      },
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 1e-3,
+        outputOverflowLowerBound: null,
+      },
+    })
+    const plan = makePlan(display, { min: 0, max: 5 })
+    const result = createCanonicalChartSeries(display, plan)
+
+    expect(plan.decision).toBe('recalculate')
+    expect(result).toMatchObject({
+      kind: 'not-projectable',
+      status: 'not-projectable',
       reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
     })
   })

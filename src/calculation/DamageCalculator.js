@@ -879,9 +879,15 @@ export async function calculateCanonicalDamageOnDemand(
       scoreTailProbabilityUpperBound > 0 ||
       scoreTailErrorBound > 0 ||
       numericalResidual > TOTAL_TOLERANCE
-    const outputOverflowLowerBound = outputOverflowProbabilityUpperBound > 0
+    const positionUnknownProbabilityUpperBound = Math.min(
+      1,
+      scoreTailProbabilityUpperBound +
+        scoreTailErrorBound +
+        numericalResidual
+    )
+    const outputOverflowLowerBound = composed.overflowProbability > 0
       ? getFinalOverflowLowerBound(composed.plan, attack, defence)
-      : Math.max(0, explicitMax + 1)
+      : null
     const outputSupport = hasUnmodeledTail || sourceSupport.kind === 'infinite'
       ? Object.freeze({ kind: 'infinite' })
       : modeledSupport
@@ -912,6 +918,12 @@ export async function calculateCanonicalDamageOnDemand(
       scoreTailCertificates: requested.scoreTailCertificates,
       scoreTailProbabilityUpperBound,
       scoreTailErrorBound,
+      projectionUncertainty: Object.freeze({
+        positionUnknownProbabilityUpperBound,
+        outputOverflowLowerBound: outputOverflowLowerBound !== null
+          ? outputOverflowLowerBound
+          : null,
+      }),
       modeledSupport,
       sourceSupport,
     })

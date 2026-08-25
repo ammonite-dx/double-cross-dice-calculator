@@ -5,6 +5,7 @@ import {
 import {
   CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
   CANONICAL_CHART_SERIES_NOT_READY_REASONS,
+  DISPLAY_PROBABILITY_TOLERANCE,
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
   DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
   createCanonicalChartSeries,
@@ -965,6 +966,31 @@ function hasTerminalUpperBoundEvidence(side) {
   const overflow = side.plan.coverage.overflow
   if (!hasPotentialUpperBoundOverflow(overflow)) {
     return false
+  }
+
+  const projectionUncertainty = side.plan.coverage.projectionUncertainty
+  if (
+    projectionUncertainty !== undefined
+    && projectionUncertainty !== null
+    && projectionUncertainty.positionUnknownProbabilityUpperBound <=
+      DISPLAY_PROBABILITY_TOLERANCE
+  ) {
+    const hasOutputOverflowLowerBound =
+      Object.prototype.hasOwnProperty.call(
+        projectionUncertainty,
+        'outputOverflowLowerBound'
+      ) && projectionUncertainty.outputOverflowLowerBound !== null
+    if (!hasOutputOverflowLowerBound) {
+      return false
+    }
+    const outputOverflowLowerBound =
+      projectionUncertainty.outputOverflowLowerBound
+    if (
+      outputOverflowLowerBound === null
+      || outputOverflowLowerBound > side.plan.displayWindow.max
+    ) {
+      return side.series.mode === ATTACK_DISPLAY_MODES.UPPER_TAIL
+    }
   }
 
   return side.series.mode === ATTACK_DISPLAY_MODES.UPPER_TAIL

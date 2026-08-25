@@ -155,6 +155,34 @@ describe('presentCanonicalDistribution', () => {
       .toMatchObject({ support: { kind: 'infinite' } })
   })
 
+  it('passes a validated projection uncertainty descriptor to the display contract', () => {
+    const result = createResult({
+      values: [0.9],
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 0.1,
+        errorBound: 0,
+      },
+    })
+    const envelope = createEnvelope(result, {
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 1e-8,
+        outputOverflowLowerBound: null,
+      },
+    })
+    const display = presentCanonicalDistribution(envelope, {
+      summary: getCanonicalDamageSummary(envelope),
+    })
+
+    expect(display.projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 1e-8,
+      outputOverflowLowerBound: null,
+    })
+    expect(Object.isFrozen(display.projectionUncertainty)).toBe(true)
+  })
+
   it.each([
     {
       label: 'null',

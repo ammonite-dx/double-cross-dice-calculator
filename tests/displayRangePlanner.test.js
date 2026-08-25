@@ -46,6 +46,9 @@ function createDisplay(options = {}) {
   if (options.displayWindow !== undefined) {
     presentationOptions.displayWindow = options.displayWindow
   }
+  if (options.projectionUncertainty !== undefined) {
+    envelope.metadata.projectionUncertainty = options.projectionUncertainty
+  }
   return presentCanonicalDistribution(envelope, presentationOptions)
 }
 
@@ -173,6 +176,96 @@ describe('DisplayRangePlanner', () => {
         overflow: {
           kind: 'upper-bound',
           lowerBound: 0,
+        },
+      },
+    })
+  })
+
+  it('reuses a fully covered window when position uncertainty is below display precision', () => {
+    const values = new Array(6).fill(0)
+    values[0] = 0.99999999
+    const display = createDisplay({
+      values,
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 1e-8,
+        errorBound: 0,
+      },
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 1e-8,
+        outputOverflowLowerBound: null,
+      },
+    })
+
+    expect(plan(display, { min: 0, max: 5 })).toMatchObject({
+      decision: 'reuse',
+      coverage: {
+        projectionUncertainty: {
+          positionUnknownProbabilityUpperBound: 1e-8,
+          outputOverflowLowerBound: null,
+        },
+      },
+    })
+  })
+
+  it('retains damage-output overflow as a coverage constraint when score uncertainty is tiny', () => {
+    const values = new Array(101).fill(0)
+    values[0] = 0.8
+    const display = createDisplay({
+      values,
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 0.2,
+        errorBound: 0,
+      },
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 1e-8,
+        outputOverflowLowerBound: 6,
+      },
+    })
+
+    expect(plan(display, { min: 0, max: 5 })).toMatchObject({
+      decision: 'reuse',
+      coverage: {
+        projectionUncertainty: { outputOverflowLowerBound: 6 },
+      },
+    })
+    expect(plan(display, { min: 0, max: 10 })).toMatchObject({
+      decision: 'recalculate',
+      coverage: {
+        projectionUncertainty: { outputOverflowLowerBound: 6 },
+      },
+    })
+  })
+
+  it('does not let a position-unknown tail above tolerance reuse covered support', () => {
+    const values = new Array(6).fill(0)
+    values[0] = 0.999
+    const display = createDisplay({
+      values,
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 0.001,
+        errorBound: 0,
+      },
+      projectionUncertainty: {
+        positionUnknownProbabilityUpperBound: 1e-3,
+        outputOverflowLowerBound: null,
+      },
+    })
+
+    expect(plan(display, { min: 0, max: 5 })).toMatchObject({
+      decision: 'recalculate',
+      coverage: {
+        missingSegments: [],
+        projectionUncertainty: {
+          positionUnknownProbabilityUpperBound: 1e-3,
         },
       },
     })

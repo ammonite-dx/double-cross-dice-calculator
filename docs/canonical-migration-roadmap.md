@@ -11,7 +11,7 @@
 - CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
 - BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。現在のprivate solo developmentではPRをacceptance gateにせず、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7全体のlegacy計算・fallback削除、表示範囲拡張、JSON整理は未完了である。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
 - AttackのScore/Damage表示範囲は999上限を撤廃し、任意の非負safe integerを受け付ける。`0..100`、`0..999`、`0..1000`、`0..1023`、`0..1024`、`0..1200`、`1000..1200`、`0..20000`の入力・coverage・resource判定を回帰テストで固定し、単一点`min === max`も有効とした。表示点数・メモリ・計算量のresource plannerによるrejectは維持する。Runtime DRのrange/FFTとfull-tail Damage rangeもplannerから動的に導出し、202Dをproduction semantic capとして扱わない。`CalculationClient.planAttackCombo()`ではaction `dice=99`・`critical=2`から`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=1024`、`fftLength=4096`、`accepted=true`、拒否理由なしを観測した。
-- `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。修正後のIn-app Browserでは、通常およびaction `99D/critical=2`の`Damage 0..100`が位置不明tailのため`not-projectable`となり、alert 1・canvas 0・console warn/error 0を確認した。これは旧受入結果の上書きではなく、以前の安全でないprojectionを明示的に拒否する変更である。`>202D`のplanner計画は確認済みだが、chart readyを要求する最終browser受入は未完了である。
+- `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをchart projectionから安全に省略できるようにした。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction `99D/critical=2`の`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。実UIの全ブラウザ受入は別途継続する。
 - Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照し、`src/data/ScoreCalculator.js`と`src/data/BacktrackCalculator.js`のdata wrapperは比較・migration用に維持する。
 
 ## 表示範囲と明示coverageの移行対象
@@ -27,7 +27,7 @@ chart dataは`min`/`max`の長さのlabels配列を無条件に生成せず、ca
 ## 最終方針と不変条件
 
 - 当面は静的SPAとブラウザ内計算を維持する。Cloudflare Workersの新規経路、HTTP API、MCPは今回実装せず、coreの契約と実測が安定した後の将来目標として再評価する。
-- canonical resultのsupport、overflow、expected valueの意味は内部result/metadataで保持する。通常UIでは不確かさやboundを明示せず、exactな値だけを既存のチャート・サマリー形式へ渡す。非exactな値は必要な範囲を再計算し、正確な表示モデルを作れない場合は既存のエラー・再入力案内へ接続する。特に`upper-bound`を一点の実確率や一点の期待値へ変換しない。
+- canonical resultのsupport、overflow、expected valueの意味は内部result/metadataで保持する。通常UIでは不確かさやboundを明示せず、exactな値を既存のチャート・サマリー形式へ渡す。Score尾部の位置不明上限が表示確率の半刻み`5e-4`以下で、Damage output overflowがwindow外にある場合だけ、表示精度を変えない安全なprojectionを許可する。それ以外の非exactな値は必要な範囲を再計算し、正確な表示モデルを作れない場合は既存のエラー・再入力案内へ接続する。特に`upper-bound`を一点の実確率や一点の期待値へ変換しない。
 - 既存legacy表示との比較テストを移行中は維持する。canonicalが資源制限やエラーで実行できない場合は、移行中の比較ではlegacy fallbackを許すが、最終productionでは旧結果ではなく既存のエラー・再入力案内へ接続し、legacy fallbackを削除する。
 
 ## 三経路で共有する表示契約
@@ -37,7 +37,7 @@ Checkやバックトラックを個別の都合で実装する前に、Attackに
 | 項目 | 共有契約で定義する内容 |
 | --- | --- |
 | Support | `finite`（`support.max`が示す既知の最大値）、`infinite`、`unknown`を区別し、resultの`explicitMax`やmetadataがある場合も`support.max`と同一視しない。有限性を確認できない結果を有限配列として扱わない。 |
-| Overflow | `exact`と`upper-bound`を区別して保持する。各overflowにある`lowerBound`はoverflow位置の下限であり、overflow.kindに`lower-bound`を追加したり、異なるkindを同じ一点値に正規化したりしない。 |
+| Overflow | `exact`と`upper-bound`を区別して保持する。各overflowにある`lowerBound`はoverflow位置の下限であり、overflow.kindに`lower-bound`を追加したり、異なるkindを同じ一点値に正規化したりしない。Score tailの位置不明上限とDamage output overflowを表示用metadataで分離し、表示精度未満の位置不明tailだけを省略可能とする。 |
 | Expected value | `exact`、`bounded`、`lower-bound`、`unavailable`を区別する。有限で検証済みの`exact`だけがlegacy互換の一点表示候補であり、`bounded`や`lower-bound`は内部に保持する。通常UIでboundを表示せず、再計算してもexactにならない場合はerror/re-input案内へ接続する。 |
 | Published/display buckets | 現在の1024 published bucket（`0..1022`と`1023`の上側tail）は比較用fixtureとして定義し、canonical表示ではユーザーのdisplay window、bucket境界、`explicitMax`、tailの意味を別フィールドで持つ。 |
 | Tail | `upperTailProbability`が表す範囲と、exact overflowを集約できる条件を明記する。上限だけのtailを実在する一点の確率として描画しない。 |

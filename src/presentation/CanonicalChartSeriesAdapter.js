@@ -3,6 +3,7 @@ import {
 } from './DisplayRangePlanner'
 import {
   CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+  DISPLAY_PROBABILITY_TOLERANCE,
 } from './DistributionPresenter'
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
@@ -225,6 +226,42 @@ function hasPotentialOverflowMass(overflow) {
       : overflow.probabilityUpperBound > 0)
 }
 
+function copyProjectionUncertainty(value, code, path) {
+  if (value === undefined) {
+    return null
+  }
+  const uncertainty = requirePlainRecord(value, code, path)
+  const positionUnknownProbabilityUpperBound = getOwnDataProperty(
+    uncertainty,
+    'positionUnknownProbabilityUpperBound',
+    code,
+    path
+  )
+  requireProbability(
+    positionUnknownProbabilityUpperBound,
+    code,
+    `${path}.positionUnknownProbabilityUpperBound`
+  )
+  const copied = { positionUnknownProbabilityUpperBound }
+  if (hasOwn(uncertainty, 'outputOverflowLowerBound')) {
+    const outputOverflowLowerBound = getOwnDataProperty(
+      uncertainty,
+      'outputOverflowLowerBound',
+      code,
+      path
+    )
+    if (outputOverflowLowerBound !== null) {
+      requireSafeNonNegativeInteger(
+        outputOverflowLowerBound,
+        code,
+        `${path}.outputOverflowLowerBound`
+      )
+    }
+    copied.outputOverflowLowerBound = outputOverflowLowerBound
+  }
+  return copied
+}
+
 function validateProbabilityContainer(values, path) {
   if (!Array.isArray(values) && !(values instanceof Float64Array)) {
     fail(
@@ -384,7 +421,27 @@ function normalizeDisplay(display) {
     )
   }
 
-  return { offset, probabilities, explicitMax, support, overflow }
+  const projectionUncertainty = copyProjectionUncertainty(
+    hasOwn(display, 'projectionUncertainty')
+      ? getOwnDataProperty(
+          display,
+          'projectionUncertainty',
+          CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+          'display'
+        )
+      : undefined,
+    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    'display.projectionUncertainty'
+  )
+
+  return {
+    offset,
+    probabilities,
+    explicitMax,
+    support,
+    overflow,
+    projectionUncertainty,
+  }
 }
 
 function normalizeSegment(value, path) {
@@ -590,7 +647,19 @@ function normalizePlan(plan) {
       'plan.coverage'
     ),
     CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
-    'plan.coverage.overflow'
+      'plan.coverage.overflow'
+  )
+  const projectionUncertainty = copyProjectionUncertainty(
+    hasOwn(coverage, 'projectionUncertainty')
+      ? getOwnDataProperty(
+          coverage,
+          'projectionUncertainty',
+          CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+          'plan.coverage'
+        )
+      : undefined,
+    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    'plan.coverage.projectionUncertainty'
   )
   const missingSegments = getOwnDataProperty(
     coverage,
@@ -772,6 +841,7 @@ function normalizePlan(plan) {
       explicit: { offset: explicitOffset, max: explicitMax },
       support,
       overflow,
+      projectionUncertainty,
       missingSegments: copiedMissingSegments,
       knownZero: copiedKnownZero,
     },
@@ -800,12 +870,28 @@ function supportEquals(left, right) {
     && (left.kind === 'infinite' || left.max === right.max)
 }
 
+function projectionUncertaintyEquals(left, right) {
+  const leftValue = left ?? null
+  const rightValue = right ?? null
+  if (leftValue === null || rightValue === null) {
+    return leftValue === rightValue
+  }
+  return leftValue.positionUnknownProbabilityUpperBound ===
+      rightValue.positionUnknownProbabilityUpperBound
+    && (leftValue.outputOverflowLowerBound ?? null) ===
+      (rightValue.outputOverflowLowerBound ?? null)
+}
+
 function assertPlanMatchesDisplay(plan, display) {
   if (
     plan.coverage.explicit.offset !== display.offset
     || plan.coverage.explicit.max !== display.explicitMax
     || !supportEquals(plan.coverage.support, display.support)
     || !overflowEquals(plan.coverage.overflow, display.overflow)
+    || !projectionUncertaintyEquals(
+      plan.coverage.projectionUncertainty,
+      display.projectionUncertainty
+    )
   ) {
     fail(
       CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
@@ -912,11 +998,49 @@ function makeNotProjectable(plan, mode, reason, overflow) {
   })
 }
 
-function assertOverflowDoesNotOverlapWindow(plan, mode, overflow) {
+function assertOverflowDoesNotOverlapWindow(
+  plan,
+  mode,
+  overflow,
+  projectionUncertainty
+) {
   if (!hasPotentialOverflowMass(overflow)) {
     return null
   }
-  if (overflow.kind === 'upper-bound' && mode === CANONICAL_CHART_SERIES_MODES.UPPER_TAIL) {
+
+  const hasProjectionDescriptor = projectionUncertainty !== null
+    && projectionUncertainty !== undefined
+  const positionUnknownProbabilityUpperBound =
+    projectionUncertainty?.positionUnknownProbabilityUpperBound
+  const positionUnknownWithinTolerance = hasProjectionDescriptor
+    && positionUnknownProbabilityUpperBound <= DISPLAY_PROBABILITY_TOLERANCE
+  const hasOutputOverflowLowerBound = hasProjectionDescriptor
+    && hasOwn(projectionUncertainty, 'outputOverflowLowerBound')
+    && projectionUncertainty.outputOverflowLowerBound !== null
+  const outputOverflowLowerBound = hasOutputOverflowLowerBound
+    ? projectionUncertainty.outputOverflowLowerBound
+    : null
+
+  if (hasProjectionDescriptor && !positionUnknownWithinTolerance) {
+    return makeNotProjectable(
+      plan,
+      mode,
+      overflow.kind === 'exact'
+        ? CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
+        : CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      overflow
+    )
+  }
+
+  // An upper-bound output tail cannot be inserted into an upper-tail series:
+  // its probability is not an exact value. A bounded score-position tail is
+  // the exception only when its display effect is below the tolerance and
+  // there is no separate output tail.
+  if (
+    overflow.kind === 'upper-bound'
+    && mode === CANONICAL_CHART_SERIES_MODES.UPPER_TAIL
+    && (!positionUnknownWithinTolerance || hasOutputOverflowLowerBound)
+  ) {
     return makeNotProjectable(
       plan,
       mode,
@@ -924,7 +1048,11 @@ function assertOverflowDoesNotOverlapWindow(plan, mode, overflow) {
       overflow
     )
   }
-  if (overflow.lowerBound <= plan.displayWindow.max) {
+
+  const lowerBound = hasProjectionDescriptor
+    ? outputOverflowLowerBound
+    : overflow.lowerBound
+  if (lowerBound !== null && lowerBound <= plan.displayWindow.max) {
     return makeNotProjectable(
       plan,
       mode,
@@ -1109,7 +1237,8 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
       const overflowResult = assertOverflowDoesNotOverlapWindow(
         normalizedPlan,
         mode,
-        normalizedDisplay.overflow
+        normalizedDisplay.overflow,
+        normalizedDisplay.projectionUncertainty
       )
       if (overflowResult !== null) {
         return overflowResult
@@ -1125,10 +1254,11 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
   assertPlanMatchesDisplay(normalizedPlan, normalizedDisplay)
   const overflowResult = normalizedPlan.decision === 'known-zero'
     ? null
-    : assertOverflowDoesNotOverlapWindow(
+      : assertOverflowDoesNotOverlapWindow(
         normalizedPlan,
         mode,
-        normalizedDisplay.overflow
+        normalizedDisplay.overflow,
+        normalizedDisplay.projectionUncertainty
       )
   if (overflowResult !== null) {
     return overflowResult

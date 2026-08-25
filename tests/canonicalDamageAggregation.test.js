@@ -100,6 +100,36 @@ describe('canonical damage aggregation', () => {
     expect(aggregate.metadata.componentDescriptors[0]).not.toHaveProperty('support')
   })
 
+  it('propagates score-position uncertainty separately from output overflow', () => {
+    const input = createEnvelope({
+      values: [0.8, 0, 0, 0, 0, 0],
+      support: { kind: 'infinite' },
+      overflow: {
+        kind: 'upper-bound',
+        lowerBound: 0,
+        probabilityUpperBound: 0.2,
+        errorBound: 0,
+      },
+      metadata: {
+        projectionUncertainty: {
+          positionUnknownProbabilityUpperBound: 1e-8,
+          outputOverflowLowerBound: 6,
+        },
+      },
+    })
+    const aggregate = sumCanonicalDamage([input])
+
+    expect(aggregate.metadata.projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 1e-8,
+      outputOverflowLowerBound: 6,
+    })
+    expect(aggregate.metadata.componentDescriptors[0]
+      .projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 1e-8,
+      outputOverflowLowerBound: 6,
+    })
+  })
+
   it('performs complete unequal-length convolution and sums offsets/support', () => {
     const first = createEnvelope({
       values: [0.5, 0.5],

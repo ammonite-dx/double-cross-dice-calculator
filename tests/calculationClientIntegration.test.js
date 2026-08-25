@@ -49,58 +49,107 @@ const scoreParams = {
 }
 
 describe('CalculationClient integration', () => {
-  it('keeps the default Attack damage window conservative for score-tail uncertainty', async () => {
-    const params = {
-      action: {
-        score: { ...scoreParams },
-        damage: { dice: 0, value: 0, kazanari: 0 },
-      },
-      reaction: {
-        mode: 'ドッジ',
-        score: { ...scoreParams },
-        damage: { dice: 0, value: 0 },
-      },
-    }
-    const displayRequest = {
-      min: 0,
-      max: 100,
-      mode: ATTACK_DISPLAY_MODES.PMF,
-    }
-    const rangePlans = []
-    const batch = await calculationClient.calculateAttackCanonicalBatch(
-      [{ id: 0, params }],
-      {
-        rangePolicy: createAttackRangePolicy(
-          displayRequest,
-          {},
-          displayRequest
-        ),
-        onRangePlan: (plan) => rangePlans.push(plan),
+  it.each([
+    ATTACK_DISPLAY_MODES.PMF,
+    ATTACK_DISPLAY_MODES.UPPER_TAIL,
+  ])(
+    'projects the default Attack damage window when score-tail uncertainty is below display precision ($0)',
+    async (mode) => {
+      const params = {
+        action: {
+          score: { ...scoreParams },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: { ...scoreParams },
+          damage: { dice: 0, value: 0 },
+        },
       }
-    )
-    const presentation = createAttackCanonicalDisplayPresentation(batch, {
-      displayRequest,
-      scoreDisplayRequest: displayRequest,
-      rangePlans,
-    })
+      const displayRequest = {
+        min: 0,
+        max: 100,
+        mode,
+      }
+      const rangePlans = []
+      const batch = await calculationClient.calculateAttackCanonicalBatch(
+        [{ id: 0, params }],
+        {
+          rangePolicy: createAttackRangePolicy(
+            displayRequest,
+            {},
+            displayRequest
+          ),
+          onRangePlan: (plan) => rangePlans.push(plan),
+        }
+      )
+      const presentation = createAttackCanonicalDisplayPresentation(batch, {
+        displayRequest,
+        scoreDisplayRequest: displayRequest,
+        rangePlans,
+      })
 
-    expect(batch.combos[0].canonicalDamage.metadata.scorePropagation)
-      .toBe('full-tail')
-    expect(batch.combos[0].canonicalDamage.result.values)
-      .toBeInstanceOf(Float64Array)
-    expect(batch.canonicalTotalDamage.result.values)
-      .toBeInstanceOf(Float64Array)
+      expect(batch.combos[0].canonicalDamage.metadata.scorePropagation)
+        .toBe('full-tail')
+      expect(batch.combos[0].canonicalDamage.result.values)
+        .toBeInstanceOf(Float64Array)
+      expect(batch.canonicalTotalDamage.result.values)
+        .toBeInstanceOf(Float64Array)
 
-    expect(presentation.combos[0].decision).not.toBe(
-      ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
-    )
-    expect(presentation.total.decision).not.toBe(
-      ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
-    )
-    expect(presentation.total.status).toBe('not-projectable')
-    expect(presentation.combos[0].chart).toBeNull()
-    expect(presentation.total.chart).toBeNull()
-  })
+      expect(presentation.combos[0].decision).not.toBe(
+        ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+      )
+      expect(presentation.total.decision).not.toBe(
+        ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+      )
+      expect(presentation.total.status).toBe('ready')
+      expect(presentation.combos[0].chart).not.toBeNull()
+      expect(presentation.total.chart).not.toBeNull()
+    }
+  )
+
+  it.each([100, 1200])(
+    'projects the 99D critical=2 Damage window through the canonical path (0..$0)',
+    async (max) => {
+      const params = {
+        action: {
+          score: { dice: 99, critical: 2, skill: 0, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: { dice: 99, critical: 2, skill: 0, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0 },
+        },
+      }
+      const displayRequest = {
+        min: 0,
+        max,
+        mode: ATTACK_DISPLAY_MODES.PMF,
+      }
+      const rangePlans = []
+      const batch = await calculationClient.calculateAttackCanonicalBatch(
+        [{ id: `99d-${max}`, params }],
+        {
+          rangePolicy: createAttackRangePolicy(
+            displayRequest,
+            {},
+            displayRequest
+          ),
+          onRangePlan: (plan) => rangePlans.push(plan),
+        }
+      )
+      const presentation = createAttackCanonicalDisplayPresentation(batch, {
+        displayRequest,
+        scoreDisplayRequest: displayRequest,
+        rangePlans,
+      })
+
+      expect(rangePlans[0].accepted).toBe(true)
+      expect(presentation.combos[0].status).toBe('ready')
+      expect(presentation.combos[0].chart).not.toBeNull()
+    }
+  )
 
   it('keeps published comparison explicit while full-tail uses resource limits', () => {
     const checkPlan = calculationClient.planCheck({

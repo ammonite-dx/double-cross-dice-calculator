@@ -366,6 +366,50 @@ function validateSourceSupport(sourceSupport, index) {
   return Object.freeze({ kind: 'finite', max: sourceSupport.max })
 }
 
+function copyProjectionUncertainty(value, index) {
+  if (value === undefined) {
+    return null
+  }
+  if (!isRecord(value)) {
+    fail(
+      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `canonical damage envelope[${index}] projectionUncertainty must be an object`,
+      { index }
+    )
+  }
+  const positionUnknownProbabilityUpperBound =
+    value.positionUnknownProbabilityUpperBound
+  if (
+    typeof positionUnknownProbabilityUpperBound !== 'number'
+    || !Number.isFinite(positionUnknownProbabilityUpperBound)
+    || positionUnknownProbabilityUpperBound < 0
+    || positionUnknownProbabilityUpperBound > 1
+  ) {
+    fail(
+      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `canonical damage envelope[${index}] projectionUncertainty position bound must be between 0 and 1`,
+      { index, positionUnknownProbabilityUpperBound }
+    )
+  }
+  const copied = { positionUnknownProbabilityUpperBound }
+  if (hasOwn(value, 'outputOverflowLowerBound')) {
+    const outputOverflowLowerBound = value.outputOverflowLowerBound
+    if (
+      outputOverflowLowerBound !== null
+      && (!Number.isSafeInteger(outputOverflowLowerBound)
+        || outputOverflowLowerBound < 0)
+    ) {
+      fail(
+        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+        `canonical damage envelope[${index}] output overflow lower bound must be null or a non-negative safe integer`,
+        { index, outputOverflowLowerBound }
+      )
+    }
+    copied.outputOverflowLowerBound = outputOverflowLowerBound
+  }
+  return Object.freeze(copied)
+}
+
 function sumValues(values, signal) {
   let total = 0
   for (let index = 0; index < values.length; index += 1) {
@@ -418,6 +462,12 @@ function inspectEnvelope(envelope, index, signal) {
 
   const result = envelope.result
   const sourceSupport = validateSourceSupport(metadata.sourceSupport, index)
+  const projectionUncertainty = copyProjectionUncertainty(
+    hasOwn(metadata, 'projectionUncertainty')
+      ? metadata.projectionUncertainty
+      : undefined,
+    index
+  )
   const explicitMass = sumValues(result.values, signal)
 
   // A supplied modeledSupport is metadata, not a second source of truth. It
@@ -436,6 +486,7 @@ function inspectEnvelope(envelope, index, signal) {
     support: result.support,
     overflow: result.overflow,
     sourceSupport,
+    projectionUncertainty,
   }
 }
 
@@ -1007,6 +1058,11 @@ function createComponentDescriptor(component) {
     modeledSupport: copySupport(component.support),
     sourceSupport: copySupport(component.sourceSupport),
     overflow: copyOverflow(component.overflow),
+    ...(component.projectionUncertainty === null
+      ? {}
+      : {
+          projectionUncertainty: component.projectionUncertainty,
+        }),
   })
 }
 
@@ -1074,10 +1130,58 @@ function createOutputResult(values, plan, overflow, singleResult, signal) {
   }
 }
 
+function createAggregateProjectionUncertainty(inspected, aggregationErrorBound) {
+  const descriptors = inspected
+    .map((component) => component.projectionUncertainty)
+  const hasDescriptor = descriptors.some((descriptor) => descriptor !== null)
+  if (!hasDescriptor) {
+    return null
+  }
+
+  const positionBounds = []
+  let outputOverflowLowerBound = null
+  for (const component of inspected) {
+    const descriptor = component.projectionUncertainty
+    if (descriptor === null) {
+      // An overflow without the descriptor cannot be proven to be a
+      // right-side output tail; retain the conservative position uncertainty.
+      if (hasPotentialTail(component.overflow)) {
+        positionBounds.push(1)
+      }
+      continue
+    }
+    positionBounds.push(descriptor.positionUnknownProbabilityUpperBound)
+    if (
+      descriptor.outputOverflowLowerBound !== undefined
+      && descriptor.outputOverflowLowerBound !== null
+    ) {
+      outputOverflowLowerBound = outputOverflowLowerBound === null
+        ? descriptor.outputOverflowLowerBound
+        : Math.min(
+            outputOverflowLowerBound,
+            descriptor.outputOverflowLowerBound
+          )
+    }
+  }
+
+  const positionUnknownProbabilityUpperBound = Math.min(
+    1,
+    unionProbability(positionBounds) + aggregationErrorBound
+  )
+  return Object.freeze({
+    positionUnknownProbabilityUpperBound,
+    outputOverflowLowerBound,
+  })
+}
+
 function createMetadata(inspected, plan, diagnostics) {
   const componentDescriptors = Object.freeze(inspected.map(createComponentDescriptor))
   const modeledSupport = copySupport(plan.modeledSupport)
   const sourceSupport = copySupport(plan.sourceSupport)
+  const projectionUncertainty = createAggregateProjectionUncertainty(
+    inspected,
+    diagnostics.aggregationErrorBound
+  )
   return Object.freeze({
     modeledDistribution: true,
     aggregation: 'independent-sum',
@@ -1096,6 +1200,7 @@ function createMetadata(inspected, plan, diagnostics) {
     sourceErrorBound: plan.sourceErrorBound,
     fftMassDrift: diagnostics.fftMassDrift,
     sourceMassDrift: diagnostics.sourceMassDrift,
+    ...(projectionUncertainty === null ? {} : { projectionUncertainty }),
   })
 }
 

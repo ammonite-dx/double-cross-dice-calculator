@@ -4,6 +4,11 @@ import {
 
 export const CANONICAL_DISTRIBUTION_DISPLAY_VERSION = 1
 
+// The production probability labels are displayed to one decimal
+// percentage point. A position-unknown tail below half of that step cannot
+// change the displayed value, so the chart projection may safely omit it.
+export const DISPLAY_PROBABILITY_TOLERANCE = 5e-4
+
 // These limits keep recursive JSON validation well below the JavaScript call
 // stack and bound the amount of data copied into a display model.
 export const DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH = 64
@@ -622,6 +627,7 @@ function validateCanonicalEnvelope(canonicalEnvelope) {
     offset,
     support,
     overflow,
+    projectionUncertainty: copyProjectionUncertainty(metadata),
   }
 }
 
@@ -968,6 +974,71 @@ function copyOverflow(overflow) {
   }
 }
 
+function copyProjectionUncertainty(metadata) {
+  if (!hasOwn(metadata, 'projectionUncertainty')) {
+    return null
+  }
+
+  const value = requireOwnDataProperty(
+    metadata,
+    'projectionUncertainty',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+    'canonicalEnvelope.metadata'
+  )
+  if (!isPlainRecord(value)) {
+    fail(
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+      'canonicalEnvelope.metadata.projectionUncertainty must be a plain record'
+    )
+  }
+  validatePlainRecordDataProperties(
+    value,
+    'canonicalEnvelope.metadata.projectionUncertainty',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE
+  )
+
+  const positionUnknownProbabilityUpperBound = requireOwnDataProperty(
+    value,
+    'positionUnknownProbabilityUpperBound',
+    DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+    'canonicalEnvelope.metadata.projectionUncertainty'
+  )
+  if (
+    !isFiniteNumber(positionUnknownProbabilityUpperBound)
+    || positionUnknownProbabilityUpperBound < 0
+    || positionUnknownProbabilityUpperBound > 1
+  ) {
+    fail(
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+      'canonicalEnvelope.metadata.projectionUncertainty.positionUnknownProbabilityUpperBound must be between 0 and 1',
+      { positionUnknownProbabilityUpperBound }
+    )
+  }
+
+  const copied = { positionUnknownProbabilityUpperBound }
+  if (hasOwn(value, 'outputOverflowLowerBound')) {
+    const outputOverflowLowerBound = requireOwnDataProperty(
+      value,
+      'outputOverflowLowerBound',
+      DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+      'canonicalEnvelope.metadata.projectionUncertainty'
+    )
+    if (
+      outputOverflowLowerBound !== null
+      && (!Number.isSafeInteger(outputOverflowLowerBound)
+        || outputOverflowLowerBound < 0)
+    ) {
+      fail(
+        DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
+        'canonicalEnvelope.metadata.projectionUncertainty.outputOverflowLowerBound must be null or a non-negative safe integer',
+        { outputOverflowLowerBound }
+      )
+    }
+    copied.outputOverflowLowerBound = outputOverflowLowerBound
+  }
+  return copied
+}
+
 function copyDisplayWindow(options) {
   const descriptor = getPropertyDescriptorSafely(
     options,
@@ -1106,6 +1177,13 @@ export function presentCanonicalDistribution(
       mass: copiedSummary.mass,
       expectedValue: copiedSummary.expectedValue,
       warnings: copiedWarnings,
+      ...(validated.projectionUncertainty === null
+        ? {}
+        : {
+            projectionUncertainty: {
+              ...validated.projectionUncertainty,
+            },
+          }),
     }
     if (displayWindow !== null) {
       display.displayWindow = displayWindow

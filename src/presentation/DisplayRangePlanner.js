@@ -1,5 +1,6 @@
 import {
   CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+  DISPLAY_PROBABILITY_TOLERANCE,
 } from './DistributionPresenter'
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
@@ -290,7 +291,66 @@ function hasPotentialOverflowMass(overflow) {
           ? overflow.probability > 0
           : overflow.probabilityUpperBound > 0
       )
+  )
+}
+
+function copyProjectionUncertainty(display) {
+  if (!hasOwn(display, 'projectionUncertainty')) {
+    return null
+  }
+
+  const value = getOwnDataProperty(
+    display,
+    'projectionUncertainty',
+    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
+    'display'
+  )
+  requirePlainRecord(
+    value,
+    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
+    'display.projectionUncertainty',
+    'display.projectionUncertainty must be a plain record'
+  )
+  const positionUnknownProbabilityUpperBound = getOwnDataProperty(
+    value,
+    'positionUnknownProbabilityUpperBound',
+    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
+    'display.projectionUncertainty'
+  )
+  if (
+    !Number.isFinite(positionUnknownProbabilityUpperBound)
+    || positionUnknownProbabilityUpperBound < 0
+    || positionUnknownProbabilityUpperBound > 1
+  ) {
+    fail(
+      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
+      'display.projectionUncertainty.positionUnknownProbabilityUpperBound must be between 0 and 1',
+      { path: 'display.projectionUncertainty.positionUnknownProbabilityUpperBound' }
     )
+  }
+
+  const copied = { positionUnknownProbabilityUpperBound }
+  if (hasOwn(value, 'outputOverflowLowerBound')) {
+    const outputOverflowLowerBound = getOwnDataProperty(
+      value,
+      'outputOverflowLowerBound',
+      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
+      'display.projectionUncertainty'
+    )
+    if (
+      outputOverflowLowerBound !== null
+      && (!Number.isSafeInteger(outputOverflowLowerBound)
+        || outputOverflowLowerBound < 0)
+    ) {
+      fail(
+        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
+        'display.projectionUncertainty.outputOverflowLowerBound must be null or a non-negative safe integer',
+        { path: 'display.projectionUncertainty.outputOverflowLowerBound' }
+      )
+    }
+    copied.outputOverflowLowerBound = outputOverflowLowerBound
+  }
+  return copied
 }
 
 function normalizeDisplay(display) {
@@ -440,7 +500,13 @@ function normalizeDisplay(display) {
     )
   }
 
-  return { offset, explicitMax, support, overflow }
+  return {
+    offset,
+    explicitMax,
+    support,
+    overflow,
+    projectionUncertainty: copyProjectionUncertainty(display),
+  }
 }
 
 function normalizeDisplayWindow(windowInput) {
@@ -683,15 +749,39 @@ function makeSegment(min, max) {
 }
 
 function classifyCoverage(
-  { offset, explicitMax, support, overflow },
+  { offset, explicitMax, support, overflow, projectionUncertainty },
   displayWindow
 ) {
   const { min, max } = displayWindow
   const finiteSupport = support.kind === 'finite'
   const entirelyAboveFiniteSupport = finiteSupport && min > support.max
+  const hasOverflow = hasPotentialOverflowMass(overflow)
+  const positionUnknownProbabilityUpperBound =
+    projectionUncertainty?.positionUnknownProbabilityUpperBound
+  const positionUnknownExceedsTolerance =
+    positionUnknownProbabilityUpperBound !== undefined
+      && positionUnknownProbabilityUpperBound > DISPLAY_PROBABILITY_TOLERANCE
+  const hasOutputOverflowLowerBound = projectionUncertainty !== null
+    && Object.prototype.hasOwnProperty.call(
+      projectionUncertainty,
+      'outputOverflowLowerBound'
+    )
+  const outputOverflowLowerBound = hasOutputOverflowLowerBound
+    ? projectionUncertainty.outputOverflowLowerBound
+    : null
+  const overflowLowerBound = projectionUncertainty === null
+    ? overflow?.lowerBound
+    : outputOverflowLowerBound
   const overflowOverlapsWindow = !entirelyAboveFiniteSupport
-    && hasPotentialOverflowMass(overflow)
-    && overflow.lowerBound <= max
+    && hasOverflow
+    && (
+      positionUnknownExceedsTolerance
+      || (
+        overflowLowerBound !== null
+        && overflowLowerBound !== undefined
+        && overflowLowerBound <= max
+      )
+    )
 
   let lowerMissing = null
   let upperMissing = null
@@ -883,6 +973,13 @@ export function planDisplayRange(display, options, policyOverride) {
       overflow: normalizedDisplay.overflow === null
         ? null
         : { ...normalizedDisplay.overflow },
+      ...(normalizedDisplay.projectionUncertainty === null
+        ? {}
+        : {
+            projectionUncertainty: {
+              ...normalizedDisplay.projectionUncertainty,
+            },
+          }),
       missingSegments: coverage.missingSegments,
       knownZero: coverage.knownZero,
     },

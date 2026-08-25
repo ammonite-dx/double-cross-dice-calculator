@@ -507,6 +507,10 @@ describe('canonical on-demand damage calculation', () => {
     )
     expect(canonical.metadata.scoreTailProbabilityUpperBound)
       .toBeCloseTo(0.4, 12)
+    expect(canonical.metadata.projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 0.4,
+      outputOverflowLowerBound: null,
+    })
   })
 
   it('keeps reaction score tail uncertainty capable of reaching damage zero', async () => {
@@ -536,6 +540,10 @@ describe('canonical on-demand damage calculation', () => {
       kind: 'upper-bound',
       lowerBound: 0,
       probabilityUpperBound: 0.4,
+    })
+    expect(canonical.metadata.projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 0.4,
+      outputOverflowLowerBound: null,
     })
   })
 
@@ -570,6 +578,10 @@ describe('canonical on-demand damage calculation', () => {
       kind: 'upper-bound',
       lowerBound: 6,
       probabilityUpperBound: 1,
+    })
+    expect(canonical.metadata.projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 0,
+      outputOverflowLowerBound: 6,
     })
   })
 
@@ -624,6 +636,10 @@ describe('canonical on-demand damage calculation', () => {
       kind: 'upper-bound',
       lowerBound: 0,
       probabilityUpperBound: 0.82,
+    })
+    expect(canonical.metadata.projectionUncertainty).toMatchObject({
+      positionUnknownProbabilityUpperBound: 0.64,
+      outputOverflowLowerBound: 6,
     })
   })
 })
