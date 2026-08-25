@@ -962,7 +962,7 @@ describe('production range planner', () => {
     expect(published.damage.maxDamageDice).toBe(103)
     expect(published.damage.rawSupportMax).toBe(1030)
     expect(fullTail.damage.scoreValueUpperBound).toBe(
-      Math.max(...fullTail.scores.map((score) => score.outputMax))
+      fullTail.scores[0].outputMax
     )
     expect(fullTail.damage.rawSupportMax).toBe(10)
   })
