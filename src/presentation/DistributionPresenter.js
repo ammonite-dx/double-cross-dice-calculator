@@ -4,9 +4,9 @@ import {
 
 export const CANONICAL_DISTRIBUTION_DISPLAY_VERSION = 1
 
-// The production probability labels are displayed to one decimal
-// percentage point. A position-unknown tail below half of that step cannot
-// change the displayed value, so the chart projection may safely omit it.
+// The production probability labels use a 0.1 percentage-point display step.
+// A position-unknown probability bound at or below half that step keeps the
+// projection error within the UI display precision.
 export const DISPLAY_PROBABILITY_TOLERANCE = 5e-4
 
 // These limits keep recursive JSON validation well below the JavaScript call
