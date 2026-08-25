@@ -682,10 +682,16 @@ function makeSegment(min, max) {
   }
 }
 
-function classifyCoverage({ offset, explicitMax, support }, displayWindow) {
+function classifyCoverage(
+  { offset, explicitMax, support, overflow },
+  displayWindow
+) {
   const { min, max } = displayWindow
   const finiteSupport = support.kind === 'finite'
   const entirelyAboveFiniteSupport = finiteSupport && min > support.max
+  const overflowOverlapsWindow = !entirelyAboveFiniteSupport
+    && hasPotentialOverflowMass(overflow)
+    && overflow.lowerBound <= max
 
   let lowerMissing = null
   let upperMissing = null
@@ -711,7 +717,7 @@ function classifyCoverage({ offset, explicitMax, support }, displayWindow) {
     .filter((segment) => segment !== null)
   const decision = entirelyAboveFiniteSupport
     ? 'known-zero'
-    : missingSegments.length > 0
+    : missingSegments.length > 0 || overflowOverlapsWindow
       ? 'recalculate'
       : 'reuse'
 

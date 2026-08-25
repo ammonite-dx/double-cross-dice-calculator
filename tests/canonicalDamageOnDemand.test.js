@@ -497,7 +497,7 @@ describe('canonical on-demand damage calculation', () => {
 
     expect(canonical.result.overflow).toEqual({
       kind: 'upper-bound',
-      lowerBound: 11,
+      lowerBound: 0,
       probabilityUpperBound: 0.4,
       errorBound: 0,
     })
@@ -507,5 +507,123 @@ describe('canonical on-demand damage calculation', () => {
     )
     expect(canonical.metadata.scoreTailProbabilityUpperBound)
       .toBeCloseTo(0.4, 12)
+  })
+
+  it('keeps reaction score tail uncertainty capable of reaching damage zero', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const canonical = await calculateCanonicalDamageOnDemand(
+      {
+        action: canonicalScoreEnvelope([[1, 1]]),
+        reaction: canonicalScoreEnvelope([[0, 0.6]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 1,
+            probability: 0.4,
+            errorBound: 0,
+          },
+        }),
+      },
+      attack,
+      noDefence,
+      { getDamageRollDistribution: pointProvider(0) },
+      {},
+      createRangePlan(attack, noDefence, {}, 'full-tail')
+    )
+
+    expect(canonical.result.values[0]).toBeCloseTo(0.6, 12)
+    expect(canonical.result.overflow).toMatchObject({
+      kind: 'upper-bound',
+      lowerBound: 0,
+      probabilityUpperBound: 0.4,
+    })
+  })
+
+  it('keeps a damage-output-only overflow positionally bounded', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const rangePlan = createRangePlan(
+      attack,
+      noDefence,
+      {
+        rawSupportMax: 20,
+        rawMax: 20,
+        workingMax: 5,
+        workingLength: 7,
+        fftLength: 32,
+      },
+      'full-tail'
+    )
+    const canonical = await calculateCanonicalDamageOnDemand(
+      {
+        action: canonicalScoreEnvelope([[1, 1]]),
+        reaction: canonicalScoreEnvelope([[0, 1]]),
+      },
+      attack,
+      noDefence,
+      { getDamageRollDistribution: pointProvider(20) },
+      {},
+      rangePlan
+    )
+
+    expect(canonical.metadata.scoreTailProbabilityUpperBound).toBe(0)
+    expect(canonical.result.overflow).toMatchObject({
+      kind: 'upper-bound',
+      lowerBound: 6,
+      probabilityUpperBound: 1,
+    })
+  })
+
+  it('does not weaken the conservative bound when score and output tails coexist', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const rangePlan = createRangePlan(
+      attack,
+      noDefence,
+      {
+        rawSupportMax: 20,
+        rawMax: 20,
+        workingMax: 5,
+        workingLength: 7,
+        fftLength: 32,
+      },
+      'full-tail'
+    )
+    const canonical = await calculateCanonicalDamageOnDemand(
+      {
+        action: canonicalScoreEnvelope([[1, 0.6]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 2,
+            probability: 0.4,
+            errorBound: 0,
+          },
+        }),
+        reaction: canonicalScoreEnvelope([[0, 0.6]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 1,
+            probability: 0.4,
+            errorBound: 0,
+          },
+        }),
+      },
+      attack,
+      noDefence,
+      {
+        getDamageRollDistribution: weightedRawProvider([
+          [0, 0.75],
+          [6, 0.25],
+        ]),
+      },
+      {},
+      rangePlan
+    )
+
+    expect(canonical.result.overflow).toMatchObject({
+      kind: 'upper-bound',
+      lowerBound: 0,
+      probabilityUpperBound: 0.82,
+    })
   })
 })

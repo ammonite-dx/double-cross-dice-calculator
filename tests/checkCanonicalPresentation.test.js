@@ -138,7 +138,7 @@ describe('createCheckCanonicalPresentation', () => {
 
     expect(presentation.status).toBe('not-projectable')
     expect(presentation.decision).toBe('recalculate')
-    expect(presentation.action.plan.decision).toBe('reuse')
+    expect(presentation.action.plan.decision).toBe('recalculate')
     expect(presentation.action.decision).toBe('recalculate')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.action.reason)

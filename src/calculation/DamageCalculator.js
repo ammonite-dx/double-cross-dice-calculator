@@ -833,36 +833,68 @@ export async function calculateCanonicalDamageOnDemand(
     const explicitMass = sumProbabilities(values)
     const scoreTailProbabilityUpperBound = Math.min(
       1,
-      Math.max(
-        requested.unmodeledScoreProbabilityUpperBound,
-        Math.max(0, 1 - explicitMass)
-      )
+      requested.unmodeledScoreProbabilityUpperBound
+    )
+    const modeledMassGap = Math.max(
+      0,
+      1 - explicitMass - scoreTailProbabilityUpperBound
+    )
+    const outputOverflowProbabilityUpperBound = Math.min(
+      1,
+      Math.max(composed.overflowProbability, modeledMassGap)
+    )
+    const numericalResidual = Math.max(
+      0,
+      modeledMassGap - composed.overflowProbability
     )
     const scoreTailErrorBound = requested.scoreTailErrorBound
-    const overflowProbabilityUpperBound = Math.min(
+    // Keep the previous conservative aggregation as a floor. The explicit
+    // mass gap can already include damage-output overflow, so replacing it
+    // with a disjoint-looking score/output sum would otherwise weaken the
+    // published upper bound for mixed-tail cases.
+    const previousConservativeUpperBound = Math.min(
       1,
       Math.max(
         scoreTailProbabilityUpperBound,
-        scoreTailProbabilityUpperBound + composed.overflowProbability
+        Math.max(0, 1 - explicitMass)
+      ) + composed.overflowProbability
+    )
+    const overflowProbabilityUpperBound = Math.min(
+      1,
+      Math.max(
+        previousConservativeUpperBound,
+        scoreTailProbabilityUpperBound +
+          outputOverflowProbabilityUpperBound
       )
     )
     const overflowErrorBound =
       scoreTailErrorBound +
-      (composed.overflowProbability > 0 ? TOTAL_TOLERANCE : 0)
+      (composed.overflowProbability > 0 || numericalResidual > 0
+        ? TOTAL_TOLERANCE
+        : 0)
     const hasUnmodeledTail =
       overflowProbabilityUpperBound > 0 ||
       overflowErrorBound > 0
+    const hasPositionallyUncertainScoreTail =
+      scoreTailProbabilityUpperBound > 0 ||
+      scoreTailErrorBound > 0 ||
+      numericalResidual > TOTAL_TOLERANCE
+    const outputOverflowLowerBound = outputOverflowProbabilityUpperBound > 0
+      ? getFinalOverflowLowerBound(composed.plan, attack, defence)
+      : Math.max(0, explicitMax + 1)
     const outputSupport = hasUnmodeledTail || sourceSupport.kind === 'infinite'
       ? Object.freeze({ kind: 'infinite' })
       : modeledSupport
     const overflow = hasUnmodeledTail
       ? {
           kind: 'upper-bound',
-          // Every omitted coefficient is above the explicit prefix. The
-          // probability/error bound may be conservative, but it must not
-          // erase that positional fact: a lower bound of zero makes even a
-          // small default chart look non-projectable.
-          lowerBound: Math.max(0, explicitMax + 1),
+          // Score tails are not damage-output tails: an unmodeled action or
+          // reaction score can affect a low damage coordinate (including
+          // failure at zero). Only overflow created after the damage output
+          // has been composed can use its positional lower bound.
+          lowerBound: hasPositionallyUncertainScoreTail
+            ? 0
+            : outputOverflowLowerBound,
           probabilityUpperBound: overflowProbabilityUpperBound,
           errorBound: overflowErrorBound,
         }

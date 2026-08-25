@@ -1098,7 +1098,23 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
       CANONICAL_CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED
     )
   }
+  const normalizedDisplay = normalizeDisplay(display)
   if (normalizedPlan.decision === 'recalculate') {
+    // A range plan can be marked for recalculation solely because an
+    // upper-bound/exact overflow overlaps a fully covered window. Repeating
+    // the same calculation cannot place position-unknown mass safely, so
+    // preserve the typed not-projectable result for that case.
+    if (normalizedPlan.coverage.missingSegments.length === 0) {
+      assertPlanMatchesDisplay(normalizedPlan, normalizedDisplay)
+      const overflowResult = assertOverflowDoesNotOverlapWindow(
+        normalizedPlan,
+        mode,
+        normalizedDisplay.overflow
+      )
+      if (overflowResult !== null) {
+        return overflowResult
+      }
+    }
     return makeNotReady(
       normalizedPlan,
       mode,
@@ -1106,7 +1122,6 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
     )
   }
 
-  const normalizedDisplay = normalizeDisplay(display)
   assertPlanMatchesDisplay(normalizedPlan, normalizedDisplay)
   const overflowResult = normalizedPlan.decision === 'known-zero'
     ? null
