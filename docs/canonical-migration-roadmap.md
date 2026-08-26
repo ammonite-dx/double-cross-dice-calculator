@@ -9,14 +9,14 @@
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
 - CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
-- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。現在のprivate solo developmentではPRをacceptance gateにせず、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7は完了し、legacy core/wrapper・assets/JSON/generatorの棚卸し・整理はPhase 8へ移して未着手とする。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
+- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。現在のprivate solo developmentではPRをacceptance gateにせず、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7は完了し、Phase 8-1 inventoryとPhase 8-2A ChartSetter splitも完了している。残るrepository / wrapper / JSON / asset cleanupは後続へ送る。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
 - AttackのScore/Damage表示範囲は999上限を撤廃し、任意の非負safe integerを受け付ける。`0..100`、`0..999`、`0..1000`、`0..1023`、`0..1024`、`0..1200`、`1000..1200`、`0..20000`の入力・coverage・resource判定を回帰テストで固定し、単一点`min === max`も有効とした。表示点数・メモリ・計算量のresource plannerによるrejectは維持する。Runtime DRのrange/FFTとfull-tail Damage rangeもplannerから動的に導出し、202Dをproduction semantic capとして扱わない。`CalculationClient.planAttackCombo()`ではaction `dice=99`・`critical=2`から`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=1024`、`fftLength=4096`、`accepted=true`、拒否理由なしを観測した。
 - `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをUI表示精度内の誤差としてchart projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction/reaction双方の`99D/critical=2`について`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`はresource rejection、`0..100`への復帰はcanvas 2・alertなしで確認した。
 - Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照し、`src/data/ScoreCalculator.js`と`src/data/BacktrackCalculator.js`のdata wrapperは比較・migration用に維持する。
 
 ## 表示範囲と明示coverageの移行対象
 
-現行のlegacy経路では、`src/data/Distribution.js`の`range()`が`DISTRIBUTION_SIZE=1024`に依存し、`src/components/Attack/ChartSetter.js`の`clipData()`が固定長配列を`slice`している。通常のCheckではPhase 4でdynamic display windowを接続し、`src/components/Check/SettingForm.vue`をcontrolled化して表示`min`/`max`の999上限を撤廃した。AttackのSettingForm系（`src/components/Attack/ScoreSettingForm.vue`、`src/components/Attack/DamageSettingForm.vue`）もP1で固定上限を撤廃し、残るlegacy経路と計算上の1024/1022境界は後続で整理する。
+現行のlegacy経路では、`src/data/Distribution.js`の`range()`が`DISTRIBUTION_SIZE=1024`に依存し、`src/components/Attack/LegacyChartSetter.js`のlegacy `clipData()`が固定長配列を`slice`している。通常のCheckではPhase 4でdynamic display windowを接続し、`src/components/Check/SettingForm.vue`をcontrolled化して表示`min`/`max`の999上限を撤廃した。AttackのSettingForm系（`src/components/Attack/ScoreSettingForm.vue`、`src/components/Attack/DamageSettingForm.vue`）もP1で固定上限を撤廃し、残るlegacy経路と計算上の1024/1022境界は後続で整理する。
 
 数学的なsupport、canonical resultが明示的に保持するcoverage、ユーザーが選ぶ表示windowを分離する。`support`は結果が取り得る値の範囲であり、`explicitMax`は現在のresultに確率値が明示されている上限である。表示windowは非負safe integerの`min`/`max`を原則任意に指定でき、windowが明示coverage内ならresultを再利用する。windowがcoverage外でも有限supportの外側なら確率0として再計算せず、support内で明示値が不足する場合だけ計算範囲を拡張する。upper-tailを正確に得られない場合は拡張計算またはresource rejectionとする。safe integerでも配列長、メモリ、計算量、Chart.js描画負荷が問題になる場合は、preflight、`ResourceGuard`、`DisplayRangePlanner`で制限または拒否する。
 
@@ -100,7 +100,7 @@ Phase 2の共通canonical display contract、golden fixture、契約テストは
 - 完了条件: 非負safe integerの任意windowを受け取り、明示coverage内なら再利用し、coverage不足かつsupport内なら再計算し、有限support外は再計算せず扱える。window長、配列長、メモリ、計算量、描画点数をpreflight/`ResourceGuard`で検証できる。PMFとupper-tail、従来の丸め、既存1024 fixtureの比較が固定される。
 - 対象外: productionのcanonical debug panel追加、Attack/バックトラックのcanonical producer接続、三経路全体の既定経路切替、legacy計算/fallback削除。
 
-Phase 3を先に行うことで、固定`range()`、`clipData()`、各経路に残る固定上限を、経路ごとに別の暫定上限へ置き換えずに済む。無制限の入力を許可することと、無制限の配列・描画を実行することを分離する。
+Phase 3を先に行うことで、固定`range()`、legacy `clipData()`、各経路に残る固定上限を、経路ごとに別の暫定上限へ置き換えずに済む。無制限の入力を許可することと、無制限の配列・描画を実行することを分離する。
 
 #### Phase 3第1単位: 共通DisplayRangePlanner（実装済み）
 
@@ -180,7 +180,7 @@ production formの上限では最大diceは223、最大working lengthは約2231�
 - Phase 7 legacy cleanup第2単位（完了）: `CalculationClient`の`calculateCheck`、`calculateAttackCombo`、`calculateTotalDamage`、`calculateBacktrack`、legacy score/damage/backtrack依存注入、legacy fallback、route `prepare`を削除した。`/check`を含む全計算routeからpreload guardを外し、canonical Check/Attack/Backtrack、D10 lazy asset、RuntimeDamageRollWorker、RangePlanner、ResourceGuardを維持した。production Attackの`published-bucket`変換は使用せず、AttackのScore→Damageは`full-tail`で実行する。`published-bucket`は比較・互換用の明示policyとして残し、client-level legacy比較fixtureと専用client/prepareテストは削除・canonical契約へ移植した。下位legacy core/wrapper、比較・migration・asset・JSON/generatorはPhase 8まで維持する。
 - Attackブラウザ受入（2026-08-24、in-app browser / Vite local、`d30b3d1`前の履歴）: 初回はcanvas 2、Summary `コンボ1 6 / 45.5% / 3.1`、alert 0、一時switch 0、canonical/support/overflow debug text 0を確認した。action dice `2→20→3`の連続入力後は最終値3、canvas 2、alert 0、Summary `9.7 / 71% / 5.5`だった。combo追加で2 combos・合計8.6、複製で3 combos、削除で2 combosへ戻り、各状態でcanvas 2・alert 0だった。現在の位置不明tail契約を反映した最終受入とは分けて扱う。
 - Attackブラウザ受入（続き、`d30b3d1`前の履歴）: 《妖精の手》等を1にすると達成値期待値は単独`—`、命中率95.9%、damage 12.8となり、uncertainty warning/alertは観測されなかった。振り直せるダメージダイス1ではdamage 15、合計18.1、alert 0だった。Score/Damage双方をX以上表示へ切り替えてもcanvas 2・alert 0だった。初回の`--force`依存最適化reload中だけdynamic import warningが一時発生したが画面は復旧し、最適化後のserver/new tab再起動では初回2 canvas・Summary・alert 0と追加server warningなしを確認した。tabs/serverは終了し、port `3000`を解放した。現在の位置不明tail契約を反映した最終受入とは分けて扱う。
-- 現在の状態: BacktrackとAttackのcanonical default化、CalculationClient legacy API/route preload cleanup、full-tail Attack resource計測、cost model校正、Chrome desktop/CPU 4x受入、production threshold 50/200msの暫定維持判断、主要Attack表示windowのin-app Chromium受入、最終HEAD full gateは完了した。Phase 7は完了し、legacy core/wrapper・assets/JSON/generatorの棚卸し・整理はPhase 8へ移して未着手とする。低速実機・Firefox/WebKitのthreshold再評価は後続作業とする。
+- 現在の状態: BacktrackとAttackのcanonical default化、CalculationClient legacy API/route preload cleanup、full-tail Attack resource計測、cost model校正、Chrome desktop/CPU 4x受入、production threshold 50/200msの暫定維持判断、主要Attack表示windowのin-app Chromium受入、最終HEAD full gateは完了した。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter splitは完了している。legacy core/wrapper・assets/JSON/generatorの整理とbrowser smokeは後続作業とする。低速実機・Firefox/WebKitのthreshold再評価は後続作業とする。
 
 既定化は実装完了ではなく、三経路の比較・ブラウザ実測・resource/cancel/error確認後の受入判断である。既存チャート・サマリーの見た目を残すことは互換UIの維持であり、legacy計算や固定1024を残すことではない。
 
@@ -212,7 +212,7 @@ Phase 8-1ではファイル単位の一括判定を避け、mixed-use moduleのs
 
 #### Phase 8-1のsplit候補
 
-- `src/components/Attack/ChartSetter.js`: production canonical adapterとlegacy 1024-array helperが同居するため、削除ではなくkeepまたはsplitを先に検討する。
+- `src/components/Attack/ChartSetter.js`: Phase 8-2Aでproduction canonical adapterを残し、legacy 1024-array helperは`LegacyChartSetter.js`へsplit済み。legacy APIは削除条件が整うまで保持する。
 - `src/data/PrecomputedDataRepository.js`: productionで使うD10 lazy asset経路と、DX・DR・livingdead loader、comparison cacheが同居するため、D10経路を壊さずreference部分を分離できるか確認する。
 - `src/data/Distribution.js`、`src/data/FFT.js`: canonical calculation coreからも使用中であり、`src/data/`全体をlegacy扱いしない。production symbolとlegacy/reference symbolを分離して判定する。
 
@@ -234,7 +234,7 @@ Phase 8-1ではファイル単位の一括判定を避け、mixed-use moduleのs
 - D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`を削除・置換しない。
 - `published-bucket`はcomparison/compatibility用途として残り得る。1024/1022境界testは用途を確認するまで削除しない。
 - canonical resultのexpected value契約を維持する。exactでないDamage/Total等は`—`とし、Scoreもcertificateが保証できない場合は`—`とする。小さいprobability tailを理由にexpected valueの不確かさを無視しない。
-- probability表示は内部確率を百分率へ変換し、`Math.round(probability * 1000) / 10`で0.1 percentage pointへ丸める。`0 → 0`、`0.12349 → 12.3`、`0.1235 → 12.4`、`0.12351 → 12.4`、`1 → 100`などの境界はPhase 8-1 inventoryでcoverage gapとして記録し、Phase 8-2AのChartSetter整理でgolden testを固定する。新formatterや確率単位は追加しない。
+- Attack chartのprobability表示は`ChartPercentages.js`で内部確率を百分率へ変換し、`Math.round(probability * 1000) / 10`で0.1 percentage pointへ丸める。`0 → 0`、`0.12349 → 12.3`、`0.1235 → 12.4`、`0.12351 → 12.4`、`1 → 100`などの境界はPhase 8-2Aでgolden testを固定した。Check/Backtrack summaryの丸めへglobalに適用せず、新しい確率単位も導入しない。
 - JSON、runtime asset、generatorは一括削除せず、production import graph、公開URL、再生成手順を個別に確認する。
 
 #### `LegacyCanonicalComparison`削除前のoracle coverage map
@@ -255,7 +255,7 @@ legacy comparisonを削除できるのは、対応するsemanticがこの表の�
 
 `public/data/schema-v2/revision-1/`は公開後immutableとし、同一revision内のファイルをGit cleanupと同時に削除しない。productionで不要になったassetを減らす場合は新しいrevisionを作成し、旧revisionの保持期間とretirement条件を別途決める。Git上のcleanupと公開URLの削除は別の判断である。
 
-Phase 8-1では、Node/Vitestで検証するdependency contract testと、Vite build/preview上の実browserで検証するproduction browser smokeを別gateとして定義する。Dependency contract testは、通常Check（DX public asset fetch 0）、Attackの防御ダイス0（D10/DR fetch 0）、防御ダイス1以上（D10 fetch 1またはcache hit、DR fetch 0）、Backtrack（D10/livingdead fetch 0）に加え、legacy fallback 0とclient/result contractをmock/stubで確認する。Production browser smokeはreal asset URL、404なし、canvas/chart rendering、console warning/error 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する。今回のPhase 8-1では仕様分離に留め、test codeやPlaywright suiteは追加しない。ChartSetter splitではbrowser smokeを必須gateにせず、PrecomputedDataRepository splitやpublic asset整理へ進む前に両gateを必須前提とする。
+Phase 8-1で、Node/Vitestで検証するdependency contract testと、Vite build/preview上の実browserで検証するproduction browser smokeを別gateとして定義した。Phase 8-2Bでは前者を`tests/productionDependencyContract.test.js`として実装し、通常Check、Attackの防御ダイス0/1以上、Backtrack、legacy fallback 0、runtime DR provider、D10 readiness失敗時のlease解放をmock/stubで固定した。Production browser smokeはreal asset URL、404なし、canvas/chart rendering、console warning/error 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する後続gateであり、Phase 8-2Cへ送る。
 
 Phase 8-1ではfull verificationを1コマンドで再現できる状態（候補: `npm run verify`）を目標にするが、Phase 8-0ではCI triggerや既存scriptを変更しない。
 
@@ -263,11 +263,24 @@ Phase 8-1ではfull verificationを1コマンドで再現できる状態（候�
 
 - 状態: done（削除前のsymbol/export単位インベントリを[`phase8-inventory.md`](./phase8-inventory.md)に記録し、runtimeRuleValidationのoracle位置付け、dependency contract/browser smokeの分離、revision-1 asset表記、manifest/barrel分類を実装実態に合わせて最終補正した。cleanupそのもの、公開URLのretirement、JSONの削除はPhase 8-2以降で別途判断する）。
 - 成果物: canonical既定化後のproduction import graph、既存JSON・公開asset・再生成コード・legacy/comparison testの分類、1022/1023/1024境界とrounding coverageの棚卸しを[`phase8-inventory.md`](./phase8-inventory.md)に記録した。
-- closure補正: `runtimeRuleValidation.test.js`は独立expected/reference logicを持つがactual側のcanonical移植前であり、Node/Vitestのdependency contract testと実browserのproduction smokeを別gateとして定義した。revision-1は32 data assets + `manifest.json`で、manifestはruntime fetchではなくgenerator/deploy contract、`src/calculation/index.js`はproduction runtime importerのないtooling/test APIとして分類した。
+- closure補正: `runtimeRuleValidation.test.js`は独立expected/reference logicを持つがactual側のcanonical移植前であり、Node/Vitestのdependency contract testと実browserのproduction smokeを別gateとして定義した。Phase 8-2Bではclient境界テストを追加し、実browser smokeはPhase 8-2Cへ残した。revision-1は32 data assets + `manifest.json`で、manifestはruntime fetchではなくgenerator/deploy contract、`src/calculation/index.js`はproduction runtime importerのないtooling/test APIとして分類した。
 - 完了条件: productionが不要な事前計算JSONに依存しないことを確認し、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズ、削除前の独立oracleを個別に比較できる。Phase 8-1では削除を行わない。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 
 JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。production import graphと再生成用途を確認し、canonical Check/Attack/Backtrack、D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`、1024/1022境界テストの用途を維持したまま、分類結果に基づくPhase 8-2以降のcleanup候補を記録した。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A/2BではChart adapter分離とCalculationClient dependency contractを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+
+### Phase 8-2A: Attack chart adapter分離（完了）
+
+- `ChartSetter.js`をcanonical adapter、options、style専用とし、legacy `getAttackScoreChartData`、`getAttackDamageChartData`、`clipData`、`range`依存を`LegacyChartSetter.js`へ移した。
+- `ChartPercentages.js`とrounding golden testを追加した。production Vueからlegacy moduleへのimportはない。
+- 公開asset、JSON、generator、計算意味論、入力・表示windowは変更していない。
+
+### Phase 8-2B: production dependency contract（完了）
+
+- `tests/productionDependencyContract.test.js`で、Checkがprecomputed loaderを要求しないこと、Attackの防御ダイス0/1以上におけるD10 readiness境界、runtime DR/D10 getterの受け渡し、D10失敗時のDamage未開始とresource lease解放、Backtrackのpublic D10/livingdead loader非依存、legacy dependency/fallback未使用を固定した。
+- production code、public asset、JSON、generator、Worker protocol、RangePlanner、ResourceGuardは変更していない。
+- browser network smokeは未実施であり、Phase 8-2Cの必須gateとする。PrecomputedDataRepository splitはPhase 8-2C完了後に判断する。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 
@@ -304,7 +317,7 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 
 - 表示windowは非負safe integerの`min`/`max`を原則受け入れ、window長・メモリ・Chart.js描画負荷が問題になる場合だけpreflight/resource guardで拒否する。
 - 本番のチャート・サマリーは既存の見た目、ラベル、確率1桁丸め、summary丸めを維持する。不確かさやboundは通常UIへ明示しない。
-- `CanonicalAttackPanel`、`canonicalOptIn`、canonical debug表示、1024固定projection、production legacy計算、production legacy fallbackはPhase 7で削除済みである。canonical resource/error時は旧結果へfallbackせず、既存のerror/re-input案内へ接続する。下位legacy core、reference asset、比較・migration testはPhase 8-1のinventory完了まで維持する。
+- `CanonicalAttackPanel`、`canonicalOptIn`、canonical debug表示、1024固定projection、production legacy計算、production legacy fallbackはPhase 7で削除済みである。canonical resource/error時は旧結果へfallbackせず、既存のerror/re-input案内へ接続する。下位legacy core、reference asset、比較・migration testは後続cleanupの前提が整うまで維持する。
 - 静的SPAとブラウザ内計算を今回の公開形態として維持し、Cloudflare Workers、HTTP API、MCPはcanonical移行完了後の将来目標として再評価する。
 - 通常の対話操作はlatest-winsを基本とし、初期化、Attack全combo batchのatomic commit、共有asset/cacheは別のライフサイクルとして扱う。実行中ブラウザWeb Workerのcancelは今回の移行対象外とする。
 
@@ -317,6 +330,7 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - open（release hardening）: 低速実機を含むthreshold再評価、supported browser/deviceの明文化、最終resource policy、production dependency smoke、full verificationの単一コマンド化を行う。これらはPhase 7完了を取り消す未決定事項ではない。
 - done（Phase 8-1）: [symbol/export単位のinventory](./phase8-inventory.md)を作成し、保持・split・move・delete-candidateを個別判断した。実際のcleanupはPhase 8-2以降で行う。
 - done（Phase 8-2A）: Attackの`ChartSetter.js`からlegacy array adapterを`LegacyChartSetter.js`へ分離し、canonical adapter、options、styleのproduction importを維持した。`ChartPercentages.js`を追加してcanonical/legacy Attack chartの表示丸めを共有し、`0`、`0.12349`、`0.1235`、`0.12351`、`1`のgolden testとTypedArrayのowned Array変換を固定した。公開asset、JSON、generator、計算意味論、入力・表示windowは変更していない。`npm test`、ESLint、Markdown lint、build、`git diff --check`をgateとする。
+- done（Phase 8-2B）: `tests/productionDependencyContract.test.js`でCalculationClientのproduction dependency boundaryを固定した。Checkはprecomputed loaderを要求せず、AttackはD10 readinessを防御ダイス>0でのみ要求し、Damageへruntime DR providerとD10 getterを渡す。D10失敗時のDamage未開始・lease解放、Backtrackのpublic asset非依存、legacy dependency/fallback未使用も確認した。production code、asset、JSON、generator、Worker protocol、RangePlanner、ResourceGuardは変更していない。browser smokeはPhase 8-2Cへ送る。
 
 ## 参照文書
 

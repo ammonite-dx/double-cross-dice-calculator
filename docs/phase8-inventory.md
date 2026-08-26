@@ -44,7 +44,7 @@ Phase 8-2Aで、production canonical adapterと旧1024要素配列adapterを別m
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `src/components/Attack/LegacyChartSetter.js` | `getAttackScoreChartData` | `dead-candidate` | なし | 旧APIの比較・参照用途 | 旧1024配列と`range()`に依存するがproduction bundleから呼ばれない | なし | `getCanonicalAttackScoreChartData`とcanonical presentation tests | `keep`（split済み） | 外部利用と動的参照を再確認し、独立oracle移行後に削除を判断 | full JS gate、legacy importer 0 |
+| `src/components/Attack/LegacyChartSetter.js` | `getAttackScoreChartData` | `dead-candidate` | なし | なし。compatibility APIとしてsplit後も一時保持 | 旧1024配列と`range()`に依存するがproduction bundleから呼ばれない | なし | `getCanonicalAttackScoreChartData`とcanonical presentation tests | `keep`（split済み） | 外部利用と動的参照を再確認し、独立oracle移行後に削除を判断 | full JS gate、legacy importer 0 |
 | `src/components/Attack/ChartSetter.js` | `getCanonicalAttackScoreChartData` | `production` | Attack ScoreChart | `attackScoreDisplayAdapter.test.js`、canonical chart tests | Chart.js用labels/data、`ChartPercentages.js`による表示単位変換 | なし | canonical presentation and chart tests | `keep` | canonical chart contractを維持 | JS tests、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackScoreChartOptions` | `production` | Attack ScoreChart | chart adapter tests | Chart.js options | なし | existing chart smoke | `keep` | 見た目互換を維持 | build、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackScoreChartStyle` | `production` | Attack ScoreChart | component tests | Chart layout style | なし | existing browser acceptance | `keep` | 見た目互換を維持 | build、browser smoke |
@@ -162,7 +162,7 @@ Python generatorは現行配信assetの再生成元であり、旧dense JSONと�
 | `tests/runtimeRuleValidation.test.js` | rule/asset cross-check | `comparison-regression` | なし | test自身 | CI only | public assets and data wrappers | independent expected/reference logic exists; canonical actual migration pending | `split` | asset checksとruntime rule checksを分離し、legacy wrapper削除前にactual側をcanonical coreへ移植 | JS/generator gate |
 | `scripts/benchmark-calculators.mjs`、`benchmark-phase2h.mjs`、`benchmark-full-tail-attack.mjs` | legacy/canonical performance fixtures | `comparison-regression` | なし | manual benchmark | local Vite/SSR module loading | optional public assets | canonical runtime benchmark | `move` | benchmark対象と結果の保存場所を明記 | benchmark smoke when changed |
 
-`tests/runtimeRuleValidation.test.js`は、`independentD10Sum`、`independentLivingdead`などの独立したexpected/reference logicを持つ一方、actual側は`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`のwrapperに依存する。したがってScore、Damage、Backtrackのreplacement evidenceとしては条件付きであり、legacy wrapper削除前にactual側をcanonical coreへ移植する必要がある。今回の作業ではtest codeを変更しない。
+`tests/runtimeRuleValidation.test.js`は、`independentD10Sum`、`independentLivingdead`などの独立したexpected/reference logicを持つ一方、actual側は`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`のwrapperに依存する。したがってScore、Damage、Backtrackのreplacement evidenceとしては条件付きであり、legacy wrapper削除前にactual側をcanonical coreへ移植する必要がある。Phase 8-1 inventoryではtest codeを変更せず、Phase 8-2Bのdependency contract testは別のclient境界テストとして追加した。
 
 ## 1022、1023、1024、`published-bucket`の監査
 
@@ -194,22 +194,22 @@ Attack chartの表示丸めは`ChartPercentages.js`の`Math.round(probability * 
 
 ## dependency contract testとproduction browser smoke
 
-Node/Vitestで検証できるdependency contract testと、Vite preview上の実browserで検証するproduction browser smokeは別のgateである。今回のPhase 8-1 closureでは仕様を分離するだけで、test codeやPlaywright suiteは追加しない。
+Node/Vitestで検証できるdependency contract testと、Vite preview上の実browserで検証するproduction browser smokeは別のgateである。Phase 8-2Bでは前者を追加し、後者はPhase 8-2Cへ残す。
 
 ### Dependency contract test
 
-候補は`tests/productionDependencyContract.test.js`または既存integration testへの追加である。mock/stub fetchとCalculationClient levelで、次の依存関係、legacy fallback 0、期待するclient/result contractを検証する。
+`tests/productionDependencyContract.test.js`で、mock/stub dependencyとCalculationClient境界を検証する。実network fetchや実Workerではなく、次の依存関係、legacy fallback 0、期待するclient/result contractを固定する。
 
 1. 通常Check: DX public asset fetch 0。
 2. Attack、防御ダイス0: D10 fetch 0、DR fetch 0。
-3. Attack、防御ダイス1以上: D10 fetch 1またはcache hit、DR fetch 0。
+3. Attack、防御ダイス1以上: clientがD10 readinessを1回要求し、DR runtime providerを渡す。repositoryのnetwork fetchまたはcache hitはbrowser smokeで確認する。
 4. Backtrack: D10 fetch 0、livingdead fetch 0。
 
 ### Production browser smoke
 
 `vite build`と`vite preview`を使う実browser smokeでは、real asset URL、404なし、canvas/chart rendering、console error 0、console warning 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する。既存のin-app browser受入はこのgateの手動実行例として残す。
 
-Phase 8-2AのChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしていない。PrecomputedDataRepository splitやpublic asset整理へ進む前には、dependency contract testとproduction browser smokeの両方を必須前提とする。
+Phase 8-2AのChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしていない。Phase 8-2Bでdependency contract testを完了したが、PrecomputedDataRepository splitやpublic asset整理へ進む前には、production browser smokeも必須前提とする。
 
 ## Phase 8-2へ渡す判断
 
@@ -233,9 +233,9 @@ Phase 8-2Aでは、証拠が最も局所的で本番asset契約を変えない`s
 
 ### PrecomputedDataRepository split開始条件
 
-- dependency contract testを先に実装する。
-- production browser smokeを実行可能にする。
-- D10 lazy fetch/cache contractを固定する。
+- dependency contract test: 完了（`tests/productionDependencyContract.test.js`）。
+- production browser smoke: pending。実配布物のnetwork契約を先に確認する。
+- D10 lazy fetch/readiness contractを固定する。
 - revision-1 public URLを変更しない。
 
 ### legacy wrapper削除開始条件
