@@ -177,6 +177,7 @@ function createNetworkRecorder(page, baseUrl) {
   const record = {
     pageUrl: null,
     requests: [],
+    responses: [],
     httpErrors: [],
     consoleMessages: [],
     pageErrors: [],
@@ -194,6 +195,11 @@ function createNetworkRecorder(page, baseUrl) {
   })
   page.on('response', (response) => {
     const url = new URL(response.url())
+    record.responses.push({
+      sameOrigin: url.origin === origin,
+      status: response.status(),
+      url: response.url(),
+    })
     if (url.origin === origin && response.status() >= 400) {
       record.httpErrors.push({
         pathname: url.pathname,
