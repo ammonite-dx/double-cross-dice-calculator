@@ -257,13 +257,14 @@ Phase 8-1のproduction dependency smokeは、通常Check（DX asset fetch 0、�
 
 Phase 8-1ではfull verificationを1コマンドで再現できる状態（候補: `npm run verify`）を目標にするが、Phase 8-0ではCI triggerや既存scriptを変更しない。
 
-### Phase 8-1: 事前計算JSONとlegacy資産を整理する
+### Phase 8-1: 事前計算JSONとlegacy資産を整理する（インベントリ完了）
 
-- 成果物: canonical既定化後のruntime検証に基づく、既存JSONの保持・参照用化・削除と再生成コードの範囲を記録した判断。
-- 完了条件: productionが不要な事前計算JSONに依存せず、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズを確認する。削除対象と保持対象を個別に比較できる。
+- 状態: done（削除前のsymbol/export単位インベントリを[`phase8-inventory.md`](./phase8-inventory.md)に記録した。cleanupそのもの、公開URLのretirement、JSONの削除はPhase 8-2以降で別途判断する）。
+- 成果物: canonical既定化後のproduction import graph、既存JSON・公開asset・再生成コード・legacy/comparison testの分類、1022/1023/1024境界とrounding coverageの棚卸しを[`phase8-inventory.md`](./phase8-inventory.md)に記録した。
+- 完了条件: productionが不要な事前計算JSONに依存しないことを確認し、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズ、削除前の独立oracleを個別に比較できる。Phase 8-1では削除を行わない。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 
-JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8の最初の作業は削除ではなく、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しすることである。production import graphと再生成用途を確認し、canonical Check/Attack/Backtrack、D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`、1024/1022境界テストの用途を維持したまま、分類結果に基づいて個別に保持・参照用化・削除を判断する。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。production import graphと再生成用途を確認し、canonical Check/Attack/Backtrack、D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`、1024/1022境界テストの用途を維持したまま、分類結果に基づくPhase 8-2以降のcleanup候補を記録した。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 
@@ -311,7 +312,7 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - done: 表示window変更時は明示coverage内ならprojectionを再利用し、不足時はcanonical再計算する。finite support外の既知0、位置不明Score tail、Damage-output overflowは別のcertificateとして扱う。
 - done: Check、Attack、Backtrackの比較、browser acceptance、resource/cancel/error確認、canonical default化、最終HEAD gateを完了した。
 - open（release hardening）: 低速実機を含むthreshold再評価、supported browser/deviceの明文化、最終resource policy、production dependency smoke、full verificationの単一コマンド化を行う。これらはPhase 7完了を取り消す未決定事項ではない。
-- open（Phase 8-1）: legacy core、wrapper、JSON、runtime asset、generator、comparison/migration testのsymbol-level inventoryを作成し、保持・split・move・deleteを個別判断する。
+- done（Phase 8-1）: [symbol/export単位のinventory](./phase8-inventory.md)を作成し、保持・split・move・delete-candidateを個別判断した。実際のcleanupはPhase 8-2以降で行う。
 
 ## 参照文書
 
