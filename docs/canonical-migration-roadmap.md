@@ -190,7 +190,7 @@ production formの上限では最大diceは223、最大working lengthは約2231�
 - 完了条件: productionが不要な事前計算JSONに依存せず、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズを確認する。削除対象と保持対象を個別に比較できる。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 
-JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8の最初の作業は削除ではなく、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しすることである。production import graphと再生成用途を確認し、canonical Check/Attack/Backtrack、D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`、1024/1022境界テストの用途を維持したまま、分類結果に基づいて個別に保持・参照用化・削除を判断する。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 
