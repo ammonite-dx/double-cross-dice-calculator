@@ -234,33 +234,36 @@ Phase 8-1ではファイル単位の一括判定を避け、mixed-use moduleのs
 - D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`を削除・置換しない。
 - `published-bucket`はcomparison/compatibility用途として残り得る。1024/1022境界testは用途を確認するまで削除しない。
 - canonical resultのexpected value契約を維持する。exactでないDamage/Total等は`—`とし、Scoreもcertificateが保証できない場合は`—`とする。小さいprobability tailを理由にexpected valueの不確かさを無視しない。
-- probability表示は内部確率を百分率へ変換し、`Math.round(probability * 1000) / 10`で0.1 percentage pointへ丸める。`0 → 0`、`0.12349 → 12.3`、`0.1235 → 12.4`、`0.12351 → 12.4`、`1 → 100`などの境界をPhase 8-1のgolden testで固定し、新formatterはこの単位では追加しない。
+- probability表示は内部確率を百分率へ変換し、`Math.round(probability * 1000) / 10`で0.1 percentage pointへ丸める。`0 → 0`、`0.12349 → 12.3`、`0.1235 → 12.4`、`0.12351 → 12.4`、`1 → 100`などの境界はPhase 8-1 inventoryでcoverage gapとして記録し、Phase 8-2AのChartSetter整理でgolden testを固定する。新formatterや確率単位は追加しない。
 - JSON、runtime asset、generatorは一括削除せず、production import graph、公開URL、再生成手順を個別に確認する。
 
 #### `LegacyCanonicalComparison`削除前のoracle coverage map
 
 | semantic | 独立oracle / boundary test |
 | --- | --- |
-| Score（dice、critical、positive/negative skill、yousei、shihai、failure/fumble、tail certificate） | `tests/canonicalCheck.test.js`、`tests/dxOnDemand.test.js`、`tests/runtimeRuleValidation.test.js` |
-| Damage（fixed damage、defence、kazanari、reaction、output overflow、positional Score tail、mixed tail） | `tests/canonicalDamageOnDemand.test.js`、`tests/runtimeDamageOnDemand.test.js`、`tests/canonicalChartSeriesAdapter.test.js` |
+| Score（dice、critical、positive/negative skill、yousei、shihai、failure/fumble、tail certificate） | `tests/canonicalCheck.test.js`、`tests/dxOnDemand.test.js`、`tests/runtimeRuleValidation.test.js`（expected側は独立、actual側のcanonical移植後にreplacement成立） |
+| Damage（fixed damage、defence、kazanari、reaction、output overflow、positional Score tail、mixed tail） | `tests/canonicalDamageOnDemand.test.js`、`tests/runtimeDamageOnDemand.test.js`、`tests/canonicalChartSeriesAdapter.test.js`、`tests/runtimeRuleValidation.test.js`（expected側は独立、actual側のwrapper依存をcanonicalへ移植後にreplacement成立） |
 | Total（aggregation、overflow、multiple combos） | `tests/canonicalDamageAggregation.test.js`、`tests/canonicalTotalDamageClient.test.js` |
-| Backtrack（supported D-lois、normal/nightmare、negative values、finite support） | `tests/backtrackCanonical.test.js`、`tests/backtrackCanonicalIntegration.test.js`、`tests/runtimeRuleValidation.test.js` |
+| Backtrack（supported D-lois、normal/nightmare、negative values、finite support） | `tests/backtrackCanonical.test.js`、`tests/backtrackCanonicalIntegration.test.js`、`tests/runtimeRuleValidation.test.js`（expected側は独立、actual側のwrapper依存をcanonicalへ移植後にreplacement成立） |
 | Presentation（PMF、upper-tail、expected-value certificate、unavailable `—`） | `tests/canonicalChartSeriesAdapter.test.js`、`tests/attackCanonicalDisplayIntegration.test.js`、`tests/attackScoreDisplayAdapter.test.js`、`tests/attackDamageDisplayAdapter.test.js`、`tests/checkSummaryTable.test.js` |
 
 legacy comparisonを削除できるのは、対応するsemanticがこの表の独立oracle・boundary testで同等以上に保護され、比較testを外した最終gateが成功した場合だけとする。テスト総数だけを根拠にしない。
+
+`tests/runtimeRuleValidation.test.js`は独立したexpected/reference logicを含むが、actual側は`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`のwrapperを使う。したがって現時点では独立canonical oracleとは扱わず、legacy wrapper削除前にactual側をcanonical coreへ移植する必要がある。
 
 #### 公開assetとruntime smokeの方針
 
 `public/data/schema-v2/revision-1/`は公開後immutableとし、同一revision内のファイルをGit cleanupと同時に削除しない。productionで不要になったassetを減らす場合は新しいrevisionを作成し、旧revisionの保持期間とretirement条件を別途決める。Git上のcleanupと公開URLの削除は別の判断である。
 
-Phase 8-1のproduction dependency smokeは、通常Check（DX asset fetch 0、結果表示）、Attackの防御ダイス0（D10/DR fetch 0、chart表示）、防御ダイス1以上（D10 fetch 1またはcache hit、DR fetch 0、chart表示）、Backtrack（D10/livingdead fetch 0、chart 3枚）を最低ケースとし、console warning/error 0を確認する。既存Playwright性能suiteをCIへそのまま移植することは必須とせず、短いproduction smokeとして分離する。
+Phase 8-1では、Node/Vitestで検証するdependency contract testと、Vite build/preview上の実browserで検証するproduction browser smokeを別gateとして定義する。Dependency contract testは、通常Check（DX public asset fetch 0）、Attackの防御ダイス0（D10/DR fetch 0）、防御ダイス1以上（D10 fetch 1またはcache hit、DR fetch 0）、Backtrack（D10/livingdead fetch 0）に加え、legacy fallback 0とclient/result contractをmock/stubで確認する。Production browser smokeはreal asset URL、404なし、canvas/chart rendering、console warning/error 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する。今回のPhase 8-1では仕様分離に留め、test codeやPlaywright suiteは追加しない。ChartSetter splitではbrowser smokeを必須gateにせず、PrecomputedDataRepository splitやpublic asset整理へ進む前に両gateを必須前提とする。
 
 Phase 8-1ではfull verificationを1コマンドで再現できる状態（候補: `npm run verify`）を目標にするが、Phase 8-0ではCI triggerや既存scriptを変更しない。
 
 ### Phase 8-1: 事前計算JSONとlegacy資産を整理する（インベントリ完了）
 
-- 状態: done（削除前のsymbol/export単位インベントリを[`phase8-inventory.md`](./phase8-inventory.md)に記録した。cleanupそのもの、公開URLのretirement、JSONの削除はPhase 8-2以降で別途判断する）。
+- 状態: done（削除前のsymbol/export単位インベントリを[`phase8-inventory.md`](./phase8-inventory.md)に記録し、runtimeRuleValidationのoracle位置付け、dependency contract/browser smokeの分離、revision-1 asset表記、manifest/barrel分類を実装実態に合わせて最終補正した。cleanupそのもの、公開URLのretirement、JSONの削除はPhase 8-2以降で別途判断する）。
 - 成果物: canonical既定化後のproduction import graph、既存JSON・公開asset・再生成コード・legacy/comparison testの分類、1022/1023/1024境界とrounding coverageの棚卸しを[`phase8-inventory.md`](./phase8-inventory.md)に記録した。
+- closure補正: `runtimeRuleValidation.test.js`は独立expected/reference logicを持つがactual側のcanonical移植前であり、Node/Vitestのdependency contract testと実browserのproduction smokeを別gateとして定義した。revision-1は32 data assets + `manifest.json`で、manifestはruntime fetchではなくgenerator/deploy contract、`src/calculation/index.js`はproduction runtime importerのないtooling/test APIとして分類した。
 - 完了条件: productionが不要な事前計算JSONに依存しないことを確認し、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズ、削除前の独立oracleを個別に比較できる。Phase 8-1では削除を行わない。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 

@@ -1,6 +1,6 @@
 # Phase 8-1 inventory
 
-この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。対象は棚卸しだけであり、この作業ではファイル、JSON、公開URL、generator、production codeを削除しない。
+この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。対象は棚卸しだけであり、この作業ではファイル、JSON、公開URL、generator、production codeを削除しない。
 
 ## 判定範囲と分類
 
@@ -89,7 +89,7 @@ D10のlazy assetだけが現在のproduction fetch経路である。DX、DR、li
 | `src/calculation/BacktrackCalculator.js` | `calculateD10Distributions`、`calculateLivingdeadDistributions`、`calculateFinalEncroachmentCanonical` | `production` | CalculationClient canonical adapter | backtrack canonical/rule/integration tests | on-demand complete support、resource guard | generator d10/livingdead independent oracle | exhaustive reference and simulation | `keep` | canonical backtrackのasset非依存を維持 | JS tests、browser smoke |
 | `src/calculation/BacktrackCalculator.js` | `calculateFinalEncroachment` | `comparison-regression` | なし | data wrapper、backtrack migration、runtime rule tests | legacy public D10/livingdead provider | dense/public reference asset | canonical backtrack and rule tests | `delete-candidate` | migration testsを独立oracleへ移行 | full JS gate、legacy import 0 |
 | `src/calculation/LegacyCanonicalComparison.js` | thresholds、error classes、`compareLegacyAndCanonical*`一式 | `comparison-regression` | なし | `legacyCanonicalComparison.test.js`とcomparison barrel | 1024 legacy arrays、canonical adapter | 旧dense JSONとpublic assetsを比較入力にする | oracle coverage mapをroadmapに記録済み | `delete-candidate` | semanticごとの独立oracle、比較依存の削除、最終gate | comparison removal run、full JS gate |
-| `src/calculation/index.js` | canonical reexports | `production` | 現在のproduction sourceは個別moduleを直接import。外部利用向けAPIとして保持 | tests、benchmarks | bundle API surface | なし | canonical modules/tests | `keep` | 公開APIを別cleanupで変更しない | full JS gate |
+| `src/calculation/index.js` | canonical reexports | `comparison-regression` | なし。production sourceは個別moduleを直接import | tests、benchmarks | tooling/test API surface | なし | canonical modules/testsと個別import | `keep` | production runtime dependencyとtooling APIを混同しない | full JS gate |
 | `src/calculation/index.js` | legacy calculation/comparison reexports | `comparison-regression` | production sourceから参照なし | migration、comparison、benchmark tests | 旧APIのbarrel import | なし | direct canonical imports and oracle tests | `split` | test/benchmark importを明示moduleへ移行 | full JS gate、barrel legacy import 0 |
 
 ## data wrapper
@@ -121,11 +121,11 @@ D10のlazy assetだけが現在のproduction fetch経路である。DX、DR、li
 
 ## public schema-v2 revision-1 assets
 
-`public/data/schema-v2/revision-1/`は公開済みURLであり、同一revisionのファイルをこの棚卸しで削除しない。manifestを含む32ファイルの配布契約はimmutableとして扱う。D10だけがcurrent production lazy assetで、DX、DR、livingdeadはcomparison/reference assetである。不要assetを減らす場合は新revisionを作り、旧URLのretirementを別のrelease判断にする。
+`public/data/schema-v2/revision-1/`は公開済みURLであり、同一revisionのファイルをこの棚卸しで削除しない。manifestに列挙される32 data assetsと`manifest.json`自身のJSON files 33個を、revision-1のimmutable配布契約として扱う。D10だけがcurrent production lazy assetで、DX、DR、livingdeadはcomparison/reference assetである。不要assetを減らす場合は新revisionを作り、旧URLのretirementを別のrelease判断にする。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `public/data/schema-v2/revision-1/manifest.json` | manifest、hash、bytes、dataset metadata | `production` | D10 repositoryがschema/revisionを検証し、deployで配布 | `precomputedAssets.test.js`、generator current asset tests | Pagesの公開manifest/asset契約 | Python assets/manifest writer | hash/bytes equivalence tests | `keep` | revision-1 URLをimmutableに保持 | asset test、deploy smoke |
+| `public/data/schema-v2/revision-1/manifest.json` | manifest、hash、bytes、dataset metadata | `generator-regeneration` | なし。runtime repositoryはmanifestをfetchしない | `precomputedAssets.test.js`、generator current asset tests | deploy integrity、asset inventory、hash/bytes contract | Python assets/manifest writer | hash/bytes equivalence tests | `keep` | revision-1 immutable contractを維持 | asset test、deploy smoke |
 | `public/data/schema-v2/revision-1/d10.json` | 224 sparse D10 distributions | `production` | `CalculationClient.loadD10Asset`のlazy fetch | repository、damage、integration tests | 防御ダイスが1以上のときfetch、cache hit可 | generator d10、manifest | asset equivalence、D10 smoke | `keep` | fetch 1/cache hit、load failure案内を維持 | browser smoke、asset hash |
 | `public/data/schema-v2/revision-1/dx/shihai-{0..19}.json` | 20 DX shards | `comparison-regression` | current production fetch 0。repository APIは下位test/benchmark用 | dx migration、repository、asset tests | 公開URLは比較/referenceとして存在 | generator DX、manifest | runtime DX、generator exhaustive/simulation | `keep` | 新revision/URL retirementを別判断にする | asset equivalence、no production fetch smoke |
 | `public/data/schema-v2/revision-1/dr/kazanari-{0..9}.json` | 10 DR shards | `comparison-regression` | current production fetch 0。DRはWorker生成 | damage migration、runtime experiment、asset tests | 公開URLは比較/referenceとして存在 | generator DR、manifest | RuntimeDamageRollCalculator、reference/simulation | `keep` | Worker経路を維持しつつURLを削除しない | runtime smoke、asset equivalence |
@@ -159,8 +159,10 @@ Python generatorは現行配信assetの再生成元であり、旧dense JSONと�
 | `tests/precomputedData.test.js` | dense JSON dimensions/normalization | `migration` | なし | test自身 | CI only | dense JSON shape | generator numerical audit/current assets | `move` | schema-v2 validationへ移行し、旧形式をreference fixture化 | JS/generator gate |
 | `tests/precomputedDataRepository.test.js` | loader/cache/retry/revision validation | `comparison-regression` | なし | test自身 | repository APIs | public schema-v2 assets | D10 smoke、reference loader tests | `split` | D10 production smokeとreference loader testを分離 | full JS gate |
 | `tests/precomputedAssets.test.js` | manifest、hash、bytes、asset support | `generator-regeneration` | なし | test自身 | deploy asset contract | generator assets/manifest | current asset equivalence | `keep` | revision-1 public filesをimmutableに検証 | asset test、verify |
-| `tests/runtimeRuleValidation.test.js` | rule/asset cross-check | `comparison-regression` | なし | test自身 | CI only | public assets and data wrappers | canonical rule tests、generator reference/simulation | `split` | asset checksとruntime rule checksを分離 | JS/generator gate |
+| `tests/runtimeRuleValidation.test.js` | rule/asset cross-check | `comparison-regression` | なし | test自身 | CI only | public assets and data wrappers | independent expected/reference logic exists; canonical actual migration pending | `split` | asset checksとruntime rule checksを分離し、legacy wrapper削除前にactual側をcanonical coreへ移植 | JS/generator gate |
 | `scripts/benchmark-calculators.mjs`、`benchmark-phase2h.mjs`、`benchmark-full-tail-attack.mjs` | legacy/canonical performance fixtures | `comparison-regression` | なし | manual benchmark | local Vite/SSR module loading | optional public assets | canonical runtime benchmark | `move` | benchmark対象と結果の保存場所を明記 | benchmark smoke when changed |
+
+`tests/runtimeRuleValidation.test.js`は、`independentD10Sum`、`independentLivingdead`などの独立したexpected/reference logicを持つ一方、actual側は`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`のwrapperに依存する。したがってScore、Damage、Backtrackのreplacement evidenceとしては条件付きであり、legacy wrapper削除前にactual側をcanonical coreへ移植する必要がある。今回の作業ではtest codeを変更しない。
 
 ## 1022、1023、1024、`published-bucket`の監査
 
@@ -190,16 +192,24 @@ productionの表示丸めは`Math.round(probability * 1000) / 10`で、0.1 perce
 
 このインベントリではtest codeを変更しない。ChartSetter splitまたは共有表示formatterを設計するcleanup単位で、5点を同じ関数へ直接適用する小さなgolden testを追加する。新しい丸め方式や確率単位は導入しない。
 
-## production dependency smokeの実装場所
+## dependency contract testとproduction browser smoke
 
-既存のNode/Vitest testはimport graph、fetch、cache、Worker adapterを検証できる。最小のproduction smokeは、次の4ケースを同じfixtureで実行できる`tests/productionDependencySmoke.test.js`または既存integration testへの追加として設計する。ただし本インベントリでは実装しない。
+Node/Vitestで検証できるdependency contract testと、Vite preview上の実browserで検証するproduction browser smokeは別のgateである。今回のPhase 8-1 closureでは仕様を分離するだけで、test codeやPlaywright suiteは追加しない。
 
-1. 通常Check: DX public asset fetch 0、canonical result表示。
-2. Attack、防御ダイス0: D10/DR fetch 0、canonical chart表示。
-3. Attack、防御ダイス1以上: D10 fetch 1またはcache hit、DR fetch 0、canonical chart表示。
-4. Backtrack: D10/livingdead fetch 0、canonical chart 3枚表示。
+### Dependency contract test
 
-各ケースはconsole warning/error 0、legacy fallback 0、asset URLを記録する。既存のin-app browser受入は別の手動smokeとして残し、CIへそのまま移植することをPhase 8-1の完了条件にはしない。
+候補は`tests/productionDependencyContract.test.js`または既存integration testへの追加である。mock/stub fetchとCalculationClient levelで、次の依存関係、legacy fallback 0、期待するclient/result contractを検証する。
+
+1. 通常Check: DX public asset fetch 0。
+2. Attack、防御ダイス0: D10 fetch 0、DR fetch 0。
+3. Attack、防御ダイス1以上: D10 fetch 1またはcache hit、DR fetch 0。
+4. Backtrack: D10 fetch 0、livingdead fetch 0。
+
+### Production browser smoke
+
+`vite build`と`vite preview`を使う実browser smokeでは、real asset URL、404なし、canvas/chart rendering、console error 0、console warning 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する。既存のin-app browser受入はこのgateの手動実行例として残す。
+
+Phase 8-2のChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしない。PrecomputedDataRepository splitやpublic asset整理へ進む前には、dependency contract testとproduction browser smokeの両方を必須前提とする。
 
 ## Phase 8-2へ渡す判断
 
@@ -207,11 +217,33 @@ productionの表示丸めは`Math.round(probability * 1000) / 10`で、0.1 perce
 
 次点は`PrecomputedDataRepository.js`のD10 production loaderとDX/DR/livingdead reference loaderの分離である。D10 lazy fetch/cache smokeを先に固定し、公開revision-1 URLを変更せずにtest/reference importを移す。legacy wrapper、dense JSON、`LegacyCanonicalComparison`の削除は、その後にoracle coverage mapを実行してから行う。
 
+### ChartSetter split開始条件
+
+- production canonical chart exports、options、styleを保持する。
+- legacy helperの参照元を確認済みにする。
+- rounding golden 5点を追加する。
+- public assetと`PrecomputedDataRepository.js`には触れない。
+
+### PrecomputedDataRepository split開始条件
+
+- dependency contract testを先に実装する。
+- production browser smokeを実行可能にする。
+- D10 lazy fetch/cache contractを固定する。
+- revision-1 public URLを変更しない。
+
+### legacy wrapper削除開始条件
+
+- `runtimeRuleValidation.test.js`などのactual側をcanonical coreへ移植する。
+- independent oracle coverageを再確認する。
+- legacy wrapper importerを0にする。
+
 ## 完了条件と現時点の結論
 
 - production import graph、mixed-use moduleのsymbol/export、legacy core、wrapper、dense JSON、公開asset、generator、migration/comparison testを5分類で記録した。
+- `runtimeRuleValidation.test.js`は独立expected/reference logicを持つが、actual側のcanonical移植前であることを記録した。
+- dependency contract testとproduction browser smokeを別gateとして定義した。
 - `1022`、`1023`、`1024`、`published-bucket`の意味を用途別に分離した。
 - rounding golden coverageの不足を、実装変更なしで明示した。
-- D10以外の公開revision-1 assetは削除せず、旧URLのretirementを別revision・別release判断へ分離した。
+- D10以外の公開revision-1 assetは削除せず、32 data assetsと`manifest.json`の旧URLretirementを別revision・別release判断へ分離した。
 - Phase 8-2の最初のcleanup候補をChartSetter splitとし、PrecomputedDataRepository split、wrapper/JSON/comparison削除を後続へ送った。
 - この作業でproduction code、generator、JSON、asset、Worker、API、MCP、入力上限、表示window、branch以外の履歴は変更していない。

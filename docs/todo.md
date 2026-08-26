@@ -16,7 +16,7 @@ canonical移行の横断的な実装順序と判断は [canonical-migration-road
 4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
 6. 完了: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、バックトラックの完全support生成、既存戻り値維持、check/attack/backtrack UIへのwarning/reject表示まで接続した。Phase 2-Eでは本番コードを変更せずNode/Chromeベンチマーク基盤を追加・修正し、現行1024 published bucketのtotal damage集計を維持したまま、現行入力上限を変更しない暫定判断と追加実測の受入基準を確定した。resource guard、将来のdynamic output契約、入力拡張候補、JSON経路は次段階へ引き継ぐ
-7. 完了: [Phase 8-1 inventory](./phase8-inventory.md)でオンデマンド経路、production import graph、legacy wrapper、JSON、公開asset、generator、migration/comparison testをsymbol/export単位で棚卸しした。削除、公開URLのretirement、cleanupはPhase 8-2以降の独立作業として残す
+7. 完了: [Phase 8-1 inventory](./phase8-inventory.md)でオンデマンド経路、production import graph、legacy wrapper、JSON、公開asset、generator、migration/comparison testをsymbol/export単位で棚卸しし、runtimeRuleValidationのoracle位置付け、dependency contract/browser smokeの分離、revision-1の32 data assets + manifest、manifest/barrel分類を実装実態に合わせて最終補正した。削除、公開URLのretirement、cleanupはPhase 8-2以降の独立作業として残す
 8. open: 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
 第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、`DEFAULT_POLICY`は比較・互換用に`published-bucket`を保持しつつ、Attackのproduction `CalculationClient`は`full-tail`を明示的に選択します。DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。full-tail Attackのresource計測・暫定threshold判断は下記Phase 7実装単位へ記録し、残るJSON経路、legacy整理、低速実機、入力拡張候補の追加受入は後続課題です。
@@ -89,7 +89,7 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 
 ## 旧生成元と移行専用テストを整理する
 
-- 状態: open（Phase 8-1 inventoryで依存関係と保持・分離・削除を判断する）
+- 状態: open（Phase 8-1 inventoryで依存関係と保持・分離・削除を判断済み。Phase 8-2でcleanupを実施する）
 - 優先度: 中
 - 対象:
   - `src/data/*.json`
@@ -145,7 +145,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 実行時生成の数値誤差、オーバーフローバケット、キャッシュのメモリ上限をテストする
 - 自己遷移の計算を等比級数のシフト加算から係数漸化式 $d_{n,c}(x)=a_{n,c}(x)+p_c^n d_{n,c}(x-10)$ へ変更した場合は、確率質量関数から動的計画法を導入する説明を主とし、確率母関数を再帰構造の要約として後から示すように教科書を書き換える
 - 上記の実装変更時は、教科書だけでなく事前計算と実行時計算の開発者向けアルゴリズム文書も現行実装に合わせて更新する
-- historical: 当時は`dr`と`kazanari`を本項目の対象外としていたが、現在はDRをRuntimeDamageRollWorkerでオンデマンド生成する。公開JSONの保持・retirementはPhase 8-1で別途判断する。
+- historical: 当時は`dr`と`kazanari`を本項目の対象外としていたが、現在はDRをRuntimeDamageRollWorkerでオンデマンド生成する。公開JSONはPhase 8-1 inventoryでcomparison/referenceに分類し、保持・retirementはPhase 8-2以降のrelease判断とする。
 
 ### 本番統合の判断
 
@@ -164,7 +164,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 ## `dr`と`kazanari`をブラウザ内でオンデマンド計算する
 
 - 状態: done（固定4096/2048の本番移植、可変FFT・出力長のRuntimeDamageRollCalculator/Worker、production AttackのDamage経路接続）
-- 現行経路: production `CalculationClient`は`RuntimeDamageRollClient`/`RuntimeDamageRollWorker`でDRをオンデマンド生成し、`dr` JSONをロードしない。`dr` JSONはcomparison/referenceとasset equivalence用に保持するため、配信assetのretirementはPhase 8-1のopen課題とする。
+- 現行経路: production `CalculationClient`は`RuntimeDamageRollClient`/`RuntimeDamageRollWorker`でDRをオンデマンド生成し、`dr` JSONをロードしない。`dr` JSONはcomparison/referenceとasset equivalence用に保持するため、Phase 8-1 inventoryでは削除せず、配信assetのretirementはPhase 8-2以降のrelease判断とする。
 - 優先度: 高
 - 作業ブランチ: 実験・検証は`codex/runtime-dr-experiment`、本番移植は`codex/runtime-dr-production`
 - 対象:
@@ -227,14 +227,14 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 - 全列挙比較、数値監査、実行時ルールテストが成功する
 - 対応ブラウザと端末性能の下限でパフォーマンス目標を満たす
-- Phase 8-1 prerequisite: 不要になったJSON、キャッシュ、初期読込み、スキーマ参照をinventoryとproduction import graphで確認し、削除または保持の判断を個別に記録する
+- Phase 8-2 prerequisite: 不要になったJSON、キャッシュ、初期読込み、スキーマ参照をPhase 8-1 inventoryとproduction import graphで確認し、削除または保持の判断を個別に記録する
 - ゲームルール、数式、実装、テスト、教科書と開発者向け文書が同じ計算方法を説明している
 
 ### Damage dynamic range 第2-B
 
 - 完了: `RangePlanner`と実験plannerのDamage境界、異長防御差分布のFFT、境界テスト、契約文書を更新した
 - 完了: `DamageCalculator`と`CalculationClient`へ`DamageRangePlan`を接続し、raw分布長、provider options、防御support、`defenceFftLength`、公開1024要素へのcollapseを動的化した
-- done: total damageのresource guard、canonical dynamic output契約、バックトラック配列のplan接続は完了した。open（Phase 8-1）: JSON経路のinventoryと保持・参照用化・削除判断。入力上限の追加拡張はrelease hardeningで再評価する。
+- done: total damageのresource guard、canonical dynamic output契約、バックトラック配列のplan接続は完了した。done（Phase 8-1）: JSON経路のinventoryと保持・参照用化・削除判断。open（Phase 8-2）: 個別cleanup。入力上限の追加拡張はrelease hardeningで再評価する。
 
 ### Dynamic distribution range Phase 2-C
 
@@ -244,7 +244,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: attackの合計damageに専用generation/readyを持たせ、個別結果の追加・削除・reject、stale result、合計計算エラー、アンマウントで古い合計を表示しないようにした。未知の計算エラーは内部詳細を漏らさず日本語の再入力案内へ変換する
 - 完了: `onRangePlan`を同期callback契約としてJSDoc、文書、実行順テストで固定し、UI runnerの外部`signal`はrunner所有signalと合成する
 - テスト: component mount依存を増やさず、状態層テストで複数comboのaggregate ready、generic error、initial reject、stale/unmount、signal合成を固定した。残余リスクは実ブラウザでのVuetify/Chart.js描画と入力イベントの結合確認、およびresource guard・dynamic output契約である
-- obsolete: 公開1024 bucketの最終ラベル・確率をcanonicalチャートで個別表示する要件はcompatibility-onlyとする。open（Phase 8-1）: JSON経路のinventory。入力上限とresource guardの追加変更はrelease hardeningで再評価する。
+- obsolete: 公開1024 bucketの最終ラベル・確率をcanonicalチャートで個別表示する要件はcompatibility-onlyとする。done（Phase 8-1）: JSON経路のinventory。open（Phase 8-2）: 個別cleanup。入力上限とresource guardの追加変更はrelease hardeningで再評価する。
 
 ### Dynamic distribution range Phase 2-D
 
@@ -271,7 +271,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: Firefox `153.0`、WebKit `26.5`、Chrome `151.0.7922.108`で同じ`browser: true` 12ケースを各12/12成功させた。page errorと数値検証エラーは各0件、Firefox/WebKitはLong Task APIなし、Chrome 4xはLong Task 50件（最大154 ms）、Worker resource timing unavailableは4件だった
 - 完了: 代表値はFirefoxのmain warm median/p95最大34/40 ms・Worker cold/warm p95最大56/36 ms、WebKitの15/24 ms・38/19 ms、Chrome 4xの129.5/132.8 ms・74.8/31.5 msだった。timer-delay warm p95最大は40/24/134.2 msで、CPU時間ではなくzero-delay timer遅延近似として記録した
 - 完了: 入力拡張候補の`dx-two-x-planner-only`、`dx-large-planner-only`、`dx-hard-reject-planner-only`、`dr-over-core-cap`、`attack-two-x-planner-only`はcore capを変更せずplanner-onlyに維持し、`backtrack-large-normal-node-only`はNode-onlyとしてブラウザ測定から除外した
-- done: dynamic outputとresource guardのproduction契約、3 engineの基準実測、配信JSONを変更しない暫定判断を完了した。open（release hardening）: 低速実機と入力拡張候補の追加受入。open（Phase 8-1）: JSON経路のinventory。
+- done: dynamic outputとresource guardのproduction契約、3 engineの基準実測、配信JSONを変更しない暫定判断を完了した。open（release hardening）: 低速実機と入力拡張候補の追加受入。done（Phase 8-1）: JSON経路のinventory。open（Phase 8-2）: 個別cleanup。
 
 ## Dynamic distribution range Phase 2-G
 
