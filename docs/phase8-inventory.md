@@ -127,9 +127,9 @@ D10のlazy assetだけが現在のproduction fetch経路である。DX、DR、li
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `public/data/schema-v2/revision-1/manifest.json` | manifest、hash、bytes、dataset metadata | `generator-regeneration` | なし。runtime repositoryはmanifestをfetchしない | `precomputedAssets.test.js`、generator current asset tests | deploy integrity、asset inventory、hash/bytes contract | Python assets/manifest writer | hash/bytes equivalence tests | `keep` | revision-1 immutable contractを維持 | asset test、deploy smoke |
 | `public/data/schema-v2/revision-1/d10.json` | 224 sparse D10 distributions | `production` | `CalculationClient.loadD10Asset`のlazy fetch | repository、damage、integration tests | 防御ダイスが1以上のときfetch、cache hit可 | generator d10、manifest | asset equivalence、D10 smoke | `keep` | fetch 1/cache hit、load failure案内を維持 | browser smoke、asset hash |
-| `public/data/schema-v2/revision-1/dx/shihai-{0..19}.json` | 20 DX shards | `comparison-regression` | current production fetch 0。repository APIは下位test/benchmark用 | dx migration、repository、asset tests | 公開URLは比較/referenceとして存在 | generator DX、manifest | runtime DX、generator exhaustive/simulation | `keep` | 新revision/URL retirementを別判断にする | asset equivalence、no production fetch smoke |
-| `public/data/schema-v2/revision-1/dr/kazanari-{0..9}.json` | 10 DR shards | `comparison-regression` | current production fetch 0。DRはWorker生成 | damage migration、runtime experiment、asset tests | 公開URLは比較/referenceとして存在 | generator DR、manifest | RuntimeDamageRollCalculator、reference/simulation | `keep` | Worker経路を維持しつつURLを削除しない | runtime smoke、asset equivalence |
-| `public/data/schema-v2/revision-1/livingdead.json` | 224 sparse 屍人 distributions | `comparison-regression` | current production fetch 0。Backtrackはon-demand | backtrack migration/rule、asset tests | 公開URLは比較/referenceとして存在 | generator livingdead、manifest | independent backtrack core/reference | `keep` | 新revision/retirementを別判断にする | asset equivalence、backtrack smoke |
+| `public/data/schema-v2/revision-1/dx/shihai-{0..19}.json` | 20 DX shards | `comparison-regression` | productionはDX loaderを要求しない。repository APIは下位test/benchmark用 | dx migration、repository、asset tests | 公開URLは比較/referenceとして存在 | generator DX、manifest | runtime DX、generator exhaustive/simulation | `keep` | 新revision/URL retirementを別判断にする | asset equivalence、no production fetch smoke |
+| `public/data/schema-v2/revision-1/dr/kazanari-{0..9}.json` | 10 DR shards | `comparison-regression` | productionはDR loaderを要求しない。DRはWorker生成 | damage migration、runtime experiment、asset tests | 公開URLは比較/referenceとして存在 | generator DR、manifest | RuntimeDamageRollCalculator、reference/simulation | `keep` | Worker経路を維持しつつURLを削除しない | runtime smoke、asset equivalence |
+| `public/data/schema-v2/revision-1/livingdead.json` | 224 sparse 屍人 distributions | `comparison-regression` | productionはpublic屍人 loaderを要求しない。Backtrackはon-demand | backtrack migration/rule、asset tests | 公開URLは比較/referenceとして存在 | generator livingdead、manifest | independent backtrack core/reference | `keep` | 新revision/retirementを別判断にする | asset equivalence、backtrack smoke |
 
 ## generator、再生成、独立検証
 
@@ -200,10 +200,12 @@ Node/Vitestで検証できるdependency contract testと、Vite preview上の実
 
 `tests/productionDependencyContract.test.js`で、mock/stub dependencyとCalculationClient境界を検証する。実network fetchや実Workerではなく、次の依存関係、legacy fallback 0、期待するclient/result contractを固定する。
 
-1. 通常Check: DX public asset fetch 0。
-2. Attack、防御ダイス0: D10 fetch 0、DR fetch 0。
-3. Attack、防御ダイス1以上: clientがD10 readinessを1回要求し、DR runtime providerを渡す。repositoryのnetwork fetchまたはcache hitはbrowser smokeで確認する。
-4. Backtrack: D10 fetch 0、livingdead fetch 0。
+1. 通常Check: precomputed DX loader dependencyを要求しない。
+2. Attack、防御ダイス0: D10 readiness loaderを要求せず、Damageへruntime DR providerを渡す。
+3. Attack、防御ダイス1以上: clientがD10 readiness loaderを要求し、DR runtime providerを渡す。repositoryのnetwork fetchまたはcache hitはbrowser smokeで確認する。
+4. Backtrack: public D10 / livingdead loader dependencyを要求しない。
+
+このテストはmock/stubによる依存関係の境界を検証するもので、実network requestの回数は保証しない。実配布物でのrequest 0またはD10のlazy request 1回は、Phase 8-2Cのproduction browser smokeで初めて確認する。
 
 ### Production browser smoke
 
