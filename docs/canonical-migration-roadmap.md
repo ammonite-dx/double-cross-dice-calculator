@@ -316,6 +316,7 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - done: Check、Attack、Backtrackの比較、browser acceptance、resource/cancel/error確認、canonical default化、最終HEAD gateを完了した。
 - open（release hardening）: 低速実機を含むthreshold再評価、supported browser/deviceの明文化、最終resource policy、production dependency smoke、full verificationの単一コマンド化を行う。これらはPhase 7完了を取り消す未決定事項ではない。
 - done（Phase 8-1）: [symbol/export単位のinventory](./phase8-inventory.md)を作成し、保持・split・move・delete-candidateを個別判断した。実際のcleanupはPhase 8-2以降で行う。
+- done（Phase 8-2A）: Attackの`ChartSetter.js`からlegacy array adapterを`LegacyChartSetter.js`へ分離し、canonical adapter、options、styleのproduction importを維持した。`ChartPercentages.js`を追加してcanonical/legacy Attack chartの表示丸めを共有し、`0`、`0.12349`、`0.1235`、`0.12351`、`1`のgolden testとTypedArrayのowned Array変換を固定した。公開asset、JSON、generator、計算意味論、入力・表示windowは変更していない。`npm test`、ESLint、Markdown lint、build、`git diff --check`をgateとする。
 
 ## 参照文書
 

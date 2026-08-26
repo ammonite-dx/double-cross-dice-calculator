@@ -9,6 +9,8 @@ import {
 import { ATTACK_DISPLAY_MODES } from '../src/application/AttackDisplayRequestSnapshot'
 import {
   getAttackDamageChartData,
+} from '../src/components/Attack/LegacyChartSetter'
+import {
   getCanonicalAttackDamageChartData,
 } from '../src/components/Attack/ChartSetter'
 import {

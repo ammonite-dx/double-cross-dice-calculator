@@ -1,10 +1,10 @@
 # Phase 8-1 inventory
 
-この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。対象は棚卸しだけであり、この作業ではファイル、JSON、公開URL、generator、production codeを削除しない。
+この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。Phase 8-2Aでは、この棚卸しに基づいてAttackのchart adapterだけを分離し、公開asset、JSON、generator、計算意味論は変更しない。
 
 ## 判定範囲と分類
 
-調査時点はブランチ`codex/canonical-default-migration`のHEAD `752b3d9`である。production importerは`src/`の実行時importと、production bundleから到達するWorkerを指す。テスト、ベンチマーク、移行スクリプト、reference-dataからの参照はproduction importerに含めない。
+Phase 8-1の調査時点はブランチ`codex/canonical-default-migration`のHEAD `752b3d9`である。Phase 8-2Aの変更はこのinventoryの分類を更新する追補として扱う。production importerは`src/`の実行時importと、production bundleから到達するWorkerを指す。テスト、ベンチマーク、移行スクリプト、reference-dataからの参照はproduction importerに含めない。
 
 | category | 意味 |
 | --- | --- |
@@ -20,7 +20,7 @@
 
 productionの入口は`src/main.js`からrouter、各計算viewへ続く。Checkは`CalculationClient.calculateCheckCanonical`とcanonical presentation、Attackはcanonical batch runnerとcanonical presentation、Backtrackはcanonical client/runnerを利用する。productionの`CalculationClient`は`src/calculation/`のDX、Score、Damage、Backtrack、RangePlanner、ResourceGuardを直接参照し、`src/data/PrecomputedDataRepository.js`からはD10のlazy loaderとgetterだけを参照する。
 
-Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical adapter、options、styleを利用する。DRは`RuntimeDamageRollClient`から`RuntimeDamageRollWorker`へ渡され、Worker内の`RuntimeDamageRollCalculator`がオンデマンド生成する。productionの`src/`から`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`を直接importする経路はない。
+Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical adapter、options、styleと、Attack chart専用の`ChartPercentages.js`を利用する。旧配列adapterは`LegacyChartSetter.js`へ分離し、productionの`src/`からはimportしない。DRは`RuntimeDamageRollClient`から`RuntimeDamageRollWorker`へ渡され、Worker内の`RuntimeDamageRollCalculator`がオンデマンド生成する。productionの`src/`から`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`を直接importする経路はない。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -38,23 +38,23 @@ Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical ad
 | `src/components/Attack/ChartSetter.js` | canonical adapter、options、style exports | `production` | Attack Score/Damage chart components | canonical display adapter tests | Chart.jsへcanonical seriesを供給 | なし | canonical chart adapter tests | `keep` | legacy helper分離と同時にAPIを壊さない | full JS gate、browser smoke |
 | `src/data/PrecomputedDataRepository.js` | D10 loader/cache、`loadD10Asset`、`getD10Distribution` | `production` | `CalculationClient`の防御D10 lazy経路 | integration、asset、repository tests | `public/data/schema-v2/revision-1/d10.json`、fetch、cache | schema/manifestのrevision契約 | D10 lazy asset smoke、asset hash test | `keep` | revision-1 URLを削除しない | asset test、browser smoke |
 
-## mixed-use module: `ChartSetter.js`
+## Attack chart modules
 
-このファイルはproduction canonical adapterと旧1024要素配列adapterを同居させている。ファイル全体をlegacy扱いせず、export単位で分類する。`clipData`は旧配列helperからのみ呼ばれ、canonical adapterはcanonical presentationのlabels/dataを受け取る。
+Phase 8-2Aで、production canonical adapterと旧1024要素配列adapterを別moduleへ分離した。`ChartSetter.js`にはcanonical adapter、options、styleだけを残し、旧APIと`clipData`、`range`依存は`LegacyChartSetter.js`へ移した。両経路のAttack chart表示丸めは`ChartPercentages.js`で共有するが、CheckやBacktrackのsummary丸めには適用しない。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `src/components/Attack/ChartSetter.js` | `getAttackScoreChartData` | `dead-candidate` | なし | 現在のsource、test、benchmarkにimportなし | 旧1024配列と`range()`に依存するがproduction bundleから呼ばれない | なし | `getCanonicalAttackScoreChartData`とcanonical presentation tests | `delete-candidate` | 外部利用と動的参照を再確認し、score legacy helperを削除してもcanonical testが維持されること | full JS gate、legacy importer 0 |
-| `src/components/Attack/ChartSetter.js` | `getCanonicalAttackScoreChartData` | `production` | Attack ScoreChart | `attackScoreDisplayAdapter.test.js`、canonical chart tests | Chart.js用labels/data、確率を表示単位へ変換 | なし | canonical presentation and chart tests | `keep` | canonical chart contractを維持 | JS tests、browser smoke |
+| `src/components/Attack/LegacyChartSetter.js` | `getAttackScoreChartData` | `dead-candidate` | なし | 旧APIの比較・参照用途 | 旧1024配列と`range()`に依存するがproduction bundleから呼ばれない | なし | `getCanonicalAttackScoreChartData`とcanonical presentation tests | `keep`（split済み） | 外部利用と動的参照を再確認し、独立oracle移行後に削除を判断 | full JS gate、legacy importer 0 |
+| `src/components/Attack/ChartSetter.js` | `getCanonicalAttackScoreChartData` | `production` | Attack ScoreChart | `attackScoreDisplayAdapter.test.js`、canonical chart tests | Chart.js用labels/data、`ChartPercentages.js`による表示単位変換 | なし | canonical presentation and chart tests | `keep` | canonical chart contractを維持 | JS tests、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackScoreChartOptions` | `production` | Attack ScoreChart | chart adapter tests | Chart.js options | なし | existing chart smoke | `keep` | 見た目互換を維持 | build、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackScoreChartStyle` | `production` | Attack ScoreChart | component tests | Chart layout style | なし | existing browser acceptance | `keep` | 見た目互換を維持 | build、browser smoke |
-| `src/components/Attack/ChartSetter.js` | `getAttackDamageChartData` | `comparison-regression` | なし | `attackDamageDisplayAdapter.test.js`のlegacy shape fixture | 旧1024配列、旧total表示に依存 | なし | `getCanonicalAttackDamageChartData`とcanonical damage tests | `split` | legacy testをcanonical fixtureへ移行またはcomparisonとして隔離 | full JS gate、legacy importer 0の確認 |
-| `src/components/Attack/ChartSetter.js` | `getCanonicalAttackDamageChartData` | `production` | Attack DamageChart | `attackDamageDisplayAdapter.test.js`、canonical chart tests | Chart.js用canonical damage/total series | なし | canonical damage presentation tests | `keep` | total chart contractを維持 | JS tests、browser smoke |
+| `src/components/Attack/LegacyChartSetter.js` | `getAttackDamageChartData` | `comparison-regression` | なし | `attackDamageDisplayAdapter.test.js`のlegacy shape fixture | 旧1024配列、旧total表示に依存 | なし | `getCanonicalAttackDamageChartData`とcanonical damage tests | `keep`（split済み） | legacy fixtureをcomparisonとして維持し、独立oracle移行後に削除を判断 | full JS gate、legacy importer 0の確認 |
+| `src/components/Attack/ChartSetter.js` | `getCanonicalAttackDamageChartData` | `production` | Attack DamageChart | `attackDamageDisplayAdapter.test.js`、canonical chart tests | Chart.js用canonical damage/total series、`ChartPercentages.js`による表示単位変換 | なし | canonical damage presentation tests | `keep` | total chart contractを維持 | JS tests、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackDamageChartOptions` | `production` | Attack DamageChart | chart adapter tests | Chart.js options | なし | existing chart smoke | `keep` | 見た目互換を維持 | build、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackDamageChartStyle` | `production` | Attack DamageChart | component tests | Chart layout style | なし | existing browser acceptance | `keep` | 見た目互換を維持 | build、browser smoke |
-| `src/components/Attack/ChartSetter.js` | 内部`clipData`、`range` import | `comparison-regression` | なし | legacy chart testsと旧adapter | 1024固定配列のsliceと丸め | なし | canonical adapterはこの経路を通らない | `split` | legacy exportsの参照を分離し、丸めgoldenを追加 | full JS gate、legacy moduleのimport graph確認 |
+| `src/components/Attack/LegacyChartSetter.js` | 内部`clipData`、`range` import | `comparison-regression` | なし | legacy chart testsと旧adapter | 1024固定配列のsliceと丸め | なし | canonical adapterはこの経路を通らない | `keep`（split済み） | 旧配列の互換挙動を維持し、共有丸めgoldenを保つ | full JS gate、legacy moduleのimport graph確認 |
 
-**最初のcleanup単位の推奨:** `ChartSetter.js`からlegacy array helperを別moduleへ分離する。ただしこのPhase 8-1では分離を実施せず、production canonical exportsを保護したまま次の作業単位として記録する。PrecomputedDataRepositoryの分離はD10 lazy fetchのsmokeを追加した後、legacy wrapper削除は比較testとoracle移行の後に行う。
+**Phase 8-2A完了:** `ChartSetter.js`からlegacy array helperを`LegacyChartSetter.js`へ分離した。production canonical exports、options、styleと既存の表示挙動を保護し、`PrecomputedDataRepository`、公開asset、JSON、generatorには触れていない。次はD10 lazy fetchのsmokeを追加したうえで、PrecomputedDataRepositoryの分離を検討する。
 
 ## mixed-use module: `PrecomputedDataRepository.js`
 
@@ -72,12 +72,12 @@ D10のlazy assetだけが現在のproduction fetch経路である。DX、DR、li
 
 ## distribution、FFT、canonical/legacy core
 
-`src/data/Distribution.js`と`src/data/FFT.js`は、ディレクトリ名だけを根拠にlegacy扱いしない。FFTと配列操作の大部分はcanonical production coreが使用している。legacy候補は旧chart helperが使う`range`だけである。
+`src/data/Distribution.js`と`src/data/FFT.js`は、ディレクトリ名だけを根拠にlegacy扱いしない。FFTと配列操作の大部分はcanonical production coreが使用している。legacy候補は`LegacyChartSetter.js`が使う`range`だけである。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `src/data/Distribution.js` | `OUTPUT_DISTRIBUTION_SIZE`、`WORKING_DISTRIBUTION_SIZE`、`DISTRIBUTION_SIZE` | `production` | repository、Score/Damage/Backtrack、RangePlanner | numerical and boundary tests | 1024 output、2048 workingの内部契約 | generator schema sizesとの対応 | canonical range/resource tests | `keep` | 1024をcanonical表示上限と解釈しない文書を維持 | full JS gate |
-| `src/data/Distribution.js` | `range` | `comparison-regression` | 旧`ChartSetter`だけ | legacy chart tests | 1024 array labels helper | なし | canonical charts use coordinate/labels from presentation | `split` | ChartSetter legacy helper分離 | chart tests、legacy import graph |
+| `src/data/Distribution.js` | `range` | `comparison-regression` | `LegacyChartSetter.js`だけ | legacy chart tests | 1024 array labels helper | なし | canonical charts use coordinate/labels from presentation | `keep`（split済み） | 旧ChartSetter APIの削除判断まで維持 | chart tests、legacy import graph |
 | `src/data/Distribution.js` | `expandSparseDistribution`、`collapseDistribution`、`shiftDistribution`、`getExpectedValue`、`getUpperTailProbability` | `production` | repository、Score/Damage/Backtrack、RangePlanner | distribution/FFT/canonical tests | sparse asset expansion、support、tail計算 | generator sparse serialization is compatible | canonical and numerical tests | `keep` | sparse/canonical semanticsを維持 | JS tests |
 | `src/data/FFT.js` | `getConvolutionFftLength`、`convolveDistributions`、`sumDistribution`、`subDistribution` | `production` | Score、Damage、CanonicalDamageAggregation | fft、distribution、canonical tests | dynamic FFT、Score/Damage/total computation | generator polynomial operations are independent | FFT and canonical numeric tests | `keep` | FFT length/resource contractを維持 | full JS gate、benchmark on future changes |
 | `src/calculation/DistributionResult.js` | canonical constructors、validation、summary helpers | `production` | canonical cores、presentation | canonical result tests | support、explicit values、overflow metadata | なし | canonical presentation tests | `keep` | exact/bounded/lower-boundを保持 | JS tests |
@@ -180,17 +180,17 @@ Python generatorは現行配信assetの再生成元であり、旧dense JSONと�
 
 ## probability rounding golden coverage
 
-productionの表示丸めは`Math.round(probability * 1000) / 10`で、0.1 percentage point単位である。実装箇所はcanonical chart adapter、Check presentation、Backtrack presentation、legacy ChartSetter等に分散している。既存testには`0.12345 -> 12.3`、`0.12345 -> 12.3`相当の表示確認やsummary丸めがあるが、レビューで指定された5点を一つのformatter契約として固定するgolden testは現時点で確認できない。
+Attack chartの表示丸めは`ChartPercentages.js`の`Math.round(probability * 1000) / 10`で、0.1 percentage point単位である。canonical adapterと`LegacyChartSetter.js`はこのhelperを共有する。一方、CheckやBacktrackのsummary丸めは別の契約であり、このhelperを全体へ適用しない。
 
 | input probability | expected percentage | 現在のcoverage | 次の作業 |
 | ---: | ---: | --- | --- |
-| `0` | `0` | 個別のsummary/display fixtureに散在 | formatter goldenへ集約 |
-| `0.12349` | `12.3` | 直接fixtureなし | formatter goldenへ追加 |
-| `0.1235` | `12.4` | 直接fixtureなし | formatter goldenへ追加 |
-| `0.12351` | `12.4` | 直接fixtureなし | formatter goldenへ追加 |
-| `1` | `100` | 個別の確率fixtureに散在 | formatter goldenへ集約 |
+| `0` | `0` | `tests/attackChartPercentages.test.js` | 完了 |
+| `0.12349` | `12.3` | `tests/attackChartPercentages.test.js` | 完了 |
+| `0.1235` | `12.4` | `tests/attackChartPercentages.test.js` | 完了 |
+| `0.12351` | `12.4` | `tests/attackChartPercentages.test.js` | 完了 |
+| `1` | `100` | `tests/attackChartPercentages.test.js` | 完了 |
 
-このインベントリではtest codeを変更しない。ChartSetter splitまたは共有表示formatterを設計するcleanup単位で、5点を同じ関数へ直接適用する小さなgolden testを追加する。新しい丸め方式や確率単位は導入しない。
+5点は同じformatterへ直接適用するgolden testで固定し、TypedArray入力が通常のowned Arrayになることも確認する。新しい丸め方式や確率単位は導入していない。
 
 ## dependency contract testとproduction browser smoke
 
@@ -209,11 +209,11 @@ Node/Vitestで検証できるdependency contract testと、Vite preview上の実
 
 `vite build`と`vite preview`を使う実browser smokeでは、real asset URL、404なし、canvas/chart rendering、console error 0、console warning 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する。既存のin-app browser受入はこのgateの手動実行例として残す。
 
-Phase 8-2のChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしない。PrecomputedDataRepository splitやpublic asset整理へ進む前には、dependency contract testとproduction browser smokeの両方を必須前提とする。
+Phase 8-2AのChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしていない。PrecomputedDataRepository splitやpublic asset整理へ進む前には、dependency contract testとproduction browser smokeの両方を必須前提とする。
 
 ## Phase 8-2へ渡す判断
 
-最初のcleanup単位は、証拠が最も局所的で本番asset契約を変えない`src/components/Attack/ChartSetter.js`のlegacy helper分離とする。production canonical exports、options、styleを残し、`getAttackScoreChartData`、`getAttackDamageChartData`、`clipData`、旧`range`依存をmigration/comparison moduleへ移す。これにより、丸めgolden testを共有表示境界へ置きやすくなる。
+Phase 8-2Aでは、証拠が最も局所的で本番asset契約を変えない`src/components/Attack/ChartSetter.js`のlegacy helper分離を完了した。production canonical exports、options、styleを残し、`getAttackScoreChartData`、`getAttackDamageChartData`、`clipData`、旧`range`依存を`LegacyChartSetter.js`へ移した。丸めgolden testは`ChartPercentages.js`のAttack表示境界に置いている。
 
 次点は`PrecomputedDataRepository.js`のD10 production loaderとDX/DR/livingdead reference loaderの分離である。D10 lazy fetch/cache smokeを先に固定し、公開revision-1 URLを変更せずにtest/reference importを移す。legacy wrapper、dense JSON、`LegacyCanonicalComparison`の削除は、その後にoracle coverage mapを実行してから行う。
 
@@ -223,6 +223,13 @@ Phase 8-2のChartSetter splitはasset依存に触れないためbrowser smokeを
 - legacy helperの参照元を確認済みにする。
 - rounding golden 5点を追加する。
 - public assetと`PrecomputedDataRepository.js`には触れない。
+
+### ChartSetter split完了条件
+
+- `ChartSetter.js`のcanonical exports、options、styleを維持する。
+- `src/`から`LegacyChartSetter.js`へのproduction importがない。
+- legacy chart fixtureとcanonical chart fixtureがそれぞれ同じ丸めhelperの契約を検証する。
+- `npm test`、lint、build、`git diff --check`が成功する。
 
 ### PrecomputedDataRepository split開始条件
 
@@ -243,7 +250,7 @@ Phase 8-2のChartSetter splitはasset依存に触れないためbrowser smokeを
 - `runtimeRuleValidation.test.js`は独立expected/reference logicを持つが、actual側のcanonical移植前であることを記録した。
 - dependency contract testとproduction browser smokeを別gateとして定義した。
 - `1022`、`1023`、`1024`、`published-bucket`の意味を用途別に分離した。
-- rounding golden coverageの不足を、実装変更なしで明示した。
+- `ChartPercentages.js`を追加し、Attack chartのrounding golden 5点とTypedArray変換を固定した。
 - D10以外の公開revision-1 assetは削除せず、32 data assetsと`manifest.json`の旧URLretirementを別revision・別release判断へ分離した。
-- Phase 8-2の最初のcleanup候補をChartSetter splitとし、PrecomputedDataRepository split、wrapper/JSON/comparison削除を後続へ送った。
-- この作業でproduction code、generator、JSON、asset、Worker、API、MCP、入力上限、表示window、branch以外の履歴は変更していない。
+- Phase 8-2AとしてChartSetter splitを完了し、PrecomputedDataRepository split、wrapper/JSON/comparison削除を後続へ送った。
+- この作業ではAttack chart adapterとtests/docsだけを変更し、generator、JSON、asset、Worker、API、MCP、入力上限、表示windowは変更していない。
