@@ -194,7 +194,7 @@ Attack chartの表示丸めは`ChartPercentages.js`の`Math.round(probability * 
 
 ## dependency contract testとproduction browser smoke
 
-Node/Vitestで検証できるdependency contract testと、Vite preview上の実browserで検証するproduction browser smokeは別のgateである。Phase 8-2Bでは前者を追加し、後者はPhase 8-2Cへ残す。
+Node/Vitestで検証できるdependency contract testと、Vite preview上の実browserで検証するproduction browser smokeは別のgateである。Phase 8-2Bでは前者を追加し、Phase 8-2Cでは後者を実装・実行した。
 
 ### Dependency contract test
 
@@ -205,19 +205,19 @@ Node/Vitestで検証できるdependency contract testと、Vite preview上の実
 3. Attack、防御ダイス1以上: clientがD10 readiness loaderを要求し、DR runtime providerを渡す。repositoryのnetwork fetchまたはcache hitはbrowser smokeで確認する。
 4. Backtrack: public D10 / livingdead loader dependencyを要求しない。
 
-このテストはmock/stubによる依存関係の境界を検証するもので、実network requestの回数は保証しない。実配布物でのrequest 0またはD10のlazy request 1回は、Phase 8-2Cのproduction browser smokeで初めて確認する。
+このテストはmock/stubによる依存関係の境界を検証するもので、実network requestの回数は保証しない。実配布物でのrequest 0またはD10のlazy request 1回は、Phase 8-2Cのproduction browser smokeで確認した。
 
 ### Production browser smoke
 
-`vite build`と`vite preview`を使う実browser smokeでは、real asset URL、404なし、canvas/chart rendering、console error 0、console warning 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する。既存のin-app browser受入はこのgateの手動実行例として残す。
+`scripts/production-browser-smoke.mjs`は`vite build`成果物を空きportの`vite preview`で配信し、Playwright Chromiumの独立contextでCheck、Attack、Backtrackを確認する。2026-08-26の実行では、Checkはcanvas 1・revision-1 asset request 0、Attack初期（防御ダイス0）はcanvas 2・revision-1 asset request 0、Attackで防御ダイスを1へ変更した後はcanvas 2・`d10.json` request 1（HTTP 200）・その他のrevision-1 asset request 0、Backtrackはcanvas 3・revision-1 asset request 0だった。全ケースでsame-origin HTTP error 0、console warning/error 0、pageerror 0、same-origin requestfailed 0を確認した。
 
-Phase 8-2AのChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしていない。Phase 8-2Bでdependency contract testを完了したが、PrecomputedDataRepository splitやpublic asset整理へ進む前には、production browser smokeも必須前提とする。
+Phase 8-2AのChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしていない。Phase 8-2Bのdependency contract testとPhase 8-2Cのproduction browser smokeを別々に完了したため、PrecomputedDataRepository splitやpublic asset整理へ進む前提が揃った。
 
 ## Phase 8-2へ渡す判断
 
 Phase 8-2Aでは、証拠が最も局所的で本番asset契約を変えない`src/components/Attack/ChartSetter.js`のlegacy helper分離を完了した。production canonical exports、options、styleを残し、`getAttackScoreChartData`、`getAttackDamageChartData`、`clipData`、旧`range`依存を`LegacyChartSetter.js`へ移した。丸めgolden testは`ChartPercentages.js`のAttack表示境界に置いている。
 
-次点は`PrecomputedDataRepository.js`のD10 production loaderとDX/DR/livingdead reference loaderの分離である。D10 lazy fetch/cache smokeを先に固定し、公開revision-1 URLを変更せずにtest/reference importを移す。legacy wrapper、dense JSON、`LegacyCanonicalComparison`の削除は、その後にoracle coverage mapを実行してから行う。
+次点はPhase 8-2Dとして、`PrecomputedDataRepository.js`のD10 production loaderとDX/DR/livingdead reference loaderを分離することである。今回のbrowser smokeでD10 lazy fetch/cacheと不要asset requestの実配布契約を固定したため、公開revision-1 URLを変更せずにtest/reference importを移す。legacy wrapper、dense JSON、`LegacyCanonicalComparison`の削除は、その後にoracle coverage mapを実行してから行う。
 
 ### ChartSetter split開始条件
 
@@ -236,8 +236,8 @@ Phase 8-2Aでは、証拠が最も局所的で本番asset契約を変えない`s
 ### PrecomputedDataRepository split開始条件
 
 - dependency contract test: 完了（`tests/productionDependencyContract.test.js`）。
-- production browser smoke: pending。実配布物のnetwork契約を先に確認する。
-- D10 lazy fetch/readiness contractを固定する。
+- production browser smoke: 完了（`scripts/production-browser-smoke.mjs`）。実配布物のnetwork契約を確認した。
+- D10 lazy fetch/readiness contract: 完了（防御ダイス1で`d10.json`を1回、HTTP 200）。
 - revision-1 public URLを変更しない。
 
 ### legacy wrapper削除開始条件

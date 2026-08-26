@@ -180,7 +180,7 @@ production formの上限では最大diceは223、最大working lengthは約2231�
 - Phase 7 legacy cleanup第2単位（完了）: `CalculationClient`の`calculateCheck`、`calculateAttackCombo`、`calculateTotalDamage`、`calculateBacktrack`、legacy score/damage/backtrack依存注入、legacy fallback、route `prepare`を削除した。`/check`を含む全計算routeからpreload guardを外し、canonical Check/Attack/Backtrack、D10 lazy asset、RuntimeDamageRollWorker、RangePlanner、ResourceGuardを維持した。production Attackの`published-bucket`変換は使用せず、AttackのScore→Damageは`full-tail`で実行する。`published-bucket`は比較・互換用の明示policyとして残し、client-level legacy比較fixtureと専用client/prepareテストは削除・canonical契約へ移植した。下位legacy core/wrapper、比較・migration・asset・JSON/generatorはPhase 8まで維持する。
 - Attackブラウザ受入（2026-08-24、in-app browser / Vite local、`d30b3d1`前の履歴）: 初回はcanvas 2、Summary `コンボ1 6 / 45.5% / 3.1`、alert 0、一時switch 0、canonical/support/overflow debug text 0を確認した。action dice `2→20→3`の連続入力後は最終値3、canvas 2、alert 0、Summary `9.7 / 71% / 5.5`だった。combo追加で2 combos・合計8.6、複製で3 combos、削除で2 combosへ戻り、各状態でcanvas 2・alert 0だった。現在の位置不明tail契約を反映した最終受入とは分けて扱う。
 - Attackブラウザ受入（続き、`d30b3d1`前の履歴）: 《妖精の手》等を1にすると達成値期待値は単独`—`、命中率95.9%、damage 12.8となり、uncertainty warning/alertは観測されなかった。振り直せるダメージダイス1ではdamage 15、合計18.1、alert 0だった。Score/Damage双方をX以上表示へ切り替えてもcanvas 2・alert 0だった。初回の`--force`依存最適化reload中だけdynamic import warningが一時発生したが画面は復旧し、最適化後のserver/new tab再起動では初回2 canvas・Summary・alert 0と追加server warningなしを確認した。tabs/serverは終了し、port `3000`を解放した。現在の位置不明tail契約を反映した最終受入とは分けて扱う。
-- 現在の状態: BacktrackとAttackのcanonical default化、CalculationClient legacy API/route preload cleanup、full-tail Attack resource計測、cost model校正、Chrome desktop/CPU 4x受入、production threshold 50/200msの暫定維持判断、主要Attack表示windowのin-app Chromium受入、最終HEAD full gateは完了した。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter splitは完了している。legacy core/wrapper・assets/JSON/generatorの整理とbrowser smokeは後続作業とする。低速実機・Firefox/WebKitのthreshold再評価は後続作業とする。
+- 現在の状態: BacktrackとAttackのcanonical default化、CalculationClient legacy API/route preload cleanup、full-tail Attack resource計測、cost model校正、Chrome desktop/CPU 4x受入、production threshold 50/200msの暫定維持判断、主要Attack表示windowのin-app Chromium受入、最終HEAD full gateは完了した。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter split、Phase 8-2B dependency contract、Phase 8-2C production browser smokeは完了している。legacy core/wrapper・assets/JSON/generatorの整理は後続作業とする。低速実機・Firefox/WebKitのthreshold再評価は後続作業とする。
 
 既定化は実装完了ではなく、三経路の比較・ブラウザ実測・resource/cancel/error確認後の受入判断である。既存チャート・サマリーの見た目を残すことは互換UIの維持であり、legacy計算や固定1024を残すことではない。
 
@@ -255,7 +255,7 @@ legacy comparisonを削除できるのは、対応するsemanticがこの表の�
 
 `public/data/schema-v2/revision-1/`は公開後immutableとし、同一revision内のファイルをGit cleanupと同時に削除しない。productionで不要になったassetを減らす場合は新しいrevisionを作成し、旧revisionの保持期間とretirement条件を別途決める。Git上のcleanupと公開URLの削除は別の判断である。
 
-Phase 8-1で、Node/Vitestで検証するdependency contract testと、Vite build/preview上の実browserで検証するproduction browser smokeを別gateとして定義した。Phase 8-2Bでは前者を`tests/productionDependencyContract.test.js`として実装し、通常Check、Attackの防御ダイス0/1以上、Backtrack、legacy fallback 0、runtime DR provider、D10 readiness失敗時のlease解放をmock/stubで固定した。Production browser smokeはreal asset URL、404なし、canvas/chart rendering、console warning/error 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する後続gateであり、Phase 8-2Cへ送る。
+Phase 8-1で、Node/Vitestで検証するdependency contract testと、Vite build/preview上の実browserで検証するproduction browser smokeを別gateとして定義した。Phase 8-2Bでは前者を`tests/productionDependencyContract.test.js`として実装し、通常Check、Attackの防御ダイス0/1以上、Backtrack、legacy fallback 0、runtime DR provider、D10 readiness失敗時のlease解放をmock/stubで固定した。Production browser smokeはreal asset URL、404なし、canvas/chart rendering、console warning/error 0、D10 lazy fetch成功、DX/DR/livingdeadのunexpected fetch 0を確認する後続gateであり、Phase 8-2Cで実行済みである。
 
 Phase 8-1ではfull verificationを1コマンドで再現できる状態（候補: `npm run verify`）を目標にするが、Phase 8-0ではCI triggerや既存scriptを変更しない。
 
@@ -263,11 +263,11 @@ Phase 8-1ではfull verificationを1コマンドで再現できる状態（候�
 
 - 状態: done（削除前のsymbol/export単位インベントリを[`phase8-inventory.md`](./phase8-inventory.md)に記録し、runtimeRuleValidationのoracle位置付け、dependency contract/browser smokeの分離、revision-1 asset表記、manifest/barrel分類を実装実態に合わせて最終補正した。cleanupそのもの、公開URLのretirement、JSONの削除はPhase 8-2以降で別途判断する）。
 - 成果物: canonical既定化後のproduction import graph、既存JSON・公開asset・再生成コード・legacy/comparison testの分類、1022/1023/1024境界とrounding coverageの棚卸しを[`phase8-inventory.md`](./phase8-inventory.md)に記録した。
-- closure補正: `runtimeRuleValidation.test.js`は独立expected/reference logicを持つがactual側のcanonical移植前であり、Node/Vitestのdependency contract testと実browserのproduction smokeを別gateとして定義した。Phase 8-2Bではclient境界テストを追加し、実browser smokeはPhase 8-2Cへ残した。revision-1は32 data assets + `manifest.json`で、manifestはruntime fetchではなくgenerator/deploy contract、`src/calculation/index.js`はproduction runtime importerのないtooling/test APIとして分類した。
+- closure補正: `runtimeRuleValidation.test.js`は独立expected/reference logicを持つがactual側のcanonical移植前であり、Node/Vitestのdependency contract testと実browserのproduction smokeを別gateとして定義した。Phase 8-2Bではclient境界テストを追加し、実browser smokeはPhase 8-2Cで完了した。revision-1は32 data assets + `manifest.json`で、manifestはruntime fetchではなくgenerator/deploy contract、`src/calculation/index.js`はproduction runtime importerのないtooling/test APIとして分類した。
 - 完了条件: productionが不要な事前計算JSONに依存しないことを確認し、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズ、削除前の独立oracleを個別に比較できる。Phase 8-1では削除を行わない。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 
-JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A/2BではChart adapter分離とCalculationClient dependency contractを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A/2B/2CではChart adapter分離、CalculationClient dependency contract、production browser smokeを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
 
 ### Phase 8-2A: Attack chart adapter分離（完了）
 
@@ -279,7 +279,20 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 
 - `tests/productionDependencyContract.test.js`で、Checkがprecomputed loaderを要求しないこと、Attackの防御ダイス0/1以上におけるD10 readiness境界、runtime DR/D10 getterの受け渡し、D10失敗時のDamage未開始とresource lease解放、Backtrackのpublic D10/livingdead loader非依存、legacy dependency/fallback未使用を固定した。
 - production code、public asset、JSON、generator、Worker protocol、RangePlanner、ResourceGuardは変更していない。
-- browser network smokeは未実施であり、Phase 8-2Cの必須gateとする。PrecomputedDataRepository splitはPhase 8-2C完了後に判断する。
+- browser network smokeはPhase 8-2Cで実装・実行し、実配布物のD10 lazy fetchと不要revision-1 asset request 0を確認した。PrecomputedDataRepository splitはPhase 8-2Dで判断する。
+
+### Phase 8-2C: production browser smoke（完了）
+
+- `scripts/production-browser-smoke.mjs`と`npm run smoke:production`を追加し、必ず`vite build`した成果物を空きportの`vite preview`で配信してからPlaywright Chromiumで検証するようにした。既存のexperiment runnerは変更していない。
+- Check、Attack初期（防御ダイス0）、Attackの防御ダイス1への変更、Backtrackを独立browser contextで確認した。Checkはcanvas 1、Attackは初期・変更後ともcanvas 2、Backtrackはcanvas 3だった。
+- Check、Attack初期、Backtrackではrevision-1 asset request 0を確認した。Attackで防御ダイスを1へ変更した場合だけ`/data/schema-v2/revision-1/d10.json`を1回（HTTP 200）取得し、DX、DR、livingdead、manifestなど他のrevision-1 asset requestは0だった。
+- 全ケースでsame-origin HTTP error 0、console warning/error 0、pageerror 0、same-origin requestfailed 0を確認した。revision-1 public assetの削除・URL変更、`PrecomputedDataRepository` split、UI/計算意味論の変更は行っていない。
+
+### Phase 8-2D: PrecomputedDataRepositoryのproduction/reference分離（次段階）
+
+- 開始条件: Phase 8-2B dependency contract、Phase 8-2C production browser smoke、D10 lazy fetch/readiness contractが完了していること。revision-1 public URLはimmutableとして維持する。
+- 対象: D10 production loader/cacheと、DX・DR・livingdeadのcomparison/reference loaderをsymbol単位で分離する。public assetとgeneratorの削除・revision変更はこの単位に含めない。
+- 完了条件: production import graphがD10経路だけを保持し、reference/migration testが明示したloaderへ移行され、full JS gateとproduction browser smokeが再び成功すること。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 
@@ -326,10 +339,11 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - done: latest-winsでは計算中に直前の成功結果へfallbackせず、失敗・reject・stale時に結果をclearしてinput世代を混在させない契約を採用した。
 - done: 表示window変更時は明示coverage内ならprojectionを再利用し、不足時はcanonical再計算する。finite support外の既知0、位置不明Score tail、Damage-output overflowは別のcertificateとして扱う。
 - done: Check、Attack、Backtrackの比較、browser acceptance、resource/cancel/error確認、canonical default化、最終HEAD gateを完了した。
-- open（release hardening）: 低速実機を含むthreshold再評価、supported browser/deviceの明文化、最終resource policy、production dependency smoke、full verificationの単一コマンド化を行う。これらはPhase 7完了を取り消す未決定事項ではない。
+- open（release hardening）: 低速実機を含むthreshold再評価、supported browser/deviceの明文化、最終resource policy、full verificationの単一コマンド化を行う。production dependency smokeはPhase 8-2B/2Cで完了しており、これらはPhase 7完了を取り消す未決定事項ではない。
 - done（Phase 8-1）: [symbol/export単位のinventory](./phase8-inventory.md)を作成し、保持・split・move・delete-candidateを個別判断した。実際のcleanupはPhase 8-2以降で行う。
 - done（Phase 8-2A）: Attackの`ChartSetter.js`からlegacy array adapterを`LegacyChartSetter.js`へ分離し、canonical adapter、options、styleのproduction importを維持した。`ChartPercentages.js`を追加してcanonical/legacy Attack chartの表示丸めを共有し、`0`、`0.12349`、`0.1235`、`0.12351`、`1`のgolden testとTypedArrayのowned Array変換を固定した。公開asset、JSON、generator、計算意味論、入力・表示windowは変更していない。`npm test`、ESLint、Markdown lint、build、`git diff --check`をgateとする。
-- done（Phase 8-2B）: `tests/productionDependencyContract.test.js`でCalculationClientのproduction dependency boundaryを固定した。Checkはprecomputed loaderを要求せず、AttackはD10 readinessを防御ダイス>0でのみ要求し、Damageへruntime DR providerとD10 getterを渡す。D10失敗時のDamage未開始・lease解放、Backtrackのpublic asset非依存、legacy dependency/fallback未使用も確認した。production code、asset、JSON、generator、Worker protocol、RangePlanner、ResourceGuardは変更していない。browser smokeはPhase 8-2Cへ送る。
+- done（Phase 8-2B）: `tests/productionDependencyContract.test.js`でCalculationClientのproduction dependency boundaryを固定した。Checkはprecomputed loaderを要求せず、AttackはD10 readinessを防御ダイス>0でのみ要求し、Damageへruntime DR providerとD10 getterを渡す。D10失敗時のDamage未開始・lease解放、Backtrackのpublic asset非依存、legacy dependency/fallback未使用も確認した。production code、asset、JSON、generator、Worker protocol、RangePlanner、ResourceGuardは変更していない。
+- done（Phase 8-2C）: `scripts/production-browser-smoke.mjs`で`vite build`成果物を`vite preview`からPlaywright Chromiumへ配信し、Check、Attack初期、Attack防御ダイス1、Backtrackのcanvas・revision-1 asset request・D10 status・same-origin HTTP/console/page/request failureを確認した。PrecomputedDataRepository split、public asset削除、revision変更は行っていない。
 
 ## 参照文書
 
