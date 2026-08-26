@@ -234,7 +234,7 @@ Phase 8-1ではファイル単位の一括判定を避け、mixed-use moduleのs
 - D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`を削除・置換しない。
 - `published-bucket`はcomparison/compatibility用途として残り得る。1024/1022境界testは用途を確認するまで削除しない。
 - canonical resultのexpected value契約を維持する。exactでないDamage/Total等は`—`とし、Scoreもcertificateが保証できない場合は`—`とする。小さいprobability tailを理由にexpected valueの不確かさを無視しない。
-- probability表示は内部確率を百分率へ変換し、`Math.round(probability * 1000) / 10`で0.1 percentage pointへ丸める。`0`、`0.12344`、`0.12345`、`1`などの境界をPhase 8-1のgolden testで固定し、新formatterはこの単位では追加しない。
+- probability表示は内部確率を百分率へ変換し、`Math.round(probability * 1000) / 10`で0.1 percentage pointへ丸める。`0 → 0`、`0.12349 → 12.3`、`0.1235 → 12.4`、`0.12351 → 12.4`、`1 → 100`などの境界をPhase 8-1のgolden testで固定し、新formatterはこの単位では追加しない。
 - JSON、runtime asset、generatorは一括削除せず、production import graph、公開URL、再生成手順を個別に確認する。
 
 #### `LegacyCanonicalComparison`削除前のoracle coverage map
@@ -278,6 +278,7 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - 状態: open。Phase 8のcleanupと同時にrepository historyや公開URLを変更せず、release時に別途受入する。
 - 対象: canonical release sourceの決定、clean-history release strategy、default branch、CI policy、Cloudflare Pages source、LICENSE、公開ドキュメント、supported browser/device、最終resource threshold。
 - 原則: Git cleanupと公開済みasset URLのretirementを分離し、`public/data/schema-v2/revision-1/`を同一revision内で削除しない。release前にproduction dependency smokeとfull local gateを実行し、実際に確認した環境・結果だけを記録する。
+- 現在の公開状態: repositoryはすでにpublicで、default branchは`main`、LICENSEは未設定である。clean-history release strategyは新しいrelease repositoryを作る場合の方針であり、既存のpublic historyを非公開化・rewrite・削除することを意味しない。
 
 ## ブランチとコミット単位の推奨
 
