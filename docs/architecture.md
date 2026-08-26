@@ -1,6 +1,6 @@
 # アーキテクチャ
 
-このアプリはCloudflare Pagesで配信する静的SPAです。サーバー側の計算やデータベースを必要とせず、事前計算済み確率分布の取得と追加計算をブラウザ内で行います。
+このアプリはCloudflare Pagesで配信する静的SPAです。サーバー側の計算やデータベースを必要とせず、必要なruntime計算とD10 assetの取得をブラウザ内で行います。DXはメインスレッド、DRのFFT本体はRuntimeDamageRollWorker、Backtrackはruntime coreで実行し、全計算を一律Workerへ移すことは現行方針にしません。
 
 ## モジュール境界
 
@@ -8,7 +8,7 @@
 - `src/calculation/DamageCalculator.js`: ダメージ、期待値、複数コンボの合計を計算するコア
 - `src/calculation/BacktrackCalculator.js`: バックトラック後の侵蝕率を計算するコア
 - `src/application/CalculationClient.js`: UI向けの非同期canonical計算境界、実行時DX計算器の注入、AttackのD10遅延読込、常駐runtime damage Workerの組み立て
-- `src/data/*Calculator.js`: canonical計算のproviderと、比較・移行用に保持するlegacy計算ラッパー
+- `src/data/*Calculator.js`: canonical計算のproviderと、比較・移行用に保持するlegacy計算ラッパー。`src/data/`全体をlegacy扱いしない
 - `src/data/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
 - `src/data/FFT.js`: 独立な確率分布の加算・減算
 - `src/data/PrecomputedDataRepository.js`: 静的アセットの取得、検証、キャッシュ
@@ -16,6 +16,8 @@
 現行productionの`CalculationClient`はScoreとBacktrackのcanonical計算コア（`src/calculation/ScoreCalculator.js`、`src/calculation/BacktrackCalculator.js`）を直接参照する。`src/data/ScoreCalculator.js`と`src/data/BacktrackCalculator.js`を含むdata wrapperは、比較・migration用に維持する。
 
 Vueコンポーネントは入力状態と表示を管理し、`CalculationClient`だけを介して確率計算を利用します。`src/calculation/`の計算コアはVue、DOM、`fetch`、静的アセットの配置に依存せず、必要な分布は引数で渡される関数から取得します。
+
+Phase 8-1の棚卸しでは、ファイル単位で削除を判断せず、`src/components/Attack/ChartSetter.js`、`src/data/PrecomputedDataRepository.js`、`src/data/Distribution.js`、`src/data/FFT.js`のようなmixed-use moduleをexport/symbol単位で分類します。canonical adapterやD10 lazy asset、Distribution/FFTのproduction symbolを残したまま、legacy/reference部分だけをsplitまたは移動できるかを確認します。
 
 各計算モジュールが事前計算済み分布へ加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載しています。
 
@@ -74,6 +76,6 @@ canonicalの判定とダメージの中間計算は、要求windowとsupportに�
 
 計算ロジックはVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離しています。UIは非同期の`CalculationClient`だけを呼び出し、アプリケーション層が`calculateDxDistribution`を判定計算コアへ、Attackで必要になったときだけ`d10`をlazy loadし、常駐`RuntimeDamageRollClient`の`calculate`をDR providerとして注入します。Backtrackのcanonical producerはlegacyの`d10`・`livingdead` providerを参照せず、要求範囲をruntime生成します。DXの通常計算はメインスレッドで行い、ダメージロールのFFT本体だけをWorkerチャンクで実行します。固定値、d10防御ダイス、命中失敗の合成は計算コアで行います。公開`dx` JSONと下位legacy assetsは参照・回帰検証用に保持します。
 
-公開サイトは当面、Cloudflare Pages上の静的SPAとブラウザ内Web Workerを維持します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
+公開サイトは当面、Cloudflare Pages上の静的SPAと、DXメインスレッド・DR `RuntimeDamageRollWorker`・Backtrack runtime coreに分けたブラウザ内計算を維持します。低速端末や入力範囲の拡張で停止時間が許容できなくなった場合だけ、追加Worker化を性能測定に基づき再評価します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
 
 この決定の理由、Cloudflare上の構成、段階的な導入順序は[`ADR 0002`](./adr/0002-separate-calculation-core.md)に記載します。

@@ -116,7 +116,7 @@ windowの`max - min + 1`、explicit coverageの終端、Float64Array相当の最
 
 `mode: 'pmf'`は各座標の`P(X = x)`、`mode: 'upper-tail'`は既存`getUpperTailProbability`と同じ`P(X >= x)`である。offsetが0のupper-tailは既存の「1から下側PMFを順に減算する」計算順を保ち、offset付きwindowでは明示suffixから計算を開始する。activeなexact overflowがwindowの`max`以下にある場合、lowerBoundは分布一点を意味しないため`not-projectable`とする。lowerBoundが全thresholdより上のexact overflowだけはsuffixへmassを含められる。activeなupper-bound overflowはupper-tailへ変換せず、PMFでもwindowに重なる場合は拒否する。finite support外の既知0だけはoverflowの種類に関係なく0として投影できる。
 
-Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する一方、`parsing: false`のline dataには内部形式の座標が必要であるため、canonical seriesと最終materializerを分離した。`materializeCanonicalChartJsData`はCategoryScaleへ接続する最後の境界でのみ数値labelsを生成し、datasetにはseriesが所有する同じ`Float64Array`を`data`としてread-only参照し、`parsing: true`を渡す。これはdisplay入力とのaliasではなく、Chart.js用の二重コピーを避ける意図的なseries-to-Chart.js viewである。ローカル実装は数値要素を変更せず配列監視用のmetadataだけを扱うため、materialize後もcallerは`series.values`を変更しない。Phase 3単位ではproduction接続を変更していないが、通常Checkのproducer接続、既定UI、Chart/Summary供給はPhase 4で実装した。Attack/バックトラックのproducer接続とlegacy fallbackの最終削除は未完了である。
+Chart.js 4.5.1のローカル実装はtyped arrayをarrayとして認識する一方、`parsing: false`のline dataには内部形式の座標が必要であるため、canonical seriesと最終materializerを分離した。`materializeCanonicalChartJsData`はCategoryScaleへ接続する最後の境界でのみ数値labelsを生成し、datasetにはseriesが所有する同じ`Float64Array`を`data`としてread-only参照し、`parsing: true`を渡す。これはdisplay入力とのaliasではなく、Chart.js用の二重コピーを避ける意図的なseries-to-Chart.js viewである。ローカル実装は数値要素を変更せず配列監視用のmetadataだけを扱うため、materialize後もcallerは`series.values`を変更しない。Phase 3単位ではproduction接続を変更していないが、通常Checkのproducer接続、既定UI、Chart/Summary供給はPhase 4で実装した。Attack/バックトラックのproducer接続とlegacy fallbackの最終削除は後続Phase 5〜7で完了した。この段落はPhase 3時点のhistorical recordである。
 
 この単位でPhase 3全体が完了したわけではない。通常Checkのproducer接続、Chart/Summaryへの供給、ブラウザ確認はPhase 4で完了した。残る作業はAttack/バックトラックのproducer接続、各経路の表示供給、三経路全体の既定化、およびlegacy fallback削除である。
 
@@ -184,7 +184,80 @@ production formの上限では最大diceは223、最大working lengthは約2231�
 
 既定化は実装完了ではなく、三経路の比較・ブラウザ実測・resource/cancel/error確認後の受入判断である。既存チャート・サマリーの見た目を残すことは互換UIの維持であり、legacy計算や固定1024を残すことではない。
 
-### Phase 8: 事前計算JSONを整理する
+### Phase 8-0: cleanup前のre-baseline（完了）
+
+- 状態: done（Phase 7の最終HEAD `7457c0e`を基準に、削除前の状態分類、依存関係、gate、公開asset契約を再定義した）。
+- 目的: Phase 8-1で正しいproduction経路、比較・再生成用資産、migration残存、削除候補を混同せず、削除後も同等以上の検証を再現できるようにする。
+- 状態分類: `open`（現行実装に対する未完了）、`done`（完了）、`obsolete`（現行方針では実施しない）、`historical`（過去の実装・判断の記録）。
+- Phase 8-1の開始条件: legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、production使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類でsymbol/export単位まで棚卸しする。Phase 8-0では分類本体や削除を開始しない。
+- Gate: docs-only変更として`npm run lint:markdown`（23 files、0 issues）と`git diff --check`を最終HEADで成功させる。production code、generator、asset、依存関係は変更しないためfull code gateとbrowser acceptanceは再実行対象外とする。
+
+#### Phase 8-1 inventoryの表形式
+
+Phase 8-1ではファイル単位の一括判定を避け、mixed-use moduleのsymbol/export単位で次の列を埋める。
+
+| 列 | 記録内容 |
+| --- | --- |
+| `path` | 対象ファイルのパス |
+| `symbol/export` | mixed-useの場合に対象となるexportまたはsymbol |
+| `category` | 5分類のいずれか |
+| `production importer` | production codeからの参照元 |
+| `test/reference importer` | test・比較・referenceからの参照元 |
+| `runtime/deploy dependency` | fetch、public asset、Worker、cacheなどの実行・配布依存 |
+| `regeneration dependency` | generator、reference data、再生成手順との関係 |
+| `replacement evidence` | 代替済みの独立test、oracle、schema、runtime実装 |
+| `proposed action` | `keep` / `split` / `move` / `delete` |
+| `prerequisite` | 削除・分離前に満たす条件 |
+| `acceptance` | 変更後に確認するgate、runtime smoke、asset URLなど |
+
+#### Phase 8-1のsplit候補
+
+- `src/components/Attack/ChartSetter.js`: production canonical adapterとlegacy 1024-array helperが同居するため、削除ではなくkeepまたはsplitを先に検討する。
+- `src/data/PrecomputedDataRepository.js`: productionで使うD10 lazy asset経路と、DX・DR・livingdead loader、comparison cacheが同居するため、D10経路を壊さずreference部分を分離できるか確認する。
+- `src/data/Distribution.js`、`src/data/FFT.js`: canonical calculation coreからも使用中であり、`src/data/`全体をlegacy扱いしない。production symbolとlegacy/reference symbolを分離して判定する。
+
+#### `data:check`から後継gateへの対応
+
+| 現行gate | 保証している内容 | Phase 8-1での後継gate | 削除前の条件 |
+| --- | --- | --- | --- |
+| `npm run data:check` | 旧dense `src/data/*.json`の形状・確率・旧形式からschema-v1 referenceへの変換 | generatorのschema/manifest validation、`generator:test`のnumerical audit・exhaustive reference・current asset equivalenceへ保証を移す | 旧dense JSONと変換スクリプトをreference fixtureとして保持し、同じsemanticの独立検証を確認する |
+| `npm run data:verify-generator` | Python generatorがpublic schema-v2/revision-1 assetsを再生成できること | 同じgateをgeneratorの再生成・manifest検証の基準として維持する | 全assetの再生成、manifest、SHA-256、配布先の一致を確認する |
+| `npm run generator:test` | generatorの分布、数値監査、独立全列挙、current asset equivalence | 同じgateを独立oracleとして維持し、必要なschema validationを追加する | `src/data/*.json`なしで同等のboundaryとreferenceを保護できることを確認する |
+| `npm run generator:test:simulation` | 乱数シミュレーションとの統計的一致 | 同じsimulation gateを維持する | 代表入力のsimulationがreference assetに依存せず成功することを確認する |
+| `npm test`のlegacy/migration test | 旧実装・旧assetとの回帰比較 | canonical rule、range、presentation、runtime integration testとoracle coverage mapへ移す | semanticごとに独立testが同等以上に保護し、比較test削除後も全gateが成功することを確認する |
+
+この表は後継gateの設計であり、Phase 8-0では`data:check`、legacy JSON、比較コードを削除しない。
+
+#### Phase 8-1へ引き継ぐ不変条件
+
+- canonical Check、Attack、Backtrackのproduction経路を維持する。
+- D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`を削除・置換しない。
+- `published-bucket`はcomparison/compatibility用途として残り得る。1024/1022境界testは用途を確認するまで削除しない。
+- canonical resultのexpected value契約を維持する。exactでないDamage/Total等は`—`とし、Scoreもcertificateが保証できない場合は`—`とする。小さいprobability tailを理由にexpected valueの不確かさを無視しない。
+- probability表示は内部確率を百分率へ変換し、`Math.round(probability * 1000) / 10`で0.1 percentage pointへ丸める。`0`、`0.12344`、`0.12345`、`1`などの境界をPhase 8-1のgolden testで固定し、新formatterはこの単位では追加しない。
+- JSON、runtime asset、generatorは一括削除せず、production import graph、公開URL、再生成手順を個別に確認する。
+
+#### `LegacyCanonicalComparison`削除前のoracle coverage map
+
+| semantic | 独立oracle / boundary test |
+| --- | --- |
+| Score（dice、critical、positive/negative skill、yousei、shihai、failure/fumble、tail certificate） | `tests/canonicalCheck.test.js`、`tests/dxOnDemand.test.js`、`tests/runtimeRuleValidation.test.js` |
+| Damage（fixed damage、defence、kazanari、reaction、output overflow、positional Score tail、mixed tail） | `tests/canonicalDamageOnDemand.test.js`、`tests/runtimeDamageOnDemand.test.js`、`tests/canonicalChartSeriesAdapter.test.js` |
+| Total（aggregation、overflow、multiple combos） | `tests/canonicalDamageAggregation.test.js`、`tests/canonicalTotalDamageClient.test.js` |
+| Backtrack（supported D-lois、normal/nightmare、negative values、finite support） | `tests/backtrackCanonical.test.js`、`tests/backtrackCanonicalIntegration.test.js`、`tests/runtimeRuleValidation.test.js` |
+| Presentation（PMF、upper-tail、expected-value certificate、unavailable `—`） | `tests/canonicalChartSeriesAdapter.test.js`、`tests/attackCanonicalDisplayIntegration.test.js`、`tests/attackScoreDisplayAdapter.test.js`、`tests/attackDamageDisplayAdapter.test.js`、`tests/checkSummaryTable.test.js` |
+
+legacy comparisonを削除できるのは、対応するsemanticがこの表の独立oracle・boundary testで同等以上に保護され、比較testを外した最終gateが成功した場合だけとする。テスト総数だけを根拠にしない。
+
+#### 公開assetとruntime smokeの方針
+
+`public/data/schema-v2/revision-1/`は公開後immutableとし、同一revision内のファイルをGit cleanupと同時に削除しない。productionで不要になったassetを減らす場合は新しいrevisionを作成し、旧revisionの保持期間とretirement条件を別途決める。Git上のcleanupと公開URLの削除は別の判断である。
+
+Phase 8-1のproduction dependency smokeは、通常Check（DX asset fetch 0、結果表示）、Attackの防御ダイス0（D10/DR fetch 0、chart表示）、防御ダイス1以上（D10 fetch 1またはcache hit、DR fetch 0、chart表示）、Backtrack（D10/livingdead fetch 0、chart 3枚）を最低ケースとし、console warning/error 0を確認する。既存Playwright性能suiteをCIへそのまま移植することは必須とせず、短いproduction smokeとして分離する。
+
+Phase 8-1ではfull verificationを1コマンドで再現できる状態（候補: `npm run verify`）を目標にするが、Phase 8-0ではCI triggerや既存scriptを変更しない。
+
+### Phase 8-1: 事前計算JSONとlegacy資産を整理する
 
 - 成果物: canonical既定化後のruntime検証に基づく、既存JSONの保持・参照用化・削除と再生成コードの範囲を記録した判断。
 - 完了条件: productionが不要な事前計算JSONに依存せず、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズを確認する。削除対象と保持対象を個別に比較できる。
@@ -199,6 +272,12 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - 対象外: 今回の移行でのCloudflare Workers新規経路、HTTP API、MCPの実装、測定なしのブラウザWeb Worker protocol追加、静的SPAの置換。
 
 Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実測と運用要件から再評価する。外部境界を追加する場合も、既存のcore契約とdisplay contractを再利用し、UI移行や入力上限変更と同時に進めない。
+
+### Release hardening / publication（Phase 8とは別checkpoint）
+
+- 状態: open。Phase 8のcleanupと同時にrepository historyや公開URLを変更せず、release時に別途受入する。
+- 対象: canonical release sourceの決定、clean-history release strategy、default branch、CI policy、Cloudflare Pages source、LICENSE、公開ドキュメント、supported browser/device、最終resource threshold。
+- 原則: Git cleanupと公開済みasset URLのretirementを分離し、`public/data/schema-v2/revision-1/`を同一revision内で削除しない。release前にproduction dependency smokeとfull local gateを実行し、実際に確認した環境・結果だけを記録する。
 
 ## ブランチとコミット単位の推奨
 
@@ -220,16 +299,18 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 
 - 表示windowは非負safe integerの`min`/`max`を原則受け入れ、window長・メモリ・Chart.js描画負荷が問題になる場合だけpreflight/resource guardで拒否する。
 - 本番のチャート・サマリーは既存の見た目、ラベル、確率1桁丸め、summary丸めを維持する。不確かさやboundは通常UIへ明示しない。
-- `CanonicalAttackPanel`、`canonicalOptIn`、canonical debug表示、1024固定projection、legacy計算、legacy fallbackは移行完了時に削除する。canonical resource/error時は旧結果へfallbackせず、既存のerror/re-input案内へ接続する。
+- `CanonicalAttackPanel`、`canonicalOptIn`、canonical debug表示、1024固定projection、production legacy計算、production legacy fallbackはPhase 7で削除済みである。canonical resource/error時は旧結果へfallbackせず、既存のerror/re-input案内へ接続する。下位legacy core、reference asset、比較・migration testはPhase 8-1のinventory完了まで維持する。
 - 静的SPAとブラウザ内計算を今回の公開形態として維持し、Cloudflare Workers、HTTP API、MCPはcanonical移行完了後の将来目標として再評価する。
 - 通常の対話操作はlatest-winsを基本とし、初期化、Attack全combo batchのatomic commit、共有asset/cacheは別のライフサイクルとして扱う。実行中ブラウザWeb Workerのcancelは今回の移行対象外とする。
 
-## 残っている受入判断
+## 後続release hardeningと保留中の設計判断
 
-- resource rejectionの見積り式、window長・描画点数のbudget、メモリ不足時のerror/re-input文言を確定する。
-- 最新要求の計算中に、直前の成功結果を保持して表示するか、現在の実装どおり一時的に結果を消すかを決める。どちらを選んでもresultとinputの世代が混在しないことを契約にする。
-- 表示window変更時に再計算せずprojectionだけ更新できる条件、明示coverageを拡張する条件、finite support外を0と扱う条件をgolden fixtureで固定する。
-- 三経路の比較、ブラウザ実測、resource/cancel/error確認を満たしたと判断するfixture、engine、実行条件と、canonical既定化の受入条件を確定する。
+- done: resource rejectionの見積り式、window長・描画点数のbudget、memory/capacity rejection、error/re-input案内はRangePlanner、ResourceGuard、既存browser acceptanceで確定した。warning/hard thresholdは50/200msを暫定維持する。
+- done: latest-winsでは計算中に直前の成功結果へfallbackせず、失敗・reject・stale時に結果をclearしてinput世代を混在させない契約を採用した。
+- done: 表示window変更時は明示coverage内ならprojectionを再利用し、不足時はcanonical再計算する。finite support外の既知0、位置不明Score tail、Damage-output overflowは別のcertificateとして扱う。
+- done: Check、Attack、Backtrackの比較、browser acceptance、resource/cancel/error確認、canonical default化、最終HEAD gateを完了した。
+- open（release hardening）: 低速実機を含むthreshold再評価、supported browser/deviceの明文化、最終resource policy、production dependency smoke、full verificationの単一コマンド化を行う。これらはPhase 7完了を取り消す未決定事項ではない。
+- open（Phase 8-1）: legacy core、wrapper、JSON、runtime asset、generator、comparison/migration testのsymbol-level inventoryを作成し、保持・split・move・deleteを個別判断する。
 
 ## 参照文書
 

@@ -15,6 +15,8 @@
 
 現在の出力先は`public/data/schema-v2/revision-1/`です。schema-v1の旧データは移行比較の参照用として保持し、アプリからは参照しません。
 
+公開済みのrevisionはimmutableとして扱います。productionで不要になったassetを整理する場合も、既存revisionのURLを同一revision内で削除せず、新しいrevisionへ最小構成を生成して参照先を切り替えます。Git上のlegacy/reference削除と、公開済みURLのretirementは別の判断として記録します。
+
 生成元の`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`は変換処理と比較・移行・asset equivalence testだけが参照します。本番アプリケーションから直接importせず、ViteのJavaScriptチャンクにも含めません。canonical Attackが必要とするD10は生成済みpublic assetを計算時にlazy loadします。
 
 ## 共通形式
@@ -51,7 +53,7 @@
 
 この例では、値12、13、14の確率がそれぞれ0.01、0.08、0.15であり、それ以外の確率はゼロです。`offset + values.length`は`distributionSize`以下でなければなりません。
 
-`dx`と`dr`の`distributionSize`は2048、`d10`と`livingdead`は1024です。各分布の最終インデックスは、その値以上をまとめたオーバーフローバケットです。アプリが画面へ返す公開分布は常に1024要素であり、インデックス1023へ値1023以上を集約します。
+`dx`と`dr`の`distributionSize`は2048、`d10`と`livingdead`は1024です。事前計算assetの最終インデックスは、その値以上をまとめたlegacy/reference用オーバーフローバケットです。canonical production UIはこのasset形状を最終表示へ直接返さず、要求されたdisplay windowとcanonical support/overflow契約に従って表示します。1024要素とインデックス1023の意味はpublished-bucket compatibilityと移行比較の境界としてのみ維持します。
 
 中間表現と公開表現を分ける理由、および2048要素で安全に処理できる入力範囲は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)に記載します。
 
@@ -106,6 +108,12 @@ canonical UIはroute preloadを行わず、計算時に必要なruntime計算ま
 
 `d10`と`livingdead`の疎な分布形式は下位legacy経路とasset equivalence testの参照仕様として保持します。canonical Backtrackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`d10`のcanonical Attack利用とlegacy compatibility pathのデータ取得・検証・cacheは`PrecomputedDataRepository.js`に集約します。
 
+## 検証gateと整理条件
+
+`npm run data:check`は旧dense `src/data/*.json`を入力にschema-v1 referenceを生成し、旧形式の配列形状、確率値、疎形式変換を検証するmigration用gateです。`npm run data:verify-generator`はPython generatorからpublic schema-v2/revision-1 assetsを再生成して比較し、`npm run generator:test`は数値監査、独立全列挙、current asset equivalenceを、`npm run generator:test:simulation`は乱数シミュレーションとの一致を検証します。
+
+Phase 8-1で`src/data/*.json`や変換スクリプトを整理する場合は、`data:check`が保証していたdense形状・旧形式変換・旧revision equivalenceを、generatorのschema/manifest validation、numerical audit、exhaustive reference、asset manifest validationへ移したことを確認してから削除します。この対応が完了するまで、旧JSONと比較・migration testを一括削除しません。
+
 ## ファイル名と整合性
 
 ファイル名には内容ハッシュを含めません。スキーマ版とデータ改訂版をパスに含め、同じ改訂版のファイルは変更しない運用とします。
@@ -119,7 +127,7 @@ canonical UIはroute preloadを行わず、計算時に必要なruntime計算ま
 3. `npm run data:verify-generator`でPython生成器の出力と現行の配信データとの差分を確認する
 4. `npm run data:regenerate`を実行し、`generated-data/`へレビュー用データを生成する
 5. 公開する場合は`dataRevision`とアプリの参照先を更新し、新しいリビジョンの配信先へ配置する
-6. `npm run data:check`で旧密JSONから作るrevision-1参照データを検証し、PythonとJavaScriptのテスト、lint、ビルドを実行する
-7. 生成物とマニフェストを同じコミットに含める
+6. `npm run data:check`で旧dense JSONから作るschema-v1 referenceを検証し、PythonとJavaScriptのテスト、lint、ビルドを実行する
+7. 公開済みrevisionのファイルを上書きせず、生成物とマニフェストを同じ新revisionのコミットに含める
 
 Python環境、データセット単位の照合、全再生成については[`generator/README.md`](../generator/README.md)を参照してください。生成器の移行検証が完了するまでは、`src/data/*.json`と`scripts/generate-precomputed-data.mjs`も比較用に保持します。

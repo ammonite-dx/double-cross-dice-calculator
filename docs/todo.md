@@ -2,6 +2,8 @@
 
 リポジトリ内で判明している、後続作業が必要な技術課題を記録します。完了した項目は、対応したコミットまたはPull Requestを記録したうえでこの一覧から削除します。
 
+状態ラベルは`open`（現行実装に対する未完了の課題）、`done`（現行実装で完了）、`obsolete`（現行方針では実施しない課題）、`historical`（過去の実装・判断を記録する項目）を用います。過去の作業記録に残る「未着手」「継続」「一部完了」は、現在の状態を示すラベルとして解釈しません。
+
 canonical移行の横断的な実装順序と判断は [canonical-migration-roadmap.md](./canonical-migration-roadmap.md) を参照してください。
 
 ## 推奨実装順
@@ -14,8 +16,8 @@ canonical移行の横断的な実装順序と判断は [canonical-migration-road
 4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
 5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
 6. 完了: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、バックトラックの完全support生成、既存戻り値維持、check/attack/backtrack UIへのwarning/reject表示まで接続した。Phase 2-Eでは本番コードを変更せずNode/Chromeベンチマーク基盤を追加・修正し、現行1024 published bucketのtotal damage集計を維持したまま、現行入力上限を変更しない暫定判断と追加実測の受入基準を確定した。resource guard、将来のdynamic output契約、入力拡張候補、JSON経路は次段階へ引き継ぐ
-7. オンデマンド経路の実ブラウザ検証後に、本番配信から不要な事前計算JSONを外し、参照用データと再生成コードの保持範囲を決める
-8. 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
+7. open: Phase 8-1でオンデマンド経路とproduction import graphを棚卸しし、本番配信から不要な事前計算JSONを外す場合の参照用データと再生成コードの保持範囲を決める
+8. open: 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
 第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、`DEFAULT_POLICY`は比較・互換用に`published-bucket`を保持しつつ、Attackのproduction `CalculationClient`は`full-tail`を明示的に選択します。DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。full-tail Attackのresource計測・暫定threshold判断は下記Phase 7実装単位へ記録し、残るJSON経路、legacy整理、低速実機、入力拡張候補の追加受入は後続課題です。
 
@@ -37,28 +39,24 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 
 第4段階では通常Checkのcontrolled SettingForm、999上限撤廃、dynamic display windowを実装し、resource rejectionで広い表示範囲を制御しました。Attack、バックトラック、三経路全体の入力・表示上限拡張は、誤差、計算時間、メモリ使用量、描画点数を同時に検証した後に判断します。
 
-## オーバーフローバケットを利用者へ表示する
+## 1023 overflow bucket UI（obsolete / compatibility-only historical requirement）
 
-- 状態: 一部完了
-- 優先度: 中
-- 対象:
-  - 判定・ダメージ結果のサマリー
-  - グラフ注記
-  - 入力範囲の説明
+- 状態: obsolete
+- 位置づけ: 1024要素のpublished bucketはlegacy comparison/compatibility用に残すが、canonical production UIの表示上限や未完了課題とはしない。
 
-### 問題
+### 過去の仕様
 
-公開分布のインデックス1023は値1023以上をまとめたバケットですが、現在の画面では通常の値1023と区別して表示しません。最終バケットの確率が無視できない入力では、期待値も1023へ打ち切った値になります。
+旧公開分布ではインデックス1023が値1023以上をまとめたバケットであり、画面上の表示もこの形状に依存していました。現在はcanonical resultがsupport、overflow、display windowを分離して保持し、production UIは任意の非負safe integer windowをResourceGuardの範囲内で表示します。
 
-### 完了条件
+### 互換用途
 
-- 最終バケットが値1023以上を表すことを画面上で確認できる
-- 最終バケットの確率が定めた閾値を超える場合に近似結果であることを通知する
-- 閾値と表示文言をテストおよびドキュメントで固定する
+旧1024形状とインデックス1023の意味は、legacy comparison、schema-v1 reference、published-bucket policyの説明とテストでのみ維持します。canonical chartで最終バケットを特別表示する実装は追加しません。
 
 ## 計算コアを実行環境から分離する
 
-- 状態: 計算コアと`CalculationClient`の分離済み（`9beeea2`、`b29b4e0`）、Web Workerは未着手
+- 状態: done（計算コアと`CalculationClient`の分離、`9beeea2`・`b29b4e0`、canonical runner、DR Worker接続）
+- 実行場所: DXはメインスレッド、DRのFFT本体は`RuntimeDamageRollWorker`、Backtrackはruntime coreで実行する。全計算をWorkerへ移すことは現行要件ではない。
+- 将来再評価: open（低速端末や新しい入力範囲でメインスレッド停止時間が許容できなくなった場合に、性能測定に基づき追加Worker化を判断する）
 - 優先度: 高
 - 判断記録: [`ADR 0002`](./adr/0002-separate-calculation-core.md)
 - 対象:
@@ -76,8 +74,8 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 1. 判定、ダメージ、バックトラックの入力、結果、エラー、キャンセルを表す内部契約を定義する
 2. 完了: 計算コアからVue、静的アセット取得、ブラウザとCloudflare固有APIへの依存を除く
 3. 完了: UIが利用する`CalculationClient`相当のインターフェースを定義する
-4. ブラウザ内Web Workerアダプターを実装し、連続入力のキャンセル、重複排除、キャッシュ、障害復旧を統合する
-5. 現行経路、計算コア、ブラウザ内Web Workerで同じ入力が同じ結果になる適合テストを追加する
+4. historical: 全計算を標準Web Workerへ移す計画は現行方針では採用しない。DR専用Workerの契約は実装済み
+5. done: 現行canonical経路、計算コア、DR Workerで同じ入力が同じ結果になる適合テストを追加した
 6. オンデマンド計算と範囲決定処理を計算コアへ統合した後に、HTTP APIの入出力契約を設計する
 7. HTTP APIの性能と運用を検証した後にだけ第三者公開を判断し、MCPは安定した契約を呼ぶ薄いアダプターとして最後に検討する
 
@@ -85,13 +83,13 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 
 - 計算コアがブラウザ、Vue、HTTP、Cloudflare固有APIを参照しない
 - UIが計算モジュールや静的データリポジトリを直接参照しない
-- ブラウザ内Web Workerが公開サイトの標準実行先として動作する
+- DXメインスレッド、DR Worker、Backtrack runtime coreの実行境界が文書・テスト・production接続と一致する
 - 現行の計算結果、ルールテスト、数値誤差、キャンセル動作が維持される
 - APIやMCPを実装しなくても、同じ計算コアへ新しいアダプターを追加できる
 
 ## 旧生成元と移行専用テストを整理する
 
-- 状態: 未着手
+- 状態: open（Phase 8-1 inventoryで依存関係と保持・分離・削除を判断する）
 - 優先度: 中
 - 対象:
   - `src/data/*.json`
@@ -147,7 +145,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 実行時生成の数値誤差、オーバーフローバケット、キャッシュのメモリ上限をテストする
 - 自己遷移の計算を等比級数のシフト加算から係数漸化式 $d_{n,c}(x)=a_{n,c}(x)+p_c^n d_{n,c}(x-10)$ へ変更した場合は、確率質量関数から動的計画法を導入する説明を主とし、確率母関数を再帰構造の要約として後から示すように教科書を書き換える
 - 上記の実装変更時は、教科書だけでなく事前計算と実行時計算の開発者向けアルゴリズム文書も現行実装に合わせて更新する
-- `dr`と`kazanari`は本項目の対象外とし、引き続き事前計算する
+- historical: 当時は`dr`と`kazanari`を本項目の対象外としていたが、現在はDRをRuntimeDamageRollWorkerでオンデマンド生成する。公開JSONの保持・retirementはPhase 8-1で別途判断する。
 
 ### 本番統合の判断
 
@@ -165,7 +163,8 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 ## `dr`と`kazanari`をブラウザ内でオンデマンド計算する
 
-- 状態: 固定4096/2048の本番移植と実ブラウザ検証を完了し、可変FFT・出力長のRuntimeDamageRollCalculator/Worker第1単位も完了。本番配信からの`dr`用JSON除外とDamage経路接続は未完了
+- 状態: done（固定4096/2048の本番移植、可変FFT・出力長のRuntimeDamageRollCalculator/Worker、production AttackのDamage経路接続）
+- 現行経路: production `CalculationClient`は`RuntimeDamageRollClient`/`RuntimeDamageRollWorker`でDRをオンデマンド生成し、`dr` JSONをロードしない。`dr` JSONはcomparison/referenceとasset equivalence用に保持するため、配信assetのretirementはPhase 8-1のopen課題とする。
 - 優先度: 高
 - 作業ブランチ: 実験・検証は`codex/runtime-dr-experiment`、本番移植は`codex/runtime-dr-production`
 - 対象:
@@ -228,14 +227,14 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 - 全列挙比較、数値監査、実行時ルールテストが成功する
 - 対応ブラウザと端末性能の下限でパフォーマンス目標を満たす
-- 不要になったJSON、キャッシュ、初期読込み、スキーマ参照が残っていない
+- Phase 8-1 prerequisite: 不要になったJSON、キャッシュ、初期読込み、スキーマ参照をinventoryとproduction import graphで確認し、削除または保持の判断を個別に記録する
 - ゲームルール、数式、実装、テスト、教科書と開発者向け文書が同じ計算方法を説明している
 
 ### Damage dynamic range 第2-B
 
 - 完了: `RangePlanner`と実験plannerのDamage境界、異長防御差分布のFFT、境界テスト、契約文書を更新した
 - 完了: `DamageCalculator`と`CalculationClient`へ`DamageRangePlan`を接続し、raw分布長、provider options、防御support、`defenceFftLength`、公開1024要素へのcollapseを動的化した
-- 継続: total damageのresource guardと将来のdynamic output契約、JSON経路、入力上限。バックトラック配列のplan接続は第2-Dで完了
+- done: total damageのresource guard、canonical dynamic output契約、バックトラック配列のplan接続は完了した。open（Phase 8-1）: JSON経路のinventoryと保持・参照用化・削除判断。入力上限の追加拡張はrelease hardeningで再評価する。
 
 ### Dynamic distribution range Phase 2-C
 
@@ -245,7 +244,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: attackの合計damageに専用generation/readyを持たせ、個別結果の追加・削除・reject、stale result、合計計算エラー、アンマウントで古い合計を表示しないようにした。未知の計算エラーは内部詳細を漏らさず日本語の再入力案内へ変換する
 - 完了: `onRangePlan`を同期callback契約としてJSDoc、文書、実行順テストで固定し、UI runnerの外部`signal`はrunner所有signalと合成する
 - テスト: component mount依存を増やさず、状態層テストで複数comboのaggregate ready、generic error、initial reject、stale/unmount、signal合成を固定した。残余リスクは実ブラウザでのVuetify/Chart.js描画と入力イベントの結合確認、およびresource guard・dynamic output契約である
-- 継続: 公開1024 bucketの最終ラベル・確率をチャート上で個別表示すること、入力上限、JSON経路、resource guardと将来のdynamic output契約
+- obsolete: 公開1024 bucketの最終ラベル・確率をcanonicalチャートで個別表示する要件はcompatibility-onlyとする。open（Phase 8-1）: JSON経路のinventory。入力上限とresource guardの追加変更はrelease hardeningで再評価する。
 
 ### Dynamic distribution range Phase 2-D
 
@@ -272,7 +271,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 完了: Firefox `153.0`、WebKit `26.5`、Chrome `151.0.7922.108`で同じ`browser: true` 12ケースを各12/12成功させた。page errorと数値検証エラーは各0件、Firefox/WebKitはLong Task APIなし、Chrome 4xはLong Task 50件（最大154 ms）、Worker resource timing unavailableは4件だった
 - 完了: 代表値はFirefoxのmain warm median/p95最大34/40 ms・Worker cold/warm p95最大56/36 ms、WebKitの15/24 ms・38/19 ms、Chrome 4xの129.5/132.8 ms・74.8/31.5 msだった。timer-delay warm p95最大は40/24/134.2 msで、CPU時間ではなくzero-delay timer遅延近似として記録した
 - 完了: 入力拡張候補の`dx-two-x-planner-only`、`dx-large-planner-only`、`dx-hard-reject-planner-only`、`dr-over-core-cap`、`attack-two-x-planner-only`はcore capを変更せずplanner-onlyに維持し、`backtrack-large-normal-node-only`はNode-onlyとしてブラウザ測定から除外した
-- 継続: dynamic output、resource guard、JSON経路、低速実機、入力拡張候補のブラウザ実測は残課題とし、今回の3 engine実測だけでは本番core cap、UI入力上限、配信JSONを変更しない
+- done: dynamic outputとresource guardのproduction契約、3 engineの基準実測、配信JSONを変更しない暫定判断を完了した。open（release hardening）: 低速実機と入力拡張候補の追加受入。open（Phase 8-1）: JSON経路のinventory。
 
 ## Dynamic distribution range Phase 2-G
 
@@ -430,7 +429,7 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 - 完了: `ef14744`、`dfe25fe`、`cdef582`、`b0bede7`、`fac55bb`で、通常Checkのcanonical producer、presentation/chart/summary接続、既定Check接続、dynamic display window、controlled SettingForm、999上限撤廃、coverage再利用・不足時latest-wins再計算、resource拒否時のclient未呼出、upper-bound terminal、legacy fallbackなしを実装した。
 - 検証: 全715テスト、lint、Markdown、buildが成功した。2026-08-20のin-app browserで`/check`を確認し、初期`0..30`、`0..1200`への拡張、`0..20000`のdisplay resource rejection（警告表示）、`30`への復旧、canvas 1、console warn/error 0を確認した。
-- 状態: Phase 5は完了し、AttackのScore/Damageをdynamic displayへ接続した。Attackとバックトラックのcanonical化、三経路全体の既定化、legacy削除は未完了である。
+- 状態: historical（Phase 5時点ではAttackのScore/Damageをdynamic displayへ接続した。後続のPhase 6〜7でAttack、Backtrack、Checkのcanonical default化とproduction legacy経路/fallback削除を完了した。）
 
 ## Canonical migration Phase 5: AttackのScore/Damageをdynamic displayへ接続する（完了）
 
