@@ -267,7 +267,7 @@ Phase 8-1ではfull verificationを1コマンドで再現できる状態（候�
 - 完了条件: productionが不要な事前計算JSONに依存しないことを確認し、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズ、削除前の独立oracleを個別に比較できる。Phase 8-1では削除を行わない。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 
-JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A/2B/2CではChart adapter分離、CalculationClient dependency contract、production browser smokeを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A/2B/2C/2DではChart adapter分離、CalculationClient dependency contract、production browser smoke、precomputed repositoryのproduction/reference source splitを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
 
 ### Phase 8-2A: Attack chart adapter分離（完了）
 
@@ -284,15 +284,23 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 ### Phase 8-2C: production browser smoke（完了）
 
 - `scripts/production-browser-smoke.mjs`と`npm run smoke:production`を追加し、必ず`vite build`した成果物を空きportの`vite preview`で配信してからPlaywright Chromiumで検証するようにした。既存のexperiment runnerは変更していない。
-- Check、Attack初期（防御ダイス0）、Attackの防御ダイス1への変更、Backtrackを独立browser contextで確認した。Checkはcanvas 1、Attackは初期・変更後ともcanvas 2、Backtrackはcanvas 3だった。
+- Check、Attack、Backtrackをそれぞれfresh browser contextで確認し、Attackでは同一context内で防御ダイス0から1へ変更してD10 lazy fetchを連続操作で確認した。Checkはcanvas 1、Attackは初期・変更後ともcanvas 2、Backtrackはcanvas 3だった。
 - Check、Attack初期、Backtrackではrevision-1 asset request 0を確認した。Attackで防御ダイスを1へ変更した場合だけ`/data/schema-v2/revision-1/d10.json`を1回（HTTP 200）取得し、DX、DR、livingdead、manifestなど他のrevision-1 asset requestは0だった。
-- 全ケースでsame-origin HTTP error 0、console warning/error 0、pageerror 0、same-origin requestfailed 0を確認した。revision-1 public assetの削除・URL変更、`PrecomputedDataRepository` split、UI/計算意味論の変更は行っていない。
+- 全ケースでsame-origin HTTP error 0、console warning/error 0、pageerror 0、same-origin requestfailed 0を確認した。revision-1 public assetの削除・URL変更、UI/計算意味論の変更は行っていない。PrecomputedDataRepositoryのsource splitはPhase 8-2Dで実施した。
 
-### Phase 8-2D: PrecomputedDataRepositoryのproduction/reference分離（次段階）
+### Phase 8-2D: PrecomputedDataRepositoryのproduction/reference分離（完了）
 
 - 開始条件: Phase 8-2B dependency contract、Phase 8-2C production browser smoke、D10 lazy fetch/readiness contractが完了していること。revision-1 public URLはimmutableとして維持する。
 - 対象: D10 production loader/cacheと、DX・DR・livingdeadのcomparison/reference loaderをsymbol単位で分離する。public assetとgeneratorの削除・revision変更はこの単位に含めない。
-- 完了条件: production import graphがD10経路だけを保持し、reference/migration testが明示したloaderへ移行され、full JS gateとproduction browser smokeが再び成功すること。
+- 実装: `PrecomputedDataSchema.js`へschema/revision/base path/sparse validatorを分離し、`D10PrecomputedDataRepository.js`へproduction D10 loader/cache、`ReferencePrecomputedDataRepository.js`へDX/DR/livingdead loader/cacheを移した。`PrecomputedDataRepository.js`は互換re-exportと全cache clearだけを担うfacadeとして保持し、CalculationClientと比較・migration用data wrapperは直接のsplit moduleを参照する。
+- 挙動維持: D10 lazy fetch、pending request dedupe、失敗後retry、sparse validation、finite-support expansion、DX/DR/livingdead reference API、DR LRU 3件、全cache clearを既存テストと直接repositoryテストで確認した。
+- 完了条件: production import graphがD10経路だけを保持し、reference/migration testが明示したloaderへ移行され、full JS gateとproduction browser smokeが再び成功することを満たした。公開asset、JSON、generator、計算意味論は変更していない。
+
+### Phase 8-2E: reference/legacy importer再監査（次段階）
+
+- 対象: 互換facade、legacy core、migration/comparison、benchmark、asset fixture、公開JSONの参照元を再監査し、独立oracleへ移行できる単位と保持期間を確定する。
+- 対象外: production D10 loader、canonical計算意味論、revision-1公開URL、JSONの削除、Cloudflare Workers/API/MCP。
+- 完了条件: 削除候補ごとにproduction importer 0、独立oracle coverage、公開asset保持条件、再生成手順を記録し、削除と保留を個別に判断できること。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 
@@ -343,7 +351,8 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - done（Phase 8-1）: [symbol/export単位のinventory](./phase8-inventory.md)を作成し、保持・split・move・delete-candidateを個別判断した。実際のcleanupはPhase 8-2以降で行う。
 - done（Phase 8-2A）: Attackの`ChartSetter.js`からlegacy array adapterを`LegacyChartSetter.js`へ分離し、canonical adapter、options、styleのproduction importを維持した。`ChartPercentages.js`を追加してcanonical/legacy Attack chartの表示丸めを共有し、`0`、`0.12349`、`0.1235`、`0.12351`、`1`のgolden testとTypedArrayのowned Array変換を固定した。公開asset、JSON、generator、計算意味論、入力・表示windowは変更していない。`npm test`、ESLint、Markdown lint、build、`git diff --check`をgateとする。
 - done（Phase 8-2B）: `tests/productionDependencyContract.test.js`でCalculationClientのproduction dependency boundaryを固定した。Checkはprecomputed loaderを要求せず、AttackはD10 readinessを防御ダイス>0でのみ要求し、Damageへruntime DR providerとD10 getterを渡す。D10失敗時のDamage未開始・lease解放、Backtrackのpublic asset非依存、legacy dependency/fallback未使用も確認した。production code、asset、JSON、generator、Worker protocol、RangePlanner、ResourceGuardは変更していない。
-- done（Phase 8-2C）: `scripts/production-browser-smoke.mjs`で`vite build`成果物を`vite preview`からPlaywright Chromiumへ配信し、Check、Attack初期、Attack防御ダイス1、Backtrackのcanvas・revision-1 asset request・D10 status・same-origin HTTP/console/page/request failureを確認した。PrecomputedDataRepository split、public asset削除、revision変更は行っていない。
+- done（Phase 8-2C）: `scripts/production-browser-smoke.mjs`で`vite build`成果物を`vite preview`からPlaywright Chromiumへ配信し、Check、Attack初期、Attack防御ダイス1、Backtrackのcanvas・revision-1 asset request・D10 status・same-origin HTTP/console/page/request failureを確認した。public asset削除、revision変更、UI/計算意味論の変更は行っていない。
+- done（Phase 8-2D）: `PrecomputedDataSchema.js`、`D10PrecomputedDataRepository.js`、`ReferencePrecomputedDataRepository.js`へsourceを分離し、productionのprecomputed importerをD10へ限定した。互換facadeはre-exportと全cache clearに縮小し、D10直接テスト、reference直接テスト、既存facadeテスト、full JS/data/generator/browser smoke gateを通過させた。公開asset、JSON、generator、revision-1 URL、計算意味論は変更していない。
 
 ## 参照文書
 

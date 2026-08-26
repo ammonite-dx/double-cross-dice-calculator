@@ -1,10 +1,10 @@
 # Phase 8-1 inventory
 
-この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。Phase 8-2Aでは、この棚卸しに基づいてAttackのchart adapterだけを分離し、公開asset、JSON、generator、計算意味論は変更しない。
+この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。Phase 8-2AではAttackのchart adapter、Phase 8-2Bではproduction dependency contract、Phase 8-2Cではproduction browser smoke、Phase 8-2Dでは事前計算データrepositoryのproduction/reference境界を整理した。公開asset、JSON、generator、計算意味論は変更しない。
 
 ## 判定範囲と分類
 
-Phase 8-1の調査時点はブランチ`codex/canonical-default-migration`のHEAD `752b3d9`である。Phase 8-2Aの変更はこのinventoryの分類を更新する追補として扱う。production importerは`src/`の実行時importと、production bundleから到達するWorkerを指す。テスト、ベンチマーク、移行スクリプト、reference-dataからの参照はproduction importerに含めない。
+Phase 8-1の調査時点はブランチ`codex/canonical-default-migration`のHEAD `752b3d9`である。Phase 8-2A以降の変更は、このinventoryの分類を更新する追補として扱う。production importerは`src/`の実行時importと、production bundleから到達するWorkerを指す。テスト、ベンチマーク、移行スクリプト、reference-dataからの参照はproduction importerに含めない。
 
 | category | 意味 |
 | --- | --- |
@@ -18,7 +18,7 @@ Phase 8-1の調査時点はブランチ`codex/canonical-default-migration`のHEA
 
 ## production import graph
 
-productionの入口は`src/main.js`からrouter、各計算viewへ続く。Checkは`CalculationClient.calculateCheckCanonical`とcanonical presentation、Attackはcanonical batch runnerとcanonical presentation、Backtrackはcanonical client/runnerを利用する。productionの`CalculationClient`は`src/calculation/`のDX、Score、Damage、Backtrack、RangePlanner、ResourceGuardを直接参照し、`src/data/PrecomputedDataRepository.js`からはD10のlazy loaderとgetterだけを参照する。
+productionの入口は`src/main.js`からrouter、各計算viewへ続く。Checkは`CalculationClient.calculateCheckCanonical`とcanonical presentation、Attackはcanonical batch runnerとcanonical presentation、Backtrackはcanonical client/runnerを利用する。productionの`CalculationClient`は`src/calculation/`のDX、Score、Damage、Backtrack、RangePlanner、ResourceGuardを直接参照し、`src/data/D10PrecomputedDataRepository.js`からはD10のlazy loaderとgetterだけを参照する。互換facadeの`src/data/PrecomputedDataRepository.js`はproduction graphから直接importされない。
 
 Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical adapter、options、styleと、Attack chart専用の`ChartPercentages.js`を利用する。旧配列adapterは`LegacyChartSetter.js`へ分離し、productionの`src/`からはimportしない。DRは`RuntimeDamageRollClient`から`RuntimeDamageRollWorker`へ渡され、Worker内の`RuntimeDamageRollCalculator`がオンデマンド生成する。productionの`src/`から`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`を直接importする経路はない。
 
@@ -36,7 +36,7 @@ Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical ad
 | `src/calculation/RangePlanner.js` | range planning、tail certificate、`DEFAULT_POLICY` | `production` | `CalculationClient`、canonical cores | range、display、integration tests | working length、FFT length、memory/time guard | generator limitsとの対応をdocsで確認 | range boundary tests | `keep` | `published-bucket`と`full-tail`の意味を混同しない | JS tests、resource smoke |
 | `src/calculation/DistributionResult.js` | canonical result constructors、validation、summary | `production` | canonical cores、presentation | distribution result、comparison tests | support、explicit coverage、overflowの内部表現 | なし | canonical presentation tests | `keep` | exact/bounded/lower-bound契約を維持 | JS tests |
 | `src/components/Attack/ChartSetter.js` | canonical adapter、options、style exports | `production` | Attack Score/Damage chart components | canonical display adapter tests | Chart.jsへcanonical seriesを供給 | なし | canonical chart adapter tests | `keep` | legacy helper分離と同時にAPIを壊さない | full JS gate、browser smoke |
-| `src/data/PrecomputedDataRepository.js` | D10 loader/cache、`loadD10Asset`、`getD10Distribution` | `production` | `CalculationClient`の防御D10 lazy経路 | integration、asset、repository tests | `public/data/schema-v2/revision-1/d10.json`、fetch、cache | schema/manifestのrevision契約 | D10 lazy asset smoke、asset hash test | `keep` | revision-1 URLを削除しない | asset test、browser smoke |
+| `src/data/D10PrecomputedDataRepository.js` | D10 loader/cache、`loadD10Asset`、`getD10Distribution` | `production` | `CalculationClient`の防御D10 lazy経路 | integration、asset、repository tests、比較用data wrapper | `public/data/schema-v2/revision-1/d10.json`、fetch、cache | schema/manifestのrevision契約 | D10 lazy asset smoke、asset hash test | `keep` | revision-1 URLを削除しない | asset test、browser smoke |
 
 ## Attack chart modules
 
@@ -54,21 +54,22 @@ Phase 8-2Aで、production canonical adapterと旧1024要素配列adapterを別m
 | `src/components/Attack/ChartSetter.js` | `getAttackDamageChartStyle` | `production` | Attack DamageChart | component tests | Chart layout style | なし | existing browser acceptance | `keep` | 見た目互換を維持 | build、browser smoke |
 | `src/components/Attack/LegacyChartSetter.js` | 内部`clipData`、`range` import | `comparison-regression` | なし | legacy chart testsと旧adapter | 1024固定配列のsliceと丸め | なし | canonical adapterはこの経路を通らない | `keep`（split済み） | 旧配列の互換挙動を維持し、共有丸めgoldenを保つ | full JS gate、legacy moduleのimport graph確認 |
 
-**Phase 8-2A完了:** `ChartSetter.js`からlegacy array helperを`LegacyChartSetter.js`へ分離した。production canonical exports、options、styleと既存の表示挙動を保護し、`PrecomputedDataRepository`、公開asset、JSON、generatorには触れていない。次はD10 lazy fetchのsmokeを追加したうえで、PrecomputedDataRepositoryの分離を検討する。
+**Phase 8-2A完了:** `ChartSetter.js`からlegacy array helperを`LegacyChartSetter.js`へ分離した。production canonical exports、options、styleと既存の表示挙動を保護し、`PrecomputedDataRepository`、公開asset、JSON、generatorには触れていない。Phase 8-2CでD10 lazy fetchのproduction smokeを完了し、Phase 8-2Dでrepositoryのproduction/reference分離を完了した。
 
-## mixed-use module: `PrecomputedDataRepository.js`
+## split modules: precomputed data repositories
 
-D10のlazy assetだけが現在のproduction fetch経路である。DX、DR、livingdeadのloader/cacheは下位wrapper、migration、benchmark、asset testが参照するため、現時点では不要に見えても一括削除しない。one-dimensional cacheはD10とlivingdeadを共有するため、将来はD10 production loaderとreference loaderを分離する候補である。
+Phase 8-2Dで、productionのD10 lazy asset経路と、DX・DR・livingdeadのcomparison/reference経路を別moduleへ分離した。共有schema validatorは`PrecomputedDataSchema.js`へ移し、互換facadeの`PrecomputedDataRepository.js`は既存テスト・migration・benchmark向けのre-exportと全cache clearだけを担う。公開asset、JSON、generator、計算意味論は変更していない。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `src/data/PrecomputedDataRepository.js` | schema/revision constants、`basePath`、共通sparse validator | `production` | D10 loaderを含むrepository module | repository/asset tests | schema-v2 revision-1 public URL | manifest/schema validation | `precomputedAssets.test.js` | `keep` | D10とrevision契約を維持 | asset test、browser smoke |
-| `src/data/PrecomputedDataRepository.js` | `createDxRepository`、`getDxDistribution`、`loadDxAsset`、`registerDxAsset` | `comparison-regression` | なし | dx migration、repository、calculator、benchmark tests | 公開DX shard URLを読み込めるがproductionはruntime DX | public DX shardと旧dense DX | `calculateDxDistribution`、generator exhaustive/reference | `split` | 参照専用repositoryをproduction D10経路から分離 | migration/asset tests、bundle import確認 |
-| `src/data/PrecomputedDataRepository.js` | one-dimensional shared cache、`loadOneDimensionalAsset`、`registerOneDimensionalAsset` | `production` | D10の`loadD10Asset`/getter | livingdead、backtrack、repository tests | D10 fetch/cache、sparse expansion | d10/livingdead asset schema | D10 smoke、canonical Backtrack tests | `split` | D10経路の単独テストとreference loader移行 | D10 fetch/cache smoke、full JS gate |
-| `src/data/PrecomputedDataRepository.js` | `loadD10Asset`、`registerD10Asset`、`getD10Distribution` | `production` | `CalculationClient`はload/get、test/benchmarkはregister | calculation integration、asset、damage tests | `public/.../d10.json`、fetch、expanded cache | generator d10 output/manifest | D10 lazy asset tests | `keep` | 同一revisionの公開URLを保持 | asset hash、browser smoke |
-| `src/data/PrecomputedDataRepository.js` | `loadLivingdeadAsset`、`registerLivingdeadAsset`、`getLivingdeadDistribution` | `comparison-regression` | なし。canonical Backtrackはon-demand生成 | backtrack migration/canonical、rule、repository tests | 公開livingdead assetはreference fetch用 | generator livingdead output | `calculateLivingdeadDistributions`と独立reference | `move` | canonical rule testsへ参照を移し、asset fixtureの保持期間を決める | tests without production import、asset policy確認 |
-| `src/data/PrecomputedDataRepository.js` | `registerDrAsset`、`loadDrAsset`、`getDrDamageDistributions` | `comparison-regression` | なし。DRはRuntimeDamageRollWorker | damage migration、runtime on-demand、repository、benchmark tests | 公開DR shard URLは比較/reference用 | generator DR output/manifest | runtime DR independent generator、simulation | `move` | runtime/reference testをasset-independentに移行 | runtime tests、public URL policy確認 |
-| `src/data/PrecomputedDataRepository.js` | `clearPrecomputedDataCache` | `dead-candidate` | なし | 直接importの参照なし。内部検証対象 | なし | なし | repositoryの個別cache testsで代替可能 | `delete-candidate` | 全dynamic import/API利用とtest helperを再確認 | full JS gate、bundle import確認 |
+| `src/data/PrecomputedDataSchema.js` | schema/revision constants、base path、共通sparse validator | `production` | D10 repository、reference repository | repository/asset tests | schema-v2 revision-1 public URL | manifest/schema validation | `precomputedAssets.test.js` | `keep` | schema契約を変更しない | asset test、full JS gate |
+| `src/data/D10PrecomputedDataRepository.js` | D10 loader/cache、`loadD10Asset`、`getD10Distribution` | `production` | `CalculationClient`、Damage/Backtrack data wrapper | integration、asset、repository tests | `public/.../d10.json`、fetch、expanded cache | generator d10 output/manifest | D10 lazy asset tests、browser smoke | `keep` | production D10経路とrevision-1 URLを保持 | asset hash、browser smoke |
+| `src/data/ReferencePrecomputedDataRepository.js` | `createDxRepository`、`getDxDistribution`、`loadDxAsset`、`registerDxAsset` | `comparison-regression` | なし | dx migration、repository、calculator、benchmark tests | 公開DX shard URL、reference cache | public DX shardとgenerator output | exhaustive/reference、repository tests | `keep`（reference split済み） | production graphへ戻さない | migration/asset tests、bundle import確認 |
+| `src/data/ReferencePrecomputedDataRepository.js` | `loadLivingdeadAsset`、`registerLivingdeadAsset`、`getLivingdeadDistribution` | `comparison-regression` | なし。canonical Backtrackはon-demand生成 | backtrack migration/canonical、rule、repository tests | 公開livingdead assetはreference fetch用 | generator livingdead output | `calculateLivingdeadDistributions`と独立reference | `keep`（reference split済み） | asset fixtureの保持期間を別途判断する | tests without production import、asset policy確認 |
+| `src/data/ReferencePrecomputedDataRepository.js` | `registerDrAsset`、`loadDrAsset`、`getDrDamageDistributions` | `comparison-regression` | なし。DRはRuntimeDamageRollWorker | damage migration、runtime on-demand、repository、benchmark tests | 公開DR shard URLは比較/reference用 | generator DR output/manifest | runtime DR independent generator、simulation | `keep`（reference split済み） | runtime/reference testをasset-independentへ移行する | runtime tests、public URL policy確認 |
+| `src/data/PrecomputedDataRepository.js` | re-export facade、`clearPrecomputedDataCache` | `comparison-regression` | なし。production codeから直接importしない | 既存calculator、migration、benchmark、repository tests | 下位repositoryのAPI互換 | なし | facade compatibility、full import graph | `keep`（移行中） | Phase 8-2Eで参照importを再監査する | full JS gate、bundle import確認 |
+
+**Phase 8-2D完了:** `PrecomputedDataSchema.js`、`D10PrecomputedDataRepository.js`、`ReferencePrecomputedDataRepository.js`を追加し、productionの`src/`からD10以外のprecomputed repositoryへ到達しないimport graphへ整理した。既存facadeは互換用に維持し、cache、retry、sparse validation、finite-support expansion、DRのLRU 3件制限を保持した。次はPhase 8-2Eとしてreference/legacy importerを再監査し、削除候補の独立oracleと公開asset保持条件を確認する。
 
 ## distribution、FFT、canonical/legacy core
 
@@ -209,7 +210,7 @@ Node/Vitestで検証できるdependency contract testと、Vite preview上の実
 
 ### Production browser smoke
 
-`scripts/production-browser-smoke.mjs`は`vite build`成果物を空きportの`vite preview`で配信し、Playwright Chromiumの独立contextでCheck、Attack、Backtrackを確認する。2026-08-26の実行では、Checkはcanvas 1・revision-1 asset request 0、Attack初期（防御ダイス0）はcanvas 2・revision-1 asset request 0、Attackで防御ダイスを1へ変更した後はcanvas 2・`d10.json` request 1（HTTP 200）・その他のrevision-1 asset request 0、Backtrackはcanvas 3・revision-1 asset request 0だった。全ケースでsame-origin HTTP error 0、console warning/error 0、pageerror 0、same-origin requestfailed 0を確認した。
+`scripts/production-browser-smoke.mjs`は`vite build`成果物を空きportの`vite preview`で配信し、Playwright Chromiumのfresh contextでCheck、Attack、Backtrackを確認する。Check、Attack、Backtrackはそれぞれ独立したfresh contextで起動し、Attackでは同一context内で防御ダイス0から1へ変更してD10 lazy fetchを連続操作で確認する。2026-08-26の実行では、Checkはcanvas 1・revision-1 asset request 0、Attack初期（防御ダイス0）はcanvas 2・revision-1 asset request 0、Attackで防御ダイスを1へ変更した後はcanvas 2・`d10.json` request 1（HTTP 200）・その他のrevision-1 asset request 0、Backtrackはcanvas 3・revision-1 asset request 0だった。全ケースでsame-origin HTTP error 0、console warning/error 0、pageerror 0、same-origin requestfailed 0を確認した。
 
 Phase 8-2AのChartSetter splitはasset依存に触れないためbrowser smokeを必須gateにしていない。Phase 8-2Bのdependency contract testとPhase 8-2Cのproduction browser smokeを別々に完了したため、PrecomputedDataRepository splitやpublic asset整理へ進む前提が揃った。
 
@@ -217,7 +218,7 @@ Phase 8-2AのChartSetter splitはasset依存に触れないためbrowser smoke�
 
 Phase 8-2Aでは、証拠が最も局所的で本番asset契約を変えない`src/components/Attack/ChartSetter.js`のlegacy helper分離を完了した。production canonical exports、options、styleを残し、`getAttackScoreChartData`、`getAttackDamageChartData`、`clipData`、旧`range`依存を`LegacyChartSetter.js`へ移した。丸めgolden testは`ChartPercentages.js`のAttack表示境界に置いている。
 
-次点はPhase 8-2Dとして、`PrecomputedDataRepository.js`のD10 production loaderとDX/DR/livingdead reference loaderを分離することである。今回のbrowser smokeでD10 lazy fetch/cacheと不要asset requestの実配布契約を固定したため、公開revision-1 URLを変更せずにtest/reference importを移す。legacy wrapper、dense JSON、`LegacyCanonicalComparison`の削除は、その後にoracle coverage mapを実行してから行う。
+次点はPhase 8-2Eとして、reference/legacy importerを再監査することである。Phase 8-2DでD10 production loaderとDX/DR/livingdead reference loaderを分離したため、公開revision-1 URLを変更せずにtest/reference importの責務を確認できる。legacy wrapper、dense JSON、`LegacyCanonicalComparison`の削除は、独立oracle coverage mapと公開asset保持条件を再確認してから行う。
 
 ### ChartSetter split開始条件
 
@@ -239,6 +240,13 @@ Phase 8-2Aでは、証拠が最も局所的で本番asset契約を変えない`s
 - production browser smoke: 完了（`scripts/production-browser-smoke.mjs`）。実配布物のnetwork契約を確認した。
 - D10 lazy fetch/readiness contract: 完了（防御ダイス1で`d10.json`を1回、HTTP 200）。
 - revision-1 public URLを変更しない。
+
+### PrecomputedDataRepository split完了条件
+
+- `src/`のproduction importerは`D10PrecomputedDataRepository.js`だけをprecomputed repositoryとして参照する。
+- DX、DR、livingdeadのreference loaderは`ReferencePrecomputedDataRepository.js`へ移り、既存facadeは互換re-exportに限定する。
+- schema/revision/sparse validatorは`PrecomputedDataSchema.js`へ集約し、cache、retry、sparse expansion、DR LRUの挙動を維持する。
+- `npm test`、data gate、generator gate、lint、build、production browser smoke、`git diff --check`が成功する。
 
 ### legacy wrapper削除開始条件
 

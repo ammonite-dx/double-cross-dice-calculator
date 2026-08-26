@@ -21,7 +21,7 @@ import {
 import {
   getD10Distribution,
   loadD10Asset,
-} from '../data/PrecomputedDataRepository'
+} from '../data/D10PrecomputedDataRepository'
 import {
   calculateScoreCanonical as calculateCoreScoreCanonical,
   getCanonicalScoreSummary,

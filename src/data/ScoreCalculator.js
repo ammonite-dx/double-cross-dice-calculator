@@ -4,7 +4,7 @@ import {
   getCanonicalScoreSummary as getCoreCanonicalScoreSummary,
   getScoreSummary,
 } from '../calculation/ScoreCalculator'
-import { getDxDistribution } from './PrecomputedDataRepository'
+import { getDxDistribution } from './ReferencePrecomputedDataRepository'
 
 export { getScoreSummary }
 

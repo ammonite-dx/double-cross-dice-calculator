@@ -3,10 +3,8 @@ import {
   getDamageSummary,
   getTotalDamage,
 } from '../calculation/DamageCalculator'
-import {
-  getD10Distribution,
-  getDrDamageDistributions,
-} from './PrecomputedDataRepository'
+import { getD10Distribution } from './D10PrecomputedDataRepository'
+import { getDrDamageDistributions } from './ReferencePrecomputedDataRepository'
 
 const dependencies = {
   getD10Distribution,

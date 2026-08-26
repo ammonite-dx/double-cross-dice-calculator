@@ -2,10 +2,8 @@ import {
   calculateFinalEncroachment,
   calculateFinalEncroachmentCanonical,
 } from '../calculation/BacktrackCalculator'
-import {
-  getD10Distribution,
-  getLivingdeadDistribution,
-} from './PrecomputedDataRepository'
+import { getD10Distribution } from './D10PrecomputedDataRepository'
+import { getLivingdeadDistribution } from './ReferencePrecomputedDataRepository'
 
 const dependencies = {
   getD10Distribution,
