@@ -9,7 +9,7 @@
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
 - CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
-- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter split、Phase 8-2B dependency contract、Phase 8-2C production browser smoke、Phase 8-2D repository split、Phase 8-2E reference/legacy importer auditは完了している。残るrepository facade、legacy core/wrapper、JSON、asset、migration/comparison cleanupはPhase 8-2F以降へ送る。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
+- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter split、Phase 8-2B dependency contract、Phase 8-2C production browser smoke、Phase 8-2D repository split、Phase 8-2E reference/legacy importer audit、Phase 8-2F runtime rule validation actual migrationは完了している。残るrepository facade、legacy core/wrapper、JSON、asset、migration/comparison cleanupはPhase 8-2Gへ送る。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
 - AttackのScore/Damage表示範囲は999上限を撤廃し、任意の非負safe integerを受け付ける。`0..100`、`0..999`、`0..1000`、`0..1023`、`0..1024`、`0..1200`、`1000..1200`、`0..20000`の入力・coverage・resource判定を回帰テストで固定し、単一点`min === max`も有効とした。表示点数・メモリ・計算量のresource plannerによるrejectは維持する。Runtime DRのrange/FFTとfull-tail Damage rangeもplannerから動的に導出し、202Dをproduction semantic capとして扱わない。`CalculationClient.planAttackCombo()`ではaction `dice=99`・`critical=2`から`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=1024`、`fftLength=4096`、`accepted=true`、拒否理由なしを観測した。
 - `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをUI表示精度内の誤差としてchart projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction/reaction双方の`99D/critical=2`について`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`はresource rejection、`0..100`への復帰はcanvas 2・alertなしで確認した。
 - Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照し、`src/data/ScoreCalculator.js`と`src/data/BacktrackCalculator.js`のdata wrapperは比較・migration用に維持する。
@@ -241,15 +241,15 @@ Phase 8-1ではファイル単位の一括判定を避け、mixed-use moduleのs
 
 | semantic | 独立oracle / boundary test |
 | --- | --- |
-| Score（dice、critical、positive/negative skill、yousei、shihai、failure/fumble、tail certificate） | `tests/canonicalCheck.test.js`、`tests/dxOnDemand.test.js`、`tests/runtimeRuleValidation.test.js`（expected側は独立、actual側のcanonical移植後にreplacement成立） |
-| Damage（fixed damage、defence、kazanari、reaction、output overflow、positional Score tail、mixed tail） | `tests/canonicalDamageOnDemand.test.js`、`tests/runtimeDamageOnDemand.test.js`、`tests/canonicalChartSeriesAdapter.test.js`、`tests/runtimeRuleValidation.test.js`（expected側は独立、actual側のwrapper依存をcanonicalへ移植後にreplacement成立） |
+| Score（dice、critical、positive/negative skill、yousei、shihai、failure/fumble、tail certificate） | `tests/canonicalCheck.test.js`、`tests/dxOnDemand.test.js`、`tests/runtimeRuleValidation.test.js`（独立expectedとcanonical actual） |
+| Damage（fixed damage、defence、kazanari、reaction、output overflow、positional Score tail、mixed tail） | `tests/canonicalDamageOnDemand.test.js`、`tests/runtimeDamageOnDemand.test.js`、`tests/canonicalChartSeriesAdapter.test.js`、`tests/runtimeRuleValidation.test.js`（独立expectedとcanonical actual） |
 | Total（aggregation、overflow、multiple combos） | `tests/canonicalDamageAggregation.test.js`、`tests/canonicalTotalDamageClient.test.js` |
-| Backtrack（supported D-lois、normal/nightmare、negative values、finite support） | `tests/backtrackCanonical.test.js`、`tests/backtrackCanonicalIntegration.test.js`、`tests/runtimeRuleValidation.test.js`（expected側は独立、actual側のwrapper依存をcanonicalへ移植後にreplacement成立） |
+| Backtrack（supported D-lois、normal/nightmare、negative values、finite support） | `tests/backtrackCanonical.test.js`、`tests/backtrackCanonicalIntegration.test.js`、`tests/runtimeRuleValidation.test.js`（独立expectedとcanonical actual） |
 | Presentation（PMF、upper-tail、expected-value certificate、unavailable `—`） | `tests/canonicalChartSeriesAdapter.test.js`、`tests/attackCanonicalDisplayIntegration.test.js`、`tests/attackScoreDisplayAdapter.test.js`、`tests/attackDamageDisplayAdapter.test.js`、`tests/checkSummaryTable.test.js` |
 
 legacy comparisonを削除できるのは、対応するsemanticがこの表の独立oracle・boundary testで同等以上に保護され、比較testを外した最終gateが成功した場合だけとする。テスト総数だけを根拠にしない。
 
-`tests/runtimeRuleValidation.test.js`は独立したexpected/reference logicを含むが、actual側は`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`のwrapperを使う。したがって現時点では独立canonical oracleとは扱わず、legacy wrapper削除前にactual側をcanonical coreへ移植する必要がある。
+`tests/runtimeRuleValidation.test.js`は独立したexpected/reference logicを含み、actual側は`src/calculation/`のcanonical Score、Damage、Backtrack coreを直接使う。公開assetの整合性は`tests/precomputedAssets.test.js`とgeneratorで別に検証するため、このテストはlegacy wrapperやasset登録に依存しないruntime rule oracleとして扱う。
 
 #### 公開assetとruntime smokeの方針
 
@@ -302,11 +302,18 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - 対象外: production D10 loader、canonical計算意味論、revision-1公開URL、JSONの削除、Cloudflare Workers/API/MCP。
 - 完了条件: 削除候補ごとにproduction importer 0、独立oracle coverage、公開asset保持条件、再生成手順を[`phase8-inventory.md`](./phase8-inventory.md)へ記録し、今回の監査ではdelete-readyなし、runtimeRuleValidation actual側移行を次段階とした。D10 repositoryのschema、dataset、distribution count、probability、success cacheの直接テストも追加した。
 
-### Phase 8-2F: runtimeRuleValidation canonical actual migration（次段階）
+### Phase 8-2F: runtimeRuleValidation canonical actual migration（完了）
 
 - 対象: `tests/runtimeRuleValidation.test.js`のactual側を`src/data/` wrapperから`src/calculation/` canonical coreへ移行し、expected側の独立ルール計算をoracleとして維持する。
 - 対象外: legacy core、compatibility facade、dense JSON、public revision-1 asset、generatorの削除。これらはactual移行と独立oracle coverageが成立した後のPhase 8-2Gで個別に判断する。
-- 完了条件: canonical actualとindependent expectedの一致、asset cross-check、wrapper importer 0、全JS/data/generator gateが成功し、legacy wrapper削除のreplacement evidenceが成立する。
+- 実装: Scoreは`calculateScoreCanonical`／`getCanonicalScoreSummary`、Damageは`calculateCanonicalDamageOnDemand`／`generateMixedDamageDistribution`／独立D10 provider、Backtrackは`calculateFinalEncroachmentCanonical`／`createBacktrackCanonicalPresentation`へ接続した。Score envelopeの`result`／`metadata`とcanonical finite supportをテスト側で明示し、legacyの1024 bucketや公開asset登録を使わない。
+- 完了条件: `runtimeRuleValidation.test.js`から`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`、`PrecomputedDataRepository.js`へのimportが0であり、canonical actualとindependent expectedの一致、全JS/data/generator gateが成功することを確認した。これはリポジトリ全体のlegacy wrapper importer 0を意味しない。
+
+### Phase 8-2G: legacy/reference importerの個別cleanup（次段階）
+
+- 対象: `calculator.test.js`、migration/comparison test、calculation barrel、compatibility facade、legacy core、dense JSONについて、Phase 8 inventoryのA/B/C/D分類に従って参照移行・保持・削除候補化を個別に判断する。
+- 対象外: production canonical core、D10 repository、revision-1公開asset、generator、Cloudflare Workers/API/MCP。
+- 完了条件: 各削除候補に独立oracle coverage、公開asset保持条件、再生成手順、full JS/data/generator gateを記録し、global wrapper/barrel importerの削除範囲を明示する。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 

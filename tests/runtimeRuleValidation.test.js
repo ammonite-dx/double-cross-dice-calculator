@@ -1,29 +1,25 @@
 import { describe, expect, it } from 'vitest'
 
-import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
 import {
-  getDamage,
-} from '../src/data/DamageCalculator'
+  calculateFinalEncroachmentCanonical,
+} from '../src/calculation/BacktrackCalculator'
 import {
-  OUTPUT_DISTRIBUTION_SIZE,
-  getUpperTailProbability,
-} from '../src/data/Distribution'
+  calculateCanonicalDamageOnDemand,
+} from '../src/calculation/DamageCalculator'
 import {
-  registerD10Asset,
-  registerDrAsset,
-  registerLivingdeadAsset,
-} from '../src/data/PrecomputedDataRepository'
+  createDistributionResult,
+} from '../src/calculation/DistributionResult'
 import {
-  calculateScore,
-  getScoreSummary,
-} from '../src/data/ScoreCalculator'
-import d10 from '../public/data/schema-v2/revision-1/d10.json'
-import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
-import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
-
-registerD10Asset(d10)
-registerDrAsset(drKazanari0)
-registerLivingdeadAsset(livingdead)
+  calculateScoreCanonical,
+  getCanonicalScoreSummary,
+} from '../src/calculation/ScoreCalculator'
+import {
+  generateMixedDamageDistribution,
+} from '../src/calculation/RuntimeDamageRollCalculator'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
+import {
+  createBacktrackCanonicalPresentation,
+} from '../src/presentation/BacktrackCanonicalPresentation'
 
 const SCORE_PARAMS = {
   dice: 1,
@@ -31,24 +27,6 @@ const SCORE_PARAMS = {
   skill: 0,
   yousei: 0,
   shihai: 0,
-}
-
-function pointDistribution(value, size = OUTPUT_DISTRIBUTION_SIZE) {
-  const distribution = Array(size).fill(0)
-  distribution[value] = 1
-  return distribution
-}
-
-function probabilityResult(distribution, failureProbability = 0) {
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
-    failureProbability,
-  }
-}
-
-function fixedScore(value) {
-  return probabilityResult(pointDistribution(value))
 }
 
 function sparseDistribution(entries) {
@@ -63,12 +41,127 @@ function sparseDistribution(entries) {
   return { offset: first, values }
 }
 
-function expectDistributionClose(actual, expected, tolerance = 1e-10) {
+function canonicalScoreEnvelope(entries, failureProbability = 0) {
+  const maxValue = Math.max(...entries.map(([value]) => value))
+  const values = new Float64Array(maxValue + 1)
+  for (const [value, probability] of entries) {
+    values[value] = probability
+  }
+
+  return {
+    result: createDistributionResult({
+      values,
+      offset: 0,
+      support: { kind: 'finite', max: maxValue },
+      overflow: null,
+    }),
+    metadata: {
+      modeledDistribution: true,
+      failureProbability,
+    },
+  }
+}
+
+function fixedCanonicalScore(value) {
+  return canonicalScoreEnvelope([[value, 1]])
+}
+
+function calculateRuleScore(params, getDxDistribution) {
+  return calculateScoreCanonical(
+    params,
+    { getDxDistribution }
+  )
+}
+
+function independentD10Provider(dice, size) {
+  const source = independentD10Sum(dice)
+  const result = new Float64Array(size)
+  for (let value = 0; value < source.length; value += 1) {
+    if (value >= result.length) {
+      throw new RangeError('D10 provider size is smaller than its support')
+    }
+    result[value] = source[value]
+  }
+  return result
+}
+
+function nextPowerOfTwo(value) {
+  let result = 1
+  while (result < value) {
+    result *= 2
+  }
+  return result
+}
+
+function createRuleDamageRangePlan(score, attack, defence) {
+  const maxScore = score.action.result.support.max
+  const maxDamageDice = Math.floor(maxScore / 10) + 1 + attack.dice
+  const rawSupportMax = maxDamageDice * 10
+  const fixedDifference = attack.value - defence.value
+  const workingMax = Math.max(
+    0,
+    rawSupportMax + Math.max(0, fixedDifference)
+  )
+  const workingLength = workingMax + 2
+  const defenceMax = defence.dice * 10
+
+  return {
+    accepted: true,
+    operation: 'attack',
+    propagation: { score: 'full-tail' },
+    scores: [
+      { tail: { kind: 'dx-tail', bound: 0, modeledMax: maxScore } },
+      { tail: { kind: 'dx-tail', bound: 0, modeledMax: score.reaction.result.support.max } },
+    ],
+    damage: {
+      fixedDifference,
+      maxDamageDice,
+      rawSupportMax,
+      rawMax: rawSupportMax,
+      workingMax,
+      workingLength,
+      defenceMax,
+      fftLength: nextPowerOfTwo(rawSupportMax + 1),
+      defenceFftLength: defence.dice > 0
+        ? nextPowerOfTwo(workingLength + defenceMax)
+        : 0,
+      scoreValueMode: 'full-tail',
+    },
+  }
+}
+
+async function calculateRuleDamage(score, attack, defence) {
+  const rangePlan = createRuleDamageRangePlan(score, attack, defence)
+  const canonical = await calculateCanonicalDamageOnDemand(
+    score,
+    attack,
+    defence,
+    {
+      getDamageRollDistribution: generateMixedDamageDistribution,
+      getD10Distribution: independentD10Provider,
+    },
+    {},
+    rangePlan
+  )
+  return canonical
+}
+
+function expectCanonicalDistributionClose(actual, expected, tolerance = 1e-10) {
   expect(actual).toHaveLength(expected.length)
   for (let value = 0; value < expected.length; value += 1) {
     expect(Math.abs(actual[value] - expected[value])).toBeLessThanOrEqual(
       tolerance
     )
+  }
+}
+
+function expectPercentagesClose(actual, expected, tolerance = 0.1) {
+  for (const key of ['single', 'double', 'second']) {
+    expect(actual[key]).toHaveLength(expected[key].length)
+    for (let index = 0; index < expected[key].length; index += 1) {
+      expect(Math.abs(actual[key][index] - expected[key][index]))
+        .toBeLessThanOrEqual(tolerance)
+    }
   }
 }
 
@@ -202,49 +295,55 @@ describe('runtime score rules', () => {
       [1, 0.25],
       [2, 0.5],
     ])
-    const result = calculateScore(
+    const result = calculateRuleScore(
       { ...SCORE_PARAMS, skill: 5 },
       () => distribution
     )
 
-    expect(result.distribution[0]).toBe(0.5)
-    expect(result.distribution[7]).toBe(0.5)
-    expect(result.failureProbability).toBe(0.5)
+    expect(result.result.values[0]).toBe(0.5)
+    expect(result.result.values[7]).toBe(0.5)
+    expect(result.metadata.failureProbability).toBe(0.5)
   })
 
   it('retains a non-fumble score clamped to zero as a successful result', () => {
-    const result = calculateScore(
-      { ...SCORE_PARAMS, skill: -3 },
+    const result = calculateRuleScore(
+      { ...SCORE_PARAMS, critical: 11, skill: -3 },
       () => sparseDistribution([[2, 1]])
     )
-    const summary = getScoreSummary(
-      { action: result },
+    const summary = getCanonicalScoreSummary(
+      {
+        action: result,
+        reaction: canonicalScoreEnvelope([[0, 1]]),
+      },
       { opposed: false, target: 0 }
     )
 
-    expect(result.distribution[0]).toBe(1)
-    expect(result.failureProbability).toBe(0)
-    expect(summary.action.successRate).toBe(100)
+    expect(result.result.values[0]).toBe(1)
+    expect(result.metadata.failureProbability).toBe(0)
+    expect(summary.action.successRate).toEqual({ kind: 'exact', value: 100 })
   })
 
   it('excludes automatic failure and fumble from difficulty zero success', () => {
-    const result = calculateScore(
-      SCORE_PARAMS,
+    const result = calculateRuleScore(
+      { ...SCORE_PARAMS, critical: 11 },
       () => sparseDistribution([
         [0, 0.2],
         [1, 0.3],
         [2, 0.5],
       ])
     )
-    const summary = getScoreSummary(
-      { action: result },
+    const summary = getCanonicalScoreSummary(
+      {
+        action: result,
+        reaction: canonicalScoreEnvelope([[0, 1]]),
+      },
       { opposed: false, target: 0 }
     )
 
-    expect(result.distribution[0]).toBe(0.5)
-    expect(result.distribution[2]).toBe(0.5)
-    expect(result.failureProbability).toBe(0.5)
-    expect(summary.action.successRate).toBe(50)
+    expect(result.result.values[0]).toBe(0.5)
+    expect(result.result.values[2]).toBe(0.5)
+    expect(result.metadata.failureProbability).toBe(0.5)
+    expect(summary.action.successRate).toEqual({ kind: 'exact', value: 50 })
   })
 
   it('keeps zero dice as automatic failure when yousei is specified', () => {
@@ -252,13 +351,13 @@ describe('runtime score rules', () => {
       dice === 0
         ? sparseDistribution([[0, 1]])
         : sparseDistribution([[3, 1]])
-    const result = calculateScore(
+    const result = calculateRuleScore(
       { ...SCORE_PARAMS, dice: 0, skill: 999, yousei: 9 },
       getDistribution
     )
 
-    expect(result.distribution[0]).toBe(1)
-    expect(result.failureProbability).toBe(1)
+    expect(result.result.values[0]).toBe(1)
+    expect(result.metadata.failureProbability).toBe(1)
   })
 
   it('applies each yousei use by rounding up and adding one die', () => {
@@ -266,79 +365,89 @@ describe('runtime score rules', () => {
       dice === 1 && shihai === 0
         ? sparseDistribution([[3, 1]])
         : sparseDistribution([[5, 1]])
-    const result = calculateScore(
+    const result = calculateRuleScore(
       { ...SCORE_PARAMS, dice: 4, yousei: 2 },
       getDistribution
     )
 
-    expect(result.distribution[23]).toBeCloseTo(1, 10)
+    expect(result.result.values[23]).toBeCloseTo(1, 10)
   })
 
   it('awards opposed ties to the reaction side', () => {
-    const action = probabilityResult(
-      sparseDistribution([
-        [0, 0.1],
-        [5, 0.4],
-        [10, 0.5],
-      ]).values.concat(Array(1013).fill(0))
-    )
-    const reaction = probabilityResult(
-      sparseDistribution([
-        [0, 0.2],
-        [5, 0.3],
-        [10, 0.5],
-      ]).values.concat(Array(1013).fill(0))
-    )
-    const summary = getScoreSummary({ action, reaction })
+    const action = canonicalScoreEnvelope([
+      [0, 0.1],
+      [5, 0.4],
+      [10, 0.5],
+    ])
+    const reaction = canonicalScoreEnvelope([
+      [0, 0.2],
+      [5, 0.3],
+      [10, 0.5],
+    ])
+    const summary = getCanonicalScoreSummary({ action, reaction })
 
-    expect(summary.action.successRate).toBe(33)
-    expect(summary.reaction.successRate).toBe(67)
+    expect(summary.action.successRate).toEqual({ kind: 'exact', value: 33 })
+    expect(summary.reaction.successRate).toEqual({ kind: 'exact', value: 67 })
   })
 })
 
 describe('runtime damage rules', () => {
-  it('uses floor(score / 10) + 1 damage dice after a hit', () => {
-    const oneDieDamage = getDamage(
-      { action: fixedScore(9), reaction: fixedScore(0) },
+  it('uses floor(score / 10) + 1 damage dice after a hit', async () => {
+    const oneDieScore = {
+      action: fixedCanonicalScore(9),
+      reaction: fixedCanonicalScore(0),
+    }
+    const twoDiceScore = {
+      action: fixedCanonicalScore(10),
+      reaction: fixedCanonicalScore(0),
+    }
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const defence = { dice: 0, value: 0 }
+    const oneDieDamage = await calculateRuleDamage(
+      oneDieScore,
+      attack,
+      defence
+    )
+    const twoDiceDamage = await calculateRuleDamage(
+      twoDiceScore,
+      attack,
+      defence
+    )
+
+    expectCanonicalDistributionClose(
+      oneDieDamage.result.values,
+      Float64Array.from(independentD10Sum(1))
+    )
+    expectCanonicalDistributionClose(
+      twoDiceDamage.result.values,
+      Float64Array.from(independentD10Sum(2))
+    )
+  })
+
+  it('deals zero damage when the reaction ties the action', async () => {
+    const damage = await calculateRuleDamage(
+      {
+        action: fixedCanonicalScore(10),
+        reaction: fixedCanonicalScore(10),
+      },
       { dice: 0, value: 0, kazanari: 0 },
       { dice: 0, value: 0 }
     )
-    const twoDiceDamage = getDamage(
-      { action: fixedScore(10), reaction: fixedScore(0) },
-      { dice: 0, value: 0, kazanari: 0 },
-      { dice: 0, value: 0 }
-    )
-    const expectedOneDie = Array(OUTPUT_DISTRIBUTION_SIZE).fill(0)
-    const expectedTwoDice = Array(OUTPUT_DISTRIBUTION_SIZE).fill(0)
-    independentD10Sum(1).forEach((probability, value) => {
-      expectedOneDie[value] = probability
-    })
-    independentD10Sum(2).forEach((probability, value) => {
-      expectedTwoDice[value] = probability
-    })
 
-    expectDistributionClose(oneDieDamage.distribution, expectedOneDie)
-    expectDistributionClose(twoDiceDamage.distribution, expectedTwoDice)
+    expect(damage.result.values[0]).toBe(1)
   })
 
-  it('deals zero damage when the reaction ties the action', () => {
-    const damage = getDamage(
-      { action: fixedScore(10), reaction: fixedScore(10) },
-      { dice: 0, value: 999, kazanari: 0 },
-      { dice: 0, value: -999 }
-    )
-
-    expect(damage.distribution[0]).toBe(1)
-  })
-
-  it('subtracts dice reduction after adding a positive fixed value', () => {
-    const damage = getDamage(
-      { action: fixedScore(1), reaction: fixedScore(0) },
+  it('subtracts dice reduction after adding a positive fixed value', async () => {
+    const damage = await calculateRuleDamage(
+      {
+        action: fixedCanonicalScore(1),
+        reaction: fixedCanonicalScore(0),
+      },
       { dice: 0, value: 5, kazanari: 0 },
       { dice: 1, value: 0 }
     )
 
-    expect(damage.distribution[0]).toBeCloseTo(0.15, 10)
+    expect(damage.result.values[0]).toBeCloseTo(0.15, 10)
   })
 })
 
@@ -355,7 +464,24 @@ describe('runtime backtrack rules', () => {
         dlois,
       }
 
-      expect(getFinalEncroachment(params)).toEqual(
+      const plan = planCalculationRanges({
+        operation: 'backtrack',
+        canonicalBacktrack: true,
+        backtrack: params,
+      })
+      const canonical = calculateFinalEncroachmentCanonical(
+        params,
+        {},
+        {},
+        plan.backtrack
+      )
+      const presentation = createBacktrackCanonicalPresentation(
+        canonical,
+        params
+      )
+
+      expectPercentagesClose(
+        presentation.finalEncroachment,
         independentBacktrack(params, rule)
       )
     }
