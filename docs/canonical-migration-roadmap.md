@@ -9,7 +9,7 @@
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
 - CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
-- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7は完了し、Phase 8-1 inventoryとPhase 8-2A ChartSetter splitも完了している。残るrepository / wrapper / JSON / asset cleanupは後続へ送る。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
+- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter split、Phase 8-2B dependency contract、Phase 8-2C production browser smoke、Phase 8-2D repository split、Phase 8-2E reference/legacy importer auditは完了している。残るrepository facade、legacy core/wrapper、JSON、asset、migration/comparison cleanupはPhase 8-2F以降へ送る。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
 - AttackのScore/Damage表示範囲は999上限を撤廃し、任意の非負safe integerを受け付ける。`0..100`、`0..999`、`0..1000`、`0..1023`、`0..1024`、`0..1200`、`1000..1200`、`0..20000`の入力・coverage・resource判定を回帰テストで固定し、単一点`min === max`も有効とした。表示点数・メモリ・計算量のresource plannerによるrejectは維持する。Runtime DRのrange/FFTとfull-tail Damage rangeもplannerから動的に導出し、202Dをproduction semantic capとして扱わない。`CalculationClient.planAttackCombo()`ではaction `dice=99`・`critical=2`から`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=1024`、`fftLength=4096`、`accepted=true`、拒否理由なしを観測した。
 - `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをUI表示精度内の誤差としてchart projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction/reaction双方の`99D/critical=2`について`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`はresource rejection、`0..100`への復帰はcanvas 2・alertなしで確認した。
 - Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照し、`src/data/ScoreCalculator.js`と`src/data/BacktrackCalculator.js`のdata wrapperは比較・migration用に維持する。
@@ -267,7 +267,7 @@ Phase 8-1ではfull verificationを1コマンドで再現できる状態（候�
 - 完了条件: productionが不要な事前計算JSONに依存しないことを確認し、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズ、削除前の独立oracleを個別に比較できる。Phase 8-1では削除を行わない。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 
-JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A/2B/2C/2DではChart adapter分離、CalculationClient dependency contract、production browser smoke、precomputed repositoryのproduction/reference source splitを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A〜2EではChart adapter分離、CalculationClient dependency contract、production browser smoke、precomputed repositoryのproduction/reference source split、reference/legacy importer auditとD10 validator closureを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
 
 ### Phase 8-2A: Attack chart adapter分離（完了）
 
@@ -294,13 +294,19 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - 対象: D10 production loader/cacheと、DX・DR・livingdeadのcomparison/reference loaderをsymbol単位で分離する。public assetとgeneratorの削除・revision変更はこの単位に含めない。
 - 実装: `PrecomputedDataSchema.js`へschema/revision/base path/sparse validatorを分離し、`D10PrecomputedDataRepository.js`へproduction D10 loader/cache、`ReferencePrecomputedDataRepository.js`へDX/DR/livingdead loader/cacheを移した。`PrecomputedDataRepository.js`は互換re-exportと全cache clearだけを担うfacadeとして保持し、CalculationClientと比較・migration用data wrapperは直接のsplit moduleを参照する。
 - 挙動維持: D10 lazy fetch、pending request dedupe、失敗後retry、sparse validation、finite-support expansion、DX/DR/livingdead reference API、DR LRU 3件、全cache clearを既存テストと直接repositoryテストで確認した。
-- 完了条件: production import graphがD10経路だけを保持し、reference/migration testが明示したloaderへ移行され、full JS gateとproduction browser smokeが再び成功することを満たした。公開asset、JSON、generator、計算意味論は変更していない。
+- 完了条件: production import graphがD10経路だけを保持し、reference/migration testが明示したloaderへ移行され、full JS gateとproduction browser smokeが再び成功することを満たした。公開asset、JSON、generator、計算意味論は変更していない。次はPhase 8-2Eの監査結果に基づくruntimeRuleValidation actual側移行である。
 
-### Phase 8-2E: reference/legacy importer再監査（次段階）
+### Phase 8-2E: reference/legacy importer再監査（完了）
 
-- 対象: 互換facade、legacy core、migration/comparison、benchmark、asset fixture、公開JSONの参照元を再監査し、独立oracleへ移行できる単位と保持期間を確定する。
+- 対象: 互換facade、legacy core、migration/comparison、benchmark、asset fixture、公開JSONの参照元を再監査し、独立oracleへ移行できる単位と保持期間を確定した。
 - 対象外: production D10 loader、canonical計算意味論、revision-1公開URL、JSONの削除、Cloudflare Workers/API/MCP。
-- 完了条件: 削除候補ごとにproduction importer 0、独立oracle coverage、公開asset保持条件、再生成手順を記録し、削除と保留を個別に判断できること。
+- 完了条件: 削除候補ごとにproduction importer 0、独立oracle coverage、公開asset保持条件、再生成手順を[`phase8-inventory.md`](./phase8-inventory.md)へ記録し、今回の監査ではdelete-readyなし、runtimeRuleValidation actual側移行を次段階とした。D10 repositoryのschema、dataset、distribution count、probability、success cacheの直接テストも追加した。
+
+### Phase 8-2F: runtimeRuleValidation canonical actual migration（次段階）
+
+- 対象: `tests/runtimeRuleValidation.test.js`のactual側を`src/data/` wrapperから`src/calculation/` canonical coreへ移行し、expected側の独立ルール計算をoracleとして維持する。
+- 対象外: legacy core、compatibility facade、dense JSON、public revision-1 asset、generatorの削除。これらはactual移行と独立oracle coverageが成立した後のPhase 8-2Gで個別に判断する。
+- 完了条件: canonical actualとindependent expectedの一致、asset cross-check、wrapper importer 0、全JS/data/generator gateが成功し、legacy wrapper削除のreplacement evidenceが成立する。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 
@@ -353,6 +359,7 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - done（Phase 8-2B）: `tests/productionDependencyContract.test.js`でCalculationClientのproduction dependency boundaryを固定した。Checkはprecomputed loaderを要求せず、AttackはD10 readinessを防御ダイス>0でのみ要求し、Damageへruntime DR providerとD10 getterを渡す。D10失敗時のDamage未開始・lease解放、Backtrackのpublic asset非依存、legacy dependency/fallback未使用も確認した。production code、asset、JSON、generator、Worker protocol、RangePlanner、ResourceGuardは変更していない。
 - done（Phase 8-2C）: `scripts/production-browser-smoke.mjs`で`vite build`成果物を`vite preview`からPlaywright Chromiumへ配信し、Check、Attack初期、Attack防御ダイス1、Backtrackのcanvas・revision-1 asset request・D10 status・same-origin HTTP/console/page/request failureを確認した。public asset削除、revision変更、UI/計算意味論の変更は行っていない。
 - done（Phase 8-2D）: `PrecomputedDataSchema.js`、`D10PrecomputedDataRepository.js`、`ReferencePrecomputedDataRepository.js`へsourceを分離し、productionのprecomputed importerをD10へ限定した。互換facadeはre-exportと全cache clearに縮小し、D10直接テスト、reference直接テスト、既存facadeテスト、full JS/data/generator/browser smoke gateを通過させた。公開asset、JSON、generator、revision-1 URL、計算意味論は変更していない。
+- done（Phase 8-2E）: `tests/d10PrecomputedDataRepository.test.js`へschema mismatch、dataset mismatch、distribution count mismatch、invalid probability、成功後のpersistent cacheを追加し、Phase 8-2Dのvalidator/cache closureを完了した。`docs/phase8-inventory.md`へ`rg`実測に基づくsymbol/export/importer監査表を追加し、compat facade、legacy wrapper/core、comparison/migration、benchmark/experiment、dense/public/reference asset、generatorのreplacement target、blocker、次 action、削除予定単位を記録した。今回の段階ではsource、asset、JSON、generatorを削除せず、runtimeRuleValidation actual側移行をPhase 8-2Fへ送った。
 
 ## 参照文書
 

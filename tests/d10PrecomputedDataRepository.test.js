@@ -32,6 +32,16 @@ describe('D10 production repository', () => {
     )
   })
 
+  it('keeps a successful asset in the cache for later loads', async () => {
+    const fetchAsset = vi.fn(async () => createJsonResponse(d10))
+    const repository = createD10Repository(fetchAsset)
+
+    await repository.loadD10Asset()
+    await repository.loadD10Asset()
+
+    expect(fetchAsset).toHaveBeenCalledTimes(1)
+  })
+
   it('retries after a failed asset request', async () => {
     const fetchAsset = vi
       .fn()
@@ -44,15 +54,36 @@ describe('D10 production repository', () => {
     expect(fetchAsset).toHaveBeenCalledTimes(2)
   })
 
-  it('rejects an incompatible schema before exposing the asset', async () => {
-    const incompatibleAsset = { ...d10, dataRevision: d10.dataRevision + 1 }
+  it.each([
+    [
+      { ...d10, schemaVersion: d10.schemaVersion + 1 },
+      'schema mismatch',
+    ],
+    [{ ...d10, dataset: 'livingdead' }, 'dataset must be d10'],
+    [
+      { ...d10, distributions: d10.distributions.slice(0, -1) },
+      'd10 distribution count mismatch',
+    ],
+  ])('rejects invalid asset metadata: %s', async (invalidAsset, message) => {
     const repository = createD10Repository(async () =>
-      createJsonResponse(incompatibleAsset)
+      createJsonResponse(invalidAsset)
     )
 
-    await expect(repository.loadD10Asset()).rejects.toThrow('revision mismatch')
+    await expect(repository.loadD10Asset()).rejects.toThrow(message)
     expect(() => repository.getD10Distribution(1)).toThrow(
       'd10 data has not been loaded'
+    )
+  })
+
+  it('rejects an invalid probability value', async () => {
+    const invalidProbabilityAsset = structuredClone(d10)
+    invalidProbabilityAsset.distributions[1].values[0] = -1
+    const repository = createD10Repository(async () =>
+      createJsonResponse(invalidProbabilityAsset)
+    )
+
+    await expect(repository.loadD10Asset()).rejects.toThrow(
+      'invalid probability'
     )
   })
 
