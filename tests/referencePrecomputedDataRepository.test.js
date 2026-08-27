@@ -22,6 +22,36 @@ describe('reference precomputed repository', () => {
     clearReferencePrecomputedDataCache()
   })
 
+  it('deduplicates concurrent DX shard loads and caches the asset', async () => {
+    const fetchAsset = vi.fn(async () => createJsonResponse(dxShihai0))
+    const repository = createDxRepository(fetchAsset)
+
+    const [first, second] = await Promise.all([
+      repository.loadDxAsset(0),
+      repository.loadDxAsset(0),
+    ])
+
+    expect(fetchAsset).toHaveBeenCalledTimes(1)
+    expect(first).toBe(second)
+    expect(await repository.loadDxAsset(0)).toBe(first)
+    expect(fetchAsset).toHaveBeenCalledTimes(1)
+    expect(repository.getDxDistribution(0, 1, 10)).toEqual(
+      dxShihai0.distributions[1][8]
+    )
+  })
+
+  it('rejects an incompatible DX data revision', async () => {
+    const incompatibleAsset = {
+      ...dxShihai0,
+      dataRevision: dxShihai0.dataRevision + 1,
+    }
+    const repository = createDxRepository(
+      async () => createJsonResponse(incompatibleAsset)
+    )
+
+    await expect(repository.loadDxAsset(0)).rejects.toThrow('revision mismatch')
+  })
+
   it('keeps DX shard loading and retry behavior in the reference module', async () => {
     const fetchAsset = vi
       .fn()
