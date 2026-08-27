@@ -81,7 +81,7 @@ Phase 8-2Eでは、Phase 8-2D後のHEAD `e048d90`（`codex/canonical-default-mig
 
 | 区分 | 現在の主な対象 | 現在までの扱い | 次の段階 |
 | --- | --- | --- | --- |
-| A: delete-ready | `src/calculation/index.js`（importer 0、dynamic reference 0） | Phase 8-2G3で全importerをowner moduleへ移行し、barrel自体は削除せず保持 | Phase 8-2G4でbarrel削除を判断 |
+| A: deleted | `src/calculation/index.js`（G3でimporter 0、G4で削除） | Phase 8-2G3で全importerをowner moduleへ移行し、Phase 8-2G4でbarrelを単独削除 | Phase 8-2G5でfacade削除判断 |
 | B: migration-small | canonical data wrapper、分割済みfacadeの直接置換可能な参照 | Phase 8-2G1でtests、Phase 8-2G2でscripts/experiments、Phase 8-2G3でcalculation barrelの参照を直接moduleへ移行 | facade compatibility retirementとwrapperの個別判断 |
 | C: oracle-migration-required | `calculator.test.js`のrule coverage、`LegacyCanonicalComparison`、migration tests、legacy core、dense JSON | `runtimeRuleValidation.test.js`のactual側をCから外し、migration testは比較責務を保持 | 独立oracleと比較責務を確認してから個別移行 |
 | D: retention-required | production D10 repository、canonical core、revision-1公開asset、generator、runtimeRuleValidationのcanonical-vs-independent rule oracle | 保持 | production・再生成・公開URL・独立oracleの契約を維持 |
@@ -100,8 +100,8 @@ Phase 8-2Eでは、Phase 8-2D後のHEAD `e048d90`（`codex/canonical-default-mig
 | `src/calculation/BacktrackCalculator.js` | `calculateD10Distributions`、`calculateLivingdeadDistributions`、`calculateFinalEncroachmentCanonical` | `CalculationClient`から到達 | backtrack canonical、rule、simulation対応tests | backtrack migration | canonical comparison | experiment benchmark | generator D10/屍人は独立oracle | —（productionはon-demand） | production canonical backtrack | finite supportとResourceGuard契約 | keep、asset loaderへ戻さない | 保持 |
 | `src/calculation/BacktrackCalculator.js` | `calculateFinalEncroachment` | — | legacy rule compatibility tests | `tests/backtrackMigration.test.js` | `tests/legacyCanonicalComparison.test.js` | `tests/calculator.test.js` | — | dense/public D10、屍人 | canonical backtrackと独立reference | migrationとruntime rule actualのlegacy依存 | actual側移行後にlegacy exportを削除候補化 | Phase 8-2G |
 | `src/calculation/LegacyCanonicalComparison.js` | thresholds、error classes、`compareLegacyAndCanonicalDistributions`、`compareLegacyAndCanonicalDamage`、`compareLegacyAndCanonicalTotalDamage`、aliasと判定helper | — | — | migration comparisonの共通判定 | `tests/legacyCanonicalComparison.test.js` | benchmark comparison | — | dense/public reference | independent oracle coverage map | 旧・新の差分を説明する比較fixture | semantic coverageを確認してから削除判断 | Phase 8-2G |
-| `src/calculation/index.js` | canonical re-export: `calculateFinalEncroachmentCanonical`、`calculateD10Distributions`、`calculateLivingdeadDistributions`、`calculateCanonicalDamageOnDemand`、`createCanonicalDamageRollRequest`、`finalizeOnDemandDamage`、`getCanonicalDamageSummary`、canonical aggregation、`calculateScoreCanonical`、`calculateCanonicalScoreSuccessProbabilityInterval`、`getCanonicalScoreSummary`、DX/RuntimeDamageRoll/RangePlanner API | — | —（G3完了後はowner moduleを直接import） | — | — | — | — | 下位moduleのowner export | owner moduleへの直接import | importer 0を確認済み。barrel APIの互換性だけが残る | Phase 8-2G4でbarrel削除を判断 | Phase 8-2G4 |
-| `src/calculation/index.js` | legacy re-export: `calculateFinalEncroachment`、`calculateDamage`、`calculateDamageOnDemand`、`createDamageRollRequest`、`getDamageSummary`、`getTotalDamage`、`calculateScore`、`getScoreSummary`、`LegacyCanonicalComparison` exports | — | — | — | — | — | — | 下位moduleのowner export | owner moduleへの直接import | importer 0を確認済み。legacy utilityの意味論は各owner moduleで保持 | Phase 8-2G4でbarrel削除を判断 | Phase 8-2G4 |
+| `src/calculation/index.js` | canonical re-export: `calculateFinalEncroachmentCanonical`、`calculateD10Distributions`、`calculateLivingdeadDistributions`、`calculateCanonicalDamageOnDemand`、`createCanonicalDamageRollRequest`、`finalizeOnDemandDamage`、`getCanonicalDamageSummary`、canonical aggregation、`calculateScoreCanonical`、`calculateCanonicalScoreSuccessProbabilityInterval`、`getCanonicalScoreSummary`、DX/RuntimeDamageRoll/RangePlanner API | — | —（G3完了後はowner moduleを直接import） | — | — | — | — | 下位moduleのowner export | owner moduleへの直接import | G3でimporter 0、G4でbarrel削除済み。owner moduleのAPIを保持 | — | Phase 8-2G4（完了） |
+| `src/calculation/index.js` | legacy re-export: `calculateFinalEncroachment`、`calculateDamage`、`calculateDamageOnDemand`、`createDamageRollRequest`、`getDamageSummary`、`getTotalDamage`、`calculateScore`、`getScoreSummary`、`LegacyCanonicalComparison` exports | — | — | — | — | — | — | 下位moduleのowner export | owner moduleへの直接import | G3でimporter 0、G4でbarrel削除済み。legacy utilityの意味論は各owner moduleで保持 | — | Phase 8-2G4（完了） |
 | `src/components/Attack/LegacyChartSetter.js` | `getAttackScoreChartData`、`getAttackDamageChartData`、内部`clipData` | — | — | — | `tests/attackDamageDisplayAdapter.test.js` | — | — | legacy 1024配列 | `ChartSetter.js` canonical adapter | legacy表示fixtureとcompatibility API | split済みのまま保持し、外部参照0を再確認 | Phase 8-2G |
 | `src/data/Distribution.js` | `range` | — | `tests/attackDamageDisplayAdapter.test.js` | — | legacy display comparison | — | — | 1024 legacy array | canonical coordinate/labels adapter | legacy chart API | LegacyChartSetter削除時に同時削除を判断 | Phase 8-2G |
 | `tests/runtimeRuleValidation.test.js` | 独立expected/referenceとcanonical actual | — | independent D10/livingdead、Score/Damage/Backtrack canonical core | — | rule cross-check | — | — | public assetは`precomputedAssets.test.js`とgeneratorで検証 | independent oracleとcanonical actual | actual側のwrapper・asset依存を除去済み | 独立oracleとして保持 | 保持 |
@@ -134,13 +134,13 @@ Phase 8-2Eでは、Phase 8-2D後のHEAD `e048d90`（`codex/canonical-default-mig
 
 production importerが0であっても、直ちに削除できるとは限らない。migration test、`LegacyCanonicalComparison`、dense/reference asset、generatorの独立oracleが相互に削除条件となるため、今回の結論は「保留理由を明示したkeepまたはmigrate」である。`PrecomputedDataRepository.js`はcompatibility facadeとして残し、D10 production repositoryとreference repositoryのsource splitを逆戻りさせない。
 
-Phase 8-2Fでは`tests/runtimeRuleValidation.test.js`のactual側を`src/calculation/`のcanonical APIへ置換した。expected側の独立ルール計算を保持したまま、Score、Damage、Backtrackのcanonical actualと照合し、同テストからdata wrapper、compatibility asset登録、公開JSONへの依存を除去している。Phase 8-2G3では`src/calculation/index.js`の全importerをowner moduleへ移行し、barrel自体をPhase 8-2G4の削除候補として分類した。
+Phase 8-2Fでは`tests/runtimeRuleValidation.test.js`のactual側を`src/calculation/`のcanonical APIへ置換した。expected側の独立ルール計算を保持したまま、Score、Damage、Backtrackのcanonical actualと照合し、同テストからdata wrapper、compatibility asset登録、公開JSONへの依存を除去している。Phase 8-2G3では`src/calculation/index.js`の全importerをowner moduleへ移行し、barrel自体をPhase 8-2G4の削除候補として分類したうえで、G4で削除した。
 
 ## Phase 8-2F/Gの進捗
 
 Phase 8-2Fは完了した。`tests/runtimeRuleValidation.test.js`のactual側を`src/data/{ScoreCalculator,DamageCalculator,BacktrackCalculator}.js`から`src/calculation/`のcanonical coreへ移行し、expected/reference側の独立実装はルール整合性のoracleとして保持した。canonical Scoreは`result`／`metadata` envelope、Damageはruntime D10 providerと混合DR生成、Backtrackは完全finite supportとpresentation adapterを通して検証している。完了条件は、同テストから`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`、`PrecomputedDataRepository.js`をimportしないことと、asset検証を`tests/precomputedAssets.test.js`およびgeneratorへ分離することである。これはリポジトリ全体のlegacy wrapper importer 0を意味しない。
 
-Phase 8-2Gは、`calculator.test.js`、migration/comparison test、calculation barrel、compatibility facade、legacy core、dense JSONの参照を同じ分類表に従って個別に移行・保持判断する段階である。Phase 8-2G1とG2ではfacadeのtest、scripts、experimentsの参照移行を完了し、G3ではcalculation barrelの参照移行を完了した。公開asset、generator、production D10 repositoryは引き続き保持する。
+Phase 8-2Gは、`calculator.test.js`、migration/comparison test、calculation barrel、compatibility facade、legacy core、dense JSONの参照を同じ分類表に従って個別に移行・保持判断する段階である。Phase 8-2G1とG2ではfacadeのtest、scripts、experimentsの参照移行を完了し、G3ではcalculation barrelの参照移行、G4ではbarrel削除を完了した。公開asset、generator、production D10 repositoryは引き続き保持し、次はG5でcompatibility facadeの削除を独立して判断する。
 
 ## Phase 8-2G1: compatibility facade test importer移行（完了）
 
@@ -174,7 +174,11 @@ Phase 8-2G2では、scripts/experimentsのfacade importerを保持せず、bench
 | `scripts/benchmark-full-tail-attack.mjs` | Damage、DX、Score、runtime DR、range、aggregation | 各owner moduleをVite SSRで直接load。D10 repositoryのみ併用 |
 | `experiments/phase2h-browser/browser-benchmark.js` | Damage、comparison、summary、runtime DR、Score、range、aggregation | 各owner moduleをbrowser bundleへ直接import |
 
-G3完了後、`src`、`tests`、`scripts`、`experiments`のbarrel importerとcalculation barrelのSSR loadは0件である。`src/calculation/index.js`はdynamic importやpackage exportの参照もなく、Phase 8-2G4でbarrel単独の削除を判断する。G3の検証は、`npx vitest run tests/legacyCanonicalComparison.test.js`、`npm run benchmark:calculators`、`npm run benchmark:phase2h -- --iterations 1 --warmup 0`、`npm run benchmark:phase2h:browser:playwright:short`、`npm run benchmark:full-tail-attack -- --iterations 1 --warmup 0`、`npm test`、`npm run lint`、`npm run lint:markdown`、`npm run build`、`git diff --check`で行う。
+G3完了後、`src`、`tests`、`scripts`、`experiments`のbarrel importerとcalculation barrelのSSR loadは0件である。`src/calculation/index.js`はdynamic importやpackage exportの参照もなく、Phase 8-2G4でbarrel単独の削除を実施した。G3のclosureは、`npx vitest run tests/legacyCanonicalComparison.test.js`、`npm run benchmark:calculators`、`npm run benchmark:phase2h -- --iterations 1 --warmup 0`、`npm run benchmark:phase2h:browser:playwright:short`、`npm run benchmark:full-tail-attack -- --iterations 1 --warmup 0`、`npm test`、`npm run lint`、`npm run lint:markdown`、`npm run build`、`git diff --check`がすべて成功したことと、barrel importer 0を確認したことで完了した。
+
+## Phase 8-2G4: calculation barrel削除（完了）
+
+Phase 8-2G3で全importerをowner moduleへ移行したことを前提に、`src/calculation/index.js`を削除した。削除前後のglobal/static/dynamic/SSR検索でbarrel参照0、`package.json`の`exports`なし、`private: true`を確認している。owner calculation module、計算意味論、facade、data wrapper、`LegacyCanonicalComparison`、migration/comparison test、JSON、公開asset、generator、benchmark caseは変更していない。次はPhase 8-2G5として`PrecomputedDataRepository.js` compatibility facadeのretirementを独立して判断する。
 
 ## distribution、FFT、canonical/legacy core
 
@@ -195,8 +199,8 @@ G3完了後、`src`、`tests`、`scripts`、`experiments`のbarrel importerとca
 | `src/calculation/BacktrackCalculator.js` | `calculateD10Distributions`、`calculateLivingdeadDistributions`、`calculateFinalEncroachmentCanonical` | `production` | CalculationClient canonical adapter | backtrack canonical/rule/integration tests | on-demand complete support、resource guard | generator d10/livingdead independent oracle | exhaustive reference and simulation | `keep` | canonical backtrackのasset非依存を維持 | JS tests、browser smoke |
 | `src/calculation/BacktrackCalculator.js` | `calculateFinalEncroachment` | `comparison-regression` | なし | data wrapper、backtrack migration、runtime rule tests | legacy public D10/livingdead provider | dense/public reference asset | canonical backtrack and rule tests | `delete-candidate` | migration testsを独立oracleへ移行 | full JS gate、legacy import 0 |
 | `src/calculation/LegacyCanonicalComparison.js` | thresholds、error classes、`compareLegacyAndCanonical*`一式 | `comparison-regression` | なし | `legacyCanonicalComparison.test.js`とcomparison barrel | 1024 legacy arrays、canonical adapter | 旧dense JSONとpublic assetsを比較入力にする | oracle coverage mapをroadmapに記録済み | `delete-candidate` | semanticごとの独立oracle、比較依存の削除、最終gate | comparison removal run、full JS gate |
-| `src/calculation/index.js` | canonical reexports | `dead-candidate` | なし。production、tests、scripts、experimentsから参照なし | — | — | なし | owner moduleの直接import | `delete-candidate` | Phase 8-2G3でimporter 0を実測済み。G4で削除を判断 | full JS gate、dynamic reference 0 |
-| `src/calculation/index.js` | legacy calculation/comparison reexports | `dead-candidate` | production、tests、scripts、experimentsから参照なし | — | — | なし | owner moduleの直接import | `delete-candidate` | Phase 8-2G3でimporter 0を実測済み。G4でbarrel単独削除を判断 | full JS gate、dynamic reference 0 |
+| `src/calculation/index.js` | canonical reexports | `deleted in Phase 8-2G4` | なし。production、tests、scripts、experimentsから参照なし | — | — | なし | owner moduleの直接import | `deleted` | Phase 8-2G3でimporter 0を実測し、G4で削除 | full JS gate、dynamic reference 0 |
+| `src/calculation/index.js` | legacy calculation/comparison reexports | `deleted in Phase 8-2G4` | production、tests、scripts、experimentsから参照なし | — | — | なし | owner moduleの直接import | `deleted` | Phase 8-2G3でimporter 0を実測し、G4でbarrel単独削除 | full JS gate、dynamic reference 0 |
 
 ## data wrapper
 
@@ -257,7 +261,7 @@ Python generatorは現行配信assetの再生成元であり、旧dense JSONと�
 
 ## migration/comparison barrelとbenchmark
 
-`src/calculation/index.js`のlegacy reexport、`tests/legacyCanonicalComparison.test.js`、各migration test、benchmark scriptは、production bundleの実行経路ではなく比較・移行・性能測定のために残る。これらを先に削除すると、legacy削除後の数値差を説明できなくなる。
+`src/calculation/index.js`のlegacy reexportはPhase 8-2G4で削除済みである。`tests/legacyCanonicalComparison.test.js`、各migration test、benchmark scriptはproduction bundleの実行経路ではなく比較・移行・性能測定のために残る。これらを先に削除すると、legacy削除後の数値差を説明できなくなる。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -367,5 +371,5 @@ Phase 8-2Eではreference/legacy importerを再監査し、D10 validator/cache�
 - `1022`、`1023`、`1024`、`published-bucket`の意味を用途別に分離した。
 - `ChartPercentages.js`を追加し、Attack chartのrounding golden 5点とTypedArray変換を固定した。
 - D10以外の公開revision-1 assetは削除せず、32 data assetsと`manifest.json`の旧URLretirementを別revision・別release判断へ分離した。
-- Phase 8-2AとしてChartSetter split、Phase 8-2DとしてPrecomputedDataRepository split、Phase 8-2Eとしてreference/legacy importer監査とD10 validator/cache closure、Phase 8-2FとしてruntimeRuleValidation actual移行、Phase 8-2G1/G2/G3としてfacadeとcalculation barrelのimporter移行を完了し、wrapper/JSON/comparison削除とbarrel削除判断を後続へ送った。
-- この作業ではbenchmark/experimentのrepository importとinventory/roadmap/todo、実験判断表のdocsを変更し、production計算、generator、JSON、asset、Worker、API、MCP、入力上限、表示windowは変更していない。
+- Phase 8-2AとしてChartSetter split、Phase 8-2DとしてPrecomputedDataRepository split、Phase 8-2Eとしてreference/legacy importer監査とD10 validator/cache closure、Phase 8-2FとしてruntimeRuleValidation actual移行、Phase 8-2G1/G2/G3としてfacadeとcalculation barrelのimporter移行、Phase 8-2G4としてcalculation barrel削除を完了し、wrapper/JSON/comparison削除を後続へ送った。
+- Phase 8-2G1/G2/G3では、tests・benchmark・experimentのrepository / calculation barrel参照を各owner moduleへ直接移行し、G4ではcalculation barrelを削除した。inventory、roadmap、todo、実験判断表のdocsも更新したが、production計算、generator、JSON、asset、Worker、API、MCP、入力上限、表示windowは変更していない。
