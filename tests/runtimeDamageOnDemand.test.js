@@ -14,8 +14,8 @@ import {
 import {
   getD10Distribution as getRepositoryD10Distribution,
   registerD10Asset,
-  registerDrAsset,
-} from '../src/data/PrecomputedDataRepository'
+} from '../src/data/D10PrecomputedDataRepository'
+import { registerDrAsset } from '../src/data/ReferencePrecomputedDataRepository'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import drKazanari3 from '../public/data/schema-v2/revision-1/dr/kazanari-3.json'

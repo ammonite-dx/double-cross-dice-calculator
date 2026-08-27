@@ -5,10 +5,10 @@ import {
 } from '../src/calculation/BacktrackCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
+import { registerD10Asset } from '../src/data/D10PrecomputedDataRepository'
 import {
-  registerD10Asset,
   registerLivingdeadAsset,
-} from '../src/data/PrecomputedDataRepository'
+} from '../src/data/ReferencePrecomputedDataRepository'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES,

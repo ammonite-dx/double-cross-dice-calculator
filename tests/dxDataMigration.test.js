@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import legacyDx from '../src/data/dx.json'
 import { getScore as getLegacyScore } from './legacy/LegacyCalculator'
-import { registerDxAsset } from '../src/data/PrecomputedDataRepository'
+import { registerDxAsset } from '../src/data/ReferencePrecomputedDataRepository'
 import { getScore } from '../src/data/ScoreCalculator'
 
 const migratedAssets = []

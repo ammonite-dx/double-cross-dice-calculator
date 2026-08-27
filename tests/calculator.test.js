@@ -9,10 +9,12 @@ import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
 import {
   getD10Distribution,
   registerD10Asset,
+} from '../src/data/D10PrecomputedDataRepository'
+import {
   registerDrAsset,
   registerDxAsset,
   registerLivingdeadAsset,
-} from '../src/data/PrecomputedDataRepository'
+} from '../src/data/ReferencePrecomputedDataRepository'
 import {
   calculateScore,
   getScore,

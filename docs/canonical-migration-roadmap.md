@@ -267,7 +267,7 @@ Phase 8-1ではfull verificationを1コマンドで再現できる状態（候�
 - 完了条件: productionが不要な事前計算JSONに依存しないことを確認し、必要なasset fetch、再生成、失敗時のerror/re-input案内、配布サイズ、削除前の独立oracleを個別に比較できる。Phase 8-1では削除を行わない。
 - 対象外: 計算パラメータ入力上限の変更、表示windowの契約変更、Cloudflare Workers/API/MCP、既存履歴の削除。
 
-JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A〜2EではChart adapter分離、CalculationClient dependency contract、production browser smoke、precomputed repositoryのproduction/reference source split、reference/legacy importer auditとD10 validator closureを追加し、production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
+JSON整理はブラウザ内canonical計算と表示契約が安定した後に独立して行う。Phase 8-1では[`phase8-inventory.md`](./phase8-inventory.md)で、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しした。Phase 8-2A〜2FではChart adapter分離、CalculationClient dependency contract、production browser smoke、precomputed repositoryのproduction/reference source split、reference/legacy importer auditとD10 validator closure、runtimeRuleValidation actual migrationを追加し、Phase 8-2G1ではcompatibility facadeのtest importerを直接repositoryへ移行した。production import graphと再生成用途を維持したまま、分類結果に基づく後続cleanup候補を記録している。JSON、asset、generatorは一括削除しない。入力上限を変える変更と既存JSONを削除する変更は、原因と影響を切り分けるため同一コミット・同一受入条件にしない。
 
 ### Phase 8-2A: Attack chart adapter分離（完了）
 
@@ -309,11 +309,24 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - 実装: Scoreは`calculateScoreCanonical`／`getCanonicalScoreSummary`、Damageは`calculateCanonicalDamageOnDemand`／`generateMixedDamageDistribution`／独立D10 provider、Backtrackは`calculateFinalEncroachmentCanonical`／`createBacktrackCanonicalPresentation`へ接続した。Score envelopeの`result`／`metadata`とcanonical finite supportをテスト側で明示し、legacyの1024 bucketや公開asset登録を使わない。
 - 完了条件: `runtimeRuleValidation.test.js`から`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`、`PrecomputedDataRepository.js`へのimportが0であり、canonical actualとindependent expectedの一致、全JS/data/generator gateが成功することを確認した。これはリポジトリ全体のlegacy wrapper importer 0を意味しない。
 
-### Phase 8-2G: legacy/reference importerの個別cleanup（次段階）
+### Phase 8-2G: legacy/reference importerの個別cleanup（進行中）
 
 - 対象: `calculator.test.js`、migration/comparison test、calculation barrel、compatibility facade、legacy core、dense JSONについて、Phase 8 inventoryのA/B/C/D分類に従って参照移行・保持・削除候補化を個別に判断する。
 - 対象外: production canonical core、D10 repository、revision-1公開asset、generator、Cloudflare Workers/API/MCP。
+- 状態: Phase 8-2G1（compatibility facadeのtest importer移行）は完了し、Phase 8-2G2（scripts/experimentsとcalculation barrelの参照整理）は未着手である。
 - 完了条件: 各削除候補に独立oracle coverage、公開asset保持条件、再生成手順、full JS/data/generator gateを記録し、global wrapper/barrel importerの削除範囲を明示する。
+
+### Phase 8-2G1: compatibility facade test importer移行（完了）
+
+- `tests/`のfacade importを実測し、単なるre-export利用だった8テストを`D10PrecomputedDataRepository.js`または`ReferencePrecomputedDataRepository.js`へ直接移行した。
+- `tests/precomputedDataRepository.test.js`だけはfacade compatibility regressionとして残した。legacy calculator、migration/comparisonの意味、public JSON、production `src/`は変更していない。
+- `scripts/benchmark-calculators.mjs`、`scripts/benchmark-phase2h.mjs`、`scripts/benchmark-full-tail-attack.mjs`、`experiments/**`のfacade参照はbenchmark/experimentの再現性判断が必要なため維持し、Phase 8-2G2で分類する。
+- `tests/`のfacade importがcompatibility testだけであること、targeted/full JS gate、lint、Markdown lint、build、`git diff --check`の成功を確認した。
+
+### Phase 8-2G2: scripts/experimentsとcalculation barrelの参照整理（次段階）
+
+- benchmark/experimentのfacade importerと`src/calculation/index.js`のlegacy/canonical barrel importerを、保持・直接移行・retireの三分類で個別に判断する。
+- Phase 8-2G1で移行済みのtestsや、production D10 repository、public asset、generator、計算意味論は変更対象に戻さない。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 

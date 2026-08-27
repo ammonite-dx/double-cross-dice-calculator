@@ -6,10 +6,10 @@ import {
 import {
   getFinalEncroachment,
 } from '../src/data/BacktrackCalculator'
+import { registerD10Asset } from '../src/data/D10PrecomputedDataRepository'
 import {
-  registerD10Asset,
   registerLivingdeadAsset,
-} from '../src/data/PrecomputedDataRepository'
+} from '../src/data/ReferencePrecomputedDataRepository'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
 

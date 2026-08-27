@@ -10,10 +10,12 @@ import {
 } from '../src/domain/BacktrackRules'
 import {
   getD10Distribution,
-  getLivingdeadDistribution,
   registerD10Asset,
+} from '../src/data/D10PrecomputedDataRepository'
+import {
+  getLivingdeadDistribution,
   registerLivingdeadAsset,
-} from '../src/data/PrecomputedDataRepository'
+} from '../src/data/ReferencePrecomputedDataRepository'
 import {
   getFinalEncroachment,
   getFinalEncroachmentCanonical,

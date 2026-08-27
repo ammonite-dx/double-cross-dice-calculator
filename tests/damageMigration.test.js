@@ -12,9 +12,11 @@ import {
 } from '../src/data/DamageCalculator'
 import {
   registerD10Asset,
+} from '../src/data/D10PrecomputedDataRepository'
+import {
   registerDrAsset,
   registerDxAsset,
-} from '../src/data/PrecomputedDataRepository'
+} from '../src/data/ReferencePrecomputedDataRepository'
 import { getScore } from '../src/data/ScoreCalculator'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
