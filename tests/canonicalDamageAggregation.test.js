@@ -7,7 +7,7 @@ import {
   CanonicalDamageAggregationError,
   planCanonicalDamageAggregation,
   sumCanonicalDamage,
-} from '../src/calculation'
+} from '../src/calculation/CanonicalDamageAggregation'
 import {
   createDistributionResult,
   DISTRIBUTION_RESULT_TOLERANCE,

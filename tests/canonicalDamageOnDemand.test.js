@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   calculateCanonicalDamageOnDemand,
   calculateDamageOnDemand,
-} from '../src/calculation'
+} from '../src/calculation/DamageCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { getUpperTailProbability } from '../src/data/Distribution'
 

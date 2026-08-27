@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
-  calculateDxDistribution,
   calculateScore,
   calculateScoreCanonical,
   getCanonicalScoreSummary,
-  planCalculationRanges,
-} from '../src/calculation'
+} from '../src/calculation/ScoreCalculator'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   createDistributionResult,
   DISTRIBUTION_RESULT_ERROR_CODES,

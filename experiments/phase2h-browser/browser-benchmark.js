@@ -1,15 +1,17 @@
 import {
   calculateCanonicalDamageOnDemand,
+  createDamageRollRequest,
+  getCanonicalDamageSummary,
+} from '../../src/calculation/DamageCalculator.js'
+import {
   compareLegacyAndCanonicalDistributions,
   compareLegacyAndCanonicalTotalDamage,
-  createDamageRollRequest,
-  generateMixedDamageDistribution,
-  getCanonicalDamageSummary,
-  getCanonicalTotalDamageSummary,
-  getScoreSummary,
-  planCalculationRanges,
-  sumCanonicalDamage,
-} from '../../src/calculation/index.js'
+} from '../../src/calculation/LegacyCanonicalComparison.js'
+import { getCanonicalTotalDamageSummary } from '../../src/calculation/DistributionResult.js'
+import { generateMixedDamageDistribution } from '../../src/calculation/RuntimeDamageRollCalculator.js'
+import { getScoreSummary } from '../../src/calculation/ScoreCalculator.js'
+import { planCalculationRanges } from '../../src/calculation/RangePlanner.js'
+import { sumCanonicalDamage } from '../../src/calculation/CanonicalDamageAggregation.js'
 import {
   getD10Distribution,
   registerD10Asset,

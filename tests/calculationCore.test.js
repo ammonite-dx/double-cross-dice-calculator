@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  calculateFinalEncroachment,
-  calculateDamage,
-  calculateScore,
   calculateD10Distributions,
   calculateLivingdeadDistributions,
-  BACKTRACK_MAX_GENERATION_LENGTH,
-} from '../src/calculation'
+  calculateFinalEncroachment,
+} from '../src/calculation/BacktrackCalculator'
+import { BACKTRACK_MAX_GENERATION_LENGTH } from '../src/calculation/BacktrackLimits'
+import { calculateDamage } from '../src/calculation/DamageCalculator'
+import { calculateScore } from '../src/calculation/ScoreCalculator'
 import {
   OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,

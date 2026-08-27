@@ -942,21 +942,36 @@ async function loadDependencies() {
   })
 
   try {
-    const [calculation, d10Repository] = await Promise.all([
-      server.ssrLoadModule('/src/calculation/index.js'),
+    const [
+      damageCalculation,
+      dxCalculation,
+      scoreCalculation,
+      runtimeDamageRollCalculation,
+      rangePlanner,
+      canonicalDamageAggregation,
+      d10Repository,
+    ] = await Promise.all([
+      server.ssrLoadModule('/src/calculation/DamageCalculator.js'),
+      server.ssrLoadModule('/src/calculation/DxCalculator.js'),
+      server.ssrLoadModule('/src/calculation/ScoreCalculator.js'),
+      server.ssrLoadModule(
+        '/src/calculation/RuntimeDamageRollCalculator.js'
+      ),
+      server.ssrLoadModule('/src/calculation/RangePlanner.js'),
+      server.ssrLoadModule('/src/calculation/CanonicalDamageAggregation.js'),
       server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
     ])
     return {
       server,
       calculateCanonicalDamageOnDemand:
-        calculation.calculateCanonicalDamageOnDemand,
-      calculateDxDistribution: calculation.calculateDxDistribution,
-      calculateScoreCanonical: calculation.calculateScoreCanonical,
+        damageCalculation.calculateCanonicalDamageOnDemand,
+      calculateDxDistribution: dxCalculation.calculateDxDistribution,
+      calculateScoreCanonical: scoreCalculation.calculateScoreCanonical,
       generateMixedDamageDistribution:
-        calculation.generateMixedDamageDistribution,
+        runtimeDamageRollCalculation.generateMixedDamageDistribution,
       getD10Distribution: d10Repository.getD10Distribution,
-      planCalculationRanges: calculation.planCalculationRanges,
-      sumCanonicalDamage: calculation.sumCanonicalDamage,
+      planCalculationRanges: rangePlanner.planCalculationRanges,
+      sumCanonicalDamage: canonicalDamageAggregation.sumCanonicalDamage,
       registerD10Asset: d10Repository.registerD10Asset,
     }
   } catch (error) {

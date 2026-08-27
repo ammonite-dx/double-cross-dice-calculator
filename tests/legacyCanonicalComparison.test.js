@@ -2,17 +2,19 @@ import { describe, expect, it } from 'vitest'
 
 import {
   calculateCanonicalDamageOnDemand,
-  calculateD10Distributions,
   calculateDamageOnDemand,
-  calculateDxDistribution,
-  calculateScore,
+  getTotalDamage,
+} from '../src/calculation/DamageCalculator'
+import { calculateD10Distributions } from '../src/calculation/BacktrackCalculator'
+import { calculateDxDistribution } from '../src/calculation/DxCalculator'
+import { calculateScore } from '../src/calculation/ScoreCalculator'
+import {
   compareLegacyAndCanonicalDistributions,
   compareLegacyAndCanonicalTotalDamage,
-  generateMixedDamageDistribution,
-  getTotalDamage,
-  planCalculationRanges,
-  sumCanonicalDamage,
-} from '../src/calculation'
+} from '../src/calculation/LegacyCanonicalComparison'
+import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
+import { sumCanonicalDamage } from '../src/calculation/CanonicalDamageAggregation'
 import {
   createDistributionResult,
   DISTRIBUTION_RESULT_ERROR_CODES,

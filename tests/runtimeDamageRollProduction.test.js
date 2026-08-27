@@ -8,7 +8,7 @@ import {
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   validateRuntimeDamageRollInputs,
-} from '../src/calculation'
+} from '../src/calculation/RuntimeDamageRollCalculator'
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import drKazanari3 from '../public/data/schema-v2/revision-1/dr/kazanari-3.json'
 import drKazanari9 from '../public/data/schema-v2/revision-1/dr/kazanari-9.json'

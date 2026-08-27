@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
+import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
-  calculateDxDistribution,
   calculateScoreCanonical,
   getCanonicalScoreSummary,
-  planCalculationRanges,
-} from '../src/calculation'
+} from '../src/calculation/ScoreCalculator'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   CANONICAL_SUMMARY_UNAVAILABLE,
   formatCanonicalScoreSummaryExpectedValue,

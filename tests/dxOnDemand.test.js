@@ -9,7 +9,7 @@ import {
   DX_MAX_DISTRIBUTION_SIZE,
   DX_MIN_DISTRIBUTION_SIZE,
   DX_SHIHAI_MAX,
-} from '../src/calculation'
+} from '../src/calculation/DxCalculator'
 
 function assertDistribution(distribution) {
   expect(distribution).toBeInstanceOf(Float64Array)

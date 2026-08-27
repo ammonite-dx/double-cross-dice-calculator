@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   calculateDamageOnDemand,
   createDamageRollRequest,
-  generateMixedDamageDistribution,
-  planCalculationRanges,
-} from '../src/calculation'
+} from '../src/calculation/DamageCalculator'
+import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import { getDamage } from '../src/data/DamageCalculator'
 import {
   OUTPUT_DISTRIBUTION_SIZE,

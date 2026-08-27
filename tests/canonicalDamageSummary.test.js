@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
 import {
-  getCanonicalDamageSummary,
+  createDistributionResult,
   getExpectedValueSummary,
-} from '../src/calculation'
-import { createDistributionResult } from '../src/calculation/DistributionResult'
+} from '../src/calculation/DistributionResult'
 
 function createCanonicalDamage(result) {
   return {

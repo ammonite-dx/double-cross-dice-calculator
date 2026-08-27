@@ -1226,7 +1226,13 @@ async function loadDependencies() {
 
   try {
     const [
-      calculation,
+      damageCalculation,
+      scoreCalculation,
+      runtimeDamageRollCalculation,
+      canonicalDamageAggregation,
+      legacyCanonicalComparison,
+      distributionResult,
+      rangePlanner,
       d10Repository,
       referenceRepository,
       dataDamage,
@@ -1235,7 +1241,15 @@ async function loadDependencies() {
       attackPresentation,
     ] =
       await Promise.all([
-        server.ssrLoadModule('/src/calculation/index.js'),
+        server.ssrLoadModule('/src/calculation/DamageCalculator.js'),
+        server.ssrLoadModule('/src/calculation/ScoreCalculator.js'),
+        server.ssrLoadModule(
+          '/src/calculation/RuntimeDamageRollCalculator.js'
+        ),
+        server.ssrLoadModule('/src/calculation/CanonicalDamageAggregation.js'),
+        server.ssrLoadModule('/src/calculation/LegacyCanonicalComparison.js'),
+        server.ssrLoadModule('/src/calculation/DistributionResult.js'),
+        server.ssrLoadModule('/src/calculation/RangePlanner.js'),
         server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
         server.ssrLoadModule('/src/data/ReferencePrecomputedDataRepository.js'),
         server.ssrLoadModule('/src/data/DamageCalculator.js'),
@@ -1246,21 +1260,21 @@ async function loadDependencies() {
 
     return {
       server,
-      planCalculationRanges: calculation.planCalculationRanges,
+      planCalculationRanges: rangePlanner.planCalculationRanges,
       calculateCanonicalDamageOnDemand:
-        calculation.calculateCanonicalDamageOnDemand,
-      createDamageRollRequest: calculation.createDamageRollRequest,
+        damageCalculation.calculateCanonicalDamageOnDemand,
+      createDamageRollRequest: damageCalculation.createDamageRollRequest,
       generateMixedDamageDistribution:
-        calculation.generateMixedDamageDistribution,
-      sumCanonicalDamage: calculation.sumCanonicalDamage,
+        runtimeDamageRollCalculation.generateMixedDamageDistribution,
+      sumCanonicalDamage: canonicalDamageAggregation.sumCanonicalDamage,
       compareLegacyAndCanonicalDistributions:
-        calculation.compareLegacyAndCanonicalDistributions,
+        legacyCanonicalComparison.compareLegacyAndCanonicalDistributions,
       compareLegacyAndCanonicalTotalDamage:
-        calculation.compareLegacyAndCanonicalTotalDamage,
-      getCanonicalDamageSummary: calculation.getCanonicalDamageSummary,
+        legacyCanonicalComparison.compareLegacyAndCanonicalTotalDamage,
+      getCanonicalDamageSummary: damageCalculation.getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary:
-        calculation.getCanonicalTotalDamageSummary,
-      getScoreSummary: calculation.getScoreSummary,
+        distributionResult.getCanonicalTotalDamageSummary,
+      getScoreSummary: scoreCalculation.getScoreSummary,
       getD10Distribution: d10Repository.getD10Distribution,
       getDamage: dataDamage.getDamage,
       getTotalDamage: dataDamage.getTotalDamage,
