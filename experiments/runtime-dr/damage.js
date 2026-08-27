@@ -1,6 +1,6 @@
 import {
   getD10Distribution,
-} from '../../src/data/PrecomputedDataRepository'
+} from '../../src/data/D10PrecomputedDataRepository'
 import {
   OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,

@@ -13,9 +13,11 @@ import {
 import {
   getD10Distribution,
   registerD10Asset,
+} from '../../src/data/D10PrecomputedDataRepository.js'
+import {
   registerDrAsset,
   registerDxAsset,
-} from '../../src/data/PrecomputedDataRepository.js'
+} from '../../src/data/ReferencePrecomputedDataRepository.js'
 import {
   getDamage,
   getTotalDamage,

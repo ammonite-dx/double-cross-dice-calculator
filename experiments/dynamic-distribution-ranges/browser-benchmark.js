@@ -21,8 +21,10 @@ import {
 import {
   getD10Distribution,
   loadD10Asset,
+} from '../../src/data/D10PrecomputedDataRepository.js'
+import {
   loadLivingdeadAsset,
-} from '../../src/data/PrecomputedDataRepository.js'
+} from '../../src/data/ReferencePrecomputedDataRepository.js'
 import {
   calculateScore,
   getScoreSummary,

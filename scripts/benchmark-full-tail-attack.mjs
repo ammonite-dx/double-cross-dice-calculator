@@ -942,9 +942,9 @@ async function loadDependencies() {
   })
 
   try {
-    const [calculation, repository] = await Promise.all([
+    const [calculation, d10Repository] = await Promise.all([
       server.ssrLoadModule('/src/calculation/index.js'),
-      server.ssrLoadModule('/src/data/PrecomputedDataRepository.js'),
+      server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
     ])
     return {
       server,
@@ -954,10 +954,10 @@ async function loadDependencies() {
       calculateScoreCanonical: calculation.calculateScoreCanonical,
       generateMixedDamageDistribution:
         calculation.generateMixedDamageDistribution,
-      getD10Distribution: repository.getD10Distribution,
+      getD10Distribution: d10Repository.getD10Distribution,
       planCalculationRanges: calculation.planCalculationRanges,
       sumCanonicalDamage: calculation.sumCanonicalDamage,
-      registerD10Asset: repository.registerD10Asset,
+      registerD10Asset: d10Repository.registerD10Asset,
     }
   } catch (error) {
     await server.close()

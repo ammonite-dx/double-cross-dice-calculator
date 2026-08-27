@@ -39,9 +39,10 @@ const server = await createServer({
 })
 
 try {
-  const repository = await server.ssrLoadModule(
-    '/src/data/PrecomputedDataRepository.js'
-  )
+  const [d10Repository, referenceRepository] = await Promise.all([
+    server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
+    server.ssrLoadModule('/src/data/ReferencePrecomputedDataRepository.js'),
+  ])
   const { getScore } = await server.ssrLoadModule(
     '/src/data/ScoreCalculator.js'
   )
@@ -49,9 +50,9 @@ try {
     '/src/data/DamageCalculator.js'
   )
 
-  repository.registerDxAsset(await readAsset('dx/shihai-0.json'))
-  repository.registerDrAsset(await readAsset('dr/kazanari-0.json'))
-  repository.registerD10Asset(await readAsset('d10.json'))
+  referenceRepository.registerDxAsset(await readAsset('dx/shihai-0.json'))
+  referenceRepository.registerDrAsset(await readAsset('dr/kazanari-0.json'))
+  d10Repository.registerD10Asset(await readAsset('d10.json'))
 
   const basicParams = {
     dice: 10,

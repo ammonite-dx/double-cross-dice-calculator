@@ -1225,10 +1225,19 @@ async function loadDependencies() {
   })
 
   try {
-    const [calculation, repository, dataDamage, dataScore, presentation, attackPresentation] =
+    const [
+      calculation,
+      d10Repository,
+      referenceRepository,
+      dataDamage,
+      dataScore,
+      presentation,
+      attackPresentation,
+    ] =
       await Promise.all([
         server.ssrLoadModule('/src/calculation/index.js'),
-        server.ssrLoadModule('/src/data/PrecomputedDataRepository.js'),
+        server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
+        server.ssrLoadModule('/src/data/ReferencePrecomputedDataRepository.js'),
         server.ssrLoadModule('/src/data/DamageCalculator.js'),
         server.ssrLoadModule('/src/data/ScoreCalculator.js'),
         server.ssrLoadModule('/src/presentation/index.js'),
@@ -1252,13 +1261,13 @@ async function loadDependencies() {
       getCanonicalTotalDamageSummary:
         calculation.getCanonicalTotalDamageSummary,
       getScoreSummary: calculation.getScoreSummary,
-      getD10Distribution: repository.getD10Distribution,
+      getD10Distribution: d10Repository.getD10Distribution,
       getDamage: dataDamage.getDamage,
       getTotalDamage: dataDamage.getTotalDamage,
       getScore: dataScore.getScore,
-      registerDxAsset: repository.registerDxAsset,
-      registerDrAsset: repository.registerDrAsset,
-      registerD10Asset: repository.registerD10Asset,
+      registerDxAsset: referenceRepository.registerDxAsset,
+      registerDrAsset: referenceRepository.registerDrAsset,
+      registerD10Asset: d10Repository.registerD10Asset,
       createAttackCanonicalPresentation:
         attackPresentation.createAttackCanonicalPresentation,
       presentCanonicalDistribution: presentation.presentCanonicalDistribution,
