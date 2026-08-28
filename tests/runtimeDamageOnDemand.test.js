@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  calculateDamage,
   calculateDamageOnDemand,
   createDamageRollRequest,
 } from '../src/calculation/DamageCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
-import { getDamage } from '../src/data/DamageCalculator'
 import {
   OUTPUT_DISTRIBUTION_SIZE,
   getUpperTailProbability,
@@ -15,7 +15,10 @@ import {
   getD10Distribution as getRepositoryD10Distribution,
   registerD10Asset,
 } from '../src/data/D10PrecomputedDataRepository'
-import { registerDrAsset } from '../src/data/ReferencePrecomputedDataRepository'
+import {
+  getDrDamageDistributions,
+  registerDrAsset,
+} from '../src/data/ReferencePrecomputedDataRepository'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import drKazanari3 from '../public/data/schema-v2/revision-1/dr/kazanari-3.json'
@@ -73,6 +76,15 @@ const productionProvider = async (weights, kazanari, options) =>
 const productionDependencies = {
   getDamageRollDistribution: productionProvider,
   getD10Distribution: getRepositoryD10Distribution,
+}
+
+const currentDamageDependencies = {
+  getD10Distribution: getRepositoryD10Distribution,
+  getDrDamageDistributions,
+}
+
+function getCurrentDamage(score, attack, defence) {
+  return calculateDamage(score, attack, defence, currentDamageDependencies)
 }
 
 function createDamagePlan(attack, defence) {
@@ -143,7 +155,7 @@ describe('on-demand damage calculation', () => {
     async (kazanari, attackValues, defence) => {
       registerDrAsset(drAssets.get(kazanari))
       const attack = { ...attackValues, kazanari }
-      const current = getDamage(score, attack, defence)
+      const current = getCurrentDamage(score, attack, defence)
       const onDemand = await calculateDamageOnDemand(
         score,
         attack,

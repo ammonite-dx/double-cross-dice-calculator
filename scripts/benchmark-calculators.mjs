@@ -43,12 +43,27 @@ try {
     server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
     server.ssrLoadModule('/src/data/ReferencePrecomputedDataRepository.js'),
   ])
-  const { getScore } = await server.ssrLoadModule(
-    '/src/data/ScoreCalculator.js'
-  )
-  const { getDamage, getTotalDamage } = await server.ssrLoadModule(
-    '/src/data/DamageCalculator.js'
-  )
+  const [scoreCalculation, damageCalculation] = await Promise.all([
+    server.ssrLoadModule('/src/calculation/ScoreCalculator.js'),
+    server.ssrLoadModule('/src/calculation/DamageCalculator.js'),
+  ])
+  const getScore = (params, fix = false) =>
+    scoreCalculation.calculateScore(
+      params,
+      { getDxDistribution: referenceRepository.getDxDistribution },
+      fix
+    )
+  const getDamage = (score, attack, defence) =>
+    damageCalculation.calculateDamage(
+      score,
+      attack,
+      defence,
+      {
+        getD10Distribution: d10Repository.getD10Distribution,
+        getDrDamageDistributions: referenceRepository.getDrDamageDistributions,
+      }
+    )
+  const { getTotalDamage } = damageCalculation
 
   referenceRepository.registerDxAsset(await readAsset('dx/shihai-0.json'))
   referenceRepository.registerDrAsset(await readAsset('dr/kazanari-0.json'))

@@ -1,7 +1,9 @@
 import {
+  calculateDamage,
   calculateCanonicalDamageOnDemand,
   createDamageRollRequest,
   getCanonicalDamageSummary,
+  getTotalDamage,
 } from '../../src/calculation/DamageCalculator.js'
 import {
   compareLegacyAndCanonicalDistributions,
@@ -9,7 +11,10 @@ import {
 } from '../../src/calculation/LegacyCanonicalComparison.js'
 import { getCanonicalTotalDamageSummary } from '../../src/calculation/DistributionResult.js'
 import { generateMixedDamageDistribution } from '../../src/calculation/RuntimeDamageRollCalculator.js'
-import { getScoreSummary } from '../../src/calculation/ScoreCalculator.js'
+import {
+  calculateScore as calculateCoreScore,
+  getScoreSummary,
+} from '../../src/calculation/ScoreCalculator.js'
 import { planCalculationRanges } from '../../src/calculation/RangePlanner.js'
 import { sumCanonicalDamage } from '../../src/calculation/CanonicalDamageAggregation.js'
 import {
@@ -17,17 +22,25 @@ import {
   registerD10Asset,
 } from '../../src/data/D10PrecomputedDataRepository.js'
 import {
+  getDrDamageDistributions,
+  getDxDistribution,
   registerDrAsset,
   registerDxAsset,
 } from '../../src/data/ReferencePrecomputedDataRepository.js'
 import {
-  getDamage,
-  getTotalDamage,
-} from '../../src/data/DamageCalculator.js'
-import { getScore } from '../../src/data/ScoreCalculator.js'
-import {
   createAttackCanonicalPresentation,
 } from '../../src/application/AttackCanonicalPresentation.js'
+
+const scoreDependencies = { getDxDistribution }
+const damageDependencies = { getD10Distribution, getDrDamageDistributions }
+
+function getScore(params, fix = false) {
+  return calculateCoreScore(params, scoreDependencies, fix)
+}
+
+function getDamage(score, attack, defence) {
+  return calculateDamage(score, attack, defence, damageDependencies)
+}
 
 const BENCHMARK_REPORT_SCHEMA_VERSION = 1
 const DEFAULT_ITERATIONS = 3

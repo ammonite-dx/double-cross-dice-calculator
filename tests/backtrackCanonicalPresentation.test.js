@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  calculateFinalEncroachment,
   calculateFinalEncroachmentCanonical,
 } from '../src/calculation/BacktrackCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
-import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
-import { registerD10Asset } from '../src/data/D10PrecomputedDataRepository'
 import {
+  getD10Distribution,
+  registerD10Asset,
+} from '../src/data/D10PrecomputedDataRepository'
+import {
+  getLivingdeadDistribution,
   registerLivingdeadAsset,
 } from '../src/data/ReferencePrecomputedDataRepository'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
@@ -24,6 +28,12 @@ import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
 
 registerD10Asset(d10)
 registerLivingdeadAsset(livingdead)
+
+const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
+
+function getFinalEncroachment(params) {
+  return calculateFinalEncroachment(params, backtrackDependencies)
+}
 
 const RESULT_KEYS = ['single', 'double', 'second']
 const BACKTRACK_DLOIS_VALUES = [

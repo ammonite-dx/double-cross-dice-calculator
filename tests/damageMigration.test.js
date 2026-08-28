@@ -6,18 +6,21 @@ import {
   getTotalDamage as getLegacyTotalDamage,
 } from './legacy/LegacyCalculator'
 import {
-  getDamage,
+  calculateDamage,
   getDamageSummary,
   getTotalDamage,
-} from '../src/data/DamageCalculator'
+} from '../src/calculation/DamageCalculator'
 import {
+  getD10Distribution,
   registerD10Asset,
 } from '../src/data/D10PrecomputedDataRepository'
 import {
+  getDrDamageDistributions,
+  getDxDistribution,
   registerDrAsset,
   registerDxAsset,
 } from '../src/data/ReferencePrecomputedDataRepository'
-import { getScore } from '../src/data/ScoreCalculator'
+import { calculateScore } from '../src/calculation/ScoreCalculator'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import drKazanari3 from '../public/data/schema-v2/revision-1/dr/kazanari-3.json'
@@ -31,6 +34,16 @@ registerDrAsset(drKazanari9)
 registerDxAsset(dxShihai0)
 
 const MIGRATION_TOLERANCE = 1e-6 + 1e-12
+const scoreDependencies = { getDxDistribution }
+const damageDependencies = { getD10Distribution, getDrDamageDistributions }
+
+function getScore(params, fix = false) {
+  return calculateScore(params, scoreDependencies, fix)
+}
+
+function getDamage(score, attack, defence) {
+  return calculateDamage(score, attack, defence, damageDependencies)
+}
 
 function expectProbabilityResultClose(actual, expected) {
   for (const field of ['distribution', 'upperTailProbability']) {

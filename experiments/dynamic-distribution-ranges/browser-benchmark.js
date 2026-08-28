@@ -4,31 +4,28 @@ import {
 } from '../../src/calculation/DxCalculator.js'
 import {
   calculateDamageOnDemand,
+  getDamageSummary,
+  getTotalDamage,
 } from '../../src/calculation/DamageCalculator.js'
 import {
   calculateScore as calculateCoreScore,
+  getScoreSummary,
 } from '../../src/calculation/ScoreCalculator.js'
+import {
+  calculateFinalEncroachment,
+} from '../../src/calculation/BacktrackCalculator.js'
 import {
   generateMixedDamageDistribution,
 } from '../../src/calculation/RuntimeDamageRollCalculator.js'
-import {
-  getFinalEncroachment,
-} from '../../src/data/BacktrackCalculator.js'
-import {
-  getDamageSummary,
-  getTotalDamage,
-} from '../../src/data/DamageCalculator.js'
 import {
   getD10Distribution,
   loadD10Asset,
 } from '../../src/data/D10PrecomputedDataRepository.js'
 import {
+  getDxDistribution,
+  getLivingdeadDistribution,
   loadLivingdeadAsset,
 } from '../../src/data/ReferencePrecomputedDataRepository.js'
-import {
-  calculateScore,
-  getScoreSummary,
-} from '../../src/data/ScoreCalculator.js'
 import {
   createCalculationClient,
 } from '../../src/application/CalculationClient.js'
@@ -43,6 +40,35 @@ import {
   BROWSER_CASES,
   UI_LIMITS,
 } from './benchmark-cases.mjs'
+
+const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
+
+function calculateScore(
+  params,
+  getDistribution = getDxDistribution,
+  fix = false,
+  scoreRangePlan
+) {
+  return calculateCoreScore(
+    params,
+    { getDxDistribution: getDistribution },
+    fix,
+    scoreRangePlan
+  )
+}
+
+function getFinalEncroachment(
+  params,
+  runtimeOptions = {},
+  backtrackRangePlan
+) {
+  return calculateFinalEncroachment(
+    params,
+    backtrackDependencies,
+    runtimeOptions,
+    backtrackRangePlan
+  )
+}
 
 const WARMUP_ITERATIONS = 2
 const WARM_ITERATIONS = 7

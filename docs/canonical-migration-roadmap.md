@@ -9,10 +9,10 @@
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
 - CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
-- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter split、Phase 8-2B dependency contract、Phase 8-2C production browser smoke、Phase 8-2D repository split、Phase 8-2E reference/legacy importer audit、Phase 8-2F runtime rule validation actual migration、Phase 8-2G1 facade test importer migration、Phase 8-2G2 benchmark/experiment facade importer migration、Phase 8-2G3 calculation barrel importer migration、Phase 8-2G4 calculation barrel deletion、Phase 8-2G5 compatibility facade deletionは完了している。残るlegacy core/wrapper、JSON、asset、migration/comparison cleanupはPhase 8-2Gで個別に判断し、次はPhase 8-2G6でcanonical data wrapperのimporterを監査する。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
+- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter split、Phase 8-2B dependency contract、Phase 8-2C production browser smoke、Phase 8-2D repository split、Phase 8-2E reference/legacy importer audit、Phase 8-2F runtime rule validation actual migration、Phase 8-2G1 facade test importer migration、Phase 8-2G2 benchmark/experiment facade importer migration、Phase 8-2G3 calculation barrel importer migration、Phase 8-2G4 calculation barrel deletion、Phase 8-2G5 compatibility facade deletion、Phase 8-2G6 canonical data wrapper retirementは完了している。残るlegacy core、JSON、asset、migration/comparison cleanupはPhase 8-2Gで個別に判断し、次はPhase 8-2G7でlegacy comparison/migration依存を整理する。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
 - AttackのScore/Damage表示範囲は999上限を撤廃し、任意の非負safe integerを受け付ける。`0..100`、`0..999`、`0..1000`、`0..1023`、`0..1024`、`0..1200`、`1000..1200`、`0..20000`の入力・coverage・resource判定を回帰テストで固定し、単一点`min === max`も有効とした。表示点数・メモリ・計算量のresource plannerによるrejectは維持する。Runtime DRのrange/FFTとfull-tail Damage rangeもplannerから動的に導出し、202Dをproduction semantic capとして扱わない。`CalculationClient.planAttackCombo()`ではaction `dice=99`・`critical=2`から`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=1024`、`fftLength=4096`、`accepted=true`、拒否理由なしを観測した。
 - `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをUI表示精度内の誤差としてchart projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction/reaction双方の`99D/critical=2`について`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`はresource rejection、`0..100`への復帰はcanvas 2・alertなしで確認した。
-- Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照し、`src/data/ScoreCalculator.js`と`src/data/BacktrackCalculator.js`のdata wrapperは比較・migration用に維持する。
+- Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照する。Score、Damage、Backtrackのdata calculator wrapperはPhase 8-2G6で削除し、全consumerをcoreと明示的なrepository依存へ移行した。
 
 ## 表示範囲と明示coverageの移行対象
 
@@ -313,7 +313,7 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 
 - 対象: `calculator.test.js`、migration/comparison test、calculation barrel、compatibility facade、legacy core、dense JSONについて、Phase 8 inventoryのA/B/C/D分類に従って参照移行・保持・削除候補化を個別に判断する。
 - 対象外: production canonical core、D10 repository、revision-1公開asset、generator、Cloudflare Workers/API/MCP。
-- 状態: Phase 8-2G1（compatibility facadeのtest importer移行）、Phase 8-2G2（scripts/experimentsのfacade importer移行）、Phase 8-2G3（calculation barrel importerの直接移行）、Phase 8-2G4（barrel削除）、Phase 8-2G5（compatibility facade削除）は完了し、Phase 8-2G6（canonical data wrapper importer audit）は未着手である。
+- 状態: Phase 8-2G1（compatibility facadeのtest importer移行）、Phase 8-2G2（scripts/experimentsのfacade importer移行）、Phase 8-2G3（calculation barrel importerの直接移行）、Phase 8-2G4（barrel削除）、Phase 8-2G5（compatibility facade削除）、Phase 8-2G6（canonical data wrapper retirement）は完了し、Phase 8-2G7（legacy comparison/migration dependency consolidation）が次段階である。
 - 完了条件: 各削除候補に独立oracle coverage、公開asset保持条件、再生成手順、full JS/data/generator gateを記録し、global wrapper/barrel importerの削除範囲を明示する。
 
 ### Phase 8-2G1: compatibility facade test importer移行（完了）
@@ -345,10 +345,16 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - 既存のDX retry、D10 finite-support、livingdead finite-support coverageは各direct repository testで保持し、`tests/precomputedDataRepository.test.js`と`src/data/PrecomputedDataRepository.js`を削除した。
 - `D10PrecomputedDataRepository.js`、`ReferencePrecomputedDataRepository.js`、`PrecomputedDataSchema.js`、public asset、generator、計算意味論は変更していない。削除後の旧facade importerと`clearPrecomputedDataCache`は0件である。
 
-### Phase 8-2G6: canonical data wrapper importer audit（次段階）
+### Phase 8-2G6: canonical data wrapper retirement（完了）
 
-- `src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`などのwrapperをsymbol/importer単位で監査し、canonical coreへの直接移行可否を最小単位で判断する。
-- legacy core、`LegacyCanonicalComparison`、JSON、asset、generatorの整理はこの単位に混ぜない。
+- `src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`の全consumerを監査し、coreと明示的なrepository依存へ直接移行した。
+- 3つのdata calculator wrapperを削除した。テストlocal helperは既存のCalculationClient依存シグネチャや比較fixtureを保つために各consumer内へ限定し、新しい共有adapter moduleは追加していない。
+- legacy calculation core、`LegacyCanonicalComparison`、dense JSON、public asset、generator、benchmark条件、計算意味論は変更していない。wrapper参照のglobal/static/SSR検索は0件である。
+
+### Phase 8-2G7: legacy comparison/migration dependency consolidation（次段階）
+
+- legacy core、migration/comparison test、dense JSON、公開reference assetの依存関係を再監査し、独立oracle coverageと再生成手順を保ったまま削除・保持単位を判断する。
+- legacy比較の意味論、fixture、許容誤差を変更せず、JSON/asset/generatorの削除やAPI/MCP実装を同一単位へ混ぜない。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 

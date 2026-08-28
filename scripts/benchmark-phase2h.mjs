@@ -1235,8 +1235,6 @@ async function loadDependencies() {
       rangePlanner,
       d10Repository,
       referenceRepository,
-      dataDamage,
-      dataScore,
       presentation,
       attackPresentation,
     ] =
@@ -1252,8 +1250,6 @@ async function loadDependencies() {
         server.ssrLoadModule('/src/calculation/RangePlanner.js'),
         server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
         server.ssrLoadModule('/src/data/ReferencePrecomputedDataRepository.js'),
-        server.ssrLoadModule('/src/data/DamageCalculator.js'),
-        server.ssrLoadModule('/src/data/ScoreCalculator.js'),
         server.ssrLoadModule('/src/presentation/index.js'),
         server.ssrLoadModule('/src/application/AttackCanonicalPresentation.js'),
       ])
@@ -1276,9 +1272,24 @@ async function loadDependencies() {
         distributionResult.getCanonicalTotalDamageSummary,
       getScoreSummary: scoreCalculation.getScoreSummary,
       getD10Distribution: d10Repository.getD10Distribution,
-      getDamage: dataDamage.getDamage,
-      getTotalDamage: dataDamage.getTotalDamage,
-      getScore: dataScore.getScore,
+      getDamage: (score, attack, defence) =>
+        damageCalculation.calculateDamage(
+          score,
+          attack,
+          defence,
+          {
+            getD10Distribution: d10Repository.getD10Distribution,
+            getDrDamageDistributions:
+              referenceRepository.getDrDamageDistributions,
+          }
+        ),
+      getTotalDamage: damageCalculation.getTotalDamage,
+      getScore: (params, fix = false) =>
+        scoreCalculation.calculateScore(
+          params,
+          { getDxDistribution: referenceRepository.getDxDistribution },
+          fix
+        ),
       registerDxAsset: referenceRepository.registerDxAsset,
       registerDrAsset: referenceRepository.registerDrAsset,
       registerD10Asset: d10Repository.registerD10Asset,

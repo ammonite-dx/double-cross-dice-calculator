@@ -3,12 +3,19 @@ import { readFile } from 'node:fs/promises'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import legacyDx from '../src/data/dx.json'
+import { calculateScore } from '../src/calculation/ScoreCalculator'
 import { getScore as getLegacyScore } from './legacy/LegacyCalculator'
-import { registerDxAsset } from '../src/data/ReferencePrecomputedDataRepository'
-import { getScore } from '../src/data/ScoreCalculator'
+import {
+  getDxDistribution,
+  registerDxAsset,
+} from '../src/data/ReferencePrecomputedDataRepository'
 
 const migratedAssets = []
 const MIGRATION_TOLERANCE = 2e-4
+
+function getScore(params, fix = false) {
+  return calculateScore(params, { getDxDistribution }, fix)
+}
 
 function assertSameDistribution(legacy, migrated, context) {
   for (let index = 0; index < 1024; index += 1) {

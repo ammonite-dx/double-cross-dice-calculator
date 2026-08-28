@@ -17,22 +17,36 @@ import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import {
+  calculateScoreCanonical,
+  getCanonicalScoreSummary,
+} from '../src/calculation/ScoreCalculator'
+import {
   getD10Distribution,
   loadD10Asset,
   registerD10Asset,
 } from '../src/data/D10PrecomputedDataRepository'
-import {
-  calculateScoreCanonical,
-  getCanonicalScoreSummary,
-} from '../src/data/ScoreCalculator'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
+
+function calculateCanonicalScore(
+  params,
+  getDistribution,
+  scoreRangePlan,
+  fix = false
+) {
+  return calculateScoreCanonical(
+    params,
+    { getDxDistribution: getDistribution },
+    scoreRangePlan,
+    fix
+  )
+}
 
 registerD10Asset(d10)
 
 const calculationClient = createCalculationClient({
   calculateCanonicalDamageOnDemand,
   calculateDxDistribution,
-  calculateScoreCanonical,
+  calculateScoreCanonical: calculateCanonicalScore,
   getCanonicalScoreSummary,
   getD10Distribution,
   getDamageRollDistribution: generateMixedDamageDistribution,

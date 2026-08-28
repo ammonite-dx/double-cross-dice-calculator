@@ -517,9 +517,17 @@ try {
 
   const scoreCoreModule = await server.ssrLoadModule('/src/calculation/ScoreCalculator.js')
   calculateCoreScore = scoreCoreModule.calculateScore
-  const scoreDataModule = await server.ssrLoadModule('/src/data/ScoreCalculator.js')
-  calculateScore = scoreDataModule.calculateScore
-  getScoreSummary = scoreDataModule.getScoreSummary
+  getScoreSummary = scoreCoreModule.getScoreSummary
+  calculateScore = (params, fix = false, scoreRangePlan) =>
+    calculateCoreScore(
+      params,
+      {
+        getDxDistribution: (shihai, dice, critical, options) =>
+          calculateDxDistribution({ dice, critical, shihai }, options),
+      },
+      fix,
+      scoreRangePlan
+    )
 
   const damageModule = await server.ssrLoadModule('/src/calculation/DamageCalculator.js')
   calculateDamageOnDemand = damageModule.calculateDamageOnDemand
@@ -530,8 +538,7 @@ try {
   calculateD10Distributions = backtrackModule.calculateD10Distributions
   calculateLivingdeadDistributions = backtrackModule.calculateLivingdeadDistributions
 
-  const dataDamageModule = await server.ssrLoadModule('/src/data/DamageCalculator.js')
-  getTotalDamage = dataDamageModule.getTotalDamage
+  getTotalDamage = damageModule.getTotalDamage
 
   const distributionModule = await server.ssrLoadModule('/src/data/Distribution.js')
   expandSparseDistribution = distributionModule.expandSparseDistribution

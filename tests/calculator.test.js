@@ -1,25 +1,27 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  getDamage,
+  calculateDamage,
   getDamageSummary,
   getTotalDamage,
-} from '../src/data/DamageCalculator'
-import { getFinalEncroachment } from '../src/data/BacktrackCalculator'
+} from '../src/calculation/DamageCalculator'
+import { calculateFinalEncroachment } from '../src/calculation/BacktrackCalculator'
 import {
   getD10Distribution,
   registerD10Asset,
 } from '../src/data/D10PrecomputedDataRepository'
 import {
+  getDrDamageDistributions,
+  getDxDistribution,
+  getLivingdeadDistribution,
   registerDrAsset,
   registerDxAsset,
   registerLivingdeadAsset,
 } from '../src/data/ReferencePrecomputedDataRepository'
 import {
   calculateScore,
-  getScore,
   getScoreSummary,
-} from '../src/data/ScoreCalculator'
+} from '../src/calculation/ScoreCalculator'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import dxShihai0 from '../public/data/schema-v2/revision-1/dx/shihai-0.json'
@@ -41,9 +43,30 @@ registerD10Asset(d10)
 registerDrAsset(drKazanari0)
 registerLivingdeadAsset(livingdead)
 
+const scoreDependencies = { getDxDistribution }
+const damageDependencies = { getD10Distribution, getDrDamageDistributions }
+const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
+
+function getScore(params, fix = false) {
+  return calculateScore(params, scoreDependencies, fix)
+}
+
+function getDamage(score, attack, defence) {
+  return calculateDamage(score, attack, defence, damageDependencies)
+}
+
+function getFinalEncroachment(params, runtimeOptions = {}, plan) {
+  return calculateFinalEncroachment(
+    params,
+    backtrackDependencies,
+    runtimeOptions,
+    plan
+  )
+}
+
 describe('getScore', () => {
-  it('keeps the default repository for calculateScore compatibility', () => {
-    expect(calculateScore(defaultScoreParams)).toEqual(
+  it('uses the explicit DX repository for score calculations', () => {
+    expect(calculateScore(defaultScoreParams, scoreDependencies)).toEqual(
       getScore(defaultScoreParams)
     )
   })

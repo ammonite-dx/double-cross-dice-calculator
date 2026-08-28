@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  calculateFinalEncroachment,
   calculateFinalEncroachmentCanonical,
 } from '../src/calculation/BacktrackCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
@@ -16,16 +17,36 @@ import {
   getLivingdeadDistribution,
   registerLivingdeadAsset,
 } from '../src/data/ReferencePrecomputedDataRepository'
-import {
-  getFinalEncroachment,
-  getFinalEncroachmentCanonical,
-} from '../src/data/BacktrackCalculator'
 import { createCalculationClient } from '../src/application/CalculationClient'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
 
 registerD10Asset(d10)
 registerLivingdeadAsset(livingdead)
+
+const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
+
+function getFinalEncroachment(params, runtimeOptions = {}, backtrackRangePlan) {
+  return calculateFinalEncroachment(
+    params,
+    backtrackDependencies,
+    runtimeOptions,
+    backtrackRangePlan
+  )
+}
+
+function getFinalEncroachmentCanonical(
+  params,
+  runtimeOptions = {},
+  backtrackRangePlan
+) {
+  return calculateFinalEncroachmentCanonical(
+    params,
+    backtrackDependencies,
+    runtimeOptions,
+    backtrackRangePlan
+  )
+}
 
 const RESULT_KEYS = ['single', 'double', 'second']
 

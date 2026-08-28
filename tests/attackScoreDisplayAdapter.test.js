@@ -33,7 +33,8 @@ import {
 import {
   calculateScore,
   calculateScoreCanonical,
-} from '../src/data/ScoreCalculator'
+} from '../src/calculation/ScoreCalculator'
+import { getDxDistribution } from '../src/data/ReferencePrecomputedDataRepository'
 import { sumCanonicalDamage } from '../src/calculation/CanonicalDamageAggregation'
 import {
   getCanonicalAttackScoreChartData,
@@ -46,6 +47,39 @@ import {
   formatCanonicalScoreSummaryExpectedValue,
   getCanonicalScoreSummaryForCombo,
 } from '../src/components/Attack/SummaryTable'
+
+function calculateLegacyScore(
+  params,
+  getDistribution = getDxDistribution,
+  fix = false,
+  scoreRangePlan
+) {
+  return calculateScore(
+    params,
+    { getDxDistribution: getDistribution },
+    fix,
+    scoreRangePlan
+  )
+}
+
+function calculateCanonicalScore(
+  params,
+  getDistribution,
+  scoreRangePlan,
+  fix = false
+) {
+  if (typeof getDistribution !== 'function') {
+    throw new TypeError(
+      'calculateScoreCanonical requires a runtime distribution provider'
+    )
+  }
+  return calculateScoreCanonical(
+    params,
+    { getDxDistribution: getDistribution },
+    scoreRangePlan,
+    fix
+  )
+}
 
 function createEnvelope(values, supportMax = values.length - 1) {
   return {
@@ -147,7 +181,7 @@ describe('Attack canonical score display adapter', () => {
   it('uses the production canonical score producer at the public batch boundary', async () => {
     const damage = createEnvelope([1], 0)
     const rangePlans = []
-    const legacyScore = vi.fn((...args) => calculateScore(...args))
+    const legacyScore = vi.fn((...args) => calculateLegacyScore(...args))
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async (score) => {
         expect(score.action.result.values).toBeInstanceOf(Float64Array)
@@ -158,7 +192,7 @@ describe('Attack canonical score display adapter', () => {
       }),
       calculateDxDistribution,
       calculateScore: legacyScore,
-      calculateScoreCanonical,
+      calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
@@ -235,8 +269,8 @@ describe('Attack canonical score display adapter', () => {
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScore: vi.fn((...args) => calculateScore(...args)),
-      calculateScoreCanonical,
+      calculateScore: vi.fn((...args) => calculateLegacyScore(...args)),
+      calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
@@ -621,12 +655,12 @@ describe('Attack canonical score display adapter', () => {
   it('recovers the default production canonical Attack summary values', async () => {
     const rangePlans = []
     const damage = createEnvelope([1], 0)
-    const legacyScore = vi.fn((...args) => calculateScore(...args))
+    const legacyScore = vi.fn((...args) => calculateLegacyScore(...args))
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
       calculateScore: legacyScore,
-      calculateScoreCanonical,
+      calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
@@ -683,8 +717,8 @@ describe('Attack canonical score display adapter', () => {
       const client = createCalculationClient({
         calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
         calculateDxDistribution,
-        calculateScore: (...args) => calculateScore(...args),
-        calculateScoreCanonical,
+        calculateScore: (...args) => calculateLegacyScore(...args),
+        calculateScoreCanonical: calculateCanonicalScore,
         getCanonicalDamageSummary,
         getCanonicalTotalDamageSummary,
         getDamageRollDistribution: vi.fn(),
@@ -760,8 +794,8 @@ describe('Attack canonical score display adapter', () => {
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScore: (...args) => calculateScore(...args),
-      calculateScoreCanonical,
+      calculateScore: (...args) => calculateLegacyScore(...args),
+      calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),

@@ -14,9 +14,6 @@ import {
   validateDistributionResult,
 } from '../src/calculation/DistributionResult'
 import {
-  calculateScoreCanonical as calculateDataScoreCanonical,
-} from '../src/data/ScoreCalculator'
-import {
   CalculationRangeError,
   calculationClient,
   createCalculationClient,
@@ -201,12 +198,12 @@ describe('canonical normal check score producer', () => {
     )
   })
 
-  it('does not allow the data wrapper to fall back to fixed precomputed data', () => {
-    expect(() => calculateDataScoreCanonical(
+  it('requires an explicit runtime distribution provider', () => {
+    expect(() => calculateScoreCanonical(
       scoreParams(),
-      undefined,
+      {},
       { workingLength: 4097, fftLength: 0 }
-    )).toThrow('requires a runtime distribution provider')
+    )).toThrow('getDxDistribution is not a function')
   })
 
   it('uses the planned working coverage and models the DX tail as exact overflow', () => {

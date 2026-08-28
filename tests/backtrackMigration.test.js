@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest'
 import {
   getFinalEncroachment as getLegacyFinalEncroachment,
 } from './legacy/LegacyCalculator'
+import { calculateFinalEncroachment } from '../src/calculation/BacktrackCalculator'
 import {
-  getFinalEncroachment,
-} from '../src/data/BacktrackCalculator'
-import { registerD10Asset } from '../src/data/D10PrecomputedDataRepository'
+  getD10Distribution,
+  registerD10Asset,
+} from '../src/data/D10PrecomputedDataRepository'
 import {
+  getLivingdeadDistribution,
   registerLivingdeadAsset,
 } from '../src/data/ReferencePrecomputedDataRepository'
 import d10 from '../public/data/schema-v2/revision-1/d10.json'
@@ -15,6 +17,17 @@ import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
 
 registerD10Asset(d10)
 registerLivingdeadAsset(livingdead)
+
+const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
+
+function getFinalEncroachment(params, runtimeOptions = {}, backtrackRangePlan) {
+  return calculateFinalEncroachment(
+    params,
+    backtrackDependencies,
+    runtimeOptions,
+    backtrackRangePlan
+  )
+}
 
 const dloisValues = [
   'なし',
