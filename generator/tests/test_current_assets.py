@@ -13,8 +13,9 @@ from dx_precompute.assets import (
 
 REFERENCE_DIRECTORY = (
     Path(__file__).resolve().parents[2]
-    / "reference-data"
-    / "schema-v1"
+    / "public"
+    / "data"
+    / "schema-v2"
     / "revision-1"
 )
 
@@ -22,19 +23,19 @@ REFERENCE_DIRECTORY = (
 @pytest.mark.parametrize("dataset", ["d10", "livingdead"])
 def test_lightweight_generated_assets_match_current_assets(dataset: str) -> None:
     generated = generate_assets([dataset])[f"{dataset}.json"]
-    legacy = json.loads(
+    reference = json.loads(
         (REFERENCE_DIRECTORY / f"{dataset}.json").read_text(encoding="utf-8")
     )
 
-    assert len(generated["distributions"]) > len(legacy["distributions"])
+    assert len(generated["distributions"]) == len(reference["distributions"])
     for actual, expected in zip(
         generated["distributions"],
-        legacy["distributions"],
-        strict=False,
+        reference["distributions"],
+        strict=True,
     ):
         np.testing.assert_allclose(
             _expand_sparse(actual, generated["distributionSize"]),
-            _expand_sparse(expected, legacy["distributionSize"]),
+            _expand_sparse(expected, reference["distributionSize"]),
             atol=1e-6 + 1e-12,
             rtol=0,
         )

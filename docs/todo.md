@@ -489,3 +489,10 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - `LegacyCanonicalComparison`、`LegacyCalculator`、legacy比較テスト、legacy-only Phase 2-H core benchmarkを削除した。canonical Attack／full-tail resource benchmarkは維持し、Playwright runnerの既定targetをcanonical Attackへ変更した。
 - 検証: Node 22.23.2、Vitest 57 files / 766 tests、ESLint、Markdown lint、production build、`git diff --check`が成功した。
 - 次の作業単位はPhase 8-2G9。dense JSON、schema-v1 reference、旧JS generatorを削除し、`data:generate`／`data:check`をPython generatorへ委譲する。公開schema-v2 revision-1は保持する。
+
+### Phase 8-2G9: dense JSONとschema-v1生成系の撤去（完了）
+
+- `src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`、旧JS generator、dense-data test、`reference-data/schema-v1`を削除した。
+- `data:generate`／`data:check`はPython generatorへ委譲し、generatorのasset照合先を公開schema-v2 revision-1へ統一した。公開revision-1の内容は変更していない。
+- 検証: data verify 32 assets、generator test 18 passed / 13 deselected、generator lint、Node test 56 files / 763 testsが成功した。simulation、full JS gate、production smokeはG10 closureで確認する。
+- 次はPhase 8-2G10。残存するlegacy/dead codeを削除候補・互換維持・実験資料へ分類し、Phase 8を閉じる。

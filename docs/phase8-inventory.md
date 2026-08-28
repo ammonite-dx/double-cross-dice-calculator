@@ -417,3 +417,11 @@ G7の次段階は、専用comparison utilityとlegacy calculation APIを削除�
 legacy比較utility、専用比較テスト、`tests/legacy/LegacyCalculator.js`、旧core damageテストを削除し、canonical damage envelopeと独立したD10／《屍人》生成テストへ責務を移した。旧core Phase 2-H Node／browser benchmarkはlegacy比較を含むため退役し、canonical Attackおよびfull-tail resource benchmarkへ集約した。
 
 G8後のproduction、test、benchmarkにlegacy計算APIのimporterはない。`runtime-dr/damage.js`の独立実験実装はG10のdead-code auditで扱う。公開`public/data/schema-v2/revision-1/**`、dense JSON、schema-v1、Python generatorはG8では保持する。
+
+## Phase 8-2G9: dense JSONとschema-v1生成系の撤去（完了）
+
+`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`、旧`tests/precomputedData.test.js`、`scripts/generate-precomputed-data.mjs`、`reference-data/schema-v1/`を削除した。これらはG8までの比較・移行証跡としてGit履歴に残り、現行の実行経路には含まれない。
+
+`data:generate`と`data:check`は既存のコマンド名を保ったまま、`data:regenerate`／`data:verify-generator`を介してPython generatorへ委譲した。generatorのcurrent-asset testはschema-v2 revision-1を照合先とし、旧schema-v1には依存しない。公開`public/data/schema-v2/revision-1/**`は削除・変更していない。
+
+G9検証: `npm run data:check`（32 assets）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:lint`、`npm test`（56 files / 763 tests）が成功した。simulation、lint、build、smokeはG9最終gateで実行し、結果を次のclosure節へ記録する。

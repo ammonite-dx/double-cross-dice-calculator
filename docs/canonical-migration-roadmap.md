@@ -427,6 +427,14 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - 検証: `npm test`（57 files / 766 tests）、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`git diff --check`が成功した。
 - 次はG9としてdense JSON、旧JS生成script、schema-v1 reference treeをPython generatorへ一本化して削除する。公開schema-v2 revision-1は変更しない。
 
+### Phase 8-2G9: dense JSONとschema-v1生成系の撤去（完了）
+
+- `src/data/`の旧dense JSON 4本、旧JS生成script、dense-data test、`reference-data/schema-v1`を削除した。
+- `data:generate`／`data:check`のコマンド名は維持し、Python generatorの`generate`／`verify`へ委譲した。generatorのcurrent-asset testは公開schema-v2 revision-1を照合する。
+- 公開`public/data/schema-v2/revision-1/**`は変更していない。旧ファイルはGit履歴から参照できるため、再生成用の現行ソースはPython generatorに一本化された。
+- 検証: `npm run data:check`（32 assets）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:lint`、`npm test`（56 files / 763 tests）が成功した。
+- 次はG10として、G7〜G9で自然にdeadになった実験・互換コードを監査し、Phase 8のretained/deleted一覧を確定する。
+
 ## 参照文書
 
 - [todo.md](./todo.md): RangePlanner/ResourceGuard、canonical Attack、既定経路、JSON整理、外部境界に関する作業履歴。
