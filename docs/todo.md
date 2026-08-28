@@ -454,6 +454,12 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - Score期待値表示契約（完了）: 無限supportでScore期待値certificateが未対応の`skill<0`、`yousei>0`、`shihai>0`は、内部expected valueをlower-boundのまま保持し、通常UIの達成値期待値を`—`とする。これは期待値の保証範囲に限る契約であり、canonical分布・chart・計算自体の失敗を意味しない。successRateは独立したcertificate/区間規則に従い、丸めが確定すれば表示し、Damage/Totalも各自の契約で表示を継続する。`dice<=shihai`の自動失敗や`critical=11`などfinite supportでgeneric summaryがexactになる場合は従来どおり数値表示する。
 - 将来拡張TODO: 未対応の無限supportは恒久的な非対応とはせず、負の`skill`（clampを含むshifted tail-sum）、`yousei`（exact-youseiのfirst-moment residual）、`shihai`（DPに対応するtail first-moment certificate）の順に検討する。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で扱う。
 
+## Phase 8-2G7: legacy comparison / migration responsibility consolidation（完了）
+
+- migration test 3本（DX、Damage、Backtrack）とlegacy rule oracleの`calculator.test.js`を削除した。caseのreplacementは`docs/phase8-inventory.md`に記録し、canonical/runtime/generatorの独立検証へ責務を移した。
+- Backtrackのlegacy結果比較、Attack display adapterのlegacy Score spy、legacy-only calculator benchmarkを削除した。production計算、公開asset、dense JSON、legacy calculation source、比較utilityは変更していない。
+- G7の受入条件は、production legacy importer 0、canonical/runtime rule testの独立expected維持、legacy比較utilityのみの限定保持である。次はG8のlegacy calculation surface削除。
+
 ## Canonical migration Phase 7 第1実装単位: バックトラックcanonical default（完了）
 
 - 完了: Backtrackの初期計算・再計算を`createBacktrackCanonicalRunner`の`calculateBacktrackCanonical`→`createBacktrackCanonicalPresentation`経路へ統合し、`Backtrack.vue`の初期計算も`onMounted`から同じrunnerで実行するようにした。

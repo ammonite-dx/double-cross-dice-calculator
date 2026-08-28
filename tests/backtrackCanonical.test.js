@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  calculateFinalEncroachment,
   calculateFinalEncroachmentCanonical,
 } from '../src/calculation/BacktrackCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
@@ -25,15 +24,6 @@ registerD10Asset(d10)
 registerLivingdeadAsset(livingdead)
 
 const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
-
-function getFinalEncroachment(params, runtimeOptions = {}, backtrackRangePlan) {
-  return calculateFinalEncroachment(
-    params,
-    backtrackDependencies,
-    runtimeOptions,
-    backtrackRangePlan
-  )
-}
 
 function getFinalEncroachmentCanonical(
   params,
@@ -73,73 +63,6 @@ function expectRelativeProbability(actual, expected) {
   expect(actual).toBeGreaterThan(0)
   expect(Number.isFinite(actual)).toBe(true)
   expect(actual / expected).toBeCloseTo(1, 10)
-}
-
-function roundPercentage(probability) {
-  const rounded = Math.round(probability * 1000) / 10
-  return Object.is(rounded, -0) ? 0 : rounded
-}
-
-function summarizeCategories(result, nightmare) {
-  const upperThresholds = nightmare
-    ? [120, 100, 71, 51, 31]
-    : [100, 71, 51, 31]
-  const buckets = Array.from(
-    { length: upperThresholds.length + 1 },
-    () => 0
-  )
-
-  for (let index = 0; index < result.values.length; index += 1) {
-    const finalEncroachment = result.offset + index
-    const bucket = upperThresholds.findIndex((threshold, thresholdIndex) =>
-      finalEncroachment >= threshold
-      && (
-        thresholdIndex === 0
-        || finalEncroachment < upperThresholds[thresholdIndex - 1]
-      )
-    )
-    const resolvedBucket = bucket >= 0 ? bucket : upperThresholds.length
-    buckets[resolvedBucket] += result.values[index]
-  }
-
-  return buckets.map(roundPercentage)
-}
-
-function summarizeBinary(result) {
-  let failure = 0
-  let success = 0
-  for (let index = 0; index < result.values.length; index += 1) {
-    if (result.offset + index >= 100) {
-      failure += result.values[index]
-    } else {
-      success += result.values[index]
-    }
-  }
-  return [
-    roundPercentage(failure),
-    roundPercentage(success),
-  ]
-}
-
-function summarizeLegacyShape(canonical, params) {
-  const nightmare = params.dlois === '不死者・悪夢'
-  return {
-    single: summarizeCategories(canonical.single, nightmare),
-    double: summarizeBinary(canonical.double),
-    second: summarizeBinary(canonical.second),
-  }
-}
-
-function expectLegacyShapeClose(actual, expected) {
-  RESULT_KEYS.forEach((key) => {
-    expect(actual[key]).toHaveLength(expected[key].length)
-    actual[key].forEach((value, index) => {
-      // Both sides use the existing 0.1 percentage-point presentation
-      // rounding; tolerate one displayed unit at the comparison boundary.
-      expect(Math.abs(value - expected[key][index]))
-        .toBeLessThanOrEqual(0.1)
-    })
-  })
 }
 
 function expectCanonicalResult(result, params, dice) {
@@ -205,9 +128,6 @@ describe('backtrack canonical producer', () => {
       expectCanonicalResult(canonical[key], params, diceCounts[index])
     })
 
-    const legacy = getFinalEncroachment(params)
-    const projectedCategories = summarizeLegacyShape(canonical, params)
-    expectLegacyShapeClose(projectedCategories, legacy)
   })
 
   it('keeps negative final encroachment in a signed offset', () => {

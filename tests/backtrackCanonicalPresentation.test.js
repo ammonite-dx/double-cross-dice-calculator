@@ -1,18 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  calculateFinalEncroachment,
-  calculateFinalEncroachmentCanonical,
-} from '../src/calculation/BacktrackCalculator'
+import { calculateFinalEncroachmentCanonical } from '../src/calculation/BacktrackCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
-import {
-  getD10Distribution,
-  registerD10Asset,
-} from '../src/data/D10PrecomputedDataRepository'
-import {
-  getLivingdeadDistribution,
-  registerLivingdeadAsset,
-} from '../src/data/ReferencePrecomputedDataRepository'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES,
@@ -23,28 +12,7 @@ import {
 import {
   getFinalEncroachmentChartData,
 } from '../src/components/Backtrack/ChartSetter'
-import d10 from '../public/data/schema-v2/revision-1/d10.json'
-import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
-
-registerD10Asset(d10)
-registerLivingdeadAsset(livingdead)
-
-const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
-
-function getFinalEncroachment(params) {
-  return calculateFinalEncroachment(params, backtrackDependencies)
-}
-
 const RESULT_KEYS = ['single', 'double', 'second']
-const BACKTRACK_DLOIS_VALUES = [
-  'なし',
-  '戦闘用人格・生きる伝説',
-  '生還者',
-  '不死者・悪夢',
-  '屍人',
-  '戦友(通常)',
-  '戦友(強化)',
-]
 
 function createPointResult(finalEncroachment) {
   return createDistributionResult({
@@ -223,51 +191,6 @@ describe('backtrack canonical presentation adapter', () => {
       0,
       0.1,
     ])
-  })
-
-  it.each(BACKTRACK_DLOIS_VALUES)(
-    'matches legacy 0.1%% categories for every D-lois rule: %s',
-    (dlois) => {
-      const params = {
-        encroachment: 100,
-        lois: 0,
-        elois: 0,
-        dice: 0,
-        value: 0,
-        dlois,
-      }
-      const canonical = createCanonicalFromProducer(params)
-      const presentation = createBacktrackCanonicalPresentation(
-        canonical,
-        params
-      )
-
-      // The adapter rounds only after aggregation, matching the legacy
-      // ChartSetter payload. This fixture keeps the sparse asset differences
-      // away from a displayed 0.1% boundary while exercising every rule.
-      expect(presentation.finalEncroachment).toEqual(
-        getFinalEncroachment(params)
-      )
-    }
-  )
-
-  it('matches the rounded legacy categories from an on-demand d10[7] result', () => {
-    const params = {
-      encroachment: 100,
-      lois: 0,
-      elois: 0,
-      dice: 7,
-      value: 0,
-      dlois: 'なし',
-    }
-    const canonical = createCanonicalFromProducer(params)
-    const presentation = createBacktrackCanonicalPresentation(canonical, params)
-
-    // d10[7] in the legacy sparse asset omits a tiny endpoint mass. The
-    // comparison intentionally checks the existing 0.1% display contract.
-    expect(presentation.finalEncroachment).toEqual(
-      getFinalEncroachment(params)
-    )
   })
 
   it('supports zero-dice producer output and preserves ChartSetter payload shape', () => {

@@ -410,6 +410,15 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - done（Phase 8-2D）: `PrecomputedDataSchema.js`、`D10PrecomputedDataRepository.js`、`ReferencePrecomputedDataRepository.js`へsourceを分離し、productionのprecomputed importerをD10へ限定した。互換facadeはre-exportと全cache clearに縮小し、D10直接テスト、reference直接テスト、既存facadeテスト、full JS/data/generator/browser smoke gateを通過させた。公開asset、JSON、generator、revision-1 URL、計算意味論は変更していない。
 - done（Phase 8-2E）: `tests/d10PrecomputedDataRepository.test.js`へschema mismatch、dataset mismatch、distribution count mismatch、invalid probability、成功後のpersistent cacheを追加し、Phase 8-2Dのvalidator/cache closureを完了した。`docs/phase8-inventory.md`へ`rg`実測に基づくsymbol/export/importer監査表を追加し、compat facade、legacy wrapper/core、comparison/migration、benchmark/experiment、dense/public/reference asset、generatorのreplacement target、blocker、次 action、削除予定単位を記録した。今回の段階ではsource、asset、JSON、generatorを削除せず、runtimeRuleValidation actual側移行をPhase 8-2Fへ送った。
 
+## Phase 8-2G7: legacy comparison / migration responsibility consolidation（完了）
+
+- migration-onlyの`dxDataMigration.test.js`、`damageMigration.test.js`、`backtrackMigration.test.js`とlegacy rule oracleの`calculator.test.js`を削除した。
+- Backtrack presentation/producer testsからlegacy結果比較を除去し、境界値・ルール表・canonical finite-supportを直接検証する形へ整理した。
+- Attack display adapter testsからlegacy Score spyを除去し、production clientがcanonical Scoreだけを呼ぶ契約を維持した。
+- legacy専用の`benchmark-calculators.mjs`とpackage scriptを削除した。canonical/runtime/full-tailの測定は別のbenchmark laneで保持する。
+- 削除前のcase replacementは`docs/phase8-inventory.md`へ記録した。legacy計算source、`LegacyCanonicalComparison`、dense JSON、schema-v1、公開schema-v2 revision-1 asset、Python generatorはこの段階では保持する。
+- 次はG8としてlegacy calculation surfaceと比較utilityを削除し、その後G9で旧dense JSONとschema-v1 JS pipelineを削除する。
+
 ## 参照文書
 
 - [todo.md](./todo.md): RangePlanner/ResourceGuard、canonical Attack、既定経路、JSON整理、外部境界に関する作業履歴。

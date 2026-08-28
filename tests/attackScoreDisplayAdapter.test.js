@@ -31,10 +31,8 @@ import {
   calculateCanonicalScoreSuccessProbability,
 } from '../src/calculation/ScoreCalculator'
 import {
-  calculateScore,
   calculateScoreCanonical,
 } from '../src/calculation/ScoreCalculator'
-import { getDxDistribution } from '../src/data/ReferencePrecomputedDataRepository'
 import { sumCanonicalDamage } from '../src/calculation/CanonicalDamageAggregation'
 import {
   getCanonicalAttackScoreChartData,
@@ -47,20 +45,6 @@ import {
   formatCanonicalScoreSummaryExpectedValue,
   getCanonicalScoreSummaryForCombo,
 } from '../src/components/Attack/SummaryTable'
-
-function calculateLegacyScore(
-  params,
-  getDistribution = getDxDistribution,
-  fix = false,
-  scoreRangePlan
-) {
-  return calculateScore(
-    params,
-    { getDxDistribution: getDistribution },
-    fix,
-    scoreRangePlan
-  )
-}
 
 function calculateCanonicalScore(
   params,
@@ -181,7 +165,6 @@ describe('Attack canonical score display adapter', () => {
   it('uses the production canonical score producer at the public batch boundary', async () => {
     const damage = createEnvelope([1], 0)
     const rangePlans = []
-    const legacyScore = vi.fn((...args) => calculateLegacyScore(...args))
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async (score) => {
         expect(score.action.result.values).toBeInstanceOf(Float64Array)
@@ -191,7 +174,6 @@ describe('Attack canonical score display adapter', () => {
         return damage
       }),
       calculateDxDistribution,
-      calculateScore: legacyScore,
       calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,
@@ -243,7 +225,6 @@ describe('Attack canonical score display adapter', () => {
     expect(result.combos[0].score.action.result).toBeDefined()
     expect(result.combos[0].score.action.metadata.modeledDistribution)
       .toBe(true)
-    expect(legacyScore).not.toHaveBeenCalled()
     expect(result.combos[0].scoreSummary.action.expectedValue).toEqual({
       kind: 'exact',
       value: 0,
@@ -269,7 +250,6 @@ describe('Attack canonical score display adapter', () => {
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScore: vi.fn((...args) => calculateLegacyScore(...args)),
       calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,
@@ -655,11 +635,9 @@ describe('Attack canonical score display adapter', () => {
   it('recovers the default production canonical Attack summary values', async () => {
     const rangePlans = []
     const damage = createEnvelope([1], 0)
-    const legacyScore = vi.fn((...args) => calculateLegacyScore(...args))
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScore: legacyScore,
       calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,
@@ -701,7 +679,6 @@ describe('Attack canonical score display adapter', () => {
       .toBe(45.5)
     expect(formatCanonicalScoreSuccessRate(summary.reaction.successRate))
       .toBe(54.5)
-    expect(legacyScore).not.toHaveBeenCalled()
   })
 
   it('keeps unsupported infinite expectation as lower-bound while canonical display stays ready', async () => {
@@ -717,7 +694,6 @@ describe('Attack canonical score display adapter', () => {
       const client = createCalculationClient({
         calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
         calculateDxDistribution,
-        calculateScore: (...args) => calculateLegacyScore(...args),
         calculateScoreCanonical: calculateCanonicalScore,
         getCanonicalDamageSummary,
         getCanonicalTotalDamageSummary,
@@ -794,7 +770,6 @@ describe('Attack canonical score display adapter', () => {
     const client = createCalculationClient({
       calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScore: (...args) => calculateLegacyScore(...args),
       calculateScoreCanonical: calculateCanonicalScore,
       getCanonicalDamageSummary,
       getCanonicalTotalDamageSummary,

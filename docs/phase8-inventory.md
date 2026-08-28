@@ -387,3 +387,25 @@ G5/G6 closure（2026-08-28）では、repository・asset対象テスト22件、`
 - D10以外の公開revision-1 assetは削除せず、32 data assetsと`manifest.json`の旧URLretirementを別revision・別release判断へ分離した。
 - Phase 8-2AとしてChartSetter split、Phase 8-2DとしてPrecomputedDataRepository split、Phase 8-2Eとしてreference/legacy importer監査とD10 validator/cache closure、Phase 8-2FとしてruntimeRuleValidation actual移行、Phase 8-2G1/G2/G3としてfacadeとcalculation barrelのimporter移行、Phase 8-2G4としてcalculation barrel削除、Phase 8-2G5としてcompatibility facadeと専用test削除、Phase 8-2G6として3つのdata calculator wrapper削除を完了し、legacy core/JSON/comparison削除を後続へ送った。
 - Phase 8-2G1/G2/G3/G6では、tests・benchmark・experimentのrepository、calculation barrel、data calculator wrapper参照を各owner moduleへ直接移行し、G4ではcalculation barrel、G5ではcompatibility facadeと専用test、G6では3つのdata calculator wrapperを削除した。inventory、roadmap、todoのdocsも更新したが、production計算、generator、JSON、asset、Worker、API、MCP、入力上限、表示windowは変更していない。次はG7のlegacy comparison/migration依存整理である。
+
+## Phase 8-2G7: legacy comparison / migration responsibility consolidation
+
+G7では、canonical production経路を変更せず、legacy実装を必要とする比較・移行consumerを整理した。開始時点のproduction legacy importerは0件であり、legacy参照はテスト、ベンチマーク、実験だけに限定されていた。
+
+### importer map and replacement coverage
+
+| legacy consumer | classification | replacement or disposition |
+| --- | --- | --- |
+| `tests/calculator.test.js` | historical rule oracle | 削除。固定値、失敗、対決、Damage、Backtrackのcoverageは`canonicalCheck.test.js`、`canonicalDamage*.test.js`、`backtrackCanonical*.test.js`、`runtimeRuleValidation.test.js`へ集約した。 |
+| `tests/dxDataMigration.test.js` | migration comparison | 削除。DXのexhaustive/reference、generator、simulation、canonical Score/rule testsをreplacementとする。 |
+| `tests/damageMigration.test.js` | migration comparison | 削除。canonical Damage、RuntimeDamageRoll、generator、simulation、runtime rule testsをreplacementとする。 |
+| `tests/backtrackMigration.test.js` | migration comparison | 削除。canonical finite-support、7種Dロイス rule oracle、generator D10/livingdead tests、simulationをreplacementとする。 |
+| `tests/backtrackCanonical*.test.js`のlegacy比較 | migration comparison | 削除。presentationは明示的な境界値と`BACKTRACK_RULES`の契約だけを検証する。 |
+| `tests/attackScoreDisplayAdapter.test.js`のlegacy score spy | fallback guard | 削除。production clientがcanonical Scoreだけを呼ぶ契約を検証する。 |
+| `scripts/benchmark-calculators.mjs` | legacy-only benchmark | 削除し、package scriptも削除した。過去性能値はgit履歴と既存のruntime/full-tail benchmark記録で保持する。 |
+| `tests/runtimeDamageOnDemand.test.js` | mixed legacy/runtime contract | canonical on-demandとRuntimeDamageRollのテストへ責務を集約し、legacy baselineを新しいoracleとして追加しない。 |
+| `tests/legacyCanonicalComparison.test.js`、`src/calculation/LegacyCanonicalComparison.js` | dedicated comparison utility | G7では保持。G8でconsumerを削除してからutilityと専用testを削除する。 |
+
+G7で削除したmigration testのcaseは、削除前のcoverage mapを上表のreplacement欄へ記録した。canonical actualとlegacy actualを新たなrule oracleとして比較するテストは追加していない。公開`public/data/schema-v2/revision-1/**`、dense JSON、legacy calculation source、Python generatorはG7では保持する。
+
+G7の次段階は、専用comparison utilityとlegacy calculation APIを削除するG8である。G8ではG7で整理したreplacementがcanonical/runtime/generator側に存在することを前提に、sourceのlegacy exportを一括撤去する。
