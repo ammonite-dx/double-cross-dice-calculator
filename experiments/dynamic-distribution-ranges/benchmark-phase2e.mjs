@@ -256,8 +256,35 @@ function createGeneratedProvider(generator) {
   }
 }
 
+function createRuntimeDxProvider() {
+  const cache = new Map()
+  return (shihai, dice, critical, options) => {
+    const workingLength = options?.workingLength ?? DX_DISTRIBUTION_SIZE
+    const rounding = options?.rounding ?? 'default'
+    const key = `${dice}:${critical}:${shihai}:${workingLength}:${rounding}`
+    if (cache.has(key)) {
+      const distribution = cache.get(key)
+      cache.delete(key)
+      cache.set(key, distribution)
+      return distribution
+    }
+
+    const distribution = options === undefined
+      ? calculateDxDistribution({ dice, critical, shihai })
+      : calculateDxDistribution(
+        { dice, critical, shihai },
+        options
+      )
+    cache.set(key, distribution)
+    while (cache.size > 32) {
+      cache.delete(cache.keys().next().value)
+    }
+    return distribution
+  }
+}
+
 function createBenchmarkClient({ d10Provider, livingdeadProvider }) {
-  return createCalculationClient({
+  const calculationClient = createCalculationClient({
     calculateDamageOnDemand,
     calculateDxDistribution,
     calculateScore,
@@ -280,6 +307,93 @@ function createBenchmarkClient({ d10Provider, livingdeadProvider }) {
     loadLivingdeadAsset: async () => undefined,
     planCalculationRanges,
   })
+
+  const getRuntimeDxDistribution = createRuntimeDxProvider()
+
+  async function calculateAttackCombo(params) {
+    const plan = planCalculationRanges({
+      operation: 'attack',
+      score: {
+        action: params.action.score,
+        reaction: params.reaction.score,
+      },
+      attack: params.action.damage,
+      defence: params.reaction.damage,
+    })
+    if (!plan.accepted) {
+      throw new Error(
+        `range plan rejected: ${plan.rejectionReasons.join(', ')}`
+      )
+    }
+
+    const score = {
+      action: calculateScore(
+        params.action.score,
+        getRuntimeDxDistribution,
+        false,
+        plan.scores?.[0]
+      ),
+      reaction: calculateScore(
+        params.reaction.score,
+        getRuntimeDxDistribution,
+        params.reaction.mode === '《イベイジョン》',
+        plan.scores?.[1]
+      ),
+    }
+    const damage = await calculateDamageOnDemand(
+      score,
+      params.action.damage,
+      params.reaction.damage,
+      {
+        getDamageRollDistribution: generateMixedDamageDistribution,
+        getD10Distribution: d10Provider,
+      },
+      {},
+      plan.damage
+    )
+    return {
+      score,
+      scoreSummary: getScoreSummary(score),
+      damage,
+      damageSummary: getDamageSummary(damage),
+    }
+  }
+
+  async function calculateTotalDamage(combos) {
+    const totalDamage = getTotalDamage(combos)
+    return {
+      totalDamage,
+      totalDamageSummary: getDamageSummary(totalDamage),
+    }
+  }
+
+  async function calculateBacktrack(params) {
+    const plan = planCalculationRanges({
+      operation: 'backtrack',
+      backtrack: params,
+    })
+    if (!plan.accepted) {
+      throw new Error(
+        `range plan rejected: ${plan.rejectionReasons.join(', ')}`
+      )
+    }
+    return calculateFinalEncroachment(
+      params,
+      {
+        getD10Distribution: d10Provider,
+        getLivingdeadDistribution: livingdeadProvider,
+      },
+      {},
+      plan.backtrack
+    )
+  }
+
+  return {
+    ...calculationClient,
+    calculateAttackCombo,
+    calculateTotalDamage,
+    calculateBacktrack,
+  }
 }
 
 function createOperation(testCase, plan, client) {
