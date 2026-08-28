@@ -11,7 +11,14 @@ export default mergeConfig(
       emptyOutDir: true,
       outDir: 'dist-phase2h-browser',
       rollupOptions: {
-        input: fileURLToPath(new URL('./browser-benchmark.html', import.meta.url)),
+        input: {
+          canonicalAttack: fileURLToPath(
+            new URL('./canonical-attack-worker-benchmark.html', import.meta.url)
+          ),
+          fullTailAttack: fileURLToPath(
+            new URL('./full-tail-attack-resource-benchmark.html', import.meta.url)
+          ),
+        },
       },
     },
   })

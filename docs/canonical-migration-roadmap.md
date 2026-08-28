@@ -419,6 +419,14 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - 削除前のcase replacementは`docs/phase8-inventory.md`へ記録した。legacy計算source、`LegacyCanonicalComparison`、dense JSON、schema-v1、公開schema-v2 revision-1 asset、Python generatorはこの段階では保持する。
 - 次はG8としてlegacy calculation surfaceと比較utilityを削除し、その後G9で旧dense JSONとschema-v1 JS pipelineを削除する。
 
+### Phase 8-2G8: legacy calculation surfaceの撤去（完了）
+
+- Score、Damage、Backtrackのlegacy public APIを削除し、canonical producer／summary／on-demand経路だけを残した。
+- `LegacyCanonicalComparison`、専用比較テスト、`tests/legacy/LegacyCalculator.js`を削除した。canonical damageテストはcanonical score envelopeを入力し、Backtrack生成テストは独立した完全support生成器を直接検証する。
+- legacy比較を含むPhase 2-H core benchmarkを退役し、canonical Attack／full-tail resource benchmarkへ測定責務を集約した。canonical Playwright runnerの既定targetもcanonical Attackへ変更した。
+- 検証: `npm test`（57 files / 766 tests）、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`git diff --check`が成功した。
+- 次はG9としてdense JSON、旧JS生成script、schema-v1 reference treeをPython generatorへ一本化して削除する。公開schema-v2 revision-1は変更しない。
+
 ## 参照文書
 
 - [todo.md](./todo.md): RangePlanner/ResourceGuard、canonical Attack、既定経路、JSON整理、外部境界に関する作業履歴。

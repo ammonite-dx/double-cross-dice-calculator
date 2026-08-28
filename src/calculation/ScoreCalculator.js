@@ -1,11 +1,7 @@
 import {
   OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,
-  collapseDistribution,
   expandSparseDistribution,
-  getExpectedValue,
-  getUpperTailProbability,
-  shiftDistribution,
 } from '../data/Distribution'
 import { sumDistribution } from '../data/FFT'
 import {
@@ -190,35 +186,6 @@ function calculateScoreWorking(
     failureProbability: fumble,
     alreadyShifted: false,
     plan,
-  }
-}
-
-export function calculateScore(
-  params,
-  dependencies,
-  fix = false,
-  scoreRangePlan
-) {
-  const {
-    workingDistribution,
-    failureProbability,
-    alreadyShifted,
-  } = calculateScoreWorking(params, dependencies, fix, scoreRangePlan)
-  const shiftedDistribution = alreadyShifted
-    ? workingDistribution
-    : shiftDistribution(workingDistribution, params.skill)
-  if (!alreadyShifted) {
-    shiftedDistribution[0] += failureProbability
-    if (scoreRangePlan) {
-      validateProbabilityDistribution(shiftedDistribution, 'skill-shifted score')
-    }
-  }
-  const distribution = collapseDistribution(shiftedDistribution)
-
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
-    failureProbability,
   }
 }
 
@@ -884,62 +851,4 @@ export function getCanonicalScoreSummary(
       successRate: rates.reaction,
     }),
   })
-}
-
-export function getScoreSummary(
-  score,
-  dfclty = { opposed: true, target: 0 }
-) {
-  let actionExpectedValue
-  let actionSuccessRate
-  let reactionExpectedValue
-  let reactionSuccessRate
-
-  if (
-    dfclty.opposed &&
-    score.action.distribution &&
-    score.action.upperTailProbability &&
-    score.reaction.distribution &&
-    score.reaction.upperTailProbability
-  ) {
-    actionExpectedValue = getExpectedValue(score.action.distribution)
-    actionSuccessRate = 0
-    for (
-      let value = 0;
-      value < OUTPUT_DISTRIBUTION_SIZE;
-      value += 1
-    ) {
-      actionSuccessRate +=
-        score.action.distribution[value] *
-        (1 - score.reaction.upperTailProbability[value])
-    }
-    actionSuccessRate = Math.round(actionSuccessRate * 1000) / 10
-    reactionExpectedValue = getExpectedValue(score.reaction.distribution)
-    reactionSuccessRate = Math.round((100 - actionSuccessRate) * 10) / 10
-  } else if (
-    !dfclty.opposed &&
-    score.action.distribution &&
-    score.action.upperTailProbability
-  ) {
-    actionExpectedValue = getExpectedValue(score.action.distribution)
-    const successProbability =
-      score.action.upperTailProbability[dfclty.target] -
-      (dfclty.target === 0
-        ? (score.action.failureProbability ?? 0)
-        : 0)
-    actionSuccessRate = Math.round(successProbability * 1000) / 10
-    reactionExpectedValue = 0
-    reactionSuccessRate = 0
-  }
-
-  return {
-    action: {
-      expectedValue: actionExpectedValue,
-      successRate: actionSuccessRate,
-    },
-    reaction: {
-      expectedValue: reactionExpectedValue,
-      successRate: reactionSuccessRate,
-    },
-  }
 }

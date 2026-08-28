@@ -80,27 +80,6 @@ function createHarness(overrides = {}) {
     acquirePlan: vi.fn(() => ({ release })),
   }
   const planCalculationRanges = vi.fn(({ operation }) => createPlan(operation))
-  const legacyDependencies = {
-    calculateScore: vi.fn(() => {
-      throw new Error('legacy score dependency used')
-    }),
-    calculateDamage: vi.fn(() => {
-      throw new Error('legacy damage dependency used')
-    }),
-    getFinalEncroachment: vi.fn(() => {
-      throw new Error('legacy backtrack dependency used')
-    }),
-    loadDxAsset: vi.fn(() => {
-      throw new Error('DX public asset dependency used')
-    }),
-    loadDrAsset: vi.fn(() => {
-      throw new Error('DR public asset dependency used')
-    }),
-    loadLivingdeadAsset: vi.fn(() => {
-      throw new Error('livingdead public asset dependency used')
-    }),
-  }
-
   const dependencies = {
     calculateCanonicalDamageOnDemand,
     calculateScoreCanonical,
@@ -112,7 +91,6 @@ function createHarness(overrides = {}) {
     loadD10Asset,
     planCalculationRanges,
     resourceGuard,
-    ...legacyDependencies,
     ...overrides,
   }
   const client = createCalculationClient(dependencies)
@@ -129,13 +107,6 @@ function createHarness(overrides = {}) {
     loadD10Asset: dependencies.loadD10Asset,
     planCalculationRanges,
     release,
-    legacyDependencies,
-  }
-}
-
-function expectLegacyDependenciesUnused(legacyDependencies) {
-  for (const dependency of Object.values(legacyDependencies)) {
-    expect(dependency).not.toHaveBeenCalled()
   }
 }
 
@@ -155,7 +126,6 @@ describe('CalculationClient production dependency contract', () => {
     expect(harness.calculateScoreCanonical).toHaveBeenCalledTimes(2)
     expect(harness.loadD10Asset).not.toHaveBeenCalled()
     expect(harness.getD10Distribution).not.toHaveBeenCalled()
-    expectLegacyDependenciesUnused(harness.legacyDependencies)
   })
 
   it('does not load D10 for Attack with zero reaction damage dice', async () => {
@@ -171,7 +141,6 @@ describe('CalculationClient production dependency contract', () => {
       .toBe(harness.getDamageRollDistribution)
     expect(damageDependencies.getD10Distribution)
       .toBe(harness.getD10Distribution)
-    expectLegacyDependenciesUnused(harness.legacyDependencies)
   })
 
   it('requires D10 readiness for Attack with reaction damage dice', async () => {
@@ -181,7 +150,6 @@ describe('CalculationClient production dependency contract', () => {
 
     expect(harness.loadD10Asset).toHaveBeenCalledOnce()
     expect(harness.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
-    expectLegacyDependenciesUnused(harness.legacyDependencies)
   })
 
   it('stops Attack when D10 readiness fails and releases its resource lease', async () => {
@@ -199,7 +167,6 @@ describe('CalculationClient production dependency contract', () => {
     expect(harness.loadD10Asset).toHaveBeenCalledOnce()
     expect(harness.calculateCanonicalDamageOnDemand).not.toHaveBeenCalled()
     expect(harness.release).toHaveBeenCalledOnce()
-    expectLegacyDependenciesUnused(harness.legacyDependencies)
   })
 
   it('uses canonical on-demand Backtrack without public D10 or livingdead assets', async () => {
@@ -213,6 +180,5 @@ describe('CalculationClient production dependency contract', () => {
     expect(harness.getFinalEncroachmentCanonical).toHaveBeenCalledOnce()
     expect(harness.loadD10Asset).not.toHaveBeenCalled()
     expect(harness.getD10Distribution).not.toHaveBeenCalled()
-    expectLegacyDependenciesUnused(harness.legacyDependencies)
   })
 })

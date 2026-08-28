@@ -2,16 +2,11 @@ import {
   OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,
   collapseDistribution,
-  getExpectedValue,
   getUpperTailProbability,
   shiftDistribution,
 } from '../data/Distribution'
+import { subDistribution } from '../data/FFT'
 import {
-  subDistribution,
-  sumDistribution,
-} from '../data/FFT'
-import {
-  MAX_DAMAGE_DICE,
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
@@ -23,7 +18,6 @@ import {
   validateDistributionResult,
 } from './DistributionResult'
 
-const DAMAGE_DICE_COUNT = MAX_DAMAGE_DICE + 1
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
 
@@ -469,12 +463,13 @@ async function requestDamageRollDistribution(
   defence,
   getDamageRollDistribution,
   runtimeOptions,
-  damageRangePlan,
-  scorePropagation = 'published-bucket'
+  damageRangePlan
 ) {
-  const request = scorePropagation === 'full-tail'
-    ? createCanonicalDamageRollRequest(score, attack, damageRangePlan)
-    : createDamageRollRequest(score, attack)
+  const request = createCanonicalDamageRollRequest(
+    score,
+    attack,
+    damageRangePlan
+  )
   const planned = damageRangePlan !== undefined && damageRangePlan !== null
   const normalizedPlan = planned
     ? validateDamageRangePlan(damageRangePlan, attack, defence)
@@ -518,44 +513,6 @@ async function requestDamageRollDistribution(
     scoreTailCertificates: request.scoreTailCertificates ?? [],
     sourceSupport: request.sourceSupport ?? Object.freeze({ kind: 'infinite' }),
   }
-}
-
-export function createDamageRollRequest(score, attack) {
-  const weights = new Float64Array(DAMAGE_DICE_COUNT)
-  let failureProbability = 0
-
-  for (
-    let scoreValue = 0;
-    scoreValue < OUTPUT_DISTRIBUTION_SIZE;
-    scoreValue += 1
-  ) {
-    const actionProbability = score.action.distribution[scoreValue]
-    if (actionProbability === 0) {
-      continue
-    }
-
-    const reactionSuccessProbability =
-      score.reaction.upperTailProbability[scoreValue]
-    failureProbability +=
-      actionProbability * reactionSuccessProbability
-
-    const hitProbability =
-      actionProbability * (1 - reactionSuccessProbability)
-    if (hitProbability === 0) {
-      continue
-    }
-
-    const damageDice =
-      Math.floor(scoreValue / 10) + 1 + attack.dice
-    if (damageDice < 0 || damageDice >= DAMAGE_DICE_COUNT) {
-      throw new RangeError(
-        `damage dice are outside the supported range: ${damageDice}`
-      )
-    }
-    weights[damageDice] += hitProbability
-  }
-
-  return { failureProbability, weights }
 }
 
 /**
@@ -716,44 +673,6 @@ export function finalizeOnDemandDamage(
   }
 }
 
-export async function calculateDamageOnDemand(
-  score,
-  attack,
-  defence,
-  {
-    getDamageRollDistribution,
-    getD10Distribution,
-    onFftLength,
-  } = {},
-  runtimeOptions = {},
-  damageRangePlan
-) {
-  if (typeof getDamageRollDistribution !== 'function') {
-    throw new TypeError(
-      'getDamageRollDistribution must provide a function'
-    )
-  }
-
-  const requested = await requestDamageRollDistribution(
-    score,
-    attack,
-    defence,
-    getDamageRollDistribution,
-    runtimeOptions,
-    damageRangePlan
-  )
-
-  return finalizeOnDemandDamage(
-    requested.damageRollDistribution,
-    requested.failureProbability,
-    attack,
-    defence,
-    getD10Distribution,
-    requested.normalizedPlan,
-    onFftLength
-  )
-}
-
 export async function calculateCanonicalDamageOnDemand(
   score,
   attack,
@@ -783,8 +702,7 @@ export async function calculateCanonicalDamageOnDemand(
     defence,
     getDamageRollDistribution,
     runtimeOptions,
-    canonicalPlan.damage,
-    canonicalPlan.scorePropagation
+    canonicalPlan.damage
   )
   const totalProbability =
     requested.failureProbability + requested.hitProbability
@@ -986,88 +904,6 @@ export async function calculateCanonicalDamageOnDemand(
   return Object.freeze({ result, metadata })
 }
 
-export function calculateDamage(
-  score,
-  attack,
-  defence,
-  { getD10Distribution, getDrDamageDistributions }
-) {
-  const scoreActionDistribution = score.action.distribution.slice()
-  const scoreReactionUpperTailProbability =
-    score.reaction.upperTailProbability.slice()
-  const damageRollDistributions =
-    getDrDamageDistributions(attack.kazanari)
-
-  let failureRate = 0
-  const damageDice = []
-  const hitProbabilities = []
-  for (
-    let scoreValue = 0;
-    scoreValue < OUTPUT_DISTRIBUTION_SIZE;
-    scoreValue += 1
-  ) {
-    const actionProbability = scoreActionDistribution[scoreValue]
-    failureRate +=
-      actionProbability *
-      scoreReactionUpperTailProbability[scoreValue]
-
-    if (actionProbability !== 0) {
-      damageDice.push(
-        Math.floor(scoreValue / 10) + 1 + attack.dice
-      )
-      hitProbabilities.push(
-        actionProbability *
-          (1 - scoreReactionUpperTailProbability[scoreValue])
-      )
-    }
-  }
-
-  let distribution = Array(WORKING_DISTRIBUTION_SIZE).fill(0)
-  for (
-    let damage = 0;
-    damage < WORKING_DISTRIBUTION_SIZE;
-    damage += 1
-  ) {
-    let probability = 0
-    const damageRollDistribution = damageRollDistributions[damage]
-
-    for (let index = 0; index < damageDice.length; index += 1) {
-      probability +=
-        hitProbabilities[index] *
-        damageRollDistribution[damageDice[index]]
-    }
-    distribution[damage] = probability
-  }
-
-  const fixedValueDifference = attack.value - defence.value
-  if (fixedValueDifference > 0) {
-    distribution = shiftDistribution(distribution, fixedValueDifference)
-  }
-  if (defence.dice > 0) {
-    distribution = subDistribution(
-      distribution,
-      getD10Distribution(defence.dice, WORKING_DISTRIBUTION_SIZE)
-    )
-  }
-  if (fixedValueDifference < 0) {
-    distribution = shiftDistribution(distribution, fixedValueDifference)
-  }
-
-  distribution[0] += failureRate
-  distribution = collapseDistribution(distribution)
-
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
-  }
-}
-
-export function getDamageSummary(damage) {
-  return {
-    expectedValue: getExpectedValue(damage.distribution),
-  }
-}
-
 function isCanonicalDamageEnvelope(value) {
   return value !== null
     && typeof value === 'object'
@@ -1097,23 +933,4 @@ export function getCanonicalDamageSummary(canonicalDamage) {
   const expectedValue = getExpectedValueSummary(canonicalDamage.result)
   const mass = getProbabilityMassSummary(canonicalDamage.result)
   return Object.freeze({ expectedValue, mass })
-}
-
-export function getTotalDamage(combos) {
-  let distribution = Array(OUTPUT_DISTRIBUTION_SIZE).fill(0)
-  distribution[0] = 1
-
-  for (const combo of combos) {
-    if (combo.data.damage.distribution !== null) {
-      distribution = sumDistribution(
-        distribution,
-        combo.data.damage.distribution
-      )
-    }
-  }
-
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
-  }
 }

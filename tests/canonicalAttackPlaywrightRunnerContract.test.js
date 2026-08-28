@@ -14,14 +14,14 @@ const packageJson = JSON.parse(
 )
 
 describe('canonical Attack Playwright runner contract', () => {
-  it('keeps the core target as the default and exposes canonical CLI args', () => {
-    expect(runnerSource).toContain("target: 'core'")
+  it('keeps the canonical Attack target as the default and exposes canonical CLI args', () => {
+    expect(runnerSource).toContain("target: 'canonical-attack'")
     expect(runnerSource).toContain("--target NAME")
     expect(runnerSource).toContain('--target must be one of:')
     expect(packageJson.scripts['benchmark:phase2h:browser:playwright'])
-      .toBe('node experiments/phase2h-browser/playwright-runner.mjs')
+      .toBeUndefined()
     expect(packageJson.scripts['benchmark:phase2h:browser:playwright:short'])
-      .toBe('node experiments/phase2h-browser/playwright-runner.mjs --iterations 1 --warmup 0')
+      .toBeUndefined()
   })
 
   it('routes the canonical target to its page and result globals', () => {

@@ -409,3 +409,11 @@ G7では、canonical production経路を変更せず、legacy実装を必要と�
 G7で削除したmigration testのcaseは、削除前のcoverage mapを上表のreplacement欄へ記録した。canonical actualとlegacy actualを新たなrule oracleとして比較するテストは追加していない。公開`public/data/schema-v2/revision-1/**`、dense JSON、legacy calculation source、Python generatorはG7では保持する。
 
 G7の次段階は、専用comparison utilityとlegacy calculation APIを削除するG8である。G8ではG7で整理したreplacementがcanonical/runtime/generator側に存在することを前提に、sourceのlegacy exportを一括撤去する。
+
+## Phase 8-2G8: legacy calculation surfaceの撤去（完了）
+
+`ScoreCalculator.js`の`calculateScore`／`getScoreSummary`、`DamageCalculator.js`のlegacy request・on-demand・summary・total API、`BacktrackCalculator.js`の`calculateFinalEncroachment`を削除した。canonical API、runtime DR、D10／《屍人》生成器、published-bucket adapterは保持している。
+
+legacy比較utility、専用比較テスト、`tests/legacy/LegacyCalculator.js`、旧core damageテストを削除し、canonical damage envelopeと独立したD10／《屍人》生成テストへ責務を移した。旧core Phase 2-H Node／browser benchmarkはlegacy比較を含むため退役し、canonical Attackおよびfull-tail resource benchmarkへ集約した。
+
+G8後のproduction、test、benchmarkにlegacy計算APIのimporterはない。`runtime-dr/damage.js`の独立実験実装はG10のdead-code auditで扱う。公開`public/data/schema-v2/revision-1/**`、dense JSON、schema-v1、Python generatorはG8では保持する。

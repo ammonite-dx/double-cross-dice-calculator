@@ -1,27 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-  calculateCanonicalDamageOnDemand,
-  calculateDamageOnDemand,
-} from '../src/calculation/DamageCalculator'
+import { calculateCanonicalDamageOnDemand } from '../src/calculation/DamageCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
-import { getUpperTailProbability } from '../src/data/Distribution'
-
-function probabilityResult(entries) {
-  const distribution = Array(1024).fill(0)
-  for (const [value, probability] of entries) {
-    distribution[value] = probability
-  }
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
-  }
-}
 
 function scoreWithHitProbability(hitProbability) {
   return {
-    action: probabilityResult([[1, 1]]),
-    reaction: probabilityResult([
+    action: canonicalScoreEnvelope([[1, 1]]),
+    reaction: canonicalScoreEnvelope([
       [0, hitProbability],
       [2, 1 - hitProbability],
     ]),
@@ -255,16 +240,6 @@ describe('canonical on-demand damage calculation', () => {
       errorBound: 1e-8,
     })
 
-    const legacy = await calculateDamageOnDemand(
-      scoreWithHitProbability(1),
-      attack,
-      defence,
-      dependencies,
-      {},
-      rangePlan.damage
-    )
-    expect(legacy.distribution[15]).toBeCloseTo(0.25, 12)
-    expect(legacy.distribution[1023]).toBeCloseTo(0.75, 12)
   })
 
   it('uses the negative fixed difference in the final overflow lower bound', async () => {
@@ -368,37 +343,19 @@ describe('canonical on-demand damage calculation', () => {
     expect(Object.isFrozen(metadata.sourceSupport)).toBe(true)
   })
 
-  it('leaves the existing planned API return shape and overflow collapse unchanged', async () => {
-    const attack = { dice: 0, value: 0, kazanari: 0 }
-    const rangePlan = createRangePlan(attack, noDefence, {
-      rawSupportMax: 20,
-      rawMax: 20,
-      workingMax: 5,
-      workingLength: 7,
-      fftLength: 32,
-    })
-    const legacy = await calculateDamageOnDemand(
-      scoreWithHitProbability(1),
-      attack,
-      noDefence,
-      { getDamageRollDistribution: pointProvider(20) },
-      {},
-      rangePlan.damage
-    )
-
-    expect(Object.keys(legacy).sort()).toEqual([
-      'distribution',
-      'upperTailProbability',
-    ])
-    expect(legacy.distribution).toHaveLength(1024)
-    expect(legacy.distribution[1023]).toBeCloseTo(1, 12)
-  })
-
   it('rejects missing sub-probability mass at final composition', async () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const incompleteScore = {
-      action: probabilityResult([[1, 0.5]]),
-      reaction: probabilityResult([[0, 1]]),
+      action: canonicalScoreEnvelope([[1, 0.5]], {
+        support: { kind: 'infinite' },
+        overflow: {
+          kind: 'exact',
+          lowerBound: 2,
+          probability: 0.5,
+          errorBound: 0,
+        },
+      }),
+      reaction: canonicalScoreEnvelope([[0, 1]]),
     }
 
     await expect(calculateCanonicalDamageOnDemand(

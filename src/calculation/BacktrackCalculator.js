@@ -1,4 +1,3 @@
-import { DISTRIBUTION_SIZE } from '../data/Distribution'
 import {
   BACKTRACK_ABORT_CHECK_INTERVAL,
   BACKTRACK_ASSET_SUPPORT_MAX,
@@ -16,12 +15,7 @@ import {
 } from '../domain/BacktrackRules'
 import { createDistributionResult } from './DistributionResult'
 
-const PROBABILITY_TOLERANCE = 1e-8
 const NEGATIVE_PROBABILITY_TOLERANCE = 1e-12
-
-function isProbabilityArray(value) {
-  return Array.isArray(value) || value instanceof Float64Array
-}
 
 function createAbortError() {
   const error = new Error('Backtrack calculation was aborted')
@@ -80,37 +74,6 @@ function normalizeGeneratedDistribution(
 
   for (let index = 0; index < normalized.length; index += 1) {
     abortChecker?.tick()
-    normalized[index] /= total
-  }
-  return normalized
-}
-
-function validatePlannedDistribution(distribution, expectedLength, label) {
-  if (!isProbabilityArray(distribution) || distribution.length !== expectedLength) {
-    throw new RangeError(
-      `${label} must have ${expectedLength} entries for the backtrack range plan`
-    )
-  }
-
-  const normalized = new Float64Array(expectedLength)
-  let total = 0
-  for (let index = 0; index < distribution.length; index += 1) {
-    const probability = distribution[index]
-    if (!Number.isFinite(probability)) {
-      throw new RangeError(`${label} contains a non-finite probability`)
-    }
-    if (probability < -NEGATIVE_PROBABILITY_TOLERANCE) {
-      throw new RangeError(`${label} contains a negative probability`)
-    }
-    const nonNegative = probability < 0 ? 0 : probability
-    normalized[index] = nonNegative
-    total += nonNegative
-  }
-
-  if (!Number.isFinite(total) || Math.abs(total - 1) > PROBABILITY_TOLERANCE) {
-    throw new RangeError(`${label} probability total is not approximately one`)
-  }
-  for (let index = 0; index < normalized.length; index += 1) {
     normalized[index] /= total
   }
   return normalized
@@ -346,73 +309,6 @@ function sumLivingdeadStates(states, size, label, abortChecker) {
   return normalizeGeneratedDistribution(distribution, label, abortChecker)
 }
 
-function getBoundary(params, threshold) {
-  return Math.max(0, params.encroachment - params.value - threshold)
-}
-
-function toPercentage(distribution, start, end) {
-  const probability = distribution
-    .slice(start, end)
-    .reduce((sum, value) => sum + value, 0)
-
-  return Math.round(probability * 1000) / 10
-}
-
-function getStandardSingleResult(
-  distribution,
-  params,
-  distributionEnd = DISTRIBUTION_SIZE
-) {
-  const boundaries = [99, 70, 50, 30]
-    .map((threshold) => getBoundary(params, threshold))
-  const ranges = [
-    [0, boundaries[0]],
-    [boundaries[0], boundaries[1]],
-    [boundaries[1], boundaries[2]],
-    [boundaries[2], boundaries[3]],
-    [boundaries[3], distributionEnd],
-  ]
-
-  return ranges.map(([start, end]) =>
-    toPercentage(distribution, start, end)
-  )
-}
-
-function getNightmareSingleResult(
-  distribution,
-  params,
-  distributionEnd = DISTRIBUTION_SIZE
-) {
-  const boundaries = [119, 99, 70, 50, 30]
-    .map((threshold) => getBoundary(params, threshold))
-  const ranges = [
-    [0, boundaries[0]],
-    [boundaries[0], boundaries[1]],
-    [boundaries[1], boundaries[2]],
-    [boundaries[2], boundaries[3]],
-    [boundaries[3], boundaries[4]],
-    [boundaries[4], distributionEnd],
-  ]
-
-  return ranges.map(([start, end]) =>
-    toPercentage(distribution, start, end)
-  )
-}
-
-function getBinaryResult(
-  distribution,
-  params,
-  threshold,
-  distributionEnd = DISTRIBUTION_SIZE
-) {
-  const boundary = getBoundary(params, threshold)
-
-  return [
-    toPercentage(distribution, 0, boundary),
-    toPercentage(distribution, boundary, distributionEnd),
-  ]
-}
-
 function normalizeBacktrackParams(params) {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     throw new TypeError('backtrack parameters must be an object')
@@ -601,31 +497,6 @@ function validateBacktrackRangePlan(params, plan) {
   }
 }
 
-function getPlannedDistribution(
-  provider,
-  dice,
-  size,
-  label,
-  generatedDistributions
-) {
-  if (generatedDistributions) {
-    const generated = generatedDistributions.get(dice)
-    if (!generated) {
-      throw new RangeError(`${label} is unavailable for dice=${dice}`)
-    }
-    return generated
-  }
-
-  if (typeof provider !== 'function') {
-    throw new TypeError(`${label} provider must provide a function`)
-  }
-  return validatePlannedDistribution(
-    provider(dice, size),
-    size,
-    label
-  )
-}
-
 function normalizeBacktrackCalculationArguments(
   runtimeOptions,
   backtrackRangePlan
@@ -801,110 +672,4 @@ export function calculateFinalEncroachmentCanonical(
   }
   throwIfAborted(runtimeOptions)
   return Object.freeze(result)
-}
-
-export function calculateFinalEncroachment(
-  params,
-  dependencies,
-  runtimeOptions = {},
-  backtrackRangePlan
-) {
-  throwIfAborted(runtimeOptions)
-
-  const normalizedArguments = normalizeBacktrackCalculationArguments(
-    runtimeOptions,
-    backtrackRangePlan
-  )
-  runtimeOptions = normalizedArguments.runtimeOptions
-  backtrackRangePlan = normalizedArguments.backtrackRangePlan
-
-  const normalizedParams = normalizeBacktrackParams(params)
-  const planInfo = backtrackRangePlan
-    ? validateBacktrackRangePlan(normalizedParams, backtrackRangePlan)
-    : null
-  const effectiveParams = planInfo?.normalizedParams ?? normalizedParams
-  const rule = getBacktrackRule(effectiveParams.dlois)
-  const { getD10Distribution, getLivingdeadDistribution } = dependencies ?? {}
-  const getDistribution = rule.livingdead
-    ? getLivingdeadDistribution
-    : getD10Distribution
-  const threshold = rule.nightmare ? 119 : 99
-
-  if (!planInfo) {
-    if (typeof getDistribution !== 'function') {
-      throw new TypeError(
-        `${rule.livingdead ? 'livingdead' : 'D10'} distribution provider must provide a function`
-      )
-    }
-    const diceCounts = normalizeDiceCounts(
-      getDiceCounts(effectiveParams),
-      'backtrack'
-    )
-    const distributions = diceCounts.map((dice) => {
-      throwIfAborted(runtimeOptions)
-      return getDistribution(dice)
-    })
-    throwIfAborted(runtimeOptions)
-
-    return {
-      single: rule.nightmare
-        ? getNightmareSingleResult(distributions[0], effectiveParams)
-        : getStandardSingleResult(distributions[0], effectiveParams),
-      double: getBinaryResult(distributions[1], effectiveParams, threshold),
-      second: getBinaryResult(distributions[2], effectiveParams, threshold),
-    }
-  }
-
-  const { diceCounts } = planInfo
-  const size = backtrackRangePlan.workingLength
-  const generatedDistributions = backtrackRangePlan.distributionMode === 'on-demand'
-    ? rule.livingdead
-      ? calculateLivingdeadDistributions(diceCounts, size, runtimeOptions)
-      : calculateD10Distributions(diceCounts, size, runtimeOptions)
-    : null
-  const plannedGetDistribution = (dice) => {
-    throwIfAborted(runtimeOptions)
-    const distribution = getPlannedDistribution(
-      getDistribution,
-      dice,
-      size,
-      rule.livingdead ? 'livingdead distribution' : 'D10 distribution',
-      generatedDistributions
-    )
-    throwIfAborted(runtimeOptions)
-    return distribution
-  }
-
-  const singleDistribution = plannedGetDistribution(
-    diceCounts[0]
-  )
-  const doubleDistribution = plannedGetDistribution(
-    diceCounts[1]
-  )
-  const secondDistribution = plannedGetDistribution(
-    diceCounts[2]
-  )
-  throwIfAborted(runtimeOptions)
-
-  return {
-    single: rule.nightmare
-      ? getNightmareSingleResult(
-          singleDistribution,
-          normalizedParams,
-          size
-        )
-      : getStandardSingleResult(singleDistribution, normalizedParams, size),
-    double: getBinaryResult(
-      doubleDistribution,
-      normalizedParams,
-      threshold,
-      size
-    ),
-    second: getBinaryResult(
-      secondDistribution,
-      normalizedParams,
-      threshold,
-      size
-    ),
-  }
 }

@@ -78,7 +78,6 @@ function createClientDependencies(overrides = {}) {
     getDamageRollDistribution: vi.fn(),
     getD10Distribution: vi.fn(),
     getFinalEncroachmentCanonical: vi.fn(() => 'canonical backtrack'),
-    getScoreSummary: vi.fn(() => 'score summary'),
     loadD10Asset: vi.fn(async () => {}),
     planCalculationRanges: vi.fn((params) => createPlan(params.operation)),
     ...overrides,

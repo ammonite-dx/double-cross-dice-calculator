@@ -9,7 +9,6 @@ import { chromium, firefox, webkit } from 'playwright'
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const VITE_CONFIG = fileURLToPath(new URL('./vite.config.mjs', import.meta.url))
-const BENCHMARK_PATH = '/experiments/phase2h-browser/browser-benchmark.html'
 const CANONICAL_ATTACK_BENCHMARK_PATH =
   '/experiments/phase2h-browser/canonical-attack-worker-benchmark.html'
 const FULL_TAIL_ATTACK_BENCHMARK_PATH =
@@ -51,13 +50,6 @@ const EXPECTED_FULL_TAIL_ATTACK_CASE_IDS = [
 ]
 
 const TARGET_CONFIGS = {
-  core: {
-    id: 'core',
-    benchmarkPath: BENCHMARK_PATH,
-    resultGlobal: '__phase2hBrowserBenchmarkResult',
-    errorGlobal: '__phase2hBrowserBenchmarkError',
-    benchmarkName: 'phase2h-browser-playwright',
-  },
   'canonical-attack': {
     id: 'canonical-attack',
     benchmarkPath: CANONICAL_ATTACK_BENCHMARK_PATH,
@@ -173,7 +165,7 @@ function parseBoundedInteger(rawValue, name, maximum, allowZero) {
 
 function parseArgs(args = process.argv.slice(2)) {
   const options = {
-    target: 'core',
+    target: 'canonical-attack',
     iterations: null,
     warmup: null,
     includeChrome: false,
@@ -227,7 +219,7 @@ function helpText() {
     'Usage: node experiments/phase2h-browser/playwright-runner.mjs [options]',
     '',
     'Options:',
-    '  --target NAME    Measure core or canonical-attack (default: core)',
+    '  --target NAME    Measure canonical-attack or full-tail-attack-resource (default: canonical-attack)',
     `  --iterations N  Override warm samples (1..${MAX_ITERATIONS})`,
     `  --warmup N      Override warmup samples (0..${MAX_WARMUP_ITERATIONS})`,
     "  --include-chrome  Include an unthrottled Chrome channel comparison",
@@ -386,7 +378,7 @@ function buildBenchmarkUrl(baseUrl, options, target) {
 function validateReport(
   report,
   capturedPageErrors = [],
-  target = TARGET_CONFIGS.core,
+  target = TARGET_CONFIGS['canonical-attack'],
 ) {
   if (target.id === 'canonical-attack') {
     return validateCanonicalAttackReport(report, capturedPageErrors)
@@ -395,40 +387,7 @@ function validateReport(
     return validateFullTailAttackReport(report, capturedPageErrors)
   }
 
-  const counts = report?.caseCounts ?? {}
-  const cases = Array.isArray(report?.cases) ? report.cases : []
-  const actualIds = cases.map((entry) => entry?.id)
-  const expectedIds = EXPECTED_CASE_IDS.slice().sort()
-  const sortedActualIds = actualIds.slice().sort()
-  const stageErrors = cases.flatMap((entry) => (
-    (entry?.stages ?? [])
-      .filter((stage) => stage?.status === 'error')
-      .map((stage) => `${entry.id}:${stage.name}`)
-  ))
-  const numericDigestValidation = validateNumericDigests(report)
-  const checks = {
-    reportStatus: report?.status === 'measured',
-    caseCounts: counts.total === EXPECTED_CASE_IDS.length
-      && counts.measured === 5
-      && counts.plannerOnly === 1
-      && counts.plannerRejected === 1
-      && counts.error === 0,
-    caseIds: JSON.stringify(sortedActualIds) === JSON.stringify(expectedIds),
-    stageErrors: stageErrors.length === 0,
-    numericDigests: numericDigestValidation.valid,
-    assetSetup: report?.assetSetup?.status === 'measured',
-    resultSink: Number.isFinite(report?.resultSink),
-    pageErrors: capturedPageErrors.length === 0
-      && (report?.pageErrors?.length ?? 0) === 0
-      && (report?.unhandledRejections?.length ?? 0) === 0,
-  }
-  return {
-    valid: Object.values(checks).every(Boolean),
-    checks,
-    stageErrors,
-    numericDigestValidation,
-    reportedCaseCounts: counts,
-  }
+  throw new Error(`unsupported benchmark target: ${target.id}`)
 }
 
 function isFiniteNonNegative(value) {
@@ -653,69 +612,30 @@ function validateCanonicalAttackReport(report, capturedPageErrors) {
   }
 }
 
-function validateNumericDigests(report) {
-  const issues = []
-  const stageReports = []
-  if (report?.assetSetup) {
-    stageReports.push(['assetSetup', report.assetSetup])
-  }
-  for (const caseReport of report?.cases ?? []) {
-    for (const stage of caseReport?.stages ?? []) {
-      stageReports.push([`${caseReport.id}:${stage.name}`, stage])
-    }
-  }
-
-  for (const [path, stage] of stageReports) {
-    if (stage?.status !== 'measured') {
-      continue
-    }
-    const digest = stage.numericDigest
-    if (
-      !digest
-      || !Number.isFinite(digest.cold)
-      || !Number.isFinite(digest.warm)
-    ) {
-      issues.push({ path, digest: digest ?? null })
-    }
-  }
-
-  return {
-    valid: issues.length === 0,
-    measuredStageCount: stageReports.filter(
-      ([, stage]) => stage?.status === 'measured',
-    ).length,
-    issues,
-  }
-}
-
-function getStageMedian(caseReport, stageName) {
-  const stage = caseReport?.stages?.find((entry) => entry.name === stageName)
-  return stage?.warm?.invocationElapsedMs?.medianMs ?? null
-}
-
-function summarizeTimings(report, target = TARGET_CONFIGS.core) {
+function summarizeTimings(
+  report,
+  target = TARGET_CONFIGS['canonical-attack'],
+) {
   if (target.id === 'canonical-attack') {
     return summarizeCanonicalTimings(report)
   }
-
-  const measuredCases = (report?.cases ?? [])
-    .filter((entry) => entry.status === 'measured')
-  const canonical = measuredCases
-    .map((entry) => getStageMedian(entry, 'canonical-damage'))
+  const measuredCases = (report?.cases ?? []).filter(
+    (entry) => entry.status === 'measured',
+  )
+  const warmValues = measuredCases
+    .map((entry) => entry.execution?.timing?.warm?.invocationElapsedMs?.medianMs)
     .filter((value) => Number.isFinite(value))
-  const legacy = measuredCases
-    .map((entry) => getStageMedian(entry, 'legacy-damage'))
+  const coldValues = measuredCases
+    .map((entry) => entry.execution?.timing?.cold?.invocationElapsedMs?.medianMs)
     .filter((value) => Number.isFinite(value))
   return {
     measuredCaseCount: measuredCases.length,
-    canonicalDamageWarmMedianMaximumMs: canonical.length > 0
-      ? Math.max(...canonical)
+    warmInvocationMedianMaximumMs: warmValues.length > 0
+      ? Math.max(...warmValues)
       : null,
-    legacyDamageWarmMedianMaximumMs: legacy.length > 0
-      ? Math.max(...legacy)
+    coldInvocationMedianMaximumMs: coldValues.length > 0
+      ? Math.max(...coldValues)
       : null,
-    assetSetupWarmMedianMs:
-      report?.assetSetup?.warm?.invocationElapsedMs?.medianMs ?? null,
   }
 }
 

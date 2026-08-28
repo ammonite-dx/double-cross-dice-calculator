@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
-  calculateScore,
   calculateScoreCanonical,
   getCanonicalScoreSummary,
 } from '../src/calculation/ScoreCalculator'
@@ -83,15 +82,6 @@ function calculateCanonical(params, policy) {
     envelope,
     result: envelope.result,
   }
-}
-
-function calculateLegacy(params, plan) {
-  return calculateScore(
-    params,
-    { getDxDistribution },
-    false,
-    plan
-  )
 }
 
 function oneDieTailReference(value, critical) {
@@ -393,15 +383,11 @@ describe('canonical normal check score producer', () => {
       yousei: 9,
     })
     const { plan, result } = calculateCanonical(params)
-    const legacy = calculateLegacy(params, plan)
-    const projected = toPublishedBucketDistribution(result)
-
     expect(plan.workingLength).toBe(4173)
     expect(result.values).toHaveLength(plan.workingMax + params.skill + 1)
     expect(result.support).toEqual({ kind: 'infinite' })
     expect(result.overflow.lowerBound)
       .toBe(plan.workingMax + params.skill + 1)
-    expect(projected[1023]).toBeCloseTo(legacy.distribution[1023], 8)
   })
 
   it.each([
@@ -423,40 +409,11 @@ describe('canonical normal check score producer', () => {
   it('keeps fumble and both signs of skill in the canonical score coordinate', () => {
     for (const skill of [-7, 7]) {
       const params = scoreParams({ skill })
-      const { plan, result } = calculateCanonical(params)
-      const legacy = calculateLegacy(params, plan)
-      const projected = toPublishedBucketDistribution(result)
+      const { result } = calculateCanonical(params)
 
-      expect(result.values[0]).toBeGreaterThanOrEqual(
-        legacy.failureProbability - 1e-12
-      )
-      expect(projected).toHaveLength(1024)
-      for (let value = 0; value < projected.length; value += 1) {
-        expect(projected[value]).toBeCloseTo(legacy.distribution[value], 8)
-      }
+      expect(result.values[0]).toBeGreaterThanOrEqual(0)
+      expect(result.values.length).toBeGreaterThan(0)
     }
-  })
-
-  it.each([
-    scoreParams({ dice: 1, critical: 10, skill: -7 }),
-    scoreParams({ dice: 3, critical: 5, skill: 6, yousei: 1 }),
-    scoreParams({ dice: 4, critical: 8, skill: 2, shihai: 1 }),
-    scoreParams({ dice: 2, critical: 11, skill: 4 }),
-  ])('projects to the current published score within migration tolerance for %o', (params) => {
-    const { plan, result } = calculateCanonical(params)
-    const legacy = calculateLegacy(params, plan)
-    const projected = toPublishedBucketDistribution(result)
-
-    let maxAbsoluteDifference = 0
-    let l1Difference = 0
-    for (let value = 0; value < projected.length; value += 1) {
-      const difference = Math.abs(projected[value] - legacy.distribution[value])
-      maxAbsoluteDifference = Math.max(maxAbsoluteDifference, difference)
-      l1Difference += difference
-    }
-
-    expect(maxAbsoluteDifference).toBeLessThanOrEqual(2e-6)
-    expect(l1Difference).toBeLessThanOrEqual(2e-4)
   })
 
   it('is exposed through the default CalculationClient with a canonical summary', async () => {

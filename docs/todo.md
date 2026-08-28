@@ -482,3 +482,10 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - Task 6完了: 既存canonical Attack targetを壊さず、専用`full-tail-attack-resource` browser target/page、11-case matrix（202/400/600D × kazanari 0/1/9、yousei9、shihai19）、short CLI、stdout/page-global reportを追加した。Chrome desktop/CPU 4x短縮実測で各11 cases benchmark measured、production reject 3件、Worker/D10、planner/end-to-end/Worker timing、Long Task、performance.memory before/after、cancel/staleを記録した。production threshold/cost model/runtime absolute capは未変更である。
 - Task 5暫定判断: 今回のNodeおよびChrome desktop/CPU 4x測定だけではhard thresholdを引き上げず、productionの推定時間warning/hard thresholdは50/200 msを当面維持する。CPU 4xの高負荷end-to-endとWorker応答が100/200 msを超えるためであり、低速実機、Firefox/WebKit、実際のUI描画を含む最終再評価は別環境で行う。
 - Task 7 acceptance（2026-08-25、commit `8c7d10c`）: Node `v22.23.2`でfull-tail benchmark短縮実測（DR 15ケース、Attack 9ケース、`iterations=1`、`warmup=0`）を完走し、production planner rejectは`yousei=9`、`shihai=19`を含む3件、benchmark側は全24ケースを測定した。`d30b3d1`後の最終ローカルgateでは、`data:check`が32 assets、`data:verify-generator`が32 assets、Nodeテストが61ファイル877テスト、generator testが18 passed/13 deselected、simulationが13 passed/18 deselected、JavaScript lint、Markdown lint（23ファイル0 issues）、generator lint、build、`git diff --check`、`check:node`がすべて成功した。Chrome desktop/CPU 4xの11ケース計測結果、Worker/D10、cancel/stale、Long Task、memoryの詳細は`docs/runtime-calculation-algorithms.md`と`experiments/phase2h-browser/README.md`に記録している。位置不明Score tailのprojectability受入とPhase 8 JSON/assets整理は後続である。
+
+### Phase 8-2G8: legacy calculation surfaceの撤去（完了）
+
+- `ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`からlegacy APIを削除し、canonical APIと完全support生成器を保持した。
+- `LegacyCanonicalComparison`、`LegacyCalculator`、legacy比較テスト、legacy-only Phase 2-H core benchmarkを削除した。canonical Attack／full-tail resource benchmarkは維持し、Playwright runnerの既定targetをcanonical Attackへ変更した。
+- 検証: Node 22.23.2、Vitest 57 files / 766 tests、ESLint、Markdown lint、production build、`git diff --check`が成功した。
+- 次の作業単位はPhase 8-2G9。dense JSON、schema-v1 reference、旧JS generatorを削除し、`data:generate`／`data:check`をPython generatorへ委譲する。公開schema-v2 revision-1は保持する。
