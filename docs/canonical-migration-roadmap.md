@@ -350,6 +350,7 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - `src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`の全consumerを監査し、coreと明示的なrepository依存へ直接移行した。
 - 3つのdata calculator wrapperを削除した。テストlocal helperは既存のCalculationClient依存シグネチャや比較fixtureを保つために各consumer内へ限定し、新しい共有adapter moduleは追加していない。
 - legacy calculation core、`LegacyCanonicalComparison`、dense JSON、public asset、generator、benchmark条件、計算意味論は変更していない。wrapper参照のglobal/static/SSR検索は0件である。
+- G6C closure（2026-08-28）として、G5/G6対象のrepository・assetテスト22件、`benchmark:calculators`、`benchmark:phase2h -- --iterations 1 --warmup 0`、全Vitest（64 files / 908 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、`git diff --check`がすべて成功した。wrapperのimport・SSR load・文字列参照0件も再確認した。
 
 ### Phase 8-2G7: legacy comparison/migration dependency consolidation（次段階）
 

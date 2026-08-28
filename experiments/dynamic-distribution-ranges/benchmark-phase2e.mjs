@@ -518,12 +518,19 @@ try {
   const scoreCoreModule = await server.ssrLoadModule('/src/calculation/ScoreCalculator.js')
   calculateCoreScore = scoreCoreModule.calculateScore
   getScoreSummary = scoreCoreModule.getScoreSummary
-  calculateScore = (params, fix = false, scoreRangePlan) =>
+  const referenceRepository = await server.ssrLoadModule(
+    '/src/data/ReferencePrecomputedDataRepository.js'
+  )
+  calculateScore = (
+    params,
+    getDistribution = referenceRepository.getDxDistribution,
+    fix = false,
+    scoreRangePlan
+  ) =>
     calculateCoreScore(
       params,
       {
-        getDxDistribution: (shihai, dice, critical, options) =>
-          calculateDxDistribution({ dice, critical, shihai }, options),
+        getDxDistribution: getDistribution,
       },
       fix,
       scoreRangePlan

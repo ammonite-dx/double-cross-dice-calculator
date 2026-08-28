@@ -375,6 +375,8 @@ Phase 8-2Eではreference/legacy importerを再監査し、D10 validator/cache�
 
 削除前後の`src`、`tests`、`scripts`、`experiments`におけるwrapper import、SSR load、文字列参照は0件である。legacy core、`LegacyCanonicalComparison`、migration/comparison fixture、dense JSON、public asset、generator、benchmark条件、production UI、計算意味論は変更していない。次はPhase 8-2G7としてlegacy comparison/migration依存を整理する。
 
+G5/G6 closure（2026-08-28）では、repository・asset対象テスト22件、`benchmark:calculators`、`benchmark:phase2h -- --iterations 1 --warmup 0`、全Vitest（64 files / 908 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、`git diff --check`を実行し、すべて成功した。
+
 ## 完了条件と現時点の結論
 
 - production import graph、mixed-use moduleのsymbol/export、legacy core、wrapper、dense JSON、公開asset、generator、migration/comparison testを5分類で記録した。
