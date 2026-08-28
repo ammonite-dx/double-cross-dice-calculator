@@ -1,6 +1,6 @@
 # Phase 8-1 inventory
 
-この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。Phase 8-2AではAttackのchart adapter、Phase 8-2Bではproduction dependency contract、Phase 8-2Cではproduction browser smoke、Phase 8-2Dでは事前計算データrepositoryのproduction/reference境界、Phase 8-2Eではreference/legacy importer監査とD10 validator closure、Phase 8-2Fではruntime rule validationのcanonical actual移行、Phase 8-2G1ではcompatibility facadeのtest importer移行、Phase 8-2G2ではbenchmark/experiment importer移行、Phase 8-2G3ではcalculation barrel importer移行、Phase 8-2G4ではcalculation barrel削除、Phase 8-2G5ではcompatibility facade削除、Phase 8-2G6ではdata calculator wrapper削除を整理した。公開asset、JSON、generator、計算意味論は変更しない。
+この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。Phase 8-2AではAttackのchart adapter、Phase 8-2Bではproduction dependency contract、Phase 8-2Cではproduction browser smoke、Phase 8-2Dでは事前計算データrepositoryのproduction/reference境界、Phase 8-2Eではreference/legacy importer監査とD10 validator closure、Phase 8-2Fではruntime rule validationのcanonical actual移行、Phase 8-2G1ではcompatibility facadeのtest importer移行、Phase 8-2G2ではbenchmark/experiment importer移行、Phase 8-2G3ではcalculation barrel importer移行、Phase 8-2G4ではcalculation barrel削除、Phase 8-2G5ではcompatibility facade削除、Phase 8-2G6ではdata calculator wrapper削除、G7～G9ではlegacy比較・旧データ生成系の退役、G10では残存コード監査とclosureを整理した。公開schema-v2/revision-1 asset、generator、計算意味論は維持し、旧dense JSONとschema-v1だけを削除した。
 
 ## 判定範囲と分類
 
@@ -14,7 +14,7 @@ Phase 8-1の調査時点はブランチ`codex/canonical-default-migration`のHEA
 | `migration` | 旧dense JSON、旧形式変換、旧revision、旧実装からの移行を再現するために保持するもの。 |
 | `dead-candidate` | 現在のproduction、テスト、生成、移行の参照が確認できず、前提を満たした後に削除候補となるもの。 |
 
-`proposed action`は、現時点の操作ではなく、後続cleanupでの候補を示す。`delete-candidate`は独立oracle、テスト移行、公開assetの保持条件が満たされるまで削除しないことを意味する。
+`proposed action`は、各Phaseの調査時点における操作候補を示す。過去Phaseの表はその時点のsnapshotであり、現行のretain/deleted判定は末尾のG10 closureを正とする。
 
 ## production import graph
 
@@ -425,3 +425,23 @@ G8後のproduction、test、benchmarkにlegacy計算APIのimporterはない。`r
 `data:generate`と`data:check`は既存のコマンド名を保ったまま、`data:regenerate`／`data:verify-generator`を介してPython generatorへ委譲した。generatorのcurrent-asset testはschema-v2 revision-1を照合先とし、旧schema-v1には依存しない。公開`public/data/schema-v2/revision-1/**`は削除・変更していない。
 
 G9検証: `npm run data:check`（32 assets）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:lint`、`npm test`（56 files / 763 tests）が成功した。simulation、lint、build、smokeはG9最終gateで実行し、結果を次のclosure節へ記録する。
+
+## Phase 8-2G10: 残存legacy/dead code監査とPhase 8 closure（完了）
+
+G10では、G8・G9で削除されたAPI、dense JSON、schema-v1、変換scriptへのproduction importerが0件であることを再確認した。`src/calculation/DistributionResult.js`のpublished-bucket adapter、`src/components/Attack/LegacyChartSetter.js`の旧チャート形状、`src/data/Distribution.js`の`range`・collapse・shiftは、互換表示テストと既存利用箇所が残るため保持した。`src/data/ReferencePrecomputedDataRepository.js`と`src/data/D10PrecomputedDataRepository.js`も、それぞれ独立asset検証とproduction AttackのD10 lazy loadに必要なため保持した。Distribution/FFTの混在モジュールを、利用者不在という理由だけで分割・削除していない。
+
+G8後にlegacy APIを参照していた動的範囲Phase 2-E／2-FのNode・ブラウザハーネス（`benchmark-phase2e.mjs`、`browser-benchmark.*`、`playwright-runner.mjs`、`vite.config.mjs`）と、未参照の`experiments/runtime-dr/damage.js`を退役した。planner、Nodeベースライン、`decision.md`、`results.json`は設計判断と実測の履歴資料として保持し、現行測定はcanonical Attack／full-tail benchmarkへ集約した。`benchmark:dynamic-distribution-ranges:browser`のpackage commandも削除したため、公開・開発コマンドから壊れたlegacy harnessを呼び出さない。
+
+### G10の残存コード分類
+
+| 分類 | 対象 | 判断 |
+| --- | --- | --- |
+| production keep | canonical Score／Damage／Backtrack、RuntimeDamageRoll Worker、RangePlanner、ResourceGuard、D10 repository | 現行UIとcanonical計算の実行経路。削除しない。 |
+| compatibility keep | `DistributionResult`のpublished-bucket adapter、`LegacyChartSetter.js`、`Distribution.js`の互換symbol | `tests/attackDamageDisplayAdapter.test.js`とadapter testsが利用。利用者を移行してから別単位で削除する。 |
+| reference keep | `ReferencePrecomputedDataRepository.js`、公開schema-v2/revision-1、Python generator、runtime-dr reference/optimized実装 | 独立検証、asset照合、再生成、性能測定に必要。公開assetは同一revision内で変更しない。 |
+| historical keep | `experiments/dynamic-distribution-ranges/planner.mjs`、`benchmark.mjs`、`decision.md`、`results.json` | 過去の設計判断・測定を再現する資料。production import graphへ接続しない。 |
+| deleted | legacy calculation API、比較utility、旧migration tests、dense JSON、schema-v1、旧JS generator、旧Phase 2-E／2-F harness、未参照runtime-dr統合prototype | 現行経路から到達不能またはG8／G9後に実行不能となったためGit履歴へ退役。 |
+
+G10の最終監査では、`src`、`tests`、`scripts`のlegacy calculation API参照を0件（canonical名の部分一致とUIの`getTotalDamageExpectedValue`を除く）とし、`public/data/schema-v2/revision-1/**`に差分がないことを確認した。dynamic-rangeの旧コマンド参照は履歴文書内だけに限定し、現行package command、production build、test importerから除去した。
+
+最終gate: `npm run check:node`、`npm test`（56 files / 763 tests）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:test:simulation`（13 passed / 18 deselected）、`npm run generator:lint`、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`npm run smoke:production`、`git diff --check`、`npm run data:check`（32 assets）が成功した。Phase 8ではcanonical production、公開schema-v2 asset、Python generator、必要なpublished-bucket互換だけを保持し、legacy計算・旧データ生成・壊れた実験経路を残さない状態になった。

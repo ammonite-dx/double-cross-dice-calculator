@@ -1,6 +1,6 @@
 # 事前計算データ
 
-確率計算で使用する事前計算データは、Cloudflare Pagesから静的アセットとして配信します。生成物は手動で編集しません。現在の密JSONから疎形式へ変換する移行用コマンドは`npm run data:generate`、確率分布そのものをPythonで再計算するコマンドは`npm run data:regenerate`です。
+確率計算で使用する事前計算データは、Cloudflare Pagesから静的アセットとして配信します。生成物は手動で編集しません。`npm run data:generate`と`npm run data:regenerate`はいずれもPython generatorの生成コマンドへ委譲します。
 
 事前計算が従うダイスロール手順と境界条件は[`docs/dice-rules.md`](./dice-rules.md)に定義します。
 
@@ -13,11 +13,11 @@
 
 アプリとデータは同じPagesデプロイに含めます。後方互換レイヤーは持たず、アプリが要求する`schemaVersion`と`dataRevision`に一致するデータだけを読み込みます。
 
-現在の出力先は`public/data/schema-v2/revision-1/`です。schema-v1の旧データは移行比較の参照用として保持し、アプリからは参照しません。
+現在の出力先は`public/data/schema-v2/revision-1/`です。旧schema-v1とdense JSONはPhase 8-2G9で退役し、内容を確認したい場合はGit履歴を参照します。
 
 公開済みのrevisionはimmutableとして扱います。productionで不要になったassetを整理する場合も、既存revisionのURLを同一revision内で削除せず、新しいrevisionへ最小構成を生成して参照先を切り替えます。Git上のlegacy/reference削除と、公開済みURLのretirementは別の判断として記録します。
 
-生成元の`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`は変換処理と比較・移行・asset equivalence testだけが参照します。本番アプリケーションから直接importせず、ViteのJavaScriptチャンクにも含めません。canonical Attackが必要とするD10は生成済みpublic assetを計算時にlazy loadします。
+現行の生成元は`generator/`のPython実装です。公開assetは本番アプリケーションへ同梱され、canonical Attackが必要とするD10だけが計算時にlazy loadされます。DX、DR、livingdeadは本番計算ではruntime生成し、公開assetはgeneratorの照合・独立検証と互換参照のために保持します。
 
 ## 共通形式
 
@@ -106,13 +106,13 @@ canonical UIはroute preloadを行わず、計算時に必要なruntime計算ま
 - 攻撃: `shihai`・`kazanari`の事前計算assetを読まず、runtime DXを生成し、防御側damage diceが1以上のときだけ`d10`をlazy loadする。DRは常駐Workerでruntime生成する
 - バックトラック: 完全on-demandのcanonical generatorで要求範囲を生成し、`d10`・`livingdead` assetを読まない
 
-`d10`と`livingdead`の疎な分布形式は下位legacy経路とasset equivalence testの参照仕様として保持します。canonical Backtrackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`d10`のcanonical Attack利用とlegacy compatibility pathのデータ取得・検証・cacheは`PrecomputedDataRepository.js`に集約します。
+`d10`と`livingdead`の疎な分布形式はgeneratorの出力仕様とasset検証の対象です。canonical Backtrackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`d10`のcanonical Attack利用とassetの取得・検証・cacheは`src/data/D10PrecomputedDataRepository.js`に集約します。`src/data/ReferencePrecomputedDataRepository.js`はテストと独立比較のために公開assetを読み込みます。
 
 ## 検証gateと整理条件
 
-`npm run data:check`は旧dense `src/data/*.json`を入力にschema-v1 referenceを生成し、旧形式の配列形状、確率値、疎形式変換を検証するmigration用gateです。`npm run data:verify-generator`はPython generatorからpublic schema-v2/revision-1 assetsを再生成して比較し、`npm run generator:test`は数値監査、独立全列挙、current asset equivalenceを、`npm run generator:test:simulation`は乱数シミュレーションとの一致を検証します。
+`npm run data:check`と`npm run data:verify-generator`は、Python generatorからpublic schema-v2/revision-1 assetsを再生成して比較します。`npm run generator:test`は数値監査、独立全列挙、current asset equivalenceを、`npm run generator:test:simulation`は乱数シミュレーションとの一致を検証します。
 
-Phase 8-1で`src/data/*.json`や変換スクリプトを整理する場合は、`data:check`が保証していたdense形状・旧形式変換・旧revision equivalenceを、generatorのschema/manifest validation、numerical audit、exhaustive reference、asset manifest validationへ移したことを確認してから削除します。この対応が完了するまで、旧JSONと比較・migration testを一括削除しません。
+旧dense JSONとschema-v1変換スクリプトはPhase 8-2G9で削除しました。旧gateが保証していたdense形状・旧形式変換・旧revision equivalenceは、generatorのschema/manifest validation、numerical audit、exhaustive reference、asset manifest validationへ移行済みです。
 
 ## ファイル名と整合性
 
@@ -127,7 +127,7 @@ Phase 8-1で`src/data/*.json`や変換スクリプトを整理する場合は、
 3. `npm run data:verify-generator`でPython生成器の出力と現行の配信データとの差分を確認する
 4. `npm run data:regenerate`を実行し、`generated-data/`へレビュー用データを生成する
 5. 公開する場合は`dataRevision`とアプリの参照先を更新し、新しいリビジョンの配信先へ配置する
-6. `npm run data:check`で旧dense JSONから作るschema-v1 referenceを検証し、PythonとJavaScriptのテスト、lint、ビルドを実行する
+6. `npm run data:check`でPython generatorと公開schema-v2/revision-1の一致を検証し、PythonとJavaScriptのテスト、lint、ビルドを実行する
 7. 公開済みrevisionのファイルを上書きせず、生成物とマニフェストを同じ新revisionのコミットに含める
 
-Python環境、データセット単位の照合、全再生成については[`generator/README.md`](../generator/README.md)を参照してください。生成器の移行検証が完了するまでは、`src/data/*.json`と`scripts/generate-precomputed-data.mjs`も比較用に保持します。
+Python環境、データセット単位の照合、全再生成については[`generator/README.md`](../generator/README.md)を参照してください。生成器の現行ソースはPython generatorに一本化され、旧JS生成scriptとdense JSONはGit履歴にのみ残ります。

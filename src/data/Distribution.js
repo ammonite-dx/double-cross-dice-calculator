@@ -51,19 +51,6 @@ export function shiftDistribution(distribution, amount) {
   return shifted
 }
 
-export function getExpectedValue(distribution) {
-  if (!distribution) {
-    return null
-  }
-
-  let expectedValue = 0
-  for (let value = 1; value < distribution.length; value += 1) {
-    expectedValue += value * distribution[value]
-  }
-
-  return Math.round(expectedValue * 10) / 10
-}
-
 export function getUpperTailProbability(distribution) {
   const upperTailProbability = Array(distribution.length).fill(0)
   upperTailProbability[0] = 1

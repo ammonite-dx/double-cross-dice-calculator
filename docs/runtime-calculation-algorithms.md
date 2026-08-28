@@ -2,15 +2,15 @@
 
 ## 目的と範囲
 
-この文書は、ブラウザが事前計算済み分布を読み込んだ後に行う達成値、成功率、ダメージ、バックトラックの計算を、現在の実装に対応する形で説明します。ゲーム内処理の正規仕様は[`dice-rules.md`](./dice-rules.md)、事前計算データを作るアルゴリズムは[`precomputation-algorithms.md`](./precomputation-algorithms.md)、学習用の導入は[`probability-calculation-tutorial.md`](./probability-calculation-tutorial.md)を参照してください。
+この文書は、ブラウザ内のcanonical計算コアが行う達成値、成功率、ダメージ、バックトラックの計算を、現在の実装に対応する形で説明します。ゲーム内処理の正規仕様は[`dice-rules.md`](./dice-rules.md)、事前計算データを作るアルゴリズムは[`precomputation-algorithms.md`](./precomputation-algorithms.md)、学習用の導入は[`probability-calculation-tutorial.md`](./probability-calculation-tutorial.md)を参照してください。公開assetは必要な箇所で参照されますが、DX、DR、Backtrackの主要計算は入力に応じてruntime生成します。
 
-事前計算器は`dx`、`dr`、`d10`、`livingdead`の基礎分布を生成します。実行時のJavaScriptは、入力に対応する分布を取得し、技能値、成功条件、対決、攻撃力、防御、バックトラックの区分など、画面操作によって変化する条件を合成します。
+事前計算器は公開assetとして利用する`dx`、`dr`、`d10`、`livingdead`の基礎分布を生成します。実行時のJavaScriptは、DXとDRを必要な範囲で生成し、技能値、成功条件、対決、攻撃力、防御、バックトラックの区分など、画面操作によって変化する条件を合成します。
 
 ## 1. 分布の共通表現
 
 ### 1.1 公開分布と作業分布
 
-非負整数値を取る確率分布を、インデックスが値、要素がその値の確率となる配列で表します。画面へ返す公開分布は1024要素であり、インデックス1023には値1023以上の確率を集約します。planなしの互換経路では判定の作業分布を2048要素で保持し、planner経由のScore経路ではtail certificateと表示範囲から求めたworkingLengthを使い、最後に公開分布へ集約します。
+非負整数値を取る確率分布を、インデックスが値、要素がその値の確率となる配列で表します。canonicalの画面向け分布は要求されたdisplay windowとsupport metadataを保持し、固定長へ切り詰めません。1024要素とインデックス1023への集約は、公開assetおよびpublished-bucket互換・独立比較の境界だけで使います。
 
 この二段階の表現は、値1023以上を一度集約した後で負の固定値やダイス軽減を適用すると、元の値を復元できない問題を避けるためのものです。厳密性の境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)に記載しています。
 
@@ -18,7 +18,7 @@
 
 静的アセットの各分布は、先頭の連続する0を省略した`offset`と`values`からなります。`expandSparseDistribution`はこれを1024要素または2048要素の密な配列へ展開します。
 
-`collapseDistribution`は作業分布のインデックス0から1022をそのまま残し、インデックス1023以降の確率を公開分布の最後へ合計します。上限外の確率を捨てないことが重要です。Scoreのdynamic経路では作業配列の実際の長さを使って丸め、overflow bucket、skill shiftを処理し、公開時だけ1024要素へ戻します。
+`collapseDistribution`は互換表示向けに作業分布のインデックス0から1022をそのまま残し、インデックス1023以降の確率を公開分布の最後へ合計します。上限外の確率を捨てないことが重要です。canonical経路では作業配列の実際の長さとoverflow metadataを保持し、必要な場合だけpublished-bucketへ明示的に投影します。
 
 ### 1.3 シフト
 
@@ -51,15 +51,15 @@ $$
 
 ## 2. 達成値
 
-実装は`src/data/ScoreCalculator.js`の`calculateScore`です。
+実装は`src/calculation/ScoreCalculator.js`の`calculateScoreCanonical`です。
 
 ### 2.1 固定値判定
 
 固定値モードではダイスを使わず、技能値を0から1023へ制限した位置に確率1を置きます。ダイスによる自動失敗やファンブルはないため、`failureProbability`は0です。
 
-### 2.2 事前計算済み判定の取得
+### 2.2 実行時判定分布の生成
 
-通常モードでは`CalculationClient`が`calculateDxDistribution({ dice, critical, shihai })`を計算コアへ注入し、返された2048要素の分布を使用します。この段階のインデックス0はダイス数0の自動失敗、インデックス1はファンブルを表す内部表現です。JSONリポジトリの分布取得関数は参照・回帰経路に残します。
+通常モードでは`CalculationClient`が`calculateDxDistribution({ dice, critical, shihai })`を計算コアへ注入し、要求されたworking lengthの分布を使用します。この段階のインデックス0はダイス数0の自動失敗、インデックス1はファンブルを表す内部表現です。公開JSONの分布取得関数はReference repositoryを通じてテストと独立比較に残します。
 
 ### 2.3 `yousei`の合成
 
@@ -93,7 +93,7 @@ $$
 
 ## 3. 成功率と対決
 
-実装は`src/data/ScoreCalculator.js`の`getScoreSummary`です。
+実装は`src/calculation/ScoreCalculator.js`の`getCanonicalScoreSummary`です。
 
 固定難易度$t$に対する成功確率は原則として$P(A\ge t)$です。ただし$t=0$では、分布のインデックス0に通常結果と自動失敗・ファンブルが共存するため、上側確率から`failureProbability`だけを除きます。
 
@@ -115,7 +115,7 @@ $$
 
 ## 4. 単発ダメージ
 
-実装は`src/data/DamageCalculator.js`の`getDamage`です。
+実装は`src/calculation/DamageCalculator.js`の`calculateCanonicalDamageOnDemand`です。
 
 ### 4.1 命中確率とダメージダイス数
 
@@ -153,13 +153,13 @@ $$
 
 ## 5. 複数攻撃の合計
 
-`getTotalDamage`は、選択された各コンボのダメージ分布を順番に畳み込みます。初期値はダメージ0に確率1を持つ点分布です。
+`calculateCanonicalTotalDamage`は、選択された各コンボのcanonicalダメージ分布を順番に畳み込みます。初期値はダメージ0に確率1を持つ点分布です。
 
-各コンボの結果はすでに非命中をダメージ0として含むため、単純な畳み込みによって「どの攻撃が命中したか」を含む合計ダメージ分布になります。合計は公開分布上で行われるため、途中で1023以上になった値はそれ以降も最後のバケットに残ります。
+各コンボの結果はすでに非命中をダメージ0として含むため、単純な畳み込みによって「どの攻撃が命中したか」を含む合計ダメージ分布になります。canonical合計は各envelopeのsupportとoverflow metadataを維持したまま必要なFFT長で計算し、published-bucketへ投影する場合だけ1023以上を最後のバケットへ集約します。
 
 ## 6. バックトラック
 
-実装は`src/data/BacktrackCalculator.js`の`getFinalEncroachment`です。
+実装は`src/calculation/BacktrackCalculator.js`の`calculateFinalEncroachmentCanonical`です。
 
 ### 6.1 ダイス数
 
@@ -191,21 +191,21 @@ $$
 
 ## 7. 静的アセットの取得とキャッシュ
 
-実装は`src/data/PrecomputedDataRepository.js`です。
+実装は`src/data/D10PrecomputedDataRepository.js`と`src/data/ReferencePrecomputedDataRepository.js`です。前者はproduction AttackのD10 lazy load、後者はテストと独立比較を担当します。
 
-アセットの取得時にスキーマバージョン、データリビジョン、データセット名、分布長、インデックス範囲、疎分布の範囲、確率値、確率総和を検証します。検証を通過したデータだけを登録します。
+アセットの取得時にスキーマバージョン、データリビジョン、データセット名、分布長、インデックス範囲、疎分布の範囲、確率値、確率総和を検証します。検証を通過したデータだけをcacheへ登録します。
 
-`dx`は`shihai`ごと、`dr`は`kazanari`ごとのファイルを遅延取得します。同じファイルへの同時リクエストは進行中のPromiseを共有し、取得後はメモリへ保持します。`d10`と`livingdead`も一度取得したアセットと展開済み分布を再利用します。
+`ReferencePrecomputedDataRepository`は`dx`を`shihai`ごと、`dr`を`kazanari`ごとのファイルとして遅延取得します。同じファイルへの同時リクエストは進行中のPromiseを共有し、取得後はメモリへ保持します。productionの`D10PrecomputedDataRepository`はAttackで必要な`d10`だけを同じ契約で取得します。`livingdead`はBacktrackのcanonical計算では読み込みません。
 
 ## 8. 計算量と性能上の要点
 
 - 長さ$N$の分布のシフト、上側確率、範囲集計は$O(N)$です。
 - FFTによる畳み込みは$O(N\log N)$であり、複数回の畳み込みを直接二重ループで行うより有利です。
-- `dr`の転置には初回だけ時間とメモリを使いますが、ダメージ混合の内側ループを単純化し、同じ`kazanari`の再計算で再利用できます。
+- DRのruntime生成はweightsを周波数領域で混合し、`RuntimeDamageRollWorker`へ計算を移します。Workerは同じ入力の重複排除とcacheを行い、画面のメインスレッドを占有しません。
 - 達成値の混合では確率が0でない達成値だけを処理し、不要な`dr`参照を避けます。
 - 公開分布より広い作業分布はFFTや走査の定数倍コストを増やしますが、負の補正前に上限を集約しないための正確性を優先した設計です。
 
-絶対時間は実行環境に依存します。変更前後の比較には`npm run benchmark:calculators`を同じ環境で実行します。
+絶対時間は実行環境に依存します。変更前後の比較には`npm run benchmark:full-tail-attack`またはruntime DR benchmarkを同じ環境で実行します。
 
 ## 9. 実装とテストの対応
 
@@ -213,15 +213,15 @@ $$
 | --- | --- | --- |
 | 分布の展開、集約、シフト、上側確率 | `src/data/Distribution.js` | `tests/distribution.test.js` |
 | 畳み込みと差 | `src/data/FFT.js` | `tests/fft.test.js` |
-| 達成値、成功率、対決 | `src/data/ScoreCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
-| 単発・合計ダメージ | `src/data/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
-| バックトラック | `src/data/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/calculator.test.js` |
-| アセット検証とキャッシュ | `src/data/PrecomputedDataRepository.js` | `tests/precomputedDataRepository.test.js` |
+| 達成値、成功率、対決 | `src/calculation/ScoreCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/canonicalCheck.test.js` |
+| 単発・合計ダメージ | `src/calculation/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/canonicalDamageOnDemand.test.js`、`tests/canonicalTotalDamageClient.test.js` |
+| バックトラック | `src/calculation/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/backtrackCanonical.test.js` |
+| アセット検証とキャッシュ | `src/data/D10PrecomputedDataRepository.js`、`src/data/ReferencePrecomputedDataRepository.js` | `tests/d10PrecomputedDataRepository.test.js`、`tests/referencePrecomputedDataRepository.test.js` |
 | 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
 | 実行時DRの可変FFT・出力長、Worker protocol | `src/calculation/RuntimeDamageRollCalculator.js`、`src/calculation/RuntimeDamageRollLimits.js`、`src/application/RuntimeDamageRollClient.js`、`src/application/RuntimeDamageRollWorker.js` | `tests/runtimeDamageRollProduction.test.js`、`tests/runtimeDamageRollProductionClient.test.js` |
-| Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/application/CalculationClient.js`、`src/data/PrecomputedDataRepository.js` | `tests/runtimeDamageOnDemand.test.js`、`tests/calculationClient.test.js`、`tests/precomputedDataRepository.test.js` |
+| Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/application/CalculationClient.js`、`src/data/D10PrecomputedDataRepository.js` | `tests/canonicalDamageOnDemand.test.js`、`tests/calculationClient.test.js`、`tests/d10PrecomputedDataRepository.test.js` |
 
-独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は回帰の検出に使用しますが、ルール上の正しさを保証する期待値には使用しません。
+独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は過去の検証記録としてGit履歴に残っていますが、現行のルールテストはcanonical結果と独立した期待値を比較します。
 
 ## 10. 変更時の確認事項
 
@@ -232,6 +232,10 @@ $$
 - 配列長や上限集約を変える場合はADRを追加または更新し、負の補正を含む境界値を検証する。
 - 新しい分布を合成する場合は、確率総和、非負性、到達範囲、上側確率の単調性を検証する。
 - 性能に影響する場合は、同一環境のベンチマーク結果を変更前後で比較する。
+
+## 実装履歴
+
+ここから後ろの節は、canonical移行時の設計判断と検証結果を時系列で残した履歴です。履歴中に登場するlegacy API、旧asset、旧wrapperは当時の状態を指し、現在の実行経路では使用しません。現在の実装を確認するときは、上の1～10節と[`phase8-inventory.md`](./phase8-inventory.md)のPhase 8-2G10 closureを優先してください。
 
 ## 11. 動的範囲plannerとCalculationClient preflight
 

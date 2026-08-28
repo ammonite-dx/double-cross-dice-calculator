@@ -2,7 +2,7 @@
 
 ## 目的
 
-このディレクトリは、`dr`の全ダイス数分布を静的JSONから取得せず、命中結果から必要になる混合分布をブラウザ内で直接計算できるか調査するための実験です。現時点では本番の`DamageCalculator`、`PrecomputedDataRepository`、配信アセットを変更しません。
+このディレクトリは、`dr`の全ダイス数分布を静的JSONから取得せず、命中結果から必要になる混合分布をブラウザ内で直接計算できるか調査するための実験です。最適化実装は現在の`RuntimeDamageRollCalculator`とWorker経路へ反映され、ここには参照実装と性能・数値検証用のコードだけを残しています。
 
 ## 入出力
 
@@ -29,13 +29,12 @@ $$
 - [`fft.js`](./fft.js)は、両実装が共有する4096点FFTです。
 - [`worker.js`](./worker.js)は、最適化実装を常駐するmodule Workerで実行し、2048要素の分布をtransferableとして返します。
 - [`client.js`](./client.js)は、Workerの生成、同一入力の重複排除、LRUキャッシュ、呼び出し単位の中断、障害後のWorker再生成を管理します。
-- [`damage.js`](./damage.js)は、命中確率をダメージダイス数ごとの重みへ集約し、Workerの結果へ攻撃力、防御ダイス、防御固定値、非命中確率を適用する統合プロトタイプです。
 - [`browser-benchmark.html`](./browser-benchmark.html)と[`browser-benchmark.js`](./browser-benchmark.js)は、実ブラウザのメインスレッド実行とWorkerクライアント経由の実行を比較します。
 - [`decision.md`](./decision.md)は、実験から得られた根拠、暫定的な採用判断、本番実装前の未解決事項を記録します。
 - [`runtimeDamageRollExperiment.test.js`](../../tests/runtimeDamageRollExperiment.test.js)は、代表的な単一分布、混合分布、確率総和、非負性、参照実装と最適化実装の一致を検証します。
 - [`runtimeDamageRollClient.test.js`](../../tests/runtimeDamageRollClient.test.js)は、重複排除、キャッシュ、中断、エラー伝播、Worker再生成、終了処理を偽のWorkerで検証します。
-- [`runtimeDamageOnDemand.test.js`](../../tests/runtimeDamageOnDemand.test.js)は、命中確率の集約と防御適用後の最終分布を現行JSON経路と比較します。
-- [`verify-runtime-dr-experiment.mjs`](../../scripts/verify-runtime-dr-experiment.mjs)は、現行JSONに含まれる203ダイス数と10種類の`kazanari`の全2030分布を比較します。
+- [`canonicalDamageOnDemand.test.js`](../../tests/canonicalDamageOnDemand.test.js)と[`runtimeDamageRollProduction.test.js`](../../tests/runtimeDamageRollProduction.test.js)は、命中確率の集約、防御適用後の最終分布、Workerへ渡す混合分布をcanonical経路で検証します。
+- [`verify-runtime-dr-experiment.mjs`](../../scripts/verify-runtime-dr-experiment.mjs)は、公開schema-v2/revision-1 assetに含まれる203ダイス数と10種類の`kazanari`の全2030分布を比較します。
 - [`benchmark-runtime-dr-experiment.mjs`](../../scripts/benchmark-runtime-dr-experiment.mjs)は、同じ混合重みについて両実装を測定します。
 
 ## 実行方法
@@ -43,7 +42,7 @@ $$
 ```shell
 npm test -- tests/runtimeDamageRollExperiment.test.js
 npm test -- tests/runtimeDamageRollClient.test.js
-npm test -- tests/runtimeDamageOnDemand.test.js
+npm test -- tests/canonicalDamageOnDemand.test.js tests/runtimeDamageRollProduction.test.js
 npm run test:runtime-dr:full
 npm run test:runtime-dr:full:reference
 npm run benchmark:runtime-dr
@@ -65,11 +64,11 @@ Workerが計算エラーを返した場合は該当要求だけを失敗させ�
 
 現行の`DamageCalculator`は、命中した達成値ごとにダメージダイス数を求め、対応する`dr`の列を混合します。オンデマンド版では、先に同じダメージダイス数となる命中確率を$w_n$へ集約し、この重みをWorkerへ渡します。Workerから返る分布には非命中確率を含めず、攻撃力、防御ダイス、防御固定値を適用した後でダメージ0へ加えます。この順序は現行実装と同じです。
 
-統合プロトタイプは`kazanari = 0, 3, 9`について、正の攻撃力、負の攻撃力、防御ダイス、防御固定値、命中と非命中の混合を含む最終ダメージ分布を現行JSON経路と比較し、最大絶対差$2\times10^{-6}$以内で一致することを確認しています。
+当時の統合プロトタイプは`kazanari = 0, 3, 9`について、正の攻撃力、負の攻撃力、防御ダイス、防御固定値、命中と非命中の混合を含む最終ダメージ分布を公開asset経路と比較し、最大絶対差$2\times10^{-6}$以内で一致することを確認しました。統合処理の現行実装は`src/calculation/DamageCalculator.js`と`src/application/CalculationClient.js`です。
 
 ## 予備結果
 
-2026年8月2日のWindows x64、Node.js v24.14.0で、現行JSONの全2030分布との最大絶対差は、両実装とも約$5.98\times10^{-7}$でした。最大差は`kazanari = 6`、ダイス数8、ダメージ55で発生し、現行JSONの小数点以下6桁への丸めで説明できる範囲に収まりました。
+2026年8月2日のWindows x64、Node.js v24.14.0で、公開schema-v2/revision-1の全2030分布との最大絶対差は、両実装とも約$5.98\times10^{-7}$でした。最大差は`kazanari = 6`、ダイス数8、ダメージ55で発生し、assetの小数点以下6桁への丸めで説明できる範囲に収まりました。
 
 | 実装 | `kazanari = 0` | `kazanari = 3` | `kazanari = 9` |
 | --- | ---: | ---: | ---: |

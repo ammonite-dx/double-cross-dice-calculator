@@ -435,6 +435,15 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - 検証: `npm run data:check`（32 assets）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:lint`、`npm test`（56 files / 763 tests）が成功した。
 - 次はG10として、G7〜G9で自然にdeadになった実験・互換コードを監査し、Phase 8のretained/deleted一覧を確定する。
 
+### Phase 8-2G10: 残存legacy/dead code監査とPhase 8 closure（完了）
+
+- `src`、`tests`、`scripts`のlegacy計算API importerを再監査し、production importer 0を確認した。published-bucket adapter、旧チャート形状、Reference/D10 repositoryは利用箇所が残るため保持した。
+- G8後に実行不能となったdynamic-distribution-rangesのPhase 2-E／2-F Node・ブラウザハーネスと、未参照の`experiments/runtime-dr/damage.js`を削除した。planner、benchmark、decision、resultsは歴史資料として保持し、現行測定はcanonical/full-tail benchmarkへ集約した。
+- packageから`benchmark:dynamic-distribution-ranges:browser`を削除し、壊れたlegacy harnessを現行コマンドから到達不能にした。旧API、dense JSON、schema-v1、旧JS generatorはG8／G9で退役済みである。
+- 公開`public/data/schema-v2/revision-1/**`は変更していない。G10の残存コード分類と削除理由は[`phase8-inventory.md`](./phase8-inventory.md)へ記録した。
+- 最終gate: `npm run check:node`、`npm test`（56 files / 763 tests）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:test:simulation`（13 passed / 18 deselected）、`npm run generator:lint`、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`npm run smoke:production`、`npm run data:check`（32 assets）、`git diff --check`が成功した。
+- Phase 8は、canonical production、必要なpublished-bucket互換、公開schema-v2 asset、Python generator、独立検証資料だけを保持する状態で完了した。Cloudflare Worker/API/MCPは従来どおり将来目標とする。
+
 ## 参照文書
 
 - [todo.md](./todo.md): RangePlanner/ResourceGuard、canonical Attack、既定経路、JSON整理、外部境界に関する作業履歴。

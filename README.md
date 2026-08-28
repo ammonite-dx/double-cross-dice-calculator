@@ -85,11 +85,11 @@ src/
   router/      ルーティング
   views/       ページ単位のコンポーネント
 public/data/   バージョン管理された事前計算済み静的アセット
-reference-data/  配信対象外の旧revision参照データ
 generator/     Python製の事前計算データ生成器
+experiments/   runtime計算・性能検証の参照実装と履歴資料
 schemas/       事前計算データのJSON Schema
 scripts/       事前計算データの生成・検証スクリプト
-tests/legacy/  移行結果を比較するための旧計算実装
+tests/         canonical計算、ルール、asset、Workerのテスト
 ```
 
 アプリケーションのモジュール境界とデータ読込の流れは[`docs/architecture.md`](./docs/architecture.md)を参照してください。
