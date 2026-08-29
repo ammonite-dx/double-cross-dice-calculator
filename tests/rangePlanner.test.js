@@ -941,6 +941,29 @@ describe('production range planner', () => {
     ]))
   })
 
+  it('rejects a resource-heavy but rule-valid attack before allocation', () => {
+    const plan = planCalculationRanges(attackParams({
+      score: {
+        action: scoreParams({ critical: 11 }),
+        reaction: scoreParams({ critical: 11 }),
+      },
+      attack: { dice: 100_000, value: 0, kazanari: 100_000 },
+      defence: { dice: 0, value: 0 },
+    }), {
+      scorePropagation: 'full-tail',
+    })
+
+    expect(plan.accepted).toBe(false)
+    expect(plan.rejectionReasons).toEqual(expect.arrayContaining([
+      'damage-fft-length',
+      'estimated-time',
+    ]))
+    expect(plan.damage.maxDamageDice).toBeGreaterThan(100_000)
+    expect(plan.damage.effectiveKazanari).toBeLessThanOrEqual(
+      plan.damage.maxDamageDice
+    )
+  })
+
   it('retains the public overflow score bucket for a lower calculation maximum', () => {
     const params = attackParams()
     const published = planCalculationRanges(params, {

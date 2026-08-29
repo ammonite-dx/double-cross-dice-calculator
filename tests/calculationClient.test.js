@@ -201,7 +201,7 @@ describe('canonical CalculationClient surface', () => {
       .toBe(true)
   })
 
-  it('runs canonical Attack through D10 lazy loading and canonical damage only', async () => {
+  it('runs canonical Attack through the runtime D10 provider and canonical damage only', async () => {
     const canonicalDamage = createCanonicalDamage()
     const planCalculationRangesSpy = vi.fn(planCalculationRanges)
     const calculateCanonicalDamageOnDemand = vi.fn(async (score) => {

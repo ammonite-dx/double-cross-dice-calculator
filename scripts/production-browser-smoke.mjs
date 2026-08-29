@@ -314,6 +314,30 @@ async function settlePage(page) {
   await page.waitForTimeout(SETTLE_TIMEOUT_MILLISECONDS)
 }
 
+async function fillBoundaryInput(
+  page,
+  record,
+  caseId,
+  input,
+  value,
+  expectedCanvases,
+) {
+  assertCondition(
+    caseId,
+    await input.count() === 1,
+    'accessible boundary input was not found',
+  )
+  await input.fill(String(value))
+  assertCondition(
+    caseId,
+    await input.inputValue() === String(value),
+    `boundary input did not retain ${value}`,
+  )
+  await waitForCanvases(page, expectedCanvases, { exact: true })
+  await page.waitForTimeout(500)
+  assertNoBrowserErrors(caseId, record)
+}
+
 async function runCheck(browser, baseUrl) {
   const context = await browser.newContext()
   const page = await context.newPage()
@@ -324,7 +348,20 @@ async function runCheck(browser, baseUrl) {
     await settlePage(page)
     assertNoPrecomputedRequests('check', record)
     assertNoBrowserErrors('check', record)
-    return { canvases, id: 'check', precomputed: 0 }
+
+    await fillBoundaryInput(
+      page,
+      record,
+      'check-dice=100',
+      page.getByLabel('ダイス数'),
+      100,
+      1,
+    )
+    assertNoPrecomputedRequests('check-dice=100', record)
+    return [
+      { canvases, id: 'check', precomputed: 0 },
+      { canvases: 1, id: 'check dice=100', precomputed: 0 },
+    ]
   } catch (error) {
     throw enrichCaseError('check', error, record)
   } finally {
@@ -354,6 +391,32 @@ async function runAttack(browser, baseUrl) {
     await settlePage(page)
     assertNoPrecomputedRequests('attack-d10', record)
     assertNoBrowserErrors('attack-d10', record)
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack-action-dice=100',
+      page.getByLabel('ダイス数').first(),
+      100,
+      2,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack-damage-dice=100',
+      page.getByLabel('攻撃力').first(),
+      100,
+      2,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack-defence-dice=100',
+      page.getByLabel('装甲・軽減値').first(),
+      100,
+      2,
+    )
+    assertNoPrecomputedRequests('attack-boundaries', record)
+    assertNoBrowserErrors('attack-boundaries', record)
     return [
       {
         canvases: initialCanvases,
@@ -365,6 +428,12 @@ async function runAttack(browser, baseUrl) {
         canvases: finalCanvases,
         d10Requests: 0,
         id: 'attack defence=1',
+        precomputed: 0,
+      },
+      {
+        canvases: finalCanvases,
+        d10Requests: 0,
+        id: 'attack action/attack/defence dice=100',
         precomputed: 0,
       },
     ]
@@ -385,7 +454,28 @@ async function runBacktrack(browser, baseUrl) {
     await settlePage(page)
     assertNoPrecomputedRequests('backtrack', record)
     assertNoBrowserErrors('backtrack', record)
-    return { canvases, id: 'backtrack', precomputed: 0 }
+    await fillBoundaryInput(
+      page,
+      record,
+      'backtrack-elois=100',
+      page.getByLabel('Eロイス数'),
+      100,
+      3,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'backtrack-dice=100',
+      page.getByLabel('その他減少量'),
+      100,
+      3,
+    )
+    assertNoPrecomputedRequests('backtrack-boundaries', record)
+    assertNoBrowserErrors('backtrack-boundaries', record)
+    return [
+      { canvases, id: 'backtrack', precomputed: 0 },
+      { canvases: 3, id: 'backtrack Eロイス/other dice=100', precomputed: 0 },
+    ]
   } catch (error) {
     throw enrichCaseError('backtrack', error, record)
   } finally {
@@ -417,9 +507,9 @@ async function main() {
     server = await startPreviewServer()
     browser = await launchChromium()
     const summaries = []
-    summaries.push(await runCheck(browser, server.baseUrl))
+    summaries.push(...await runCheck(browser, server.baseUrl))
     summaries.push(...await runAttack(browser, server.baseUrl))
-    summaries.push(await runBacktrack(browser, server.baseUrl))
+    summaries.push(...await runBacktrack(browser, server.baseUrl))
     printSummary(summaries)
   } finally {
     await browser?.close().catch(() => {})
