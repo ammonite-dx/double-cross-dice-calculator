@@ -456,4 +456,4 @@ RH4監査で確認した結果、published-bucket adapter、`LegacyChartSetter.j
 
 RH5の回帰として、D10の224ケースを現行runtime生成と公開1024 bucketへ投影して比較し、assetの小数第6位丸めを含む最大誤差1e-6以内を確認する。rule-validな100,000D attackはplannerが配列を確保する前に`damage-fft-length`／`estimated-time`でrejectし、ブラウザsmokeではCheckの100D、Attackのaction/attack/defence各100D、BacktrackのEロイス・その他減少量100Dをcanvas表示・request 0・browser error 0で確認する。
 
-RH5最終gateは、現行HEADで`npm run check:node`、`npm test`、`npm run lint`、`npm run lint:markdown`、`npm run build`、`npm run smoke:production`、`git diff --check`を実行し、generatorが利用可能な環境では`npm run data:check`、`npm run generator:test`、`npm run generator:test:simulation`、`npm run generator:lint`も実行する。API Worker、外部API、MCPはこのhardeningの対象外であり、canonical contract安定後の別フェーズとする。
+RH5最終gateは成功した。`npm run check:node`、Vitest（57 files / 768 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、production browser smoke、`git diff --check`、`npm run data:check`（32 assets）、generator test（18 passed / 13 deselected）、simulation（13 passed / 18 deselected）、Ruffがすべて通過した。API Worker、外部API、MCPはこのhardeningの対象外であり、canonical contract安定後の別フェーズとする。

@@ -29,7 +29,7 @@ G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark
 - 完了（RH2、`21161f4`）: runtime D10 primitiveを追加し、production Attack/BacktrackからD10 JSON取得を除去した。公開assetは参照・比較用に保持する。
 - 完了（RH3、`e512eec`）: DXの固定dice/shihai境界、DRの固定damage dice/kazanari境界、UIフォームの99/999上限を撤廃した。safe integer domainを受け付け、FFT、配列長、推定時間・メモリ、二次計算量の絶対安全上限で計算前に拒否する。`kazanari`は実際のダメージダイス数を超えた場合に同値な有効値へ正規化する。
 - 完了（RH4、`687d14c`）: production consumerがない`DamageCalculator`のlegacy finalizerを削除した。chart setter、published adapter、rounding aliasは比較・再生成用途のconsumerが残るため保持し、symbol単位で監査した。
-- 進行中（RH5）: D10全224ケースのasset equivalence、rule-validなresource-heavy入力のreject、100D級のproduction browser smokeを追加した。全static auditと最終gateを現行HEADで実行し、generator環境の検証結果を追記する。
+- 完了（RH5、`156b59e`）: D10全224ケースのasset equivalence、rule-validなresource-heavy入力のreject、100D級のproduction browser smokeを追加した。現行HEADでstatic auditとJavaScript・generatorの最終gateが成功している。
 
 RH2以降の現行productionでは、D10は`src/calculation/D10Calculator.js`のruntime primitiveから生成し、`src/data/D10PrecomputedDataRepository.js`や公開`d10.json`を読み込まない。Phase 8-2D以前のD10 lazy-fetch記述は履歴として保持する。
 
