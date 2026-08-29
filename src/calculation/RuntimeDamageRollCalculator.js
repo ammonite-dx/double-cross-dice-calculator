@@ -1,23 +1,20 @@
 import { transform } from './RuntimeDamageRollFFT'
 import {
-  MAX_KAZANARI,
   normalizeRuntimeDamageRollOptions,
+  RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
   validateRuntimeDamageRollInputs,
 } from './RuntimeDamageRollLimits'
 
 export {
-  MAX_DAMAGE_DICE,
-  MAX_KAZANARI,
   getRuntimeDamageRollRawSupportMax,
   normalizeRuntimeDamageRollOptions,
   RUNTIME_DAMAGE_MAX_FFT_SIZE,
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
+  RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
   RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_FFT_SIZE,
-  RUNTIME_DAMAGE_MAX_DAMAGE_DICE,
-  RUNTIME_DAMAGE_MAX_KAZANARI,
   validateRuntimeDamageRollInputs,
 } from './RuntimeDamageRollLimits'
 
@@ -25,20 +22,6 @@ export {
 // enumeration/reference cases. Keep the existing 1e-12 cleanup threshold:
 // it removes that noise while remaining far below any material probability.
 const NUMERICAL_EPSILON = 1e-12
-
-const binomialTable = (() => {
-  const table = []
-  for (let n = 0; n <= MAX_KAZANARI; n += 1) {
-    const row = new Float64Array(MAX_KAZANARI + 1)
-    row[0] = 1
-    row[n] = 1
-    for (let k = 1; k < n; k += 1) {
-      row[k] = table[n - 1][k - 1] + table[n - 1][k]
-    }
-    table.push(row)
-  }
-  return table
-})()
 
 function evaluatePolynomial(weights, valueReal, valueImaginary) {
   let resultReal = 0
@@ -115,18 +98,18 @@ function integerPower(valueReal, valueImaginary, exponent) {
   return [resultReal, resultImaginary]
 }
 
-function createScratch() {
+function createScratch(maxOrder) {
   return {
     powerReal: new Float64Array(11),
     powerImaginary: new Float64Array(11),
     suffixReal: new Float64Array(12),
     suffixImaginary: new Float64Array(12),
-    highDerivativeReal: new Float64Array(MAX_KAZANARI),
-    highDerivativeImaginary: new Float64Array(MAX_KAZANARI),
-    atLeastDerivativeReal: new Float64Array(MAX_KAZANARI),
-    atLeastDerivativeImaginary: new Float64Array(MAX_KAZANARI),
-    aboveDerivativeReal: new Float64Array(MAX_KAZANARI),
-    aboveDerivativeImaginary: new Float64Array(MAX_KAZANARI),
+    highDerivativeReal: new Float64Array(maxOrder + 1),
+    highDerivativeImaginary: new Float64Array(maxOrder + 1),
+    atLeastDerivativeReal: new Float64Array(maxOrder + 1),
+    atLeastDerivativeImaginary: new Float64Array(maxOrder + 1),
+    aboveDerivativeReal: new Float64Array(maxOrder + 1),
+    aboveDerivativeImaginary: new Float64Array(maxOrder + 1),
   }
 }
 
@@ -247,6 +230,7 @@ function evaluateSpectrumAt(
       let eligibleImaginary = atLeastDerivativeImaginary[belowCount]
       let equalPowerReal = 1
       let equalPowerImaginary = 0
+      let coefficient = 1
 
       for (
         let equalCount = 0;
@@ -260,7 +244,6 @@ function evaluateSpectrumAt(
         const excludedImaginary =
           equalPowerReal * aboveDerivativeImaginary[derivativeOrder] +
           equalPowerImaginary * aboveDerivativeReal[derivativeOrder]
-        const coefficient = binomialTable[derivativeOrder][belowCount]
         eligibleReal -= coefficient * excludedReal
         eligibleImaginary -= coefficient * excludedImaginary
 
@@ -271,6 +254,13 @@ function evaluateSpectrumAt(
           equalPowerReal * equalImaginary +
           equalPowerImaginary * equalReal
         equalPowerReal = nextEqualPowerReal
+
+        if (equalCount + 1 < removedAtThreshold) {
+          // C(n+1,k) = C(n,k) (n+1)/(n+1-k), starting at C(k,k)=1.
+          coefficient *=
+            (derivativeOrder + 1) /
+            (derivativeOrder + 1 - belowCount)
+        }
       }
 
       const removedValue = threshold * removedAtThreshold
@@ -408,6 +398,7 @@ export function generateMixedDamageDistribution(
   const {
     rawSupportMax: actualSupportMax,
     total,
+    effectiveKazanari,
   } = validateRuntimeDamageRollInputs(weights, kazanari)
   const normalizedOptions = normalizeRuntimeDamageRollOptions(
     options,
@@ -417,13 +408,28 @@ export function generateMixedDamageDistribution(
 
   const real = new Float64Array(fftLength)
   const imaginary = new Float64Array(fftLength)
-  const scratch = createScratch()
+  const maxOrder = Math.max(0, effectiveKazanari - 1)
+  const estimatedOperations = (
+    fftLength / 2 + 1
+  ) * (
+    weights.length * (1 + 3 * effectiveKazanari) +
+    5 * effectiveKazanari * (effectiveKazanari + 1) / 2
+  )
+  if (
+    !Number.isFinite(estimatedOperations) ||
+    estimatedOperations > RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE
+  ) {
+    throw new RangeError(
+      `runtime damage calculation exceeds the absolute safety limit of ${RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE} operations`
+    )
+  }
+  const scratch = createScratch(maxOrder)
   const halfSize = fftLength / 2
 
   for (let frequency = 0; frequency <= halfSize; frequency += 1) {
     const [valueReal, valueImaginary] = evaluateSpectrumAt(
       weights,
-      kazanari,
+      effectiveKazanari,
       frequency,
       fftLength,
       scratch

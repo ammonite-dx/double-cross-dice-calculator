@@ -5,10 +5,13 @@ import {
   calculateDxDistribution,
   DX_CRITICAL_MAX,
   DX_CRITICAL_MIN,
-  DX_DICE_COUNT,
   DX_DISTRIBUTION_SIZE,
-  DX_SHIHAI_MAX,
 } from '../src/calculation/DxCalculator.js'
+
+// Keep the historical asset comparison matrix explicit. These values are
+// fixture coverage, not runtime input ceilings.
+const ASSET_DICE_COUNT = 100
+const ASSET_SHIHAI_MAX = 19
 
 const assetDirectory = new URL(
   '../public/data/schema-v2/revision-1/dx/',
@@ -18,7 +21,7 @@ const COMPARISON_TOLERANCE = 1e-6 + 1e-12
 
 async function loadAssets() {
   const assets = []
-  for (let shihai = 0; shihai <= DX_SHIHAI_MAX; shihai += 1) {
+  for (let shihai = 0; shihai <= ASSET_SHIHAI_MAX; shihai += 1) {
     const url = new URL(`shihai-${shihai}.json`, assetDirectory)
     assets.push(JSON.parse(await readFile(url, 'utf8')))
   }
@@ -76,9 +79,9 @@ let negativeCount = 0
 let tailCaseCount = 0
 let tailMaximumDifference = 0
 
-for (let shihai = 0; shihai <= DX_SHIHAI_MAX; shihai += 1) {
+for (let shihai = 0; shihai <= ASSET_SHIHAI_MAX; shihai += 1) {
   const asset = assets[shihai]
-  for (let dice = 0; dice < DX_DICE_COUNT; dice += 1) {
+  for (let dice = 0; dice < ASSET_DICE_COUNT; dice += 1) {
     for (
       let critical = DX_CRITICAL_MIN;
       critical <= DX_CRITICAL_MAX;
@@ -176,14 +179,14 @@ if (
             shihai: 3,
           }),
           benchmark('shihai=0 maximum', {
-            dice: DX_DICE_COUNT - 1,
+            dice: ASSET_DICE_COUNT - 1,
             critical: DX_CRITICAL_MIN,
             shihai: 0,
           }),
           benchmark('shihai>0 maximum', {
-            dice: DX_DICE_COUNT - 1,
+            dice: ASSET_DICE_COUNT - 1,
             critical: DX_CRITICAL_MIN,
-            shihai: DX_SHIHAI_MAX,
+            shihai: ASSET_SHIHAI_MAX,
           }),
         ],
       },

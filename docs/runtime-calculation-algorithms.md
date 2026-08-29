@@ -55,7 +55,7 @@ $$
 
 ### 2.1 固定値判定
 
-固定値モードではダイスを使わず、技能値を0から1023へ制限した位置に確率1を置きます。ダイスによる自動失敗やファンブルはないため、`failureProbability`は0です。
+固定値モードではダイスを使わず、非負化した技能値の位置に確率1を置きます。値はsafe integer domainの範囲で扱い、歴史的な1023バケットへ切り詰めません。canonical結果では大きな固定値を疎な一点分布（`offset`と長さ1の`values`）で表すため、値に比例した配列を確保しません。ダイスによる自動失敗やファンブルはないため、`failureProbability`は0です。
 
 ### 2.2 実行時判定分布の生成
 
@@ -77,19 +77,19 @@ $$
 
 この順序により、技能値が正でも自動失敗やファンブルへ技能値を加えません。一方、通常結果へ負の技能値を加えて0になった確率は結果分布のインデックス0へ入りますが、ルール上の自動失敗やファンブルではないため`failureProbability`には含めません。
 
-最後に1024要素へ集約し、上側確率を作成します。
+canonical経路では固定長へ集約せず、要求された表示windowの境界で必要な投影だけを行います。上側確率もcanonicalのoffsetとsupportを保ったまま作成し、published-bucket互換が明示的に要求された場合だけ1024要素へ投影します。
 
 ### 2.5 実行時`dx`基礎分布
 
-`calculateDxDistribution({ dice, critical, shihai })`は、現在の受理範囲（`dice=0..99`、`critical=2..11`、`shihai=0..19`）について、2048要素の`Float64Array`を返します。インデックス2047は作業分布の末尾バケットです。返却時には各確率を小数第6位へ丸め、確率総和が1になるよう生成器と同じ1単位補正を行います。これは公開JSONとの置換互換を保つための実装上の契約であり、一般的な計算コアの必須丸めを意味しません。
+`calculateDxDistribution({ dice, critical, shihai })`は、`critical=2..11`と安全な非負整数の`dice`・`shihai`を受け付け、要求されたworking lengthの`Float64Array`を返します。99D・19対象までという旧JSONの範囲は入力検証に使用しません。インデックスの最後は、そのworking rangeを超える値を表すtail bucketです。返却時には各確率を小数第6位へ丸め、確率総和が1になるよう生成器と同じ1単位補正を行います。これは公開JSONとの置換互換を保つための実装上の契約であり、一般的な計算コアの必須丸めを意味しません。
 
 `shihai=0`では、1個のダイスの累積分布を$F_c(x)$として$P(V_{n,c}\le x)=F_c(x)^n$を直接評価します。`dice=0`はインデックス0の自動失敗です。
 
 `shihai>0`では、`shihai+1`個から要求されたダイス数までをダイス数の動的計画法で順に計算します。各ダイス数の一段階分布は、クリティカル個数が`shihai+1`以上かつ現在のダイス数未満の既計算状態をシフト加算して作ります。全ダイスがクリティカルする自己遷移は、$d_x=a_x+p_c^n d_{x-10}$を配列方向に解き、末尾バケットへ残余確率を集約します。`dice<=shihai`は自動失敗の点分布です。
 
-全入力範囲の公開JSON比較と数値監査は`node scripts/verify-runtime-dx.mjs`で実行します。現行環境で20,000分布を約43.5秒（同一入力を個別API呼び出し）で比較し、最大要素差は`1.00000000003e-6`、最大総和誤差は`1.56e-15`でした。非有限値と負確率はありませんでした。代表ケースは`shihai=0`が約0.56ms、`shihai>0`が約0.59ms、最大ケース（99 dice、critical=2）はそれぞれ約0.21msと約4.25msでした。最大ケースの主要な`resultByDice`等のFloat64Array配列だけで理論上約1.56MiBを占めますが、これは係数表、その他の一時領域、JavaScriptランタイムを含む実測総メモリ量ではありません。これはNode.js同一環境の監査結果です。
+全入力範囲の旧公開JSON比較と数値監査は`node scripts/verify-runtime-dx.mjs`で実行します。比較行列は旧assetのcoverage（100D未満、shihai 20未満）に限定しており、runtimeの受理範囲を示すものではありません。現行実装では、`shihai=0`はmode-centered binomial recurrenceで二項確率を計算し、`shihai>0`は必要なダイス数のDPを順に生成します。DPの配列確保量と遷移回数には絶対安全上限があり、plannerは端末ごとの推定時間・メモリでさらに早く警告または拒否します。
 
-本番の通常判定はCalculationClientから実行時DX計算器を直接注入し、同じ入力の分布をクライアント単位の小さなLRUキャッシュで再利用します。実ブラウザ実験では現行最大ケースのメインスレッドウォーム最大が11.8 ms、Worker往復の追加コストが最大1.0 msで、現行範囲ではメインスレッド直接実行を採用しました。公開JSONは参照・回帰検証のために残します。
+本番の通常判定はCalculationClientから実行時DX計算器を直接注入し、同じ入力の分布をクライアント単位の小さなLRUキャッシュで再利用します。実ブラウザ実験では旧最大ケースのメインスレッドウォーム最大が11.8 ms、Worker往復の追加コストが最大1.0 msでした。公開JSONは参照・回帰検証のために残します。
 
 ## 3. 成功率と対決
 
@@ -131,7 +131,7 @@ $$
 d(a)=\left\lfloor\frac{a}{10}\right\rfloor+1+b
 $$
 
-`kazanari`に対応する`dr`分布から$d(a)$ダイスの列を取り出し、$w_a$で重み付けして混合します。命中しなかった確率は別に合計しておき、すべての軽減処理の後でダメージ0へ加えます。
+`kazanari`に対応するruntime DR生成器へ$d(a)$ダイスの重みを渡し、$w_a$で重み付けした混合分布を周波数領域で計算します。命中しなかった確率は別に合計しておき、すべての軽減処理の後でダメージ0へ加えます。振り直し対象数は`min(kazanari, d(a))`へ正規化されるため、対象ダイス数を超える指定は結果を変えません。
 
 ### 4.2 `dr`の転置ビュー
 
@@ -191,11 +191,11 @@ $$
 
 ## 7. 静的アセットの取得とキャッシュ
 
-実装は`src/data/D10PrecomputedDataRepository.js`と`src/data/ReferencePrecomputedDataRepository.js`です。前者はproduction AttackのD10 lazy load、後者はテストと独立比較を担当します。
+実装は`src/calculation/D10Calculator.js`と`src/data/ReferencePrecomputedDataRepository.js`です。runtime D10 primitiveは完全な有限supportを直接生成し、production AttackとBacktrackから共有します。Reference repositoryは旧JSONの回帰テストと独立比較だけを担当します。
 
 アセットの取得時にスキーマバージョン、データリビジョン、データセット名、分布長、インデックス範囲、疎分布の範囲、確率値、確率総和を検証します。検証を通過したデータだけをcacheへ登録します。
 
-`ReferencePrecomputedDataRepository`は`dx`を`shihai`ごと、`dr`を`kazanari`ごとのファイルとして遅延取得します。同じファイルへの同時リクエストは進行中のPromiseを共有し、取得後はメモリへ保持します。productionの`D10PrecomputedDataRepository`はAttackで必要な`d10`だけを同じ契約で取得します。`livingdead`はBacktrackのcanonical計算では読み込みません。
+`ReferencePrecomputedDataRepository`は`dx`を`shihai`ごと、`dr`を`kazanari`ごとのファイルとして遅延取得します。同じファイルへの同時リクエストは進行中のPromiseを共有し、取得後はメモリへ保持します。これらは比較専用で、productionのcanonical経路はD10、DX、DR、`livingdead`のいずれについてもJSONを取得しません。`livingdead`はBacktrackのcanonical計算で専用の状態DPから生成します。
 
 ## 8. 計算量と性能上の要点
 
@@ -216,10 +216,10 @@ $$
 | 達成値、成功率、対決 | `src/calculation/ScoreCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/canonicalCheck.test.js` |
 | 単発・合計ダメージ | `src/calculation/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/canonicalDamageOnDemand.test.js`、`tests/canonicalTotalDamageClient.test.js` |
 | バックトラック | `src/calculation/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/backtrackCanonical.test.js` |
-| アセット検証とキャッシュ | `src/data/D10PrecomputedDataRepository.js`、`src/data/ReferencePrecomputedDataRepository.js` | `tests/d10PrecomputedDataRepository.test.js`、`tests/referencePrecomputedDataRepository.test.js` |
+| 参照用アセット検証とキャッシュ | `src/data/ReferencePrecomputedDataRepository.js` | `tests/referencePrecomputedDataRepository.test.js` |
 | 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
 | 実行時DRの可変FFT・出力長、Worker protocol | `src/calculation/RuntimeDamageRollCalculator.js`、`src/calculation/RuntimeDamageRollLimits.js`、`src/application/RuntimeDamageRollClient.js`、`src/application/RuntimeDamageRollWorker.js` | `tests/runtimeDamageRollProduction.test.js`、`tests/runtimeDamageRollProductionClient.test.js` |
-| Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/application/CalculationClient.js`、`src/data/D10PrecomputedDataRepository.js` | `tests/canonicalDamageOnDemand.test.js`、`tests/calculationClient.test.js`、`tests/d10PrecomputedDataRepository.test.js` |
+| Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/application/CalculationClient.js` | `tests/canonicalDamageOnDemand.test.js`、`tests/calculationClient.test.js` |
 
 独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は過去の検証記録としてGit履歴に残っていますが、現行のルールテストはcanonical結果と独立した期待値を比較します。
 

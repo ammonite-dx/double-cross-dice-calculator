@@ -3,19 +3,17 @@ export const RUNTIME_DAMAGE_DISTRIBUTION_SIZE = 2048
 export const RUNTIME_DAMAGE_MIN_FFT_SIZE = 2
 export const RUNTIME_DAMAGE_MAX_FFT_SIZE = 1 << 20
 export const RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE = 2
-// Legacy published DR assets stop at 202 dice. This remains available to the
-// published compatibility path, but is not a generic runtime weight limit.
-export const RUNTIME_DAMAGE_MAX_DAMAGE_DICE = 202
-export const RUNTIME_DAMAGE_MAX_KAZANARI = 9
 // A non-zero coefficient at index n needs raw support through 10n. Keep the
 // coefficient-length guard derived from the existing absolute FFT limit so a
 // caller cannot request an unhandleable polynomial while leaving the legacy
 // 202-dice asset boundary out of runtime input validation.
 export const RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH =
   Math.floor((RUNTIME_DAMAGE_MAX_FFT_SIZE - 1) / 10) + 1
-
-export const MAX_DAMAGE_DICE = RUNTIME_DAMAGE_MAX_DAMAGE_DICE
-export const MAX_KAZANARI = RUNTIME_DAMAGE_MAX_KAZANARI
+// The reroll algorithm is quadratic in the effective reroll count and is
+// evaluated at every FFT frequency. This is an absolute computation guard,
+// not a game-rule input ceiling; the planner normally rejects much smaller
+// requests from its device-specific resource policy.
+export const RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE = 2_000_000_000
 
 function isPowerOfTwo(value) {
   return (value & (value - 1)) === 0
@@ -115,13 +113,14 @@ export function validateRuntimeDamageRollInputs(weights, kazanari) {
   ) {
     throw new TypeError('weights must be an Array or Float64Array')
   }
-  if (
-    !Number.isSafeInteger(weights.length) ||
-    weights.length < 1 ||
-    weights.length > RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH
-  ) {
+  if (!Number.isSafeInteger(weights.length) || weights.length < 1) {
     throw new RangeError(
-      `weights length must be a safe integer between 1 and ${RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH}`
+      'weights length must be a positive safe integer'
+    )
+  }
+  if (weights.length > RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH) {
+    throw new RangeError(
+      `weights length exceeds the absolute safety limit of ${RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH}`
     )
   }
   let total = 0
@@ -134,18 +133,17 @@ export function validateRuntimeDamageRollInputs(weights, kazanari) {
   if (!Number.isFinite(total)) {
     throw new RangeError('weights total must be finite')
   }
-  if (
-    !Number.isInteger(kazanari) ||
-    kazanari < 0 ||
-    kazanari > MAX_KAZANARI
-  ) {
-    throw new RangeError(
-      `kazanari must be an integer between 0 and ${MAX_KAZANARI}`
-    )
+  if (!Number.isSafeInteger(kazanari) || kazanari < 0) {
+    throw new RangeError('kazanari must be a non-negative safe integer')
   }
 
+  const rawSupportMax = getRuntimeDamageRollRawSupportMax(weights)
+  const maxDamageDice = Math.floor(rawSupportMax / 10)
+  const effectiveKazanari = Math.min(kazanari, maxDamageDice)
+
   return {
-    rawSupportMax: getRuntimeDamageRollRawSupportMax(weights),
+    rawSupportMax,
     total,
+    effectiveKazanari,
   }
 }

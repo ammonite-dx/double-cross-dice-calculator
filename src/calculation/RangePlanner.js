@@ -1,15 +1,21 @@
 import { OUTPUT_DISTRIBUTION_SIZE } from '../data/Distribution'
-import { DX_MAX_DISTRIBUTION_SIZE } from './DxCalculator'
 import {
   BACKTRACK_ASSET_SUPPORT_MAX,
   getBacktrackGenerationOperationEstimate,
 } from './BacktrackLimits'
+import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from './RuntimeDamageRollLimits'
 import { LEGACY_PUBLISHED_OVERFLOW_INDEX } from './DistributionResult'
 import {
   getBacktrackDiceCounts,
   getBacktrackRule,
   getBacktrackSupportMax,
 } from '../domain/BacktrackRules'
+import {
+  assertCriticalValue,
+  assertNonNegativeSafeInteger,
+  assertRemainingLois,
+  assertSafeInteger,
+} from '../domain/InputDomain'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
 const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
@@ -209,7 +215,9 @@ export const DEFAULT_POLICY = {
   display: {
     defaultMin: 0,
     defaultMax: 999,
-    maxPoints: 1000,
+    // The display range is no longer tied to the old 0..999 chart. Typed
+    // arrays and the resource policy below provide the practical bound.
+    maxPoints: Number.MAX_SAFE_INTEGER,
   },
   limits: {
     warning: {
@@ -236,18 +244,35 @@ export const DEFAULT_POLICY = {
 }
 
 function integer(value, name) {
-  if (!Number.isSafeInteger(value)) {
-    throw new TypeError(`${name} must be a safe integer`)
+  return assertSafeInteger(value, name)
+}
+
+function addSafe(left, right, name) {
+  const result = left + right
+  if (!Number.isSafeInteger(result)) {
+    throw new RangeError(`${name} exceeds the safe integer range`)
   }
-  return value
+  return result
+}
+
+function subtractSafe(left, right, name) {
+  const result = left - right
+  if (!Number.isSafeInteger(result)) {
+    throw new RangeError(`${name} exceeds the safe integer range`)
+  }
+  return result
+}
+
+function multiplySafe(left, right, name) {
+  const result = left * right
+  if (!Number.isSafeInteger(result) || result < 0) {
+    throw new RangeError(`${name} exceeds the safe integer range`)
+  }
+  return result
 }
 
 function nonNegativeInteger(value, name) {
-  integer(value, name)
-  if (value < 0) {
-    throw new RangeError(`${name} must be non-negative`)
-  }
-  return value
+  return assertNonNegativeSafeInteger(value, name)
 }
 
 function positiveInteger(value, name) {
@@ -777,11 +802,17 @@ function normalizeDisplay(display, policy) {
   if (max < min) {
     throw new RangeError('display.max must be greater than or equal to display.min')
   }
+  const points = max - min + 1
+  if (!Number.isSafeInteger(points)) {
+    throw new RangeError('display range is too large to represent safely')
+  }
   return {
     min,
     max,
-    points: max - min + 1,
-    overflowLowerBound: max + 1,
+    points,
+    overflowLowerBound: max === Number.MAX_SAFE_INTEGER
+      ? Infinity
+      : max + 1,
   }
 }
 
@@ -826,11 +857,15 @@ function scoreOperationCount(plan) {
   const dice = plan.params.dice
   const size = plan.workingLength
   if (plan.params.shihai === 0) {
-    return size * Math.max(1, plan.params.critical - 1)
+    return multiplySafe(size, Math.max(1, plan.params.critical - 1), 'score operation estimate')
   }
   const stages = Math.max(0, dice - plan.params.shihai)
-  const transitionCount = stages * (stages + 1) / 2
-  return size * (transitionCount + stages * 4)
+  const transitionCount = multiplySafe(stages, stages + 1, 'score transition estimate') / 2
+  return multiplySafe(
+    size,
+    addSafe(transitionCount, multiplySafe(stages, 4, 'score operation estimate'), 'score operation estimate'),
+    'score operation estimate'
+  )
 }
 
 function fftOperationCount(length) {
@@ -848,13 +883,10 @@ function normalizeScore(params, name) {
   object(params, name)
   const normalized = {
     dice: nonNegativeInteger(params.dice, `${name}.dice`),
-    critical: integer(params.critical, `${name}.critical`),
+    critical: assertCriticalValue(params.critical, `${name}.critical`),
     shihai: nonNegativeInteger(params.shihai ?? 0, `${name}.shihai`),
     yousei: nonNegativeInteger(params.yousei ?? 0, `${name}.yousei`),
     skill: integer(params.skill ?? 0, `${name}.skill`),
-  }
-  if (normalized.critical < 2 || normalized.critical > 11) {
-    throw new RangeError(`${name}.critical must be between 2 and 11`)
   }
   return normalized
 }
@@ -863,7 +895,11 @@ function planScore(params, display, policy, tailBudget) {
   const normalized = normalizeScore(params, 'score')
   const cutoffResult = findTailCutoff(normalized, tailBudget)
   const calculationSourceMax = Math.max(display.max, policy.calculationMax)
-  const displaySourceMax = calculationSourceMax - normalized.skill
+  const displaySourceMax = subtractSafe(
+    calculationSourceMax,
+    normalized.skill,
+    'score display range'
+  )
   const workingMax = Math.max(
     cutoffResult.cutoff,
     displaySourceMax,
@@ -883,8 +919,11 @@ function planScore(params, display, policy, tailBudget) {
     : 0
   // Keep every value through workingMax explicit. The final array entry is a
   // separate bucket for values strictly greater than workingMax.
-  const workingLength = workingMax + 2
-  const outputMax = Math.max(0, workingMax + normalized.skill)
+  const workingLength = addSafe(workingMax, 2, 'score working range')
+  const outputMax = Math.max(
+    0,
+    addSafe(workingMax, normalized.skill, 'score output range')
+  )
   // ScoreCalculator convolves two complete working-length arrays. The FFT
   // therefore needs the exact linear-convolution length, including the
   // overflow bucket, rather than the old one-die-tail estimate.
@@ -898,9 +937,12 @@ function planScore(params, display, policy, tailBudget) {
   const fftOperations = normalized.yousei * fftOperationCount(youseiFftLength)
   const arrayCount = normalized.shihai === 0
     ? 4
-    : normalized.dice + 4
-  const float64Bytes =
-    arrayCount * workingLength * Float64Array.BYTES_PER_ELEMENT
+    : addSafe(normalized.dice, 4, 'score array count')
+  const float64Bytes = multiplySafe(
+    multiplySafe(arrayCount, workingLength, 'score array size'),
+    Float64Array.BYTES_PER_ELEMENT,
+    'score array size'
+  )
   const tailModel = normalized.yousei > 0
     ? normalized.shihai === 0
       ? 'exact-yousei'
@@ -953,7 +995,7 @@ function planBacktrack(params, display, canonical = false) {
       params.encroachment ?? 0,
       'backtrack.encroachment'
     ),
-    lois: nonNegativeInteger(params.lois ?? 0, 'backtrack.lois'),
+    lois: assertRemainingLois(params.lois ?? 0, 'backtrack.lois'),
     elois: nonNegativeInteger(params.elois ?? 0, 'backtrack.elois'),
     dice: nonNegativeInteger(params.dice ?? 0, 'backtrack.dice'),
     value: nonNegativeInteger(params.value ?? 0, 'backtrack.value'),
@@ -1068,31 +1110,64 @@ function normalizeDefence(params) {
 function planDamage(params, display, policy, maxScoreForDamage) {
   const attack = normalizeAttack(params.attack)
   const defence = normalizeDefence(params.defence)
-  const maxDamageDice = Math.floor(maxScoreForDamage / 10) + 1 + attack.dice
-  const rawMax = Math.max(0, 10 * maxDamageDice)
-  const fixedDifference = attack.value - defence.value
-  const defenceMax = 10 * defence.dice
+  const maxDamageDice = Math.max(
+    0,
+    addSafe(
+      Math.floor(maxScoreForDamage / 10) + 1,
+      attack.dice,
+      'damage dice range'
+    )
+  )
+  const rawMax = multiplySafe(maxDamageDice, 10, 'damage raw support')
+  const fixedDifference = subtractSafe(
+    attack.value,
+    defence.value,
+    'damage fixed difference'
+  )
+  const defenceMax = multiplySafe(defence.dice, 10, 'defence support')
+  const calculationPlusDefence = addSafe(
+    policy.calculationMax,
+    defenceMax,
+    'damage calculation range'
+  )
+  const rawPlusDifference = addSafe(
+    rawMax,
+    fixedDifference,
+    'damage working range'
+  )
+  const calculationMinusDifference = subtractSafe(
+    policy.calculationMax,
+    fixedDifference,
+    'damage working range'
+  )
   const workingMax = fixedDifference >= 0
     ? Math.max(
         0,
-        Math.min(rawMax + fixedDifference, policy.calculationMax + defenceMax)
+        Math.min(rawPlusDifference, calculationPlusDefence)
       )
     : Math.max(
         0,
         Math.min(
           rawMax,
-          policy.calculationMax - fixedDifference + defenceMax
+          addSafe(
+            calculationMinusDifference,
+            defenceMax,
+            'damage working range'
+          )
         )
       )
-  const damageRollFftLength = nextPowerOfTwo(rawMax + 1)
-  const workingLength = workingMax + 2
+  const damageRollFftLength = nextPowerOfTwo(
+    addSafe(rawMax, 1, 'damage FFT range')
+  )
+  const workingLength = addSafe(workingMax, 2, 'damage working range')
   const defenceFftLength = defence.dice > 0
-    ? nextPowerOfTwo(workingLength + defenceMax)
+    ? nextPowerOfTwo(addSafe(workingLength, defenceMax, 'defence FFT range'))
     : 0
+  const effectiveKazanari = Math.min(attack.kazanari, maxDamageDice)
   const damageOperations =
     (damageRollFftLength / 2 + 1) *
       (maxDamageDice + 1) *
-      getDamageKazanariCostFactor(attack.kazanari)
+      getDamageKazanariCostFactor(effectiveKazanari)
   const fftOperations = fftOperationCount(defenceFftLength)
   const float64Bytes =
     (2 * damageRollFftLength + workingLength +
@@ -1109,6 +1184,7 @@ function planDamage(params, display, policy, maxScoreForDamage) {
     defenceValue: defence.value,
     fixedDifference,
     maxDamageDice,
+    effectiveKazanari,
     support: {
       kind: 'finite-support',
       finiteSupport: true,
@@ -1264,21 +1340,13 @@ function applyLimits(plan, policy) {
       )
       accepted = false
     }
-    const scoreWorkingHardLimit = Math.min(
-      limits.hard.workingLength,
-      DX_MAX_DISTRIBUTION_SIZE
-    )
-    const scoreWorkingWarningLimit = Math.min(
-      limits.warning.workingLength,
-      scoreWorkingHardLimit
-    )
     accepted = classifyMetric(
       warnings,
       accepted,
       'score-working-length',
       score.workingLength,
-      scoreWorkingWarningLimit,
-      scoreWorkingHardLimit,
+      limits.warning.workingLength,
+      limits.hard.workingLength,
       'elements'
     )
     accepted = classifyMetric(
@@ -1318,6 +1386,15 @@ function applyLimits(plan, policy) {
   }
 
   if (plan.damage) {
+    accepted = classifyMetric(
+      warnings,
+      accepted,
+      'damage-weight-length',
+      plan.damage.maxDamageDice + 1,
+      RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
+      RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
+      'elements'
+    )
     accepted = classifyMetric(
       warnings,
       accepted,

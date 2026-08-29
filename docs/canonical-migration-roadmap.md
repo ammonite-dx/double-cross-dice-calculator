@@ -14,6 +14,12 @@
 - `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをUI表示精度内の誤差としてchart projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction/reaction双方の`99D/critical=2`について`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`はresource rejection、`0..100`への復帰はcanvas 2・alertなしで確認した。
 - Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照する。Score、Damage、Backtrackのdata calculator wrapperはPhase 8-2G6で削除し、全consumerをcoreと明示的なrepository依存へ移行した。
 
+## Release hardening (RH1--RH3)
+
+- RH1完了（`874119c`）: `docs/dice-rules.md`へ正規入力domainを追加し、`src/domain/InputDomain.js`で安全な整数、critical、残存ロイス、対応featureの検証を共有した。旧JSONやフォームの上限は正規domainから分離した。
+- RH2完了（`21161f4`）: `src/calculation/D10Calculator.js`のruntime primitiveをAttackとBacktrackで共有し、productionのD10 JSON取得をなくした。公開assetは参照・比較用に保持する。
+- RH3実装中: DXの二項係数表と`dice=99`・`shihai=19`境界、DRの`202D`・`kazanari=9`境界、フォームの99/999上限を撤廃する。入力はsafe integer domainで受け付け、配列長、FFT長、推定時間・メモリ、二次計算量には絶対安全上限を設ける。`kazanari`は実際のダメージダイス数を超えた場合に同値な有効値へ正規化する。
+
 ## 表示範囲と明示coverageの移行対象
 
 現行のlegacy経路では、`src/data/Distribution.js`の`range()`が`DISTRIBUTION_SIZE=1024`に依存し、`src/components/Attack/LegacyChartSetter.js`のlegacy `clipData()`が固定長配列を`slice`している。通常のCheckではPhase 4でdynamic display windowを接続し、`src/components/Check/SettingForm.vue`をcontrolled化して表示`min`/`max`の999上限を撤廃した。AttackのSettingForm系（`src/components/Attack/ScoreSettingForm.vue`、`src/components/Attack/DamageSettingForm.vue`）もP1で固定上限を撤廃し、残るlegacy経路と計算上の1024/1022境界は後続で整理する。

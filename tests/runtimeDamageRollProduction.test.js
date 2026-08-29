@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
   generateMixedDamageDistribution,
-  MAX_DAMAGE_DICE,
-  MAX_KAZANARI,
   RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   validateRuntimeDamageRollInputs,
 } from '../src/calculation/RuntimeDamageRollCalculator'
+
+const LEGACY_ASSET_MAX_DAMAGE_DICE = 202
+const LEGACY_ASSET_MAX_KAZANARI = 9
 import drKazanari0 from '../public/data/schema-v2/revision-1/dr/kazanari-0.json'
 import drKazanari3 from '../public/data/schema-v2/revision-1/dr/kazanari-3.json'
 import drKazanari9 from '../public/data/schema-v2/revision-1/dr/kazanari-9.json'
@@ -78,12 +79,12 @@ describe('production runtime damage roll calculator', () => {
   it.each([0, 3, 9])(
     'matches a JSON mixture for kazanari=%i',
     (kazanari) => {
-      const weights = new Float64Array(MAX_DAMAGE_DICE + 1)
+      const weights = new Float64Array(LEGACY_ASSET_MAX_DAMAGE_DICE + 1)
       weights[0] = 0.05
       weights[1] = 0.1
       weights[17] = 0.25
       weights[98] = 0.3
-      weights[202] = 0.3
+      weights[LEGACY_ASSET_MAX_DAMAGE_DICE] = 0.3
       const asset = assets.get(kazanari)
       const expected = new Float64Array(
         RUNTIME_DAMAGE_DISTRIBUTION_SIZE
@@ -131,8 +132,8 @@ describe('production runtime damage roll calculator', () => {
 
   it('handles the maximum supported input', () => {
     const distribution = generateMixedDamageDistribution(
-      oneHotWeights(MAX_DAMAGE_DICE),
-      MAX_KAZANARI
+      oneHotWeights(LEGACY_ASSET_MAX_DAMAGE_DICE),
+      LEGACY_ASSET_MAX_KAZANARI
     )
     const total = distribution.reduce(
       (sum, probability) => sum + probability,
@@ -142,6 +143,17 @@ describe('production runtime damage roll calculator', () => {
     expect(total).toBeCloseTo(1, 10)
     expect(Math.max(...distribution)).toBeGreaterThan(0)
     expect(distribution[2047]).toBe(0)
+  })
+
+  it('accepts more than the historical 202-dice/9-reroll asset boundary', () => {
+    const distribution = generateMixedDamageDistribution(
+      oneHotWeights(203),
+      10,
+      { fftLength: 4096, distributionLength: 2048 }
+    )
+    expect(distribution.reduce((sum, probability) => sum + probability, 0))
+      .toBeCloseTo(1, 10)
+    expect(Math.max(...distribution)).toBeGreaterThan(0)
   })
 
   it('returns zero mass for zero weights at default and variable sizes', () => {
@@ -259,14 +271,14 @@ describe('production runtime damage roll calculator', () => {
   it('rejects invalid inputs at the calculation boundary', () => {
     expect(() => generateMixedDamageDistribution({}, 0)).toThrow(TypeError)
     expect(() => generateMixedDamageDistribution([], 0)).toThrow(RangeError)
-    const fullTailWeights = new Float64Array(MAX_DAMAGE_DICE + 2)
-    fullTailWeights[MAX_DAMAGE_DICE + 1] = 1
+    const fullTailWeights = new Float64Array(LEGACY_ASSET_MAX_DAMAGE_DICE + 2)
+    fullTailWeights[LEGACY_ASSET_MAX_DAMAGE_DICE + 1] = 1
     expect(() => generateMixedDamageDistribution(
       fullTailWeights,
       0
     )).not.toThrow()
-    const fullTailArrayWeights = new Array(MAX_DAMAGE_DICE + 2).fill(0)
-    fullTailArrayWeights[MAX_DAMAGE_DICE + 1] = 1
+    const fullTailArrayWeights = new Array(LEGACY_ASSET_MAX_DAMAGE_DICE + 2).fill(0)
+    fullTailArrayWeights[LEGACY_ASSET_MAX_DAMAGE_DICE + 1] = 1
     expect(() => generateMixedDamageDistribution(
       fullTailArrayWeights,
       0
@@ -282,8 +294,9 @@ describe('production runtime damage roll calculator', () => {
     expect(() => generateMixedDamageDistribution([Number.MAX_VALUE, Number.MAX_VALUE], 0))
       .toThrow('weights total must be finite')
     expect(() => generateMixedDamageDistribution([1], -1)).toThrow(RangeError)
-    expect(() => generateMixedDamageDistribution([1], 10)).toThrow(RangeError)
+    expect(() => generateMixedDamageDistribution([1], 10)).not.toThrow()
     expect(() => generateMixedDamageDistribution([1], 1.5)).toThrow(RangeError)
     expect(() => validateRuntimeDamageRollInputs([1], 0)).not.toThrow()
+    expect(validateRuntimeDamageRollInputs([1], 10).effectiveKazanari).toBe(0)
   })
 })

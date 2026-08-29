@@ -17,7 +17,7 @@
 
 公開済みのrevisionはimmutableとして扱います。productionで不要になったassetを整理する場合も、既存revisionのURLを同一revision内で削除せず、新しいrevisionへ最小構成を生成して参照先を切り替えます。Git上のlegacy/reference削除と、公開済みURLのretirementは別の判断として記録します。
 
-現行の生成元は`generator/`のPython実装です。公開assetは本番アプリケーションへ同梱され、canonical Attackが必要とするD10だけが計算時にlazy loadされます。DX、DR、livingdeadは本番計算ではruntime生成し、公開assetはgeneratorの照合・独立検証と互換参照のために保持します。
+現行の生成元は`generator/`のPython実装です。公開assetは本番アプリケーションへ同梱しますが、canonical production経路はD10、DX、DR、livingdeadをすべてruntime生成し、assetを取得しません。公開assetはgeneratorの照合・独立検証と互換参照のために保持します。
 
 ## 共通形式
 
@@ -100,10 +100,10 @@
 
 ## 実行時の読込
 
-canonical UIはroute preloadを行わず、計算時に必要なruntime計算またはassetだけを同一Pagesデプロイから取得します。取得済みのD10はメモリ上でcacheします。
+canonical UIはroute preloadを行わず、productionの計算経路からschema-v2 JSONを取得しません。D10、DX、DR、livingdeadはruntime計算で生成し、必要な小さな結果だけを計算クライアントのライフタイム内で扱います。公開assetの読込はReference repository、独立比較、生成物検証に限定します。
 
 - 一般判定: `shihai`用の事前計算assetを読まず、`calculateDxDistribution`でruntime DXを生成
-- 攻撃: `shihai`・`kazanari`・D10の事前計算assetを読まず、runtime DX/D10を生成する。DRは常駐Workerでruntime生成する
+- 攻撃: `shihai`・`kazanari`・D10の事前計算assetを読まず、runtime DX/D10/DRを生成する。DRのFFT本体は常駐Workerで実行する
 - バックトラック: 完全on-demandのcanonical generatorで要求範囲を生成し、`d10`・`livingdead` assetを読まない
 
 `d10`と`livingdead`の疎な分布形式はgeneratorの出力仕様とasset検証の対象です。canonical BacktrackとAttackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`src/data/ReferencePrecomputedDataRepository.js`はテストと独立比較のために公開assetを読み込みます。

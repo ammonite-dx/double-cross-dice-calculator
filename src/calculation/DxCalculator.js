@@ -1,3 +1,8 @@
+import {
+  assertCriticalValue,
+  assertNonNegativeSafeInteger,
+} from '../domain/InputDomain'
+
 export const DX_DISTRIBUTION_SIZE = 2048
 // The planner's default hard policy is deliberately lower than this direct
 // API safety ceiling. Keep the ceiling explicit so a future planner policy
@@ -5,34 +10,21 @@ export const DX_DISTRIBUTION_SIZE = 2048
 // accident.
 export const DX_MIN_DISTRIBUTION_SIZE = 2
 export const DX_MAX_DISTRIBUTION_SIZE = 1 << 16
-export const DX_DICE_COUNT = 100
 export const DX_CRITICAL_MIN = 2
 export const DX_CRITICAL_MAX = 11
 export const DX_SHIHAI_MIN = 0
-export const DX_SHIHAI_MAX = 19
+// These are absolute implementation-safety limits, not game input limits.
+// The planner normally rejects much smaller requests based on estimated
+// memory/time, while direct callers still need a finite guard before a
+// quadratic DP or an oversized typed-array allocation is attempted.
+export const DX_MAX_CALCULATION_OPERATIONS = 2_000_000_000
+export const DX_MAX_CALCULATION_BYTES = 512 * 1024 * 1024
 
 const ROUNDING_UNIT = 1e-6
-const MAX_BINOMIAL_N = DX_DICE_COUNT - 1
 const FULL_PRECISION_NEGATIVE_TOLERANCE = 1e-12
 
 const LEGACY_ROUNDING = 'legacy'
 const UNROUNDED_ROUNDING = 'unrounded'
-
-const binomialCoefficients = (() => {
-  const table = []
-
-  for (let n = 0; n <= MAX_BINOMIAL_N; n += 1) {
-    const row = new Float64Array(n + 1)
-    row[0] = 1
-    row[n] = 1
-    for (let k = 1; k < n; k += 1) {
-      row[k] = table[n - 1][k - 1] + table[n - 1][k]
-    }
-    table.push(row)
-  }
-
-  return table
-})()
 
 function validateInput(params) {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
@@ -42,33 +34,41 @@ function validateInput(params) {
   }
 
   const { dice, critical, shihai } = params
-  if (
-    !Number.isInteger(dice) ||
-    dice < 0 ||
-    dice >= DX_DICE_COUNT
-  ) {
-    throw new RangeError(
-      `dice must be an integer between 0 and ${DX_DICE_COUNT - 1}`
-    )
+  assertNonNegativeSafeInteger(dice, 'dice')
+  assertCriticalValue(critical)
+  assertNonNegativeSafeInteger(shihai, 'shihai')
+}
+
+function safeProduct(left, right, label) {
+  const product = left * right
+  if (!Number.isSafeInteger(product) || product < 0) {
+    throw new RangeError(`${label} exceeds the safe integer range`)
   }
-  if (
-    !Number.isInteger(critical) ||
-    critical < DX_CRITICAL_MIN ||
-    critical > DX_CRITICAL_MAX
-  ) {
-    throw new RangeError(
-      `critical must be an integer between ${DX_CRITICAL_MIN} and ${DX_CRITICAL_MAX}`
-    )
+  return product
+}
+
+function logBinomialPmf(dice, successes, probability) {
+  const failures = dice - successes
+  let logCoefficient = 0
+  for (let index = 1; index <= successes; index += 1) {
+    logCoefficient += Math.log(failures + index) - Math.log(index)
   }
-  if (
-    !Number.isInteger(shihai) ||
-    shihai < DX_SHIHAI_MIN ||
-    shihai > DX_SHIHAI_MAX
-  ) {
-    throw new RangeError(
-      `shihai must be an integer between ${DX_SHIHAI_MIN} and ${DX_SHIHAI_MAX}`
-    )
+  return logCoefficient +
+    successes * Math.log(probability) +
+    failures * Math.log1p(-probability)
+}
+
+function binomialPmfAt(dice, successes, probability) {
+  if (successes < 0 || successes > dice) {
+    return 0
   }
+  if (probability === 0) {
+    return successes === 0 ? 1 : 0
+  }
+  if (probability === 1) {
+    return successes === dice ? 1 : 0
+  }
+  return Math.exp(logBinomialPmf(dice, successes, probability))
 }
 
 export function normalizeDxOptions(options) {
@@ -160,28 +160,81 @@ function binomialTail(dice, required, probability) {
     return 0
   }
 
-  const coefficients = binomialCoefficients[dice]
-  const complement = 1 - probability
-  let result = 0
-  for (let successes = required; successes <= dice; successes += 1) {
-    result +=
-      coefficients[successes] *
-      probability ** successes *
-      complement ** (dice - successes)
+  if (probability === 0) {
+    return 0
   }
-  return result
+  if (probability === 1) {
+    return 1
+  }
+
+  // Start at the mode instead of at k=0.  For a large dice count, q^n can
+  // underflow even though the central mass is still representable; a
+  // mode-centred recurrence avoids losing the entire distribution in that
+  // case while retaining O(n) time and O(1) working memory.
+  const mode = Math.min(dice, Math.floor((dice + 1) * probability))
+  let mass = binomialPmfAt(dice, mode, probability)
+  if (mode >= required) {
+    let lowerTail = 0
+    for (let successes = mode; successes > 0; successes -= 1) {
+      if (successes < required) {
+        lowerTail += mass
+      }
+      mass *= successes /
+        (dice - successes + 1) *
+        (1 - probability) /
+        probability
+    }
+    lowerTail += mass
+    return Math.max(0, Math.min(1, 1 - lowerTail))
+  }
+
+  // required is above the mode, so walk upward and sum the requested tail.
+  for (let successes = mode; successes < required; successes += 1) {
+    mass *= (dice - successes) / (successes + 1) * probability / (1 - probability)
+  }
+  let result = mass
+  for (let successes = required; successes < dice; successes += 1) {
+    mass *= (dice - successes) / (successes + 1) * probability / (1 - probability)
+    result += mass
+  }
+  return Math.max(0, Math.min(1, result))
 }
 
 function binomialProbabilities(dice, probability) {
   const result = new Float64Array(dice + 1)
-  const coefficients = binomialCoefficients[dice]
-  const complement = 1 - probability
+  if (probability === 0) {
+    result[0] = 1
+    return result
+  }
+  if (probability === 1) {
+    result[dice] = 1
+    return result
+  }
 
-  for (let successes = 0; successes <= dice; successes += 1) {
-    result[successes] =
-      coefficients[successes] *
-      probability ** successes *
-      complement ** (dice - successes)
+  const mode = Math.min(dice, Math.floor((dice + 1) * probability))
+  result[mode] = binomialPmfAt(dice, mode, probability)
+  for (let successes = mode; successes > 0; successes -= 1) {
+    result[successes - 1] = result[successes] *
+      successes / (dice - successes + 1) *
+      (1 - probability) / probability
+  }
+  for (let successes = mode; successes < dice; successes += 1) {
+    result[successes + 1] = result[successes] *
+      (dice - successes) / (successes + 1) *
+      probability / (1 - probability)
+  }
+
+  let total = 0
+  for (const mass of result) {
+    total += mass
+  }
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new RangeError('binomial probability calculation produced an invalid total')
+  }
+  if (Math.abs(total - 1) > Number.EPSILON) {
+    for (let successes = 0; successes <= dice; successes += 1) {
+      result[successes] /= total
+    }
   }
   return result
 }
@@ -327,6 +380,35 @@ function calculateShihaiPositiveDistribution(
   shihai,
   workingLength
 ) {
+  if (dice <= shihai) {
+    const result = new Float64Array(workingLength)
+    result[0] = 1
+    return result
+  }
+
+  const stages = dice - shihai
+  const transitionCount = safeProduct(stages, stages + 1, 'DX transition count') / 2
+  const estimatedOperations = safeProduct(
+    workingLength,
+    transitionCount + stages * 4,
+    'DX operation estimate'
+  )
+  const estimatedBytes = safeProduct(
+    dice + 1,
+    safeProduct(workingLength, Float64Array.BYTES_PER_ELEMENT, 'DX array size'),
+    'DX array size'
+  )
+  if (estimatedOperations > DX_MAX_CALCULATION_OPERATIONS) {
+    throw new RangeError(
+      `DX calculation exceeds the absolute safety limit of ${DX_MAX_CALCULATION_OPERATIONS} operations`
+    )
+  }
+  if (estimatedBytes > DX_MAX_CALCULATION_BYTES) {
+    throw new RangeError(
+      `DX calculation exceeds the absolute safety limit of ${DX_MAX_CALCULATION_BYTES} bytes`
+    )
+  }
+
   const resultByDice = Array.from(
     { length: dice + 1 },
     () => new Float64Array(workingLength)
@@ -482,6 +564,18 @@ export function calculateDxDistribution(params, options) {
   validateInput(params)
   const normalizedOptions = normalizeDxOptions(options)
   const { dice, critical, shihai } = params
+  if (shihai === 0) {
+    const estimatedOperations = safeProduct(
+      dice + 1,
+      Math.max(1, critical - 1),
+      'DX operation estimate'
+    )
+    if (estimatedOperations > DX_MAX_CALCULATION_OPERATIONS) {
+      throw new RangeError(
+        `DX calculation exceeds the absolute safety limit of ${DX_MAX_CALCULATION_OPERATIONS} operations`
+      )
+    }
+  }
   const rawDistribution =
     shihai === 0
       ? calculateShihaiZeroDistribution(

@@ -123,6 +123,26 @@ function expectedMaxReference(dice, critical, cutoff = 20000) {
 }
 
 describe('canonical normal check score producer', () => {
+  it('keeps a large fixed score as a sparse canonical point mass', () => {
+    const fixedScore = 10_000
+    const envelope = calculateScoreCanonical(
+      scoreParams({ skill: fixedScore }),
+      { getDxDistribution: vi.fn() },
+      { workingLength: 4, fftLength: 0 },
+      true
+    )
+
+    expect(envelope.result.offset).toBe(fixedScore)
+    expect(envelope.result.values).toEqual(new Float64Array([1]))
+    expect(envelope.result.support).toEqual({
+      kind: 'finite',
+      max: fixedScore,
+    })
+    expect(envelope.result.overflow).toBeNull()
+    expect(envelope.metadata.failureProbability).toBe(0)
+    expect(envelope.metadata.modeledDistribution).toBe(true)
+  })
+
   it('keeps an independently supplied working tail as exact overflow', () => {
     const params = scoreParams({ skill: 2 })
     const provider = vi.fn(() => new Float64Array([0.1, 0.2, 0.3, 0.4]))

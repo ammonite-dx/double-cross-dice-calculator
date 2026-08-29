@@ -4,12 +4,13 @@ import {
   calculateDxDistribution,
   DX_CRITICAL_MAX,
   DX_CRITICAL_MIN,
-  DX_DICE_COUNT,
   DX_DISTRIBUTION_SIZE,
   DX_MAX_DISTRIBUTION_SIZE,
   DX_MIN_DISTRIBUTION_SIZE,
-  DX_SHIHAI_MAX,
 } from '../src/calculation/DxCalculator'
+
+const LEGACY_COMPARISON_DICE = 99
+const LEGACY_COMPARISON_SHIHAI = 19
 
 function assertDistribution(distribution) {
   expect(distribution).toBeInstanceOf(Float64Array)
@@ -59,7 +60,7 @@ describe('runtime dx distribution with shihai=0', () => {
 
   it('preserves the critical=11 boundary and the maximum dice count', () => {
     const distribution = calculateDxDistribution({
-      dice: DX_DICE_COUNT - 1,
+      dice: LEGACY_COMPARISON_DICE,
       critical: DX_CRITICAL_MAX,
       shihai: 0,
     })
@@ -71,16 +72,28 @@ describe('runtime dx distribution with shihai=0', () => {
 })
 
 describe('runtime dx distribution with shihai>0', () => {
+  it('accepts dice and target counts beyond the historical asset range', () => {
+    const distribution = calculateDxDistribution(
+      { dice: 100, critical: 11, shihai: 20 },
+      { workingLength: 64, rounding: 'unrounded' }
+    )
+
+    expect(distribution).toHaveLength(64)
+    expect(distribution.reduce((sum, probability) => sum + probability, 0))
+      .toBeCloseTo(1, 12)
+    expect(distribution.some((probability) => probability > 0)).toBe(true)
+  })
+
   it('returns automatic failure through and at the shihai boundary', () => {
     const belowBoundary = calculateDxDistribution({
-      dice: DX_SHIHAI_MAX,
+      dice: LEGACY_COMPARISON_SHIHAI,
       critical: 7,
-      shihai: DX_SHIHAI_MAX,
+      shihai: LEGACY_COMPARISON_SHIHAI,
     })
     const atBoundary = calculateDxDistribution({
-      dice: DX_SHIHAI_MAX + 1,
+      dice: LEGACY_COMPARISON_SHIHAI + 1,
       critical: 7,
-      shihai: DX_SHIHAI_MAX,
+      shihai: LEGACY_COMPARISON_SHIHAI,
     })
 
     assertDistribution(belowBoundary)
@@ -94,7 +107,7 @@ describe('runtime dx distribution with shihai>0', () => {
   it('handles the critical boundaries and maximum dice count', () => {
     for (const critical of [DX_CRITICAL_MIN, DX_CRITICAL_MAX]) {
       const distribution = calculateDxDistribution({
-        dice: DX_DICE_COUNT - 1,
+        dice: LEGACY_COMPARISON_DICE,
         critical,
         shihai: 1,
       })
@@ -125,11 +138,11 @@ describe('runtime dx input validation', () => {
     null,
     {},
     { dice: -1, critical: 2, shihai: 0 },
-    { dice: DX_DICE_COUNT, critical: 2, shihai: 0 },
+    { dice: Number.MAX_SAFE_INTEGER + 1, critical: 2, shihai: 0 },
     { dice: 1, critical: DX_CRITICAL_MIN - 1, shihai: 0 },
     { dice: 1, critical: DX_CRITICAL_MAX + 1, shihai: 0 },
     { dice: 1, critical: 10, shihai: -1 },
-    { dice: 1, critical: 10, shihai: DX_SHIHAI_MAX + 1 },
+    { dice: 1, critical: 10, shihai: -1 },
   ])('rejects %o', (params) => {
     expect(() => calculateDxDistribution(params)).toThrow()
   })
@@ -150,9 +163,9 @@ describe('runtime dx dynamic working lengths', () => {
 
   it.each([
     { dice: 0, critical: 2, shihai: 0 },
-    { dice: 99, critical: 2, shihai: 0 },
+    { dice: LEGACY_COMPARISON_DICE, critical: 2, shihai: 0 },
     { dice: 0, critical: 11, shihai: 19 },
-    { dice: 99, critical: 11, shihai: 19 },
+    { dice: LEGACY_COMPARISON_DICE, critical: 11, shihai: LEGACY_COMPARISON_SHIHAI },
   ])('returns a valid unrounded distribution for %o', (params) => {
     const distribution = calculateDxDistribution(params, {
       workingLength: 4172,

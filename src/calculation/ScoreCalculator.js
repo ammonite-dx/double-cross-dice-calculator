@@ -1,5 +1,4 @@
 import {
-  OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,
   expandSparseDistribution,
 } from '../data/Distribution'
@@ -91,16 +90,20 @@ function calculateScoreWorking(
   const plan = validateScoreRangePlan(scoreRangePlan)
 
   if (fix) {
-    const distribution = Array(OUTPUT_DISTRIBUTION_SIZE).fill(0)
-    const fixedScore = Math.min(
-      OUTPUT_DISTRIBUTION_SIZE - 1,
-      Math.max(0, params.skill)
-    )
-    distribution[fixedScore] = 1
+    const fixedScore = Math.max(0, params.skill)
+    if (!Number.isSafeInteger(fixedScore)) {
+      throw new RangeError('fixed score must be a safe integer')
+    }
+    // Keep the fixed-score path sparse.  A fixed evasion value may be much
+    // larger than the historical 1023 published bucket, and allocating a
+    // dense array up to that value would turn a valid input into an
+    // accidental memory spike.  The canonical producer below represents the
+    // same point mass with an offset of `fixedScore`.
     return {
-      workingDistribution: distribution,
+      workingDistribution: [1],
       failureProbability: 0,
       alreadyShifted: true,
+      fixedScore,
       plan,
     }
   }
@@ -203,10 +206,7 @@ function getCanonicalSupport(params, alreadyShifted = false) {
   if (alreadyShifted) {
     return {
       kind: 'finite',
-      max: Math.min(
-        OUTPUT_DISTRIBUTION_SIZE - 1,
-        Math.max(0, params.skill)
-      ),
+      max: Math.max(0, params.skill),
     }
   }
   const finiteRawSupportMax = getFiniteRawSupportMax(params)
@@ -227,8 +227,22 @@ function createCanonicalScoreResult(
   workingDistribution,
   failureProbability,
   scoreRangePlan,
-  alreadyShifted = false
+  alreadyShifted = false,
+  fixedScore = null
 ) {
+  if (alreadyShifted) {
+    const point = fixedScore ?? Math.max(0, params.skill)
+    if (!Number.isSafeInteger(point) || point < 0) {
+      throw new RangeError('fixed score must be a non-negative safe integer')
+    }
+    return createDistributionResult({
+      values: [1],
+      offset: point,
+      support: { kind: 'finite', max: point },
+      overflow: null,
+    })
+  }
+
   const workingMax = scoreRangePlan?.workingLength !== undefined
     ? scoreRangePlan.workingLength - 2
     : workingDistribution.length - 2
@@ -468,6 +482,7 @@ export function calculateScoreCanonical(
     workingDistribution,
     failureProbability,
     alreadyShifted,
+    fixedScore,
   } = calculateScoreWorking(
     params,
     dependencies,
@@ -479,7 +494,8 @@ export function calculateScoreCanonical(
     workingDistribution,
     failureProbability,
     scoreRangePlan,
-    alreadyShifted
+    alreadyShifted,
+    fixedScore
   )
   const scoreTailCertificate = createCanonicalScoreTailCertificate(
     result,

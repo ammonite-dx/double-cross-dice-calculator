@@ -587,8 +587,8 @@ describe('production range planner', () => {
 
     expect(exactDisplay.accepted).toBe(true)
     expect(exactDisplay.display.points).toBe(1000)
-    expect(tooManyDisplayPoints.accepted).toBe(false)
-    expect(tooManyDisplayPoints.rejectionReasons).toContain('display-points')
+    expect(tooManyDisplayPoints.accepted).toBe(true)
+    expect(tooManyDisplayPoints.display.points).toBe(1001)
     expect(exact.accepted).toBe(true)
     expect(exact.warnings.some((warning) => warning.code === 'estimated-time')).toBe(false)
     expect(warning.accepted).toBe(true)
@@ -967,7 +967,7 @@ describe('production range planner', () => {
     expect(fullTail.damage.rawSupportMax).toBe(10)
   })
 
-  it('clamps negative backtrack dice and separates static asset coverage', () => {
+  it('keeps the Lois rule boundary and separates static asset coverage', () => {
     const clamped = planCalculationRanges({
       operation: 'backtrack',
       backtrack: {
@@ -981,9 +981,9 @@ describe('production range planner', () => {
     const overflow = planCalculationRanges({
       operation: 'backtrack',
       backtrack: {
-        lois: 100,
+        lois: 0,
         elois: 0,
-        dice: 0,
+        dice: 300,
         value: 0,
         dlois: 'なし',
       },

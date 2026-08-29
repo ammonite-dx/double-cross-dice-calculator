@@ -1,5 +1,7 @@
 # `dr`オンデマンド計算実験
 
+> この実験ディレクトリは、旧schema-v2 assetとの照合と当時の性能測定を再現するための履歴資料です。`reference.js`と`optimized.js`に残る`202`ダイス・`9`回の定数は、その比較fixtureの範囲を表すものであり、productionの`src/calculation/RuntimeDamageRollCalculator.js`が受け付ける入力上限ではありません。
+
 ## 目的
 
 このディレクトリは、`dr`の全ダイス数分布を静的JSONから取得せず、命中結果から必要になる混合分布をブラウザ内で直接計算できるか調査するための実験です。最適化実装は現在の`RuntimeDamageRollCalculator`とWorker経路へ反映され、ここには参照実装と性能・数値検証用のコードだけを残しています。
