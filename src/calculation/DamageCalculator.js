@@ -1,8 +1,5 @@
 import {
-  OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,
-  collapseDistribution,
-  getUpperTailProbability,
   shiftDistribution,
 } from '../data/Distribution'
 import { subDistribution } from '../data/FFT'
@@ -271,34 +268,6 @@ function composePlannedDamage(
     distribution,
     overflowProbability,
     plan,
-  }
-}
-
-function finalizePlannedDamage(
-  damageRollDistribution,
-  failureProbability,
-  attack,
-  defence,
-  getD10Distribution,
-  damageRangePlan,
-  onFftLength
-) {
-  const composed = composePlannedDamage(
-    damageRollDistribution,
-    failureProbability,
-    attack,
-    defence,
-    getD10Distribution,
-    damageRangePlan,
-    onFftLength
-  )
-  const distribution = collapseDistribution(composed.distribution)
-  distribution[OUTPUT_DISTRIBUTION_SIZE - 1] +=
-    composed.overflowProbability
-
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
   }
 }
 
@@ -619,66 +588,6 @@ export function createCanonicalDamageRollRequest(
       reaction.certificate,
     ]),
     sourceSupport: getCanonicalScoreSourceSupport(action, reaction),
-  }
-}
-
-export function finalizeOnDemandDamage(
-  damageRollDistribution,
-  failureProbability,
-  attack,
-  defence,
-  getD10Distribution,
-  damageRangePlan,
-  onFftLength
-) {
-  if (damageRangePlan !== undefined && damageRangePlan !== null) {
-    return finalizePlannedDamage(
-      damageRollDistribution,
-      failureProbability,
-      attack,
-      defence,
-      getD10Distribution,
-      damageRangePlan,
-      onFftLength
-    )
-  }
-
-  if (
-    !isProbabilityArray(damageRollDistribution) ||
-    damageRollDistribution.length !== WORKING_DISTRIBUTION_SIZE
-  ) {
-    throw new RangeError(
-      `damage distribution must have ${WORKING_DISTRIBUTION_SIZE} entries`
-    )
-  }
-
-  let distribution = Array.from(damageRollDistribution)
-  const fixedValueDifference = attack.value - defence.value
-  if (fixedValueDifference > 0) {
-    distribution = shiftDistribution(distribution, fixedValueDifference)
-  }
-  if (defence.dice > 0) {
-    if (typeof getD10Distribution !== 'function') {
-      throw new TypeError('getD10Distribution must provide a function')
-    }
-    distribution = subDistribution(
-      distribution,
-      getD10Distribution(
-        defence.dice,
-        WORKING_DISTRIBUTION_SIZE
-      )
-    )
-  }
-  if (fixedValueDifference < 0) {
-    distribution = shiftDistribution(distribution, fixedValueDifference)
-  }
-
-  distribution[0] += failureProbability
-  distribution = collapseDistribution(distribution)
-
-  return {
-    distribution,
-    upperTailProbability: getUpperTailProbability(distribution),
   }
 }
 
