@@ -14,11 +14,13 @@
 - `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをUI表示精度内の誤差としてchart projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction/reaction双方の`99D/critical=2`について`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`はresource rejection、`0..100`への復帰はcanvas 2・alertなしで確認した。
 - Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照する。Score、Damage、Backtrackのdata calculator wrapperはPhase 8-2G6で削除し、全consumerをcoreと明示的なrepository依存へ移行した。
 
-## Release hardening (RH1--RH3)
+## Release hardening (RH1--RH5)
 
 - RH1完了（`874119c`）: `docs/dice-rules.md`へ正規入力domainを追加し、`src/domain/InputDomain.js`で安全な整数、critical、残存ロイス、対応featureの検証を共有した。旧JSONやフォームの上限は正規domainから分離した。
 - RH2完了（`21161f4`）: `src/calculation/D10Calculator.js`のruntime primitiveをAttackとBacktrackで共有し、productionのD10 JSON取得をなくした。公開assetは参照・比較用に保持する。
-- RH3実装中: DXの二項係数表と`dice=99`・`shihai=19`境界、DRの`202D`・`kazanari=9`境界、フォームの99/999上限を撤廃する。入力はsafe integer domainで受け付け、配列長、FFT長、推定時間・メモリ、二次計算量には絶対安全上限を設ける。`kazanari`は実際のダメージダイス数を超えた場合に同値な有効値へ正規化する。
+- RH3完了（`e512eec`）: DXの二項係数表と`dice=99`・`shihai=19`境界、DRの`202D`・`kazanari=9`境界、フォームの99/999上限を撤廃した。入力はsafe integer domainで受け付け、配列長、FFT長、推定時間・メモリ、二次計算量には絶対安全上限を設ける。`kazanari`は実際のダメージダイス数を超えた場合に同値な有効値へ正規化する。
+- RH4完了（`687d14c`）: production consumerがない`DamageCalculator`のlegacy finalizerを削除した。published adapter、LegacyChartSetter、rounding optionは比較・再生成用途のconsumerが残るため保持し、symbol単位の監査結果をPhase 8 inventoryへ追補した。
+- RH5進行中: D10全224ケースのasset equivalence、rule-validなresource-heavy入力のreject、100D級のproduction browser smokeを追加した。全static auditと最終gateは現行HEADで実行し、generator環境の検証結果を追記する。
 
 ## 表示範囲と明示coverageの移行対象
 

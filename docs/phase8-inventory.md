@@ -14,11 +14,11 @@ Phase 8-1の調査時点はブランチ`codex/canonical-default-migration`のHEA
 | `migration` | 旧dense JSON、旧形式変換、旧revision、旧実装からの移行を再現するために保持するもの。 |
 | `dead-candidate` | 現在のproduction、テスト、生成、移行の参照が確認できず、前提を満たした後に削除候補となるもの。 |
 
-`proposed action`は、各Phaseの調査時点における操作候補を示す。過去Phaseの表はその時点のsnapshotであり、現行のretain/deleted判定は末尾のG10 closureを正とする。
+`proposed action`は、各Phaseの調査時点における操作候補を示す。過去Phaseの表はその時点のsnapshotであり、現行のretain/deleted判定は末尾のG10 closureと、後続のrelease-hardening追補を正とする。
 
 ## production import graph
 
-productionの入口は`src/main.js`からrouter、各計算viewへ続く。Checkは`CalculationClient.calculateCheckCanonical`とcanonical presentation、Attackはcanonical batch runnerとcanonical presentation、Backtrackはcanonical client/runnerを利用する。productionの`CalculationClient`は`src/calculation/`のDX、Score、Damage、Backtrack、RangePlanner、ResourceGuardを直接参照し、`src/data/D10PrecomputedDataRepository.js`からはD10のlazy loaderとgetterだけを参照する。互換facadeの`src/data/PrecomputedDataRepository.js`はPhase 8-2G5で削除済みであり、production graphにも残っていない。
+productionの入口は`src/main.js`からrouter、各計算viewへ続く。Checkは`CalculationClient.calculateCheckCanonical`とcanonical presentation、Attackはcanonical batch runnerとcanonical presentation、Backtrackはcanonical client/runnerを利用する。productionの`CalculationClient`は`src/calculation/`のDX、Score、Damage、Backtrack、RangePlanner、ResourceGuardを直接参照し、D10は`src/calculation/D10Calculator.js`のruntime primitiveから生成する。互換facadeの`src/data/PrecomputedDataRepository.js`と旧D10 repositoryは削除済みであり、production graphにも残っていない。
 
 Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical adapter、options、styleと、Attack chart専用の`ChartPercentages.js`を利用する。旧配列adapterは`LegacyChartSetter.js`へ分離し、productionの`src/`からはimportしない。DRは`RuntimeDamageRollClient`から`RuntimeDamageRollWorker`へ渡され、Worker内の`RuntimeDamageRollCalculator`がオンデマンド生成する。productionの`src/`から`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`を直接importする経路はない。
 
@@ -428,7 +428,7 @@ G9検証: `npm run data:check`（32 assets）、`npm run generator:test`（18 pa
 
 ## Phase 8-2G10: 残存legacy/dead code監査とPhase 8 closure（完了）
 
-G10では、G8・G9で削除されたAPI、dense JSON、schema-v1、変換scriptへのproduction importerが0件であることを再確認した。`src/calculation/DistributionResult.js`のpublished-bucket adapter、`src/components/Attack/LegacyChartSetter.js`の旧チャート形状、`src/data/Distribution.js`の`range`・collapse・shiftは、互換表示テストと既存利用箇所が残るため保持した。`src/data/ReferencePrecomputedDataRepository.js`と`src/data/D10PrecomputedDataRepository.js`も、それぞれ独立asset検証とproduction AttackのD10 lazy loadに必要なため保持した。Distribution/FFTの混在モジュールを、利用者不在という理由だけで分割・削除していない。
+G10では、G8・G9で削除されたAPI、dense JSON、schema-v1、変換scriptへのproduction importerが0件であることを再確認した。`src/calculation/DistributionResult.js`のpublished-bucket adapter、`src/components/Attack/LegacyChartSetter.js`の旧チャート形状、`src/data/Distribution.js`の`range`・collapse・shiftは、互換表示テストと既存利用箇所が残るため保持した。`src/data/ReferencePrecomputedDataRepository.js`は独立asset検証に必要なため保持し、D10はRH2でruntime primitiveへ移行した。Distribution/FFTの混在モジュールを、利用者不在という理由だけで分割・削除していない。
 
 G8後にlegacy APIを参照していた動的範囲Phase 2-E／2-FのNode・ブラウザハーネス（`benchmark-phase2e.mjs`、`browser-benchmark.*`、`playwright-runner.mjs`、`vite.config.mjs`）と、未参照の`experiments/runtime-dr/damage.js`を退役した。planner、Nodeベースライン、`decision.md`、`results.json`は設計判断と実測の履歴資料として保持し、現行測定はcanonical Attack／full-tail benchmarkへ集約した。`benchmark:dynamic-distribution-ranges:browser`のpackage commandも削除したため、公開・開発コマンドから壊れたlegacy harnessを呼び出さない。
 
@@ -436,7 +436,7 @@ G8後にlegacy APIを参照していた動的範囲Phase 2-E／2-FのNode・ブ�
 
 | 分類 | 対象 | 判断 |
 | --- | --- | --- |
-| production keep | canonical Score／Damage／Backtrack、RuntimeDamageRoll Worker、RangePlanner、ResourceGuard、D10 repository | 現行UIとcanonical計算の実行経路。削除しない。 |
+| production keep | canonical Score／Damage／Backtrack、RuntimeDamageRoll Worker、RangePlanner、ResourceGuard、runtime D10 primitive | 現行UIとcanonical計算の実行経路。削除しない。 |
 | compatibility keep | `DistributionResult`のpublished-bucket adapter、`LegacyChartSetter.js`、`Distribution.js`の互換symbol | `tests/attackDamageDisplayAdapter.test.js`とadapter testsが利用。利用者を移行してから別単位で削除する。 |
 | reference keep | `ReferencePrecomputedDataRepository.js`、公開schema-v2/revision-1、Python generator、runtime-dr reference/optimized実装 | 独立検証、asset照合、再生成、性能測定に必要。公開assetは同一revision内で変更しない。 |
 | historical keep | `experiments/dynamic-distribution-ranges/planner.mjs`、`benchmark.mjs`、`decision.md`、`results.json` | 過去の設計判断・測定を再現する資料。production import graphへ接続しない。 |
@@ -444,4 +444,16 @@ G8後にlegacy APIを参照していた動的範囲Phase 2-E／2-FのNode・ブ�
 
 G10の最終監査では、`src`、`tests`、`scripts`のlegacy calculation API参照を0件（canonical名の部分一致とUIの`getTotalDamageExpectedValue`を除く）とし、`public/data/schema-v2/revision-1/**`に差分がないことを確認した。dynamic-rangeの旧コマンド参照は履歴文書内だけに限定し、現行package command、production build、test importerから除去した。
 
-最終gate: `npm run check:node`、`npm test`（56 files / 763 tests）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:test:simulation`（13 passed / 18 deselected）、`npm run generator:lint`、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`npm run smoke:production`、`git diff --check`、`npm run data:check`（32 assets）が成功した。Phase 8ではcanonical production、公開schema-v2 asset、Python generator、必要なpublished-bucket互換だけを保持し、legacy計算・旧データ生成・壊れた実験経路を残さない状態になった。
+G10時点の最終gate（56 files / 763 tests）は当時の履歴値として保持する。現行HEADのRH5 gateは、下記のrelease-hardening追補に記録する。
+
+## Release hardening追補（RH1〜RH5、現行判定）
+
+上記のPhase 8-2各節には、D10を公開assetから読み込んでいた時点の履歴が含まれる。RH2以降の現行production graphでは、`src/calculation/D10Calculator.js`がD10の完全有限supportを生成し、`CalculationClient`、Damage、Backtrackから共有される。`src/data/D10PrecomputedDataRepository.js`は現行ツリーに存在せず、`public/data/schema-v2/revision-1/d10.json`はasset検証・比較用にのみ保持する。旧lazy-fetchのbrowser結果は履歴値であり、現行smokeの成功条件はrevision-1 request 0である。
+
+RH1〜RH3では入力domain、runtime D10、DX/DRの動的範囲、safe integer検証、FFT・配列長・計算量・メモリのresource guardを実装した（`874119c`、`21161f4`、`e512eec`）。`kazanari`は実際のダメージダイス数を超えない有効値へ正規化する。RH4では未参照の`finalizePlannedDamage`と`finalizeOnDemandDamage`を削除した（`687d14c`）。
+
+RH4監査で確認した結果、published-bucket adapter、`LegacyChartSetter.js`、`Distribution.js`の`range`・collapse・shift、DXのrounding互換option、reference repository、runtime-drの実験実装は、比較・asset検証・既存testのconsumerが残るため保持する。削除候補をproduction import 0件だけで一括削除せず、consumerと独立oracleを単位に再判断する。
+
+RH5の回帰として、D10の224ケースを現行runtime生成と公開1024 bucketへ投影して比較し、assetの小数第6位丸めを含む最大誤差1e-6以内を確認する。rule-validな100,000D attackはplannerが配列を確保する前に`damage-fft-length`／`estimated-time`でrejectし、ブラウザsmokeではCheckの100D、Attackのaction/attack/defence各100D、BacktrackのEロイス・その他減少量100Dをcanvas表示・request 0・browser error 0で確認する。
+
+RH5最終gateは、現行HEADで`npm run check:node`、`npm test`、`npm run lint`、`npm run lint:markdown`、`npm run build`、`npm run smoke:production`、`git diff --check`を実行し、generatorが利用可能な環境では`npm run data:check`、`npm run generator:test`、`npm run generator:test:simulation`、`npm run generator:lint`も実行する。API Worker、外部API、MCPはこのhardeningの対象外であり、canonical contract安定後の別フェーズとする。
