@@ -5,11 +5,11 @@
 ## 現在地
 
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
-- Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。production AttackのScore→Damageは`full-tail`で、Damage rangeはaction canonical Scoreの`outputMax`から計画し、reaction Scoreの大きさに依存しない。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。CalculationClient legacy APIとclient-level比較fixtureはcleanup第2単位で削除し、legacy core/assets、下位比較fixture、既存1024境界は移行検証用に残している。
+- Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。production AttackのScore→Damageは`full-tail`で、Damage rangeはaction canonical Scoreの`outputMax`から計画し、reaction Scoreの大きさに依存しない。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。CalculationClient legacy APIとclient-level比較fixtureはcleanup第2単位で削除した。legacy core、旧dense JSON、schema-v1、旧JS generatorもG7〜G10で撤去済みであり、現行treeに残るのはcanonical core、公開schema-v2、Python generator、参照・互換用の下位fixture（published-bucket、LegacyChartSetter、rounding alias等）と歴史記録である。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
 - CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
-- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7、Phase 8-1 inventory、Phase 8-2A ChartSetter split、Phase 8-2B dependency contract、Phase 8-2C production browser smoke、Phase 8-2D repository split、Phase 8-2E reference/legacy importer audit、Phase 8-2F runtime rule validation actual migration、Phase 8-2G1 facade test importer migration、Phase 8-2G2 benchmark/experiment facade importer migration、Phase 8-2G3 calculation barrel importer migration、Phase 8-2G4 calculation barrel deletion、Phase 8-2G5 compatibility facade deletion、Phase 8-2G6 canonical data wrapper retirementは完了している。残るlegacy core、JSON、asset、migration/comparison cleanupはPhase 8-2Gで個別に判断し、次はPhase 8-2G7でlegacy comparison/migration依存を整理する。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
+- BacktrackとAttackのcanonical default化はPhase 7の実装単位として完了した。full-tail Attackのresource planning・cost model校正・Chrome desktop/CPU 4x受入は`8c7d10c`で完了し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。Phase 7、Phase 8-1 inventory、Phase 8-2A〜2F、Phase 8-2G1〜2G6に加え、G7（legacy comparison/migration dependency consolidation）、G8（legacy calculation surface retirement）、G9（dense JSON・schema-v1・旧JS generator retirement）、G10（残存legacy/dead code監査とPhase 8 closure）も完了している。1024は事前計算・固定長配列由来の比較用上限であり、legacy/published-bucket比較境界であってcanonical schemaや最終production表示の上限とはしない。
 - AttackのScore/Damage表示範囲は999上限を撤廃し、任意の非負safe integerを受け付ける。`0..100`、`0..999`、`0..1000`、`0..1023`、`0..1024`、`0..1200`、`1000..1200`、`0..20000`の入力・coverage・resource判定を回帰テストで固定し、単一点`min === max`も有効とした。表示点数・メモリ・計算量のresource plannerによるrejectは維持する。Runtime DRのrange/FFTとfull-tail Damage rangeもplannerから動的に導出し、202Dをproduction semantic capとして扱わない。`CalculationClient.planAttackCombo()`ではaction `dice=99`・`critical=2`から`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=1024`、`fftLength=4096`、`accepted=true`、拒否理由なしを観測した。
 - `d30b3d1`ではfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層の修正では、`projectionUncertainty.positionUnknownProbabilityUpperBound`を追加し、確率表示の半刻み`5e-4`以下の位置不明tailだけをUI表示精度内の誤差としてchart projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは別の`outputOverflowLowerBound`で保持し、表示windowと重なる場合は従来どおり再計算または`not-projectable`とする。Node integrationでは通常およびaction/reaction双方の`99D/critical=2`について`Damage 0..100`、`0..1200`がPMFでreadyとなり、PMF/upper-tailの小tail、resource rejection、mixed tailを回帰テストで確認した。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`はresource rejection、`0..100`への復帰はcanvas 2・alertなしで確認した。
 - Productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照する。Score、Damage、Backtrackのdata calculator wrapperはPhase 8-2G6で削除し、全consumerをcoreと明示的なrepository依存へ移行した。
@@ -317,11 +317,11 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - 実装: Scoreは`calculateScoreCanonical`／`getCanonicalScoreSummary`、Damageは`calculateCanonicalDamageOnDemand`／`generateMixedDamageDistribution`／独立D10 provider、Backtrackは`calculateFinalEncroachmentCanonical`／`createBacktrackCanonicalPresentation`へ接続した。Score envelopeの`result`／`metadata`とcanonical finite supportをテスト側で明示し、legacyの1024 bucketや公開asset登録を使わない。
 - 完了条件: `runtimeRuleValidation.test.js`から`src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`、`PrecomputedDataRepository.js`へのimportが0であり、canonical actualとindependent expectedの一致、全JS/data/generator gateが成功することを確認した。これはリポジトリ全体のlegacy wrapper importer 0を意味しない。
 
-### Phase 8-2G: legacy/reference importerの個別cleanup（進行中）
+### Phase 8-2G: legacy/reference importerの個別cleanup（完了）
 
 - 対象: `calculator.test.js`、migration/comparison test、calculation barrel、compatibility facade、legacy core、dense JSONについて、Phase 8 inventoryのA/B/C/D分類に従って参照移行・保持・削除候補化を個別に判断する。
 - 対象外: production canonical core、D10 repository、revision-1公開asset、generator、Cloudflare Workers/API/MCP。
-- 状態: Phase 8-2G1（compatibility facadeのtest importer移行）、Phase 8-2G2（scripts/experimentsのfacade importer移行）、Phase 8-2G3（calculation barrel importerの直接移行）、Phase 8-2G4（barrel削除）、Phase 8-2G5（compatibility facade削除）、Phase 8-2G6（canonical data wrapper retirement）は完了し、Phase 8-2G7（legacy comparison/migration dependency consolidation）が次段階である。
+- 状態: Phase 8-2G1〜2G6のimporter・facade整理に続き、G7（legacy comparison/migration dependency consolidation）、G8（legacy calculation surface retirement）、G9（dense JSON・schema-v1・旧JS generator retirement）、G10（残存legacy/dead code監査とPhase 8 closure）まで完了している。Phase 8のcleanup条件、独立oracle、再生成手順、最終gateを満たした。
 - 完了条件: 各削除候補に独立oracle coverage、公開asset保持条件、再生成手順、full JS/data/generator gateを記録し、global wrapper/barrel importerの削除範囲を明示する。
 
 ### Phase 8-2G1: compatibility facade test importer移行（完了）
@@ -360,10 +360,10 @@ JSON整理はブラウザ内canonical計算と表示契約が安定した後に�
 - legacy calculation core、`LegacyCanonicalComparison`、dense JSON、public asset、generator、benchmark条件、計算意味論は変更していない。wrapper参照のglobal/static/SSR検索は0件である。
 - G6C closure（2026-08-28）として、G5/G6対象のrepository・assetテスト22件、`benchmark:calculators`、`benchmark:phase2h -- --iterations 1 --warmup 0`、全Vitest（64 files / 908 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、`git diff --check`がすべて成功した。wrapperのimport・SSR load・文字列参照0件も再確認し、`dynamic-distribution-ranges/benchmark-phase2e.mjs`も全ケースをエラーなしで完了した。
 
-### Phase 8-2G7: legacy comparison/migration dependency consolidation（次段階）
+### Phase 8-2G7: legacy comparison/migration dependency consolidation（完了）
 
-- legacy core、migration/comparison test、dense JSON、公開reference assetの依存関係を再監査し、独立oracle coverageと再生成手順を保ったまま削除・保持単位を判断する。
-- legacy比較の意味論、fixture、許容誤差を変更せず、JSON/asset/generatorの削除やAPI/MCP実装を同一単位へ混ぜない。
+- legacy core、migration/comparison test、dense JSON、公開reference assetの依存関係を再監査し、独立oracle coverageと再生成手順を保ったまま削除・保持単位を判断した。
+- legacy比較の意味論、fixture、許容誤差を維持したまま、migration test・legacy rule oracle・legacy-only benchmarkを独立したcanonical/runtime/generator検証へ移行した。JSON、公開asset、Python generator、比較utilityなど保持対象は変更していない。
 
 ### Phase 9: Cloudflare Workers、HTTP API、MCPを将来目標として再評価する
 
