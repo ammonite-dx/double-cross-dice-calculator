@@ -50,7 +50,6 @@ function createDependencies(overrides = {}) {
     getDamageRollDistribution: vi.fn(async () => new Float64Array([1])),
     getD10Distribution: vi.fn(),
     getFinalEncroachmentCanonical: vi.fn(() => 'canonical backtrack'),
-    loadD10Asset: vi.fn(async () => {}),
     ...overrides,
   }
 }
@@ -227,7 +226,6 @@ describe('canonical CalculationClient surface', () => {
     })
     expect(result).not.toHaveProperty('damage')
     expect(result).not.toHaveProperty('damageSummary')
-    expect(dependencies.loadD10Asset).toHaveBeenCalledOnce()
     expect(dependencies.calculateScoreCanonical).toHaveBeenCalledTimes(2)
     expect(dependencies.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
     expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledOnce()

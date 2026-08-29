@@ -19,9 +19,8 @@ import {
   normalizeDxOptions,
 } from '../calculation/DxCalculator'
 import {
-  getD10Distribution,
-  loadD10Asset,
-} from '../data/D10PrecomputedDataRepository'
+  createD10DistributionProvider,
+} from '../calculation/D10Calculator'
 import {
   calculateScoreCanonical as calculateCoreScoreCanonical,
   getCanonicalScoreSummary,
@@ -40,6 +39,7 @@ import { createResourceGuard } from './ResourceGuard'
 
 const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
+const runtimeD10DistributionProvider = createD10DistributionProvider()
 const defaultResourceGuard = createResourceGuard()
 
 function calculateScoreCanonicalAdapter(
@@ -95,8 +95,7 @@ const defaultDependencies = {
   getCanonicalTotalDamageSummary,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachmentCanonical: getFinalEncroachmentCanonicalAdapter,
-  getD10Distribution,
-  loadD10Asset,
+  getD10Distribution: runtimeD10DistributionProvider,
   planCanonicalDamageAggregation,
   planCalculationRanges,
   resourceGuard: defaultResourceGuard,
@@ -452,9 +451,6 @@ export function createCalculationClient(
 
     try {
       throwIfAborted(options, 'Attack')
-      if (request.reaction.damage.dice > 0) {
-        await dependencies.loadD10Asset()
-      }
       throwIfAborted(options, 'Attack')
 
       if (canonicalScoreCalculator === null) {

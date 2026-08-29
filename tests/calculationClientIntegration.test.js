@@ -20,12 +20,7 @@ import {
   calculateScoreCanonical,
   getCanonicalScoreSummary,
 } from '../src/calculation/ScoreCalculator'
-import {
-  getD10Distribution,
-  loadD10Asset,
-  registerD10Asset,
-} from '../src/data/D10PrecomputedDataRepository'
-import d10 from '../public/data/schema-v2/revision-1/d10.json'
+import { createD10DistributionProvider } from '../src/calculation/D10Calculator'
 
 function calculateCanonicalScore(
   params,
@@ -41,7 +36,7 @@ function calculateCanonicalScore(
   )
 }
 
-registerD10Asset(d10)
+const getD10Distribution = createD10DistributionProvider()
 
 const calculationClient = createCalculationClient({
   calculateCanonicalDamageOnDemand,
@@ -51,7 +46,6 @@ const calculationClient = createCalculationClient({
   getD10Distribution,
   getDamageRollDistribution: generateMixedDamageDistribution,
   getCanonicalDamageSummary,
-  loadD10Asset,
 })
 
 const scoreParams = {
@@ -258,7 +252,6 @@ describe('CalculationClient integration', () => {
       getCanonicalDamageSummary,
       getDamageRollDistribution,
       getD10Distribution,
-      loadD10Asset: vi.fn(async () => {}),
       planCalculationRanges,
       resourceGuard: {
         acquirePlan: vi.fn(() => ({ release: vi.fn() })),

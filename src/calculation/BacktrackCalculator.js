@@ -14,6 +14,7 @@ import {
   LIVINGDEAD_DLOIS,
 } from '../domain/BacktrackRules'
 import { createDistributionResult } from './DistributionResult'
+import { calculateD10Distributions as calculateSharedD10Distributions } from './D10Calculator'
 
 const NEGATIVE_PROBABILITY_TOLERANCE = 1e-12
 
@@ -151,56 +152,11 @@ function validateGenerationInputs(diceCounts, size, label, livingdead) {
   return { requestedDice, maxDice, supportMax }
 }
 
-/**
- * Generate the requested ordinary D10 sums in one forward DP.
- *
- * The returned arrays contain every finite support value explicitly. They do
- * not have an overflow bucket, so they are safe to use before the backtrack
- * thresholds are applied.
- */
+// Keep the Backtrack API's stricter generation policy while delegating the
+// ordinary D10 arithmetic to the shared runtime primitive.
 export function calculateD10Distributions(diceCounts, size, runtimeOptions = {}) {
-  const { requestedDice, maxDice } = validateGenerationInputs(
-    diceCounts,
-    size,
-    'D10 distribution',
-    false
-  )
-  const abortChecker = createAbortChecker(runtimeOptions)
-  abortChecker.force()
-
-  const result = new Map()
-  let current = new Float64Array(size)
-  current[0] = 1
-  if (requestedDice.includes(0)) {
-    result.set(0, current.slice())
-  }
-
-  for (let dice = 1; dice <= maxDice; dice += 1) {
-    abortChecker.force()
-    const next = new Float64Array(size)
-    const currentMax = 10 * (dice - 1)
-    for (let value = 0; value <= currentMax; value += 1) {
-      abortChecker.tick()
-      const probability = current[value]
-      if (probability === 0) {
-        continue
-      }
-      const faceProbability = probability / 10
-      for (let face = 1; face <= 10; face += 1) {
-        next[value + face] += faceProbability
-      }
-    }
-    current = next
-    if (requestedDice.includes(dice)) {
-      result.set(
-        dice,
-        normalizeGeneratedDistribution(current, `D10[${dice}]`, abortChecker)
-      )
-    }
-  }
-
-  abortChecker.force()
-  return result
+  validateGenerationInputs(diceCounts, size, 'D10 distribution', false)
+  return calculateSharedD10Distributions(diceCounts, size, runtimeOptions)
 }
 
 /**

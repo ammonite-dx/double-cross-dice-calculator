@@ -88,7 +88,6 @@ function createHarness() {
     getCanonicalDamageSummary: vi.fn(() => 'canonical summary'),
     getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
     getDamageRollDistribution: runtimeDamageRollClient.calculate,
-    loadD10Asset: vi.fn(async () => {}),
     planCalculationRanges: vi.fn(() => ({
       accepted: true,
       operation: 'attack',

@@ -61,7 +61,7 @@
 
 ## データセット
 
-各範囲の計算根拠は[`docs/dice-rules.md`の「事前計算範囲の決定方針」](./dice-rules.md#事前計算範囲の決定方針)に記載します。範囲の上端を`N`とすると、インデックス0を含むためJSONの`index.dice.count`と`distributions`の要素数は`N + 1`です。
+旧データの生成範囲の根拠は[`docs/dice-rules.md`の「歴史的な事前計算範囲」](./dice-rules.md#歴史的な事前計算範囲)に記載します。これらの範囲は正規入力domainではありません。範囲の上端を`N`とすると、インデックス0を含むためJSONの`index.dice.count`と`distributions`の要素数は`N + 1`です。
 
 ### `dx`
 
@@ -96,17 +96,17 @@
 - `dice`: 0から223
 - `distributionSize`: 1024
 
-現在のフォームから`livingdead`を実際に参照する最大値は219です。`d10`と同じ224分布に統一することで、バックトラック用データの境界管理を共通化しています。
+現在の旧フォームから`livingdead`を実際に参照していた最大値は219です。`d10`と同じ224分布に統一していた理由は、旧バックトラック用データの境界管理を共通化するためでした。
 
 ## 実行時の読込
 
 canonical UIはroute preloadを行わず、計算時に必要なruntime計算またはassetだけを同一Pagesデプロイから取得します。取得済みのD10はメモリ上でcacheします。
 
 - 一般判定: `shihai`用の事前計算assetを読まず、`calculateDxDistribution`でruntime DXを生成
-- 攻撃: `shihai`・`kazanari`の事前計算assetを読まず、runtime DXを生成し、防御側damage diceが1以上のときだけ`d10`をlazy loadする。DRは常駐Workerでruntime生成する
+- 攻撃: `shihai`・`kazanari`・D10の事前計算assetを読まず、runtime DX/D10を生成する。DRは常駐Workerでruntime生成する
 - バックトラック: 完全on-demandのcanonical generatorで要求範囲を生成し、`d10`・`livingdead` assetを読まない
 
-`d10`と`livingdead`の疎な分布形式はgeneratorの出力仕様とasset検証の対象です。canonical Backtrackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`d10`のcanonical Attack利用とassetの取得・検証・cacheは`src/data/D10PrecomputedDataRepository.js`に集約します。`src/data/ReferencePrecomputedDataRepository.js`はテストと独立比較のために公開assetを読み込みます。
+`d10`と`livingdead`の疎な分布形式はgeneratorの出力仕様とasset検証の対象です。canonical BacktrackとAttackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`src/data/ReferencePrecomputedDataRepository.js`はテストと独立比較のために公開assetを読み込みます。
 
 ## 検証gateと整理条件
 

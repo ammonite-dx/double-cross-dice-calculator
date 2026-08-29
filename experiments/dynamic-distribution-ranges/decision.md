@@ -35,7 +35,7 @@
 | 実行時DR出力 | 既定2048要素、optionsで2以上の可変長 | `spectrumToDistribution`が`distributionLength - 1`以上を末尾へ加算し、長さ1はdamage 0とoverflowを分離できないため拒否 | [`src/calculation/RuntimeDamageRollCalculator.js`](../../src/calculation/RuntimeDamageRollCalculator.js)、[`src/calculation/RuntimeDamageRollLimits.js`](../../src/calculation/RuntimeDamageRollLimits.js) |
 | 実行時DR FFT | 既定4096点、optionsで2の冪へ変更 | 必要supportより長いFFT長で周波数側を半分+1点評価し、残りを共役対称に補完 | [`src/calculation/RuntimeDamageRollCalculator.js`](../../src/calculation/RuntimeDamageRollCalculator.js) |
 | 通常FFT畳み込み | 入力配列長`N`から`nextPowerOfTwo(2N-1)` | `sumDistribution`は出力長`N`へ戻し、`N-1`へ上限集約 | [`src/data/FFT.js`](../../src/data/FFT.js) |
-| d10/livingdeadアセット | 1024要素、dice 0–223 | 1023以上はすでにアセット側で集約。現行UIの最大入力から必要な224本を保持 | [`src/data/D10PrecomputedDataRepository.js`](../../src/data/D10PrecomputedDataRepository.js)、[`src/data/ReferencePrecomputedDataRepository.js`](../../src/data/ReferencePrecomputedDataRepository.js) |
+| d10/livingdeadアセット | 1024要素、dice 0–223 | 1023以上はすでにアセット側で集約していた旧構成。現在のproductionはD10をruntime生成し、livingdeadはcanonical Backtrackでruntime生成する | [`src/calculation/D10Calculator.js`](../../src/calculation/D10Calculator.js)、[`src/data/ReferencePrecomputedDataRepository.js`](../../src/data/ReferencePrecomputedDataRepository.js) |
 | 転置DRキャッシュ | 3種類のkazanari | 配列を`distribution[damage][dice]`へ転置し、LRUで3種類まで保持 | [`src/data/ReferencePrecomputedDataRepository.js`](../../src/data/ReferencePrecomputedDataRepository.js) |
 
 `collapseDistribution`と`shiftDistribution`は上限外を捨てず、末尾へ加算します。ただし末尾へ集約された値は元の値を復元できません。したがって、負の固定値や防御ダイスなど後から値を下げる処理がある間は、公開末尾バケットを通常値として扱えません。

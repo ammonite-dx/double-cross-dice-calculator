@@ -28,7 +28,6 @@ function createDependencies(plan, canonicalResult = 'canonical-result') {
     planCalculationRanges: vi.fn(() => plan),
     resourceGuard,
     getFinalEncroachmentCanonical: vi.fn(() => canonicalResult),
-    loadD10Asset: vi.fn(async () => {}),
     release,
   }
 }
@@ -43,7 +42,7 @@ const params = {
 }
 
 describe('CalculationClient.calculateBacktrackCanonical', () => {
-  it('snapshots input, preflights, acquires/releases the canonical plan, and never loads assets', async () => {
+  it('snapshots input, preflights, acquires/releases the canonical plan', async () => {
     const plan = createPlan()
     const dependencies = createDependencies(plan)
     const client = createCalculationClient(dependencies)
@@ -82,7 +81,6 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     )
     expect(plan.backtrack.calculationMode).toBe('canonical')
     expect(plan.backtrack.distributionMode).toBe('on-demand')
-    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
     expect(dependencies.getFinalEncroachmentCanonical).toHaveBeenCalledWith(
       request,
       { signal, requestId: options.requestId },
@@ -91,7 +89,7 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     expect(dependencies.release).toHaveBeenCalledOnce()
   })
 
-  it('skips asset loading for a complete on-demand plan', async () => {
+  it('runs a complete on-demand plan directly', async () => {
     const plan = createPlan()
     const dependencies = createDependencies(plan)
     const client = createCalculationClient(dependencies)
@@ -101,7 +99,6 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
       dice: 103,
     })).resolves.toBe('canonical-result')
 
-    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
     expect(dependencies.getFinalEncroachmentCanonical).toHaveBeenCalledOnce()
     expect(dependencies.release).toHaveBeenCalledOnce()
   })
@@ -119,12 +116,11 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
       .rejects.toBeInstanceOf(CalculationRangeError)
 
     expect(dependencies.resourceGuard.acquirePlan).not.toHaveBeenCalled()
-    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
     expect(dependencies.getFinalEncroachmentCanonical).not.toHaveBeenCalled()
     expect(dependencies.release).not.toHaveBeenCalled()
   })
 
-  it('aborts after lease acquisition before loading or calculating', async () => {
+  it('aborts after lease acquisition before calculating', async () => {
     const plan = createPlan()
     const dependencies = createDependencies(plan)
     const client = createCalculationClient(dependencies)
@@ -135,7 +131,6 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
       signal: controller.signal,
     })).rejects.toMatchObject({ name: 'AbortError' })
 
-    expect(dependencies.loadD10Asset).not.toHaveBeenCalled()
     expect(dependencies.getFinalEncroachmentCanonical).not.toHaveBeenCalled()
     expect(dependencies.release).toHaveBeenCalledOnce()
   })

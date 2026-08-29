@@ -9,20 +9,17 @@ import {
   getBacktrackSupportMax,
 } from '../src/domain/BacktrackRules'
 import {
-  getD10Distribution,
-  registerD10Asset,
-} from '../src/data/D10PrecomputedDataRepository'
-import {
   getLivingdeadDistribution,
   registerLivingdeadAsset,
 } from '../src/data/ReferencePrecomputedDataRepository'
+import { calculateD10Distribution } from '../src/calculation/D10Calculator'
 import { createCalculationClient } from '../src/application/CalculationClient'
-import d10 from '../public/data/schema-v2/revision-1/d10.json'
 import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
 
-registerD10Asset(d10)
 registerLivingdeadAsset(livingdead)
 
+const getD10Distribution = (dice, size) =>
+  calculateD10Distribution(dice, { size })
 const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
 
 function getFinalEncroachmentCanonical(

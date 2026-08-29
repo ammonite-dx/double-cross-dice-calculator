@@ -6,6 +6,7 @@ import {
   shiftDistribution,
 } from '../data/Distribution'
 import { subDistribution } from '../data/FFT'
+import { calculateD10Distribution } from './D10Calculator'
 import {
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
@@ -20,6 +21,13 @@ import {
 
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
+
+function getRuntimeD10Distribution(dice, size, runtimeOptions = {}) {
+  return calculateD10Distribution(dice, {
+    size,
+    signal: runtimeOptions.signal,
+  })
+}
 
 function isProbabilityArray(value) {
   return Array.isArray(value) || value instanceof Float64Array
@@ -145,12 +153,13 @@ function getFiniteDefenceDistribution(
   defence,
   damageRangePlan
 ) {
-  if (typeof getD10Distribution !== 'function') {
+  const provider = getD10Distribution ?? getRuntimeD10Distribution
+  if (typeof provider !== 'function') {
     throw new TypeError('getD10Distribution must provide a function')
   }
 
   const expectedLength = damageRangePlan.defenceMax + 1
-  const source = getD10Distribution(defence.dice, expectedLength)
+  const source = provider(defence.dice, expectedLength)
   if (!isProbabilityArray(source) || source.length !== expectedLength) {
     throw new RangeError(
       `defence distribution must have ${expectedLength} entries`
@@ -679,7 +688,7 @@ export async function calculateCanonicalDamageOnDemand(
   defence,
   {
     getDamageRollDistribution,
-    getD10Distribution,
+    getD10Distribution = getRuntimeD10Distribution,
     onFftLength,
   } = {},
   runtimeOptions = {},

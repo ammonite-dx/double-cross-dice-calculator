@@ -179,7 +179,6 @@ describe('Attack canonical score display adapter', () => {
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
-      loadD10Asset: vi.fn(async () => {}),
       planCalculationRanges: vi.fn(() => ({
         accepted: true,
         operation: 'attack',
@@ -255,7 +254,6 @@ describe('Attack canonical score display adapter', () => {
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
-      loadD10Asset: vi.fn(async () => {}),
       planCalculationRanges: vi.fn((_params, policy = {}) => {
         planningPolicies.push(policy)
         const calculationMax = policy.calculationMax ?? 1
@@ -643,7 +641,6 @@ describe('Attack canonical score display adapter', () => {
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
-      loadD10Asset: vi.fn(async () => {}),
       sumCanonicalDamage,
     })
     const result = await client.calculateAttackCanonicalBatch([
@@ -699,7 +696,6 @@ describe('Attack canonical score display adapter', () => {
         getCanonicalTotalDamageSummary,
         getDamageRollDistribution: vi.fn(),
         getD10Distribution: vi.fn(),
-        loadD10Asset: vi.fn(async () => {}),
         sumCanonicalDamage,
       })
       const score = {
@@ -775,7 +771,6 @@ describe('Attack canonical score display adapter', () => {
       getCanonicalTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
-      loadD10Asset: vi.fn(async () => {}),
       sumCanonicalDamage,
     })
     const result = await client.calculateAttackCanonicalBatch([{

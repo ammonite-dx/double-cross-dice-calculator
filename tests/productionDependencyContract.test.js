@@ -12,12 +12,7 @@ const scoreParams = {
 
 function createPlan(operation) {
   if (operation === 'check') {
-    return {
-      accepted: true,
-      operation,
-      scores: [{}, {}],
-      warnings: [],
-    }
+    return { accepted: true, operation, scores: [{}, {}], warnings: [] }
   }
   if (operation === 'attack') {
     return {
@@ -29,12 +24,7 @@ function createPlan(operation) {
       warnings: [],
     }
   }
-  return {
-    accepted: true,
-    operation,
-    backtrack: {},
-    warnings: [],
-  }
+  return { accepted: true, operation, backtrack: {}, warnings: [] }
 }
 
 function createAttackParams(reactionDamageDice) {
@@ -63,7 +53,6 @@ function createBacktrackParams() {
 }
 
 function createHarness(overrides = {}) {
-  const loadD10Asset = vi.fn(async () => {})
   const getD10Distribution = vi.fn()
   const getDamageRollDistribution = vi.fn()
   const calculateScoreCanonical = vi.fn(() => ({ kind: 'score' }))
@@ -88,7 +77,6 @@ function createHarness(overrides = {}) {
     getD10Distribution,
     getDamageRollDistribution,
     getFinalEncroachmentCanonical,
-    loadD10Asset,
     planCalculationRanges,
     resourceGuard,
     ...overrides,
@@ -104,16 +92,14 @@ function createHarness(overrides = {}) {
     getD10Distribution,
     getDamageRollDistribution,
     getFinalEncroachmentCanonical,
-    loadD10Asset: dependencies.loadD10Asset,
     planCalculationRanges,
     release,
   }
 }
 
-describe('CalculationClient production dependency contract', () => {
+describe('CalculationClient runtime dependency contract', () => {
   it('does not request precomputed assets for Check', async () => {
     const harness = createHarness()
-
     const result = await harness.client.calculateCheckCanonical({
       action: { ...scoreParams },
       reaction: { ...scoreParams },
@@ -124,38 +110,24 @@ describe('CalculationClient production dependency contract', () => {
       reaction: { kind: 'score' },
     })
     expect(harness.calculateScoreCanonical).toHaveBeenCalledTimes(2)
-    expect(harness.loadD10Asset).not.toHaveBeenCalled()
     expect(harness.getD10Distribution).not.toHaveBeenCalled()
   })
 
-  it('does not load D10 for Attack with zero reaction damage dice', async () => {
+  it('passes the runtime D10 provider directly to Attack damage', async () => {
     const harness = createHarness()
+    await harness.client.calculateAttackCanonical(createAttackParams(1))
 
-    await harness.client.calculateAttackCanonical(createAttackParams(0))
-
-    expect(harness.loadD10Asset).not.toHaveBeenCalled()
     expect(harness.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
     const [, , , damageDependencies] =
       harness.calculateCanonicalDamageOnDemand.mock.calls[0]
-    expect(damageDependencies.getDamageRollDistribution)
-      .toBe(harness.getDamageRollDistribution)
     expect(damageDependencies.getD10Distribution)
       .toBe(harness.getD10Distribution)
   })
 
-  it('requires D10 readiness for Attack with reaction damage dice', async () => {
-    const harness = createHarness()
-
-    await harness.client.calculateAttackCanonical(createAttackParams(1))
-
-    expect(harness.loadD10Asset).toHaveBeenCalledOnce()
-    expect(harness.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
-  })
-
-  it('stops Attack when D10 readiness fails and releases its resource lease', async () => {
-    const error = new Error('D10 asset unavailable')
+  it('releases the resource lease when Attack damage fails', async () => {
+    const error = new Error('runtime damage unavailable')
     const harness = createHarness({
-      loadD10Asset: vi.fn(async () => {
+      calculateCanonicalDamageOnDemand: vi.fn(async () => {
         throw error
       }),
     })
@@ -163,22 +135,17 @@ describe('CalculationClient production dependency contract', () => {
     await expect(
       harness.client.calculateAttackCanonical(createAttackParams(1))
     ).rejects.toBe(error)
-
-    expect(harness.loadD10Asset).toHaveBeenCalledOnce()
-    expect(harness.calculateCanonicalDamageOnDemand).not.toHaveBeenCalled()
     expect(harness.release).toHaveBeenCalledOnce()
   })
 
-  it('uses canonical on-demand Backtrack without public D10 or livingdead assets', async () => {
+  it('uses canonical on-demand Backtrack without a data request', async () => {
     const harness = createHarness()
-
     const result = await harness.client.calculateBacktrackCanonical(
       createBacktrackParams()
     )
 
     expect(result).toEqual({ kind: 'backtrack' })
     expect(harness.getFinalEncroachmentCanonical).toHaveBeenCalledOnce()
-    expect(harness.loadD10Asset).not.toHaveBeenCalled()
     expect(harness.getD10Distribution).not.toHaveBeenCalled()
   })
 })

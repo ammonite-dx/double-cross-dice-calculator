@@ -1,5 +1,4 @@
 import os from 'node:os'
-import { readFile } from 'node:fs/promises'
 import { performance } from 'node:perf_hooks'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -45,11 +44,6 @@ export const BENCHMARK_RANGE_POLICY = Object.freeze({
 const DIGEST_MODULUS = 1_000_000_007
 const DR_DICE_COUNTS = Object.freeze([202, 300, 400, 600, 800])
 const KAZANARI_VALUES = Object.freeze([0, 1, 9])
-const D10_ASSET_URL = new URL(
-  '../public/data/schema-v2/revision-1/d10.json',
-  import.meta.url
-)
-
 let resultSink = 0
 
 function createScoreParams(overrides = {}) {
@@ -930,10 +924,6 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
   })
 }
 
-async function readD10Asset() {
-  return JSON.parse(await readFile(D10_ASSET_URL, 'utf8'))
-}
-
 async function loadDependencies() {
   const server = await createServer({
     appType: 'custom',
@@ -949,7 +939,7 @@ async function loadDependencies() {
       runtimeDamageRollCalculation,
       rangePlanner,
       canonicalDamageAggregation,
-      d10Repository,
+      d10Calculation,
     ] = await Promise.all([
       server.ssrLoadModule('/src/calculation/DamageCalculator.js'),
       server.ssrLoadModule('/src/calculation/DxCalculator.js'),
@@ -959,7 +949,7 @@ async function loadDependencies() {
       ),
       server.ssrLoadModule('/src/calculation/RangePlanner.js'),
       server.ssrLoadModule('/src/calculation/CanonicalDamageAggregation.js'),
-      server.ssrLoadModule('/src/data/D10PrecomputedDataRepository.js'),
+      server.ssrLoadModule('/src/calculation/D10Calculator.js'),
     ])
     return {
       server,
@@ -969,10 +959,13 @@ async function loadDependencies() {
       calculateScoreCanonical: scoreCalculation.calculateScoreCanonical,
       generateMixedDamageDistribution:
         runtimeDamageRollCalculation.generateMixedDamageDistribution,
-      getD10Distribution: d10Repository.getD10Distribution,
+      getD10Distribution: (dice, size, options) =>
+        d10Calculation.calculateD10Distribution(dice, {
+          size,
+          ...options,
+        }),
       planCalculationRanges: rangePlanner.planCalculationRanges,
       sumCanonicalDamage: canonicalDamageAggregation.sumCanonicalDamage,
-      registerD10Asset: d10Repository.registerD10Asset,
     }
   } catch (error) {
     await server.close()
@@ -1020,7 +1013,6 @@ export async function runBenchmark(options = {}) {
 
   const dependencies = await loadDependencies()
   try {
-    dependencies.registerD10Asset(await readD10Asset())
     const runtimeDx = createRuntimeDxProvider(
       dependencies.calculateDxDistribution
     )

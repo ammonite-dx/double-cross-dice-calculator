@@ -7,7 +7,6 @@ import { chromium } from 'playwright'
 const ROOT = fileURLToPath(new URL('../', import.meta.url))
 const VITE_BIN = fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url))
 const PRECOMPUTED_PREFIX = '/data/schema-v2/revision-1/'
-const D10_PATH = `${PRECOMPUTED_PREFIX}d10.json`
 const PREVIEW_HOST = '127.0.0.1'
 const PREVIEW_START_TIMEOUT_MILLISECONDS = 30 * 1000
 const PAGE_TIMEOUT_MILLISECONDS = 30 * 1000
@@ -280,14 +279,6 @@ function assertNoPrecomputedRequests(caseId, record) {
   )
 }
 
-function assertOnlyD10Request(caseId, record) {
-  const requests = getPrecomputedRequests(record)
-  const d10Requests = requests.filter(({ pathname }) => pathname === D10_PATH)
-  const unexpected = requests.filter(({ pathname }) => pathname !== D10_PATH)
-  assertCondition(caseId, d10Requests.length === 1, `expected exactly one D10 request, observed ${d10Requests.length}`)
-  assertCondition(caseId, unexpected.length === 0, `unexpected revision-1 asset request (${unexpected.map(({ url }) => url).join(', ')})`)
-}
-
 async function waitForCanvases(page, expectedCount, { exact = false } = {}) {
   await page.waitForFunction(
     ({ expectedCount: expected, exact: shouldBeExact }) => {
@@ -358,20 +349,10 @@ async function runAttack(browser, baseUrl) {
       await defenceDiceInput.count() === 1,
       'accessible defence dice input was not found',
     )
-    const d10ResponsePromise = page.waitForResponse(
-      (response) => new URL(response.url()).pathname === D10_PATH,
-      { timeout: PAGE_TIMEOUT_MILLISECONDS },
-    )
     await defenceDiceInput.fill('1')
-    const d10Response = await d10ResponsePromise
     const finalCanvases = await waitForCanvases(page, 2, { exact: true })
     await settlePage(page)
-    assertOnlyD10Request('attack-d10', record)
-    assertCondition(
-      'attack-d10',
-      d10Response.status() >= 200 && d10Response.status() < 300,
-      `D10 response was HTTP ${d10Response.status()}`,
-    )
+    assertNoPrecomputedRequests('attack-d10', record)
     assertNoBrowserErrors('attack-d10', record)
     return [
       {
@@ -382,10 +363,9 @@ async function runAttack(browser, baseUrl) {
       },
       {
         canvases: finalCanvases,
-        d10Requests: 1,
-        d10Status: d10Response.status(),
+        d10Requests: 0,
         id: 'attack defence=1',
-        precomputed: getPrecomputedRequests(record).length,
+        precomputed: 0,
       },
     ]
   } catch (error) {

@@ -78,7 +78,6 @@ function createClientDependencies(overrides = {}) {
     getDamageRollDistribution: vi.fn(),
     getD10Distribution: vi.fn(),
     getFinalEncroachmentCanonical: vi.fn(() => 'canonical backtrack'),
-    loadD10Asset: vi.fn(async () => {}),
     planCalculationRanges: vi.fn((params) => createPlan(params.operation)),
     ...overrides,
   }
@@ -447,7 +446,7 @@ describe('CalculationClient resource guard integration', () => {
 
   it.each([
     ['success', async (client) => client.calculateCheckCanonical(checkParams(), {})],
-    ['repository error', async (client) => client.calculateAttackCanonical({
+    ['runtime damage error', async (client) => client.calculateAttackCanonical({
       ...attackParams(),
       reaction: { ...attackParams().reaction, damage: { dice: 1, value: 0 } },
     })],
@@ -463,12 +462,7 @@ describe('CalculationClient resource guard integration', () => {
     const overrides = {
       planCalculationRanges: vi.fn((params) => createPlan(params.operation, 10)),
     }
-    if (kind === 'repository error') {
-      overrides.loadD10Asset = vi.fn(async () => {
-        throw new Error('repository failure')
-      })
-    }
-    if (kind === 'worker error') {
+    if (kind === 'runtime damage error' || kind === 'worker error') {
       overrides.calculateCanonicalDamageOnDemand = vi.fn(async () => {
         throw new Error('worker failure')
       })
