@@ -1,11 +1,6 @@
 export const OUTPUT_DISTRIBUTION_SIZE = 1024
 export const WORKING_DISTRIBUTION_SIZE = 2048
 
-export function range(min, max) {
-  return Array.from({ length: OUTPUT_DISTRIBUTION_SIZE }, (_, index) => index)
-    .slice(min, max + 1)
-}
-
 export function expandSparseDistribution(
   sparseDistribution,
   size = OUTPUT_DISTRIBUTION_SIZE

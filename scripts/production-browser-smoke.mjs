@@ -491,12 +491,14 @@ async function runBacktrack(browser, baseUrl) {
     await settlePage(page)
     assertNoPrecomputedRequests('backtrack', record)
     assertNoBrowserErrors('backtrack', record)
+    // Keep both high-dice changes across visible chart buckets so each input
+    // update can be verified as an actual result commit.
     await fillBoundaryInput(
       page,
       record,
-      'backtrack-dice=100',
-      page.getByLabel('その他減少量'),
-      100,
+      'backtrack-encroachment=700',
+      page.getByLabel('現在侵蝕率'),
+      700,
       3,
     )
     await fillBoundaryInput(
@@ -506,7 +508,14 @@ async function runBacktrack(browser, baseUrl) {
       page.getByLabel('Eロイス数'),
       100,
       3,
-      { requireResultCommit: false },
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'backtrack-dice=100',
+      page.getByLabel('その他減少量'),
+      100,
+      3,
     )
     assertNoPrecomputedRequests('backtrack-boundaries', record)
     assertNoBrowserErrors('backtrack-boundaries', record)

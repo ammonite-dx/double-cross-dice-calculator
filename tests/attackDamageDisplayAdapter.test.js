@@ -8,9 +8,6 @@ import {
 } from '../src/application/AttackCanonicalPresentation'
 import { ATTACK_DISPLAY_MODES } from '../src/application/AttackDisplayRequestSnapshot'
 import {
-  getAttackDamageChartData,
-} from '../src/components/Attack/LegacyChartSetter'
-import {
   getCanonicalAttackDamageChartData,
 } from '../src/components/Attack/ChartSetter'
 import {
@@ -79,19 +76,6 @@ function createCanonicalPresentation(status = 'ready', probabilities = [0.75, 0.
 }
 
 describe('Attack canonical damage display adapters', () => {
-  it('keeps the legacy false path in the existing chart shape', () => {
-    const data = getAttackDamageChartData(createLegacyAttackData(), {
-      min: 0,
-      max: 1,
-      mode: ATTACK_DISPLAY_MODES.PMF,
-    })
-
-    expect(data.labels).toEqual([0, 1])
-    expect(data.datasets).toHaveLength(3)
-    expect(data.datasets[0].data).toEqual([75, 25])
-    expect(data.datasets[2].label).toBe('合計')
-  })
-
   it('passes ready canonical chart data as owned percentage arrays', () => {
     const presentation = createCanonicalPresentation()
     const legacyData = createLegacyAttackData()
