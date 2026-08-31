@@ -287,6 +287,20 @@ describe('production range planner', () => {
     ).toBe('reject')
   })
 
+  it('models the deterministic shihai shortcut without a dice-sized DP table', () => {
+    const plan = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({ dice: 100_000, critical: 2, shihai: 100_000 }),
+    }), { limits: PERMISSIVE_LIMITS })
+    const score = plan.scores[0]
+
+    expect(plan.accepted).toBe(true)
+    expect(score.operations).toBe(0)
+    expect(score.float64Bytes).toBe(
+      2 * score.workingLength * Float64Array.BYTES_PER_ELEMENT
+    )
+    expect(score.float64Bytes).toBeLessThan(100_000 * score.workingLength)
+  })
+
   it('matches a finite round-and-convolution oracle for small yousei cases', () => {
     const cases = [
       { dice: 1, critical: 2, shihai: 0, yousei: 1 },

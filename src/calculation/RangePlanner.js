@@ -947,9 +947,17 @@ function planScore(params, display, policy, tailBudget) {
     workingLength,
   })
   const fftOperations = normalized.yousei * fftOperationCount(youseiFftLength)
+  // When 《絶対支配》 covers every die, DxCalculator returns a point mass
+  // immediately and does not allocate the per-dice DP table.  Keep the
+  // planner's memory model aligned with that shortcut: the raw result and
+  // its normalized copy are the only two Float64 buffers for the DX step.
+  const shihaiShortcut =
+    normalized.shihai > 0 && normalized.dice <= normalized.shihai
   const arrayCount = normalized.shihai === 0
     ? 4
-    : addSafe(normalized.dice, 4, 'score array count')
+    : shihaiShortcut
+      ? 2
+      : addSafe(normalized.dice, 4, 'score array count')
   const float64Bytes = multiplySafe(
     multiplySafe(arrayCount, workingLength, 'score array size'),
     Float64Array.BYTES_PER_ELEMENT,
