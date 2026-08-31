@@ -1,9 +1,8 @@
 export const OUTPUT_DISTRIBUTION_SIZE = 1024
 export const WORKING_DISTRIBUTION_SIZE = 2048
-export const DISTRIBUTION_SIZE = OUTPUT_DISTRIBUTION_SIZE
 
 export function range(min, max) {
-  return Array.from({ length: DISTRIBUTION_SIZE }, (_, index) => index)
+  return Array.from({ length: OUTPUT_DISTRIBUTION_SIZE }, (_, index) => index)
     .slice(min, max + 1)
 }
 
@@ -19,21 +18,6 @@ export function expandSparseDistribution(
   }
 
   return distribution
-}
-
-export function collapseDistribution(
-  distribution,
-  size = OUTPUT_DISTRIBUTION_SIZE
-) {
-  if (distribution.length < size) {
-    return distribution.concat(Array(size - distribution.length).fill(0))
-  }
-
-  const collapsed = distribution.slice(0, size)
-  collapsed[size - 1] = distribution
-    .slice(size - 1)
-    .reduce((sum, probability) => sum + probability, 0)
-  return collapsed
 }
 
 export function shiftDistribution(distribution, amount) {
