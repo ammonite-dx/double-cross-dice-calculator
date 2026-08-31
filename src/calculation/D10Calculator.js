@@ -12,6 +12,41 @@ export const D10_MAX_GENERATION_LENGTH = 1 << 20
 export const D10_MAX_GENERATION_OPERATIONS = 100_000_000
 export const D10_ABORT_CHECK_INTERVAL = 4_096
 
+/**
+ * Return the complete support length required for the sum of `dice` ordinary
+ * D10s.  This helper deliberately does not apply the absolute generation
+ * policy; callers such as RangePlanner need to inspect the estimate and
+ * report a resource rejection before invoking the calculator.
+ */
+export function getD10RequiredLength(dice) {
+  if (!Number.isSafeInteger(dice) || dice < 0) {
+    throw new TypeError('D10 dice must be a non-negative safe integer')
+  }
+  if (dice > Math.floor((Number.MAX_SAFE_INTEGER - 1) / 10)) {
+    throw new RangeError('D10 support length exceeds the safe integer range')
+  }
+  return dice * 10 + 1
+}
+
+/**
+ * Return the operation estimate used by the runtime generation guard.
+ * Keeping this expression in one place prevents planner and calculator from
+ * admitting different D10 workloads.
+ */
+export function getD10GenerationOperationEstimate(dice, size) {
+  if (!Number.isSafeInteger(dice) || dice < 0) {
+    throw new TypeError('D10 dice must be a non-negative safe integer')
+  }
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    throw new TypeError('D10 size must be a positive safe integer')
+  }
+  const estimate = dice * size
+  if (!Number.isSafeInteger(estimate)) {
+    throw new RangeError('D10 operation estimate exceeds the safe integer range')
+  }
+  return estimate
+}
+
 function createAbortError() {
   const error = new Error('D10 calculation was aborted')
   error.name = 'AbortError'
@@ -70,9 +105,7 @@ function normalizeSize(size, maxDice) {
       `D10 dice exceeds the absolute safety limit of ${maxGeneratedDice} for a complete support`
     )
   }
-  const requiredLength = maxDice > Number.MAX_SAFE_INTEGER / 10
-    ? Number.MAX_SAFE_INTEGER
-    : maxDice * 10 + 1
+  const requiredLength = getD10RequiredLength(maxDice)
   const normalized = size === undefined ? requiredLength : size
   if (!Number.isSafeInteger(normalized)) {
     throw new TypeError('D10 size must be a safe integer')
@@ -121,7 +154,10 @@ function normalizeGeneratedDistribution(distribution, label, abortChecker) {
 }
 
 function validateOperationEstimate(maxDice, size) {
-  if (maxDice !== 0 && size > D10_MAX_GENERATION_OPERATIONS / maxDice) {
+  if (
+    getD10GenerationOperationEstimate(maxDice, size) >
+    D10_MAX_GENERATION_OPERATIONS
+  ) {
     throw new RangeError(
       `D10 generation exceeds the absolute safety limit of ${D10_MAX_GENERATION_OPERATIONS} operations`
     )
@@ -154,7 +190,7 @@ export function calculateD10Distributions(
   for (let dice = 1; dice <= maxDice; dice += 1) {
     abortChecker.force()
     const next = new Float64Array(normalizedSize)
-    const currentMax = 10 * (dice - 1)
+    const currentMax = getD10RequiredLength(dice - 1) - 1
     for (let value = 0; value <= currentMax; value += 1) {
       abortChecker.tick()
       const probability = current[value]
@@ -207,7 +243,7 @@ export function createD10DistributionProvider({ cacheSize = 8 } = {}) {
     }
     const normalizedSize = size ?? (
       dice <= Math.floor((D10_MAX_GENERATION_LENGTH - 1) / 10)
-        ? dice * 10 + 1
+        ? getD10RequiredLength(dice)
         : D10_MAX_GENERATION_LENGTH + 1
     )
     const key = `${dice}:${normalizedSize}`

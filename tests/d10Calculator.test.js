@@ -8,6 +8,8 @@ import {
   calculateD10Distributions,
   createD10DistributionProvider,
   D10_MAX_GENERATION_LENGTH,
+  getD10GenerationOperationEstimate,
+  getD10RequiredLength,
 } from '../src/calculation/D10Calculator'
 
 function enumerate(dice) {
@@ -58,6 +60,14 @@ function expandPublishedDistribution(distribution) {
 }
 
 describe('runtime D10 calculator', () => {
+  it('shares the required-length and operation estimate contract', () => {
+    expect(getD10RequiredLength(0)).toBe(1)
+    expect(getD10RequiredLength(100)).toBe(1001)
+    expect(getD10GenerationOperationEstimate(100, 1001)).toBe(100100)
+    expect(() => getD10RequiredLength(-1)).toThrow(TypeError)
+    expect(() => getD10GenerationOperationEstimate(1, 0)).toThrow(TypeError)
+  })
+
   it('returns complete finite support, including zero dice', () => {
     expect(Array.from(calculateD10Distribution(0))).toEqual([1])
     const actual = calculateD10Distribution(2)

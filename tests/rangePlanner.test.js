@@ -10,6 +10,11 @@ import {
 } from '../src/calculation/RangePlanner'
 import { OUTPUT_DISTRIBUTION_SIZE } from '../src/data/Distribution'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
+import {
+  D10_MAX_GENERATION_OPERATIONS,
+  getD10GenerationOperationEstimate,
+  getD10RequiredLength,
+} from '../src/calculation/D10Calculator'
 
 function scoreParams(overrides = {}) {
   return {
@@ -711,6 +716,15 @@ describe('production range planner', () => {
         (fftLength / 2 + 1) *
         (maxDamageDice + 1) *
         (1 + 15 * Math.log1p(attack.kazanari))
+      const defenceD10Length = defence.dice > 0
+        ? defence.dice * 10 + 1
+        : 0
+      const defenceD10Operations = defence.dice > 0
+        ? defence.dice * defenceD10Length
+        : 0
+      const defenceD10Float64Bytes = defence.dice > 0
+        ? 2 * defenceD10Length * Float64Array.BYTES_PER_ELEMENT
+        : 0
       const float64Bytes = (
         2 * fftLength +
         workingLength +
@@ -729,13 +743,18 @@ describe('production range planner', () => {
       expect(damage.workingLength).toBe(workingLength)
       expect(damage.fftLength).toBe(fftLength)
       expect(damage.defenceFftLength).toBe(defenceFftLength)
+      expect(damage.defenceD10Length).toBe(defenceD10Length)
+      expect(damage.defenceD10Operations).toBe(defenceD10Operations)
+      expect(damage.defenceD10Float64Bytes).toBe(defenceD10Float64Bytes)
       expect(damage.operations).toBe(operations)
       expect(damage.float64Bytes).toBe(float64Bytes)
       expect(plan.estimates.damageOperations).toBe(operations)
       expect(plan.estimates.float64Bytes).toBe(
         plan.scores.reduce((sum, scorePlan) => sum + scorePlan.float64Bytes, 0)
-          + float64Bytes
+          + float64Bytes + defenceD10Float64Bytes
       )
+      expect(plan.estimates.defenceD10Operations).toBe(defenceD10Operations)
+      expect(plan.estimates.defenceD10Float64Bytes).toBe(defenceD10Float64Bytes)
     }
   )
 
@@ -962,6 +981,61 @@ describe('production range planner', () => {
     expect(plan.damage.effectiveKazanari).toBeLessThanOrEqual(
       plan.damage.maxDamageDice
     )
+  })
+
+  it('accounts for runtime defence D10 generation in the resource estimate', () => {
+    const limits = { limits: PERMISSIVE_LIMITS }
+    const withoutDefence = planCalculationRanges(attackParams({
+      defence: { dice: 0, value: 0 },
+    }), limits)
+    const withDefence = planCalculationRanges(attackParams({
+      defence: { dice: 100, value: 0 },
+    }), limits)
+
+    expect(withDefence.damage.defenceD10Length).toBe(1001)
+    expect(withDefence.damage.defenceD10Operations).toBe(100100)
+    expect(withDefence.damage.defenceD10Float64Bytes).toBe(
+      2 * 1001 * Float64Array.BYTES_PER_ELEMENT
+    )
+    expect(withDefence.estimates.defenceD10Operations).toBe(100100)
+    expect(withDefence.estimates.defenceD10TimeMs).toBeGreaterThan(0)
+    expect(withDefence.estimates.float64Bytes).toBe(
+      withoutDefence.estimates.float64Bytes +
+        withDefence.damage.defenceD10Float64Bytes +
+        (withDefence.damage.float64Bytes - withoutDefence.damage.float64Bytes)
+    )
+    expect(withDefence.estimates.operations).toBeGreaterThan(
+      withoutDefence.estimates.operations
+    )
+    expect(withDefence.estimates.timeMs).toBeGreaterThan(
+      withoutDefence.estimates.timeMs
+    )
+  })
+
+  it('rejects defence D10 generation before the runtime absolute operation guard', () => {
+    let dice = 1
+    while (
+      getD10GenerationOperationEstimate(dice, getD10RequiredLength(dice)) <=
+      D10_MAX_GENERATION_OPERATIONS
+    ) {
+      dice += 1
+    }
+
+    const permissive = { limits: PERMISSIVE_LIMITS }
+    const justBelow = planCalculationRanges(attackParams({
+      defence: { dice: dice - 1, value: 0 },
+    }), permissive)
+    const justAbove = planCalculationRanges(attackParams({
+      defence: { dice, value: 0 },
+    }), permissive)
+
+    expect(justBelow.damage.defenceD10Operations)
+      .toBeLessThanOrEqual(D10_MAX_GENERATION_OPERATIONS)
+    expect(justBelow.accepted).toBe(true)
+    expect(justAbove.damage.defenceD10Operations)
+      .toBeGreaterThan(D10_MAX_GENERATION_OPERATIONS)
+    expect(justAbove.accepted).toBe(false)
+    expect(justAbove.rejectionReasons).toContain('defence-d10-generation')
   })
 
   it('retains the public overflow score bucket for a lower calculation maximum', () => {

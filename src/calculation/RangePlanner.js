@@ -3,6 +3,12 @@ import {
   BACKTRACK_ASSET_SUPPORT_MAX,
   getBacktrackGenerationOperationEstimate,
 } from './BacktrackLimits'
+import {
+  D10_MAX_GENERATION_LENGTH,
+  D10_MAX_GENERATION_OPERATIONS,
+  getD10GenerationOperationEstimate,
+  getD10RequiredLength,
+} from './D10Calculator'
 import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from './RuntimeDamageRollLimits'
 import { LEGACY_PUBLISHED_OVERFLOW_INDEX } from './DistributionResult'
 import {
@@ -142,6 +148,9 @@ function getPublishedScoreUpperBound(calculationMax) {
  * @property {number} defenceMax
  * @property {number} fftLength
  * @property {number} defenceFftLength
+ * @property {number} defenceD10Length
+ * @property {number} defenceD10Operations
+ * @property {number} defenceD10Float64Bytes
  * @property {number} operations
  * @property {number} damageOperations
  * @property {number} fftOperations
@@ -183,6 +192,9 @@ function getPublishedScoreUpperBound(calculationMax) {
  * @property {number} damageFftOperations
  * @property {number} [backtrackOperations]
  * @property {number} [backtrackTimeMs]
+ * @property {number} [defenceD10Operations]
+ * @property {number} [defenceD10TimeMs]
+ * @property {number} [defenceD10Float64Bytes]
  *
  * @typedef {Object} RangePlan
  * @property {boolean} accepted
@@ -1125,6 +1137,30 @@ function planDamage(params, display, policy, maxScoreForDamage) {
     'damage fixed difference'
   )
   const defenceMax = multiplySafe(defence.dice, 10, 'defence support')
+  const defenceD10Length = defence.dice > 0
+    ? getD10RequiredLength(defence.dice)
+    : 0
+  const defenceD10Operations = defence.dice > 0
+    ? getD10GenerationOperationEstimate(
+        defence.dice,
+        defenceD10Length
+      )
+    : 0
+  // Runtime D10 generation keeps the current and next DP buffers alive while
+  // producing the requested snapshot. Count both buffers for admission; the
+  // returned provider copy is short-lived and is covered by the damage
+  // consumer's own working-range estimate.
+  const defenceD10Float64Bytes = defence.dice > 0
+    ? multiplySafe(
+        multiplySafe(
+          defenceD10Length,
+          2,
+          'defence D10 generation buffer size'
+        ),
+        Float64Array.BYTES_PER_ELEMENT,
+        'defence D10 generation buffer size'
+      )
+    : 0
   const calculationPlusDefence = addSafe(
     policy.calculationMax,
     defenceMax,
@@ -1202,6 +1238,9 @@ function planDamage(params, display, policy, maxScoreForDamage) {
     damageOperations,
     fftOperations,
     float64Bytes,
+    defenceD10Length,
+    defenceD10Operations,
+    defenceD10Float64Bytes,
     finiteSupport: true,
     scoreValueMode: policy.scorePropagation,
     scoreValueUpperBound: maxScoreForDamage,
@@ -1237,11 +1276,15 @@ function planResources(scorePlans, damagePlan, comboCount, policy) {
       )
     : 0
   const damageFftOperations = damagePlan.fftOperations + comboFftOperations
+  const defenceD10Operations = damagePlan.defenceD10Operations ?? 0
+  const defenceD10TimeMs =
+    defenceD10Operations / policy.costModel.damageOperationsPerMs
   const operations = scoreOperations + scoreFftOperations +
-    damagePlan.operations + damageFftOperations
+    damagePlan.operations + damageFftOperations + defenceD10Operations
   const dxTimeMs = scoreOperations / policy.costModel.dxOperationsPerMs
   const damageTimeMs =
-    damagePlan.operations / policy.costModel.damageOperationsPerMs
+    damagePlan.operations / policy.costModel.damageOperationsPerMs +
+    defenceD10TimeMs
   const fftTimeMs =
     (scoreFftOperations + damageFftOperations) /
     policy.costModel.fftOperationsPerMs
@@ -1252,11 +1295,15 @@ function planResources(scorePlans, damagePlan, comboCount, policy) {
     dxTimeMs,
     damageTimeMs,
     fftTimeMs,
-    float64Bytes: scoreBytes + damagePlan.float64Bytes,
+    float64Bytes: scoreBytes + damagePlan.float64Bytes +
+      (damagePlan.defenceD10Float64Bytes ?? 0),
     scoreOperations,
     scoreFftOperations,
     damageOperations: damagePlan.operations,
     damageFftOperations,
+    defenceD10Operations,
+    defenceD10TimeMs,
+    defenceD10Float64Bytes: damagePlan.defenceD10Float64Bytes ?? 0,
     totalDamageFftOperations: damageFftOperations,
   }
 }
@@ -1386,6 +1433,24 @@ function applyLimits(plan, policy) {
   }
 
   if (plan.damage) {
+    accepted = classifyMetric(
+      warnings,
+      accepted,
+      'defence-d10-length',
+      plan.damage.defenceD10Length,
+      D10_MAX_GENERATION_LENGTH,
+      D10_MAX_GENERATION_LENGTH,
+      'elements'
+    )
+    accepted = classifyMetric(
+      warnings,
+      accepted,
+      'defence-d10-generation',
+      plan.damage.defenceD10Operations,
+      D10_MAX_GENERATION_OPERATIONS,
+      D10_MAX_GENERATION_OPERATIONS,
+      'operations'
+    )
     accepted = classifyMetric(
       warnings,
       accepted,
