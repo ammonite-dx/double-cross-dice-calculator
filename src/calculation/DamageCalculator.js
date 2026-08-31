@@ -148,7 +148,8 @@ function validateDamageRollDistribution(
 function getFiniteDefenceDistribution(
   getD10Distribution,
   defence,
-  damageRangePlan
+  damageRangePlan,
+  runtimeOptions = {}
 ) {
   const provider = getD10Distribution ?? getRuntimeD10Distribution
   if (typeof provider !== 'function') {
@@ -156,7 +157,7 @@ function getFiniteDefenceDistribution(
   }
 
   const expectedLength = damageRangePlan.defenceMax + 1
-  const source = provider(defence.dice, expectedLength)
+  const source = provider(defence.dice, expectedLength, runtimeOptions)
   if (!isProbabilityArray(source) || source.length !== expectedLength) {
     throw new RangeError(
       `defence distribution must have ${expectedLength} entries`
@@ -191,7 +192,8 @@ function composePlannedDamage(
   defence,
   getD10Distribution,
   damageRangePlan,
-  onFftLength
+  onFftLength,
+  runtimeOptions = {}
 ) {
   const fixedValueDifference = attack.value - defence.value
   const plan = validateDamageRangePlan(
@@ -244,7 +246,8 @@ function composePlannedDamage(
       getFiniteDefenceDistribution(
         getD10Distribution,
         defence,
-        plan
+        plan,
+        runtimeOptions
       ),
       {
         fftLength: Math.max(
@@ -643,7 +646,8 @@ export async function calculateCanonicalDamageOnDemand(
     defence,
     getD10Distribution,
     requested.normalizedPlan,
-    onFftLength
+    onFftLength,
+    runtimeOptions
   )
   const modeledSupportMax = getModeledDamageSupportMax(
     composed.plan,

@@ -123,6 +123,52 @@ describe('canonical on-demand damage calculation', () => {
     }
   )
 
+  it('passes runtime options, including the cancellation signal, to defence D10', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const defence = { dice: 1, value: 0 }
+    const controller = new AbortController()
+    const getD10Distribution = vi.fn(() => deterministicDefence(0))
+
+    await calculateCanonicalDamageOnDemand(
+      scoreWithHitProbability(1),
+      attack,
+      defence,
+      {
+        getDamageRollDistribution: pointProvider(2),
+        getD10Distribution,
+      },
+      { signal: controller.signal, requestId: 'defence-d10-signal' },
+      createRangePlan(attack, defence)
+    )
+
+    expect(getD10Distribution).toHaveBeenCalledWith(
+      defence.dice,
+      defence.dice * 10 + 1,
+      expect.objectContaining({
+        signal: controller.signal,
+        requestId: 'defence-d10-signal',
+      })
+    )
+  })
+
+  it('honors an already-aborted signal before runtime defence D10 generation', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const defence = { dice: 1, value: 0 }
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(calculateCanonicalDamageOnDemand(
+      scoreWithHitProbability(1),
+      attack,
+      defence,
+      {
+        getDamageRollDistribution: pointProvider(2),
+      },
+      { signal: controller.signal },
+      createRangePlan(attack, defence)
+    )).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
   it.each([
     {
       label: 'positive fixed difference and defence',
