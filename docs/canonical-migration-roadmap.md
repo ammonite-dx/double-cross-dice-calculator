@@ -5,7 +5,7 @@
 ## 現在地
 
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
-- Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。production AttackのScore→Damageは`full-tail`で、Damage rangeはaction canonical Scoreの`outputMax`から計画し、reaction Scoreの大きさに依存しない。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。CalculationClient legacy APIとclient-level比較fixtureはcleanup第2単位で削除した。legacy core、旧dense JSON、schema-v1、旧JS generatorもG7〜G10で撤去済みであり、現行treeに残るのはcanonical core、公開schema-v2、Python generator、参照・互換用の下位fixture（published-bucket、LegacyChartSetter、rounding alias等）と歴史記録である。
+- Attackのproduction UIはcanonical batch/presentationを既定経路として、Score/Damage chartとSummaryへ接続済みである。production AttackのScore→Damageは`full-tail`で、Damage rangeはaction canonical Scoreの`outputMax`から計画し、reaction Scoreの大きさに依存しない。canonical metadata、support、overflow、通常の不確かさは通常UIへ明示せず、保証できないsummary値は`—`とする。CalculationClient legacy APIとclient-level比較fixtureはcleanup第2単位で削除した。legacy core、旧dense JSON、schema-v1、旧JS generator、旧Attack chart adapterもG7〜G10とRelease hardening closure follow-upで撤去済みであり、現行treeに残るのはcanonical core、公開schema-v2、Python generator、published-bucketやrounding aliasなどの参照・互換用fixtureと歴史記録である。
 - Phase 1は`b72b709`、`4ad088e`、`26174a0`、`3df496c`で完了した。Check、バックトラック、canonical Attack batchが共通coordinatorの最新要求境界、入力snapshot、stale commit防止を共有している。
 - 通常のCheck、バックトラック、Attackはcanonical resultを既存表示経路と既定経路へ接続済みである。Attackの初期計算、validated input、combo操作は同じlatest-wins canonical runnerを使い、`/attack` routeのpreloadは行わない。
 - CheckのSummaryはcanonical typed summaryを既定表示経路とし、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterは共有presentation utilityとしてCheckでも再利用している。
@@ -19,7 +19,7 @@
 - RH1完了（`874119c`）: `docs/dice-rules.md`へ正規入力domainを追加し、`src/domain/InputDomain.js`で安全な整数、critical、残存ロイス、対応featureの検証を共有した。旧JSONやフォームの上限は正規domainから分離した。
 - RH2完了（`21161f4`）: `src/calculation/D10Calculator.js`のruntime primitiveをAttackとBacktrackで共有し、productionのD10 JSON取得をなくした。公開assetは参照・比較用に保持する。
 - RH3完了（`e512eec`）: DXの二項係数表と`dice=99`・`shihai=19`境界、DRの`202D`・`kazanari=9`境界、フォームの99/999上限を撤廃した。入力はsafe integer domainで受け付け、配列長、FFT長、推定時間・メモリ、二次計算量には絶対安全上限を設ける。`kazanari`は実際のダメージダイス数を超えた場合に同値な有効値へ正規化する。
-- RH4完了（`687d14c`）: production consumerがない`DamageCalculator`のlegacy finalizerを削除した。published adapter、LegacyChartSetter、rounding optionは比較・再生成用途のconsumerが残るため保持し、symbol単位の監査結果をPhase 8 inventoryへ追補した。
+- RH4完了（`687d14c`）: production consumerがない`DamageCalculator`のlegacy finalizerを削除した。published adapter、旧Attack chart adapter、rounding optionは比較・再生成用途のconsumerが残るため保持し、symbol単位の監査結果をPhase 8 inventoryへ追補した。旧Attack chart adapterはRelease hardening closure follow-upで退役した。
 - RH5完了（`156b59e`）: D10全224ケースのasset equivalence、rule-validなresource-heavy入力のreject、100D級のproduction browser smokeを追加した。現行HEADでstatic auditとJavaScript・generatorの最終gateが成功している。
 - RH6完了（`490988a`）: runtime防御D10の生成コストを`RangePlanner`のresource admissionへ統合した。`D10Calculator`と同じ`dice * size`式を共有helperで見積もり、必要support長、2本のFloat64 DP buffer、operation/time/memoryをdamage planと総resource estimateへ加算する。D10のabsolute length/operation limit超過は計算開始前に`defence-d10-length`／`defence-d10-generation`としてrejectし、calculator側のabsolute guardもdefence-in-depthとして維持する。
 
@@ -27,7 +27,9 @@
 
 RH6の実装後に、resource admissionと実行時の要求ライフサイクルが一致することを追加確認した。`0d38320`では防御D10 providerまで`AbortSignal`を伝播し、生成中のキャンセルをcanonical Damageの既存latest-wins契約へ接続した。`0576c14`では`shihai >= dice`の決定論的shortcutを`RangePlanner`の配列・操作量見積りへ反映し、実際に確保しないDP stateを見積もらないようにした。`5b2a7c3`ではproduction browser smokeの100D Check／Attack／Backtrackケースについて、入力保持やcanvas存在だけでなく、新しい計算結果のcommit完了を待つ契約を追加した。Backtrackは100Dで表示バケットが変わらない場合があるため、入力保持・描画状態・browser error 0を組み合わせて完了を判定する。
 
-`9787571`では互換surfaceをsymbol単位で再監査した。production・test・script・experimentから参照されない`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`は実装と自己検証を削除した。一方、`getAttackDamageChartData`と`clipData`／`range`はlegacy shape fixture、`shiftDistribution`はcanonical Damage、`getUpperTailProbability`は既存chart fixture、published-bucket adapterはcanonical比較・RangePlanner境界、DX rounding aliasは互換fixtureのconsumerが残るため保持する。公開schema-v2 asset、Python generator、計算意味論、production chart contractは変更していない。
+`9787571`では互換surfaceをsymbol単位で再監査した。production・test・script・experimentから参照されない`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`は実装と自己検証を削除した。一方、`getAttackDamageChartData`と`clipData`／`range`は当時legacy shape fixtureのconsumerが残るため保持した。その後のRelease hardening closure follow-upでlegacy fixtureを削除し、`shiftDistribution`はcanonical Damage、`getUpperTailProbability`は既存chart fixture、published-bucket adapterはcanonical比較・RangePlanner境界、DX rounding aliasは互換fixtureのconsumerが残るため保持している。公開schema-v2 asset、Python generator、計算意味論、production chart contractは変更していない。
+
+`c7c4b64`のRelease hardening closure follow-upでは、Backtrack smokeの現在侵蝕率を700に設定し、Eロイス100とその他減少量100の各入力で実際の結果commitを必須化した。残存していたlegacy Damage adapter、内部`clipData`、`Distribution.range`と専用legacy chart fixtureを削除し、canonical Damage adapter、coordinate/labels adapter、ChartPercentages golden testを代替根拠として残した。
 
 このclosureでは、以下の最終gateを現行HEADで実行する。過去のRH5／G10の成功記録は履歴値として保持し、今回の結果で上書きしない。
 
@@ -46,11 +48,11 @@ npm run smoke:production
 git diff --check
 ```
 
-2026-08-31の実行結果は、Node.js 22.23.2、data verify 32 assets、Vitest 57 files / 773 tests、generator test 18 passed / 13 deselected、simulation 13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`のすべて成功だった。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0を確認した。
+2026-08-31の実行結果は、Node.js 22.23.2、data verify 32 assets、Vitest 57 files / 772 tests、generator test 18 passed / 13 deselected、simulation 13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`のすべて成功だった。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0を確認した。
 
 ## 表示範囲と明示coverageの移行対象
 
-現行のlegacy経路では、`src/data/Distribution.js`の`range()`が1024要素の`OUTPUT_DISTRIBUTION_SIZE`に依存し、`src/components/Attack/LegacyChartSetter.js`のlegacy `clipData()`が固定長配列を`slice`している。通常のCheckではPhase 4でdynamic display windowを接続し、`src/components/Check/SettingForm.vue`をcontrolled化して表示`min`/`max`の999上限を撤廃した。AttackのSettingForm系（`src/components/Attack/ScoreSettingForm.vue`、`src/components/Attack/DamageSettingForm.vue`）もP1で固定上限を撤廃し、残るlegacy経路と計算上の1024/1022境界は後続で整理する。
+過去のlegacy経路では、`src/data/Distribution.js`の`range()`が1024要素の`OUTPUT_DISTRIBUTION_SIZE`に依存し、`src/components/Attack/LegacyChartSetter.js`のlegacy `clipData()`が固定長配列を`slice`していた。これらはRelease hardening closure follow-upで削除した。通常のCheckではPhase 4でdynamic display windowを接続し、`src/components/Check/SettingForm.vue`をcontrolled化して表示`min`/`max`の999上限を撤廃した。AttackのSettingForm系（`src/components/Attack/ScoreSettingForm.vue`、`src/components/Attack/DamageSettingForm.vue`）もP1で固定上限を撤廃し、計算上の1024/1022境界は比較用途として整理している。
 
 数学的なsupport、canonical resultが明示的に保持するcoverage、ユーザーが選ぶ表示windowを分離する。`support`は結果が取り得る値の範囲であり、`explicitMax`は現在のresultに確率値が明示されている上限である。表示windowは非負safe integerの`min`/`max`を原則任意に指定でき、windowが明示coverage内ならresultを再利用する。windowがcoverage外でも有限supportの外側なら確率0として再計算せず、support内で明示値が不足する場合だけ計算範囲を拡張する。upper-tailを正確に得られない場合は拡張計算またはresource rejectionとする。safe integerでも配列長、メモリ、計算量、Chart.js描画負荷が問題になる場合は、preflight、`ResourceGuard`、`DisplayRangePlanner`で制限または拒否する。
 

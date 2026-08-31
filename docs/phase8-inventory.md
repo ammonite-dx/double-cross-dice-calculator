@@ -1,6 +1,6 @@
 # Phase 8-1 inventory
 
-この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。Phase 8-2AではAttackのchart adapter、Phase 8-2Bではproduction dependency contract、Phase 8-2Cではproduction browser smoke、Phase 8-2Dでは事前計算データrepositoryのproduction/reference境界、Phase 8-2Eではreference/legacy importer監査とD10 validator closure、Phase 8-2Fではruntime rule validationのcanonical actual移行、Phase 8-2G1ではcompatibility facadeのtest importer移行、Phase 8-2G2ではbenchmark/experiment importer移行、Phase 8-2G3ではcalculation barrel importer移行、Phase 8-2G4ではcalculation barrel削除、Phase 8-2G5ではcompatibility facade削除、Phase 8-2G6ではdata calculator wrapper削除、G7～G9ではlegacy比較・旧データ生成系の退役、G10では残存コード監査とclosureを整理した。公開schema-v2/revision-1 asset、generator、計算意味論は維持し、旧dense JSONとschema-v1だけを削除した。
+この文書は、canonical resultをproductionの既定経路にした後のPhase 8-1として、legacy計算、事前計算データ、公開asset、再生成コード、比較用テストの依存関係を棚卸しする。今回のclosure補正では、実装実態に合わせてoracle、smoke、asset、barrelの分類を更新する。Phase 8-2AではAttackのchart adapter、Phase 8-2Bではproduction dependency contract、Phase 8-2Cではproduction browser smoke、Phase 8-2Dでは事前計算データrepositoryのproduction/reference境界、Phase 8-2Eではreference/legacy importer監査とD10 validator closure、Phase 8-2Fではruntime rule validationのcanonical actual移行、Phase 8-2G1ではcompatibility facadeのtest importer移行、Phase 8-2G2ではbenchmark/experiment importer移行、Phase 8-2G3ではcalculation barrel importer移行、Phase 8-2G4ではcalculation barrel削除、Phase 8-2G5ではcompatibility facade削除、Phase 8-2G6ではdata calculator wrapper削除、G7～G9ではlegacy比較・旧データ生成系の退役、G10では残存コード監査とclosureを整理した。続くRelease hardening closure follow-upでは、Backtrack smokeのcommit検証と残存legacy chart/rangeの削除を完了した。公開schema-v2/revision-1 asset、generator、計算意味論は維持し、旧dense JSONとschema-v1だけを削除した。
 
 ## 判定範囲と分類
 
@@ -20,7 +20,7 @@ Phase 8-1の調査時点はブランチ`codex/canonical-default-migration`のHEA
 
 productionの入口は`src/main.js`からrouter、各計算viewへ続く。Checkは`CalculationClient.calculateCheckCanonical`とcanonical presentation、Attackはcanonical batch runnerとcanonical presentation、Backtrackはcanonical client/runnerを利用する。productionの`CalculationClient`は`src/calculation/`のDX、Score、Damage、Backtrack、RangePlanner、ResourceGuardを直接参照し、D10は`src/calculation/D10Calculator.js`のruntime primitiveから生成する。互換facadeの`src/data/PrecomputedDataRepository.js`と旧D10 repositoryは削除済みであり、production graphにも残っていない。
 
-Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical adapter、options、styleと、Attack chart専用の`ChartPercentages.js`を利用する。旧配列adapterは`LegacyChartSetter.js`へ分離し、productionの`src/`からはimportしない。DRは`RuntimeDamageRollClient`から`RuntimeDamageRollWorker`へ渡され、Worker内の`RuntimeDamageRollCalculator`がオンデマンド生成する。productionの`src/`から`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`を直接importする経路はない。
+Attackのcanonical chartは`src/components/Attack/ChartSetter.js`のcanonical adapter、options、styleと、Attack chart専用の`ChartPercentages.js`を利用する。旧配列adapterはRelease hardening closure follow-upで削除し、productionの`src/`からlegacy chart moduleをimportする経路はない。DRは`RuntimeDamageRollClient`から`RuntimeDamageRollWorker`へ渡され、Worker内の`RuntimeDamageRollCalculator`がオンデマンド生成する。productionの`src/`から`src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`を直接importする経路はない。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -44,17 +44,17 @@ Phase 8-2Aで、production canonical adapterと旧1024要素配列adapterを別m
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `src/components/Attack/LegacyChartSetter.js` | `getAttackScoreChartData` | `deleted` | なし | なし（`rg`でproduction、test、script、experimentの参照0件） | なし | なし | `getCanonicalAttackScoreChartData`とcanonical presentation tests | `delete`（RH7 compatibility audit） | 外部利用・動的参照がないことを確認済み | targeted chart tests、full JS gate |
+| `src/components/Attack/LegacyChartSetter.js` | `getAttackScoreChartData` | `deleted` | なし | なし（`rg`でproduction、test、script、experimentの参照0件） | なし | なし | `getCanonicalAttackScoreChartData`とcanonical presentation tests | `delete`（compatibility cleanup） | 外部利用・動的参照がないことを確認済み | targeted chart tests、full JS gate |
 | `src/components/Attack/ChartSetter.js` | `getCanonicalAttackScoreChartData` | `production` | Attack ScoreChart | `attackScoreDisplayAdapter.test.js`、canonical chart tests | Chart.js用labels/data、`ChartPercentages.js`による表示単位変換 | なし | canonical presentation and chart tests | `keep` | canonical chart contractを維持 | JS tests、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackScoreChartOptions` | `production` | Attack ScoreChart | chart adapter tests | Chart.js options | なし | existing chart smoke | `keep` | 見た目互換を維持 | build、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackScoreChartStyle` | `production` | Attack ScoreChart | component tests | Chart layout style | なし | existing browser acceptance | `keep` | 見た目互換を維持 | build、browser smoke |
-| `src/components/Attack/LegacyChartSetter.js` | `getAttackDamageChartData` | `comparison-regression` | なし | `attackDamageDisplayAdapter.test.js`のlegacy shape fixture | 旧1024配列、旧total表示に依存 | なし | `getCanonicalAttackDamageChartData`とcanonical damage tests | `keep`（split済み） | legacy fixtureをcomparisonとして維持し、独立oracle移行後に削除を判断 | full JS gate、legacy importer 0の確認 |
+| `src/components/Attack/LegacyChartSetter.js` | `getAttackDamageChartData` | `deleted` | なし | なし（legacy shape fixtureをclosureで削除） | なし | なし | `getCanonicalAttackDamageChartData`とcanonical damage tests | `delete`（closure follow-up） | canonical adapterとpresentation testsで表示契約を保持 | targeted chart tests、full JS gate |
 | `src/components/Attack/ChartSetter.js` | `getCanonicalAttackDamageChartData` | `production` | Attack DamageChart | `attackDamageDisplayAdapter.test.js`、canonical chart tests | Chart.js用canonical damage/total series、`ChartPercentages.js`による表示単位変換 | なし | canonical damage presentation tests | `keep` | total chart contractを維持 | JS tests、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackDamageChartOptions` | `production` | Attack DamageChart | chart adapter tests | Chart.js options | なし | existing chart smoke | `keep` | 見た目互換を維持 | build、browser smoke |
 | `src/components/Attack/ChartSetter.js` | `getAttackDamageChartStyle` | `production` | Attack DamageChart | component tests | Chart layout style | なし | existing browser acceptance | `keep` | 見た目互換を維持 | build、browser smoke |
-| `src/components/Attack/LegacyChartSetter.js` | 内部`clipData`、`range` import | `comparison-regression` | なし | legacy chart testsと旧adapter | 1024固定配列のsliceと丸め | なし | canonical adapterはこの経路を通らない | `keep`（split済み） | 旧配列の互換挙動を維持し、共有丸めgoldenを保つ | full JS gate、legacy moduleのimport graph確認 |
+| `src/components/Attack/LegacyChartSetter.js` | 内部`clipData`、`range` import | `deleted` | なし | なし（legacy adapter削除に伴い消滅） | なし | なし | canonical adapterと`ChartPercentages.js`のgolden tests | `delete`（closure follow-up） | canonical adapterは固定長sliceと`range`に依存しない | targeted chart tests、full JS gate |
 
-**Phase 8-2A完了:** `ChartSetter.js`からlegacy array helperを`LegacyChartSetter.js`へ分離した。production canonical exports、options、styleと既存の表示挙動を保護し、`PrecomputedDataRepository`、公開asset、JSON、generatorには触れていない。Phase 8-2CでD10 lazy fetchのproduction smokeを完了し、Phase 8-2Dでrepositoryのproduction/reference分離を完了した。
+**Phase 8-2A完了:** `ChartSetter.js`からlegacy array helperを`LegacyChartSetter.js`へ分離した。production canonical exports、options、styleと既存の表示挙動を保護し、`PrecomputedDataRepository`、公開asset、JSON、generatorには触れていない。Phase 8-2CでD10 lazy fetchのproduction smokeを完了し、Phase 8-2Dでrepositoryのproduction/reference分離を完了した。後続のRelease hardening closure follow-upでlegacy module自体を削除した。
 
 ## split modules: precomputed data repositories
 
@@ -102,8 +102,8 @@ Phase 8-2Eでは、Phase 8-2D後のHEAD `e048d90`（`codex/canonical-default-mig
 | `src/calculation/LegacyCanonicalComparison.js` | thresholds、error classes、`compareLegacyAndCanonicalDistributions`、`compareLegacyAndCanonicalDamage`、`compareLegacyAndCanonicalTotalDamage`、aliasと判定helper | — | — | migration comparisonの共通判定 | `tests/legacyCanonicalComparison.test.js` | benchmark comparison | — | dense/public reference | independent oracle coverage map | 旧・新の差分を説明する比較fixture | semantic coverageを確認してから削除判断 | Phase 8-2G |
 | `src/calculation/index.js` | canonical re-export: `calculateFinalEncroachmentCanonical`、`calculateD10Distributions`、`calculateLivingdeadDistributions`、`calculateCanonicalDamageOnDemand`、`createCanonicalDamageRollRequest`、`finalizeOnDemandDamage`、`getCanonicalDamageSummary`、canonical aggregation、`calculateScoreCanonical`、`calculateCanonicalScoreSuccessProbabilityInterval`、`getCanonicalScoreSummary`、DX/RuntimeDamageRoll/RangePlanner API | — | —（G3完了後はowner moduleを直接import） | — | — | — | — | 下位moduleのowner export | owner moduleへの直接import | G3でimporter 0、G4でbarrel削除済み。owner moduleのAPIを保持 | — | Phase 8-2G4（完了） |
 | `src/calculation/index.js` | legacy re-export: `calculateFinalEncroachment`、`calculateDamage`、`calculateDamageOnDemand`、`createDamageRollRequest`、`getDamageSummary`、`getTotalDamage`、`calculateScore`、`getScoreSummary`、`LegacyCanonicalComparison` exports | — | — | — | — | — | — | 下位moduleのowner export | owner moduleへの直接import | G3でimporter 0、G4でbarrel削除済み。legacy utilityの意味論は各owner moduleで保持 | — | Phase 8-2G4（完了） |
-| `src/components/Attack/LegacyChartSetter.js` | `getAttackDamageChartData`、内部`clipData` | — | — | — | `tests/attackDamageDisplayAdapter.test.js` | — | — | legacy 1024配列 | `ChartSetter.js` canonical adapter | legacy表示fixture | `getAttackDamageChartData`と内部helperだけをlegacy shape fixtureのため保持 | RH7 |
-| `src/data/Distribution.js` | `range` | — | `tests/attackDamageDisplayAdapter.test.js` | — | legacy display comparison | — | — | 1024 legacy array | canonical coordinate/labels adapter | legacy chart API | LegacyChartSetter削除時に同時削除を判断 | Phase 8-2G |
+| `src/components/Attack/LegacyChartSetter.js` | `getAttackDamageChartData`、内部`clipData` | `deleted` | — | — | — | — | canonical Attack Damage adapter、ChartPercentages golden、production smoke | 旧1024配列 | `ChartSetter.js` canonical adapter | legacy表示fixtureを削除 | closure follow-upでmoduleとfixtureを削除 | 完了 |
+| `src/data/Distribution.js` | `range` | `deleted` | — | — | — | — | canonical coordinate/labels adapter、production smoke | 1024 legacy array | canonical presentation | LegacyChartSetter削除に伴い削除 | closure follow-upで削除 | 完了 |
 | `tests/runtimeRuleValidation.test.js` | 独立expected/referenceとcanonical actual | — | independent D10/livingdead、Score/Damage/Backtrack canonical core | — | rule cross-check | — | — | public assetは`precomputedAssets.test.js`とgeneratorで検証 | independent oracleとcanonical actual | actual側のwrapper・asset依存を除去済み | 独立oracleとして保持 | 保持 |
 | `tests/precomputedDataRepository.test.js` | facade compatibility、loader/cache/retry/revision | —（G5で削除） | — | — | — | — | — | `referencePrecomputedDataRepository.test.js`、`d10PrecomputedDataRepository.test.js` | なし | DXの2ケースをReference direct testへ移植し、既存D10/DR/livingdead coverageは既存direct testで保持 | G5で専用testを削除 | Phase 8-2G5 |
 | `tests/dxDataMigration.test.js` | dense DXとcanonical/referenceの移行比較 | — | — | 旧dense DX、public shard、canonical core | legacy/canonical comparison | — | generator DXを独立oracleにする | `src/data/dx.json`、public DX | generator exhaustive/referenceとcanonical test | dense JSONとwrapper import | 独立oracleへ移行後に削除候補 | Phase 8-2G |
@@ -188,16 +188,16 @@ G5開始時点でcompatibility facadeのimporterは`tests/precomputedDataReposit
 
 ## distribution、FFT、canonical/legacy core
 
-`src/data/Distribution.js`と`src/data/FFT.js`は、ディレクトリ名だけを根拠にlegacy扱いしない。FFTと配列操作の大部分はcanonical production coreが使用している。legacy候補は`LegacyChartSetter.js`が使う`range`だけである。
+`src/data/Distribution.js`と`src/data/FFT.js`は、ディレクトリ名だけを根拠にlegacy扱いしない。FFTと配列操作の大部分はcanonical production coreが使用している。以前のlegacy候補だった`range`はRelease hardening closure follow-upで削除した。
 
 | path | symbol/export | category | production importer | test/reference importer | runtime/deploy dependency | regeneration dependency | replacement evidence | proposed action | prerequisite | acceptance |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `src/data/Distribution.js` | `OUTPUT_DISTRIBUTION_SIZE`、`WORKING_DISTRIBUTION_SIZE` | `production` | repository、Score/Damage/Backtrack、RangePlanner | numerical and boundary tests | 1024 output、2048 workingの内部契約 | generator schema sizesとの対応 | canonical range/resource tests | `keep` | 1024をcanonical表示上限と解釈しない文書を維持 | full JS gate |
-| `src/data/Distribution.js` | `range` | `comparison-regression` | `LegacyChartSetter.js`だけ | legacy chart tests | 1024 array labels helper | なし | canonical charts use coordinate/labels from presentation | `keep`（split済み） | 旧ChartSetter APIの削除判断まで維持 | chart tests、legacy import graph |
+| `src/data/Distribution.js` | `range` | `deleted` | なし | なし（legacy chart test削除） | なし | なし | canonical charts use coordinate/labels from presentation | `delete`（closure follow-up） | LegacyChartSetter削除後のconsumer 0件を確認 | targeted chart tests、full JS gate |
 | `src/data/Distribution.js` | `expandSparseDistribution` | `production` | `ReferencePrecomputedDataRepository`、Score | repository、asset tests | sparse asset expansion | generator sparse serialization is compatible | canonical and asset tests | `keep` | sparse assetの展開に必要 | JS tests |
 | `src/data/Distribution.js` | `shiftDistribution` | `production` | `DamageCalculator` | distribution、damage tests | 固定値による分布のshift | なし | canonical damage tests | `keep` | Damageの固定値差分を維持 | JS tests |
 | `src/data/Distribution.js` | `getUpperTailProbability` | `comparison-regression` | なし | `canonicalChartSeriesAdapter.test.js` | 旧fixtureの上側確率を独立に再現 | なし | canonical chart series tests | `keep` | 既存1024 fixtureとの表示互換を検証 | chart tests |
-| `src/data/Distribution.js` | `collapseDistribution`、`DISTRIBUTION_SIZE` | `deleted` | なし | self-test以外の参照なし | なし | なし | canonical result/presentationへ移行済み | `delete`（RH7 compatibility audit） | 旧自己検証以外のconsumer 0件 | distribution tests、full JS gate |
+| `src/data/Distribution.js` | `collapseDistribution`、`DISTRIBUTION_SIZE` | `deleted` | なし | self-test以外の参照なし | なし | なし | canonical result/presentationへ移行済み | `delete`（compatibility cleanup） | 旧自己検証以外のconsumer 0件 | distribution tests、full JS gate |
 | `src/data/FFT.js` | `getConvolutionFftLength`、`convolveDistributions`、`sumDistribution`、`subDistribution` | `production` | Score、Damage、CanonicalDamageAggregation | fft、distribution、canonical tests | dynamic FFT、Score/Damage/total computation | generator polynomial operations are independent | FFT and canonical numeric tests | `keep` | FFT length/resource contractを維持 | full JS gate、benchmark on future changes |
 | `src/calculation/DistributionResult.js` | canonical constructors、validation、summary helpers | `production` | canonical cores、presentation | canonical result tests | support、explicit values、overflow metadata | なし | canonical presentation tests | `keep` | exact/bounded/lower-boundを保持 | JS tests |
 | `src/calculation/DistributionResult.js` | `LEGACY_PUBLISHED_BUCKET_LENGTH`、`LEGACY_PUBLISHED_OVERFLOW_INDEX`、`fromPublishedBucketDistribution`、`toPublishedBucketDistribution` | `comparison-regression` | production plannerが互換policyを受理するが、Attack canonical表示はfull-tail | legacy comparison、canonicalCheck、distributionResult、range tests | 1024 published adapterと旧fixture | schema-v1/reference compatibility | `DistributionResult` adapter testsとcanonical display tests | `move` | productionでの互換policy利用箇所を明示し、代替後に削除判断 | comparison gate、published fixture coverage |
@@ -299,7 +299,7 @@ Python generatorは現行配信assetの再生成元であり、旧dense JSONと�
 
 ## probability rounding golden coverage
 
-Attack chartの表示丸めは`ChartPercentages.js`の`Math.round(probability * 1000) / 10`で、0.1 percentage point単位である。canonical adapterと`LegacyChartSetter.js`はこのhelperを共有する。一方、CheckやBacktrackのsummary丸めは別の契約であり、このhelperを全体へ適用しない。
+Attack chartの表示丸めは`ChartPercentages.js`の`Math.round(probability * 1000) / 10`で、0.1 percentage point単位である。canonical adapterはこのhelperを利用する。一方、CheckやBacktrackのsummary丸めは別の契約であり、このhelperを全体へ適用しない。
 
 | input probability | expected percentage | 現在のcoverage | 次の作業 |
 | ---: | ---: | --- | --- |
@@ -431,7 +431,7 @@ G9検証: `npm run data:check`（32 assets）、`npm run generator:test`（18 pa
 
 ## Phase 8-2G10: 残存legacy/dead code監査とPhase 8 closure（完了）
 
-G10では、G8・G9で削除されたAPI、dense JSON、schema-v1、変換scriptへのproduction importerが0件であることを再確認した。`src/calculation/DistributionResult.js`のpublished-bucket adapter、`src/components/Attack/LegacyChartSetter.js`の旧Damageチャート形状、`src/data/Distribution.js`の`range`・shiftは、互換表示テストと既存利用箇所が残るため保持した。`collapseDistribution`と未使用の`DISTRIBUTION_SIZE`は、自己検証以外のconsumerがないことをRH7監査で確認して削除した。`src/data/ReferencePrecomputedDataRepository.js`は独立asset検証に必要なため保持し、D10はRH2でruntime primitiveへ移行した。Distribution/FFTの混在モジュールを、利用者不在という理由だけで分割・削除していない。
+G10では、G8・G9で削除されたAPI、dense JSON、schema-v1、変換scriptへのproduction importerが0件であることを再確認した。`src/calculation/DistributionResult.js`のpublished-bucket adapter、`src/components/Attack/LegacyChartSetter.js`の旧Damageチャート形状、`src/data/Distribution.js`の`range`・shiftは、当時は互換表示テストと既存利用箇所が残るため保持した。`collapseDistribution`と未使用の`DISTRIBUTION_SIZE`は、自己検証以外のconsumerがないことを互換surface監査で確認して削除した。後続のRelease hardening closure follow-upでは、legacy Damage adapterと`range`のconsumerをcanonical adapterへ移行したうえで削除した。`src/data/ReferencePrecomputedDataRepository.js`は独立asset検証に必要なため保持し、D10はRH2でruntime primitiveへ移行した。Distribution/FFTの混在モジュールを、利用者不在という理由だけで分割・削除していない。
 
 G8後にlegacy APIを参照していた動的範囲Phase 2-E／2-FのNode・ブラウザハーネス（`benchmark-phase2e.mjs`、`browser-benchmark.*`、`playwright-runner.mjs`、`vite.config.mjs`）と、未参照の`experiments/runtime-dr/damage.js`を退役した。planner、Nodeベースライン、`decision.md`、`results.json`は設計判断と実測の履歴資料として保持し、現行測定はcanonical Attack／full-tail benchmarkへ集約した。`benchmark:dynamic-distribution-ranges:browser`のpackage commandも削除したため、公開・開発コマンドから壊れたlegacy harnessを呼び出さない。
 
@@ -440,7 +440,7 @@ G8後にlegacy APIを参照していた動的範囲Phase 2-E／2-FのNode・ブ�
 | 分類 | 対象 | 判断 |
 | --- | --- | --- |
 | production keep | canonical Score／Damage／Backtrack、RuntimeDamageRoll Worker、RangePlanner、ResourceGuard、runtime D10 primitive | 現行UIとcanonical計算の実行経路。削除しない。 |
-| compatibility keep | `DistributionResult`のpublished-bucket adapter、`LegacyChartSetter.js`のDamage adapter、`Distribution.js`の`range`・`shift` | `tests/attackDamageDisplayAdapter.test.js`、canonical comparison、DamageCalculatorが利用。利用者を移行してから別単位で削除する。 |
+| compatibility keep | `DistributionResult`のpublished-bucket adapter、`Distribution.js`の`shift` | published-bucket adapterはcanonical比較・RangePlanner境界、`shift`はDamageCalculatorが利用。 |
 | reference keep | `ReferencePrecomputedDataRepository.js`、公開schema-v2/revision-1、Python generator、runtime-dr reference/optimized実装 | 独立検証、asset照合、再生成、性能測定に必要。公開assetは同一revision内で変更しない。 |
 | historical keep | `experiments/dynamic-distribution-ranges/planner.mjs`、`benchmark.mjs`、`decision.md`、`results.json` | 過去の設計判断・測定を再現する資料。production import graphへ接続しない。 |
 | deleted | legacy calculation API、比較utility、旧migration tests、dense JSON、schema-v1、旧JS generator、旧Phase 2-E／2-F harness、未参照runtime-dr統合prototype | 現行経路から到達不能またはG8／G9後に実行不能となったためGit履歴へ退役。 |
@@ -455,7 +455,7 @@ G10時点の最終gate（56 files / 763 tests）は当時の履歴値として�
 
 RH1〜RH3では入力domain、runtime D10、DX/DRの動的範囲、safe integer検証、FFT・配列長・計算量・メモリのresource guardを実装した（`874119c`、`21161f4`、`e512eec`）。`kazanari`は実際のダメージダイス数を超えない有効値へ正規化する。RH4では未参照の`finalizePlannedDamage`と`finalizeOnDemandDamage`を削除した（`687d14c`）。
 
-RH4監査で確認した結果、published-bucket adapter、`LegacyChartSetter.js`のDamage adapter、`Distribution.js`の`range`・shift、DXのrounding互換option、reference repository、runtime-drの実験実装は、比較・asset検証・既存testのconsumerが残るため保持する。`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`はproduction・test・script・experimentのconsumerがなく、RH7で実装と自己検証testを削除した。削除候補をproduction import 0件だけで一括削除せず、consumerと独立oracleを単位に再判断する。
+RH4監査で確認した結果、published-bucket adapter、`LegacyChartSetter.js`のDamage adapter、`Distribution.js`の`range`・shift、DXのrounding互換option、reference repository、runtime-drの実験実装は、比較・asset検証・既存testのconsumerが残るため保持した。`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`はproduction・test・script・experimentのconsumerがなく、互換surface監査で実装と自己検証testを削除した。後続のRelease hardening closure follow-upでDamage adapter、`clipData`、`range`と専用legacy fixtureも削除した。削除候補をproduction import 0件だけで一括削除せず、consumerと独立oracleを単位に再判断する。
 
 RH5の回帰として、D10の224ケースを現行runtime生成と公開1024 bucketへ投影して比較し、assetの小数第6位丸めを含む最大誤差1e-6以内を確認する。rule-validな100,000D attackはplannerが配列を確保する前に`damage-fft-length`／`estimated-time`でrejectし、ブラウザsmokeではCheckの100D、Attackのaction/attack/defence各100D、BacktrackのEロイス・その他減少量100Dをcanvas表示・request 0・browser error 0で確認する。
 
@@ -465,9 +465,9 @@ RH5最終gateは成功した。`npm run check:node`、Vitest（57 files / 768 te
 
 ## Release hardening closure（RH6 follow-up、2026-08-31）
 
-`0d38320`で防御D10 providerまで`AbortSignal`を伝播し、`0576c14`で`shihai >= dice` shortcutの実際のallocation modelをRangePlannerへ反映した。`5b2a7c3`では100D production smokeがフォーム入力の保持だけで成功しないよう、Check／Attackのsummaryまたはcanvas更新を待ち、Backtrackは表示バケット不変のケースを考慮した完了判定へ変更した。
+`0d38320`で防御D10 providerまで`AbortSignal`を伝播し、`0576c14`で`shihai >= dice` shortcutの実際のallocation modelをRangePlannerへ反映した。`5b2a7c3`では100D production smokeがフォーム入力の保持だけで成功しないよう、Check／Attackのsummaryまたはcanvas更新を待つ契約を追加した。`c7c4b64`ではBacktrackの現在侵蝕率を700に設定し、Eロイス100とその他減少量100の各入力で結果commitを必須化した。
 
-互換surfaceの監査（`9787571`）では、`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`をproduction・test・script・experimentのconsumer 0件として削除した。`getAttackDamageChartData`／`clipData`／`range`は`attackDamageDisplayAdapter.test.js`のlegacy shape fixture、`shiftDistribution`はcanonical Damage、`getUpperTailProbability`は既存chart fixture、published-bucket adapterはcanonical比較とRangePlanner境界、DX rounding aliasは互換fixtureが利用するため保持する。各symbolの分類とconsumerは上記の表に反映し、公開schema-v2、Python generator、production chart contract、計算意味論は変更していない。
+互換surfaceの監査（`9787571`）では、`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`をproduction・test・script・experimentのconsumer 0件として削除した。その時点で保持した`getAttackDamageChartData`／`clipData`／`range`は、`c7c4b64`のRelease hardening closure follow-upでlegacy shape fixtureを削除し、canonical Damage adapterとcoordinate/labels adapterへ移行したうえで削除した。`shiftDistribution`はcanonical Damage、`getUpperTailProbability`は既存chart fixture、published-bucket adapterはcanonical比較とRangePlanner境界、DX rounding aliasは互換fixtureが利用するため保持する。各symbolの分類とconsumerは上記の表に反映し、公開schema-v2、Python generator、production chart contract、計算意味論は変更していない。
 
 RH6 follow-upの最終gateは、過去のRH5／G10の履歴値と混同しないよう現行HEADで次の順に実行する。
 
@@ -486,4 +486,4 @@ npm run smoke:production
 git diff --check
 ```
 
-2026-08-31の現行HEAD gateはすべて成功した。`check:node`はNode.js 22.23.2、`data:check`／`data:verify-generator`は各32 assets、Vitestは57 files / 773 tests、generator testは18 passed / 13 deselected、simulationは13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`を確認した。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0だった。
+2026-08-31の現行HEAD gateはすべて成功した。`check:node`はNode.js 22.23.2、`data:check`／`data:verify-generator`は各32 assets、Vitestは57 files / 772 tests、generator testは18 passed / 13 deselected、simulationは13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`を確認した。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0だった。
