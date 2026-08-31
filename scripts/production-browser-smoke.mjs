@@ -349,7 +349,6 @@ async function fillBoundaryInput(
   input,
   value,
   expectedCanvases,
-  { requireResultCommit = true } = {},
 ) {
   assertCondition(
     caseId,
@@ -364,15 +363,7 @@ async function fillBoundaryInput(
     `boundary input did not retain ${value}`,
   )
   await waitForCanvases(page, expectedCanvases, { exact: true })
-  if (requireResultCommit) {
-    await waitForResultCommit(page, previousState)
-  } else {
-    // Some backtrack boundary changes can leave the coarse doughnut buckets
-    // pixel-identical (for example, both states may be entirely in the same
-    // displayed band).  Keep the input and error checks for those cases while
-    // requiring a visible commit for the other boundary scenarios.
-    await settlePage(page)
-  }
+  await waitForResultCommit(page, previousState)
   assertNoBrowserErrors(caseId, record)
 }
 
