@@ -314,6 +314,34 @@ async function settlePage(page) {
   await page.waitForTimeout(SETTLE_TIMEOUT_MILLISECONDS)
 }
 
+async function captureResultState(page) {
+  return page.evaluate(() => ({
+    tables: [...document.querySelectorAll('table')].map((table) =>
+      table.textContent
+    ),
+    canvases: [...document.querySelectorAll('canvas')].map((canvas) =>
+      canvas.toDataURL()
+    ),
+  }))
+}
+
+async function waitForResultCommit(page, previousState) {
+  await page.waitForFunction(
+    (previous) => {
+      const currentTables = [...document.querySelectorAll('table')].map((table) =>
+        table.textContent
+      )
+      const currentCanvases = [...document.querySelectorAll('canvas')].map((canvas) =>
+        canvas.toDataURL()
+      )
+      return currentTables.some((text, index) => text !== previous.tables[index])
+        || currentCanvases.some((data, index) => data !== previous.canvases[index])
+    },
+    previousState,
+    { timeout: PAGE_TIMEOUT_MILLISECONDS },
+  )
+}
+
 async function fillBoundaryInput(
   page,
   record,
@@ -321,12 +349,14 @@ async function fillBoundaryInput(
   input,
   value,
   expectedCanvases,
+  { requireResultCommit = true } = {},
 ) {
   assertCondition(
     caseId,
     await input.count() === 1,
     'accessible boundary input was not found',
   )
+  const previousState = await captureResultState(page)
   await input.fill(String(value))
   assertCondition(
     caseId,
@@ -334,7 +364,15 @@ async function fillBoundaryInput(
     `boundary input did not retain ${value}`,
   )
   await waitForCanvases(page, expectedCanvases, { exact: true })
-  await page.waitForTimeout(500)
+  if (requireResultCommit) {
+    await waitForResultCommit(page, previousState)
+  } else {
+    // Some backtrack boundary changes can leave the coarse doughnut buckets
+    // pixel-identical (for example, both states may be entirely in the same
+    // displayed band).  Keep the input and error checks for those cases while
+    // requiring a visible commit for the other boundary scenarios.
+    await settlePage(page)
+  }
   assertNoBrowserErrors(caseId, record)
 }
 
@@ -380,15 +418,14 @@ async function runAttack(browser, baseUrl) {
     assertNoPrecomputedRequests('attack-initial', record)
     assertNoBrowserErrors('attack-initial', record)
 
-    const defenceDiceInput = page.getByLabel('装甲・軽減値').first()
-    assertCondition(
+    await fillBoundaryInput(
+      page,
+      record,
       'attack-d10',
-      await defenceDiceInput.count() === 1,
-      'accessible defence dice input was not found',
+      page.getByLabel('装甲・軽減値').first(),
+      1,
+      2,
     )
-    await defenceDiceInput.fill('1')
-    const finalCanvases = await waitForCanvases(page, 2, { exact: true })
-    await settlePage(page)
     assertNoPrecomputedRequests('attack-d10', record)
     assertNoBrowserErrors('attack-d10', record)
     await fillBoundaryInput(
@@ -425,13 +462,13 @@ async function runAttack(browser, baseUrl) {
         precomputed: 0,
       },
       {
-        canvases: finalCanvases,
+        canvases: 2,
         d10Requests: 0,
         id: 'attack defence=1',
         precomputed: 0,
       },
       {
-        canvases: finalCanvases,
+        canvases: 2,
         d10Requests: 0,
         id: 'attack action/attack/defence dice=100',
         precomputed: 0,
@@ -457,18 +494,19 @@ async function runBacktrack(browser, baseUrl) {
     await fillBoundaryInput(
       page,
       record,
-      'backtrack-elois=100',
-      page.getByLabel('Eロイス数'),
+      'backtrack-dice=100',
+      page.getByLabel('その他減少量'),
       100,
       3,
     )
     await fillBoundaryInput(
       page,
       record,
-      'backtrack-dice=100',
-      page.getByLabel('その他減少量'),
+      'backtrack-elois=100',
+      page.getByLabel('Eロイス数'),
       100,
       3,
+      { requireResultCommit: false },
     )
     assertNoPrecomputedRequests('backtrack-boundaries', record)
     assertNoBrowserErrors('backtrack-boundaries', record)
