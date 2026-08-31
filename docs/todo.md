@@ -23,13 +23,14 @@ G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark
 
 第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、`DEFAULT_POLICY`は比較・互換用に`published-bucket`を保持しつつ、Attackのproduction `CalculationClient`は`full-tail`を明示的に選択します。DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。full-tail Attackのresource計測・暫定threshold判断は下記Phase 7実装単位へ記録し、残るJSON経路、legacy整理、低速実機、入力拡張候補の追加受入は後続課題です。
 
-## Release hardening (RH1--RH5)
+## Release hardening (RH1--RH6)
 
 - 完了（RH1、`874119c`）: canonical入力domainを`src/domain/InputDomain.js`へ集約し、ゲーム上の範囲、旧事前計算範囲、計算資源上限を分離した。
 - 完了（RH2、`21161f4`）: runtime D10 primitiveを追加し、production Attack/BacktrackからD10 JSON取得を除去した。公開assetは参照・比較用に保持する。
 - 完了（RH3、`e512eec`）: DXの固定dice/shihai境界、DRの固定damage dice/kazanari境界、UIフォームの99/999上限を撤廃した。safe integer domainを受け付け、FFT、配列長、推定時間・メモリ、二次計算量の絶対安全上限で計算前に拒否する。`kazanari`は実際のダメージダイス数を超えた場合に同値な有効値へ正規化する。
 - 完了（RH4、`687d14c`）: production consumerがない`DamageCalculator`のlegacy finalizerを削除した。chart setter、published adapter、rounding aliasは比較・再生成用途のconsumerが残るため保持し、symbol単位で監査した。
 - 完了（RH5、`156b59e`）: D10全224ケースのasset equivalence、rule-validなresource-heavy入力のreject、100D級のproduction browser smokeを追加した。現行HEADでstatic auditとJavaScript・generatorの最終gateが成功している。
+- 完了（RH6、`490988a`）: runtime防御D10のsupport length、operation、2本のFloat64 DP bufferを`RangePlanner`が事前見積もりし、`D10Calculator`と同じabsolute operation guardを共有した。damageと総resource estimateへcostを加算し、長さ・operation超過を`defence-d10-length`／`defence-d10-generation`として計算前にrejectする。防御ダイス0のcost 0、1D/100D、absolute guard境界を回帰テストで固定した。calculator側guardはdefence-in-depthとして保持する。
 
 RH2以降の現行productionでは、D10は`src/calculation/D10Calculator.js`のruntime primitiveから生成し、`src/data/D10PrecomputedDataRepository.js`や公開`d10.json`を読み込まない。Phase 8-2D以前のD10 lazy-fetch記述は履歴として保持する。
 

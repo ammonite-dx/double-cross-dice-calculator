@@ -444,9 +444,9 @@ G8後にlegacy APIを参照していた動的範囲Phase 2-E／2-FのNode・ブ�
 
 G10の最終監査では、`src`、`tests`、`scripts`のlegacy calculation API参照を0件（canonical名の部分一致とUIの`getTotalDamageExpectedValue`を除く）とし、`public/data/schema-v2/revision-1/**`に差分がないことを確認した。dynamic-rangeの旧コマンド参照は履歴文書内だけに限定し、現行package command、production build、test importerから除去した。
 
-G10時点の最終gate（56 files / 763 tests）は当時の履歴値として保持する。現行HEADのRH5 gateは、下記のrelease-hardening追補に記録する。
+G10時点の最終gate（56 files / 763 tests）は当時の履歴値として保持する。現行HEADのRH6 gateは、下記のrelease-hardening追補に記録する。
 
-## Release hardening追補（RH1〜RH5、現行判定）
+## Release hardening追補（RH1〜RH6、現行判定）
 
 上記のPhase 8-2各節には、D10を公開assetから読み込んでいた時点の履歴が含まれる。RH2以降の現行production graphでは、`src/calculation/D10Calculator.js`がD10の完全有限supportを生成し、`CalculationClient`、Damage、Backtrackから共有される。`src/data/D10PrecomputedDataRepository.js`は現行ツリーに存在せず、`public/data/schema-v2/revision-1/d10.json`はasset検証・比較用にのみ保持する。旧lazy-fetchのbrowser結果は履歴値であり、現行smokeの成功条件はrevision-1 request 0である。
 
@@ -456,4 +456,6 @@ RH4監査で確認した結果、published-bucket adapter、`LegacyChartSetter.j
 
 RH5の回帰として、D10の224ケースを現行runtime生成と公開1024 bucketへ投影して比較し、assetの小数第6位丸めを含む最大誤差1e-6以内を確認する。rule-validな100,000D attackはplannerが配列を確保する前に`damage-fft-length`／`estimated-time`でrejectし、ブラウザsmokeではCheckの100D、Attackのaction/attack/defence各100D、BacktrackのEロイス・その他減少量100Dをcanvas表示・request 0・browser error 0で確認する。
 
-RH5最終gateは成功した。`npm run check:node`、Vitest（57 files / 768 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、production browser smoke、`git diff --check`、`npm run data:check`（32 assets）、generator test（18 passed / 13 deselected）、simulation（13 passed / 18 deselected）、Ruffがすべて通過した。API Worker、外部API、MCPはこのhardeningの対象外であり、canonical contract安定後の別フェーズとする。
+RH6では、runtime D10へ移行した防御側生成のコストをplannerが事前に見積もる契約を追加した。`defenceD10Length`は`defence.dice * 10 + 1`、operation estimateは`defence.dice * defenceD10Length`であり、`D10Calculator`のabsolute operation guardと同じhelperを共有する。DPのcurrent/next bufferとして`2 * defenceD10Length * Float64Array.BYTES_PER_ELEMENT`をdamage planへ記録し、operation・time・memoryの総計へ加算する。防御D10の長さ・operation上限超過は計算器を呼ぶ前に`defence-d10-length`／`defence-d10-generation`で拒否し、防御ダイス0では追加コストを0とする。`490988a`のD10/range planner回帰テストで1D・100D、absolute guard直前・直後、0Dの境界を固定した。
+
+RH5最終gateは成功した。`npm run check:node`、Vitest（57 files / 768 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、production browser smoke、`git diff --check`、`npm run data:check`（32 assets）、generator test（18 passed / 13 deselected）、simulation（13 passed / 18 deselected）、Ruffがすべて通過した。RH6では対象テスト（D10/range planner 44件）とESLint、`git diff --check`を通過済みであり、全体gateは次のhardening単位の完了時に再実行する。API Worker、外部API、MCPはこのhardeningの対象外であり、canonical contract安定後の別フェーズとする。

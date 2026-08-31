@@ -197,6 +197,8 @@ $$
 
 `ReferencePrecomputedDataRepository`は`dx`を`shihai`ごと、`dr`を`kazanari`ごとのファイルとして遅延取得します。同じファイルへの同時リクエストは進行中のPromiseを共有し、取得後はメモリへ保持します。これらは比較専用で、productionのcanonical経路はD10、DX、DR、`livingdead`のいずれについてもJSONを取得しません。`livingdead`はBacktrackのcanonical計算で専用の状態DPから生成します。
 
+Damageの防御側では、runtime D10生成そのものも計算資源を消費します。`RangePlanner`は防御ダイス数$d$に対して必要長$L=10d+1$、生成operation数$dL$、DPのcurrent/next buffer容量$2L\times\mathrm{Float64Array.BYTES\_PER\_ELEMENT}$を見積もり、damage planと総resource estimateへ含めます。operation estimateは`D10Calculator`のabsolute guardと同じhelperを使うため、plannerが受理した入力と実計算器の検証条件がずれません。長さまたはoperationのabsolute limitを超える場合は、配列確保やD10計算より前に専用のreject理由を返します。防御ダイス0ではD10生成を行わず、追加コストも0です。calculator側のguardはplannerを通らない呼び出しに対するdefence-in-depthとして残します。
+
 ## 8. 計算量と性能上の要点
 
 - 長さ$N$の分布のシフト、上側確率、範囲集計は$O(N)$です。
