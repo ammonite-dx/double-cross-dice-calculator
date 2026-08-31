@@ -32,6 +32,16 @@ G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark
 - 完了（RH5、`156b59e`）: D10全224ケースのasset equivalence、rule-validなresource-heavy入力のreject、100D級のproduction browser smokeを追加した。現行HEADでstatic auditとJavaScript・generatorの最終gateが成功している。
 - 完了（RH6、`490988a`）: runtime防御D10のsupport length、operation、2本のFloat64 DP bufferを`RangePlanner`が事前見積もりし、`D10Calculator`と同じabsolute operation guardを共有した。damageと総resource estimateへcostを加算し、長さ・operation超過を`defence-d10-length`／`defence-d10-generation`として計算前にrejectする。防御ダイス0のcost 0、1D/100D、absolute guard境界を回帰テストで固定した。calculator側guardはdefence-in-depthとして保持する。
 
+### Release hardening closure（RH6 follow-up、2026-08-31）
+
+- 完了（`0d38320`）: canonical Damageの防御D10 providerへ`AbortSignal`を伝播し、生成中のキャンセルをlatest-wins契約へ接続した。
+- 完了（`0576c14`）: `shihai >= dice`の決定論的shortcutをRangePlannerの配列・操作量見積りへ反映し、実際に確保しないDP stateを見積もらないようにした。
+- 完了（`5b2a7c3`）: production browser smokeの100D Check／Attack／Backtrackで、新しい計算結果のcommit完了を待つ条件を追加した。Backtrackのように表示バケットが変わらないケースは、入力保持・描画状態・browser error 0を組み合わせて判定する。
+- 完了（`9787571`）: 互換surfaceをsymbol単位で再監査した。参照のない`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`は実装と自己検証を削除し、legacy Damage adapter、published-bucket adapter、`shiftDistribution`、上側確率helper、DX rounding aliasは現行consumerがあるため保持した。詳細は[`phase8-inventory.md`](./phase8-inventory.md)を参照する。
+- 最終gateはRH5／G10の履歴値を上書きせず、現行HEADで再実行して結果をこの節へ追記する。Cloudflare Worker、HTTP API、MCP、公開assetのrevision変更は対象外とする。
+
+2026-08-31の現行HEAD gateはすべて成功した。Node.js 22.23.2、data verify 32 assets、Vitest 57 files / 773 tests、generator test 18 passed / 13 deselected、simulation 13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`を確認した。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0だった。
+
 RH2以降の現行productionでは、D10は`src/calculation/D10Calculator.js`のruntime primitiveから生成し、`src/data/D10PrecomputedDataRepository.js`や公開`d10.json`を読み込まない。Phase 8-2D以前のD10 lazy-fetch記述は履歴として保持する。
 
 ## Canonical migration Phase 7 status

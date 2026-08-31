@@ -18,7 +18,7 @@
 
 静的アセットの各分布は、先頭の連続する0を省略した`offset`と`values`からなります。`expandSparseDistribution`はこれを1024要素または2048要素の密な配列へ展開します。
 
-`collapseDistribution`は互換表示向けに作業分布のインデックス0から1022をそのまま残し、インデックス1023以降の確率を公開分布の最後へ合計します。上限外の確率を捨てないことが重要です。canonical経路では作業配列の実際の長さとoverflow metadataを保持し、必要な場合だけpublished-bucketへ明示的に投影します。
+旧実装の`collapseDistribution`は、作業分布のインデックス0から1022を残し、インデックス1023以降の確率を公開分布の最後へ合計する互換処理でした。このsymbolと自己検証は、canonical経路や公開assetの再生成から参照されていないことを確認してRH7で削除しました。現在は`DistributionResult`の`toPublishedBucketDistribution`が、overflow metadataを検査したうえで必要な場合だけ同じpublished-bucket形状へ明示的に投影します。上限外の確率を安全条件なしに捨てたり、一点へ読み替えたりしないことが重要です。
 
 ### 1.3 シフト
 

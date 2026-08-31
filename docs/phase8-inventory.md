@@ -462,3 +462,28 @@ RH5の回帰として、D10の224ケースを現行runtime生成と公開1024 bu
 RH6では、runtime D10へ移行した防御側生成のコストをplannerが事前に見積もる契約を追加した。`defenceD10Length`は`defence.dice * 10 + 1`、operation estimateは`defence.dice * defenceD10Length`であり、`D10Calculator`のabsolute operation guardと同じhelperを共有する。DPのcurrent/next bufferとして`2 * defenceD10Length * Float64Array.BYTES_PER_ELEMENT`をdamage planへ記録し、operation・time・memoryの総計へ加算する。防御D10の長さ・operation上限超過は計算器を呼ぶ前に`defence-d10-length`／`defence-d10-generation`で拒否し、防御ダイス0では追加コストを0とする。`490988a`のD10/range planner回帰テストで1D・100D、absolute guard直前・直後、0Dの境界を固定した。
 
 RH5最終gateは成功した。`npm run check:node`、Vitest（57 files / 768 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、production browser smoke、`git diff --check`、`npm run data:check`（32 assets）、generator test（18 passed / 13 deselected）、simulation（13 passed / 18 deselected）、Ruffがすべて通過した。RH6では対象テスト（D10/range planner 44件）とESLint、`git diff --check`を通過済みであり、全体gateは次のhardening単位の完了時に再実行する。API Worker、外部API、MCPはこのhardeningの対象外であり、canonical contract安定後の別フェーズとする。
+
+## Release hardening closure（RH6 follow-up、2026-08-31）
+
+`0d38320`で防御D10 providerまで`AbortSignal`を伝播し、`0576c14`で`shihai >= dice` shortcutの実際のallocation modelをRangePlannerへ反映した。`5b2a7c3`では100D production smokeがフォーム入力の保持だけで成功しないよう、Check／Attackのsummaryまたはcanvas更新を待ち、Backtrackは表示バケット不変のケースを考慮した完了判定へ変更した。
+
+互換surfaceの監査（`9787571`）では、`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`をproduction・test・script・experimentのconsumer 0件として削除した。`getAttackDamageChartData`／`clipData`／`range`は`attackDamageDisplayAdapter.test.js`のlegacy shape fixture、`shiftDistribution`はcanonical Damage、`getUpperTailProbability`は既存chart fixture、published-bucket adapterはcanonical比較とRangePlanner境界、DX rounding aliasは互換fixtureが利用するため保持する。各symbolの分類とconsumerは上記の表に反映し、公開schema-v2、Python generator、production chart contract、計算意味論は変更していない。
+
+RH6 follow-upの最終gateは、過去のRH5／G10の履歴値と混同しないよう現行HEADで次の順に実行する。
+
+```text
+npm run check:node
+npm run data:check
+npm run data:verify-generator
+npm test
+npm run generator:test
+npm run generator:test:simulation
+npm run lint
+npm run lint:markdown
+npm run generator:lint
+npm run build
+npm run smoke:production
+git diff --check
+```
+
+2026-08-31の現行HEAD gateはすべて成功した。`check:node`はNode.js 22.23.2、`data:check`／`data:verify-generator`は各32 assets、Vitestは57 files / 773 tests、generator testは18 passed / 13 deselected、simulationは13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`を確認した。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0だった。
