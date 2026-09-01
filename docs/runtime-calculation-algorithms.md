@@ -59,17 +59,15 @@ $$
 
 ### 2.2 実行時判定分布の生成
 
-通常モードでは`CalculationClient`が`calculateDxDistribution({ dice, critical, shihai })`を計算コアへ注入し、要求されたworking lengthの分布を使用します。この段階のインデックス0はダイス数0の自動失敗、インデックス1はファンブルを表す内部表現です。公開JSONの分布取得関数はReference repositoryを通じてテストと独立比較に残します。
+通常モードでは`CalculationClient`が`calculateDxDistribution({ dice, critical, shihai, yousei })`を計算コアへ注入し、要求されたworking lengthの分布を使用します。この段階のインデックス0はダイス数0の自動失敗、インデックス1はファンブルを表す内部表現です。公開JSONの分布取得関数はReference repositoryを通じてテストと独立比較に残します。
 
-### 2.3 `yousei`の合成
+### 2.3 `yousei`を含むDX分布
 
-ダイス数が正で`yousei`が正の場合、指定回数だけ次の処理を繰り返します。
+ダイス数が正で`yousei`が正の場合、`DxCalculator`は効果適用後の分布を一度に生成します。内部では、元の判定で自然に連続クリティカルした回数の最大値を$M$、追加される`yousei`個の1D10判定で自然に連続クリティカルした回数の合計を$S_y$とし、$B=y+M+S_y$を求めます。クリティカル値を$c$、自然クリティカルの確率を$p=(11-c)/10$とすると、$M$の尾部は$P(M>m)=1-(1-p^{m+1})^n$、$S_y$は負の二項分布です。必要な範囲だけを配列化してこの2つを1回だけFFT畳み込みし、$10B+R$（$R$は$1,\ldots,c-1$の一様な余り）へ展開します。
 
-1. 現在の正の達成値$x$を$10\lceil x/10\rceil$へ移し、同じ移動先の確率を合計する。
-2. 作業配列の最後については、全確率が1になるよう残りの確率を集約する。
-3. クリティカル値が10以下なら、効果適用後に追加される1ダイス判定の分布を畳み込む。
+この表現は、従来の「現在値を10単位へ切り上げて1D10を加える」操作を`yousei`回繰り返した手順と数学的に同値です。初回の追加判定に含まれる自然クリティカル回数も$S_y$へまとめて扱うため、ScoreCalculatorはDX分布を再取得したり、各回の丸め・畳み込みを行ったりしません。作業配列の最後は、明示範囲を超える全確率を保持するoverflow bucketです。
 
-クリティカル値11では、10へ変更したダイスがクリティカルしないため、追加判定はありません。ダイス数0は自動失敗であり、`yousei`を指定してもこの変換を行いません。
+クリティカル値11では自然クリティカルが起きないため、ダイス数が正で`yousei`が0なら通常の最大D10分布、`yousei`が1以上なら達成値10の点分布になります。ダイス数0は自動失敗であり、`yousei`を指定しても達成値0の点分布です。
 
 ### 2.4 ファンブルと技能値
 
@@ -81,7 +79,7 @@ canonical経路では固定長へ集約せず、要求された表示windowの�
 
 ### 2.5 実行時`dx`基礎分布
 
-`calculateDxDistribution({ dice, critical, shihai })`は、`critical=2..11`と安全な非負整数の`dice`・`shihai`を受け付け、要求されたworking lengthの`Float64Array`を返します。99D・19対象までという旧JSONの範囲は入力検証に使用しません。インデックスの最後は、そのworking rangeを超える値を表すtail bucketです。返却時には各確率を小数第6位へ丸め、確率総和が1になるよう生成器と同じ1単位補正を行います。これは公開JSONとの置換互換を保つための実装上の契約であり、一般的な計算コアの必須丸めを意味しません。
+`calculateDxDistribution({ dice, critical, shihai, yousei })`は、`critical=2..11`と安全な非負整数の`dice`・`shihai`・`yousei`を受け付け、要求されたworking lengthの`Float64Array`を返します。`shihai`と`yousei`を同時に指定する入力は、効果適用順序を定義していないため拒否します。99D・19対象までという旧JSONの範囲は入力検証に使用しません。インデックスの最後は、そのworking rangeを超える値を表すtail bucketです。返却時には各確率を小数第6位へ丸め、確率総和が1になるよう生成器と同じ1単位補正を行います。これは公開JSONとの置換互換を保つための実装上の契約であり、一般的な計算コアの必須丸めを意味しません。
 
 `shihai=0`では、1個のダイスの累積分布を$F_c(x)$として$P(V_{n,c}\le x)=F_c(x)^n$を直接評価します。`dice=0`はインデックス0の自動失敗です。
 
@@ -257,13 +255,13 @@ backtrackの計算では、`calculateBacktrackCanonical`が同じpreflightの`pl
 
 Scoreのdynamic接続では、`ScoreRangePlan.workingLength`をDX providerとScoreの全ての中間配列へ渡します。`calculateDxDistribution(params, options?)`は明示された`workingLength`または`size`を検証し、値0の明示bucketとoverflow bucketを分けるため最低2要素、かつplannerの通常hard policyより広い直接API safety ceilingも超えないようにします。既定の引数なし呼出しは2048要素と従来の小数第6位互換丸めを維持し、planあり呼出しは小確率を消さない`unrounded`または`full-precision`を内部指定します。直接APIの現在の安全上限は65536要素であり、既定plannerのScore hard limit 16384要素とは別の防御的な上限です。hard policyを将来広げる場合も、このAPI上限と同時に見直します。
 
-妖精の手を使うScoreでは、主DXと1D10分布を同じworkingLengthで取得し、同長配列の線形畳み込みを行います。実装のFFT長は`nextPowerOfTwo(2 * workingLength - 1)`で、RangePlannerの`score.fftLength`もこの値を返します。`oneDieCutoff`は独立した1D10 tail診断値として残しますが、FFT長の決定には使いません。`sumDistribution`は任意の`fftLength`と`onFftLength`診断callbackを受け付け、指定値が実際の必要長と一致しない場合は例外にします。
+妖精の手を使うScoreでは、主DXと追加判定の自然クリティカル回数を必要なブロック範囲だけ配列化し、1回の`convolveDistributions`で合成します。実装のFFT長は、明示するクリティカルブロック配列長を$L$として`nextPowerOfTwo(2 * L - 1)`で決まり、RangePlannerの`score.fftLength`も同じ値を返します。したがって、`yousei`の回数そのものに比例してScore全体のFFTを繰り返すことはありません。`oneDieCutoff`は独立した診断値として残りますが、FFT長の決定には使いません。
 
-丸めはDX分布生成の最後にだけ行います。引数なしのlegacy pathと明示的な`legacy`または`six-decimal`だけが小数第6位の互換丸めと総和補正を使い、planner dynamic pathはDX、妖精の手用1D10、畳み込み、skill shiftの間で未丸め値を保持し、最後の公開1024要素へのcollapse後にも追加の互換丸めを行いません。したがって同じ入力でも固定2048のlegacy結果とdynamic結果には丸め由来の小差があり得ますが、tail certificateの誤差予算とは別に扱います。
+丸めはDX分布生成の最後にだけ行います。引数なしのlegacy pathと明示的な`legacy`または`six-decimal`だけが小数第6位の互換丸めと総和補正を使い、planner dynamic pathはDXのブロック生成、畳み込み、skill shiftの間で未丸め値を保持し、最後の公開1024要素へのcollapse後にも追加の互換丸めを行いません。したがって同じ入力でも固定2048のlegacy結果とdynamic結果には丸め由来の小差があり得ますが、tail certificateの誤差予算とは別に扱います。
 
-末尾bucketは`workingMax`超のDX tailを集約したものです。後続の妖精の手、畳み込み、負のskill shiftはそのbucketを下位の通常値へ復元できないため、shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。full-tail Damageでは、このScore tailをDamageの明示prefixより右側のoverflowと仮定してはいけません。actionまたはreactionの未モデル化Score tail、tail certificateの誤差、明示係数の数値残差が低いDamage値やfailure（0）へ影響し得る場合は、統合したoverflowの`lowerBound`を0とし、DisplayRangePlannerもそのwindowを再計算または`not-projectable`として扱います。Score tailがなくDamage出力の右側だけが打ち切られる場合に限り、固定値差と防御supportを反映した最終出力境界をlower boundとして保持します。確率上界とerror boundは従来の保守的上界を下限として弱めません。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応し、第2-BでDamageCalculator、有限防御support、CalculationClientからのDamageRangePlan接続まで完了しました。第2-Cで計画のwarning/rejectとoverflow下限をUIへ表示します。第2-Dでbacktrackの完全support生成とplan伝播も完了しました。total damageの現行1024 published bucket集計は維持し、残る課題はresource guardと将来のdynamic output契約、入力上限、JSON経路です。
+末尾bucketは`workingMax`超のDX tailを集約したものです。DXのブロック畳み込みは明示範囲だけを計算するため、範囲外のtailを下位の通常値へ復元しません。skill shift後の近似誤差は`ScoreRangePlan.tail.bound`内のtail massを超えない契約です。full-tail Damageでは、このScore tailをDamageの明示prefixより右側のoverflowと仮定してはいけません。actionまたはreactionの未モデル化Score tail、tail certificateの誤差、明示係数の数値残差が低いDamage値やfailure（0）へ影響し得る場合は、統合したoverflowの`lowerBound`を0とし、DisplayRangePlannerもそのwindowを再計算または`not-projectable`として扱います。Score tailがなくDamage出力の右側だけが打ち切られる場合に限り、固定値差と防御supportを反映した最終出力境界をlower boundとして保持します。確率上界とerror boundは従来の保守的な上界を下限として弱めません。各DX生成段階とScoreの畳み込みでは確率総和、非負性、有限値を検証し、NaNやmaterial negativeを結果へ流しません。DRの直接Calculator/Workerは第1単位で可変range optionsに対応し、第2-BでDamageCalculator、有限防御support、CalculationClientからのDamageRangePlan接続まで完了しました。第2-Cで計画のwarning/rejectとoverflow下限をUIへ表示します。第2-Dでbacktrackの完全support生成とplan伝播も完了しました。total damageの現行1024 published bucket集計は維持し、残る課題はresource guardと将来のdynamic output契約、入力上限、JSON経路です。
 
-`CalculationClient`はcheckとattackのpreflight planを捨てず、actionとreactionの順にScoreCalculatorへ渡します。《イベイション》の固定reactionは引き続きDX providerを呼ばず、戻り値形状も変更しません。runtime DX cacheのキーはdice、critical、shihai、workingLength、rounding modeを含むため、同じ入力でも異なるplanの固定2048結果を誤再利用しません。同じplanは既存のLRU cacheで再利用されます。
+`CalculationClient`はcheckとattackのpreflight planを捨てず、actionとreactionの順にScoreCalculatorへ渡します。《イベイション》の固定reactionは引き続きDX providerを呼ばず、戻り値形状も変更しません。runtime DX cacheのキーはdice、critical、shihai、yousei、workingLength、rounding mode、DX畳み込みFFT長を含むため、異なる妖精の手回数やplanの分布を誤再利用しません。同じ入力は既存のLRU cacheで再利用されます。
 
 ## 12. RuntimeDamageRollCalculatorの可変FFTと出力長（第1単位）
 
