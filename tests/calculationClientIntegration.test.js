@@ -159,6 +159,73 @@ describe('CalculationClient integration', () => {
     }
   )
 
+  it('completes the Attack path with an integrated Yousei score', async () => {
+    const calculateDx = vi.fn(calculateDxDistribution)
+    const client = createCalculationClient({
+      calculateCanonicalDamageOnDemand,
+      calculateDxDistribution: calculateDx,
+      calculateScoreCanonical: calculateCanonicalScore,
+      getCanonicalScoreSummary,
+      getD10Distribution,
+      getDamageRollDistribution: generateMixedDamageDistribution,
+      getCanonicalDamageSummary,
+    })
+    const params = {
+      action: {
+        score: {
+          dice: 10,
+          critical: 7,
+          skill: 0,
+          yousei: 1,
+          shihai: 0,
+        },
+        damage: { dice: 0, value: 0, kazanari: 0 },
+      },
+      reaction: {
+        mode: 'ドッジ',
+        score: { ...scoreParams },
+        damage: { dice: 0, value: 0 },
+      },
+    }
+    const displayRequest = {
+      min: 0,
+      max: 100,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const rangePlans = []
+    const batch = await client.calculateAttackCanonicalBatch(
+      [{ id: 'yousei-attack', params }],
+      {
+        rangePolicy: createAttackRangePolicy(
+          displayRequest,
+          {},
+          displayRequest
+        ),
+        onRangePlan: (plan) => rangePlans.push(plan),
+      }
+    )
+    const presentation = createAttackCanonicalDisplayPresentation(batch, {
+      displayRequest,
+      scoreDisplayRequest: displayRequest,
+      rangePlans,
+    })
+    const scoreResult = batch.combos[0].score.action.result
+    const scoreMass = Array.from(scoreResult.values)
+      .reduce((sum, value) => sum + value, 0)
+      + (scoreResult.overflow?.probability ?? 0)
+
+    expect(rangePlans[0].accepted).toBe(true)
+    expect(rangePlans[0].scores[0].params.yousei).toBe(1)
+    expect(scoreResult.values).toBeInstanceOf(Float64Array)
+    expect(scoreMass).toBeCloseTo(1, 10)
+    expect(calculateDx.mock.calls.some(([input]) => input.yousei === 1))
+      .toBe(true)
+    expect(batch.combos[0].canonicalDamage.result.values)
+      .toBeInstanceOf(Float64Array)
+    expect(presentation.combos[0].status).toBe('ready')
+    expect(presentation.combos[0].chart).not.toBeNull()
+  })
+
   it('keeps published comparison explicit while full-tail uses resource limits', () => {
     const checkPlan = calculationClient.planCheck({
       action: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
