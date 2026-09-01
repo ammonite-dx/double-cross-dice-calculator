@@ -66,8 +66,8 @@ function getScorePlan(params, policy) {
   }, policy).scores[0]
 }
 
-function getDxDistribution(shihai, dice, critical, options) {
-  return calculateDxDistribution({ dice, critical, shihai }, options)
+function getDxDistribution(shihai, dice, critical, options, yousei = 0) {
+  return calculateDxDistribution({ dice, critical, shihai, yousei }, options)
 }
 
 function calculateCanonical(params, policy) {

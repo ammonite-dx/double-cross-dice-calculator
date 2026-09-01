@@ -321,14 +321,15 @@ describe('production range planner', () => {
 
   it('keeps ten-boundary, critical-11, zero-dice, and one-use cases exact', () => {
     const oneUse = { dice: 1, critical: 11, shihai: 0, yousei: 1 }
-    expect(scoreTailBound(10, oneUse)).toBe(1)
-    expect(scoreTailBound(11, oneUse)).toBeCloseTo(0.9)
-    expect(scoreTailBound(19, oneUse)).toBeCloseTo(0.1)
+    expect(scoreTailBound(9, oneUse)).toBe(1)
+    expect(scoreTailBound(10, oneUse)).toBe(0)
+    expect(scoreTailBound(11, oneUse)).toBe(0)
     expect(scoreTailBound(20, oneUse)).toBe(0)
 
     const twoUses = { dice: 1, critical: 11, shihai: 0, yousei: 2 }
-    expect(scoreTailBound(20, twoUses)).toBe(1)
-    expect(scoreTailBound(21, twoUses)).toBeCloseTo(0.9)
+    expect(scoreTailBound(9, twoUses)).toBe(1)
+    expect(scoreTailBound(10, twoUses)).toBe(0)
+    expect(scoreTailBound(21, twoUses)).toBe(0)
     expect(scoreTailBound(30, twoUses)).toBe(0)
 
     const zeroDice = { dice: 0, critical: 2, shihai: 0, yousei: 9 }
@@ -384,7 +385,7 @@ describe('production range planner', () => {
     const score = plan.scores[0]
 
     expect(score.fftLength).toBe(nextPowerOfTwo(
-      2 * score.workingLength - 1
+      2 * score.dxBlockLength - 1
     ))
   })
 

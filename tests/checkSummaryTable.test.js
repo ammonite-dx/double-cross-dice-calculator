@@ -32,8 +32,8 @@ function getCanonicalSummary(params, difficulty) {
   const envelope = calculateScoreCanonical(
     params,
     {
-      getDxDistribution: (shihai, dice, critical, options) =>
-        calculateDxDistribution({ dice, critical, shihai }, options),
+      getDxDistribution: (shihai, dice, critical, options, yousei = 0) =>
+        calculateDxDistribution({ dice, critical, shihai, yousei }, options),
     },
     plan
   )

@@ -323,14 +323,16 @@ function runRangePreflight(
 function createRuntimeDxProvider(calculateDistribution) {
   const cache = new Map()
 
-  return (shihai, dice, critical, options) => {
+  return (shihai, dice, critical, options, yousei = 0) => {
     const normalizedOptions = normalizeDxOptions(options)
     const key = [
       dice,
       critical,
       shihai,
+      yousei,
       normalizedOptions.workingLength,
       normalizedOptions.rounding,
+      normalizedOptions.fftLength ?? '',
     ].join(':')
     if (cache.has(key)) {
       const distribution = cache.get(key)
@@ -340,9 +342,9 @@ function createRuntimeDxProvider(calculateDistribution) {
     }
 
     const distribution = options === undefined
-      ? calculateDistribution({ dice, critical, shihai })
+      ? calculateDistribution({ dice, critical, shihai, yousei })
       : calculateDistribution(
-          { dice, critical, shihai },
+          { dice, critical, shihai, yousei },
           normalizedOptions
         )
     cache.set(key, distribution)

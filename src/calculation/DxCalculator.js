@@ -1,7 +1,12 @@
 import {
   assertCriticalValue,
   assertNonNegativeSafeInteger,
+  assertSupportedScoreFeatures,
 } from '../domain/InputDomain'
+import {
+  convolveDistributions,
+  getConvolutionFftLength,
+} from '../data/FFT'
 
 export const DX_DISTRIBUTION_SIZE = 2048
 // The planner's default hard policy is deliberately lower than this direct
@@ -29,14 +34,21 @@ const UNROUNDED_ROUNDING = 'unrounded'
 function validateInput(params) {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     throw new TypeError(
-      'calculateDxDistribution expects { dice, critical, shihai }'
+      'calculateDxDistribution expects { dice, critical, shihai, yousei }'
     )
   }
 
-  const { dice, critical, shihai } = params
+  const {
+    dice,
+    critical,
+    shihai = 0,
+    yousei = 0,
+  } = params
   assertNonNegativeSafeInteger(dice, 'dice')
   assertCriticalValue(critical)
   assertNonNegativeSafeInteger(shihai, 'shihai')
+  assertNonNegativeSafeInteger(yousei, 'yousei')
+  assertSupportedScoreFeatures({ shihai, yousei })
 }
 
 function safeProduct(left, right, label) {
@@ -146,9 +158,18 @@ export function normalizeDxOptions(options) {
     )
   }
 
+  const fftLength = options.fftLength
+  if (
+    fftLength !== undefined
+    && (!Number.isSafeInteger(fftLength) || fftLength < 0)
+  ) {
+    throw new TypeError('fftLength must be a non-negative safe integer')
+  }
+
   return {
     workingLength,
     rounding: normalizedRounding,
+    ...(fftLength === undefined ? {} : { fftLength }),
   }
 }
 
@@ -458,6 +479,380 @@ function calculateShihaiPositiveDistribution(
   return resultByDice[dice]
 }
 
+function clampMass(value, label = 'DX probability') {
+  if (!Number.isFinite(value) || Number.isNaN(value)) {
+    throw new RangeError(`${label} calculation produced NaN or infinity`)
+  }
+  if (value < -FULL_PRECISION_NEGATIVE_TOLERANCE) {
+    throw new RangeError(`${label} calculation produced a negative value`)
+  }
+  return value < 0 ? 0 : value
+}
+
+function maxGeometricTail(maxCriticalCount, dice, criticalProbability) {
+  if (maxCriticalCount < 0) {
+    return 1
+  }
+  if (dice === 0 || criticalProbability === 0) {
+    return 0
+  }
+
+  const oneDieTail = criticalProbability ** (maxCriticalCount + 1)
+  return Math.max(
+    0,
+    Math.min(
+      1,
+      -Math.expm1(dice * Math.log1p(-oneDieTail))
+    )
+  )
+}
+
+function negativeBinomialLogStep(logPmf, sum, yousei, criticalProbability) {
+  return logPmf +
+    Math.log(criticalProbability) +
+    Math.log(sum + yousei) -
+    Math.log(sum + 1)
+}
+
+function negativeBinomialTailFrom(
+  logPmf,
+  sum,
+  yousei,
+  criticalProbability
+) {
+  let result = 0
+  let compensation = 0
+  const logMinimum = Math.log(Number.MIN_VALUE)
+
+  while (true) {
+    const pmf = Math.exp(logPmf)
+    if (pmf > 0) {
+      const corrected = pmf - compensation
+      const next = result + corrected
+      compensation = next - result - corrected
+      result = next
+    }
+
+    const logRatio = negativeBinomialLogStep(
+      0,
+      sum,
+      yousei,
+      criticalProbability
+    )
+    const nextLogPmf = logPmf + logRatio
+    const nextPmf = Math.exp(nextLogPmf)
+    if (
+      logRatio < 0
+      && (
+        nextPmf === 0
+        || nextPmf <= Number.EPSILON * Math.max(result, Number.MIN_VALUE)
+      )
+    ) {
+      break
+    }
+    if (logRatio < 0 && nextLogPmf < logMinimum) {
+      break
+    }
+
+    logPmf = nextLogPmf
+    sum += 1
+  }
+
+  return Math.max(0, Math.min(1, result))
+}
+
+function maxPlusNegativeBinomialTail(
+  threshold,
+  dice,
+  yousei,
+  criticalProbability
+) {
+  if (threshold < 0) {
+    return 1
+  }
+  if (criticalProbability === 0) {
+    return 0
+  }
+
+  let logPmf = yousei * Math.log1p(-criticalProbability)
+  let result = 0
+  let compensation = 0
+  for (let sum = 0; sum <= threshold; sum += 1) {
+    const pmf = Math.exp(logPmf)
+    const term =
+      pmf * maxGeometricTail(threshold - sum, dice, criticalProbability)
+    if (term > 0) {
+      const corrected = term - compensation
+      const next = result + corrected
+      compensation = next - result - corrected
+      result = next
+    }
+    logPmf = negativeBinomialLogStep(
+      logPmf,
+      sum,
+      yousei,
+      criticalProbability
+    )
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      1,
+      result + negativeBinomialTailFrom(
+        logPmf,
+        threshold + 1,
+        yousei,
+        criticalProbability
+      )
+    )
+  )
+}
+
+function calculateYouseiOverflowProbability(
+  explicitMax,
+  dice,
+  critical,
+  yousei
+) {
+  if (dice === 0) {
+    return 0
+  }
+
+  const criticalProbability = (11 - critical) / 10
+  const remainderCount = critical - 1
+  let result = 0
+  let previousThreshold = null
+  let multiplicity = 0
+  for (let remainder = 1; remainder <= remainderCount; remainder += 1) {
+    const threshold =
+      Math.floor((explicitMax - remainder) / 10) - yousei
+    if (threshold === previousThreshold) {
+      multiplicity += 1
+      continue
+    }
+    if (previousThreshold !== null) {
+      result += multiplicity * maxPlusNegativeBinomialTail(
+        previousThreshold,
+        dice,
+        yousei,
+        criticalProbability
+      )
+    }
+    previousThreshold = threshold
+    multiplicity = 1
+  }
+  if (previousThreshold !== null) {
+    result += multiplicity * maxPlusNegativeBinomialTail(
+      previousThreshold,
+      dice,
+      yousei,
+      criticalProbability
+    )
+  }
+
+  return Math.max(0, Math.min(1, result / remainderCount))
+}
+
+// Lanczos approximation for log(Gamma(z)).  All callers use positive integer
+// arguments, but keeping the reflection branch makes this helper safe to
+// reuse for diagnostics without factorial-sized intermediate values.
+const LOG_GAMMA_COEFFICIENTS = [
+  676.5203681218851,
+  -1259.1392167224028,
+  771.32342877765313,
+  -176.61502916214059,
+  12.507343278686905,
+  -0.13857109526572012,
+  9.9843695780195716e-6,
+  1.5056327351493116e-7,
+]
+
+function logGamma(value) {
+  if (value < 0.5) {
+    return Math.log(Math.PI) -
+      Math.log(Math.sin(Math.PI * value)) -
+      logGamma(1 - value)
+  }
+
+  let shifted = value - 1
+  let sum = 0.99999999999980993
+  for (let index = 0; index < LOG_GAMMA_COEFFICIENTS.length; index += 1) {
+    sum += LOG_GAMMA_COEFFICIENTS[index] / (shifted + index + 1)
+  }
+  const g = 7
+  const t = shifted + g + 0.5
+  return 0.5 * Math.log(2 * Math.PI) +
+    (shifted + 0.5) * Math.log(t) -
+    t +
+    Math.log(sum)
+}
+
+function negativeBinomialPmf(sum, yousei, criticalProbability) {
+  if (yousei === 0) {
+    return sum === 0 ? 1 : 0
+  }
+  if (criticalProbability === 0) {
+    return sum === 0 ? 1 : 0
+  }
+
+  const logPmf =
+    logGamma(sum + yousei) -
+    logGamma(yousei) -
+    logGamma(sum + 1) +
+    yousei * Math.log1p(-criticalProbability) +
+    sum * Math.log(criticalProbability)
+  return Math.exp(logPmf)
+}
+
+/**
+ * Number of critical blocks that can contribute to explicit score buckets.
+ * The final score remainder is at least one, and the last array entry is the
+ * overflow bucket, so t is explicit only while 10 * (yousei + t) + 1 is
+ * smaller than workingLength - 1.
+ */
+export function getDxYouseiBlockLength(workingLength, yousei) {
+  if (!Number.isSafeInteger(workingLength) || workingLength < DX_MIN_DISTRIBUTION_SIZE) {
+    throw new RangeError('workingLength must be at least 2')
+  }
+  assertNonNegativeSafeInteger(yousei, 'yousei')
+  const available = workingLength - 3
+  const minimumBlocks = Math.floor(available / 10)
+  if (yousei > minimumBlocks) {
+    return 0
+  }
+  return Math.floor((available - 10 * yousei) / 10) + 1
+}
+
+export function getDxYouseiFftLength(workingLength, critical, yousei) {
+  const blockLength = getDxYouseiBlockLength(workingLength, yousei)
+  assertCriticalValue(critical)
+  assertNonNegativeSafeInteger(yousei, 'yousei')
+  if (yousei === 0 || critical === DX_CRITICAL_MAX) {
+    return 0
+  }
+  return blockLength === 0
+    ? 0
+    : getConvolutionFftLength(blockLength, blockLength)
+}
+
+function calculateYouseiDistribution(
+  dice,
+  critical,
+  yousei,
+  workingLength,
+  requestedFftLength
+) {
+  const result = new Float64Array(workingLength)
+  const overflowIndex = workingLength - 1
+  const blockLength = getDxYouseiBlockLength(workingLength, yousei)
+
+  if (blockLength === 0) {
+    if (requestedFftLength !== undefined && requestedFftLength !== 0) {
+      throw new RangeError('fftLength must be zero when no explicit Yousei blocks are modeled')
+    }
+    result[overflowIndex] = 1
+    return result
+  }
+
+  const criticalProbability = (11 - critical) / 10
+  const maximumCriticalCounts = new Float64Array(blockLength)
+  const addedCriticalCounts = new Float64Array(blockLength)
+  let previousTail = 1
+  for (let criticalCount = 0; criticalCount < blockLength; criticalCount += 1) {
+    const tail = maxGeometricTail(
+      criticalCount,
+      dice,
+      criticalProbability
+    )
+    maximumCriticalCounts[criticalCount] = clampMass(
+      previousTail - tail,
+      'maximum critical count'
+    )
+    previousTail = tail
+    addedCriticalCounts[criticalCount] = clampMass(
+      negativeBinomialPmf(
+        criticalCount,
+        yousei,
+        criticalProbability
+      ),
+      'Yousei critical count'
+    )
+  }
+
+  const fftLength = getConvolutionFftLength(blockLength, blockLength)
+  if (
+    requestedFftLength !== undefined
+    && requestedFftLength !== fftLength
+  ) {
+    throw new RangeError(
+      `fftLength must equal ${fftLength} for Yousei block convolution`
+    )
+  }
+
+  const estimatedBytes = (
+    workingLength * 2 +
+    blockLength * 2 +
+    (2 * blockLength - 1) +
+    fftLength * 4
+  ) * Float64Array.BYTES_PER_ELEMENT
+  if (!Number.isSafeInteger(estimatedBytes) || estimatedBytes > DX_MAX_CALCULATION_BYTES) {
+    throw new RangeError(
+      `DX calculation exceeds the absolute safety limit of ${DX_MAX_CALCULATION_BYTES} bytes`
+    )
+  }
+  const estimatedOperations =
+    workingLength * Math.max(1, critical - 1) +
+    3 * fftLength * Math.log2(fftLength)
+  if (!Number.isFinite(estimatedOperations) || estimatedOperations > DX_MAX_CALCULATION_OPERATIONS) {
+    throw new RangeError(
+      `DX calculation exceeds the absolute safety limit of ${DX_MAX_CALCULATION_OPERATIONS} operations`
+    )
+  }
+
+  const combined = convolveDistributions(
+    maximumCriticalCounts,
+    addedCriticalCounts,
+    { fftLength }
+  )
+  const remainderProbability = 1 / (critical - 1)
+  let explicitTotal = 0
+  for (let criticalCount = 0; criticalCount < blockLength; criticalCount += 1) {
+    const blockProbability = clampMass(
+      combined[criticalCount],
+      'Yousei block convolution'
+    )
+    const scoreBlock = yousei + criticalCount
+    const blockStart = 10 * scoreBlock
+    for (let remainder = 1; remainder < critical; remainder += 1) {
+      const value = blockStart + remainder
+      if (value >= overflowIndex) {
+        continue
+      }
+      result[value] += blockProbability * remainderProbability
+      explicitTotal += blockProbability * remainderProbability
+    }
+  }
+
+  if (explicitTotal > 1 + FULL_PRECISION_NEGATIVE_TOLERANCE) {
+    throw new RangeError('Yousei distribution explicit mass exceeds one')
+  }
+  result[overflowIndex] = calculateYouseiOverflowProbability(
+    overflowIndex - 1,
+    dice,
+    critical,
+    yousei
+  )
+  return result
+}
+
+function createPointDistribution(length, value) {
+  const result = new Float64Array(length)
+  const overflowIndex = length - 1
+  result[value < overflowIndex ? value : overflowIndex] = 1
+  return result
+}
+
 function assertFiniteProbabilityArray(distribution, requireTotal = false) {
   let total = 0
   for (let index = 0; index < distribution.length; index += 1) {
@@ -563,33 +958,70 @@ function roundNormalizedProbabilities(distribution) {
 export function calculateDxDistribution(params, options) {
   validateInput(params)
   const normalizedOptions = normalizeDxOptions(options)
-  const { dice, critical, shihai } = params
-  if (shihai === 0) {
-    const estimatedOperations = safeProduct(
-      dice + 1,
-      Math.max(1, critical - 1),
-      'DX operation estimate'
-    )
-    if (estimatedOperations > DX_MAX_CALCULATION_OPERATIONS) {
+  const {
+    dice,
+    critical,
+    shihai = 0,
+    yousei = 0,
+  } = params
+  if (normalizedOptions.fftLength !== undefined) {
+    const expectedFftLength = shihai === 0
+      ? getDxYouseiFftLength(
+          normalizedOptions.workingLength,
+          critical,
+          yousei
+        )
+      : 0
+    if (normalizedOptions.fftLength !== expectedFftLength) {
       throw new RangeError(
-        `DX calculation exceeds the absolute safety limit of ${DX_MAX_CALCULATION_OPERATIONS} operations`
+        `fftLength must equal ${expectedFftLength} for the requested DX distribution`
       )
     }
   }
-  const rawDistribution =
-    shihai === 0
-      ? calculateShihaiZeroDistribution(
-          dice,
-          critical,
-          normalizedOptions.workingLength,
-          normalizedOptions.rounding === UNROUNDED_ROUNDING
+  if (shihai === 0) {
+    if (yousei === 0) {
+      const estimatedOperations = safeProduct(
+        dice + 1,
+        Math.max(1, critical - 1),
+        'DX operation estimate'
+      )
+      if (estimatedOperations > DX_MAX_CALCULATION_OPERATIONS) {
+        throw new RangeError(
+          `DX calculation exceeds the absolute safety limit of ${DX_MAX_CALCULATION_OPERATIONS} operations`
         )
-      : calculateShihaiPositiveDistribution(
+      }
+    }
+  } else if (yousei > 0) {
+    throw new RangeError(
+      'score.yousei and score.shihai cannot both be non-zero in the current supported feature set'
+    )
+  }
+  const rawDistribution =
+    shihai !== 0
+      ? calculateShihaiPositiveDistribution(
           dice,
           critical,
           shihai,
           normalizedOptions.workingLength
         )
+      : dice === 0
+        ? createPointDistribution(normalizedOptions.workingLength, 0)
+        : yousei === 0
+          ? calculateShihaiZeroDistribution(
+              dice,
+              critical,
+              normalizedOptions.workingLength,
+              normalizedOptions.rounding === UNROUNDED_ROUNDING
+            )
+          : critical === DX_CRITICAL_MAX
+            ? createPointDistribution(normalizedOptions.workingLength, 10)
+            : calculateYouseiDistribution(
+                dice,
+                critical,
+                yousei,
+                normalizedOptions.workingLength,
+                normalizedOptions.fftLength
+              )
 
   assertFiniteProbabilityArray(rawDistribution, true)
   return normalizedOptions.rounding === UNROUNDED_ROUNDING

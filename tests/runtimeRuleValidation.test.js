@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   calculateFinalEncroachmentCanonical,
@@ -360,17 +360,22 @@ describe('runtime score rules', () => {
     expect(result.metadata.failureProbability).toBe(1)
   })
 
-  it('applies each yousei use by rounding up and adding one die', () => {
-    const getDistribution = (shihai, dice) =>
-      dice === 1 && shihai === 0
-        ? sparseDistribution([[3, 1]])
-        : sparseDistribution([[5, 1]])
+  it('consumes one complete DX distribution when yousei is present', () => {
+    const getDistribution = vi.fn((shihai, dice, critical, options, yousei) => {
+      expect(shihai).toBe(0)
+      expect(dice).toBe(4)
+      expect(critical).toBe(10)
+      expect(options).toBeUndefined()
+      expect(yousei).toBe(2)
+      return sparseDistribution([[23, 1]])
+    })
     const result = calculateRuleScore(
       { ...SCORE_PARAMS, dice: 4, yousei: 2 },
       getDistribution
     )
 
     expect(result.result.values[23]).toBeCloseTo(1, 10)
+    expect(getDistribution).toHaveBeenCalledOnce()
   })
 
   it('awards opposed ties to the reaction side', () => {

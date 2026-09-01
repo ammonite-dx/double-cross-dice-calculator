@@ -2,7 +2,6 @@ import {
   WORKING_DISTRIBUTION_SIZE,
   expandSparseDistribution,
 } from '../data/Distribution'
-import { sumDistribution } from '../data/FFT'
 import {
   DISTRIBUTION_RESULT_TOLERANCE,
   createDistributionResult,
@@ -110,12 +109,36 @@ function calculateScoreWorking(
 
   const requestedLength = plan?.workingLength ?? WORKING_DISTRIBUTION_SIZE
   const dxOptions = plan
-    ? { workingLength: requestedLength, rounding: 'unrounded' }
+    ? {
+        workingLength: requestedLength,
+        rounding: 'unrounded',
+        ...(params.yousei > 0 && plan.fftLength > 0
+          ? { fftLength: plan.fftLength }
+          : {}),
+      }
     : undefined
-  const getDistribution = (shihai, dice, critical) =>
-    dxOptions === undefined
-      ? getDxDistribution(shihai, dice, critical)
-      : getDxDistribution(shihai, dice, critical, dxOptions)
+  const getDistribution = (shihai, dice, critical) => {
+    if (dxOptions === undefined) {
+      return params.yousei === 0
+        ? getDxDistribution(shihai, dice, critical)
+        : getDxDistribution(
+            shihai,
+            dice,
+            critical,
+            undefined,
+            params.yousei
+          )
+    }
+    return params.yousei === 0
+      ? getDxDistribution(shihai, dice, critical, dxOptions)
+      : getDxDistribution(
+          shihai,
+          dice,
+          critical,
+          dxOptions,
+          params.yousei
+        )
+  }
   let diceResult = expandDxDistribution(
     getDistribution(params.shihai, params.dice, params.critical),
     requestedLength,
@@ -124,56 +147,6 @@ function calculateScoreWorking(
   )
   if (plan) {
     validateProbabilityDistribution(diceResult, 'DX distribution')
-  }
-
-  if (params.dice > 0 && params.yousei > 0) {
-    const youseiResult = expandDxDistribution(
-      getDistribution(0, 1, params.critical),
-      diceResult.length,
-      plan?.workingLength,
-      'yousei distribution'
-    )
-
-    if (youseiResult.length !== diceResult.length) {
-      throw new RangeError(
-        'DX and yousei distributions must have the same working length'
-      )
-    }
-    if (plan) {
-      validateProbabilityDistribution(youseiResult, 'yousei distribution')
-    }
-
-    for (let count = 0; count < params.yousei; count += 1) {
-      const workingLength = diceResult.length
-      diceResult = Array.from(
-        { length: workingLength },
-        (_, value) =>
-          value % 10 === 0
-            ? diceResult
-              .slice(Math.max(0, value - 9), value + 1)
-              .reduce((sum, probability) => sum + probability, 0)
-            : 0
-      )
-      diceResult[workingLength - 1] =
-        1 -
-        diceResult
-          .slice(0, workingLength - 1)
-          .reduce((sum, probability) => sum + probability, 0)
-      if (plan) {
-        validateProbabilityDistribution(diceResult, 'yousei rounding')
-      }
-
-      if (params.critical <= 10) {
-        diceResult = sumDistribution(
-          diceResult,
-          youseiResult,
-          plan ? { fftLength: plan.fftLength } : undefined
-        )
-        if (plan) {
-          validateProbabilityDistribution(diceResult, 'Score convolution')
-        }
-      }
-    }
   }
 
   const fumble = (diceResult[0] ?? 0) + (diceResult[1] ?? 0)

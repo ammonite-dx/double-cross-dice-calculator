@@ -9,6 +9,10 @@ import {
   getD10GenerationOperationEstimate,
   getD10RequiredLength,
 } from './D10Calculator'
+import {
+  getDxYouseiBlockLength,
+  getDxYouseiFftLength,
+} from './DxCalculator'
 import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from './RuntimeDamageRollLimits'
 import { LEGACY_PUBLISHED_OVERFLOW_INDEX } from './DistributionResult'
 import {
@@ -127,6 +131,8 @@ function getPublishedScoreUpperBound(calculationMax) {
  * @property {number} oneDieCutoff Deprecated diagnostic cutoff for the
  *   standalone 1D10 distribution; it no longer determines FFT length.
  * @property {number} fftLength
+ * @property {number} dxBlockLength Number of explicit critical-block
+ *   probabilities used by the integrated Yousei convolution.
  * @property {number} operations
  * @property {number} fftOperations
  * @property {number} float64Bytes
@@ -581,6 +587,13 @@ function exactYouseiTailBound(value, dice, critical, yousei) {
     return 0
   }
 
+  // At critical=11 no natural critical is possible. The first use of
+  // 《妖精の手》 changes the current result to 10 and subsequent uses leave
+  // that value unchanged.
+  if (critical === 11) {
+    return Math.floor(value) < 10 ? 1 : 0
+  }
+
   const integerValue = Math.floor(value)
   const remainderCount = critical - 1
   const criticalProbability = (11 - critical) / 10
@@ -936,30 +949,50 @@ function planScore(params, display, policy, tailBudget) {
     0,
     addSafe(workingMax, normalized.skill, 'score output range')
   )
-  // ScoreCalculator convolves two complete working-length arrays. The FFT
-  // therefore needs the exact linear-convolution length, including the
-  // overflow bucket, rather than the old one-die-tail estimate.
-  const youseiFftLength = normalized.yousei > 0 && normalized.critical <= 10
-    ? nextPowerOfTwo(2 * workingLength - 1)
+  // The DX calculator convolves truncated critical-block arrays. The FFT
+  // length therefore depends on the explicit block coverage, not on the
+  // full score working array and not on the number of Yousei uses.
+  const youseiBlockLength = normalized.yousei > 0 && normalized.critical <= 10
+    ? getDxYouseiBlockLength(workingLength, normalized.yousei)
     : 0
+  const youseiFftLength = getDxYouseiFftLength(
+    workingLength,
+    normalized.critical,
+    normalized.yousei
+  )
   const operations = scoreOperationCount({
     params: normalized,
     workingLength,
   })
-  const fftOperations = normalized.yousei * fftOperationCount(youseiFftLength)
+  const fftOperations = fftOperationCount(youseiFftLength)
   // When 《絶対支配》 covers every die, DxCalculator returns a point mass
   // immediately and does not allocate the per-dice DP table.  Keep the
   // planner's memory model aligned with that shortcut: the raw result and
   // its normalized copy are the only two Float64 buffers for the DX step.
   const shihaiShortcut =
     normalized.shihai > 0 && normalized.dice <= normalized.shihai
+  const arrayElements = normalized.shihai === 0 && normalized.yousei > 0
+    ? addSafe(
+        addSafe(
+          multiplySafe(2, workingLength, 'score array size'),
+          addSafe(outputMax, 1, 'score output array size'),
+          'score array size'
+        ),
+        addSafe(
+          multiplySafe(4, youseiBlockLength, 'Yousei array size'),
+          multiplySafe(4, youseiFftLength, 'Yousei FFT array size'),
+          'score array size'
+        ),
+        'score array size'
+      )
+    : null
   const arrayCount = normalized.shihai === 0
     ? 4
     : shihaiShortcut
       ? 2
       : addSafe(normalized.dice, 4, 'score array count')
   const float64Bytes = multiplySafe(
-    multiplySafe(arrayCount, workingLength, 'score array size'),
+    arrayElements ?? multiplySafe(arrayCount, workingLength, 'score array size'),
     Float64Array.BYTES_PER_ELEMENT,
     'score array size'
   )
@@ -1001,6 +1034,7 @@ function planScore(params, display, policy, tailBudget) {
     publishedOutputMax: getPublishedScoreUpperBound(policy.calculationMax),
     oneDieCutoff,
     fftLength: youseiFftLength,
+    dxBlockLength: youseiBlockLength,
     operations,
     fftOperations,
     float64Bytes,
