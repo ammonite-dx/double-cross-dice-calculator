@@ -11,7 +11,7 @@ import {
 } from '../src/features/backtrack/model/BacktrackCanonicalPresentation'
 import {
   getFinalEncroachmentChartData,
-} from '../src/components/Backtrack/ChartSetter'
+} from '../src/features/backtrack/ui/ChartSetter'
 const RESULT_KEYS = ['single', 'double', 'second']
 
 function createPointResult(finalEncroachment) {

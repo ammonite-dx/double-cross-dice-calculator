@@ -10,16 +10,20 @@ const backtrackViewSource = readFileSync(
   new URL('../src/views/Backtrack.vue', import.meta.url),
   'utf8'
 )
+const backtrackPageSource = readFileSync(
+  new URL('../src/features/backtrack/ui/BacktrackPage.vue', import.meta.url),
+  'utf8'
+)
 const inputFormSource = readFileSync(
-  new URL('../src/components/Backtrack/InputForm.vue', import.meta.url),
+  new URL('../src/features/backtrack/ui/InputForm.vue', import.meta.url),
   'utf8'
 )
 const inputPanelSource = readFileSync(
-  new URL('../src/components/Backtrack/InputPanel.vue', import.meta.url),
+  new URL('../src/features/backtrack/ui/InputPanel.vue', import.meta.url),
   'utf8'
 )
 const backtrackFormSource = readFileSync(
-  new URL('../src/components/Backtrack/BacktrackForm.vue', import.meta.url),
+  new URL('../src/features/backtrack/ui/BacktrackForm.vue', import.meta.url),
   'utf8'
 )
 
@@ -72,8 +76,10 @@ describe('Backtrack input flow contracts', () => {
     const backtrackTemplate = backtrackViewSource.match(
       /<template>([\s\S]*)<\/template>/
     )?.[1]
-    expect(backtrackTemplate).toMatch(/<InputPanel\b[\s\S]*@validated=/)
+    expect(backtrackTemplate).toMatch(/<BacktrackPage\s*\/>/)
+    expect(backtrackPageSource).toMatch(/<InputPanel\b[\s\S]*@validated=/)
     expect(backtrackTemplate).not.toMatch(/canonicalOptIn|canonical-toggle/)
+    expect(backtrackPageSource).not.toMatch(/canonicalOptIn|canonical-toggle/)
   })
 
   it('forwards only validated events through InputForm and InputPanel', () => {

@@ -5,7 +5,11 @@
     import { mdiTuneVariant } from '@mdi/js'
 
     const props = defineProps({
-        backtrackData: {
+        params: {
+            type: Object,
+            required: true,
+        },
+        rangeFeedback: {
             type: Object,
             required: true,
         },
@@ -23,8 +27,8 @@
         <v-divider class="mx-2" />
         <v-card-text class="pa-0 text-md-body-1 text-caption">
             <v-container class="pa-4">
-                <RangePlanNotice :feedback="props.backtrackData.rangeFeedback" />
-                <InputForm :backtrackData="props.backtrackData" @validated="onValidated"/>
+                <RangePlanNotice :feedback="props.rangeFeedback" />
+                <InputForm :params="props.params" @validated="onValidated"/>
             </v-container>
         </v-card-text>
     </v-card>

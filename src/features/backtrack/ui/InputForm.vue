@@ -2,7 +2,7 @@
 
     import BacktrackForm from './BacktrackForm.vue';
 
-    const props = defineProps(['backtrackData']);
+    const props = defineProps(['params']);
     const emit = defineEmits(['validated']);
     const onValidated = (params) => {
         emit('validated', params);
@@ -12,6 +12,6 @@
 
 <template>
     <v-container class="pa-0">
-        <BacktrackForm :params="props.backtrackData.params" @validated="onValidated"/>
+        <BacktrackForm :params="props.params" @validated="onValidated"/>
     </v-container>
 </template>
