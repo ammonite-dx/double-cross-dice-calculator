@@ -65,7 +65,11 @@ describe('Check feature architecture', () => {
     for (const path of sourceFiles('src/features/check/model/')) {
       const model = source(path)
       expect(model).not.toMatch(/(?:views|components|router|plugins|layouts|\/ui\/)/)
-      expect(model).not.toMatch(/\bas any\b|@ts-ignore|@ts-nocheck/)
+      if (path.endsWith('.ts')) {
+        expect(model).not.toMatch(/\bany\b|@ts-ignore|@ts-nocheck/)
+      } else {
+        expect(model).not.toMatch(/\bas any\b|@ts-ignore|@ts-nocheck/)
+      }
     }
   })
 

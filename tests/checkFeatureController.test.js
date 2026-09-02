@@ -4,12 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { useCheck } from '../src/features/check/model/useCheck'
 
-function createScoreEnvelope() {
+function createScoreEnvelope({
+  values = [1],
+  support = { kind: 'finite', max: 0 },
+} = {}) {
   return {
     result: createDistributionResult({
-      values: [1],
+      values,
       offset: 0,
-      support: { kind: 'finite', max: 0 },
+      support,
       overflow: null,
     }),
     metadata: {
@@ -19,16 +22,41 @@ function createScoreEnvelope() {
   }
 }
 
-function createCalculationResult() {
-  const envelope = createScoreEnvelope()
+function createCalculationResult({
+  scoreEnvelope = createScoreEnvelope(),
+} = {}) {
   const lane = {
     expectedValue: { kind: 'exact', value: 0 },
     successRate: { kind: 'exact', value: 1 },
   }
   return {
-    score: { action: envelope, reaction: envelope },
+    score: { action: scoreEnvelope, reaction: scoreEnvelope },
     scoreSummary: { action: lane, reaction: lane },
   }
+}
+
+function createExpandedCoverageResult() {
+  const values = Array.from({ length: 41 }, (_, index) =>
+    index === 0 ? 1 : 0
+  )
+  return createCalculationResult({
+    scoreEnvelope: createScoreEnvelope({
+      values,
+      support: { kind: 'finite', max: 40 },
+    }),
+  })
+}
+
+function createPartialCoverageResult() {
+  const values = Array.from({ length: 31 }, (_, index) =>
+    index === 0 ? 1 : 0
+  )
+  return createCalculationResult({
+    scoreEnvelope: createScoreEnvelope({
+      values,
+      support: { kind: 'finite', max: 40 },
+    }),
+  })
 }
 
 async function createController() {
@@ -133,6 +161,56 @@ describe('useCheck', () => {
 
     expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(1)
     expect(check.displayFeedback.value.status).toBe('idle')
+  })
+
+  it('recalculates once when an expanded display window needs missing coverage', async () => {
+    const expandedResult = createExpandedCoverageResult()
+    const client = {
+      calculateCheckCanonical: vi.fn()
+        .mockResolvedValueOnce(createPartialCoverageResult())
+        .mockResolvedValueOnce(expandedResult),
+    }
+    const check = await useCheck({ calculationClient: client })
+
+    check.onDisplayValidated({ min: 0, max: 40, mode: 'pmf' })
+    await vi.waitFor(() => expect(
+      client.calculateCheckCanonical
+    ).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(check.displayFeedback.value.status).toBe('idle'))
+
+    expect(client.calculateCheckCanonical.mock.calls[1][2].displayRequest)
+      .toMatchObject({ min: 0, max: 40, mode: 'pmf' })
+    expect(check.displayRequest.value).toEqual({
+      min: 0,
+      max: 40,
+      mode: 'pmf',
+    })
+    expect(check.resultReady.value).toBe(true)
+    expect(check.presentation.value.status).toBe('ready')
+  })
+
+  it('stops after one recalculation when the same window remains uncovered', async () => {
+    const client = {
+      calculateCheckCanonical: vi.fn()
+        .mockResolvedValueOnce(createPartialCoverageResult())
+        .mockResolvedValueOnce(createPartialCoverageResult()),
+    }
+    const check = await useCheck({ calculationClient: client })
+
+    check.onDisplayValidated({ min: 0, max: 40, mode: 'pmf' })
+    await vi.waitFor(() => expect(
+      client.calculateCheckCanonical
+    ).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(check.displayFeedback.value.status).toBe('rejected'))
+
+    await Promise.resolve()
+    expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(2)
+    expect(check.displayFeedback.value.plan).toMatchObject({
+      accepted: false,
+      decision: 'terminal',
+      reason: 'display-terminal',
+    })
+    expect(check.displayFeedback.value.plan.rejectionReasons.length).toBeGreaterThan(0)
   })
 
   it('rejects a display window before invoking the calculation client', async () => {

@@ -39,6 +39,33 @@ interface CalculationFeedbackState {
   error: unknown
 }
 
+interface CheckDisplayWarning {
+  readonly code?: string
+  readonly severity?: string
+  readonly message?: string
+}
+
+interface CheckDisplayPlan {
+  readonly accepted: boolean
+  readonly warnings?: readonly CheckDisplayWarning[]
+  readonly rejectionReasons?: readonly string[]
+  readonly [key: string]: unknown
+}
+
+interface CheckPresentationSide {
+  readonly decision: string
+  readonly status: string
+  readonly reason: string | null
+  readonly plan?: CheckDisplayPlan | null
+}
+
+interface CheckCanonicalPresentation {
+  readonly status: string
+  readonly decision: string
+  readonly action?: CheckPresentationSide | null
+  readonly reaction?: CheckPresentationSide | null
+}
+
 interface CheckScoreParams {
   action: Partial<ScoreInput>
   reaction: Partial<ScoreInput>
@@ -141,8 +168,12 @@ export async function useCheck({
     return 'check-not-projectable'
   }
 
-  function createNotProjectablePlan(result: any) {
-    const sides = [result?.action, result?.reaction].filter(Boolean)
+  function createNotProjectablePlan(
+    result: CheckCanonicalPresentation | null | undefined
+  ): CheckDisplayPlan {
+    const sides = [result?.action, result?.reaction].filter(
+      (side): side is CheckPresentationSide => side !== null && side !== undefined
+    )
     const terminalSides = sides.filter((side) =>
       side.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.NOT_PROJECTABLE
       || side.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.RESOURCE_REJECTED
@@ -189,10 +220,10 @@ export async function useCheck({
     }
   }
 
-  function publishDisplayPlan(plan: any) {
+  function publishDisplayPlan(plan: CheckDisplayPlan) {
     displayFeedback.status = plan.accepted === false
       ? 'rejected'
-      : plan.warnings?.length > 0
+      : (plan.warnings?.length ?? 0) > 0
         ? 'warning'
         : 'idle'
     displayFeedback.plan = plan
@@ -222,7 +253,7 @@ export async function useCheck({
   function buildPresentationForScore(
     score: CanonicalScorePair,
     request: DisplayRequestSnapshot = state.displayRequest
-  ) {
+  ): CheckCanonicalPresentation {
     return createCheckCanonicalPresentation(
       { score },
       {
@@ -231,7 +262,7 @@ export async function useCheck({
         opposed: state.difficulty.opposed,
         policy: displayRangePolicy,
       }
-    )
+    ) as unknown as CheckCanonicalPresentation
   }
 
   function buildPresentation(
@@ -245,7 +276,9 @@ export async function useCheck({
 
   const presentation = computed(() => buildPresentation())
 
-  function updateDisplayFeedback(result: any = presentation.value) {
+  function updateDisplayFeedback(
+    result: CheckCanonicalPresentation | null = presentation.value
+  ) {
     if (!preflightDisplayRequest()) {
       return
     }
@@ -262,9 +295,11 @@ export async function useCheck({
       return
     }
     const warningPlan = [result.action, result.reaction]
-      .filter(Boolean)
+      .filter(
+        (side): side is CheckPresentationSide => side !== null && side !== undefined
+      )
       .map((side) => side.plan)
-      .find((plan) => plan?.warnings?.length > 0)
+      .find((plan) => (plan?.warnings?.length ?? 0) > 0)
     if (warningPlan) {
       publishDisplayPlan(warningPlan)
       return
