@@ -3,7 +3,16 @@
     import SummaryTable from './SummaryTable.vue';
     import { mdiFileChartOutline } from '@mdi/js'
 
-    defineProps(['checkData']);
+    const props = defineProps({
+        difficulty: {
+            type: Object,
+            required: true,
+        },
+        scoreSummary: {
+            type: Object,
+            default: null,
+        },
+    });
 
 </script>
 
@@ -13,7 +22,10 @@
         <v-divider class="mx-2" />
         <v-container class="px-6 py-0">
             <v-card-text class="pt-0 pb-2 text-md-body-1 text-caption">
-                <SummaryTable :checkData="checkData"/>
+                <SummaryTable
+                    :difficulty="props.difficulty"
+                    :scoreSummary="props.scoreSummary"
+                />
             </v-card-text>
         </v-container>
     </v-card>

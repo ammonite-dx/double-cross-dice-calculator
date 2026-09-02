@@ -14,36 +14,40 @@ const checkControllerSource = readFileSync(
   new URL('../src/features/check/model/useCheck.ts', import.meta.url),
   'utf8'
 )
+const checkPageSource = readFileSync(
+  new URL('../src/features/check/ui/CheckPage.vue', import.meta.url),
+  'utf8'
+)
 const scoreChartSource = readFileSync(
-  new URL('../src/components/Check/ScoreChart.vue', import.meta.url),
+  new URL('../src/features/check/ui/ScoreChart.vue', import.meta.url),
   'utf8'
 )
 const chartSetterSource = readFileSync(
-  new URL('../src/components/Check/ChartSetter.js', import.meta.url),
+  new URL('../src/features/check/ui/ChartSetter.js', import.meta.url),
   'utf8'
 )
 const inputFormSource = readFileSync(
-  new URL('../src/components/Check/InputForm.vue', import.meta.url),
+  new URL('../src/features/check/ui/InputForm.vue', import.meta.url),
   'utf8'
 )
 const inputPanelSource = readFileSync(
-  new URL('../src/components/Check/InputPanel.vue', import.meta.url),
+  new URL('../src/features/check/ui/InputPanel.vue', import.meta.url),
   'utf8'
 )
 const difficultyFormSource = readFileSync(
-  new URL('../src/components/Check/DfcltyForm.vue', import.meta.url),
+  new URL('../src/features/check/ui/DfcltyForm.vue', import.meta.url),
   'utf8'
 )
 const scoreFormSource = readFileSync(
-  new URL('../src/components/Check/ScoreForm.vue', import.meta.url),
+  new URL('../src/features/check/ui/ScoreForm.vue', import.meta.url),
   'utf8'
 )
 const settingFormSource = readFileSync(
-  new URL('../src/components/Check/SettingForm.vue', import.meta.url),
+  new URL('../src/features/check/ui/SettingForm.vue', import.meta.url),
   'utf8'
 )
 const chartPanelSource = readFileSync(
-  new URL('../src/components/Check/ChartPanel.vue', import.meta.url),
+  new URL('../src/features/check/ui/ChartPanel.vue', import.meta.url),
   'utf8'
 )
 
@@ -99,9 +103,9 @@ describe('Check input flow contracts', () => {
     )
     expect(checkControllerSource).toContain('displayRequest: initialCalculationRequest.displayRequest')
     expect(checkControllerSource).toContain('calculationRunner.dispose()')
-    expect(checkViewSource).toContain('useCheck({ calculationClient })')
-    expect(checkViewSource).toContain('@dfclty-validated="onDifficultyValidated"')
-    expect(checkViewSource).toContain('@score-validated="onScoreValidated"')
+    expect(checkPageSource).toContain('useCheck({ calculationClient })')
+    expect(checkPageSource).toContain('@dfclty-validated="onDifficultyValidated"')
+    expect(checkPageSource).toContain('@score-validated="onScoreValidated"')
     expect(checkViewSource).not.toContain('calculationClient.calculateCheckCanonical(')
     expect(checkViewSource).not.toContain('watch(props.checkData')
   })
@@ -126,6 +130,8 @@ describe('Check input flow contracts', () => {
   })
 
   it('forwards only validated child events through the input components', () => {
+    expect(inputFormSource).toContain('props.difficulty')
+    expect(inputFormSource).toContain('props.scoreParams')
     expect(inputFormSource).toContain("defineEmits(['dfclty-validated', 'score-validated'])")
     expect(inputFormSource).toContain('@validated="onDfcltyValidated"')
     expect(inputFormSource).toContain('@validated="(params) => onScoreValidated(')
@@ -163,6 +169,7 @@ describe('Check input flow contracts', () => {
     expect(checkControllerSource).toContain('void submitCheck(request)')
     expect(checkControllerSource).toContain('displayRecalculationKey')
     expect(chartPanelSource).toContain(':displayRequest="props.displayRequest"')
+    expect(chartPanelSource).toContain(':difficulty="props.difficulty"')
     expect(chartPanelSource).toContain('@validated="(request) => emit(\'display-validated\', request)"')
     expect(chartPanelSource).toContain('<RangePlanNotice :feedback="props.displayFeedback" />')
     expect(scoreChartSource).not.toContain('getCheckChartData')

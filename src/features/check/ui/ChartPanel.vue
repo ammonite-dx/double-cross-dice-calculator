@@ -6,7 +6,7 @@
     import { mdiChartLine } from '@mdi/js';
 
     const props = defineProps({
-        checkData: {
+        difficulty: {
             type: Object,
             required: true,
         },
@@ -35,7 +35,7 @@
             <v-card-text class="text-md-body-1 text-caption">
                 <RangePlanNotice :feedback="props.displayFeedback" />
                 <ScoreChart
-                    :checkData="props.checkData"
+                    :difficulty="props.difficulty"
                     :presentation="props.presentation"
                 />
                 <SettingForm

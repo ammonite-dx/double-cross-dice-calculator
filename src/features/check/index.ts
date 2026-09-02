@@ -1,2 +1,1 @@
-// Public Check feature exports are added when the UI moves in R4-C.
-export {}
+export { default as CheckPage } from './ui/CheckPage.vue'

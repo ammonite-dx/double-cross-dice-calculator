@@ -6,14 +6,18 @@
     } from '@/presentation';
 
     const props = defineProps({
-        checkData: {
+        difficulty: {
             type: Object,
             required: true,
+        },
+        scoreSummary: {
+            type: Object,
+            default: null,
         },
     });
 
     function getCanonicalSideSummary(side) {
-        return props.checkData?.scoreSummary?.[side] ?? null;
+        return props.scoreSummary?.[side] ?? null;
     }
 
     function getExpectedValue(side) {
@@ -45,7 +49,7 @@
                 <td class="pa-0 text-right" style="font-size:80%">{{ getExpectedValue('action') }}</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ getSuccessRate('action') }}</td>
             </tr>
-            <tr v-if="props.checkData.dfclty.opposed">
+            <tr v-if="props.difficulty.opposed">
                 <td class="pa-0" style="font-size:80%">リアクション側</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ getExpectedValue('reaction') }}</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ getSuccessRate('reaction') }}</td>

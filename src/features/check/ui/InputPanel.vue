@@ -4,7 +4,20 @@
     import RangePlanNotice from '@/components/RangePlanNotice.vue';
     import { mdiTuneVariant } from '@mdi/js'
 
-    const props = defineProps(['checkData']);
+    const props = defineProps({
+        difficulty: {
+            type: Object,
+            required: true,
+        },
+        scoreParams: {
+            type: Object,
+            required: true,
+        },
+        rangeFeedback: {
+            type: Object,
+            required: true,
+        },
+    });
     const emit = defineEmits(['dfclty-validated', 'score-validated']);
     const onDfcltyValidated = (dfclty) => {
         emit('dfclty-validated', dfclty);
@@ -20,9 +33,10 @@
         <v-card-title><v-icon :icon="mdiTuneVariant"/> 判定条件</v-card-title>
         <v-divider class="mx-2" />
         <v-card-text class="pa-0 text-md-body-1 text-caption">
-            <RangePlanNotice :feedback="props.checkData.rangeFeedback" />
+            <RangePlanNotice :feedback="props.rangeFeedback" />
             <InputForm
-                :checkData="checkData"
+                :difficulty="props.difficulty"
+                :scoreParams="props.scoreParams"
                 @dfclty-validated="onDfcltyValidated"
                 @score-validated="onScoreValidated"
             />

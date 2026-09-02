@@ -10,7 +10,7 @@
     Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin);
 
     const props = defineProps({
-        checkData: {
+        difficulty: {
             type: Object,
             required: true,
         },
@@ -23,7 +23,7 @@
     const data = computed(() => props.presentation?.status === 'ready'
         ? props.presentation.chart
         : null);
-    const options = computed(() => getCheckChartOptions(props.checkData.dfclty));
+    const options = computed(() => getCheckChartOptions(props.difficulty));
     const style = computed(() => getCheckChartStyle(mdAndUp.value));
 
 </script>
