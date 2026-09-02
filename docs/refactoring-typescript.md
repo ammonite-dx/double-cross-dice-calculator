@@ -73,3 +73,15 @@ R1で追加した型は、型の存在だけでなく、既存のCheck、Attack�
 ## 今後の移行
 
 次のphaseでは、R1で定義した境界型を使って依存方向を固定し、Backtrack、Check、入力validation、Chart、Attack stateの順に責務を整理する。既存JavaScriptの型移行範囲を広げる場合も、型検査の厳格化とruntime validationの変更を同じコミットへ混在させない。
+
+## R1完了記録
+
+R1の実装基準は `4eff6ce`（CIへruntime DX検証を追加）までのコミット群とし、R0のbehavior baseline `2770c2c87000c7d878a5e1bd81698c4781d0bbce` は引き続き比較基準として保持する。型基盤、境界型、検証runner、CI、方針文書はそれぞれ独立した作業単位で記録した。
+
+使用したtoolchainは TypeScript 5.9.3 と vue-tsc 3.3.11 である。strictな新規TypeScriptとして InputDomain、BacktrackRules、CheckInputSnapshot、BacktrackInputSnapshot、CalculationInputs、DistributionResultTypes、CalculationClientTypes、RuntimeDamageRollProtocol、DxProviderTypesを追加または移行した。大規模なVue componentと計算coreはJavaScriptのまま残し、後続phaseで境界型を利用して段階的に移行する。
+
+2026-09-02のfull gateは、Node version check、32 assetsのdata検証、Vitest 59 files / 790 tests、generator tests 18 passed、simulation 13 passed、Ruff、TypeScript typecheck、ESLint、Markdown lint 26 files / 0 issues、production build、production browser smokeのすべてに成功した。browser smokeではprecomputed/D10 request 0、console warnings/errors 0、same-origin HTTP errors 0を確認した。
+
+`npm run verify:runtime-dx`はRolldown bundle経由で20,000 casesを検証し、最大確率差は約1.00000000003e-6、許容値1.000001e-6以内、最大総和誤差は約1.55e-15、非有限値と負値は0だった。Node verifierはnative Node ESMのextensionless importに依存せず、production source全体のspecifierは変更していない。
+
+R1で追加したTypeScriptファイル内のany、as any、@ts-ignore、@ts-nocheckは0件である。runtime validation、Worker message検証、AbortSignal、latest-wins、resource guard、既存のcanonical result契約は維持した。P0とP1のcorrectness blockerは0件であり、既存のP2 refactor debt（state ownership、validation共通化、Chart共通化、directory責務、canonical naming、core分割、provider APIなど）は後続phaseへ引き継ぐ。
