@@ -97,9 +97,9 @@ R3以降で実ファイルを移動するときは、次の対応を初期案と
 
 ## 検証記録
 
-R2の依存境界実装基準は `ff3a67e`（calculation dependency boundaries）である。2026-09-02のclean installは`npm ci`で302 packagesを構築し、0 vulnerabilitiesだった。`npm run typecheck`、`npm run lint`、Vitest 59 files / 790 tests、`npm run data:check`（32 assets）、generator tests 18 passed / 13 deselected、simulation 13 passed / 18 deselected、Ruff、`npm run verify:runtime-dx`（20,000 cases、non-finite 0、negative 0）が成功した。
+R2の基本依存境界実装は `ff3a67e`（calculation dependency boundaries）である。2026-09-02のclean installは`npm ci`で302 packagesを構築し、0 vulnerabilitiesだった。`npm run typecheck`、`npm run lint`、Vitest 59 files / 790 tests、`npm run data:check`（32 assets）、generator tests 18 passed / 13 deselected、simulation 13 passed / 18 deselected、Ruff、`npm run verify:runtime-dx`（20,000 cases、non-finite 0、negative 0）が成功した。
 
-R2 closureの実装基準SHAは `ff3a67e`、closure日は2026-09-02である。architecture negative probeは、main.js → calculation、App.vue → calculation、plugins → Distribution、type-only plugin → calculationをrejected、main.js → CalculationClientをallowedとして確認した。temporary architecture exceptionは0件である。`npm run lint:markdown`は27 files / 0 issues、`npm run build`は394 modules transformedで成功し、`npm run smoke:production`もCheck、Attack、Backtrackの既存ケースで成功した。browser smokeではprecomputed/D10 request 0、console warnings/errors 0、same-origin HTTP errors 0を確認し、`git diff --check`も成功した。R0 behavior baselineとproduction calculation behaviorは変更していない。
+app shellまで含めたR2の最終closure implementationは `c2dbc9b` であり、closure日は2026-09-02である。このcommitで`src/App.vue`、`src/main.{js,ts}`、`src/plugins/**/*.{js,ts}`をUI architecture restrictionへ含めた。architecture negative probeは、main.js → calculation、App.vue → calculation、plugins → Distribution、type-only plugin → calculationをrejected、main.js → CalculationClientをallowedとして確認した。temporary architecture exceptionは0件である。`npm run lint:markdown`は27 files / 0 issues、`npm run build`は394 modules transformedで成功し、`npm run smoke:production`もCheck、Attack、Backtrackの既存ケースで成功した。browser smokeではprecomputed/D10 request 0、console warnings/errors 0、same-origin HTTP errors 0を確認し、`git diff --check`も成功した。R0 behavior baselineとproduction calculation behaviorは変更していない。
 
 ## R3への引き継ぎ
 
