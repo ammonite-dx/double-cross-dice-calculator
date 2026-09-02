@@ -148,6 +148,9 @@ export default [
   },
   {
     files: [
+      'src/App.vue',
+      'src/main.{js,ts}',
+      'src/plugins/**/*.{js,ts}',
       'src/components/**/*.{js,ts,vue}',
       'src/router/**/*.{js,ts}',
       'src/views/**/*.{js,ts,vue}',
