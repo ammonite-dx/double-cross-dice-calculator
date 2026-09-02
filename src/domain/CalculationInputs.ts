@@ -26,7 +26,7 @@ export interface AttackInputSnapshot {
 
 export type ReactionMode =
   | 'ドッジ'
-  | '《イベイション》'
+  | '《イベイジョン》'
   | 'ガード・リアクション放棄'
 
 export interface DefenceInputSnapshot {
