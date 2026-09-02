@@ -367,6 +367,17 @@ async function fillBoundaryInput(
   assertNoBrowserErrors(caseId, record)
 }
 
+async function selectDisplayMode(page, record, caseId, label) {
+  const select = page.locator('input[role="combobox"]')
+  assertCondition(caseId, await select.count() === 1, 'display mode select was not found')
+  const previousState = await captureResultState(page)
+  await select.click({ force: true })
+  await page.getByText(label, { exact: true }).click()
+  await waitForCanvases(page, 1, { exact: true })
+  await waitForResultCommit(page, previousState)
+  assertNoBrowserErrors(caseId, record)
+}
+
 async function runCheck(browser, baseUrl) {
   const context = await browser.newContext()
   const page = await context.newPage()
@@ -387,10 +398,113 @@ async function runCheck(browser, baseUrl) {
       1,
     )
     assertNoPrecomputedRequests('check-dice=100', record)
-    return [
+    const summaries = [
       { canvases, id: 'check', precomputed: 0 },
       { canvases: 1, id: 'check dice=100', precomputed: 0 },
     ]
+
+    const opposedSwitch = page.getByLabel('対決判定')
+    assertCondition('check opposed on', await opposedSwitch.count() === 1, 'opposed switch was not found')
+    const opposedOnState = await captureResultState(page)
+    await opposedSwitch.setChecked(true)
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, opposedOnState)
+    await page.getByText('リアクション側', { exact: true }).last().waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertNoBrowserErrors('check opposed on', record)
+    summaries.push({ canvases: 1, id: 'check opposed on', precomputed: 0 })
+
+    const opposedOffState = await captureResultState(page)
+    await opposedSwitch.setChecked(false)
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, opposedOffState)
+    assertCondition(
+      'check opposed off',
+      await page.getByText('リアクション側', { exact: true }).count() === 0,
+      'reaction UI remained visible after opposed mode was disabled',
+    )
+    assertNoBrowserErrors('check opposed off', record)
+    summaries.push({ canvases: 1, id: 'check opposed off', precomputed: 0 })
+
+    await selectDisplayMode(
+      page,
+      record,
+      'check upper-tail',
+      '達成値がX以上となる確率を表示',
+    )
+    summaries.push({ canvases: 1, id: 'check upper-tail', precomputed: 0 })
+    await selectDisplayMode(
+      page,
+      record,
+      'check PMF',
+      '達成値がXとなる確率を表示',
+    )
+    summaries.push({ canvases: 1, id: 'check PMF', precomputed: 0 })
+
+    await fillBoundaryInput(
+      page,
+      record,
+      'check dice=99',
+      page.getByLabel('ダイス数'),
+      99,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check critical=2',
+      page.getByLabel('クリティカル値'),
+      2,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check 99D critical2 max=100',
+      page.getByLabel('最大値'),
+      100,
+      1,
+    )
+    assertNoPrecomputedRequests('check 99D critical2', record)
+    summaries.push({ canvases: 1, id: 'check 99D critical2 0..100', precomputed: 0 })
+
+    const maxInput = page.getByLabel('最大値')
+    assertCondition('check resource reject', await maxInput.count() === 1, 'maximum input was not found')
+    await maxInput.fill('20000')
+    assertCondition(
+      'check resource reject',
+      await maxInput.inputValue() === '20000',
+      'maximum input did not retain 20000',
+    )
+    await page.getByRole('alert').filter({ hasText: '表示する点数が多すぎるため' }).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertNoBrowserErrors('check resource reject', record)
+    summaries.push({ canvases: 0, id: 'check display 0..20000 rejected', precomputed: 0 })
+
+    const recoveryState = await captureResultState(page)
+    await maxInput.fill('100')
+    assertCondition(
+      'check resource recovery',
+      await maxInput.inputValue() === '100',
+      'maximum input did not retain 100',
+    )
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, recoveryState)
+    assertCondition(
+      'check resource recovery',
+      await page.getByRole('alert').filter({ hasText: '表示する点数が多すぎるため' }).count() === 0,
+      'display resource rejection remained after recovery',
+    )
+    assertNoBrowserErrors('check resource recovery', record)
+    assertNoPrecomputedRequests('check resource recovery', record)
+    summaries.push({ canvases: 1, id: 'check display 0..100 recovered', precomputed: 0 })
+
+    assertNoPrecomputedRequests('check final', record)
+    return summaries
   } catch (error) {
     throw enrichCaseError('check', error, record)
   } finally {
