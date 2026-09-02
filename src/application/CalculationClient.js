@@ -33,7 +33,7 @@ import {
   isCalculationBatchInputError,
   snapshotCanonicalAttackBatchRequest,
 } from './CanonicalAttackBatchInput'
-import { createCheckRangePolicy } from './CheckDisplayRequestSnapshot'
+import { createCheckRangePolicy } from '../features/check/model/CheckDisplayRequestSnapshot'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 import { createResourceGuard } from './ResourceGuard'
 

@@ -20,7 +20,7 @@ import {
 import {
   CHECK_DISPLAY_MODES,
   createCheckRangePolicy,
-} from '../src/application/CheckDisplayRequestSnapshot'
+} from '../src/features/check/model/CheckDisplayRequestSnapshot'
 
 function scoreParams(overrides = {}) {
   return {

@@ -1,6 +1,6 @@
 import {
   LEGACY_PUBLISHED_OVERFLOW_INDEX,
-} from '../calculation/DistributionResult'
+} from '../../../calculation/DistributionResult'
 import { createCheckInputSnapshot } from './CheckInputSnapshot'
 
 export const CHECK_DISPLAY_REQUEST_VERSION = 1

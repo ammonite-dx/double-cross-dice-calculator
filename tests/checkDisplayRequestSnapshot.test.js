@@ -4,7 +4,7 @@ import {
   CHECK_DISPLAY_MODES,
   createCheckCalculationRequestSnapshot,
   createCheckDisplayRequestSnapshot,
-} from '../src/application/CheckDisplayRequestSnapshot'
+} from '../src/features/check/model/CheckDisplayRequestSnapshot'
 import {
   createCalculationFeedbackState,
   createLatestCalculationRunner,

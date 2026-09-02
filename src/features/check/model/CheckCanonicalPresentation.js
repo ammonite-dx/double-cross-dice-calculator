@@ -2,7 +2,7 @@ import {
   getExpectedValueSummary,
   getProbabilityMassSummary,
   isDistributionResultError,
-} from '../calculation/DistributionResult'
+} from '../../../calculation/DistributionResult'
 import {
   CANONICAL_CHART_SERIES_MODES,
   CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
@@ -14,8 +14,8 @@ import {
   isDistributionPresentationError,
   planDisplayRange,
   presentCanonicalDistribution,
-} from '../presentation'
-import { getChartColor } from '../data/ColorSetter'
+} from '../../../presentation'
+import { getChartColor } from '../../../data/ColorSetter'
 
 export const CHECK_CANONICAL_PRESENTATION_VERSION = 1
 

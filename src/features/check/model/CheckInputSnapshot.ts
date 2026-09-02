@@ -2,7 +2,7 @@ import type {
   CheckInputSnapshot,
   DifficultyInput,
   ScoreInput,
-} from '../domain/CalculationInputs'
+} from '../../../domain/CalculationInputs'
 
 const SCORE_FIELDS: readonly (keyof ScoreInput)[] = Object.freeze([
   'dice',

@@ -4,7 +4,7 @@
     import {
         CHECK_DISPLAY_MODES,
         createCheckDisplayRequestSnapshot,
-    } from '@/application/CheckDisplayRequestSnapshot';
+    } from '@/features/check/model/CheckDisplayRequestSnapshot';
 
     const props = defineProps({
         displayRequest: {

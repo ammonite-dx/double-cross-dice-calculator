@@ -14,16 +14,16 @@
         DEFAULT_CHECK_DISPLAY_REQUEST,
         createCheckCalculationRequestSnapshot,
         createCheckDisplayRequestSnapshot,
-    } from '@/application/CheckDisplayRequestSnapshot';
+    } from '@/features/check/model/CheckDisplayRequestSnapshot';
     import {
         CHECK_CANONICAL_PRESENTATION_DECISIONS,
         createCheckCanonicalPresentation,
-    } from '@/application/CheckCanonicalPresentation';
+    } from '@/features/check/model/CheckCanonicalPresentation';
     import {
         DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
         planDisplayWindowResources,
     } from '@/presentation';
-    import { createCheckInputSnapshot } from '@/application/CheckInputSnapshot';
+    import { createCheckInputSnapshot } from '@/features/check/model/CheckInputSnapshot';
     import InputPanel from '@/components/Check/InputPanel.vue';
     import ChartPanel from '@/components/Check/ChartPanel.vue';
     import SummaryPanel from '@/components/Check/SummaryPanel.vue';

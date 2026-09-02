@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createCheckInputSnapshot,
   normalizeCheckInputDraft,
-} from '../src/application/CheckInputSnapshot'
+} from '../src/features/check/model/CheckInputSnapshot'
 
 const checkViewSource = readFileSync(
   new URL('../src/views/Check.vue', import.meta.url),

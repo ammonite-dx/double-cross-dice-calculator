@@ -13,7 +13,7 @@ import {
   CheckCanonicalPresentationError,
   createCheckCanonicalPresentation,
   isCheckCanonicalPresentationError,
-} from '../src/application/CheckCanonicalPresentation'
+} from '../src/features/check/model/CheckCanonicalPresentation'
 import { getChartColor } from '../src/data/ColorSetter'
 
 function createScoreResult({
