@@ -1,12 +1,33 @@
 import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { performance } from 'node:perf_hooks'
 
-import {
+import { rolldown } from 'rolldown'
+
+async function loadRuntimeDxModule() {
+  const entryPoint = fileURLToPath(
+    new URL('../src/calculation/DxCalculator.js', import.meta.url)
+  )
+  const bundle = await rolldown({ input: entryPoint })
+  const generated = await bundle.generate({ format: 'esm' })
+  const source = generated.output?.[0]?.code
+  if (typeof source !== 'string') {
+    throw new Error('runtime DX verifier bundle was not generated')
+  }
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
+  try {
+    return await import(moduleUrl)
+  } finally {
+    await bundle.close?.()
+  }
+}
+
+const {
   calculateDxDistribution,
   DX_CRITICAL_MAX,
   DX_CRITICAL_MIN,
   DX_DISTRIBUTION_SIZE,
-} from '../src/calculation/DxCalculator.js'
+} = await loadRuntimeDxModule()
 
 // Keep the historical asset comparison matrix explicit. These values are
 // fixture coverage, not runtime input ceilings.
