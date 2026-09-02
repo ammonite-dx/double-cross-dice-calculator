@@ -47,6 +47,11 @@ const uiDataPattern = {
   message: 'UI must not import calculation primitives directly.',
 }
 
+const featureModelUiPattern = {
+  regex: `^${relativeOrAlias}(?:ui|features/[^/]+/ui)(?:/|$)`,
+  message: 'Feature models must not depend on feature UI modules.',
+}
+
 const applicationUiPattern = internalPattern(
   ['views', 'components', 'router', 'plugins', 'layouts'],
   'Application orchestration must not depend on Vue UI modules.',
@@ -155,6 +160,7 @@ export default [
       'src/router/**/*.{js,ts}',
       'src/views/**/*.{js,ts,vue}',
       'src/layouts/**/*.{js,ts,vue}',
+      'src/features/*/ui/**/*.{js,ts,vue}',
     ],
     rules: {
       'no-restricted-imports': ['error', {
@@ -167,6 +173,22 @@ export default [
         patterns: [
           uiCalculationPattern,
           uiDataPattern,
+          referenceRepositoryPattern,
+          precomputedSchemaPattern,
+        ],
+      }],
+    },
+  },
+  {
+    files: ['src/features/*/model/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          internalPattern(
+            ['views', 'components', 'router', 'plugins', 'layouts'],
+            'Feature models must remain independent of application UI modules.',
+          ),
+          featureModelUiPattern,
           referenceRepositoryPattern,
           precomputedSchemaPattern,
         ],
