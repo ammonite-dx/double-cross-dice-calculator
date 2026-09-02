@@ -51,6 +51,7 @@ jobs:
 
       - name: Test
         run: |
+          npm run typecheck
           npm test
           npm run generator:test
           npm run generator:test:simulation
