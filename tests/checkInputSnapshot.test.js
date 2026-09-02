@@ -10,6 +10,10 @@ const checkViewSource = readFileSync(
   new URL('../src/views/Check.vue', import.meta.url),
   'utf8'
 )
+const checkControllerSource = readFileSync(
+  new URL('../src/features/check/model/useCheck.ts', import.meta.url),
+  'utf8'
+)
 const scoreChartSource = readFileSync(
   new URL('../src/components/Check/ScoreChart.vue', import.meta.url),
   'utf8'
@@ -85,19 +89,20 @@ describe('CheckInputSnapshot', () => {
 })
 
 describe('Check input flow contracts', () => {
-  it('keeps calculation ownership and snapshot expansion in Check.vue', () => {
-    expect(checkViewSource).toContain(
-      'calculationClient.calculateCheckCanonical(\n            snapshot.params,\n            snapshot.difficulty'
-    )
-    expect(checkViewSource).toContain('calculationClient.calculateCheckCanonical(')
-    expect(checkViewSource).not.toContain('calculationClient.calculateCheck(')
-    expect(checkViewSource).toContain(
+  it('keeps calculation ownership and snapshot expansion in the Check feature model', () => {
+    expect(checkControllerSource).toContain('calculationClient.calculateCheckCanonical(')
+    expect(checkControllerSource).toContain('snapshot.params')
+    expect(checkControllerSource).toContain('snapshot.difficulty')
+    expect(checkControllerSource).not.toContain('calculationClient.calculateCheck(')
+    expect(checkControllerSource).toContain(
       'snapshotRequest: createCheckCalculationRequestSnapshot'
     )
-    expect(checkViewSource).toContain('displayRequest: initialCalculationRequest.displayRequest')
-    expect(checkViewSource).toContain('calculationRunner.dispose()')
-    expect(checkViewSource).toContain('@dfclty-validated="onDfcltyValidated"')
+    expect(checkControllerSource).toContain('displayRequest: initialCalculationRequest.displayRequest')
+    expect(checkControllerSource).toContain('calculationRunner.dispose()')
+    expect(checkViewSource).toContain('useCheck({ calculationClient })')
+    expect(checkViewSource).toContain('@dfclty-validated="onDifficultyValidated"')
     expect(checkViewSource).toContain('@score-validated="onScoreValidated"')
+    expect(checkViewSource).not.toContain('calculationClient.calculateCheckCanonical(')
     expect(checkViewSource).not.toContain('watch(props.checkData')
   })
 
@@ -151,12 +156,12 @@ describe('Check input flow contracts', () => {
   })
 
   it('keeps display ownership in Check and wires explicit props/events through the chart panel', () => {
-    expect(checkViewSource).toContain('const displayRequest = reactive')
-    expect(checkViewSource).toContain('planDisplayWindowResources')
-    expect(checkViewSource).toContain('if (!windowChanged)')
-    expect(checkViewSource).toContain('requestDisplayRecalculation(snapshot)')
-    expect(checkViewSource).toContain('void submitCheck(request)')
-    expect(checkViewSource).toContain('displayRecalculationKey')
+    expect(checkControllerSource).toContain('displayRequest: { ...initialDisplayRequest }')
+    expect(checkControllerSource).toContain('planDisplayWindowResources')
+    expect(checkControllerSource).toContain('if (!windowChanged)')
+    expect(checkControllerSource).toContain('requestDisplayRecalculation(snapshot)')
+    expect(checkControllerSource).toContain('void submitCheck(request)')
+    expect(checkControllerSource).toContain('displayRecalculationKey')
     expect(chartPanelSource).toContain(':displayRequest="props.displayRequest"')
     expect(chartPanelSource).toContain('@validated="(request) => emit(\'display-validated\', request)"')
     expect(chartPanelSource).toContain('<RangePlanNotice :feedback="props.displayFeedback" />')
@@ -165,22 +170,22 @@ describe('Check input flow contracts', () => {
   })
 
   it('gates every Check calculation through display preflight and validates before commit', () => {
-    expect(checkViewSource).toContain('function preflightDisplayRequest(')
-    expect(checkViewSource).toContain(
+    expect(checkControllerSource).toContain('function preflightDisplayRequest(')
+    expect(checkControllerSource).toContain(
       'if (!preflightDisplayRequest(request))'
     )
-    expect(checkViewSource).toContain(
+    expect(checkControllerSource).toContain(
       'if (!preflightDisplayRequest(snapshot))'
     )
 
-    const presentationIndex = checkViewSource.indexOf(
+    const presentationIndex = checkControllerSource.indexOf(
       'committedPresentation = buildPresentationForScore(result.score)'
     )
-    const scoreCommitIndex = checkViewSource.indexOf(
-      'checkData.score = result.score'
+    const scoreCommitIndex = checkControllerSource.indexOf(
+      'state.score = result.score'
     )
     expect(presentationIndex).toBeGreaterThanOrEqual(0)
     expect(scoreCommitIndex).toBeGreaterThan(presentationIndex)
-    expect(checkViewSource).toContain('publishDisplayError(error)')
+    expect(checkControllerSource).toContain('publishDisplayError(error)')
   })
 })
