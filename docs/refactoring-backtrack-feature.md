@@ -68,18 +68,40 @@ feature model向けには、views、components、router、plugins、layoutsへ�
 | `3cf8329` | Backtrack UIをfeature uiへ移動し、propsを分離し、 `useBacktrack`と薄いroute viewを導入 |
 | `e4f4e4b` | feature UI/modelの依存境界とアーキテクチャテストを追加 |
 
-## 検証
+## Closure verification
 
-実装時点で次の検証に成功している。
+R3 closure dateは2026-09-03である。implementation baselineは `e4f4e4b`、full-gate treeは `e197832eb2e25393c426872e6d0ea45c3805b710`である。R3開始SHAからの差分は、Backtrack feature、依存境界、テスト、文書に限定され、calculation、domain rule、CalculationClient semantics、ResourceGuard threshold、Worker protocol、公開schema assetは変更されていない。
 
-- `npm run typecheck`
-- `npm run lint`
-- `npm test -- tests/backtrackFeatureArchitecture.test.js tests/backtrackCanonical.test.js tests/backtrackCanonicalClient.test.js tests/backtrackCanonicalIntegration.test.js tests/backtrackCanonicalPresentation.test.js tests/backtrackInputSnapshot.test.js tests/backtrackRouter.test.js`（7 files / 65 tests）
-- `npm run build`
-- `git diff --check`
+旧Backtrackの実体（application runner/snapshot、presentation adapter、components配下の6ファイル）を撤去し、旧pathのproduction importerは0件である。feature UI内の `backtrackData` は0件であり、route viewはPageのimportとtemplateだけである。feature UI/modelのlint境界、TypeScript escape-hatch audit（ `as any`、`@ts-ignore`、`@ts-nocheck`）もGREENである。旧componentsディレクトリは空ディレクトリを含めて撤去した。
 
-全体回帰、generator検証、runtime-dx検証、production browser smokeは、R3の全変更を含む状態で最終gateとして再実行する。ブラウザでのBacktrack手動受入では、既存の表示カテゴリ、Dロイス「不死者・悪夢」、入力変更時の再計算、計算中のrange feedbackを確認し、開発サーバーやテストプロセスを残さない。
+### Full project gate
+
+| Gate | 実測結果 |
+| --- | --- |
+| Node | 22.23.2、`check:node` GREEN |
+| data | 32 assets verified、`data:check` / `data:verify-generator` GREEN |
+| Vitest | 60 files / 795 tests、GREEN |
+| generator | 18 passed / 13 deselected、GREEN |
+| simulation | 13 passed / 18 deselected、GREEN |
+| Ruff | GREEN |
+| typecheck | GREEN |
+| verify:runtime-dx | 20,000 cases、max difference 0.0000010000000000287557、tolerance 0.000001000001、max total error 1.5543122344752192e-15、non-finite 0、negative 0 |
+| ESLint | GREEN |
+| Markdown lint | 28 files / 0 issues |
+| build | GREEN |
+| production browser smoke | GREEN |
+| asset requests | schema-v2 precomputed 0、D10 0 |
+| browser diagnostics | console warning/error 0、pageerror 0、same-origin HTTP error 0、same-origin request failure 0 |
+| diff check | `git diff --check` GREEN |
+
+### Backtrack browser acceptance
+
+ローカルproduction buildと同じsourceを通常ブラウザで確認した。初期URL `/backtrack`では初期値（侵蝕率100、ロイス7、Eロイス0、その他減少量0、固定値0、Dロイスなし）から自動計算され、3つのchartが表示された。侵蝕率を150へ変更すると、validated eventから再計算され、画面の描画が更新された。
+
+Dロイスを「不死者・悪夢」へ変更すると、選択状態が反映され、3つのchartが表示された。その他減少量を10000へ変更した範囲拒否では「この入力では計算できません」と作業範囲警告が表示され、直後に0へ戻すとchartが復帰した。追加受入中のwarning/errorログは0件であり、確認後にブラウザtab、開発サーバー、待受ポートを解放した。
+
+これにより、初期計算、validated入力再計算、不死者・悪夢、range/resource feedback、rejectからvalidへのretryをすべてPASSと判定する。P0は0件、P1は0件であり、R3は `CLOSED / GREEN` とする。GitHub hosted workflow evidenceはこのリポジトリには存在しないが、これはfailureではない。
 
 ## 既知の境界と後続課題
 
-R3ではCalculationClientやcoreを `runtime/`や `core/`へ再配置していない。applicationとcoreの境界はR2のまま維持し、Backtrack固有の責務だけを先にfeatureへ移した。ChartSetterの他featureとの共通化、generic presentationのshared化、旧legacy core・asset・generatorの整理は、canonical migrationの後続phaseでsymbol単位に判断する。
+R3ではCalculationClientやcoreを `runtime/`や `core/`へ再配置していない。applicationとcoreの境界はR2のまま維持し、Backtrack固有の責務だけを先にfeatureへ移した。ChartSetterの他featureとの共通化、generic presentationのshared化、旧legacy core・asset・generatorの整理は、canonical migrationの後続phaseでsymbol単位に判断する。次はBacktrackをreference patternとしてR4のCheck featureizationへ進む。
