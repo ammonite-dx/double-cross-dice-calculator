@@ -1,9 +1,9 @@
 import {
   createBacktrackCanonicalPresentation,
-} from '../presentation/BacktrackCanonicalPresentation'
+} from './BacktrackCanonicalPresentation'
 import {
   createLatestCalculationRunner,
-} from './CalculationFeedback'
+} from '../../../application/CalculationFeedback'
 import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'

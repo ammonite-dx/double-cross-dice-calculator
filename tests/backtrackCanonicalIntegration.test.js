@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createBacktrackCanonicalRunner,
-} from '../src/application/BacktrackCalculationRunner'
+} from '../src/features/backtrack/model/BacktrackCalculationRunner'
 import {
   createBacktrackInputSnapshot,
-} from '../src/application/BacktrackInputSnapshot'
+} from '../src/features/backtrack/model/BacktrackInputSnapshot'
 import {
   createCalculationFeedbackState,
   formatRangeFeedback,

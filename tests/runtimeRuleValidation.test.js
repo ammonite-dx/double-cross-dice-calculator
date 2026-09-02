@@ -19,7 +19,7 @@ import {
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   createBacktrackCanonicalPresentation,
-} from '../src/presentation/BacktrackCanonicalPresentation'
+} from '../src/features/backtrack/model/BacktrackCanonicalPresentation'
 
 const SCORE_PARAMS = {
   dice: 1,

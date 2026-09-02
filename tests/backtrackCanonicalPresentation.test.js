@@ -8,7 +8,7 @@ import {
   BacktrackCanonicalPresentationValidationError,
   createBacktrackCanonicalPresentation,
   isBacktrackCanonicalPresentationError,
-} from '../src/presentation/BacktrackCanonicalPresentation'
+} from '../src/features/backtrack/model/BacktrackCanonicalPresentation'
 import {
   getFinalEncroachmentChartData,
 } from '../src/components/Backtrack/ChartSetter'

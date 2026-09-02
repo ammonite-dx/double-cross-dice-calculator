@@ -1,9 +1,9 @@
 import {
   getBacktrackRule,
-} from '../domain/BacktrackRules'
+} from '../../../domain/BacktrackRules'
 import {
   validateDistributionResult,
-} from '../calculation/DistributionResult'
+} from '../../../calculation/DistributionResult'
 
 export const BACKTRACK_CANONICAL_PRESENTATION_VERSION = 1
 
@@ -274,4 +274,3 @@ export function createBacktrackCanonicalPresentation(
     )
   }
 }
-

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createBacktrackInputSnapshot,
   normalizeBacktrackInputDraft,
-} from '../src/application/BacktrackInputSnapshot'
+} from '../src/features/backtrack/model/BacktrackInputSnapshot'
 
 const backtrackViewSource = readFileSync(
   new URL('../src/views/Backtrack.vue', import.meta.url),
