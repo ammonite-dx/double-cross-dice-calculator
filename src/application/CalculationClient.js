@@ -105,7 +105,7 @@ const defaultDependencies = {
 
 const EVASION_MODE = '《イベイジョン》'
 
-export const CALCULATION_CLIENT_KEY = Symbol('calculationClient')
+export { CALCULATION_CLIENT_KEY } from './CalculationClientTypes'
 
 export class CalculationRangeError extends Error {
   constructor(plan) {
