@@ -65,7 +65,7 @@ shared → feature-specific module
 
 `src/calculation/**`、`src/domain/**`、`src/data/Distribution.js`、`src/data/FFT.js`には、Vue、Vuetify、vue-router、Chart.js、Vue Chart.js、chart plugin、Nodeのimportを許可しない。application、UI、router、plugins、layouts、presentationへのinternal importも禁止し、`window`、`document`、`fetch`の直接利用も禁止する。
 
-`src/views/**`、`src/components/**`、`src/router/**`、`src/layouts/**`からは、`src/calculation/**`、`Distribution.js`、`FFT.js`、計算用legacy facade、reference repository、published-data schemaを直接importできない。確率計算は`CalculationClient`を経由する。
+`src/App.vue`、`src/main.js`、`src/plugins/**`を含むapp shellと、`src/views/**`、`src/components/**`、`src/router/**`、`src/layouts/**`からは、`src/calculation/**`、`Distribution.js`、`FFT.js`、計算用legacy facade、reference repository、published-data schemaを直接importできない。確率計算は`CalculationClient`を経由する。`main.js`はCalculationClientのbootstrapとprovideを担当できるが、calculation coreを直接呼ばない。pluginsはVue/Vuetifyのframework setupを担当し、probability coreを直接参照しない。
 
 `src/application/**`からUI shellへのimportを禁止し、`src/presentation/**`からUI shell、application、Vue、chart packageへのimportを禁止する。presentationはresultからview modelを作る純粋な変換に留め、計算の実行やcomponent lifecycleを担当しない。
 
@@ -99,7 +99,7 @@ R3以降で実ファイルを移動するときは、次の対応を初期案と
 
 R2の依存境界実装基準は `ff3a67e`（calculation dependency boundaries）である。2026-09-02のclean installは`npm ci`で302 packagesを構築し、0 vulnerabilitiesだった。`npm run typecheck`、`npm run lint`、Vitest 59 files / 790 tests、`npm run data:check`（32 assets）、generator tests 18 passed / 13 deselected、simulation 13 passed / 18 deselected、Ruff、`npm run verify:runtime-dx`（20,000 cases、non-finite 0、negative 0）が成功した。
 
-`npm run lint:markdown`は27 files / 0 issues、`npm run build`は394 modules transformedで成功し、`npm run smoke:production`もCheck、Attack、Backtrackの既存ケースで成功した。browser smokeではprecomputed/D10 request 0、console warnings/errors 0、same-origin HTTP errors 0を確認し、`git diff --check`も成功した。R0 behavior baselineとproduction calculation behaviorは変更していない。
+R2 closureの実装基準SHAは `ff3a67e`、closure日は2026-09-02である。architecture negative probeは、main.js → calculation、App.vue → calculation、plugins → Distribution、type-only plugin → calculationをrejected、main.js → CalculationClientをallowedとして確認した。temporary architecture exceptionは0件である。`npm run lint:markdown`は27 files / 0 issues、`npm run build`は394 modules transformedで成功し、`npm run smoke:production`もCheck、Attack、Backtrackの既存ケースで成功した。browser smokeではprecomputed/D10 request 0、console warnings/errors 0、same-origin HTTP errors 0を確認し、`git diff --check`も成功した。R0 behavior baselineとproduction calculation behaviorは変更していない。
 
 ## R3への引き継ぎ
 
