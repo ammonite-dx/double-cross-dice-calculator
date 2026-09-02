@@ -70,7 +70,7 @@ feature model向けには、views、components、router、plugins、layoutsへ�
 
 ## Closure verification
 
-R3 closure dateは2026-09-03である。implementation baselineは `e4f4e4b`、full-gate treeは `e197832eb2e25393c426872e6d0ea45c3805b710`である。R3開始SHAからの差分は、Backtrack feature、依存境界、テスト、文書に限定され、calculation、domain rule、CalculationClient semantics、ResourceGuard threshold、Worker protocol、公開schema assetは変更されていない。
+R3 closure dateは2026-09-02である。implementation baselineは `e4f4e4b`、full-gate treeは `e197832eb2e25393c426872e6d0ea45c3805b710`である。R3開始SHAからの差分は、Backtrack feature、依存境界、テスト、文書に限定され、calculation、domain rule、CalculationClient semantics、ResourceGuard threshold、Worker protocol、公開schema assetは変更されていない。
 
 旧Backtrackの実体（application runner/snapshot、presentation adapter、components配下の6ファイル）を撤去し、旧pathのproduction importerは0件である。feature UI内の `backtrackData` は0件であり、route viewはPageのimportとtemplateだけである。feature UI/modelのlint境界、TypeScript escape-hatch audit（ `as any`、`@ts-ignore`、`@ts-nocheck`）もGREENである。旧componentsディレクトリは空ディレクトリを含めて撤去した。
 
