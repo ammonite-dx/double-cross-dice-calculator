@@ -111,17 +111,25 @@ AttackCanonicalRunner
   ↓ latest-wins / abort / stale commit抑止
 CalculationClient.calculateAttackCanonicalBatch
   ↓ RangePlanner + ResourceGuard
+for each combo
+  ↓
 ScoreCalculator → runtime DX
   ↓
-CanonicalDamageAggregation
+DamageCalculator / calculateCanonicalDamageOnDemand
   ├─ runtime D10（防御側）
   └─ RuntimeDamageRollClient → RuntimeDamageRollWorker（DR FFT）
+  ↓ canonicalDamage per combo
+
+all combos complete
   ↓
-combo score/damage + total batch result
+CanonicalDamageAggregation
+  ↓ canonicalTotalDamage
   ↓
 AttackCanonicalPresentation / ChartSetter / SummaryTable
   ↓
 ScoreChartPanel / DamageChartPanel / SummaryPanel
+
+CanonicalDamageAggregationは各comboのDamage生成後にtotalを集約する責務であり、D10やDR Workerを直接実行する層ではない。
 
 action・reactionの入力、combo操作、Score表示window、Damage表示windowはAttack.vueが所有するreactive stateへ反映される。Score/Damageの表示window変更は、既存batchを再利用できる場合はpresentation refreshだけを行い、coverage不足またはresource rejectの場合は該当laneを無効化する。計算要求は一つのlatest-wins runnerへ集約され、古いbatchはcommitされない。
 
@@ -390,6 +398,7 @@ R0で発見した構造上の負債はすべてP2（計画済みrefactor debt）
 | application/presentationのfeature共通責務混在 | CalculationClient、runner、feedback、presentationが同一directoryに集中 | P2 | R9 |
 | Canonical命名のmigration痕跡 | production唯一経路になった後もCanonical prefixが残る | P2 | R11 |
 | 大型core module | RangePlanner等の責務が大きい | P2 | R12 |
+| Attack calculation開始時のduplicate abort check | CalculationClient.runAttackCalculation()に同一throwIfAborted(options, 'Attack')が連続 | P2 | R9 |
 
 ## 16. Tooling Debt
 
@@ -431,7 +440,7 @@ runtime DX providerの内部呼び出しには、getDxDistribution(shihai, dice,
 | R6 | Chart登録、options、series adapter、確率formatterの共通化 | 既存見た目と0.1%表示精度を維持 |
 | R7 | Attack state ownership、props mutation、combo controllerの再設計 | Attackのlatest-wins/resource/cancelを保護 |
 | R8 | src/data/のprobability math/theme/reference data分離 | assetと再生成手順を一括削除しない |
-| R9 | application/とpresentation/のfeature/runtime責務整理 | CalculationClient境界を保護 |
+| R9 | application/とpresentation/のfeature/runtime責務整理 | CalculationClient境界を保護する。内部の軽微な重複guardとcompatibility codeも確認する |
 | R10 | 内部objectの過剰reflection validationとruntime validationの整理 | 数値invariant、Worker、untrusted input検証は残す |
 | R11 | Canonical prefixとmigration terminologyの段階的rename | directory/state移行の最後に行う |
 | R12 | RangePlanner等のcore module分割、Yousei helper共通化 | numerical/resource contractと独立oracleを先に固定 |
@@ -457,6 +466,15 @@ runtime DX providerの内部呼び出しには、getDxDistribution(shihai, dice,
 | npm run smoke:production | production browser smoke passed |
 | git diff --check | passed |
 
+### R0 documentation closure
+
+2026-09-02にcurrent docs treeでR0 closureの文書検証を実行した。
+
+- npm run lint:markdown: 25 files / 0 issues
+- git diff --check: passed
+
+production codeは変更していないため、baseline full gateは2770c2c時点の記録を引き続き正とする。
+
 npm run verify:runtime-dxは前述のnative Node ESM module-resolution debtのため、R0 GREEN gateには含めていない。R0ではnpm run typecheckもまだ導入していないため実行対象外であり、R1のTypeScript基盤タスクへ送る。
 
 ## R1 Handoff
@@ -469,7 +487,7 @@ P0: 0
 
 P1: 0
 
-P2: Attack child mutation、入力validation重複、Chart重複、src/data/混在、Page/controller混在、Canonical命名、core module規模、native Node ESM verifier、Yousei helper重複、DX positional provider API
+P2: Attack child mutation、入力validation重複、Chart重複、src/data/混在、Page/controller混在、Canonical命名、core module規模、native Node ESM verifier、Yousei helper重複、DX positional provider API、duplicate Attack abort check
 
 First TypeScript candidates: InputDomain、snapshot/request契約、DistributionResult、RangePlan、Worker request/response
 
