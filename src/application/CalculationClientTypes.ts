@@ -3,8 +3,8 @@ import type { InjectionKey } from 'vue'
 import type {
   AttackBatchEntry,
   AttackCalculationInput,
-  BacktrackInputSnapshot,
   CheckInputSnapshot,
+  DisplayRequestSnapshot,
   DifficultyInput,
 } from '../domain/CalculationInputs'
 import type { BacktrackParams } from '../domain/BacktrackRules'
@@ -13,6 +13,7 @@ import type {
   AttackCalculationResult,
   BacktrackCalculationResult,
   CanonicalDamageEnvelope,
+  CanonicalDamageSummary,
   CanonicalScorePair,
   CanonicalScoreSummary,
   CanonicalTotalDamageResult,
@@ -23,7 +24,7 @@ export interface CalculationOptions {
   readonly signal?: AbortSignal
   readonly requestId?: string | number
   readonly rangePolicy?: unknown
-  readonly displayRequest?: unknown
+  readonly displayRequest?: DisplayRequestSnapshot
   readonly onRangePlan?: (plan: unknown) => void
   readonly [key: string]: unknown
 }
@@ -59,7 +60,7 @@ export interface CalculationClient {
   ): Promise<{
     readonly combos: readonly (AttackCalculationResult & { id: string | number })[]
     readonly canonicalTotalDamage: CanonicalDamageEnvelope
-    readonly canonicalTotalDamageSummary: unknown
+    readonly canonicalTotalDamageSummary: CanonicalDamageSummary
   }>
   calculateCanonicalTotalDamage(
     canonicalDamages: readonly DistributionEnvelope[],
