@@ -1,4 +1,4 @@
-# R8 `src/data`責務分離 — Final Closure Follow-up 2
+# R8 `src/data`責務分離 — Final Docs Closure Follow-up 3
 
 ## 1. 目的と範囲
 
@@ -6,7 +6,7 @@ R8では、旧`src/data`に混在していたproduction probability、shared the
 
 ## 2. 開始点とコミット履歴
 
-R8全体の開始点は`42b2ff6d86f4fe2c7d3a7e55f579f19929535545`（`docs: close attack feature acceptance`）である。今回のfinal closure follow-upは`d3d53fd1a9b67dba84a36e72ce20ba63ce0edd5f`（`docs: close data responsibility separation`）から開始した。
+R8全体の開始点は`42b2ff6d86f4fe2c7d3a7e55f579f19929535545`（`docs: close attack feature acceptance`）である。First closure follow-upは`d3d53fd1a9b67dba84a36e72ce20ba63ce0edd5f`（`docs: close data responsibility separation`）から、Final Closure Follow-up 2は`b2d33e82bdb7a00728f28bddb01e72a4f88592f7`（`docs: record data responsibility closure sha`）から、今回のFinal Docs Closure Follow-up 3は`56a051fc4601f3018ed1328f04bc75bf10ff37ac`（`docs: record shared theme closure sha`）から開始した。
 
 | 単位 | SHA | 内容 |
 | --- | --- | --- |
@@ -16,7 +16,8 @@ R8全体の開始点は`42b2ff6d86f4fe2c7d3a7e55f579f19929535545`（`docs: close
 | First docs closure | `d3d53fd1a9b67dba84a36e72ce20ba63ce0edd5f` | R8初回のpath・inventory・roadmap記録 |
 | Previous closure implementation | `64ccf0dc682c9ff24eaaed419138eccbcdc33615` | core→features、theme→上位層・他shared subsystemの境界を追加 |
 | Final implementation | `9afdd935c469a37fea4bbe9586e4732c7012ba9f` | themeの相対sibling境界、source scan、lintText回帰テストを追加 |
-| Docs closure | `3646934b615c62cbc6152c90af8e52a0df7906d1` | このFollow-up 2のdocs、最終gate、優先度、R8 statusを記録 |
+| Follow-up 2 docs closure | `3646934b615c62cbc6152c90af8e52a0df7906d1` | 相対sibling境界、最終implementation gate、優先度、R8 statusを記録 |
+| Final Docs Closure Follow-up 3 | このdocs commit | Follow-up 2の開始SHA訂正、最終docs-tree gate、R8 statusを記録 |
 
 ## 3. 最終責務マトリクス
 
@@ -87,3 +88,14 @@ Next: R9 application / presentation / runtime responsibility cleanup
 ```
 
 R9では、今回固定したprobability、theme、reference toolingの境界を維持しながら、application／presentation／runtimeの責務配置を再評価する。Cloudflare Worker、HTTP API、MCPは別の将来目標として扱う。
+
+## 8. Final docs-tree verification
+
+Final implementation `9afdd935c469a37fea4bbe9586e4732c7012ba9f`のimplementation gateとは別に、今回のdocs commit後の最終HEADでdocs-tree gateを実行した。
+
+- `npm run lint`: GREEN
+- `npm run lint:markdown`: GREEN、33 files / 0 issues
+- `git diff --check`: GREEN
+- `git status --short`: clean
+
+最終docs closure commitのSHAは、この文書を導入したcommitとして最終報告に記録する。今回の変更はdocs onlyであり、`eslint.config.js`、tests、production source、tooling、generator、public assetには差分がない。
