@@ -9,8 +9,9 @@ function readSource(path) {
   return readFileSync(new URL(path, import.meta.url), 'utf8')
 }
 
-const attackSource = readSource('../src/views/Attack.vue')
-const attackTemplate = attackSource.slice(attackSource.indexOf('<template>'))
+const attackSource = readSource('../src/features/attack/model/useAttack.ts')
+const attackPageSource = readSource('../src/features/attack/ui/AttackPage.vue')
+const attackTemplate = attackPageSource.slice(attackPageSource.indexOf('<template>'))
 const inputFormSource = readSource('../src/components/Attack/InputForm.vue')
 const comboFormSource = readSource('../src/components/Attack/ComboForm.vue')
 const scoreFormSource = readSource('../src/components/Attack/ScoreSettingForm.vue')
@@ -25,7 +26,7 @@ describe('Attack canonical integration contract', () => {
     expect(attackSource).toContain('createAttackCanonicalRunner')
     expect(attackSource).toContain('canonicalCalculationRunner.dispose()')
     expect(attackSource).toContain('canonicalCalculationRunner.run({')
-    expect(attackSource).toContain('RangePlanNotice')
+    expect(attackPageSource).toContain('RangePlanNotice')
     expect(attackSource).not.toContain('canonicalOptIn')
     expect(attackSource).not.toContain('runInitialCalculation')
     expect(attackSource).not.toContain('calculateAttackCombo')
