@@ -139,11 +139,11 @@ describe('Check input flow contracts', () => {
     expect(inputPanelSource).toContain('@score-validated="onScoreValidated"')
   })
 
-  it('guards asynchronous child validation with a generation', () => {
+  it('guards asynchronous child validation with the shared gate', () => {
     for (const source of [difficultyFormSource, scoreFormSource]) {
-      expect(source).toContain('let validationGeneration = 0')
-      expect(source).toContain('const generation = ++validationGeneration')
-      expect(source).toContain('if (generation !== validationGeneration)')
+      expect(source).toContain("@/shared/validation/LatestValidationGate")
+      expect(source).toContain('const ticket = validationGate.begin()')
+      expect(source).toContain('validationGate.canCommit(ticket)')
       expect(source).toContain("emit('validated', draft)")
     }
   })
@@ -154,10 +154,10 @@ describe('Check input flow contracts', () => {
     expect(settingFormSource).not.toMatch(/props\.displayRequest\.[\w]+\s*=/)
     expect(settingFormSource).not.toContain('max=999')
     expect(settingFormSource).not.toContain('max="999"')
-    expect(settingFormSource).toContain('Number.isSafeInteger')
-    expect(settingFormSource).toContain('let validationGeneration = 0')
-    expect(settingFormSource).toContain('const generation = ++validationGeneration')
-    expect(settingFormSource).toContain('if (generation !== validationGeneration)')
+    expect(settingFormSource).toContain("@/shared/validation/LatestValidationGate")
+    expect(settingFormSource).toContain('const ticket = validationGate.begin()')
+    expect(settingFormSource).toContain('validationGate.canCommit(ticket)')
+    expect(settingFormSource).toContain('validationGate.dispose()')
     expect(settingFormSource).toContain("emit('validated', snapshot)")
   })
 

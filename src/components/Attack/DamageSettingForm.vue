@@ -1,10 +1,11 @@
 <script setup>
 
-    import { reactive, ref, watch } from 'vue';
+    import { onUnmounted, reactive, ref, watch } from 'vue';
     import {
         ATTACK_DISPLAY_MODES,
         createAttackDisplayRequestSnapshot,
     } from '@/application/AttackDisplayRequestSnapshot';
+    import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
 
     const props = defineProps({
         displayRequest: {
@@ -29,7 +30,7 @@
             value: ATTACK_DISPLAY_MODES.UPPER_TAIL,
         },
     ];
-    let validationGeneration = 0;
+    const validationGate = createLatestValidationGate();
 
     const isSafeCoordinate = (value) =>
         Number.isSafeInteger(value) && value >= 0;
@@ -49,21 +50,21 @@
         props.displayRequest.max,
         props.displayRequest.mode,
     ], ([min, max, mode]) => {
-        validationGeneration += 1;
+        validationGate.invalidate();
         currentRequest.min = min;
         currentRequest.max = max;
         currentRequest.mode = mode;
     });
 
     watch(currentRequest, async () => {
-        const generation = ++validationGeneration;
+        const ticket = validationGate.begin();
         const draft = {
             min: currentRequest.min,
             max: currentRequest.max,
             mode: currentRequest.mode,
         };
         const validResult = await form.value?.validate?.();
-        if (generation !== validationGeneration || !validResult?.valid) {
+        if (!validationGate.canCommit(ticket) || !validResult?.valid) {
             return;
         }
         try {
@@ -73,6 +74,7 @@
             // contract defensive when a custom input bypasses those rules.
         }
     });
+    onUnmounted(() => validationGate.dispose());
 
 </script>
 

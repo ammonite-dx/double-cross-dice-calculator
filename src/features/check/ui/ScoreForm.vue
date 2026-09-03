@@ -1,7 +1,8 @@
 <script setup>
 
-    import { ref,reactive,watch } from 'vue';
+    import { onUnmounted, ref,reactive,watch } from 'vue';
     import { getChartColor } from '@/data/ColorSetter';
+    import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
 
     const props = defineProps(['side', 'params']);
     const emit = defineEmits(['validated']);
@@ -16,7 +17,7 @@
         yousei: props.params.yousei,
         shihai: props.params.shihai,
     });
-    let validationGeneration = 0;
+    const validationGate = createLatestValidationGate();
     const diceRule = [
         value => value!=="" || 'ダイス数を入力して下さい。',
         value => Number.isSafeInteger(value) || 'ダイス数は整数値として下さい。',
@@ -51,7 +52,7 @@
         props.params.yousei,
         props.params.shihai,
     ], (values) => {
-        validationGeneration += 1;
+        validationGate.invalidate();
         [
             'dice',
             'critical',
@@ -63,10 +64,10 @@
         });
     });
     watch(currentParams, async () => {
-        const generation = ++validationGeneration;
+        const ticket = validationGate.begin();
         const draft = { ...currentParams };
         const validResult = await form.value?.validate?.();
-        if (generation !== validationGeneration) {
+        if (!validationGate.canCommit(ticket)) {
             return;
         }
         if (validResult?.valid) {
@@ -74,11 +75,13 @@
         }
     });
     watch(showDetails, () => {
+        validationGate.invalidate();
         if (!showDetails.value) {
             currentParams.yousei = 0;
             currentParams.shihai = 0;
         }
     });
+    onUnmounted(() => validationGate.dispose());
 
 </script>
 

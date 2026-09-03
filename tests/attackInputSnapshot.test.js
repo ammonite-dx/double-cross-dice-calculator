@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest'
 import {
   createAttackInputSnapshot,
   createDefenceInputDraftSnapshot,
-  createLatestValidationGate,
   normalizeAttackInputDraft,
   normalizeDefenceInputDraft,
   replaceAttackSideSnapshot,
 } from '../src/application/AttackInputSnapshot'
+import { createLatestValidationGate } from '../src/shared/validation/LatestValidationGate'
 
 const attackFormSource = readFileSync(
   new URL('../src/components/Attack/AttackForm.vue', import.meta.url),
@@ -24,6 +24,10 @@ const comboFormSource = readFileSync(
 )
 const inputFormSource = readFileSync(
   new URL('../src/components/Attack/InputForm.vue', import.meta.url),
+  'utf8'
+)
+const attackSnapshotSource = readFileSync(
+  new URL('../src/application/AttackInputSnapshot.js', import.meta.url),
   'utf8'
 )
 
@@ -43,6 +47,10 @@ function createDefenceDraft(mode = 'ドッジ') {
 }
 
 describe('AttackInputSnapshot', () => {
+  it('keeps async validation coordination in the shared validation layer', () => {
+    expect(attackSnapshotSource).not.toContain('createLatestValidationGate')
+  })
+
   it('normalizes the attack draft without changing its values', () => {
     expect(normalizeAttackInputDraft(createAttackDraft())).toEqual({
       score: {dice: 7, critical: 8, skill: 3, yousei: 1, shihai: 0},
@@ -159,7 +167,7 @@ describe('Attack input flow contracts', () => {
   it('guards asynchronous form validation and emits only validated snapshots', () => {
     for (const source of [attackFormSource, defenceFormSource]) {
       expect(source).toContain("defineEmits(['validated', 'show-details'])")
-      expect(source).toContain('createLatestValidationGate')
+      expect(source).toContain("@/shared/validation/LatestValidationGate")
       expect(source).toContain('const ticket = validationGate.begin()')
       expect(source).toContain('validationGate.canCommit(ticket)')
       expect(source).toContain('validationGate.dispose()')

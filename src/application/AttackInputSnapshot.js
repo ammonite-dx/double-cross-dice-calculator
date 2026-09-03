@@ -58,33 +58,6 @@ export function createAttackInputSnapshot(draft = {}) {
 }
 
 /**
- * Coordinates async form validation callbacks. A ticket is valid only while
- * it is the newest ticket and the form has not been disposed.
- */
-export function createLatestValidationGate() {
-  let latestTicket = 0
-  let disposed = false
-
-  return {
-    begin() {
-      latestTicket += 1
-      return latestTicket
-    },
-    invalidate() {
-      latestTicket += 1
-      return latestTicket
-    },
-    canCommit(ticket) {
-      return !disposed && ticket === latestTicket
-    },
-    dispose() {
-      disposed = true
-      latestTicket += 1
-    },
-  }
-}
-
-/**
  * Copy DefenceForm's editable draft. Its score is intentionally kept in the
  * UI coordinate system until normalizeDefenceInputDraft is called after
  * validation; this matters for 《イベイジョン》's dice-to-skill conversion.

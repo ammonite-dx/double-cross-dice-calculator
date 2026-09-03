@@ -3,9 +3,9 @@
     import { onUnmounted, reactive, ref, watch } from 'vue';
     import {
         createDefenceInputDraftSnapshot,
-        createLatestValidationGate,
         normalizeDefenceInputDraft,
     } from '@/application/AttackInputSnapshot';
+    import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
 
     const props = defineProps(['params','comboColor','showDetails']);
     const emit = defineEmits(['validated', 'show-details']);

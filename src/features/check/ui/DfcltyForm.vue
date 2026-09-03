@@ -1,33 +1,35 @@
 <script setup>
 
-    import { ref,reactive,watch } from 'vue';
+    import { onUnmounted, ref,reactive,watch } from 'vue';
+    import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
 
     const props = defineProps(['dfclty']);
     const emit = defineEmits(['validated']);
     const form = ref();
     const currentDfclty = reactive({opposed:props.dfclty.opposed, target:props.dfclty.target});
-    let validationGeneration = 0;
+    const validationGate = createLatestValidationGate();
     const targetRule = [
         value => value!=="" || '難易度を入力して下さい。',
         value => Number.isSafeInteger(value) || '難易度は数値として下さい。',
         value => value>=0 || '難易度は0以上として下さい。',
     ];
     watch(() => [props.dfclty.opposed, props.dfclty.target], ([opposed, target]) => {
-        validationGeneration += 1;
+        validationGate.invalidate();
         currentDfclty.opposed = opposed;
         currentDfclty.target = target;
     });
     watch(currentDfclty, async () => {
-        const generation = ++validationGeneration;
+        const ticket = validationGate.begin();
         const draft = { ...currentDfclty };
         const validResult = await form.value?.validate?.();
-        if (generation !== validationGeneration) {
+        if (!validationGate.canCommit(ticket)) {
             return;
         }
         if (validResult?.valid) {
             emit('validated', draft);
         }
     });
+    onUnmounted(() => validationGate.dispose());
 
 </script>
 
