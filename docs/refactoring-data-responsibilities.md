@@ -15,7 +15,7 @@ R8全体の開始点は`42b2ff6d86f4fe2c7d3a7e55f579f19929535545`（`docs: close
 | Reference tooling | `924c81717bb4d071bab8e3889250ac58d09fb46b` | schema／repositoryを`tooling/reference-data`へ移動、責務境界テストを追加 |
 | First docs closure | `d3d53fd1a9b67dba84a36e72ce20ba63ce0edd5f` | R8初回のpath・inventory・roadmap記録 |
 | Final implementation | `64ccf0dc682c9ff24eaaed419138eccbcdc33615` | ESLint境界とlintText回帰テストを追加 |
-| Docs closure | この文書を導入するdocs commit | 最終gate、優先度、R8 statusを記録 |
+| Docs closure | `3b6417ebd6056c67facdf17c8d3780d847b30af1` | このclosure文書、最終gate、優先度、R8 statusを記録 |
 
 ## 3. 最終責務マトリクス
 
