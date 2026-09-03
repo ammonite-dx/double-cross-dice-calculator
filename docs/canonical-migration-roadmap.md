@@ -492,8 +492,8 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - `src/data/ColorSetter.js`を`src/shared/theme/ChartPalette.js`へ移し、Check／Attackのconsumerを更新した。9色と`id % 9`の選択意味論は変更していない。Backtrack固有色は対象外とした。
 - `src/data/PrecomputedDataSchema.js`と`src/data/ReferencePrecomputedDataRepository.js`を`tooling/reference-data/`へ移し、tests・verification専用の依存境界を明確化した。schema-v2/revision-1、公開URL、cache、validation、DR LRU、livingdead countは変更していない。
 - `src/data`ディレクトリ、旧path、互換re-export shimを削除し、production `src/**`からreference toolingへのimportを0件にした。`tests/dataResponsibilitiesArchitecture.test.js`とESLint ruleで旧path再導入と逆依存を検出する。
-- 実装は`ddb43ad`、`f625e02`、`924c817`の3単位に分け、最終実装コミット`64ccf0d`でcoreのfeatures依存とshared themeの上位層・他shared subsystem・framework依存をlintと回帰テストで封じた。R8ではR9のapplication／presentation再配置、計算アルゴリズム、UI表示、generator、public asset、API／MCPを変更していない。
-- 2026-09-03の最終gateはNode 22.23.2、data各32 assets、Vitest 71 files / 865 tests、generator 18 passed / 13 deselected、simulation 13 passed / 18 deselected、Ruff、typecheck、runtime DX 20,000 cases、ESLint、Markdown lint 32 files / 0 issues、build 408 modules、production browser smoke、`git diff --check`のすべてGREENだった。P0／P1／P2は0件である。
+- 実装は`ddb43ad`、`f625e02`、`924c817`の3単位に分け、`64ccf0d`でcoreのfeatures依存とshared themeの上位層・他shared subsystem・framework依存を封じた。Final Closure Follow-up 2の最終実装コミット`9afdd93`では、shared themeから`../validation`、`../chart`、複数段の相対sibling importをsource scanとESLintで禁止し、同一theme内の相対importは許可した。R8ではR9のapplication／presentation再配置、計算アルゴリズム、UI表示、generator、public asset、API／MCPを変更していない。
+- 2026-09-04の最終implementation gateはNode 22.23.2、data各32 assets、Vitest 71 files / 865 tests、generator 18 passed / 13 deselected、simulation 13 passed / 18 deselected、Ruff、typecheck、runtime DX 20,000 cases（full enumeration 32194.1886 ms）、ESLint、Markdown lint 33 files / 0 issues、build 408 modules、production browser smoke、`git diff --check`のすべてGREENだった。P0／P1／P2は0件である。
 - R8は`CLOSED / GREEN`とし、詳細な責務マトリクス、依存境界、維持した契約、gate証跡は[`refactoring-data-responsibilities.md`](./refactoring-data-responsibilities.md)に記録する。次はR9として、canonical contractを保ったままapplication／presentation／runtimeの責務配置を再評価する。Cloudflare Worker、HTTP API、MCPは別途の将来目標とする。
 
 ## 参照文書

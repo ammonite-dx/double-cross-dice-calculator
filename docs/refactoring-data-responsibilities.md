@@ -1,8 +1,8 @@
-# R8 `src/data`責務分離
+# R8 `src/data`責務分離 — Final Closure Follow-up 2
 
 ## 1. 目的と範囲
 
-R8では、旧`src/data`に混在していたproduction probability、shared theme、reference precomputed supportを責務ごとの境界へ分離した。R9で扱うapplication／presentation／runtimeの再配置、計算アルゴリズムの変更、UI表示の変更、Cloudflare Worker／HTTP API／MCP化は対象外である。
+R8では、旧`src/data`に混在していたproduction probability、shared theme、reference precomputed supportを責務ごとの境界へ分離した。今回のFollow-up 2では、shared themeからvalidation／chartへの相対sibling importも禁止し、ESLintとsource scanの契約を一致させた。R9で扱うapplication／presentation／runtimeの再配置、計算アルゴリズムの変更、UI表示の変更、Cloudflare Worker／HTTP API／MCP化は対象外である。
 
 ## 2. 開始点とコミット履歴
 
@@ -14,8 +14,9 @@ R8全体の開始点は`42b2ff6d86f4fe2c7d3a7e55f579f19929535545`（`docs: close
 | Chart palette | `f625e02d5c40fd41acb27c231a8987f31025acc7` | ChartPaletteを`src/shared/theme`へ移動 |
 | Reference tooling | `924c81717bb4d071bab8e3889250ac58d09fb46b` | schema／repositoryを`tooling/reference-data`へ移動、責務境界テストを追加 |
 | First docs closure | `d3d53fd1a9b67dba84a36e72ce20ba63ce0edd5f` | R8初回のpath・inventory・roadmap記録 |
-| Final implementation | `64ccf0dc682c9ff24eaaed419138eccbcdc33615` | ESLint境界とlintText回帰テストを追加 |
-| Docs closure | `3b6417ebd6056c67facdf17c8d3780d847b30af1` | このclosure文書、最終gate、優先度、R8 statusを記録 |
+| Previous closure implementation | `64ccf0dc682c9ff24eaaed419138eccbcdc33615` | core→features、theme→上位層・他shared subsystemの境界を追加 |
+| Final implementation | `9afdd935c469a37fea4bbe9586e4732c7012ba9f` | themeの相対sibling境界、source scan、lintText回帰テストを追加 |
+| Docs closure | このFollow-up 2のdocs commit | 最終gate、優先度、R8 statusを記録 |
 
 ## 3. 最終責務マトリクス
 
@@ -33,10 +34,10 @@ R8全体の開始点は`42b2ff6d86f4fe2c7d3a7e55f579f19929535545`（`docs: close
 - production `src/**`から`tooling/reference-data/**`へのimportは禁止する。
 - `src/core/probability/**`はapplication、components、views、router、plugins、layouts、presentation、features、shared、reference tooling、`node:*`、Vue／Vuetify／Chart.js系packageへ依存しない。
 - `src/shared/theme/**`はcalculation、core、domain、features、application、presentation、UI、reference tooling、`node:*`、Vue／Vuetify／Chart.js系packageへ依存しない。
-- `src/shared/theme/**`から`src/shared/validation/**`、`src/shared/chart/**`など他のshared subsystemへの依存も禁止する。ただし同一themeディレクトリ内の相対module分割は許可する。
+- `src/shared/theme/**`から`src/shared/validation/**`、`src/shared/chart/**`など他のshared subsystemへの依存も、aliasと`../`／`../../`などの相対sibling形式を含めて禁止する。ただし同一themeディレクトリ内の相対module分割は許可する。
 - reference toolingは検証支援としてproductionのpure core／domainを利用できるが、production側がreference toolingを利用する方向は許可しない。
 
-ESLintはcoreのfeatures依存、shared themeの上位層・他shared subsystem・framework依存、reference toolingと旧`src/data`の再導入を検出する。`tests/dataResponsibilitiesArchitecture.test.js`は実ファイルのpath・import走査に加え、ESLint `lintText`でcore→features、theme→calculation、theme→shared validationの違反が実際にrejectされることを検証する。
+ESLintはcoreのfeatures依存、shared themeの上位層・他shared subsystem・framework依存、reference toolingと旧`src/data`の再導入を検出する。`tests/dataResponsibilitiesArchitecture.test.js`は実ファイルのpath・import走査に加え、ESLint `lintText`でcore→features、theme→calculation、theme→shared validation、theme→`../validation`、theme→`../chart`、theme→`../../validation`の違反と、同一theme内の相対importの許可を検証する。
 
 ## 5. 維持した契約
 
@@ -48,7 +49,7 @@ ESLintはcoreのfeatures依存、shared themeの上位層・他shared subsystem�
 
 ## 6. Acceptance evidence
 
-2026-09-03のfinal implementation treeで、次のgateを実行した。
+2026-09-04のfinal implementation tree（`9afdd935c469a37fea4bbe9586e4732c7012ba9f`）で、次のfresh gateを実行した。
 
 | Gate | 結果 |
 | --- | --- |
@@ -59,16 +60,16 @@ ESLintはcoreのfeatures依存、shared themeの上位層・他shared subsystem�
 | Simulation | 13 passed / 18 deselected、GREEN |
 | Ruff | all checks passed |
 | Typecheck | GREEN |
-| Runtime DX | 20,000 cases、status passed、max absolute difference `1.0000000000287557e-6`、tolerance `1.000001e-6`、max total error `1.5543122344752192e-15`、non-finite 0、negative 0 |
+| Runtime DX | 20,000 cases、status passed、full enumeration `32194.1886 ms`、max absolute difference `1.0000000000287557e-6`、tolerance `1.000001e-6`、max total error `1.5543122344752192e-15`、non-finite 0、negative 0 |
 | ESLint | GREEN |
-| Markdown lint | 32 files / 0 issues |
+| Markdown lint | 33 files / 0 issues |
 | Build | GREEN、408 modules transformed |
 | Production browser smoke | PASS、Check／Attack／Backtrackの100D、表示reject／recoveryを確認 |
 | Browser network | precomputed request 0、D10 asset request 0 |
 | Browser diagnostics | console warning/error 0、pageerror 0、same-origin HTTP error 0、same-origin request failure 0 |
 | Diff check | `git diff --check` GREEN |
 
-Production browser smoke後に、テスト用previewの待受ポート3000／4173が解放されていることも確認した。
+Production browser smoke後に、テスト用previewの待受ポート3000／4173が解放されていることも確認した。今回の実装はproduction source、generator、public asset、計算アルゴリズムを変更していない。
 
 ## 7. 優先度と最終状態
 
