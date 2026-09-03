@@ -1,6 +1,6 @@
 # R5 Shared Input Validation
 
-この文書は、CheckとAttackに重複していた入力validationをshared layerへ集約したR5の実装記録である。フォームの見た目、featureごとのstate ownership、計算アルゴリズム、canonical result、resource policyは変更していない。R5開始時の実装ツリーは `d2bd372`、比較対象のbehavior baselineは `2770c2c87000c7d878a5e1bd81698c4781d0bbce`である。
+この文書は、CheckとAttackに重複していた入力validationをshared layerへ集約したR5の実装記録である。フォームの見た目、featureごとのstate ownership、計算アルゴリズム、canonical result、resource policyは変更していない。R5開始時の実装ツリーは `d2bd372`、比較対象のbehavior baselineは `2770c2c87000c7d878a5e1bd81698c4781d0bbce`である。R5本体の実装最終コミットは `df7ffdc`で、closure follow-upの実装最終コミットは `0d31e4f`である。
 
 ## 目的と設計判断
 
@@ -12,7 +12,7 @@ R5では、UIを一つの大きな共有componentへ統合せず、意味論だ�
 
 ## Shared modules
 
-共有モジュールは `src/shared/validation` に置き、Vue、Vuetify、DOM、CalculationClient、feature、calculation layerへ依存しない。barrel exportは作らず、consumerが必要なmoduleを直接importする。
+共有モジュールは `src/shared/validation` に置き、Vue、Vuetify、DOM、CalculationClient、feature、calculation、data layer、Node組み込みモジュールへ依存しない。barrel exportは作らず、consumerが必要なmoduleを直接importする。
 
 | Module | 責務 |
 | --- | --- |
@@ -35,7 +35,7 @@ Scoreのbase rulesはCheckとAttackで `createScoreFieldRules` を共有し、`y
 
 `tests/sharedValidationRules.test.js`で、required、unsafe integer、負のskill、critical 2／11、critical 1／12、dice 0、yousei／shihaiの同時指定、safe integer上限、single-point range、`0..20000`を固定している。`tests/latestValidationGate.test.js`では、古いticketのcommit拒否、invalidate、dispose後のcommit拒否を確認する。
 
-`tests/sharedValidationArchitecture.test.js`は、4つのdirect-import module、shared layerのVue／UI／calculation非依存、domain predicate利用、coreからsharedへの逆依存禁止を検査する。さらに、3つのScore consumerにraw rule定義が残っていないこと、3つのdisplay formに旧`isSafeCoordinate`・hand-written generationが残っていないこと、`AttackInputSnapshot.js`から旧gate exportが消えていることを固定している。
+`tests/sharedValidationArchitecture.test.js`は、4つのdirect-import module、shared layerのVue／UI／calculation／data／Node非依存、`InputDomain` predicate利用、coreからsharedへの逆依存禁止を検査する。さらに、3つのScore consumerにraw rule定義が残っていないこと、3つのdisplay formに旧`isSafeCoordinate`・hand-written generationが残っていないこと、`AttackInputSnapshot.js`から旧gate exportが消えていることを固定している。
 
 既存のCheck／Attack snapshotテストは、validated event、alias-free snapshot、mode normalization、表示request境界を維持したままshared importを検証する。production browser smokeには、Checkのcritical 2／11とinvalid critical、負のskill、《妖精の手》単独と《支配の領域》同時指定の拒否、高度設定OFF時のzeroing、Attackのcritical 2・負のskill・《妖精の手》、既存の対決・表示モード・99D・resource rejection／recoveryを含めている。
 
@@ -49,8 +49,10 @@ Scoreのbase rulesはCheckとAttackで `createScoreFieldRules` を共有し、`y
 | `567199b` | Check／Attackの表示範囲規則をshared factoryへ移行 |
 | `c6b1d70` | 重複・逆依存・旧gateを検査する構造テストを追加 |
 | `df7ffdc` | shared validationのproduction browser acceptanceを拡張 |
+| `8e60602` | shared validationから`data/**`と`node:*`への依存を禁止 |
+| `0d31e4f` | `IntegerRules`のsafe-integer predicateを`InputDomain`へ統一 |
 
-実装ツリーの最終コミットは `df7ffdc` であり、この文書の更新は別のdocs-only commitとして追跡する。
+`df7ffdc`まではR5本体の実装であり、`8e60602`と`0d31e4f`でレビュー追補を完了した。この文書の更新は別のdocs-only commitとして追跡する。
 
 ## 最終検証
 
@@ -65,9 +67,9 @@ R5実装ツリーでレビュー指定のproject gateを再実行した。過去
 | simulation | 13 passed / 18 deselected、GREEN |
 | Ruff | GREEN |
 | typecheck | GREEN |
-| runtime DX verification | 20,000 cases、status passed、full enumeration `31829.7979 ms`、max difference `0.0000010000000000287557`、tolerance `0.000001000001`、max total error `1.5543122344752192e-15`、non-finite 0、negative 0 |
+| runtime DX verification | 20,000 cases、status passed、full enumeration `31134.1226 ms`、max difference `0.0000010000000000287557`、tolerance `0.000001000001`、max total error `1.5543122344752192e-15`、non-finite 0、negative 0 |
 | ESLint | GREEN |
-| Markdown lint | 29 files / 0 issues |
+| Markdown lint | 30 files / 0 issues |
 | build | GREEN |
 | production browser smoke | GREEN |
 | asset requests | schema-v2/revision-1 precomputed request 0、D10 request 0 |
@@ -75,6 +77,18 @@ R5実装ツリーでレビュー指定のproject gateを再実行した。過去
 | diff check | `git diff --check` GREEN |
 
 production browser smokeは、Checkの初期計算、対決ON／OFF、PMF／upper-tail、`99D/critical=2`、`0..20000`拒否、`0..100`復帰、Attackの100D境界、Backtrackの100D境界を実行した。validation固有の追加ケースを含め、すべてprecomputed request 0、D10 request 0、browser warning/error 0で完了した。resource rejection中は表示canvasを消去し、有効範囲へ戻すと表示を復旧する。
+
+## R5 closure follow-up
+
+R5レビューで確認された残件は、shared validationの依存境界とsafe-integer predicateの二点だった。productionの入力意味論やフォームの表示は変更せず、architecture gateと正本参照だけを補強した。
+
+FU1では、`src/shared/validation`から許可する内部依存を`src/domain/**`と同じshared layerに限定した。`data/**`、`calculation/**`、`application/**`、`features/**`、UI／presentation／router／plugins／layouts、`node:*`はESLintと構造テストで禁止し、`src/calculation/**`と`src/domain/**`からsharedへの逆依存禁止も維持している。実装は `8e60602`である。
+
+FU2では、`IntegerRules.ts`の局所的な`Number.isSafeInteger`判定を削除し、`InputDomain.isSafeInteger`をimportして利用するようにした。required、safe integer、min/maxのrule順序とメッセージ、負のskillやsafe integer上限の契約は変更していない。実装と正本参照の回帰検査は `0d31e4f`である。
+
+shared validationの依存契約は、`domain/**`と同じshared layerだけを許可し、`data/**`、`calculation/**`、`application/**`、`features/**`、UI、presentation、router／plugins／layouts、`node:*`を禁止する。safe-integer判定の正本は `InputDomain.isSafeInteger`であり、`IntegerRules`を含むshared validationはこれを再利用する。
+
+FU1／FU2後のfull project gateはすべてGREENで、R5はP0・P1・P2を各0件として `CLOSED / GREEN` と判定する。
 
 ## 非対象と後続
 
