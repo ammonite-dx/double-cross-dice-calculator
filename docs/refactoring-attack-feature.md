@@ -113,3 +113,23 @@ R7実装後、production sourceとfeature構造に対するfull project gateを�
 production browser smokeでは、Checkの100D、Attackの防御0／1／100D、Backtrackの100DとEロイス入力を含む既存受入を再確認し、各routeのcanvas、計算結果commit、resource rejectionからの復帰、同一originの通信、browser diagnosticsを確認した。作業中に起動したproduction previewの待受portは検証後に解放している。
 
 R7の実装、構造テスト、full project gate、production browser acceptanceはすべてGREENである。R7は `CLOSED / GREEN` と判定する。次の候補は `src/data/` のprobability math、theme、reference data責務を分離するR8であり、applicationとpresentationのfeature/runtime境界整理はR9で扱う。
+
+## R7 closure follow-up（2026-09-03）
+
+Follow-upの開始時点は `91e30da3c7346c5e857184f707936b242ada276f`（`docs: close attack featureization`）であり、目的はR7 acceptance criteriaに残っていたcontroller wiringの直接回帰テスト、Attack固有のproduction browser acceptance、P0／P1／P2のclosure記録を補完することであった。R8や他featureの責務整理は対象外とした。
+
+Controller回帰テストを `44c1b4f`（`test: complete attack controller wiring coverage`）で追加し、reaction validated snapshot、Damage displayのreuse／recalculation／resource rejection、Score displayのreuse／recalculation／Score-only rejection時のDamage保持、latest-wins、dispose後のstale completion抑止を `useAttack` のイベント境界で確認した。既存のrunner内部アルゴリズムを重複検証せず、controllerからrunnerへの接続とUI向けstate保持を検査している。
+
+テストによってdisplay requestを凍結オブジェクトのままVueの `reactive` に渡していたR7内の不具合が判明したため、`30febb2`（`fix: keep attack display requests mutable`）でdisplay requestのmutableなsnapshot copyを初期化する最小修正を行った。これ以外のproduction sourceは変更していない。
+
+Production browser smokeを `5b4ad75`（`test: cover attack feature browser interactions`）で拡張し、既存のCheck／Attack／Backtrack境界受入を維持したまま、Attackのaction入力、reactionの種別・入力、コンボ追加、名称変更、複製、削除、残存順序、各操作後の結果commitとcanvas 2を確認した。全シナリオでschema-v2／revision-1事前計算リクエスト0、D10リクエスト0、console warning／error 0、pageerror 0、同一origin HTTP error 0、同一origin request failure 0であった。
+
+Follow-up後の最終実装HEADは `5b4ad75` である。検証結果はNode.js 22.23.2、Vitest 69 files／857 tests、data verify 32 assets、generator 18 passed／13 deselected、simulation 13 passed／18 deselected、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases／status passed／full enumeration 32284.0345 ms／max difference 0.0000010000000000287557／tolerance 0.000001000001／max total error 1.5543122344752192e-15／non-finite 0／negative 0、production build、production browser smoke、`git diff --check`のすべてGREENである。
+
+| 優先度 | R7 closure follow-up時点の未解決件数 |
+| --- | ---: |
+| P0 | 0 |
+| P1 | 0 |
+| P2 | 0 |
+
+以上により、R7 closure follow-upを含むAttack featureizationを `CLOSED / GREEN` と判定する。次の作業はR8の設計判断であり、このfollow-upでは開始していない。
