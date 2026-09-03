@@ -11,7 +11,7 @@ import { getProbabilityLineChartStyle } from '../src/shared/chart/ProbabilityLin
 import {
   toChartPercentage,
   toChartPercentages,
-} from '../src/components/Attack/ChartPercentages'
+} from '../src/presentation/ChartPercentages'
 
 function expectCommonLineOptions(options, xAxisTitle) {
   expect(options.responsive).toBe(true)

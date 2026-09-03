@@ -14,6 +14,7 @@ import {
   isDistributionPresentationError,
   planDisplayRange,
   presentCanonicalDistribution,
+  toChartPercentage,
 } from '../../../presentation'
 import { getChartColor } from '../../../data/ColorSetter'
 
@@ -370,7 +371,7 @@ function toPercentageSeries(series) {
     // The legacy Check chart displays probability as a percentage rounded to
     // one decimal place. Keep this conversion at the Chart.js compatibility
     // boundary; the canonical display and series remain probabilities.
-    values[index] = Math.round(series.values[index] * 1000) / 10
+    values[index] = toChartPercentage(series.values[index])
   }
 
   return {

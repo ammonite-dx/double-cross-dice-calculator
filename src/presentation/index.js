@@ -42,3 +42,7 @@ export {
   formatCanonicalScoreSuccessRate,
   formatCanonicalScoreSuccessRateDisplay,
 } from './CanonicalSummaryFormatter'
+export {
+  toChartPercentage,
+  toChartPercentages,
+} from './ChartPercentages'

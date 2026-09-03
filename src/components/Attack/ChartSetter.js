@@ -1,5 +1,5 @@
 import { getChartColor } from '@/data/ColorSetter';
-import { toChartPercentages } from './ChartPercentages';
+import { toChartPercentages } from '@/presentation/ChartPercentages';
 import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 
 /**
