@@ -106,7 +106,7 @@ canonical UIはroute preloadを行わず、productionの計算経路からschema
 - 攻撃: `shihai`・`kazanari`・D10の事前計算assetを読まず、runtime DX/D10/DRを生成する。DRのFFT本体は常駐Workerで実行する
 - バックトラック: 完全on-demandのcanonical generatorで要求範囲を生成し、`d10`・`livingdead` assetを読まない
 
-`d10`と`livingdead`の疎な分布形式はgeneratorの出力仕様とasset検証の対象です。canonical BacktrackとAttackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`src/data/ReferencePrecomputedDataRepository.js`はテストと独立比較のために公開assetを読み込みます。
+`d10`と`livingdead`の疎な分布形式はgeneratorの出力仕様とasset検証の対象です。canonical BacktrackとAttackはこのasset coverageを使わず、plannerが選んだworking lengthの完全supportをruntime生成します。`tooling/reference-data/ReferencePrecomputedDataRepository.js`はテストと独立比較のために公開assetを読み込みます。
 
 ## 検証gateと整理条件
 

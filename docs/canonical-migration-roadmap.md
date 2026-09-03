@@ -486,6 +486,15 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - 最終gate: `npm run check:node`、`npm test`（56 files / 763 tests）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:test:simulation`（13 passed / 18 deselected）、`npm run generator:lint`、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`npm run smoke:production`、`npm run data:check`（32 assets）、`git diff --check`が成功した。
 - Phase 8は、canonical production、必要なpublished-bucket互換、公開schema-v2 asset、Python generator、独立検証資料だけを保持する状態で完了した。Cloudflare Worker/API/MCPは従来どおり将来目標とする。
 
+### R8: `src/data`責務分離（完了、2026-09-03）
+
+- `src/data/Distribution.js`と`src/data/FFT.js`を`src/core/probability/`へ移し、production probability primitiveのexport、数値、overflow、Abort、固定サイズ定数を維持した。
+- `src/data/ColorSetter.js`を`src/shared/theme/ChartPalette.js`へ移し、Check／Attackのconsumerを更新した。9色と`id % 9`の選択意味論は変更していない。Backtrack固有色は対象外とした。
+- `src/data/PrecomputedDataSchema.js`と`src/data/ReferencePrecomputedDataRepository.js`を`tooling/reference-data/`へ移し、tests・verification専用の依存境界を明確化した。schema-v2/revision-1、公開URL、cache、validation、DR LRU、livingdead countは変更していない。
+- `src/data`ディレクトリ、旧path、互換re-export shimを削除し、production `src/**`からreference toolingへのimportを0件にした。`tests/dataResponsibilitiesArchitecture.test.js`とESLint ruleで旧path再導入と逆依存を検出する。
+- 実装は`ddb43ad`、`f625e02`、`924c817`の3単位に分けた。R8ではR9のapplication／presentation再配置、計算アルゴリズム、UI表示、generator、public asset、API／MCPを変更していない。
+- 次はR9として、canonical contractを保ったままapplication／presentation／runtimeの責務配置を再評価する。Cloudflare Worker、HTTP API、MCPは別途の将来目標とする。
+
 ## 参照文書
 
 - [todo.md](./todo.md): RangePlanner/ResourceGuard、canonical Attack、既定経路、JSON整理、外部境界に関する作業履歴。

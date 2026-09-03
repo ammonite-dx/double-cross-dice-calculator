@@ -189,7 +189,7 @@ $$
 
 ## 7. 静的アセットの取得とキャッシュ
 
-実装は`src/calculation/D10Calculator.js`と`src/data/ReferencePrecomputedDataRepository.js`です。runtime D10 primitiveは完全な有限supportを直接生成し、production AttackとBacktrackから共有します。Reference repositoryは旧JSONの回帰テストと独立比較だけを担当します。
+実装は`src/calculation/D10Calculator.js`と`tooling/reference-data/ReferencePrecomputedDataRepository.js`です。runtime D10 primitiveは完全な有限supportを直接生成し、production AttackとBacktrackから共有します。Reference repositoryは旧JSONの回帰テストと独立比較だけを担当します。
 
 アセットの取得時にスキーマバージョン、データリビジョン、データセット名、分布長、インデックス範囲、疎分布の範囲、確率値、確率総和を検証します。検証を通過したデータだけをcacheへ登録します。
 
@@ -211,12 +211,12 @@ Damageの防御側では、runtime D10生成そのものも計算資源を消費
 
 | 処理 | 実装 | 主なテスト |
 | --- | --- | --- |
-| 分布の展開、集約、シフト、上側確率 | `src/data/Distribution.js` | `tests/distribution.test.js` |
-| 畳み込みと差 | `src/data/FFT.js` | `tests/fft.test.js` |
+| 分布の展開、集約、シフト、上側確率 | `src/core/probability/Distribution.js` | `tests/distribution.test.js` |
+| 畳み込みと差 | `src/core/probability/FFT.js` | `tests/fft.test.js` |
 | 達成値、成功率、対決 | `src/calculation/ScoreCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/canonicalCheck.test.js` |
 | 単発・合計ダメージ | `src/calculation/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/canonicalDamageOnDemand.test.js`、`tests/canonicalTotalDamageClient.test.js` |
 | バックトラック | `src/calculation/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/backtrackCanonical.test.js` |
-| 参照用アセット検証とキャッシュ | `src/data/ReferencePrecomputedDataRepository.js` | `tests/referencePrecomputedDataRepository.test.js` |
+| 参照用アセット検証とキャッシュ | `tooling/reference-data/ReferencePrecomputedDataRepository.js` | `tests/referencePrecomputedDataRepository.test.js` |
 | 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
 | 実行時DRの可変FFT・出力長、Worker protocol | `src/calculation/RuntimeDamageRollCalculator.js`、`src/calculation/RuntimeDamageRollLimits.js`、`src/application/RuntimeDamageRollClient.js`、`src/application/RuntimeDamageRollWorker.js` | `tests/runtimeDamageRollProduction.test.js`、`tests/runtimeDamageRollProductionClient.test.js` |
 | Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/application/CalculationClient.js` | `tests/canonicalDamageOnDemand.test.js`、`tests/calculationClient.test.js` |

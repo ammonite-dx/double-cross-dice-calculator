@@ -487,3 +487,22 @@ git diff --check
 ```
 
 2026-08-31の現行HEAD gateはすべて成功した。`check:node`はNode.js 22.23.2、`data:check`／`data:verify-generator`は各32 assets、Vitestは57 files / 772 tests、generator testは18 passed / 13 deselected、simulationは13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`を確認した。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0だった。
+
+## R8追補: `src/data`責務分離（2026-09-03）
+
+R8では、R7までのcanonical計算と既存の公開asset契約を変更せず、旧`src/data`に残っていた5ファイルを責務ごとの現在pathへ移動した。確率primitiveは`src/core/probability/Distribution.js`と`src/core/probability/FFT.js`、feature非依存のpaletteは`src/shared/theme/ChartPalette.js`、公開assetのschema・検証・cacheは`tooling/reference-data/PrecomputedDataSchema.js`と`tooling/reference-data/ReferencePrecomputedDataRepository.js`が所有する。
+
+R8の実装コミットは、`ddb43ad`（probability primitives）、`f625e02`（chart palette）、`924c817`（reference data supportと責務境界テスト）である。旧`src/data`ディレクトリ、5旧path、互換re-export shimは削除し、旧importはproduction source・testsから移行した。`tests/dataResponsibilitiesArchitecture.test.js`は新pathの存在、旧pathの不在、旧importの再導入禁止、production→reference逆依存禁止、probability/theme境界を恒久検査する。
+
+R8で保持した契約は、`OUTPUT_DISTRIBUTION_SIZE = 1024`、`WORKING_DISTRIBUTION_SIZE = 2048`、Distribution/FFTのexport・数値・overflow・Abort挙動、schema-v2/revision-1、確率許容差`2e-4`、公開asset URL、DX/DR/livingdeadのreference cacheと検証条件、ChartPaletteの9色と`id % 9`である。`RuntimeDamageRollFFT.js`との統合、計算アルゴリズム、canonical result、UI表示、generator、public assetはR8の対象外とした。
+
+R8後の現行分類は次のとおりである。
+
+| 分類 | 現在の正本 | 利用者 |
+| --- | --- | --- |
+| production probability | `src/core/probability/**` | calculation core、RangePlanner、canonical aggregation、数値テスト |
+| shared theme | `src/shared/theme/ChartPalette.js` | Check/Attackのfeature UI・presentation |
+| reference tooling | `tooling/reference-data/**` | reference repository test、Backtrack比較、asset検証・独立比較 |
+| historical path | `src/data/**` | 存在しない。過去のinventory表と履歴文書の記述は当時のsnapshotとして保持 |
+
+R8の全体gateは2026-09-03に成功した。Node.jsは22.23.2、`data:check`／`data:verify-generator`は各32 assets、Vitestは71 files / 864 tests、generator testは18 passed / 13 deselected、simulationは13 passed / 18 deselected、Ruff、typecheck、ESLint、Markdown lint（32 files / 0 issues）、`npm run verify:runtime-dx`（20,000 cases、max absolute difference約`1.0000000000287557e-6`、non-finite 0、negative 0）、production build（408 modules transformed）、production browser smoke、`git diff --check`が成功した。runtime DXの比較許容差は`0.000001000001`で、総和誤差は約`1.55e-15`だった。smokeではCheck／Attack／Backtrackの100D再計算、表示範囲reject/recovery、canvas描画、precomputed/D10 request 0、console warning/error 0、same-origin HTTP error 0を確認した。R9のapplication/presentation再配置、API/MCP、algorithm変更はR8に含めない。

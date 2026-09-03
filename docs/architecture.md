@@ -10,16 +10,17 @@
 - `src/application/CalculationClient.js`: UI向けの非同期canonical計算境界、実行時DX/D10計算器の注入、常駐runtime damage Workerの組み立て
 - `src/calculation/D10Calculator.js`: 通常D10合計の完全有限supportを生成するruntime primitive
 - `src/calculation/RuntimeDamageRollCalculator.js`: `kazanari`を含むDRのruntime生成とFFT境界
-- `src/data/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
-- `src/data/FFT.js`: 独立な確率分布の加算・減算
-- `src/data/ReferencePrecomputedDataRepository.js`: テスト・独立比較用の公開asset取得、検証、cache
-- `src/data/PrecomputedDataSchema.js`: 公開assetのschemaと分布検証
+- `src/core/probability/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
+- `src/core/probability/FFT.js`: 独立な確率分布の加算・減算
+- `src/shared/theme/ChartPalette.js`: Check／Attackで共有するチャートpalette
+- `tooling/reference-data/ReferencePrecomputedDataRepository.js`: テスト・独立比較用の公開asset取得、検証、cache
+- `tooling/reference-data/PrecomputedDataSchema.js`: 公開assetのschemaと分布検証
 
 現行productionの`CalculationClient`はScore、Damage、Backtrackのcanonical計算コアを直接参照する。公開assetのReference repositoryはproduction経路へ注入せず、テストと独立比較に限定する。
 
 Vueコンポーネントは入力状態と表示を管理し、`CalculationClient`だけを介して確率計算を利用します。`src/calculation/`の計算コアはVue、DOM、`fetch`、静的アセットの配置に依存せず、必要な分布は引数で渡される関数から取得します。
 
-Phase 8の棚卸しでは、ファイル単位で削除を判断せず、`src/components/Attack/ChartSetter.js`、`src/data/Distribution.js`、`src/data/FFT.js`のようなmixed-use moduleをexport/symbol単位で分類します。canonical adapter、Distribution/FFTのproduction symbolを残し、published-bucket互換がテストで必要な場合だけそのsymbolを保持します。
+Phase 8の棚卸しでは、ファイル単位で削除を判断せず、旧`src/data`にあったmixed-use moduleをexport/symbol単位で分類します。R8でproduction probability symbolは`src/core/probability/`へ、paletteは`src/shared/theme/`へ、reference supportは`tooling/reference-data/`へ移し、`src/data`を廃止しました。canonical adapter、Distribution/FFTのproduction symbol、published-bucket互換の必要なsymbolは保持しています。
 
 各計算モジュールが事前計算済み分布へ加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載しています。
 

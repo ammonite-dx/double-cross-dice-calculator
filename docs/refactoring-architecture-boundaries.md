@@ -104,3 +104,17 @@ app shellまで含めたR2の最終closure implementationは `c2dbc9b` であり
 ## R3への引き継ぎ
 
 R3はBacktrack featureizationを対象とする。`features/backtrack`、`runtime`、`core`、`shared`への移動を検討する際も、本書のmatrixとESLint gateを維持し、Backtrack input domain、RangePlanner/resource admission、canonical finite-support result、chart behavior、latest-wins、browser smokeを保護する。R2の成功条件は新directoryの作成ではなく、逆依存を作る変更がlintで即座に失敗することである。
+
+## R8現在の責務分離（2026-09-03）
+
+上記の「現行logical layer」とR2時点のpath記述は、R2の設計記録として保持する。R8では`src/data`に混在していた責務を分離し、現在のproduction/reference graphは次のpathを正本とする。
+
+| 責務 | 現在のパス | 依存方向 |
+| --- | --- | --- |
+| Probability primitives | `src/core/probability/Distribution.js`、`src/core/probability/FFT.js` | calculation/applicationから利用し、UI・application・reference toolingへ依存しない |
+| Shared chart theme | `src/shared/theme/ChartPalette.js` | feature UIとpresentationから利用する依存のないleaf utility |
+| Reference data support | `tooling/reference-data/PrecomputedDataSchema.js`、`tooling/reference-data/ReferencePrecomputedDataRepository.js` | tests・verification toolingからproductionのpure core/domainを利用する |
+
+`src/data`ディレクトリと旧pathの互換re-exportは存在しない。productionの`src/**`から`tooling/reference-data/**`へのimportも禁止し、reference data supportが公開assetの検証・比較専用であることを保つ。公開schema-v2/revision-1 URL、Distribution/FFTの数値挙動、ChartPaletteの9色と`id % 9`は変更していない。
+
+R8で更新したESLint architecture ruleは、`src/core/probability/**`をcore境界として扱い、UIからの同領域への直接import、shared validation/chartからのprobability/reference依存、production sourceからのreference tooling依存、旧`src/data` pathの再導入を検出する。恒久的な静的検査は[`dataResponsibilitiesArchitecture.test.js`](../tests/dataResponsibilitiesArchitecture.test.js)にも記録している。
