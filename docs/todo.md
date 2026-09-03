@@ -24,7 +24,12 @@ G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark
 ### R7 closure follow-up（2026-09-03）
 
 `91e30da`を開始点として、R7 acceptance criteriaの残件だったcontroller wiringの直接回帰テスト、Attack固有browser acceptance、closure優先度記録を完了した。`44c1b4f`でreaction snapshot、表示reuse／recalculation／resource rejection、Score-only rejection時のDamage保持、latest-wins、dispose後stale抑止を追加し、テストで判明した凍結display requestの問題を`30febb2`で修正した。`5b4ad75`ではaction／reaction入力とcombo add／rename／duplicate／removeをproduction smokeへ追加した。最終gateはVitest 69 files／857 tests、data 32 assets、generator／simulation、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases、build、production smoke、`git diff --check`がGREENで、P0／P1／P2は0件である。詳細は[`refactoring-attack-feature.md`](./refactoring-attack-feature.md)を参照する。R7は`CLOSED / GREEN`とし、次はR8とする。
-10. open: 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
+
+### R7 final closure follow-up（2026-09-03）
+
+開始SHA `030f62a`から、残っていたAttack browserのresource rejection／recovery受入と、コンボ削除後canonical commit確認の強化を完了した。`3c1dccd`でDamage表示`0..20000`のreject時canvas 0・alert、`0..100`へのrecovery時canonical再commit・canvas 2・Summary「合計」行を確認し、削除後はDOM差分に加えてcanvas data差分を必須化した。production sourceの追加変更はなく、最終gateはVitest 69 files／857 tests、data 32 assets、generator／simulation、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases、build、production smoke、`git diff --check`がGREEN、P0／P1／P2は0件である。R7は`CLOSED / GREEN`、次はR8とする。
+
+- open: 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
 
 第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、`DEFAULT_POLICY`は比較・互換用に`published-bucket`を保持しつつ、Attackのproduction `CalculationClient`は`full-tail`を明示的に選択します。DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。full-tail Attackのresource計測・暫定threshold判断は下記Phase 7実装単位へ記録し、残るJSON経路、legacy整理、低速実機、入力拡張候補の追加受入は後続課題です。
 

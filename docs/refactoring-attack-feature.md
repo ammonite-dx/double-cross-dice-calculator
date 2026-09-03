@@ -133,3 +133,21 @@ Follow-up後の最終実装HEADは `5b4ad75` である。検証結果はNode.js 
 | P2 | 0 |
 
 以上により、R7 closure follow-upを含むAttack featureizationを `CLOSED / GREEN` と判定する。次の作業はR8の設計判断であり、このfollow-upでは開始していない。
+
+## R7 final closure follow-up（2026-09-03）
+
+最終closure follow-upの開始SHAは `030f62a5698fef035b0136a342acdd1d296519f9`（`docs: finalize attack feature closure`）であり、残っていたP1項目のAttack browser resource rejection／recovery受入と、コンボ削除後のcanonical commit確認を閉じることを目的とした。R8には着手していない。
+
+`3c1dccd`（`test: complete attack browser resource acceptance`）で、Damage表示の最大値を`20000`へ変更したときにresource rejection alert、canvas 0、app継続、事前計算／D10リクエスト0を確認し、`100`へ戻したときにalert消失、canonical result再commit、canvas 2、Summaryの「合計」行再表示を確認した。コンボ削除では、DOMからの削除と残存順序に加えて、削除前後のcanvas data差分を必須条件とし、表の行削除だけでテストが通過しないようにした。`waitForResultCommit`も表示要素数の変化を検出するよう補強した。
+
+この最終follow-upではproduction sourceを追加変更していない。前回follow-upで判明したmutable display requestの修正は `30febb2` に保持されている。
+
+最終実装HEAD `3c1dccd`で、Vitest 69 files／857 tests、data verify 32 assets、generator 18 passed／13 deselected、simulation 13 passed／18 deselected、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases／status passed／full enumeration 30408.768 ms／max difference 0.0000010000000000287557／tolerance 0.000001000001／max total error 1.5543122344752192e-15／non-finite 0／negative 0、production build、production browser smoke、`git diff --check`のすべてGREENである。production smoke全体のschema-v2／revision-1事前計算リクエスト、D10リクエスト、console warning／error、pageerror、同一origin HTTP error、同一origin request failureはいずれも0件である。
+
+| 優先度 | 最終closure follow-up後の未解決件数 |
+| --- | ---: |
+| P0 | 0 |
+| P1 | 0 |
+| P2 | 0 |
+
+R7の最終状態は `CLOSED / GREEN` である。次はR8の設計判断とし、Attack featureizationの追加変更は行わない。
