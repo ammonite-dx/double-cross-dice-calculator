@@ -619,6 +619,147 @@ async function runAttack(browser, baseUrl) {
     assertNoPrecomputedRequests('attack-initial', record)
     assertNoBrowserErrors('attack-initial', record)
 
+    // Verify the R7 controller wiring for both sides of the first combo
+    // before exercising the high-range boundary inputs below.
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack action input update',
+      page.getByLabel('ダイス数').first(),
+      3,
+      2,
+    )
+    const reactionMode = page.getByRole('combobox', { name: '種別' })
+    assertCondition(
+      'attack reaction mode update',
+      await reactionMode.count() === 1,
+      'reaction mode select was not found',
+    )
+    const reactionModeState = await captureResultState(page)
+    await reactionMode.click({ force: true })
+    await reactionMode.press('ArrowDown')
+    await reactionMode.press('Enter')
+    await waitForCanvases(page, 2, { exact: true })
+    await waitForResultCommit(page, reactionModeState)
+    assertNoBrowserErrors('attack reaction mode update', record)
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack reaction input update',
+      page.getByLabel('技能値').nth(1),
+      1,
+      2,
+    )
+
+    const comboNameInputs = page.getByLabel('コンボ名')
+    const addComboButton = page.getByRole('button', {
+      name: 'コンボを追加',
+      exact: true,
+    })
+    assertCondition(
+      'attack combo add',
+      await addComboButton.count() === 1,
+      'combo add button was not found',
+    )
+    const addComboState = await captureResultState(page)
+    await addComboButton.click()
+    await comboNameInputs.nth(1).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    await waitForCanvases(page, 2, { exact: true })
+    await waitForResultCommit(page, addComboState)
+    assertCondition(
+      'attack combo add',
+      await comboNameInputs.nth(1).inputValue() === 'コンボ2',
+      'new combo name did not appear',
+    )
+    await page.locator('tbody tr').filter({ hasText: 'コンボ2' }).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertNoBrowserErrors('attack combo add', record)
+
+    await comboNameInputs.nth(1).fill('検証コンボ')
+    assertCondition(
+      'attack combo rename',
+      await comboNameInputs.nth(1).inputValue() === '検証コンボ',
+      'renamed combo input did not retain its value',
+    )
+    await page.locator('tbody tr').filter({ hasText: '検証コンボ' }).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertCondition(
+      'attack combo rename',
+      await page.locator('tbody tr').filter({ hasText: 'コンボ2' }).count() === 0,
+      'old combo name remained in the summary',
+    )
+    assertNoBrowserErrors('attack combo rename', record)
+
+    const duplicateButtons = page.getByRole('button', {
+      name: '複製',
+      exact: true,
+    })
+    assertCondition(
+      'attack combo duplicate',
+      await duplicateButtons.count() === 2,
+      'expected two combo duplicate buttons after adding a combo',
+    )
+    const duplicateState = await captureResultState(page)
+    await duplicateButtons.nth(1).click()
+    await comboNameInputs.nth(2).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    await waitForCanvases(page, 2, { exact: true })
+    await waitForResultCommit(page, duplicateState)
+    assertCondition(
+      'attack combo duplicate',
+      await comboNameInputs.nth(2).inputValue() === '検証コンボのコピー',
+      'duplicated combo name did not appear',
+    )
+    await page.locator('tbody tr').filter({ hasText: '検証コンボのコピー' }).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertNoBrowserErrors('attack combo duplicate', record)
+
+    const removeButtons = page.getByRole('button', {
+      name: '削除',
+      exact: true,
+    })
+    assertCondition(
+      'attack combo remove',
+      await removeButtons.count() === 3,
+      'expected three combo remove buttons before removing the duplicate',
+    )
+    const removeState = await captureResultState(page)
+    await removeButtons.nth(2).click()
+    await page.getByLabel('コンボ名').nth(2).waitFor({
+      state: 'detached',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    await waitForCanvases(page, 2, { exact: true })
+    await waitForResultCommit(page, removeState)
+    assertCondition(
+      'attack combo remove',
+      await page.getByLabel('コンボ名').count() === 2,
+      'duplicate combo inputs remained after removal',
+    )
+    assertCondition(
+      'attack combo remove',
+      await page.locator('tbody tr').filter({ hasText: '検証コンボのコピー' }).count() === 0,
+      'duplicated combo remained in the summary after removal',
+    )
+    assertCondition(
+      'attack combo remove',
+      await page.getByLabel('コンボ名').nth(0).inputValue() === 'コンボ1'
+        && await page.getByLabel('コンボ名').nth(1).inputValue() === '検証コンボ',
+      'remaining combos are not in the expected order',
+    )
+    assertNoBrowserErrors('attack combo remove', record)
+
     await fillBoundaryInput(
       page,
       record,
