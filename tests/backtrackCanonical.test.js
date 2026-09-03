@@ -11,7 +11,7 @@ import {
 import {
   getLivingdeadDistribution,
   registerLivingdeadAsset,
-} from '../src/data/ReferencePrecomputedDataRepository'
+} from '../tooling/reference-data/ReferencePrecomputedDataRepository'
 import { calculateD10Distribution } from '../src/calculation/D10Calculator'
 import { createCalculationClient } from '../src/application/CalculationClient'
 import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'

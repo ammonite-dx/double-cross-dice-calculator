@@ -2,8 +2,8 @@ import {
   OUTPUT_DISTRIBUTION_SIZE,
   WORKING_DISTRIBUTION_SIZE,
   expandSparseDistribution,
-} from './Distribution'
-import { getDatasetSupportMax } from '../domain/BacktrackRules'
+} from '../../src/core/probability/Distribution'
+import { getDatasetSupportMax } from '../../src/domain/BacktrackRules'
 import {
   PRECOMPUTED_DATA_REVISION,
   PRECOMPUTED_DATA_SCHEMA_VERSION,
