@@ -334,8 +334,23 @@ async function waitForResultCommit(page, previousState) {
       const currentCanvases = [...document.querySelectorAll('canvas')].map((canvas) =>
         canvas.toDataURL()
       )
-      return currentTables.some((text, index) => text !== previous.tables[index])
+      return currentTables.length !== previous.tables.length
+        || currentCanvases.length !== previous.canvases.length
+        || currentTables.some((text, index) => text !== previous.tables[index])
         || currentCanvases.some((data, index) => data !== previous.canvases[index])
+    },
+    previousState,
+    { timeout: PAGE_TIMEOUT_MILLISECONDS },
+  )
+}
+
+async function waitForCanvasCommit(page, previousState) {
+  await page.waitForFunction(
+    (previous) => {
+      const currentCanvases = [...document.querySelectorAll('canvas')].map((canvas) =>
+        canvas.toDataURL()
+      )
+      return currentCanvases.some((data, index) => data !== previous.canvases[index])
     },
     previousState,
     { timeout: PAGE_TIMEOUT_MILLISECONDS },
@@ -742,6 +757,7 @@ async function runAttack(browser, baseUrl) {
     })
     await waitForCanvases(page, 2, { exact: true })
     await waitForResultCommit(page, removeState)
+    await waitForCanvasCommit(page, removeState)
     assertCondition(
       'attack combo remove',
       await page.getByLabel('コンボ名').count() === 2,
@@ -759,6 +775,50 @@ async function runAttack(browser, baseUrl) {
       'remaining combos are not in the expected order',
     )
     assertNoBrowserErrors('attack combo remove', record)
+
+    const damagePanel = page.locator('.v-card').filter({ hasText: 'ダメージ分布' })
+    const damageMaxInput = damagePanel.getByLabel('最大値')
+    assertCondition(
+      'attack display resource reject',
+      await damageMaxInput.count() === 1,
+      'damage maximum input was not found',
+    )
+    const resourceRejectState = await captureResultState(page)
+    await damageMaxInput.fill('20000')
+    assertCondition(
+      'attack display resource reject',
+      await damageMaxInput.inputValue() === '20000',
+      'damage maximum input did not retain 20000',
+    )
+    await waitForResultCommit(page, resourceRejectState)
+    await waitForCanvases(page, 0, { exact: true })
+    await page.getByRole('alert').filter({ hasText: '表示する点数が多すぎるため' }).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertNoPrecomputedRequests('attack display resource reject', record)
+    assertNoBrowserErrors('attack display resource reject', record)
+
+    const resourceRecoveryState = await captureResultState(page)
+    await damageMaxInput.fill('100')
+    assertCondition(
+      'attack display resource recovery',
+      await damageMaxInput.inputValue() === '100',
+      'damage maximum input did not retain 100',
+    )
+    await waitForCanvases(page, 2, { exact: true })
+    await waitForResultCommit(page, resourceRecoveryState)
+    assertCondition(
+      'attack display resource recovery',
+      await page.getByRole('alert').filter({ hasText: '表示する点数が多すぎるため' }).count() === 0,
+      'display resource rejection remained after recovery',
+    )
+    await page.locator('tbody tr').filter({ hasText: '合計' }).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertNoPrecomputedRequests('attack display resource recovery', record)
+    assertNoBrowserErrors('attack display resource recovery', record)
 
     await fillBoundaryInput(
       page,
@@ -856,6 +916,18 @@ async function runAttack(browser, baseUrl) {
         canvases: 2,
         d10Requests: 0,
         id: 'attack action/attack/defence dice=100',
+        precomputed: 0,
+      },
+      {
+        canvases: 0,
+        d10Requests: 0,
+        id: 'attack display 0..20000 rejected',
+        precomputed: 0,
+      },
+      {
+        canvases: 2,
+        d10Requests: 0,
+        id: 'attack display 0..100 recovered',
         precomputed: 0,
       },
     ]
