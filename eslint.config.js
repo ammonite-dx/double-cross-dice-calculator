@@ -37,6 +37,16 @@ const coreNodePattern = {
   message: 'Production calculation core must remain browser-independent and must not import Node modules.',
 }
 
+const coreSharedPattern = internalPattern(
+  ['shared'],
+  'Calculation and domain core must not depend on shared validation modules.',
+)
+
+const sharedValidationInternalPattern = internalPattern(
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation'],
+  'Shared validation must remain independent of application, UI, feature, and calculation layers.',
+)
+
 const uiCalculationPattern = internalPattern(
   ['calculation'],
   'UI must access probability calculation through CalculationClient.',
@@ -138,6 +148,7 @@ export default [
         patterns: [
           corePackagePattern,
           coreInternalPattern,
+          coreSharedPattern,
           coreNodePattern,
           referenceRepositoryPattern,
           precomputedSchemaPattern,
@@ -148,6 +159,25 @@ export default [
         { name: 'window', message: 'Core modules must not access the browser window directly.' },
         { name: 'document', message: 'Core modules must not access the browser document directly.' },
         { name: 'fetch', message: 'Core modules must not perform network requests directly.' },
+      ],
+    },
+  },
+  {
+    files: ['src/shared/validation/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          corePackagePattern,
+          sharedValidationInternalPattern,
+          referenceRepositoryPattern,
+          precomputedSchemaPattern,
+        ],
+      }],
+      'no-restricted-globals': [
+        'error',
+        { name: 'window', message: 'Shared validation must not access the browser window directly.' },
+        { name: 'document', message: 'Shared validation must not access the browser document directly.' },
+        { name: 'fetch', message: 'Shared validation must not perform network requests directly.' },
       ],
     },
   },
