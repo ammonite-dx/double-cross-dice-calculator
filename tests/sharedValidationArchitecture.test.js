@@ -7,6 +7,17 @@ function source(path) {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 }
 
+function sourceFilesRecursive(path) {
+  const directory = new URL(`../${path}/`, import.meta.url)
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const child = `${path}/${entry.name}`
+    if (entry.isDirectory()) {
+      return sourceFilesRecursive(child)
+    }
+    return /\.(?:js|ts|vue)$/.test(entry.name) ? [child] : []
+  })
+}
+
 describe('shared validation architecture', () => {
   it('contains the intended direct-import modules without a barrel', () => {
     expect(existsSync(directory)).toBe(true)
@@ -40,5 +51,49 @@ describe('shared validation architecture', () => {
     expect(source('src/shared/validation/DisplayRangeRules.ts')).toContain(
       "@/domain/InputDomain",
     )
+  })
+
+  it('keeps shared validation as the only owner of duplicated rule definitions', () => {
+    const scoreConsumers = [
+      'src/features/check/ui/ScoreForm.vue',
+      'src/components/Attack/AttackForm.vue',
+      'src/components/Attack/DefenceForm.vue',
+    ]
+    for (const path of scoreConsumers) {
+      const contents = source(path)
+      expect(contents).toContain('createScoreFieldRules')
+      expect(contents).not.toMatch(
+        /const (diceRule|criticalRule|skillRule|youseiRule|shihaiRule) = \[\s*value =>/,
+      )
+    }
+
+    const displayConsumers = [
+      'src/features/check/ui/SettingForm.vue',
+      'src/components/Attack/ScoreSettingForm.vue',
+      'src/components/Attack/DamageSettingForm.vue',
+    ]
+    for (const path of displayConsumers) {
+      const contents = source(path)
+      expect(contents).toContain('createDisplayRangeRules')
+      expect(contents).not.toContain('isSafeCoordinate')
+      expect(contents).not.toContain('const minRule = [')
+      expect(contents).not.toContain('const maxRule = [')
+      expect(contents).not.toContain('validationGeneration')
+    }
+  })
+
+  it('keeps the generic gate out of AttackInputSnapshot and the core', () => {
+    expect(source('src/application/AttackInputSnapshot.js')).not.toContain(
+      'createLatestValidationGate',
+    )
+
+    for (const path of [
+      ...sourceFilesRecursive('src/calculation'),
+      ...sourceFilesRecursive('src/domain'),
+    ]) {
+      expect(source(path)).not.toMatch(
+        /(?:@\/|\.\.?\/)+shared(?:\/|['"])/,
+      )
+    }
   })
 })
