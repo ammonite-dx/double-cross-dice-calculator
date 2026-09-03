@@ -38,7 +38,8 @@ describe('shared validation architecture', () => {
       }
       const contents = source(`src/shared/validation/${file}`)
       expect(contents).not.toMatch(/from ['"](?:vue|vuetify|vue-router|chart\.js)/)
-      expect(contents).not.toMatch(/(?:application|components|views|router|plugins|layouts|presentation|features|calculation)\//)
+      expect(contents).not.toMatch(/(?:application|components|views|router|plugins|layouts|presentation|features|calculation|data)\//)
+      expect(contents).not.toMatch(/from ['"]node:/)
       expect(contents).not.toMatch(/\b(?:window|document|fetch)\b/)
       expect(contents).not.toMatch(/\bany\b|@ts-ignore|@ts-nocheck/)
     }

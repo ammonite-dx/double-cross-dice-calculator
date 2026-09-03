@@ -43,8 +43,8 @@ const coreSharedPattern = internalPattern(
 )
 
 const sharedValidationInternalPattern = internalPattern(
-  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation'],
-  'Shared validation must remain independent of application, UI, feature, and calculation layers.',
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'data'],
+  'Shared validation must remain independent of application, UI, feature, calculation, and data layers.',
 )
 
 const uiCalculationPattern = internalPattern(
@@ -169,6 +169,7 @@ export default [
         patterns: [
           corePackagePattern,
           sharedValidationInternalPattern,
+          coreNodePattern,
           referenceRepositoryPattern,
           precomputedSchemaPattern,
         ],
