@@ -1,8 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { ESLint } from 'eslint'
 import { describe, expect, it } from 'vitest'
 
 const root = new URL('../', import.meta.url)
 const thisTestPath = 'tests/dataResponsibilitiesArchitecture.test.js'
+const repositoryRoot = fileURLToPath(root)
 
 function source(path) {
   return readFileSync(new URL(path, root), 'utf8')
@@ -17,6 +20,12 @@ function sourceFilesRecursive(path) {
     }
     return /\.(?:js|ts|vue)$/.test(entry.name) ? [child] : []
   })
+}
+
+async function lintText(filePath, text) {
+  const eslint = new ESLint({ cwd: repositoryRoot })
+  const [result] = await eslint.lintText(text, { filePath })
+  return result
 }
 
 const probabilityDirectory = 'src/core/probability'
@@ -80,5 +89,40 @@ describe('data responsibility architecture', () => {
     for (const path of themeFiles) {
       expect(source(path), path).not.toMatch(themeBoundaryPattern)
     }
+  })
+
+  it('keeps the ESLint core and shared theme boundaries aligned with the source scan', async () => {
+    const coreResult = await lintText(
+      'src/core/probability/ArchitectureFixture.js',
+      "import useCheck from '@/features/check/model/useCheck'",
+    )
+    expect(coreResult.errorCount).toBeGreaterThan(0)
+    expect(coreResult.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
+
+    const themeCalculationResult = await lintText(
+      'src/shared/theme/ArchitectureFixture.js',
+      "import score from '@/calculation/ScoreCalculator'",
+    )
+    expect(themeCalculationResult.errorCount).toBeGreaterThan(0)
+    expect(themeCalculationResult.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
+
+    const themeValidationResult = await lintText(
+      'src/shared/theme/ArchitectureFixture.js',
+      "import rules from '@/shared/validation/IntegerRules'",
+    )
+    expect(themeValidationResult.errorCount).toBeGreaterThan(0)
+    expect(themeValidationResult.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
   })
 })

@@ -28,7 +28,7 @@ const corePackagePattern = {
 }
 
 const coreInternalPattern = internalPattern(
-  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation'],
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features'],
   'Core modules must not depend on application, UI, or presentation layers.',
 )
 
@@ -41,6 +41,16 @@ const coreSharedPattern = internalPattern(
   ['shared'],
   'Calculation and domain core must not depend on shared validation modules.',
 )
+
+const sharedThemeInternalPattern = internalPattern(
+  ['application', 'calculation', 'core', 'domain', 'features', 'presentation', 'components', 'views', 'router', 'plugins', 'layouts', 'tooling', 'data'],
+  'Shared theme utilities must remain independent of application, calculation, core, domain, feature, UI, and reference layers.',
+)
+
+const sharedThemeParentPattern = {
+  regex: `^${relativeOrAlias}shared/(?!theme(?:/|$))`,
+  message: 'Shared theme utilities must not depend on other shared subsystems.',
+}
 
 const sharedValidationInternalPattern = internalPattern(
   ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'tooling'],
@@ -195,6 +205,27 @@ export default [
           coreNodePattern,
         ],
       }],
+    },
+  },
+  {
+    files: ['src/shared/theme/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          sharedThemeInternalPattern,
+          sharedThemeParentPattern,
+          corePackagePattern,
+          coreNodePattern,
+          referenceToolingPattern,
+          legacyDataPattern,
+        ],
+      }],
+      'no-restricted-globals': [
+        'error',
+        { name: 'window', message: 'Shared theme utilities must not access the browser window directly.' },
+        { name: 'document', message: 'Shared theme utilities must not access the browser document directly.' },
+        { name: 'fetch', message: 'Shared theme utilities must not perform network requests directly.' },
+      ],
     },
   },
   {
