@@ -16,7 +16,7 @@ import {
   presentCanonicalDistribution,
   toChartPercentage,
 } from '../../../presentation'
-import { getChartColor } from '../../../data/ColorSetter'
+import { getChartColor } from '../../../shared/theme/ChartPalette'
 
 export const CHECK_CANONICAL_PRESENTATION_VERSION = 1
 

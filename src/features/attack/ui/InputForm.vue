@@ -1,5 +1,5 @@
 <script setup>
-    import { getChartColor } from '@/data/ColorSetter';
+    import { getChartColor } from '@/shared/theme/ChartPalette';
     import ComboForm from './ComboForm.vue';
     import { mdiChevronUp, mdiChevronDown, mdiContentCopy, mdiDelete, mdiPlus } from '@mdi/js'
 
@@ -75,4 +75,3 @@
         <v-btn variant="flat" block @click="emit('combo-add')" class="text-md-body-1 text-caption"><v-icon :icon="mdiPlus"/>コンボを追加</v-btn>
     </v-container>
 </template>
-

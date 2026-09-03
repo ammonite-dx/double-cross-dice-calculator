@@ -1,7 +1,7 @@
 <script setup>
 
     import { onUnmounted, ref,reactive,watch } from 'vue';
-    import { getChartColor } from '@/data/ColorSetter';
+    import { getChartColor } from '@/shared/theme/ChartPalette';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
     import {
         createScoreFeatureCompatibilityRule,

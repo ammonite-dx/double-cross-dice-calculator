@@ -14,7 +14,7 @@ import {
   createCheckCanonicalPresentation,
   isCheckCanonicalPresentationError,
 } from '../src/features/check/model/CheckCanonicalPresentation'
-import { getChartColor } from '../src/data/ColorSetter'
+import { getChartColor } from '../src/shared/theme/ChartPalette'
 
 function createScoreResult({
   values = [1],

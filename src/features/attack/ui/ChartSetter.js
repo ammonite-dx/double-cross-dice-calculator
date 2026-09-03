@@ -1,4 +1,4 @@
-import { getChartColor } from '@/data/ColorSetter';
+import { getChartColor } from '@/shared/theme/ChartPalette';
 import { toChartPercentages } from '@/presentation/ChartPercentages';
 import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 
