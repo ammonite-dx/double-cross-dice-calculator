@@ -2,14 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   getCheckChartOptions,
-  getCheckChartStyle,
 } from '../src/features/check/ui/ChartSetter'
 import {
   getAttackDamageChartOptions,
-  getAttackDamageChartStyle,
   getAttackScoreChartOptions,
-  getAttackScoreChartStyle,
 } from '../src/components/Attack/ChartSetter'
+import { getProbabilityLineChartStyle } from '../src/shared/chart/ProbabilityLineChartConfig'
 import {
   toChartPercentage,
   toChartPercentages,
@@ -78,14 +76,10 @@ describe('probability line chart behavior baseline', () => {
   })
 
   it('keeps the responsive chart styles at both breakpoints', () => {
-    for (const style of [
-      getCheckChartStyle,
-      getAttackScoreChartStyle,
-      getAttackDamageChartStyle,
-    ]) {
-      expect(style(true)).toEqual({ height: '400px', position: 'relative' })
-      expect(style(false)).toEqual({ height: '300px', position: 'relative' })
-    }
+    expect(getProbabilityLineChartStyle(true))
+      .toEqual({ height: '400px', position: 'relative' })
+    expect(getProbabilityLineChartStyle(false))
+      .toEqual({ height: '300px', position: 'relative' })
   })
 
   it('keeps the one-decimal percentage conversion and owned arrays', () => {

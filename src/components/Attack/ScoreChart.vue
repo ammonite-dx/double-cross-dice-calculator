@@ -1,17 +1,11 @@
 <script setup>
 
     import { computed } from 'vue';
-    import { useDisplay } from 'vuetify';
-    import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-    import { Line } from 'vue-chartjs';
-    import annotationPlugin from 'chartjs-plugin-annotation';
+    import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
     import {
         getCanonicalAttackScoreChartData,
         getAttackScoreChartOptions,
-        getAttackScoreChartStyle,
     } from './ChartSetter';
-
-    Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin);
 
     const props = defineProps({
         attackData: {
@@ -27,18 +21,14 @@
             default: null,
         },
     });
-    const { mdAndUp } = useDisplay();
     const data = computed(() => getCanonicalAttackScoreChartData(
         props.presentation,
         props.attackData
     ));
     const options = computed(() => getAttackScoreChartOptions(props.attackData.dfclty));
-    const style = computed(() => getAttackScoreChartStyle(mdAndUp.value));
 
 </script>
 
 <template>
-    <div>
-        <Line v-if="data !== null" :data="data" :options="options" :style="style"/>
-    </div>
+    <ProbabilityLineChart :data="data" :options="options" />
 </template>

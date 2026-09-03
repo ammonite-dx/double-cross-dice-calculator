@@ -1,4 +1,5 @@
 import { getChartColor } from '@/data/ColorSetter';
+import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 
 export function getCheckChartOptions (dfclty) {
 
@@ -61,28 +62,16 @@ export function getCheckChartOptions (dfclty) {
         }
     */
 
-    const responsive = true;
-    const maintainAspectRatio = false;
-    const scales = {
-        x: {title:{display:true, text:'達成値'}},
-        y: {suggestedMin:0, title:{display:true, text:'確率 [%]'}},
-    };
-    const tooltip = {
-        mode: 'index',
-        callbacks: {
-            title: (tooltipItem)=>{return '達成値'+tooltipItem[0].label},
-            label: (tooltipItem)=>{return tooltipItem.dataset.label+': '+tooltipItem.formattedValue+'%'},
-        },
-    };
-    const datalabels = {
-        display: false,
-    };
-    var plugins = {annotation:{annotations: {}}, tooltip:tooltip, datalabels:datalabels};
+    let annotations = {};
     if (dfclty.opposed) {
-        return {responsive:responsive, maintainAspectRatio:maintainAspectRatio, scales:scales, plugins:plugins};
+        return createProbabilityLineChartOptions({
+            xAxisTitle: '達成値',
+            tooltipTitlePrefix: '達成値',
+            annotations,
+        });
     } else {
         const content = '難易度: ' + String(dfclty.target);
-        plugins.annotation.annotations = {
+        annotations = {
             line1: {
                 type: 'line',
                 scaleID: 'x',
@@ -100,34 +89,11 @@ export function getCheckChartOptions (dfclty) {
                 },
             },
         };
-        return {responsive:responsive, maintainAspectRatio:maintainAspectRatio, scales:scales, plugins:plugins};
+        return createProbabilityLineChartOptions({
+            xAxisTitle: '達成値',
+            tooltipTitlePrefix: '達成値',
+            annotations,
+        });
     }
-
-}
-
-export function getCheckChartStyle (mdAndUp) {
-
-    /*
-    概要:
-        一般判定のスコアチャート描画用のスタイルを作成する。
-    input:
-        smAndUp (boolean): ウィンドウサイズがsm以上ならtrue。
-    output:
-        style: {
-            height (string): チャートの高さ。
-            position (string): 
-        }
-    */
-
-    var height;
-    if(mdAndUp){
-        height = '400px';
-    } else {
-        height = '300px';
-    }
-
-    const position = 'relative';
-
-    return {height:height, position:position};
 
 }

@@ -119,12 +119,16 @@ describe('Check input flow contracts', () => {
       "props.presentation?.status === 'ready'"
     )
     expect(scoreChartSource).toContain('props.presentation.chart')
-    expect(scoreChartSource).toContain(
-      '<Line v-if="data !== null" :data="data"'
-    )
+    expect(scoreChartSource).toContain('ProbabilityLineChart')
+    expect(scoreChartSource).toContain('@/shared/chart/ProbabilityLineChart.vue')
+    expect(scoreChartSource).not.toContain("from 'chart.js'")
+    expect(scoreChartSource).not.toContain("from 'vue-chartjs'")
+    expect(scoreChartSource).not.toContain('chartjs-plugin-annotation')
+    expect(scoreChartSource).not.toContain('useDisplay')
     expect(scoreChartSource).not.toContain('getCheckChartData')
     expect(chartSetterSource).toContain('getCheckChartOptions')
-    expect(chartSetterSource).toContain('getCheckChartStyle')
+    expect(chartSetterSource).not.toContain('getCheckChartStyle')
+    expect(chartSetterSource).toContain('createProbabilityLineChartOptions')
     expect(chartSetterSource).not.toContain('@/data/Distribution')
     expect(chartSetterSource).not.toContain('getCheckChartData')
   })

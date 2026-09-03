@@ -47,6 +47,11 @@ const sharedValidationInternalPattern = internalPattern(
   'Shared validation must remain independent of application, UI, feature, calculation, and data layers.',
 )
 
+const sharedChartInternalPattern = internalPattern(
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'data', 'domain', 'shared'],
+  'Shared chart infrastructure must remain independent of application, feature, calculation, data, domain, and other shared layers.',
+)
+
 const uiCalculationPattern = internalPattern(
   ['calculation'],
   'UI must access probability calculation through CalculationClient.',
@@ -180,6 +185,17 @@ export default [
         { name: 'document', message: 'Shared validation must not access the browser document directly.' },
         { name: 'fetch', message: 'Shared validation must not perform network requests directly.' },
       ],
+    },
+  },
+  {
+    files: ['src/shared/chart/**/*.{js,ts,vue}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          sharedChartInternalPattern,
+          coreNodePattern,
+        ],
+      }],
     },
   },
   {

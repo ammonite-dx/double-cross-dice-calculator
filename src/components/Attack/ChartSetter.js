@@ -1,5 +1,6 @@
 import { getChartColor } from '@/data/ColorSetter';
 import { toChartPercentages } from './ChartPercentages';
+import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 
 /**
  * Adapt the action side of the canonical Attack score presentation to the
@@ -63,49 +64,10 @@ export function getAttackScoreChartOptions () {
         options: Chart.js options.
     */
 
-    const responsive = true;
-    const maintainAspectRatio = false;
-    const scales = {
-        x: {title: {display: true, text: '達成値'}},
-        y: {suggestedMin: 0, title: {display: true, text: '確率 [%]'}},
-    };
-    const tooltip = {
-        mode: 'index',
-        callbacks: {
-            title: (tooltipItem) => {return '達成値' + tooltipItem[0].label},
-            label: (tooltipItem) => {return tooltipItem.dataset.label + ': ' + tooltipItem.formattedValue + '%'},
-        },
-    };
-    const datalabels = {
-        display: false,
-    }
-    var plugins = {tooltip: tooltip, datalabels: datalabels};
-    return {responsive: responsive, maintainAspectRatio: maintainAspectRatio, scales: scales, plugins: plugins};
-
-}
-
-export function getAttackScoreChartStyle (mdAndUp) {
-
-    /*
-    概要:
-        一般判定のスコアチャート描画用のスタイルを作成する。
-    input:
-        smAndUp (boolean): ウィンドウサイズがsm以上ならtrue。
-    output:
-        style: {
-            height (string): チャートの高さ。
-            position (string):
-        }
-    */
-
-    var height;
-    if (mdAndUp) {
-        height = '400px';
-    } else {
-        height = '300px';
-    }
-    const position = 'relative';
-    return {height: height, position: position};
+    return createProbabilityLineChartOptions({
+        xAxisTitle: '達成値',
+        tooltipTitlePrefix: '達成値',
+    });
 
 }
 
@@ -180,48 +142,9 @@ export function getAttackDamageChartOptions () {
         options: Chart.js options.
     */
 
-    const responsive = true;
-    const maintainAspectRatio = false;
-    const scales = {
-        x: {title: {display: true, text: 'ダメージ'}},
-        y: {suggestedMin: 0, title: {display: true, text: '確率 [%]'}},
-    };
-    const tooltip = {
-        mode: 'index',
-        callbacks: {
-            title: (tooltipItem) => {return 'ダメージ' + tooltipItem[0].label},
-            label: (tooltipItem) => {return tooltipItem.dataset.label + ': ' + tooltipItem.formattedValue + '%'},
-        },
-    };
-    const datalabels = {
-        display: false,
-    }
-    var plugins = {tooltip: tooltip, datalabels: datalabels};
-    return {responsive: responsive, maintainAspectRatio: maintainAspectRatio, scales: scales, plugins: plugins};
-
-}
-
-export function getAttackDamageChartStyle (mdAndUp) {
-
-    /*
-    概要:
-        攻撃判定のダメージチャート描画用のスタイルを作成する。
-    input:
-        smAndUp (boolean): ウィンドウサイズがsm以上ならtrue。
-    output:
-        style: {
-            height (string): チャートの高さ。
-            position (string):
-        }
-    */
-
-    var height;
-    if (mdAndUp) {
-        height = '400px';
-    } else {
-        height = '300px';
-    }
-    const position = 'relative';
-    return {height: height, position: position};
+    return createProbabilityLineChartOptions({
+        xAxisTitle: 'ダメージ',
+        tooltipTitlePrefix: 'ダメージ',
+    });
 
 }
