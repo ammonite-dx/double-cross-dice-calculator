@@ -1,17 +1,11 @@
 import {
   computed,
-  inject,
   onMounted,
   onUnmounted,
   reactive,
-  watch,
   type ComputedRef,
 } from 'vue'
 
-import {
-  CALCULATION_CLIENT_KEY,
-  calculationClient as defaultCalculationClient,
-} from '../../../application/CalculationClient'
 import type { CalculationClient } from '../../../application/CalculationClientTypes'
 import { createAttackCanonicalRunner } from '../../../application/AttackCanonicalRunner'
 import {
@@ -23,6 +17,7 @@ import {
   createCanonicalAttackState,
   ensureCanonicalComboData,
 } from '../../../application/AttackCanonicalState'
+import { replaceAttackSideSnapshot } from '../../../application/AttackInputSnapshot'
 import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
   createAttackRangePolicy as createRawAttackRangePolicy,
@@ -38,6 +33,7 @@ import {
 } from '../../../presentation'
 import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
 import {
+  cloneAttackCombo,
   createAttackCombo,
   type AttackCombo,
 } from './AttackComboState'
@@ -99,7 +95,7 @@ export interface ComboDetailsChange {
 }
 
 export interface UseAttackOptions {
-  calculationClient?: CalculationClient
+  calculationClient: CalculationClient
 }
 
 const createAttackDisplayRequestSnapshot =
@@ -149,14 +145,12 @@ function toUiCombos(state: AttackState): AttackUiCombo[] {
   }))
 }
 
-export function useAttack(options: UseAttackOptions = {}) {
-  const calculationClient = (
-    options.calculationClient ?? defaultCalculationClient
-  ) as unknown as CalculationClient
+export function useAttack({ calculationClient }: UseAttackOptions) {
+  const client = calculationClient as unknown as CalculationClient
   if (
-    calculationClient === null
-    || typeof calculationClient !== 'object'
-    || typeof calculationClient.calculateAttackCanonicalBatch !== 'function'
+    client === null
+    || typeof client !== 'object'
+    || typeof client.calculateAttackCanonicalBatch !== 'function'
   ) {
     throw new TypeError('useAttack requires calculateAttackCanonicalBatch')
   }
@@ -208,7 +202,7 @@ export function useAttack(options: UseAttackOptions = {}) {
 
   const canonicalCalculationRunner = createAttackCanonicalRunner(({
     state,
-    calculationClient,
+    calculationClient: client,
     createPresentation: (
       batchResult: unknown,
       rangePlans: unknown[] = [],
@@ -349,33 +343,23 @@ export function useAttack(options: UseAttackOptions = {}) {
     }) as Promise<unknown>
   }
 
-  // This watch is retained during the extraction step so the old input
-  // components remain behaviorally compatible. R7-B replaces it with
-  // explicit controller events after the UI has been migrated.
-  watch(
-    () => state.combos.map((combo) => ({
-      id: combo.id,
-      params: combo.data.params,
-    })),
-    () => {
-      for (const combo of state.combos) {
-        ensureCanonicalComboData(combo.data)
-      }
-      void runCanonicalCalculation()
-    },
-    { deep: true }
-  )
-
   function findCombo(id: number | string) {
     return state.combos.find((combo) => combo.id === id) ?? null
   }
 
+  let nextComboId = state.combos.reduce(
+    (maximum, combo) => Math.max(maximum, Number(combo.id)),
+    -1
+  ) + 1
+
+  function allocateComboId() {
+    const id = nextComboId
+    nextComboId += 1
+    return id
+  }
+
   function addCombo() {
-    const nextId = state.combos.reduce(
-      (maximum, combo) => Math.max(maximum, Number(combo.id)),
-      -1
-    ) + 1
-    state.combos.push(createAttackCombo(nextId))
+    state.combos.push(createAttackCombo(allocateComboId()))
     void runCanonicalCalculation()
   }
 
@@ -384,34 +368,7 @@ export function useAttack(options: UseAttackOptions = {}) {
     if (source === null) {
       return
     }
-    const nextId = state.combos.reduce(
-      (maximum, combo) => Math.max(maximum, Number(combo.id)),
-      -1
-    ) + 1
-    const params = source.data.params
-    state.combos.push({
-      id: nextId,
-      name: `${source.name}のコピー`,
-      show: true,
-      showDetails: {
-        action: source.showDetails.action,
-        reaction: source.showDetails.reaction,
-      },
-      data: {
-        params: {
-          action: {
-            score: { ...params.action.score },
-            damage: { ...params.action.damage },
-          },
-          reaction: {
-            mode: params.reaction.mode,
-            score: { ...params.reaction.score },
-            damage: { ...params.reaction.damage },
-          },
-        },
-        ...ensureCanonicalComboData({}),
-      },
-    })
+    state.combos.push(cloneAttackCombo(source, allocateComboId()))
     void runCanonicalCalculation()
   }
 
@@ -442,6 +399,9 @@ export function useAttack(options: UseAttackOptions = {}) {
   }
 
   function onComboDetailsChanged({ id, side, value }: ComboDetailsChange) {
+    if (side !== 'action' && side !== 'reaction') {
+      return
+    }
     const combo = findCombo(id)
     if (combo !== null) {
       combo.showDetails[side] = value
@@ -449,15 +409,16 @@ export function useAttack(options: UseAttackOptions = {}) {
   }
 
   function onComboSideValidated({ id, side, snapshot }: ComboSideValidation) {
+    if (side !== 'action' && side !== 'reaction') {
+      return
+    }
     const combo = findCombo(id)
     if (combo === null) {
       return
     }
     // The UI sends a detached validated snapshot. The application snapshot
     // helper performs the second detached copy at the state boundary.
-    const params = combo.data.params as unknown as Record<string, unknown>
-    const sideParams = snapshot as Record<string, unknown>
-    params[side] = sideParams
+    replaceAttackSideSnapshot(combo.data.params, side, snapshot)
     void runCanonicalCalculation()
   }
 
@@ -546,10 +507,12 @@ export function useAttack(options: UseAttackOptions = {}) {
     void runCanonicalCalculation()
   })
 
-  onUnmounted(() => {
+  function dispose() {
     canonicalCalculationRunner.dispose()
     clearCanonicalAttackState(state)
-  })
+  }
+
+  onUnmounted(dispose)
 
   const combos = computed(() => toUiCombos(state)) as ComputedRef<AttackUiCombo[]>
   const canonicalDisplayPresentation = computed(
@@ -557,6 +520,12 @@ export function useAttack(options: UseAttackOptions = {}) {
   )
   const canonicalScoreDisplayPresentation = computed(
     () => state.canonicalScoreDisplayPresentation
+  )
+  const canonicalDisplayFeedback = computed(
+    () => state.canonicalDisplayFeedback
+  )
+  const canonicalScoreDisplayFeedback = computed(
+    () => state.canonicalScoreDisplayFeedback
   )
   const canonicalSummaryReady = computed(
     () => state.canonicalDisplayPresentation?.status === 'ready'
@@ -569,14 +538,13 @@ export function useAttack(options: UseAttackOptions = {}) {
   )
 
   return {
-    // Transitional exposure for AttackPage. R7-C/D remove this broad object
-    // from the UI contract while the model continues to own the state.
-    attackData: state,
     combos,
     displayRequest,
     scoreDisplayRequest,
     canonicalDisplayPresentation,
     canonicalScoreDisplayPresentation,
+    canonicalDisplayFeedback,
+    canonicalScoreDisplayFeedback,
     canonicalSummaryReady,
     canonicalFeedbackNotice,
     onDisplayValidated,
@@ -588,14 +556,6 @@ export function useAttack(options: UseAttackOptions = {}) {
     onComboVisibilityChanged,
     onComboDetailsChanged,
     onComboSideValidated,
+    dispose,
   }
-}
-
-export function useInjectedAttack() {
-  return useAttack({
-    calculationClient: inject(
-      CALCULATION_CLIENT_KEY,
-      defaultCalculationClient as unknown as CalculationClient
-    ),
-  })
 }

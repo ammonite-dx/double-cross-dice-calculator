@@ -4,7 +4,7 @@ export {
   formatCanonicalScoreSummaryExpectedValue,
   formatCanonicalScoreSuccessRate,
   formatCanonicalScoreSuccessRateDisplay,
-} from '../../presentation/CanonicalSummaryFormatter'
+} from '../../../presentation/CanonicalSummaryFormatter'
 
 export function getCanonicalScoreSummaryForCombo(presentation, comboId) {
   if (presentation?.status !== 'ready') {

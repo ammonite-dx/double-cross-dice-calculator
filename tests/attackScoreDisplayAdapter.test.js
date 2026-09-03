@@ -36,7 +36,7 @@ import {
 import { sumCanonicalDamage } from '../src/calculation/CanonicalDamageAggregation'
 import {
   getCanonicalAttackScoreChartData,
-} from '../src/components/Attack/ChartSetter'
+} from '../src/features/attack/ui/ChartSetter'
 import {
   CANONICAL_SUMMARY_UNAVAILABLE,
   formatCanonicalSummaryExpectedValue,
@@ -44,7 +44,7 @@ import {
   formatCanonicalScoreSuccessRateDisplay,
   formatCanonicalScoreSummaryExpectedValue,
   getCanonicalScoreSummaryForCombo,
-} from '../src/components/Attack/SummaryTable'
+} from '../src/features/attack/ui/SummaryTable'
 
 function calculateCanonicalScore(
   params,
@@ -234,9 +234,9 @@ describe('Attack canonical score display adapter', () => {
       scoreDisplayRequest: { min: 0, max: 3, mode: ATTACK_DISPLAY_MODES.PMF },
       rangePlans,
     })
-    const chart = getCanonicalAttackScoreChartData(presentation, {
-      combos: [{ id: 'production-combo', name: 'コンボ1' }],
-    })
+    const chart = getCanonicalAttackScoreChartData(presentation, [
+      { id: 'production-combo', name: 'コンボ1' },
+    ])
 
     expect(presentation.score.status).toBe('ready')
     expect(chart).not.toBeNull()
@@ -393,7 +393,7 @@ describe('Attack canonical score display adapter', () => {
     expect(Array.from(presentation.score.combos[0].action.series.values))
       .toEqual([0.12345, 0.87655])
 
-    const chart = getCanonicalAttackScoreChartData(presentation, attackData)
+    const chart = getCanonicalAttackScoreChartData(presentation, attackData.combos)
     expect(chart.labels).toEqual([0, 1])
     expect(chart.datasets[0].data).toEqual([12.3, 87.7])
     expect(chart.datasets[0].data)
@@ -416,7 +416,7 @@ describe('Attack canonical score display adapter', () => {
     expect(presentation.score.status).toBe('not-ready')
     expect(presentation.score.decision)
       .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE)
-    expect(getCanonicalAttackScoreChartData(presentation, attackData))
+    expect(getCanonicalAttackScoreChartData(presentation, attackData.combos))
       .toBeNull()
   })
 
@@ -754,9 +754,9 @@ describe('Attack canonical score display adapter', () => {
       expect(formatCanonicalScoreSummaryExpectedValue(
         scoreSummary.reaction.expectedValue
       ), label).toBe('—')
-      expect(getCanonicalAttackScoreChartData(presentation, {
-        combos: [{ id: label, name: label }],
-      }), label).not.toBeNull()
+      expect(getCanonicalAttackScoreChartData(presentation, [
+        { id: label, name: label },
+      ]), label).not.toBeNull()
     }
   })
 

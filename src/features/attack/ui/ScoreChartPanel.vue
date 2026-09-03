@@ -6,8 +6,8 @@
     import { mdiChartLine } from '@mdi/js';
 
     const props = defineProps({
-        attackData: {
-            type: Object,
+        combos: {
+            type: Array,
             required: true,
         },
         displayRequest: {
@@ -35,8 +35,7 @@
             <v-card-text class="text-md-body-1 text-caption">
                 <RangePlanNotice :feedback="props.displayFeedback" />
                 <ScoreChart
-                    :attackData="props.attackData"
-                    :displayRequest="props.displayRequest"
+                    :combos="props.combos"
                     :presentation="props.presentation"
                 />
                 <ScoreSettingForm

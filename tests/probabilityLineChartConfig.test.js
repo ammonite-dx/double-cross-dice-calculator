@@ -6,7 +6,7 @@ import {
 import {
   getAttackDamageChartOptions,
   getAttackScoreChartOptions,
-} from '../src/components/Attack/ChartSetter'
+} from '../src/features/attack/ui/ChartSetter'
 import { getProbabilityLineChartStyle } from '../src/shared/chart/ProbabilityLineChartConfig'
 import {
   toChartPercentage,

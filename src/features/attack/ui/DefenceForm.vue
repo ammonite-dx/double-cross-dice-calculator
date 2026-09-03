@@ -15,7 +15,7 @@
     const emit = defineEmits(['validated', 'show-details']);
     const form = ref();
     const currentParams = reactive(createDefenceInputDraftSnapshot(props.params));
-    const showDetails = ref(props.showDetails?.value ?? false);
+    const showDetails = ref(props.showDetails ?? false);
     const validationGate = createLatestValidationGate();
     const modeItem = ['ドッジ','《イベイジョン》','ガード・リアクション放棄']
     const scoreRules = createScoreFieldRules();

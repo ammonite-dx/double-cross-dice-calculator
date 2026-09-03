@@ -14,7 +14,7 @@
     const emit = defineEmits(['validated', 'show-details'])
     const form = ref();
     const currentParams = reactive(createAttackInputSnapshot(props.params));
-    const showDetails = ref(props.showDetails?.value ?? false);
+    const showDetails = ref(props.showDetails ?? false);
     const validationGate = createLatestValidationGate();
     const scoreRules = createScoreFieldRules();
     const diceRule = scoreRules.dice;

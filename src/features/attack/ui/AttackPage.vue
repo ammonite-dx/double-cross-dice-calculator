@@ -5,10 +5,10 @@
         calculationClient as defaultCalculationClient,
     } from '../../../application/CalculationClient'
     import { useAttack } from '../model/useAttack'
-    import InputPanel from '../../../components/Attack/InputPanel.vue'
-    import ScoreChartPanel from '../../../components/Attack/ScoreChartPanel.vue'
-    import DamageChartPanel from '../../../components/Attack/DamageChartPanel.vue'
-    import SummaryPanel from '../../../components/Attack/SummaryPanel.vue'
+    import InputPanel from './InputPanel.vue'
+    import ScoreChartPanel from './ScoreChartPanel.vue'
+    import DamageChartPanel from './DamageChartPanel.vue'
+    import SummaryPanel from './SummaryPanel.vue'
     import RangePlanNotice from '../../../components/RangePlanNotice.vue'
 
     const calculationClient = inject(
@@ -16,49 +16,66 @@
         defaultCalculationClient
     )
     const {
-        attackData,
+        combos,
         displayRequest,
         scoreDisplayRequest,
         canonicalDisplayPresentation,
         canonicalScoreDisplayPresentation,
+        canonicalDisplayFeedback,
+        canonicalScoreDisplayFeedback,
         canonicalSummaryReady,
         canonicalFeedbackNotice,
         onDisplayValidated,
         onScoreDisplayValidated,
+        addCombo,
+        duplicateCombo,
+        removeCombo,
+        onComboNameChanged,
+        onComboVisibilityChanged,
+        onComboDetailsChanged,
+        onComboSideValidated,
     } = useAttack({ calculationClient })
 </script>
 
 <template>
     <v-container class="pa-6" fluid>
-        <v-row><v-col cols="12"><InputPanel :attackData="attackData" /></v-col></v-row>
+        <v-row><v-col cols="12"><InputPanel
+            :combos="combos"
+            @combo-add="addCombo"
+            @combo-duplicate="duplicateCombo"
+            @combo-remove="removeCombo"
+            @combo-name-changed="onComboNameChanged"
+            @combo-visibility-changed="onComboVisibilityChanged"
+            @combo-details-changed="onComboDetailsChanged"
+            @combo-side-validated="onComboSideValidated"
+        /></v-col></v-row>
         <v-row><v-col cols="12"><RangePlanNotice :feedback="canonicalFeedbackNotice" /></v-col></v-row>
         <v-row>
             <v-col md="6" cols="12">
                 <ScoreChartPanel
-                    :attackData="attackData"
+                    :combos="combos"
                     :displayRequest="scoreDisplayRequest"
                     :presentation="canonicalScoreDisplayPresentation"
-                    :displayFeedback="attackData.canonicalScoreDisplayFeedback"
+                    :displayFeedback="canonicalScoreDisplayFeedback"
                     @display-validated="onScoreDisplayValidated"
                 />
             </v-col>
             <v-col md="6" cols="12">
                 <DamageChartPanel
-                    :attackData="attackData"
+                    :combos="combos"
                     :displayRequest="displayRequest"
                     :presentation="canonicalDisplayPresentation"
-                    :displayFeedback="attackData.canonicalDisplayFeedback"
+                    :displayFeedback="canonicalDisplayFeedback"
                     @display-validated="onDisplayValidated"
                 />
             </v-col>
         </v-row>
         <v-row v-if="canonicalSummaryReady"><v-col cols="12">
             <SummaryPanel
-                :attackData="attackData"
+                :combos="combos"
                 :presentation="canonicalDisplayPresentation"
                 :scorePresentation="canonicalScoreDisplayPresentation"
             />
         </v-col></v-row>
     </v-container>
 </template>
-

@@ -1,19 +1,14 @@
 <script setup>
-
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
     import {
-        getCanonicalAttackDamageChartData,
-        getAttackDamageChartOptions,
+        getCanonicalAttackScoreChartData,
+        getAttackScoreChartOptions,
     } from './ChartSetter';
 
     const props = defineProps({
-        attackData: {
-            type: Object,
-            required: true,
-        },
-        displayRequest: {
-            type: Object,
+        combos: {
+            type: Array,
             required: true,
         },
         presentation: {
@@ -21,14 +16,15 @@
             default: null,
         },
     });
-    const data = computed(() => getCanonicalAttackDamageChartData(
+    const data = computed(() => getCanonicalAttackScoreChartData(
         props.presentation,
-        props.attackData
+        props.combos
     ));
-    const options = computed(() => getAttackDamageChartOptions(props.attackData.dfclty));
+    const options = computed(() => getAttackScoreChartOptions());
 
 </script>
 
 <template>
     <ProbabilityLineChart :data="data" :options="options" />
 </template>
+

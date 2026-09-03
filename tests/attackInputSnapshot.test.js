@@ -11,19 +11,19 @@ import {
 import { createLatestValidationGate } from '../src/shared/validation/LatestValidationGate'
 
 const attackFormSource = readFileSync(
-  new URL('../src/components/Attack/AttackForm.vue', import.meta.url),
+  new URL('../src/features/attack/ui/AttackForm.vue', import.meta.url),
   'utf8'
 )
 const defenceFormSource = readFileSync(
-  new URL('../src/components/Attack/DefenceForm.vue', import.meta.url),
+  new URL('../src/features/attack/ui/DefenceForm.vue', import.meta.url),
   'utf8'
 )
 const comboFormSource = readFileSync(
-  new URL('../src/components/Attack/ComboForm.vue', import.meta.url),
+  new URL('../src/features/attack/ui/ComboForm.vue', import.meta.url),
   'utf8'
 )
 const inputFormSource = readFileSync(
-  new URL('../src/components/Attack/InputForm.vue', import.meta.url),
+  new URL('../src/features/attack/ui/InputForm.vue', import.meta.url),
   'utf8'
 )
 const attackSnapshotSource = readFileSync(
@@ -183,9 +183,7 @@ describe('Attack input flow contracts', () => {
     expect(comboFormSource).not.toContain('onUnmounted')
     expect(comboFormSource).not.toContain('createLatestCalculationRunner')
     expect(comboFormSource).not.toContain('calculateAttackCombo')
-    expect(comboFormSource).toContain(
-      'replaceAttackSideSnapshot(props.comboData.params, side, snapshot)'
-    )
+    expect(comboFormSource).not.toContain('replaceAttackSideSnapshot(')
     expect(comboFormSource).toContain(
       "@validated=\"(snapshot) => onSideValidated('action', snapshot)\""
     )
@@ -209,6 +207,6 @@ describe('Attack input flow contracts', () => {
     expect(comboFormSource).toContain(
       "@show-details=\"(value) => onShowDetails('reaction', value)\""
     )
-    expect(inputFormSource).toContain('@show-details="(change) => onShowDetails(combo, change)"')
+    expect(inputFormSource).toContain('@show-details="(change) => onDetailsChanged(combo, change)"')
   })
 })

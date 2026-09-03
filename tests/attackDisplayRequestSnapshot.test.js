@@ -10,8 +10,8 @@ import {
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 const displayFormSources = [
-  'src/components/Attack/ScoreSettingForm.vue',
-  'src/components/Attack/DamageSettingForm.vue',
+  'src/features/attack/ui/ScoreSettingForm.vue',
+  'src/features/attack/ui/DamageSettingForm.vue',
 ].map((path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'))
 
 describe('Attack display request snapshot', () => {

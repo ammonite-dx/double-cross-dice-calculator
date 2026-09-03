@@ -1,5 +1,5 @@
 <script setup>
-    import AttackPage from '@/features/attack/ui/AttackPage.vue'
+    import { AttackPage } from '@/features/attack'
 </script>
 
 <template>

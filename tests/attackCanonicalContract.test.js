@@ -12,13 +12,13 @@ function readSource(path) {
 const attackSource = readSource('../src/features/attack/model/useAttack.ts')
 const attackPageSource = readSource('../src/features/attack/ui/AttackPage.vue')
 const attackTemplate = attackPageSource.slice(attackPageSource.indexOf('<template>'))
-const inputFormSource = readSource('../src/components/Attack/InputForm.vue')
-const comboFormSource = readSource('../src/components/Attack/ComboForm.vue')
-const scoreFormSource = readSource('../src/components/Attack/ScoreSettingForm.vue')
-const scoreChartSource = readSource('../src/components/Attack/ScoreChart.vue')
-const damageChartSource = readSource('../src/components/Attack/DamageChart.vue')
-const summaryTableSource = readSource('../src/components/Attack/SummaryTable.vue')
-const damageFormSource = readSource('../src/components/Attack/DamageSettingForm.vue')
+const inputFormSource = readSource('../src/features/attack/ui/InputForm.vue')
+const comboFormSource = readSource('../src/features/attack/ui/ComboForm.vue')
+const scoreFormSource = readSource('../src/features/attack/ui/ScoreSettingForm.vue')
+const scoreChartSource = readSource('../src/features/attack/ui/ScoreChart.vue')
+const damageChartSource = readSource('../src/features/attack/ui/DamageChart.vue')
+const summaryTableSource = readSource('../src/features/attack/ui/SummaryTable.vue')
+const damageFormSource = readSource('../src/features/attack/ui/DamageSettingForm.vue')
 
 describe('Attack canonical integration contract', () => {
   it('connects the production view to one canonical lifecycle', () => {

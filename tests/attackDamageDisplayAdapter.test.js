@@ -9,12 +9,12 @@ import {
 import { ATTACK_DISPLAY_MODES } from '../src/application/AttackDisplayRequestSnapshot'
 import {
   getCanonicalAttackDamageChartData,
-} from '../src/components/Attack/ChartSetter'
+} from '../src/features/attack/ui/ChartSetter'
 import {
   CANONICAL_SUMMARY_UNAVAILABLE,
   findCanonicalComboPresentation,
   formatCanonicalSummaryExpectedValue,
-} from '../src/components/Attack/SummaryTable'
+} from '../src/features/attack/ui/SummaryTable'
 
 function createLegacyAttackData() {
   return {
@@ -81,7 +81,7 @@ describe('Attack canonical damage display adapters', () => {
     const legacyData = createLegacyAttackData()
     const data = getCanonicalAttackDamageChartData(
       presentation,
-      legacyData
+      legacyData.combos
     )
 
     expect(data.labels).toEqual([0, 1])
@@ -103,14 +103,14 @@ describe('Attack canonical damage display adapters', () => {
     )
     const roundedData = getCanonicalAttackDamageChartData(
       roundedPresentation,
-      legacyData
+      legacyData.combos
     )
     expect(roundedData.datasets[0].data).toEqual([75, 12.3])
     expect(roundedData.datasets[1].data).toEqual([75, 12.3])
 
     expect(getCanonicalAttackDamageChartData(
       createCanonicalPresentation('not-ready'),
-      legacyData
+      legacyData.combos
     )).toBeNull()
   })
 

@@ -4,8 +4,8 @@
     import { mdiFileChartOutline } from '@mdi/js'
 
     const props = defineProps({
-        attackData: {
-            type: Object,
+        combos: {
+            type: Array,
             required: true,
         },
         presentation: {
@@ -27,7 +27,7 @@
         <v-container class="px-6 py-0">
             <v-card-text class="pt-0 pb-2 text-md-body-1 text-caption">
                 <SummaryTable
-                    :attackData="props.attackData"
+                    :combos="props.combos"
                     :presentation="props.presentation"
                     :scorePresentation="props.scorePresentation"
                 />

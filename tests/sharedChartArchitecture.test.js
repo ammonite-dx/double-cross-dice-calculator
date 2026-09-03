@@ -38,8 +38,8 @@ describe('shared probability chart architecture', () => {
 
     for (const path of [
       'src/features/check/ui/ScoreChart.vue',
-      'src/components/Attack/ScoreChart.vue',
-      'src/components/Attack/DamageChart.vue',
+      'src/features/attack/ui/ScoreChart.vue',
+      'src/features/attack/ui/DamageChart.vue',
     ]) {
       const contents = source(path)
       expect(contents).toContain('@/shared/chart/ProbabilityLineChart.vue')

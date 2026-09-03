@@ -8,7 +8,7 @@ import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLin
  * intentionally does not draw the reaction side; the reaction canonical side
  * remains available in the atomic presentation for summary/future consumers.
  */
-export function getCanonicalAttackScoreChartData (presentation, attackData) {
+export function getCanonicalAttackScoreChartData (presentation, combos) {
     const scorePresentation = presentation?.score ?? presentation;
     if (
         scorePresentation?.status !== 'ready'
@@ -17,8 +17,8 @@ export function getCanonicalAttackScoreChartData (presentation, attackData) {
         return null;
     }
 
-    const comboCount = Array.isArray(attackData?.combos)
-        ? attackData.combos.length
+    const comboCount = Array.isArray(combos)
+        ? combos.length
         : scorePresentation.combos.length;
     const datasets = scorePresentation.combos.map((combo, index) => {
         const action = combo?.action;
@@ -26,7 +26,7 @@ export function getCanonicalAttackScoreChartData (presentation, attackData) {
         if (!dataset) {
             return null;
         }
-        const attackCombo = attackData?.combos?.[index];
+        const attackCombo = combos?.[index];
         const id = attackCombo?.id ?? combo.id ?? index;
         const color = Number.isFinite(id)
             ? getChartColor(id)
@@ -81,7 +81,7 @@ function getCanonicalChartColor (id, index) {
  * boundary converts canonical probability data into the percentage array
  * expected by the existing damage chart without mutating the canonical data.
  */
-export function getCanonicalAttackDamageChartData (presentation, attackData) {
+export function getCanonicalAttackDamageChartData (presentation, combos) {
     if (
         presentation?.status !== 'ready'
         || !Array.isArray(presentation.combos)
@@ -90,15 +90,15 @@ export function getCanonicalAttackDamageChartData (presentation, attackData) {
         return null;
     }
 
-    const comboCount = Array.isArray(attackData?.combos)
-        ? attackData.combos.length
+    const comboCount = Array.isArray(combos)
+        ? combos.length
         : presentation.combos.length;
     const datasets = presentation.combos.map((side, index) => {
         const dataset = side?.chart?.datasets?.[0];
         if (!dataset) {
             return null;
         }
-        const combo = attackData?.combos?.[index];
+        const combo = combos?.[index];
         const id = combo?.id ?? side.id;
         return {
             ...dataset,

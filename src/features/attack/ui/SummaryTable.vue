@@ -9,8 +9,8 @@
     } from './SummaryTable';
 
     const props = defineProps({
-        attackData: {
-            type: Object,
+        combos: {
+            type: Array,
             required: true,
         },
         presentation: {
@@ -78,13 +78,13 @@
             </tr>
         </thead>
         <tbody>
-            <tr v-for="combo in props.attackData.combos" :key="combo.id">
+            <tr v-for="combo in props.combos" :key="combo.id">
                 <td class="pa-0" style="font-size:80%">{{ combo.name }}</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ getComboScoreExpectedValue(combo) }}</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ getComboScoreSuccessRate(combo) }}</td>
                 <td class="pa-0 text-right" style="font-size:80%">{{ getComboDamageExpectedValue(combo) }}</td>
             </tr>
-            <tr v-if="props.attackData.combos.length > 1 && props.presentation?.status === 'ready'">
+            <tr v-if="props.combos.length > 1 && props.presentation?.status === 'ready'">
                 <td class="pa-0" style="font-size:80%">合計</td>
                 <td class="pa-0 text-right" style="font-size:80%"></td>
                 <td class="pa-0 text-right" style="font-size:80%"></td>

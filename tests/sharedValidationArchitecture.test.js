@@ -63,8 +63,8 @@ describe('shared validation architecture', () => {
   it('keeps shared validation as the only owner of duplicated rule definitions', () => {
     const scoreConsumers = [
       'src/features/check/ui/ScoreForm.vue',
-      'src/components/Attack/AttackForm.vue',
-      'src/components/Attack/DefenceForm.vue',
+      'src/features/attack/ui/AttackForm.vue',
+      'src/features/attack/ui/DefenceForm.vue',
     ]
     for (const path of scoreConsumers) {
       const contents = source(path)
@@ -76,8 +76,8 @@ describe('shared validation architecture', () => {
 
     const displayConsumers = [
       'src/features/check/ui/SettingForm.vue',
-      'src/components/Attack/ScoreSettingForm.vue',
-      'src/components/Attack/DamageSettingForm.vue',
+      'src/features/attack/ui/ScoreSettingForm.vue',
+      'src/features/attack/ui/DamageSettingForm.vue',
     ]
     for (const path of displayConsumers) {
       const contents = source(path)
