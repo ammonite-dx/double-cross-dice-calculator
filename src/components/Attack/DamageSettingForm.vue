@@ -6,6 +6,7 @@
         createAttackDisplayRequestSnapshot,
     } from '@/application/AttackDisplayRequestSnapshot';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
+    import { createDisplayRangeRules } from '@/shared/validation/DisplayRangeRules';
 
     const props = defineProps({
         displayRequest: {
@@ -32,18 +33,9 @@
     ];
     const validationGate = createLatestValidationGate();
 
-    const isSafeCoordinate = (value) =>
-        Number.isSafeInteger(value) && value >= 0;
-    const minRule = [
-        value => value !== '' || '最小値を入力して下さい。',
-        value => isSafeCoordinate(value) || '最小値は0以上の安全な整数値として下さい。',
-        value => value <= currentRequest.max || '最小値は最大値以下にして下さい',
-    ];
-    const maxRule = [
-        value => value !== '' || '最大値を入力して下さい。',
-        value => isSafeCoordinate(value) || '最大値は0以上の安全な整数値として下さい。',
-        value => value >= currentRequest.min || '最大値は最小値以上にして下さい',
-    ];
+    const { min: minRule, max: maxRule } = createDisplayRangeRules(
+        () => currentRequest,
+    );
 
     watch(() => [
         props.displayRequest.min,

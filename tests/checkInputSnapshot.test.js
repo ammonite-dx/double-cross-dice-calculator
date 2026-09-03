@@ -155,6 +155,7 @@ describe('Check input flow contracts', () => {
     expect(settingFormSource).not.toContain('max=999')
     expect(settingFormSource).not.toContain('max="999"')
     expect(settingFormSource).toContain("@/shared/validation/LatestValidationGate")
+    expect(settingFormSource).toContain("@/shared/validation/DisplayRangeRules")
     expect(settingFormSource).toContain('const ticket = validationGate.begin()')
     expect(settingFormSource).toContain('validationGate.canCommit(ticket)')
     expect(settingFormSource).toContain('validationGate.dispose()')

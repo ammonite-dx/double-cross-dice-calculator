@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -8,7 +9,21 @@ import {
 } from '../src/application/AttackDisplayRequestSnapshot'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
+const displayFormSources = [
+  'src/components/Attack/ScoreSettingForm.vue',
+  'src/components/Attack/DamageSettingForm.vue',
+].map((path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'))
+
 describe('Attack display request snapshot', () => {
+  it('uses shared display range validation in both Attack display forms', () => {
+    for (const source of displayFormSources) {
+      expect(source).toContain("@/shared/validation/DisplayRangeRules")
+      expect(source).not.toContain('isSafeCoordinate')
+      expect(source).not.toContain('const minRule = [')
+      expect(source).not.toContain('const maxRule = [')
+    }
+  })
+
   it.each([
     { label: '0..100', min: 0, max: 100 },
     { label: '0..999', min: 0, max: 999 },
