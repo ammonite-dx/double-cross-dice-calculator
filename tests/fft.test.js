@@ -5,8 +5,8 @@ import {
   getConvolutionFftLength,
   subDistribution,
   sumDistribution,
-} from '../src/data/FFT'
-import * as FFT from '../src/data/FFT'
+} from '../src/core/probability/FFT'
+import * as FFT from '../src/core/probability/FFT'
 
 function pointMass(size, value) {
   const distribution = Array(size).fill(0)

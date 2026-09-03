@@ -1,8 +1,8 @@
 import {
   WORKING_DISTRIBUTION_SIZE,
   shiftDistribution,
-} from '../data/Distribution'
-import { subDistribution } from '../data/FFT'
+} from '../core/probability/Distribution'
+import { subDistribution } from '../core/probability/FFT'
 import { calculateD10Distribution } from './D10Calculator'
 import {
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,

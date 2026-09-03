@@ -12,14 +12,14 @@ function internalPattern(layers, message) {
   }
 }
 
-const referenceRepositoryPattern = {
-  regex: `^${relativeOrAlias}data/ReferencePrecomputedDataRepository(?:\\.js)?(?:/|$)`,
+const referenceToolingPattern = {
+  regex: `^${relativeOrAlias}tooling/reference-data(?:/|$)`,
   message: 'Reference precomputed data is verification-only and must not enter the production path.',
 }
 
-const precomputedSchemaPattern = {
-  regex: `^${relativeOrAlias}data/PrecomputedDataSchema(?:\\.js)?(?:/|$)`,
-  message: 'Published-data schema support belongs to the reference boundary, not this layer.',
+const legacyDataPattern = {
+  regex: `^${relativeOrAlias}data/(?:Distribution|FFT|ColorSetter|ReferencePrecomputedDataRepository|PrecomputedDataSchema)(?:\\.js)?(?:/|$)`,
+  message: 'The retired src/data path must not be reintroduced; import the owning module from its current boundary.',
 }
 
 const corePackagePattern = {
@@ -43,13 +43,13 @@ const coreSharedPattern = internalPattern(
 )
 
 const sharedValidationInternalPattern = internalPattern(
-  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'data'],
-  'Shared validation must remain independent of application, UI, feature, calculation, and data layers.',
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'tooling'],
+  'Shared validation must remain independent of application, UI, feature, calculation, probability, and reference layers.',
 )
 
 const sharedChartInternalPattern = internalPattern(
-  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'data', 'domain', 'shared'],
-  'Shared chart infrastructure must remain independent of application, feature, calculation, data, domain, and other shared layers.',
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'domain', 'tooling', 'shared'],
+  'Shared chart infrastructure must remain independent of application, feature, calculation, probability, data, domain, reference, and other shared layers.',
 )
 
 const uiCalculationPattern = internalPattern(
@@ -57,8 +57,8 @@ const uiCalculationPattern = internalPattern(
   'UI must access probability calculation through CalculationClient.',
 )
 
-const uiDataPattern = {
-  regex: `^${relativeOrAlias}data/(?:Distribution|FFT)(?:\\.js)?(?:/|$)`,
+const uiProbabilityPattern = {
+  regex: `^${relativeOrAlias}core/probability(?:/|$)`,
   message: 'UI must not import calculation primitives directly.',
 }
 
@@ -137,7 +137,7 @@ export default [
     files: ['src/**/*.{js,mjs,ts,vue}'],
     rules: {
       'no-restricted-imports': ['error', {
-        patterns: [referenceRepositoryPattern],
+        patterns: [referenceToolingPattern, legacyDataPattern],
       }],
     },
   },
@@ -145,8 +145,7 @@ export default [
     files: [
       'src/calculation/**/*.{js,ts}',
       'src/domain/**/*.{js,ts}',
-      'src/data/Distribution.js',
-      'src/data/FFT.js',
+      'src/core/probability/**/*.{js,ts}',
     ],
     rules: {
       'no-restricted-imports': ['error', {
@@ -155,8 +154,8 @@ export default [
           coreInternalPattern,
           coreSharedPattern,
           coreNodePattern,
-          referenceRepositoryPattern,
-          precomputedSchemaPattern,
+          referenceToolingPattern,
+          legacyDataPattern,
         ],
       }],
       'no-restricted-globals': [
@@ -175,8 +174,8 @@ export default [
           corePackagePattern,
           sharedValidationInternalPattern,
           coreNodePattern,
-          referenceRepositoryPattern,
-          precomputedSchemaPattern,
+          referenceToolingPattern,
+          legacyDataPattern,
         ],
       }],
       'no-restricted-globals': [
@@ -219,9 +218,9 @@ export default [
         ],
         patterns: [
           uiCalculationPattern,
-          uiDataPattern,
-          referenceRepositoryPattern,
-          precomputedSchemaPattern,
+          uiProbabilityPattern,
+          referenceToolingPattern,
+          legacyDataPattern,
         ],
       }],
     },
@@ -236,8 +235,8 @@ export default [
             'Feature models must remain independent of application UI modules.',
           ),
           featureModelUiPattern,
-          referenceRepositoryPattern,
-          precomputedSchemaPattern,
+          referenceToolingPattern,
+          legacyDataPattern,
         ],
       }],
     },
@@ -248,8 +247,8 @@ export default [
       'no-restricted-imports': ['error', {
         patterns: [
           applicationUiPattern,
-          referenceRepositoryPattern,
-          precomputedSchemaPattern,
+          referenceToolingPattern,
+          legacyDataPattern,
         ],
       }],
     },
@@ -262,8 +261,8 @@ export default [
           presentationUiPattern,
           presentationApplicationPattern,
           presentationPackagePattern,
-          referenceRepositoryPattern,
-          precomputedSchemaPattern,
+          referenceToolingPattern,
+          legacyDataPattern,
         ],
       }],
     },

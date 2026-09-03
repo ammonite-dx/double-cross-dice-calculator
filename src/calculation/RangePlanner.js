@@ -1,4 +1,4 @@
-import { OUTPUT_DISTRIBUTION_SIZE } from '../data/Distribution'
+import { OUTPUT_DISTRIBUTION_SIZE } from '../core/probability/Distribution'
 import {
   BACKTRACK_ASSET_SUPPORT_MAX,
   getBacktrackGenerationOperationEstimate,

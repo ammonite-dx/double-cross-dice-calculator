@@ -1,4 +1,4 @@
-import { OUTPUT_DISTRIBUTION_SIZE } from '../data/Distribution'
+import { OUTPUT_DISTRIBUTION_SIZE } from '../core/probability/Distribution'
 
 /**
  * The planner's default limits are deliberately smaller than these direct

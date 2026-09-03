@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   WORKING_DISTRIBUTION_SIZE,
   shiftDistribution,
-} from '../src/data/Distribution'
+} from '../src/core/probability/Distribution'
 
 function pointMass(size, value) {
   const distribution = Array(size).fill(0)

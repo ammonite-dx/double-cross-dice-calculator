@@ -1,7 +1,7 @@
 import {
   convolveDistributions,
   getConvolutionFftLength,
-} from '../data/FFT'
+} from '../core/probability/FFT'
 import {
   createDistributionResult,
   DISTRIBUTION_RESULT_TOLERANCE,

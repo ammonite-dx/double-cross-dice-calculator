@@ -8,7 +8,7 @@ import {
   planCalculationRanges,
   scoreTailBound,
 } from '../src/calculation/RangePlanner'
-import { OUTPUT_DISTRIBUTION_SIZE } from '../src/data/Distribution'
+import { OUTPUT_DISTRIBUTION_SIZE } from '../src/core/probability/Distribution'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   D10_MAX_GENERATION_OPERATIONS,

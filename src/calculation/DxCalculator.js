@@ -6,7 +6,7 @@ import {
 import {
   convolveDistributions,
   getConvolutionFftLength,
-} from '../data/FFT'
+} from '../core/probability/FFT'
 
 export const DX_DISTRIBUTION_SIZE = 2048
 // The planner's default hard policy is deliberately lower than this direct

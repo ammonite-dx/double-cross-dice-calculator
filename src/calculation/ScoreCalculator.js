@@ -1,7 +1,7 @@
 import {
   WORKING_DISTRIBUTION_SIZE,
   expandSparseDistribution,
-} from '../data/Distribution'
+} from '../core/probability/Distribution'
 import {
   DISTRIBUTION_RESULT_TOLERANCE,
   createDistributionResult,

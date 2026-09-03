@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getUpperTailProbability } from '../src/data/Distribution'
+import { getUpperTailProbability } from '../src/core/probability/Distribution'
 import {
   CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
 } from '../src/presentation/DistributionPresenter'
