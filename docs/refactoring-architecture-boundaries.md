@@ -118,3 +118,5 @@ R3はBacktrack featureizationを対象とする。`features/backtrack`、`runtim
 `src/data`ディレクトリと旧pathの互換re-exportは存在しない。productionの`src/**`から`tooling/reference-data/**`へのimportも禁止し、reference data supportが公開assetの検証・比較専用であることを保つ。公開schema-v2/revision-1 URL、Distribution/FFTの数値挙動、ChartPaletteの9色と`id % 9`は変更していない。
 
 R8で更新したESLint architecture ruleは、`src/core/probability/**`をcore境界として扱い、UIからの同領域への直接import、shared validation/chartからのprobability/reference依存、production sourceからのreference tooling依存、旧`src/data` pathの再導入を検出する。恒久的な静的検査は[`dataResponsibilitiesArchitecture.test.js`](../tests/dataResponsibilitiesArchitecture.test.js)にも記録している。
+
+R8の最終実装、責務マトリクス、維持した契約、全体gate、優先度と次のR9は[`refactoring-data-responsibilities.md`](./refactoring-data-responsibilities.md)に集約している。
