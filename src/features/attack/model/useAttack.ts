@@ -157,10 +157,14 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
 
   const displayRangePolicy = DEFAULT_DISPLAY_RANGE_PLANNER_POLICY
   const displayRequest = reactive(
-    createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST)
+    {
+      ...createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST),
+    }
   ) as DisplayRequestSnapshot
   const scoreDisplayRequest = reactive(
-    createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST)
+    {
+      ...createAttackDisplayRequestSnapshot(DEFAULT_ATTACK_DISPLAY_REQUEST),
+    }
   ) as DisplayRequestSnapshot
   const state = createState()
 
