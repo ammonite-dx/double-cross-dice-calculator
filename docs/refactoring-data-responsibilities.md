@@ -16,7 +16,7 @@ R8全体の開始点は`42b2ff6d86f4fe2c7d3a7e55f579f19929535545`（`docs: close
 | First docs closure | `d3d53fd1a9b67dba84a36e72ce20ba63ce0edd5f` | R8初回のpath・inventory・roadmap記録 |
 | Previous closure implementation | `64ccf0dc682c9ff24eaaed419138eccbcdc33615` | core→features、theme→上位層・他shared subsystemの境界を追加 |
 | Final implementation | `9afdd935c469a37fea4bbe9586e4732c7012ba9f` | themeの相対sibling境界、source scan、lintText回帰テストを追加 |
-| Docs closure | このFollow-up 2のdocs commit | 最終gate、優先度、R8 statusを記録 |
+| Docs closure | `3646934b615c62cbc6152c90af8e52a0df7906d1` | このFollow-up 2のdocs、最終gate、優先度、R8 statusを記録 |
 
 ## 3. 最終責務マトリクス
 
