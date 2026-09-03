@@ -3,6 +3,10 @@
     import { onUnmounted, ref,reactive,watch } from 'vue';
     import { getChartColor } from '@/data/ColorSetter';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
+    import {
+        createScoreFeatureCompatibilityRule,
+        createScoreFieldRules,
+    } from '@/shared/validation/ScoreInputRules';
 
     const props = defineProps(['side', 'params']);
     const emit = defineEmits(['validated']);
@@ -18,32 +22,23 @@
         shihai: props.params.shihai,
     });
     const validationGate = createLatestValidationGate();
-    const diceRule = [
-        value => value!=="" || 'ダイス数を入力して下さい。',
-        value => Number.isSafeInteger(value) || 'ダイス数は整数値として下さい。',
-        value => value>=0 || 'ダイス数は0以上として下さい。',
-    ];
-    const criticalRule = [
-        value => value!=="" || 'クリティカル値を入力して下さい。',
-        value => Number.isSafeInteger(value) || 'クリティカル値は整数値として下さい。',
-        value => value>=2 || 'クリティカル値は2以上として下さい。',
-        value => value<=11 || 'クリティカル値は11以下として下さい。',
-    ];
-    const skillRule = [
-        value => value!=="" || '技能値を入力して下さい。',
-        value => Number.isSafeInteger(value) || '技能値は整数値として下さい',
-    ];
+    const scoreRules = createScoreFieldRules();
+    const diceRule = scoreRules.dice;
+    const criticalRule = scoreRules.critical;
+    const skillRule = scoreRules.skill;
     const youseiRule = [
-        value => value!=="" || '《妖精の手》等の回数を入力して下さい。',
-        value => Number.isSafeInteger(value) || '《妖精の手》等の回数は整数値として下さい。',
-        value => value>=0 || '《妖精の手》等の回数は0以上として下さい。',
-        value => (currentParams.shihai===0 || value===0) || '《妖精の手》と《支配の領域》の同時利用には対応していません。',
+        ...scoreRules.yousei,
+        createScoreFeatureCompatibilityRule({
+            field: 'yousei',
+            getScore: () => currentParams,
+        }),
     ];
     const shihaiRule = [
-        value => value!=="" || '《支配の領域》の対象となるダイス数を入力して下さい。',
-        value => Number.isSafeInteger(value) || '《支配の領域》の対象となるダイス数は整数値として下さい。',
-        value => value>=0 || '《支配の領域》の対象となるダイス数は0以上として下さい。',
-        value => (currentParams.yousei===0 || value===0) || '《妖精の手》と《支配の領域》の同時利用には対応していません。',
+        ...scoreRules.shihai,
+        createScoreFeatureCompatibilityRule({
+            field: 'shihai',
+            getScore: () => currentParams,
+        }),
     ];
     watch(() => [
         props.params.dice,
