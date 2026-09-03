@@ -52,6 +52,12 @@ describe('shared validation architecture', () => {
     expect(source('src/shared/validation/DisplayRangeRules.ts')).toContain(
       "@/domain/InputDomain",
     )
+    expect(source('src/shared/validation/IntegerRules.ts')).toContain(
+      "@/domain/InputDomain",
+    )
+    expect(source('src/shared/validation/IntegerRules.ts')).not.toContain(
+      'Number.isSafeInteger',
+    )
   })
 
   it('keeps shared validation as the only owner of duplicated rule definitions', () => {

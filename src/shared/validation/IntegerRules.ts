@@ -1,3 +1,5 @@
+import { isSafeInteger } from '@/domain/InputDomain'
+
 export type ValidationResult = true | string
 
 export type ValidationRule = (value: unknown) => ValidationResult
@@ -13,10 +15,6 @@ export interface SafeIntegerRuleOptions {
 
 function isEmpty(value: unknown): boolean {
   return value === '' || value === null || value === undefined
-}
-
-function isSafeInteger(value: unknown): value is number {
-  return Number.isSafeInteger(value)
 }
 
 /**
