@@ -367,6 +367,25 @@ async function fillBoundaryInput(
   assertNoBrowserErrors(caseId, record)
 }
 
+async function assertInvalidInput(page, record, caseId, input, value, message) {
+  assertCondition(
+    caseId,
+    await input.count() === 1,
+    'accessible validation input was not found',
+  )
+  await input.fill(String(value))
+  assertCondition(
+    caseId,
+    await input.inputValue() === String(value),
+    `validation input did not retain ${value}`,
+  )
+  await page.getByText(message, { exact: true }).first().waitFor({
+    state: 'visible',
+    timeout: PAGE_TIMEOUT_MILLISECONDS,
+  })
+  assertNoBrowserErrors(caseId, record)
+}
+
 async function selectDisplayMode(page, record, caseId, label) {
   const select = page.locator('input[role="combobox"]')
   assertCondition(caseId, await select.count() === 1, 'display mode select was not found')
@@ -427,6 +446,83 @@ async function runCheck(browser, baseUrl) {
     )
     assertNoBrowserErrors('check opposed off', record)
     summaries.push({ canvases: 1, id: 'check opposed off', precomputed: 0 })
+
+    await fillBoundaryInput(
+      page,
+      record,
+      'check critical=11',
+      page.getByLabel('クリティカル値'),
+      11,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check critical=2',
+      page.getByLabel('クリティカル値'),
+      2,
+      1,
+    )
+    await assertInvalidInput(
+      page,
+      record,
+      'check critical=1 invalid',
+      page.getByLabel('クリティカル値'),
+      1,
+      'クリティカル値は2以上として下さい。',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check critical=10 recovery',
+      page.getByLabel('クリティカル値'),
+      10,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check skill=-1',
+      page.getByLabel('技能値'),
+      -1,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check skill=0 recovery',
+      page.getByLabel('技能値'),
+      0,
+      1,
+    )
+
+    const advancedSwitch = page.locator('input[type="checkbox"]').last()
+    assertCondition('check advanced on', await advancedSwitch.count() === 1, 'advanced settings switch was not found')
+    await advancedSwitch.setChecked(true)
+    const youseiInput = page.getByLabel('《妖精の手》等の回数')
+    const shihaiInput = page.getByLabel('《支配の領域》の対象ダイス数')
+    await fillBoundaryInput(page, record, 'check yousei=1', youseiInput, 1, 1)
+    await assertInvalidInput(
+      page,
+      record,
+      'check shihai=1 unsupported',
+      shihaiInput,
+      1,
+      '《妖精の手》と《支配の領域》の同時利用には対応していません。',
+    )
+    await fillBoundaryInput(page, record, 'check shihai=0 recovery', shihaiInput, 0, 1)
+    const advancedOffState = await captureResultState(page)
+    await advancedSwitch.setChecked(false)
+    await waitForResultCommit(page, advancedOffState)
+    await advancedSwitch.setChecked(true)
+    await youseiInput.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'check advanced off',
+      await youseiInput.inputValue() === '0' && await shihaiInput.inputValue() === '0',
+      'advanced score fields were not reset when advanced settings were disabled',
+    )
+    await advancedSwitch.setChecked(false)
+    assertNoBrowserErrors('check advanced off', record)
 
     await selectDisplayMode(
       page,
@@ -533,6 +629,49 @@ async function runAttack(browser, baseUrl) {
     )
     assertNoPrecomputedRequests('attack-d10', record)
     assertNoBrowserErrors('attack-d10', record)
+    const attackAdvancedSwitch = page.locator('input[type="checkbox"]').first()
+    await attackAdvancedSwitch.setChecked(true)
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack critical=2',
+      page.getByLabel('クリティカル値').first(),
+      2,
+      2,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack skill=-1',
+      page.getByLabel('技能値').first(),
+      -1,
+      2,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack yousei=1',
+      page.getByLabel('《妖精の手》等の回数').first(),
+      1,
+      2,
+    )
+    await attackAdvancedSwitch.setChecked(false)
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack critical=10 recovery',
+      page.getByLabel('クリティカル値').first(),
+      10,
+      2,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack skill=0 recovery',
+      page.getByLabel('技能値').first(),
+      0,
+      2,
+    )
     await fillBoundaryInput(
       page,
       record,
