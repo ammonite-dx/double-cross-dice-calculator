@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 const root = new URL('../', import.meta.url)
 const thisTestPath = 'tests/dataResponsibilitiesArchitecture.test.js'
 const repositoryRoot = fileURLToPath(root)
+const eslint = new ESLint({ cwd: repositoryRoot })
 
 function source(path) {
   return readFileSync(new URL(path, root), 'utf8')
@@ -23,7 +24,6 @@ function sourceFilesRecursive(path) {
 }
 
 async function lintText(filePath, text) {
-  const eslint = new ESLint({ cwd: repositoryRoot })
   const [result] = await eslint.lintText(text, { filePath })
   return result
 }
@@ -51,6 +51,7 @@ const oldDataImportPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*\/data\/(?:Dis
 const referenceImportPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:tooling\/reference-data|ReferencePrecomputedDataRepository|PrecomputedDataSchema)/
 const coreBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:application|components|views|router|plugins|layouts|presentation|features|shared|tooling|node:|vue(?:-router)?|vuetify|chart\.js|vue-chartjs|chartjs-plugin-)/
 const themeBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:application|calculation|core|domain|features|presentation|tooling|node:|vue|vuetify|chart\.js|vue-chartjs|chartjs-plugin-)/
+const themeSiblingBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"](?:\.\.\/)+(?:validation|chart)(?:\/|['"])/
 
 describe('data responsibility architecture', () => {
   it('keeps each responsibility at its current path and retires src/data', () => {
@@ -88,6 +89,7 @@ describe('data responsibility architecture', () => {
   it('keeps shared theme utilities as dependency-free leaves', () => {
     for (const path of themeFiles) {
       expect(source(path), path).not.toMatch(themeBoundaryPattern)
+      expect(source(path), path).not.toMatch(themeSiblingBoundaryPattern)
     }
   })
 
@@ -124,5 +126,51 @@ describe('data responsibility architecture', () => {
         expect.objectContaining({ ruleId: 'no-restricted-imports' }),
       ]),
     )
+
+    const themeRelativeValidationResult = await lintText(
+      'src/shared/theme/ArchitectureFixture.js',
+      "import rules from '../validation/IntegerRules'",
+    )
+    expect(themeRelativeValidationResult.errorCount).toBeGreaterThan(0)
+    expect(themeRelativeValidationResult.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
+
+    const themeRelativeChartResult = await lintText(
+      'src/shared/theme/ArchitectureFixture.js',
+      "import config from '../chart/ProbabilityLineChartConfig'",
+    )
+    expect(themeRelativeChartResult.errorCount).toBeGreaterThan(0)
+    expect(themeRelativeChartResult.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
+
+    const themeMultiParentResult = await lintText(
+      'src/shared/theme/tokens/ArchitectureFixture.js',
+      "import rules from '../../validation/IntegerRules'",
+    )
+    expect(themeMultiParentResult.errorCount).toBeGreaterThan(0)
+    expect(themeMultiParentResult.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
+
+    const themeLocalResult = await lintText(
+      'src/shared/theme/ArchitectureFixture.js',
+      "import './Colors'",
+    )
+    expect(themeLocalResult.messages).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
+
+    expect("import rules from '../validation/IntegerRules'").toMatch(themeSiblingBoundaryPattern)
+    expect("import config from '../../chart/ProbabilityLineChartConfig'").toMatch(themeSiblingBoundaryPattern)
   })
 })

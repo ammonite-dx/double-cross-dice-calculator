@@ -52,6 +52,11 @@ const sharedThemeParentPattern = {
   message: 'Shared theme utilities must not depend on other shared subsystems.',
 }
 
+const sharedThemeSiblingPattern = {
+  regex: '^(?:\\.\\./)+(?:validation|chart)(?:/|$)',
+  message: 'Shared theme utilities must not depend on other shared subsystems.',
+}
+
 const sharedValidationInternalPattern = internalPattern(
   ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'tooling'],
   'Shared validation must remain independent of application, UI, feature, calculation, probability, and reference layers.',
@@ -214,6 +219,7 @@ export default [
         patterns: [
           sharedThemeInternalPattern,
           sharedThemeParentPattern,
+          sharedThemeSiblingPattern,
           corePackagePattern,
           coreNodePattern,
           referenceToolingPattern,
