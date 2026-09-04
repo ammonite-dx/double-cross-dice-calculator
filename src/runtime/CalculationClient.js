@@ -453,7 +453,6 @@ export function createCalculationClient(
 
     try {
       throwIfAborted(options, 'Attack')
-      throwIfAborted(options, 'Attack')
 
       if (canonicalScoreCalculator === null) {
         throw new Error(

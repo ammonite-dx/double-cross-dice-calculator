@@ -26,19 +26,8 @@ export const DEFAULT_ATTACK_DISPLAY_REQUEST = Object.freeze({
 
 const LEGACY_SAFE_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
 
-function isPlainRecord(value) {
-  if (value === null || typeof value !== 'object') {
-    return false
-  }
-  try {
-    if (Array.isArray(value)) {
-      return false
-    }
-    const prototype = Object.getPrototypeOf(value)
-    return prototype === Object.prototype || prototype === null
-  } catch {
-    return false
-  }
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function clonePolicyValue(value, seen = new WeakMap()) {
@@ -56,10 +45,10 @@ function clonePolicyValue(value, seen = new WeakMap()) {
     }
     return copy
   }
-  if (!isPlainRecord(value)) {
+  if (!isRecord(value)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
-      'rangePolicy must contain only plain records and arrays',
+      'rangePolicy must contain only objects and arrays',
       { path: 'rangePolicy' }
     )
   }
@@ -104,46 +93,14 @@ function fail(code, message, details = {}) {
 }
 
 function readOwn(request, property) {
-  let hasProperty
-  try {
-    hasProperty = Object.prototype.hasOwnProperty.call(request, property)
-  } catch {
+  if (!Object.prototype.hasOwnProperty.call(request, property)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} could not be inspected safely`,
+      `displayRequest.${property} must be an own property`,
       { path: `displayRequest.${property}` }
     )
   }
-  if (!hasProperty) {
-    fail(
-      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} must be an own data property`,
-      { path: `displayRequest.${property}` }
-    )
-  }
-
-  let descriptor
-  try {
-    descriptor = Object.getOwnPropertyDescriptor(request, property)
-  } catch {
-    fail(
-      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} could not be inspected safely`,
-      { path: `displayRequest.${property}` }
-    )
-  }
-  if (
-    descriptor === undefined
-    || !Object.prototype.hasOwnProperty.call(descriptor, 'value')
-    || descriptor.enumerable !== true
-  ) {
-    fail(
-      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} must be an enumerable data property`,
-      { path: `displayRequest.${property}` }
-    )
-  }
-  return descriptor.value
+  return request[property]
 }
 
 function normalizeCoordinate(value, property) {
@@ -176,10 +133,10 @@ function normalizeMode(value) {
  * not belong to this value.
  */
 export function normalizeAttackDisplayRequest(request) {
-  if (!isPlainRecord(request)) {
+  if (!isRecord(request)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      'displayRequest must be a plain record',
+      'displayRequest must be an object',
       { path: 'displayRequest' }
     )
   }
@@ -239,10 +196,10 @@ export function createAttackRangePolicy(
   scoreDisplayRequest
 ) {
   const display = createAttackDisplayRequestSnapshot(displayRequest)
-  if (!isPlainRecord(suppliedPolicy)) {
+  if (!isRecord(suppliedPolicy)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
-      'rangePolicy must be a plain record',
+      'rangePolicy must be an object',
       { path: 'rangePolicy' }
     )
   }
@@ -282,10 +239,10 @@ export function createAttackRangePolicy(
     'rangePolicy.calculationMax'
   )
   const suppliedDisplay = policy.display ?? {}
-  if (!isPlainRecord(suppliedDisplay)) {
+  if (!isRecord(suppliedDisplay)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
-      'rangePolicy.display must be a plain record',
+      'rangePolicy.display must be an object',
       { path: 'rangePolicy.display' }
     )
   }

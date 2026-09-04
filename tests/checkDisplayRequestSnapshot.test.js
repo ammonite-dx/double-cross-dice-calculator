@@ -51,6 +51,26 @@ describe('Check display request snapshot', () => {
     })
   })
 
+  it('accepts ordinary getter properties during normalization', () => {
+    let reads = 0
+    const request = { min: 0, mode: CHECK_DISPLAY_MODES.PMF }
+    Object.defineProperty(request, 'max', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        reads += 1
+        return 1
+      },
+    })
+
+    expect(createCheckDisplayRequestSnapshot(request)).toEqual({
+      min: 0,
+      max: 1,
+      mode: CHECK_DISPLAY_MODES.PMF,
+    })
+    expect(reads).toBe(1)
+  })
+
   it.each([
     { min: -1, max: 0, mode: CHECK_DISPLAY_MODES.PMF },
     { min: 0.5, max: 1, mode: CHECK_DISPLAY_MODES.PMF },

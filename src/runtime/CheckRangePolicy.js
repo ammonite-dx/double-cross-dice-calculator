@@ -23,12 +23,8 @@ const CHECK_DISPLAY_MODES = Object.freeze({
 
 const LEGACY_SAFE_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
 
-function isPlainRecord(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
-  }
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function fail(code, message, details = {}) {
@@ -42,19 +38,11 @@ function readOwn(request, property) {
   if (!Object.prototype.hasOwnProperty.call(request, property)) {
     fail(
       DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} must be an own data property`,
+      `displayRequest.${property} must be an own property`,
       { path: `displayRequest.${property}` }
     )
   }
-  const descriptor = Object.getOwnPropertyDescriptor(request, property)
-  if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
-    fail(
-      DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} must be an own data property`,
-      { path: `displayRequest.${property}` }
-    )
-  }
-  return descriptor.value
+  return request[property]
 }
 
 function normalizeCoordinate(value, property) {
@@ -86,10 +74,10 @@ function normalizeMode(value) {
  * the Check display snapshot boundary without importing feature code.
  */
 function normalizeDisplayRequest(displayRequest) {
-  if (!isPlainRecord(displayRequest)) {
+  if (!isRecord(displayRequest)) {
     fail(
       DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      'displayRequest must be a plain record',
+      'displayRequest must be an object',
       { path: 'displayRequest' }
     )
   }
@@ -129,10 +117,10 @@ function clonePolicyValue(value, seen = new WeakMap()) {
     }
     return copy
   }
-  if (!isPlainRecord(value)) {
+  if (!isRecord(value)) {
     fail(
       CHECK_RANGE_POLICY_ERROR_CODE,
-      'rangePolicy must contain only plain records and arrays',
+      'rangePolicy must contain only objects and arrays',
       { valueType: typeof value }
     )
   }
@@ -176,10 +164,10 @@ function validateOptionalPolicyInteger(value, path) {
  */
 export function createCheckRangePolicy(displayRequest, suppliedPolicy = {}) {
   const display = normalizeDisplayRequest(displayRequest)
-  if (!isPlainRecord(suppliedPolicy)) {
+  if (!isRecord(suppliedPolicy)) {
     fail(
       CHECK_RANGE_POLICY_ERROR_CODE,
-      'rangePolicy must be a plain record',
+      'rangePolicy must be an object',
       { path: 'rangePolicy' }
     )
   }
@@ -191,10 +179,10 @@ export function createCheckRangePolicy(displayRequest, suppliedPolicy = {}) {
     'rangePolicy.calculationMax'
   )
   const suppliedDisplay = policy.display ?? {}
-  if (!isPlainRecord(suppliedDisplay)) {
+  if (!isRecord(suppliedDisplay)) {
     fail(
       CHECK_RANGE_POLICY_ERROR_CODE,
-      'rangePolicy.display must be a plain record',
+      'rangePolicy.display must be an object',
       { path: 'rangePolicy.display' }
     )
   }

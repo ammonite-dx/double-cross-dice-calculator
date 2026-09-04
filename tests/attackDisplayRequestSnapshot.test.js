@@ -128,54 +128,24 @@ describe('Attack display request snapshot', () => {
     }))
   })
 
-  it('does not execute accessor properties', () => {
-    let called = false
+  it('accepts ordinary getter properties as direct reads', () => {
+    let reads = 0
     const request = { min: 0, max: 1, mode: ATTACK_DISPLAY_MODES.PMF }
     Object.defineProperty(request, 'max', {
       configurable: true,
       enumerable: true,
       get() {
-        called = true
-        throw new Error('display request getter must not run')
+        reads += 1
+        return 1
       },
     })
 
-    expect(() => createAttackDisplayRequestSnapshot(request)).toThrow(
-      expect.objectContaining({
-        code: ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      })
-    )
-    expect(called).toBe(false)
-  })
-
-  it('converts revoked and reflection-failing proxies to typed invalid requests', () => {
-    const revoked = Proxy.revocable({
+    expect(createAttackDisplayRequestSnapshot(request)).toEqual({
       min: 0,
       max: 1,
       mode: ATTACK_DISPLAY_MODES.PMF,
-    }, {})
-    revoked.revoke()
-
-    expect(() => createAttackDisplayRequestSnapshot(revoked.proxy)).toThrow(
-      expect.objectContaining({
-        code: ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      })
-    )
-
-    const reflectionFailure = new Proxy({
-      min: 0,
-      max: 1,
-      mode: ATTACK_DISPLAY_MODES.PMF,
-    }, {
-      getOwnPropertyDescriptor() {
-        throw new Error('reflection failure')
-      },
     })
-    expect(() => createAttackDisplayRequestSnapshot(reflectionFailure)).toThrow(
-      expect.objectContaining({
-        code: ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      })
-    )
+    expect(reads).toBe(1)
   })
 
   it('creates a frozen calculation policy that expands with the display window', () => {

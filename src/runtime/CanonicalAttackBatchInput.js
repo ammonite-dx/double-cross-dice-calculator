@@ -23,13 +23,9 @@ export function isCalculationBatchInputError(error) {
 }
 
 function isRecord(value) {
-  try {
-    return value !== null
-      && typeof value === 'object'
-      && !Array.isArray(value)
-  } catch {
-    return false
-  }
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
 }
 
 function failBatchInput(code, message, details = {}) {
@@ -41,7 +37,7 @@ function readBatchDataProperty(
   property,
   path,
   code,
-  { required = false, allowNonEnumerable = false, rejectPrototype = true } = {}
+  { required = false } = {}
 ) {
   if (object === null || typeof object !== 'object') {
     failBatchInput(
@@ -51,252 +47,37 @@ function readBatchDataProperty(
     )
   }
 
-  let descriptor
-  try {
-    descriptor = Object.getOwnPropertyDescriptor(object, property)
-  } catch (error) {
-    failBatchInput(
-      code,
-      `${path} could not be inspected safely`,
-      { path, causeName: error?.name }
-    )
-  }
-
-  if (descriptor !== undefined) {
-    if (!allowNonEnumerable && descriptor.enumerable !== true) {
+  if (!Object.prototype.hasOwnProperty.call(object, property)) {
+    if (required) {
       failBatchInput(
         code,
-        `${path} must be an own enumerable data property`,
+        `${path} is required`,
         { path }
       )
     }
-    if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
-      failBatchInput(
-        code,
-        `${path} must not be an accessor property`,
-        { path }
-      )
-    }
-    return { present: true, value: descriptor.value }
+    return { present: false, value: undefined }
   }
 
-  if (rejectPrototype) {
-    let prototype
-    try {
-      prototype = Object.getPrototypeOf(object)
-    } catch (error) {
-      failBatchInput(
-        code,
-        `${path} prototype could not be inspected safely`,
-        { path, causeName: error?.name }
-      )
-    }
-    const visited = new Set()
-    while (prototype !== null) {
-      if (visited.has(prototype)) {
-        failBatchInput(
-          code,
-          `${path} prototype chain is invalid`,
-          { path }
-        )
-      }
-      visited.add(prototype)
-      let inheritedDescriptor
-      try {
-        inheritedDescriptor = Object.getOwnPropertyDescriptor(
-          prototype,
-          property
-        )
-      } catch (error) {
-        failBatchInput(
-          code,
-          `${path} prototype could not be inspected safely`,
-          { path, causeName: error?.name }
-        )
-      }
-      if (inheritedDescriptor !== undefined) {
-        failBatchInput(
-          code,
-          `${path} must not be inherited from a prototype`,
-          { path }
-        )
-      }
-      try {
-        prototype = Object.getPrototypeOf(prototype)
-      } catch (error) {
-        failBatchInput(
-          code,
-          `${path} prototype could not be inspected safely`,
-          { path, causeName: error?.name }
-        )
-      }
-    }
-  }
-
-  if (required) {
-    failBatchInput(
-      code,
-      `${path} is required`,
-      { path }
-    )
-  }
-  return { present: false, value: undefined }
-}
-
-function getBatchOwnKeys(object, path, code) {
-  try {
-    return Reflect.ownKeys(object)
-  } catch (error) {
-    failBatchInput(
-      code,
-      `${path} own properties could not be inspected safely`,
-      { path, causeName: error?.name }
-    )
-  }
-}
-
-function defineBatchDataProperty(target, property, value, path, code) {
-  try {
-    Object.defineProperty(target, property, {
-      configurable: true,
-      enumerable: true,
-      value,
-      writable: true,
-    })
-  } catch (error) {
-    failBatchInput(
-      code,
-      `${path} could not be snapshotted safely`,
-      { path, causeName: error?.name }
-    )
-  }
-}
-
-function snapshotBatchEnumerableDataProperties(object, path, code) {
-  const snapshot = {}
-  for (const property of getBatchOwnKeys(object, path, code)) {
-    let descriptor
-    try {
-      descriptor = Object.getOwnPropertyDescriptor(object, property)
-    } catch (error) {
-      failBatchInput(
-        code,
-        `${path} could not be inspected safely`,
-        { path, causeName: error?.name }
-      )
-    }
-    if (descriptor?.enumerable !== true) {
-      continue
-    }
-    if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
-      failBatchInput(
-        code,
-        `${path}.${String(property)} must not be an accessor property`,
-        { path, property: String(property) }
-      )
-    }
-    defineBatchDataProperty(
-      snapshot,
-      property,
-      descriptor.value,
-      `${path}.${String(property)}`,
-      code
-    )
-  }
-  return snapshot
+  return { present: true, value: object[property] }
 }
 
 function snapshotBatchDataValue(value, path, code, seen = new WeakMap()) {
   if (value === null || typeof value !== 'object') {
     return value
   }
-
-  let isArray
-  try {
-    isArray = Array.isArray(value)
-  } catch (error) {
-    failBatchInput(
-      code,
-      `${path} could not be inspected safely`,
-      { path, causeName: error?.name }
-    )
-  }
-  if (!isArray && !isRecord(value)) {
-    failBatchInput(
-      code,
-      `${path} must be a snapshot-safe object`,
-      { path }
-    )
-  }
   if (seen.has(value)) {
     return seen.get(value)
   }
 
-  let target
-  if (isArray) {
-    const length = readBatchDataProperty(
-      value,
-      'length',
-      `${path}.length`,
-      code,
-      { required: true, allowNonEnumerable: true, rejectPrototype: false }
-    ).value
-    if (!Number.isSafeInteger(length) || length < 0) {
-      failBatchInput(
-        code,
-        `${path}.length must be a non-negative safe integer`,
-        { path }
-      )
-    }
-    try {
-      target = new Array(length)
-    } catch (error) {
-      failBatchInput(
-        code,
-        `${path} could not be snapshotted safely`,
-        { path, causeName: error?.name }
-      )
-    }
-  } else {
-    target = {}
-  }
+  const isArray = Array.isArray(value)
+  const target = isArray ? new Array(value.length) : {}
   seen.set(value, target)
-
-  for (const property of getBatchOwnKeys(value, path, code)) {
-    if (isArray && property === 'length') {
-      continue
-    }
-    let descriptor
-    try {
-      descriptor = Object.getOwnPropertyDescriptor(value, property)
-    } catch (error) {
-      failBatchInput(
-        code,
-        `${path} could not be inspected safely`,
-        { path, causeName: error?.name }
-      )
-    }
-    if (descriptor?.enumerable !== true) {
-      continue
-    }
-    if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
-      failBatchInput(
-        code,
-        `${path}.${String(property)} must not be an accessor property`,
-        { path, property: String(property) }
-      )
-    }
-    defineBatchDataProperty(
-      target,
-      property,
-      snapshotBatchDataValue(
-        descriptor.value,
-        `${path}.${String(property)}`,
-        code,
-        seen
-      ),
-      `${path}.${String(property)}`,
-      code
+  for (const [property, entry] of Object.entries(value)) {
+    target[property] = snapshotBatchDataValue(
+      entry,
+      `${path}.${property}`,
+      code,
+      seen
     )
   }
   return target
@@ -322,19 +103,39 @@ function snapshotBatchScoreParams(score, path) {
 }
 
 function snapshotBatchDamageParams(damage, path, knownProperties) {
+  const snapshot = {}
+  const seen = new WeakMap()
+  const known = new Set(knownProperties)
+
   for (const property of knownProperties) {
-    readBatchDataProperty(
+    const propertyValue = readBatchDataProperty(
       damage,
       property,
       `${path}.${property}`,
       CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_PARAMS
     )
+    if (propertyValue.present) {
+      snapshot[property] = snapshotBatchDataValue(
+        propertyValue.value,
+        `${path}.${property}`,
+        CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_PARAMS,
+        seen
+      )
+    }
   }
-  return snapshotBatchEnumerableDataProperties(
-    damage,
-    path,
-    CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_PARAMS
-  )
+
+  for (const [property, value] of Object.entries(damage)) {
+    if (known.has(property)) {
+      continue
+    }
+    snapshot[property] = snapshotBatchDataValue(
+      value,
+      `${path}.${property}`,
+      CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_PARAMS,
+      seen
+    )
+  }
+  return snapshot
 }
 
 function readBatchRecordProperty(object, property, path) {
@@ -426,17 +227,7 @@ function snapshotBatchAttackParams(params, index) {
 }
 
 function snapshotCanonicalAttackBatchEntries(entries) {
-  let isArray
-  try {
-    isArray = Array.isArray(entries)
-  } catch (error) {
-    failBatchInput(
-      CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_ENTRIES,
-      'entries could not be inspected safely',
-      { causeName: error?.name }
-    )
-  }
-  if (!isArray) {
+  if (!Array.isArray(entries)) {
     failBatchInput(
       CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_ENTRIES,
       'entries must be an array'
@@ -448,7 +239,7 @@ function snapshotCanonicalAttackBatchEntries(entries) {
     'length',
     'entries.length',
     CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_ENTRIES,
-    { required: true, allowNonEnumerable: true, rejectPrototype: false }
+    { required: true }
   ).value
   if (!Number.isSafeInteger(length) || length < 0) {
     failBatchInput(
@@ -535,17 +326,7 @@ function validateBatchSignal(signal) {
       { field: 'signal' }
     )
   }
-  let aborted
-  try {
-    aborted = signal.aborted
-  } catch (error) {
-    failBatchInput(
-      CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS,
-      'options.signal could not be inspected safely',
-      { field: 'signal', causeName: error?.name }
-    )
-  }
-  if (typeof aborted !== 'boolean') {
+  if (typeof signal.aborted !== 'boolean') {
     failBatchInput(
       CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS,
       'options.signal must be an AbortSignal-like object',
@@ -562,7 +343,7 @@ function validateCanonicalAttackBatchOptions(options) {
     )
   }
 
-  for (const property of [
+  const optionNames = [
     'signal',
     'requestId',
     'rangePolicy',
@@ -572,39 +353,49 @@ function validateCanonicalAttackBatchOptions(options) {
     'maxFftLength',
     'maxResourceBytes',
     'maxComponents',
-  ]) {
-    readBatchDataProperty(
-      options,
-      property,
-      `options.${property}`,
-      CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS
-    )
+  ]
+  const snapshot = {}
+  const snapshotSeen = new WeakMap()
+  snapshotSeen.set(options, snapshot)
+  for (const [property, value] of Object.entries(options)) {
+    if (
+      property === 'signal'
+      || property === 'onRangePlan'
+      || property === 'onFftLength'
+    ) {
+      snapshot[property] = value
+    } else {
+      snapshot[property] = snapshotBatchDataValue(
+        value,
+        `options.${property}`,
+        CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS,
+        snapshotSeen
+      )
+    }
   }
 
-  const snapshot = snapshotBatchEnumerableDataProperties(
-    options,
-    'options',
-    CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS
-  )
-  const snapshotSeen = new WeakMap()
-  for (const property of Reflect.ownKeys(snapshot)) {
-    if (property === 'signal' || property === 'onRangePlan' || property === 'onFftLength') {
-      continue
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(snapshot, property)
-    if (descriptor?.value !== null && typeof descriptor?.value === 'object') {
-      defineBatchDataProperty(
-        snapshot,
-        property,
-        snapshotBatchDataValue(
-          descriptor.value,
-          `options.${String(property)}`,
+  // Ordinary options are enumerable, but preserve explicitly named own
+  // fields even when an internal caller made one non-enumerable.
+  for (const property of optionNames) {
+    if (
+      hasOwn(options, property)
+      && !hasOwn(snapshot, property)
+    ) {
+      const value = options[property]
+      if (
+        property === 'signal'
+        || property === 'onRangePlan'
+        || property === 'onFftLength'
+      ) {
+        snapshot[property] = value
+      } else {
+        snapshot[property] = snapshotBatchDataValue(
+          value,
+          `options.${property}`,
           CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS,
           snapshotSeen
-        ),
-        `options.${String(property)}`,
-        CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS
-      )
+        )
+      }
     }
   }
 
@@ -759,4 +550,3 @@ export function snapshotCanonicalAttackBatchRequest(
     aggregationOptions,
   }
 }
-

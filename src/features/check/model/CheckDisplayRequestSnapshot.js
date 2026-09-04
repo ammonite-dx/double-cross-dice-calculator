@@ -25,12 +25,8 @@ export const DEFAULT_CHECK_DISPLAY_REQUEST = Object.freeze({
   mode: CHECK_DISPLAY_MODES.PMF,
 })
 
-function isPlainRecord(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
-  }
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function fail(code, message, details = {}) {
@@ -44,19 +40,11 @@ function readOwn(request, property) {
   if (!Object.prototype.hasOwnProperty.call(request, property)) {
     fail(
       CHECK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} must be an own data property`,
+      `displayRequest.${property} must be an own property`,
       { path: `displayRequest.${property}` }
     )
   }
-  const descriptor = Object.getOwnPropertyDescriptor(request, property)
-  if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
-    fail(
-      CHECK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      `displayRequest.${property} must be an own data property`,
-      { path: `displayRequest.${property}` }
-    )
-  }
-  return descriptor.value
+  return request[property]
 }
 
 function normalizeCoordinate(value, property) {
@@ -89,10 +77,10 @@ function normalizeMode(value) {
  * object is the only shape passed between the Check form and presentation.
  */
 export function normalizeCheckDisplayRequest(request) {
-  if (!isPlainRecord(request)) {
+  if (!isRecord(request)) {
     fail(
       CHECK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
-      'displayRequest must be a plain record',
+      'displayRequest must be an object',
       { path: 'displayRequest' }
     )
   }

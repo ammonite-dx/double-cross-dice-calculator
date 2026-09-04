@@ -229,83 +229,52 @@ describe('CalculationClient canonical attack batch', () => {
     expect(planCalculationRanges).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['entry id accessor', () => {
-      const entry = { params: attackParams() }
-      Object.defineProperty(entry, 'id', {
-        enumerable: true,
-        get: () => 'accessor-id',
-      })
-      return [entry]
-    }, 'invalid-id'],
-    ['params action accessor', () => {
-      const params = attackParams()
-      Object.defineProperty(params, 'action', {
-        enumerable: true,
-        get: () => attackParams().action,
-      })
-      return [{ id: 1, params }]
-    }, 'invalid-params'],
-    ['options callback accessor', () => {
-      const options = {}
-      Object.defineProperty(options, 'onRangePlan', {
-        enumerable: true,
-        get: () => vi.fn(),
-      })
-      return options
-    }, 'invalid-options'],
-  ])('rejects %s without executing accessors', async (_label, createInput, code) => {
-    const planCalculationRanges = vi.fn()
+  it('accepts ordinary getters during the batch snapshot boundary', async () => {
+    let idReads = 0
+    let actionReads = 0
+    let callbackReads = 0
+    const onRangePlan = vi.fn()
+    const params = attackParams()
+    const entry = { id: 1, params }
+    Object.defineProperty(entry, 'id', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        idReads += 1
+        return 1
+      },
+    })
+    Object.defineProperty(params, 'action', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        actionReads += 1
+        return attackParams().action
+      },
+    })
+    const options = {}
+    Object.defineProperty(options, 'onRangePlan', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        callbackReads += 1
+        return onRangePlan
+      },
+    })
     const client = createCalculationClient(createDependencies({
-      planCalculationRanges,
+      planCalculationRanges: vi.fn(() => ({
+        accepted: true,
+        operation: 'attack',
+      })),
     }))
-    const input = createInput()
-    const entries = code === 'invalid-options' ? [
-      { id: 1, params: attackParams() },
-    ] : input
-    const options = code === 'invalid-options' ? input : undefined
 
-    await expect(client.calculateAttackCanonicalBatch(entries, options))
-      .rejects.toMatchObject({
-        name: 'CalculationBatchInputError',
-        code,
-      })
-    expect(planCalculationRanges).not.toHaveBeenCalled()
-  })
+    const result = await client.calculateAttackCanonicalBatch([entry], options)
 
-  it.each([
-    ['revoked entries proxy', () => {
-      const revocable = Proxy.revocable([], {})
-      revocable.revoke()
-      return revocable.proxy
-    }, undefined],
-    ['revoked entry proxy', () => {
-      const revocable = Proxy.revocable({
-        id: 1,
-        params: attackParams(),
-      }, {})
-      revocable.revoke()
-      return [revocable.proxy]
-    }, undefined],
-    ['revoked options proxy', () => {
-      const revocable = Proxy.revocable({}, {})
-      revocable.revoke()
-      return revocable.proxy
-    }, 'options'],
-  ])('rejects %s as a typed batch error', async (_label, createInput, inputKind) => {
-    const planCalculationRanges = vi.fn()
-    const client = createCalculationClient(createDependencies({
-      planCalculationRanges,
-    }))
-    const input = createInput()
-    const entries = inputKind === 'options'
-      ? [{ id: 1, params: attackParams() }]
-      : input
-    const options = inputKind === 'options' ? input : undefined
-
-    await expect(client.calculateAttackCanonicalBatch(entries, options))
-      .rejects.toBeInstanceOf(CalculationBatchInputError)
-    expect(planCalculationRanges).not.toHaveBeenCalled()
+    expect(result.combos).toHaveLength(1)
+    expect(idReads).toBe(1)
+    expect(actionReads).toBe(1)
+    expect(callbackReads).toBe(1)
+    expect(onRangePlan).toHaveBeenCalledOnce()
   })
 
   it.each([
