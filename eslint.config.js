@@ -336,7 +336,7 @@ export default [
       'no-restricted-imports': ['error', {
         patterns: [
           internalPattern(
-            ['views', 'components', 'router', 'plugins', 'layouts'],
+            ['views', 'components', 'router', 'plugins', 'layouts', 'application', 'presentation'],
             'Feature models must remain independent of application UI modules.',
           ),
           featureModelUiPattern,

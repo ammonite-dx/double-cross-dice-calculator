@@ -49,8 +49,8 @@ const retiredFiles = [
 
 const oldDataImportPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*\/data\/(?:Distribution|FFT|ColorSetter|ReferencePrecomputedDataRepository|PrecomputedDataSchema)(?:\.js)?['"]/
 const referenceImportPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:tooling\/reference-data|ReferencePrecomputedDataRepository|PrecomputedDataSchema)/
-const coreBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:application|components|views|router|plugins|layouts|presentation|features|shared|tooling|node:|vue(?:-router)?|vuetify|chart\.js|vue-chartjs|chartjs-plugin-)/
-const themeBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:application|calculation|core|domain|features|presentation|tooling|node:|vue|vuetify|chart\.js|vue-chartjs|chartjs-plugin-)/
+const coreBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:application|components|views|router|plugins|layouts|presentation|features|runtime|shared|tooling|node:|vue(?:-router)?|vuetify|chart\.js|vue-chartjs|chartjs-plugin-)/
+const themeBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"][^'"]*(?:application|calculation|core|domain|features|presentation|runtime|tooling|node:|vue|vuetify|chart\.js|vue-chartjs|chartjs-plugin-)/
 const themeSiblingBoundaryPattern = /(?:from\s+|import\s*\(\s*)['"](?:\.\.\/)+(?:validation|chart)(?:\/|['"])/
 
 describe('data responsibility architecture', () => {

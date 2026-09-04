@@ -7,11 +7,14 @@
 - `src/calculation/ScoreCalculator.js`: 一般判定・対決判定の達成値と成功率を計算するコア
 - `src/calculation/DamageCalculator.js`: ダメージ、期待値、複数コンボの合計を計算するコア
 - `src/calculation/BacktrackCalculator.js`: バックトラック後の侵蝕率を計算するコア
-- `src/application/CalculationClient.js`: UI向けの非同期canonical計算境界、実行時DX/D10計算器の注入、常駐runtime damage Workerの組み立て
+- `src/runtime/CalculationClient.js`: UI向けの非同期canonical計算境界、実行時DX/D10計算器の注入、常駐runtime damage Workerの組み立て
+- `src/runtime/CalculationFeedback.js`、`CalculationRequestCoordinator.js`、`ResourceGuard.js`: 計算要求のlatest-wins、フィードバック、資源予約を管理するframework-independent runtime
+- `src/runtime/RuntimeDamageRollClient.js`、`RuntimeDamageRollProtocol.ts`、`RuntimeDamageRollWorker.js`: ダメージロールのWorker境界と通信契約
 - `src/calculation/D10Calculator.js`: 通常D10合計の完全有限supportを生成するruntime primitive
 - `src/calculation/RuntimeDamageRollCalculator.js`: `kazanari`を含むDRのruntime生成とFFT境界
 - `src/core/probability/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
 - `src/core/probability/FFT.js`: 独立な確率分布の加算・減算
+- `src/shared/presentation/**`: Check／Attackで共有するcanonical分布の表示範囲計画、chart系列、サマリー、確率表示のpure adapter
 - `src/shared/theme/ChartPalette.js`: Check／Attackで共有するチャートpalette
 - `tooling/reference-data/ReferencePrecomputedDataRepository.js`: テスト・独立比較用の公開asset取得、検証、cache
 - `tooling/reference-data/PrecomputedDataSchema.js`: 公開assetのschemaと分布検証
@@ -82,3 +85,13 @@ canonicalの判定とダメージの中間計算は、要求windowとsupportに�
 公開サイトは当面、Cloudflare Pages上の静的SPAと、DXメインスレッド・DR `RuntimeDamageRollWorker`・Backtrack runtime coreに分けたブラウザ内計算を維持します。低速端末や入力範囲の拡張で停止時間が許容できなくなった場合だけ、追加Worker化を性能測定に基づき再評価します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
 
 この決定の理由、Cloudflare上の構成、段階的な導入順序は[`ADR 0002`](./adr/0002-separate-calculation-core.md)に記載します。
+
+## R9現在の責務分離（2026-09-04）
+
+R9では、混在していた`src/application`を廃止し、Attack固有のsnapshot、state、runner、presentation、feedbackを`src/features/attack/model/`へ移した。CalculationClient、latest-wins coordinator、ResourceGuard、DR Worker client／protocol／workerは`src/runtime/`へ移し、runtimeからfeatureやVueへの依存をなくした。`CalculationClientTypes.ts`はpure TypeScript contractだけを持ち、Vueの`InjectionKey`は`CalculationClient.js`が公開するsymbolへ分離した。
+
+Checkの表示範囲policyは`src/runtime/CheckRangePolicy.js`を正本とし、Check featureのdisplay request snapshotはruntime policyを利用する。policyの計算上限、表示既定値、safe-integer検証、clone／freeze、error codeは変更していない。
+
+feature非依存の表示変換は`src/shared/presentation/`へ移し、`DistributionPresenter.js`がcanonical `DistributionResult`を検証する依存だけを例外として許可する。runtimeとshared presentationは相互に依存せず、Vue、Vuetify、Chart.js、Node、DOM、`fetch`にも依存しない。旧`src/application/`と`src/presentation/`は空directoryを含めて削除し、compatibility re-exportは作成していない。
+
+このR9はbehavior-neutralな構造変更であり、canonical result、legacy/published-bucket互換adapter、public asset、generator、表示ラベルと数値丸めは変更していない。構造境界は[`runtimePresentationArchitecture.test.js`](../tests/runtimePresentationArchitecture.test.js)とESLintで検証する。詳細な移動表と検証記録は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
