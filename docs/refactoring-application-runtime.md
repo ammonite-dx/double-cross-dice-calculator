@@ -48,6 +48,12 @@ R9の構造移動後に残っていたarchitecture gateの穴を、`31b927148aaf
 
 このfollow-upでR9の判定を`P0: 0`、`P1: 0`、`P2: 0`、`CLOSED / GREEN`へ更新する。最終docs closureは本節を含むdocsコミットであり、後続のproduction実装には着手しない。
 
+## Final verification closure（2026-09-04）
+
+R9の最終実装SHAは`31b927148aafd3327f6f131545938e81a78c89e2`であり、今回のverification follow-up開始点は`2d96dba3b9f498cd3cc7e9ed5af9e436c5291cfb`（`docs: finalize R9 acceptance evidence`）である。現HEADで`npm run check:node`を実行し、Node.js 22.23.2が確認された。続けて`npm run data:verify-generator`を単独実行し、`Verified 32 assets in 24.79s.`となった。前節のfull implementation gateおよびproduction browser smokeは`31b9271`上で完了済みであり、今回のfollow-upではproduction source、test、ESLint、public asset、generator、reference toolingを変更していない。
+
+この文書を含むdocs closure commitの後、最終HEADで`npm run lint`、`npm run lint:markdown`、`git diff --check`、`git status --short`を再実行する。期待する実測結果は、lint成功、Markdown lint 34 files／0 issues、差分検査成功、作業ツリーcleanである。R9開始点`241abae0188b503bca86600694720e59af65142f`からの`public`、`generator`、`tooling/reference-data`差分は0件であり、P0／P1／P2は0件、R9は`CLOSED / GREEN`を維持する。
+
 ## 保持したもの
 
 CalculationClientの公開メソッド、runtime damage Workerの相対URL、canonical envelopeとsummary、legacy／published-bucket adapter、表示ラベルと丸め、public schema-v2／revision-1、generatorの入出力は変更していない。R9は責務境界を明確にする構造変更であり、Cloudflare Workers、HTTP API、MCPの導入や静的SPAの構成変更は行わない。
