@@ -94,4 +94,4 @@ Checkの表示範囲policyは`src/runtime/CheckRangePolicy.js`を正本とし、
 
 feature非依存の表示変換は`src/shared/presentation/`へ移し、`DistributionPresenter.js`がcanonical `DistributionResult`を検証する依存だけを例外として許可する。runtimeとshared presentationは相互に依存せず、Vue、Vuetify、Chart.js、Node、DOM、`fetch`にも依存しない。旧`src/application/`と`src/presentation/`は空directoryを含めて削除し、compatibility re-exportは作成していない。
 
-このR9はbehavior-neutralな構造変更であり、canonical result、legacy/published-bucket互換adapter、public asset、generator、表示ラベルと数値丸めは変更していない。構造境界は[`runtimePresentationArchitecture.test.js`](../tests/runtimePresentationArchitecture.test.js)とESLintで検証する。詳細な移動表と検証記録は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
+このR9はbehavior-neutralな構造変更であり、canonical result、legacy/published-bucket互換adapter、public asset、generator、表示ラベルと数値丸めは変更していない。構造境界は[`runtimePresentationArchitecture.test.js`](../tests/runtimePresentationArchitecture.test.js)とESLintで検証し、shared presentationの相対sibling importおよび廃止済み`src/application`／`src/presentation` pathの再導入も禁止する。最終実装`31b9271`でfresh full gateとproduction smokeを完了し、R9を`CLOSED / GREEN`とした。詳細な移動表と検証記録は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。

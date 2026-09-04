@@ -546,6 +546,6 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 
 - 完了: Attack固有のsnapshot、state、runner、presentation、feedbackを`src/features/attack/model/`へ移し、CalculationClient、latest-wins、ResourceGuard、DR Worker client／protocol／worker、CheckRangePolicyを`src/runtime/`へ移した。汎用表示変換は`src/shared/presentation/`へ移した。
 - 完了: `CalculationClient`からCheck featureへの依存を除去し、`CalculationClientTypes.ts`のVue `InjectionKey`をruntime symbolへ分離した。旧`src/application/`、`src/presentation/`とcompatibility shimは削除した。
-- 完了: runtime／shared presentationの依存境界をESLintと`tests/runtimePresentationArchitecture.test.js`で固定した。`DistributionResult`のread-only validationだけをshared presentationのcore例外として保持した。
-- 検証: `npm test -- --run`（72 files／869 tests）、`npm run lint -- --no-warn-ignored`、`npm run typecheck`、`npm run build`、`git diff --check`が成功した。詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
+- 完了: runtime／shared presentationの依存境界をESLintと`tests/runtimePresentationArchitecture.test.js`で固定した。`DistributionResult`のread-only validationだけをshared presentationのcore例外として保持し、相対sibling importと廃止済み`application`／`presentation` pathの再導入もglobal／UI overrideで禁止した。最終実装は`31b9271`である。
+- 検証: fresh gateでNode 22.23.2、data 32 assets、Vitest 72 files／869 tests、generator 18 passed／13 deselected、simulation 13 passed／18 deselected、Ruff、typecheck、runtime DX 20,000 cases、ESLint、Markdown lint 34 files／0 issues、build 408 modules、production browser smoke、`git diff --check`が成功した。schema-v2／D10 request、browser diagnostics、R9開始点からのpublic／generator／reference tooling差分はいずれも0件である。P0／P1／P2は0件、R9は`CLOSED / GREEN`とした。詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
 - 対象外: 計算意味論、canonical／legacy表示契約、public asset、generator、Cloudflare Workers、HTTP API、MCP、追加のブラウザWorker化。

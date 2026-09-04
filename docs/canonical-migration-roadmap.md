@@ -490,8 +490,9 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 
 - 開始点は`241abae0188b503bca86600694720e59af65142f`。Attack固有modelを`src/features/attack/model/`へ、共通計算実行・latest-wins・resource guard・DR Worker境界を`src/runtime/`へ、汎用表示変換を`src/shared/presentation/`へ移した。
 - `CheckRangePolicy`をruntimeへ抽出し、CalculationClientからCheck featureへの依存を除去した。`CalculationClientTypes.ts`からVueの`InjectionKey`を除去し、provide／inject keyはruntime clientのsymbolへ移した。旧`src/application/`と`src/presentation/`、互換re-exportは廃止した。
-- runtimeとshared presentationの依存方向をESLintと`tests/runtimePresentationArchitecture.test.js`で固定した。`DistributionPresenter`から`calculation/DistributionResult`へのread-only validationだけをshared presentationのcore例外として許可する。
-- 実装は`f943a9c`、境界テストとESLint強化は`fb58137`。Node 22.23.2でVitest 72 files／869 tests、ESLint、typecheck、production build、`git diff --check`が成功した。計算意味論、canonical contract、UI表示、public asset、generatorは変更していない。
+- runtimeとshared presentationの依存方向をESLintと`tests/runtimePresentationArchitecture.test.js`で固定した。`DistributionPresenter`から`calculation/DistributionResult`へのread-only validationだけをshared presentationのcore例外として許可し、shared presentationから他shared subsystemへの相対sibling importと、廃止済み`application`／`presentation` pathの再導入も禁止した。
+- 初期実装は`f943a9c`、初期境界テストとESLint強化は`fb58137`、最終architecture enforcementは`31b9271`である。最終実装treeのfresh gateはNode 22.23.2、data 32 assets、Vitest 72 files／869 tests、generator 18 passed／13 deselected、simulation 13 passed／18 deselected、Ruff、typecheck、runtime DX 20,000 cases、ESLint、Markdown lint 34 files／0 issues、build 408 modules、production browser smoke、`git diff --check`のすべてGREENだった。public、generator、reference toolingの差分は0件である。
+- browser smokeではCheck／Attack／Backtrackの代表ケース、schema-v2 precomputed request 0、D10 request 0、console／page／same-origin diagnostics 0を確認した。follow-up後のP0／P1／P2は0件であり、R9は`CLOSED / GREEN`とする。最終docs closureは本記録を含むdocsコミットである。
 - R9でCloudflare Workers、HTTP API、MCP、追加のブラウザWorker化は実装しない。次の作業ではR9後の依存監査とrelease hardeningを別単位で判断する。
 
 ### R8: `src/data`責務分離（完了、2026-09-03）

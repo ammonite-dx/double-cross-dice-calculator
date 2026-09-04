@@ -127,4 +127,4 @@ R9でtarget directory mappingを実装し、Attack固有のsnapshot、state、ru
 
 `runtime → features`、`runtime → UI`、`shared presentation → runtime/features/UI`の逆依存をESLintで禁止し、runtimeのVue／Vuetify／Chart.js／Node／DOM／`fetch`依存も禁止した。`CalculationClientTypes.ts`はVue型へ依存せず、provide／inject keyはruntime clientのsymbolが所有する。R9の構造テストは[`runtimePresentationArchitecture.test.js`](../tests/runtimePresentationArchitecture.test.js)で維持する。
 
-R9はbehavior-neutralな整理であり、計算意味論、canonical contract、UI表示、public asset、generator、Cloudflare Workers／HTTP API／MCP方針は変更していない。実装と検証の詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
+R9はbehavior-neutralな整理であり、計算意味論、canonical contract、UI表示、public asset、generator、Cloudflare Workers／HTTP API／MCP方針は変更していない。共有presentationから`../chart`、`../theme`、`../validation`への相対sibling importと、廃止済み`application`／`presentation` pathの再導入はESLintと構造テストで禁止し、同一presentation subsystem内のlocal importは許可する。最終実装`31b9271`上でP0／P1／P2を0件、fresh full gateとproduction smokeをGREENとした。実装と検証の詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
