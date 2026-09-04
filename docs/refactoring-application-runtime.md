@@ -52,7 +52,7 @@ R9の構造移動後に残っていたarchitecture gateの穴を、`31b927148aaf
 
 R9の最終実装SHAは`31b927148aafd3327f6f131545938e81a78c89e2`であり、今回のverification follow-up開始点は`2d96dba3b9f498cd3cc7e9ed5af9e436c5291cfb`（`docs: finalize R9 acceptance evidence`）である。現HEADで`npm run check:node`を実行し、Node.js 22.23.2が確認された。続けて`npm run data:verify-generator`を単独実行し、`Verified 32 assets in 24.79s.`となった。前節のfull implementation gateおよびproduction browser smokeは`31b9271`上で完了済みであり、今回のfollow-upではproduction source、test、ESLint、public asset、generator、reference toolingを変更していない。
 
-この文書を含むdocs closure commitの後、最終HEADで`npm run lint`、`npm run lint:markdown`、`git diff --check`、`git status --short`を再実行する。期待する実測結果は、lint成功、Markdown lint 34 files／0 issues、差分検査成功、作業ツリーcleanである。R9開始点`241abae0188b503bca86600694720e59af65142f`からの`public`、`generator`、`tooling/reference-data`差分は0件であり、P0／P1／P2は0件、R9は`CLOSED / GREEN`を維持する。
+この文書を含むdocs closure commitの後、最終HEADで`npm run lint`、`npm run lint:markdown`、`git diff --check`、`git status --short`を再実行した。実測結果は、`npm run lint`: GREEN、`npm run lint:markdown`: GREEN（34 files／0 issues）、`git diff --check`: GREEN、`git status --short`: cleanである。R9開始点`241abae0188b503bca86600694720e59af65142f`からの`public`、`generator`、`tooling/reference-data`差分は0件であり、P0／P1／P2は0件、R9は`CLOSED / GREEN`を維持する。
 
 ## 保持したもの
 
