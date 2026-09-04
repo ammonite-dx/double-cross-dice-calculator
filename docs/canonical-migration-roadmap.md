@@ -486,6 +486,14 @@ Cloudflare Workers/API/MCPは今回決めず、canonical移行の完了後に実
 - 最終gate: `npm run check:node`、`npm test`（56 files / 763 tests）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:test:simulation`（13 passed / 18 deselected）、`npm run generator:lint`、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`npm run smoke:production`、`npm run data:check`（32 assets）、`git diff --check`が成功した。
 - Phase 8は、canonical production、必要なpublished-bucket互換、公開schema-v2 asset、Python generator、独立検証資料だけを保持する状態で完了した。Cloudflare Worker/API/MCPは従来どおり将来目標とする。
 
+### Phase 9: Application／Runtime／Presentation責務分離（完了）
+
+- 開始点は`241abae0188b503bca86600694720e59af65142f`。Attack固有modelを`src/features/attack/model/`へ、共通計算実行・latest-wins・resource guard・DR Worker境界を`src/runtime/`へ、汎用表示変換を`src/shared/presentation/`へ移した。
+- `CheckRangePolicy`をruntimeへ抽出し、CalculationClientからCheck featureへの依存を除去した。`CalculationClientTypes.ts`からVueの`InjectionKey`を除去し、provide／inject keyはruntime clientのsymbolへ移した。旧`src/application/`と`src/presentation/`、互換re-exportは廃止した。
+- runtimeとshared presentationの依存方向をESLintと`tests/runtimePresentationArchitecture.test.js`で固定した。`DistributionPresenter`から`calculation/DistributionResult`へのread-only validationだけをshared presentationのcore例外として許可する。
+- 実装は`f943a9c`、境界テストとESLint強化は`fb58137`。Node 22.23.2でVitest 72 files／869 tests、ESLint、typecheck、production build、`git diff --check`が成功した。計算意味論、canonical contract、UI表示、public asset、generatorは変更していない。
+- R9でCloudflare Workers、HTTP API、MCP、追加のブラウザWorker化は実装しない。次の作業ではR9後の依存監査とrelease hardeningを別単位で判断する。
+
 ### R8: `src/data`責務分離（完了、2026-09-03）
 
 - `src/data/Distribution.js`と`src/data/FFT.js`を`src/core/probability/`へ移し、production probability primitiveのexport、数値、overflow、Abort、固定サイズ定数を維持した。

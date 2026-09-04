@@ -541,3 +541,11 @@ Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処
 - 公開`public/data/schema-v2/revision-1/**`は変更していない。残存コードの分類と削除理由は[`phase8-inventory.md`](./phase8-inventory.md)へ記録した。
 - 最終gate: `npm run check:node`、`npm test`（56 files / 763 tests）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:test:simulation`（13 passed / 18 deselected）、`npm run generator:lint`、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`npm run smoke:production`、`npm run data:check`（32 assets）、`git diff --check`が成功した。
 - Phase 8は、canonical production、必要なpublished-bucket互換、公開schema-v2 asset、Python generator、独立検証資料だけを保持する状態で完了した。Cloudflare Worker/API/MCPは従来どおり将来目標とする。
+
+### R9 Application／Runtime／Presentation責務分離（完了）
+
+- 完了: Attack固有のsnapshot、state、runner、presentation、feedbackを`src/features/attack/model/`へ移し、CalculationClient、latest-wins、ResourceGuard、DR Worker client／protocol／worker、CheckRangePolicyを`src/runtime/`へ移した。汎用表示変換は`src/shared/presentation/`へ移した。
+- 完了: `CalculationClient`からCheck featureへの依存を除去し、`CalculationClientTypes.ts`のVue `InjectionKey`をruntime symbolへ分離した。旧`src/application/`、`src/presentation/`とcompatibility shimは削除した。
+- 完了: runtime／shared presentationの依存境界をESLintと`tests/runtimePresentationArchitecture.test.js`で固定した。`DistributionResult`のread-only validationだけをshared presentationのcore例外として保持した。
+- 検証: `npm test -- --run`（72 files／869 tests）、`npm run lint -- --no-warn-ignored`、`npm run typecheck`、`npm run build`、`git diff --check`が成功した。詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
+- 対象外: 計算意味論、canonical／legacy表示契約、public asset、generator、Cloudflare Workers、HTTP API、MCP、追加のブラウザWorker化。
