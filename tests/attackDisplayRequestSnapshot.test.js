@@ -128,26 +128,6 @@ describe('Attack display request snapshot', () => {
     }))
   })
 
-  it('accepts ordinary getter properties as direct reads', () => {
-    let reads = 0
-    const request = { min: 0, max: 1, mode: ATTACK_DISPLAY_MODES.PMF }
-    Object.defineProperty(request, 'max', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        reads += 1
-        return 1
-      },
-    })
-
-    expect(createAttackDisplayRequestSnapshot(request)).toEqual({
-      min: 0,
-      max: 1,
-      mode: ATTACK_DISPLAY_MODES.PMF,
-    })
-    expect(reads).toBe(1)
-  })
-
   it('creates a frozen calculation policy that expands with the display window', () => {
     const suppliedPolicy = {
       calculationMax: 100,

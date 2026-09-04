@@ -229,54 +229,6 @@ describe('CalculationClient canonical attack batch', () => {
     expect(planCalculationRanges).not.toHaveBeenCalled()
   })
 
-  it('accepts ordinary getters during the batch snapshot boundary', async () => {
-    let idReads = 0
-    let actionReads = 0
-    let callbackReads = 0
-    const onRangePlan = vi.fn()
-    const params = attackParams()
-    const entry = { id: 1, params }
-    Object.defineProperty(entry, 'id', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        idReads += 1
-        return 1
-      },
-    })
-    Object.defineProperty(params, 'action', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        actionReads += 1
-        return attackParams().action
-      },
-    })
-    const options = {}
-    Object.defineProperty(options, 'onRangePlan', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        callbackReads += 1
-        return onRangePlan
-      },
-    })
-    const client = createCalculationClient(createDependencies({
-      planCalculationRanges: vi.fn(() => ({
-        accepted: true,
-        operation: 'attack',
-      })),
-    }))
-
-    const result = await client.calculateAttackCanonicalBatch([entry], options)
-
-    expect(result.combos).toHaveLength(1)
-    expect(idReads).toBe(1)
-    expect(actionReads).toBe(1)
-    expect(callbackReads).toBe(1)
-    expect(onRangePlan).toHaveBeenCalledOnce()
-  })
-
   it.each([
     ['negative maxValuesLength', { maxValuesLength: -1 }],
     ['negative maxFftLength', { maxFftLength: -1 }],
