@@ -89,6 +89,10 @@ Next: R9 application / presentation / runtime responsibility cleanup
 
 R9では、今回固定したprobability、theme、reference toolingの境界を維持しながら、application／presentation／runtimeの責務配置を再評価する。Cloudflare Worker、HTTP API、MCPは別の将来目標として扱う。
 
+## 9. R9への引き継ぎ
+
+R9の責務再配置は完了した。Attack固有modelは`src/features/attack/model/`、共通計算実行は`src/runtime/`、汎用表示変換は`src/shared/presentation/`を正本とし、旧`src/application/`と`src/presentation/`は廃止した。詳細と検証結果は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)に記録する。
+
 ## 8. Final docs-tree verification
 
 Final implementation `9afdd935c469a37fea4bbe9586e4732c7012ba9f`のimplementation gateとは別に、今回のdocs commit後の最終HEADでdocs-tree gateを実行した。

@@ -120,3 +120,11 @@ R3はBacktrack featureizationを対象とする。`features/backtrack`、`runtim
 R8で更新したESLint architecture ruleは、`src/core/probability/**`をcore境界として扱い、UIからの同領域への直接import、shared validation/chartからのprobability/reference依存、production sourceからのreference tooling依存、旧`src/data` pathの再導入を検出する。恒久的な静的検査は[`dataResponsibilitiesArchitecture.test.js`](../tests/dataResponsibilitiesArchitecture.test.js)にも記録している。
 
 R8の最終実装、責務マトリクス、維持した契約、全体gate、優先度と次のR9は[`refactoring-data-responsibilities.md`](./refactoring-data-responsibilities.md)に集約している。
+
+## R9現在の責務分離（2026-09-04）
+
+R9でtarget directory mappingを実装し、Attack固有のsnapshot、state、runner、presentation、feedbackを`src/features/attack/model/`へ移した。CalculationClient、CalculationFeedback、CalculationRequestCoordinator、CanonicalAttackBatchInput、ResourceGuard、RuntimeDamageRollのclient／protocol／worker、CheckRangePolicyは`src/runtime/`へ移した。汎用のcanonical表示変換は`src/shared/presentation/`へ移し、`DistributionResult`のread-only validationだけをcore依存の例外とした。
+
+`runtime → features`、`runtime → UI`、`shared presentation → runtime/features/UI`の逆依存をESLintで禁止し、runtimeのVue／Vuetify／Chart.js／Node／DOM／`fetch`依存も禁止した。`CalculationClientTypes.ts`はVue型へ依存せず、provide／inject keyはruntime clientのsymbolが所有する。R9の構造テストは[`runtimePresentationArchitecture.test.js`](../tests/runtimePresentationArchitecture.test.js)で維持する。
+
+R9はbehavior-neutralな整理であり、計算意味論、canonical contract、UI表示、public asset、generator、Cloudflare Workers／HTTP API／MCP方針は変更していない。実装と検証の詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
