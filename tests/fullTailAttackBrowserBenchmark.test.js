@@ -100,7 +100,7 @@ describe('full-tail Attack browser resource benchmark contract', () => {
     expect(FULL_TAIL_ATTACK_BENCHMARK_POLICY).not.toHaveProperty('display')
     expect(FULL_TAIL_ATTACK_BENCHMARK_POLICY).not.toHaveProperty('costModel')
     expect(benchmarkSource).toContain('calculationClient.planAttackCombo')
-    expect(benchmarkSource).toContain('calculateAttackCanonicalBatch')
+    expect(benchmarkSource).toContain('calculateAttackBatch')
     expect(benchmarkSource).toContain('performance.memory')
     expect(benchmarkSource).toContain("supported: longTaskSupported")
     expect(benchmarkSource).toContain('responseElapsedMs')

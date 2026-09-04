@@ -1,4 +1,4 @@
-export const CANONICAL_SUMMARY_UNAVAILABLE = '—'
+export const SUMMARY_UNAVAILABLE = '—'
 
 function isExactFiniteExpectedValue(expectedValue) {
   return expectedValue?.kind === 'exact'
@@ -6,7 +6,7 @@ function isExactFiniteExpectedValue(expectedValue) {
     && Number.isFinite(expectedValue.value)
 }
 
-function roundCanonicalScoreValue(value) {
+function roundScoreValue(value) {
   const rounded = Math.round(value * 10) / 10
   if (!Number.isFinite(rounded)) {
     return null
@@ -25,8 +25,8 @@ function getStableBoundedDisplayValue(value) {
   ) {
     return null
   }
-  const roundedLowerBound = roundCanonicalScoreValue(value.lowerBound)
-  const roundedUpperBound = roundCanonicalScoreValue(value.upperBound)
+  const roundedLowerBound = roundScoreValue(value.lowerBound)
+  const roundedUpperBound = roundScoreValue(value.upperBound)
   return roundedLowerBound !== null
     && roundedLowerBound === roundedUpperBound
     ? roundedLowerBound
@@ -35,36 +35,36 @@ function getStableBoundedDisplayValue(value) {
 
 /**
  * Preserve the legacy one-decimal summary appearance without converting a
- * bounded or lower-bound canonical expected value into a point estimate.
+ * bounded or lower-bound expected value into a point estimate.
  */
-export function formatCanonicalSummaryExpectedValue(expectedValue) {
+export function formatSummaryExpectedValue(expectedValue) {
   if (!isExactFiniteExpectedValue(expectedValue)) {
-    return CANONICAL_SUMMARY_UNAVAILABLE
+    return SUMMARY_UNAVAILABLE
   }
   const rounded = Math.round(expectedValue.value * 10) / 10
   return Number.isFinite(rounded)
     ? rounded
-    : CANONICAL_SUMMARY_UNAVAILABLE
+    : SUMMARY_UNAVAILABLE
 }
 
-export function formatCanonicalScoreSummaryExpectedValue(expectedValue) {
+export function formatScoreSummaryExpectedValue(expectedValue) {
   if (isExactFiniteExpectedValue(expectedValue)) {
-    return roundCanonicalScoreValue(expectedValue.value)
-      ?? CANONICAL_SUMMARY_UNAVAILABLE
+    return roundScoreValue(expectedValue.value)
+      ?? SUMMARY_UNAVAILABLE
   }
   return getStableBoundedDisplayValue(expectedValue)
-    ?? CANONICAL_SUMMARY_UNAVAILABLE
+    ?? SUMMARY_UNAVAILABLE
 }
 
-export function formatCanonicalScoreSuccessRate(successRate) {
+export function formatScoreSuccessRate(successRate) {
   if (successRate?.kind === 'exact') {
     return typeof successRate.value === 'number'
       && Number.isFinite(successRate.value)
       ? successRate.value
-      : CANONICAL_SUMMARY_UNAVAILABLE
+      : SUMMARY_UNAVAILABLE
   }
   return getStableBoundedDisplayValue(successRate)
-    ?? CANONICAL_SUMMARY_UNAVAILABLE
+    ?? SUMMARY_UNAVAILABLE
 }
 
 /**
@@ -72,9 +72,9 @@ export function formatCanonicalScoreSuccessRate(successRate) {
  * Numeric values retain the published percent suffix; unavailable values are
  * represented by the neutral dash without a misleading suffix.
  */
-export function formatCanonicalScoreSuccessRateDisplay(successRate) {
-  const formatted = formatCanonicalScoreSuccessRate(successRate)
+export function formatScoreSuccessRateDisplay(successRate) {
+  const formatted = formatScoreSuccessRate(successRate)
   return typeof formatted === 'number' && Number.isFinite(formatted)
     ? `${formatted}%`
-    : CANONICAL_SUMMARY_UNAVAILABLE
+    : SUMMARY_UNAVAILABLE
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  calculateFinalEncroachmentCanonical,
+  calculateFinalEncroachment,
 } from '../src/calculation/BacktrackCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
@@ -22,12 +22,12 @@ const getD10Distribution = (dice, size) =>
   calculateD10Distribution(dice, { size })
 const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
 
-function getFinalEncroachmentCanonical(
+function getFinalEncroachment(
   params,
   runtimeOptions = {},
   backtrackRangePlan
 ) {
-  return calculateFinalEncroachmentCanonical(
+  return calculateFinalEncroachment(
     params,
     backtrackDependencies,
     runtimeOptions,
@@ -40,7 +40,7 @@ const RESULT_KEYS = ['single', 'double', 'second']
 function createBacktrackPlan(params) {
   return planCalculationRanges({
     operation: 'backtrack',
-    canonicalBacktrack: true,
+    completeSupportBacktrack: true,
     backtrack: params,
   }).backtrack
 }
@@ -62,7 +62,7 @@ function expectRelativeProbability(actual, expected) {
   expect(actual / expected).toBeCloseTo(1, 10)
 }
 
-function expectCanonicalResult(result, params, dice) {
+function expectResult(result, params, dice) {
   const base = params.encroachment - params.value
   const rawSupportMax = getBacktrackSupportMax(params.dlois, dice)
   const rawSupportMin = dice === 0 ? 0 : dice
@@ -112,7 +112,7 @@ describe('backtrack canonical producer', () => {
     },
   ])('returns complete finite PMFs for $name', ({ params }) => {
     const plan = createBacktrackPlan(params)
-    const canonical = calculateFinalEncroachmentCanonical(
+    const canonical = calculateFinalEncroachment(
       params,
       { getD10Distribution, getLivingdeadDistribution },
       {},
@@ -122,7 +122,7 @@ describe('backtrack canonical producer', () => {
 
     expect(Object.keys(canonical)).toEqual(RESULT_KEYS)
     RESULT_KEYS.forEach((key, index) => {
-      expectCanonicalResult(canonical[key], params, diceCounts[index])
+      expectResult(canonical[key], params, diceCounts[index])
     })
 
   })
@@ -137,7 +137,7 @@ describe('backtrack canonical producer', () => {
       dlois: 'なし',
     }
     const plan = createBacktrackPlan(params)
-    const canonical = calculateFinalEncroachmentCanonical(
+    const canonical = calculateFinalEncroachment(
       params,
       { getD10Distribution, getLivingdeadDistribution },
       {},
@@ -147,7 +147,7 @@ describe('backtrack canonical producer', () => {
     expect(canonical.single.offset).toBe(-25)
     expect(canonical.single.support).toEqual({ kind: 'finite', max: -16 })
     expect(Array.from(canonical.single.values)).not.toContain(0)
-    expectCanonicalResult(canonical.single, params, 1)
+    expectResult(canonical.single, params, 1)
   })
 
   it('generates complete ordinary support on demand beyond asset coverage', () => {
@@ -163,7 +163,7 @@ describe('backtrack canonical producer', () => {
     const getD10 = vi.fn(() => {
       throw new Error('ordinary asset must not be used')
     })
-    const canonical = calculateFinalEncroachmentCanonical(
+    const canonical = calculateFinalEncroachment(
       params,
       { getD10Distribution: getD10 },
       {},
@@ -172,7 +172,7 @@ describe('backtrack canonical producer', () => {
 
     expect(plan.distributionMode).toBe('on-demand')
     expect(getD10).not.toHaveBeenCalled()
-    expectCanonicalResult(canonical.single, params, 103)
+    expectResult(canonical.single, params, 103)
   })
 
   it('keeps the ordinary D10 endpoint at d10[7] without using the sparse asset', () => {
@@ -188,7 +188,7 @@ describe('backtrack canonical producer', () => {
     const getD10 = vi.fn(() => {
       throw new Error('ordinary asset must not be used by canonical backtrack')
     })
-    const canonical = calculateFinalEncroachmentCanonical(
+    const canonical = calculateFinalEncroachment(
       params,
       { getD10Distribution: getD10 },
       {},
@@ -198,7 +198,7 @@ describe('backtrack canonical producer', () => {
     expect(plan.rawSupportMax).toBe(70)
     expect(plan.distributionMode).toBe('on-demand')
     expect(getD10).not.toHaveBeenCalled()
-    expectCanonicalResult(canonical.single, params, 7)
+    expectResult(canonical.single, params, 7)
 
     // The canonical PMF is reversed into final-encroachment coordinates:
     // index 0 is S=70 (all tens), and the last index is S=7 (all ones).
@@ -220,7 +220,7 @@ describe('backtrack canonical producer', () => {
     const getLivingdead = vi.fn(() => {
       throw new Error('livingdead asset must not be used by canonical backtrack')
     })
-    const canonical = calculateFinalEncroachmentCanonical(
+    const canonical = calculateFinalEncroachment(
       params,
       { getLivingdeadDistribution: getLivingdead },
       {},
@@ -229,7 +229,7 @@ describe('backtrack canonical producer', () => {
 
     expect(plan.distributionMode).toBe('on-demand')
     expect(getLivingdead).not.toHaveBeenCalled()
-    expectCanonicalResult(canonical.single, params, 103)
+    expectResult(canonical.single, params, 103)
 
     // The canonical PMF is reversed into final-encroachment coordinates:
     // index 0 is S=1021 (all tens), while the last index is S=103. The
@@ -250,7 +250,7 @@ describe('backtrack canonical producer', () => {
     }
     const plan = createBacktrackPlan(params)
     const legacyPlan = createLegacyBacktrackPlan(params)
-    const canonicalBytes =
+    const resultBytes =
       3 * plan.workingLength * Float64Array.BYTES_PER_ELEMENT
     const legacyBytes =
       3 * legacyPlan.workingLength * Float64Array.BYTES_PER_ELEMENT
@@ -258,15 +258,15 @@ describe('backtrack canonical producer', () => {
     expect(legacyPlan.distributionMode).toBe('asset')
     expect(legacyPlan.float64Bytes).toBe(legacyBytes)
     expect(legacyPlan.baseFloat64Bytes).toBeUndefined()
-    expect(legacyPlan.canonicalResultFloat64Bytes).toBeUndefined()
-    expect(plan.calculationMode).toBe('canonical')
+    expect(legacyPlan.resultFloat64Bytes).toBeUndefined()
+    expect(plan.calculationMode).toBe('complete-support')
     expect(plan.distributionMode).toBe('on-demand')
-    expect(plan.canonicalResultFloat64Bytes).toBe(canonicalBytes)
+    expect(plan.resultFloat64Bytes).toBe(resultBytes)
     expect(plan.baseFloat64Bytes).toBe(
       5 * plan.workingLength * Float64Array.BYTES_PER_ELEMENT
     )
     expect(plan.float64Bytes).toBe(
-      plan.baseFloat64Bytes + plan.canonicalResultFloat64Bytes
+      plan.baseFloat64Bytes + plan.resultFloat64Bytes
     )
 
     const memoryPolicy = {
@@ -279,19 +279,19 @@ describe('backtrack canonical producer', () => {
       operation: 'backtrack',
       backtrack: params,
     }, memoryPolicy)
-    const canonicalLimited = planCalculationRanges({
+    const Limited = planCalculationRanges({
       operation: 'backtrack',
-      canonicalBacktrack: true,
+      completeSupportBacktrack: true,
       backtrack: params,
     }, memoryPolicy)
     expect(legacyLimited.accepted).toBe(true)
-    expect(canonicalLimited.accepted).toBe(false)
-    expect(canonicalLimited.rejectionReasons).toContain('estimated-memory')
+    expect(Limited.accepted).toBe(false)
+    expect(Limited.rejectionReasons).toContain('estimated-memory')
   })
 
   it('exposes the canonical producer through the CalculationClient API', async () => {
     const client = createCalculationClient({
-      getFinalEncroachmentCanonical,
+      getFinalEncroachment,
     })
     const params = {
       encroachment: 79,
@@ -302,7 +302,7 @@ describe('backtrack canonical producer', () => {
       dlois: 'なし',
     }
 
-    const canonical = await client.calculateBacktrackCanonical(params)
+    const canonical = await client.calculateBacktrack(params)
     expect(canonical).toMatchObject({
       single: expect.objectContaining({ values: expect.any(Float64Array) }),
       double: expect.objectContaining({ values: expect.any(Float64Array) }),

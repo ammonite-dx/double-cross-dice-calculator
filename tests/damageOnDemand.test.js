@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { calculateCanonicalDamageOnDemand } from '../src/calculation/DamageCalculator'
+import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 
 function scoreWithHitProbability(hitProbability) {
   return {
-    action: canonicalScoreEnvelope([[1, 1]]),
-    reaction: canonicalScoreEnvelope([
+    action: ScoreEnvelope([[1, 1]]),
+    reaction: ScoreEnvelope([
       [0, hitProbability],
       [2, 1 - hitProbability],
     ]),
@@ -53,7 +53,7 @@ function pointProvider(rawValue, observedTotals = [], observedWeights = []) {
   })
 }
 
-function canonicalScoreEnvelope(
+function ScoreEnvelope(
   entries,
   {
     support = { kind: 'finite', max: Math.max(...entries.map(([value]) => value)) },
@@ -106,7 +106,7 @@ describe('canonical on-demand damage calculation', () => {
       const attack = { dice: 0, value: 0, kazanari: 0 }
       const observedTotals = []
       const provider = pointProvider(2, observedTotals)
-      const canonical = await calculateCanonicalDamageOnDemand(
+      const canonical = await calculateDamageOnDemand(
         scoreWithHitProbability(hitProbability),
         attack,
         noDefence,
@@ -129,7 +129,7 @@ describe('canonical on-demand damage calculation', () => {
     const controller = new AbortController()
     const getD10Distribution = vi.fn(() => deterministicDefence(0))
 
-    await calculateCanonicalDamageOnDemand(
+    await calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       defence,
@@ -157,7 +157,7 @@ describe('canonical on-demand damage calculation', () => {
     const controller = new AbortController()
     controller.abort()
 
-    await expect(calculateCanonicalDamageOnDemand(
+    await expect(calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       defence,
@@ -198,7 +198,7 @@ describe('canonical on-demand damage calculation', () => {
             })
           : undefined,
       }
-      const { result, metadata } = await calculateCanonicalDamageOnDemand(
+      const { result, metadata } = await calculateDamageOnDemand(
         scoreWithHitProbability(1),
         attack,
         defence,
@@ -227,7 +227,7 @@ describe('canonical on-demand damage calculation', () => {
       workingLength: 7,
       fftLength: 32,
     })
-    const { result } = await calculateCanonicalDamageOnDemand(
+    const { result } = await calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       noDefence,
@@ -265,7 +265,7 @@ describe('canonical on-demand damage calculation', () => {
       getD10Distribution: vi.fn(() => deterministicDefence(0)),
     }
 
-    const { result } = await calculateCanonicalDamageOnDemand(
+    const { result } = await calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       defence,
@@ -299,7 +299,7 @@ describe('canonical on-demand damage calculation', () => {
       fftLength: 64,
       defenceFftLength: 32,
     })
-    const { result } = await calculateCanonicalDamageOnDemand(
+    const { result } = await calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       defence,
@@ -335,7 +335,7 @@ describe('canonical on-demand damage calculation', () => {
       fftLength: 64,
       defenceFftLength: 32,
     })
-    const { result } = await calculateCanonicalDamageOnDemand(
+    const { result } = await calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       defence,
@@ -364,7 +364,7 @@ describe('canonical on-demand damage calculation', () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const rangePlan = createRangePlan(attack, noDefence)
     const originalTail = rangePlan.scores[0].tail
-    const { metadata } = await calculateCanonicalDamageOnDemand(
+    const { metadata } = await calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       noDefence,
@@ -392,7 +392,7 @@ describe('canonical on-demand damage calculation', () => {
   it('rejects missing sub-probability mass at final composition', async () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const incompleteScore = {
-      action: canonicalScoreEnvelope([[1, 0.5]], {
+      action: ScoreEnvelope([[1, 0.5]], {
         support: { kind: 'infinite' },
         overflow: {
           kind: 'exact',
@@ -401,10 +401,10 @@ describe('canonical on-demand damage calculation', () => {
           errorBound: 0,
         },
       }),
-      reaction: canonicalScoreEnvelope([[0, 1]]),
+      reaction: ScoreEnvelope([[0, 1]]),
     }
 
-    await expect(calculateCanonicalDamageOnDemand(
+    await expect(calculateDamageOnDemand(
       incompleteScore,
       attack,
       noDefence,
@@ -418,7 +418,7 @@ describe('canonical on-demand damage calculation', () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const rangePlan = createRangePlan(attack, noDefence)
 
-    await expect(calculateCanonicalDamageOnDemand(
+    await expect(calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,
       noDefence,
@@ -441,11 +441,11 @@ describe('canonical on-demand damage calculation', () => {
       maxDamageDice: 204,
     }, 'full-tail')
     const score = {
-      action: canonicalScoreEnvelope([[2030, 1]]),
-      reaction: canonicalScoreEnvelope([[0, 1]]),
+      action: ScoreEnvelope([[2030, 1]]),
+      reaction: ScoreEnvelope([[0, 1]]),
     }
 
-    const canonical = await calculateCanonicalDamageOnDemand(
+    const canonical = await calculateDamageOnDemand(
       score,
       attack,
       noDefence,
@@ -471,15 +471,15 @@ describe('canonical on-demand damage calculation', () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const tailCertificate = {
       version: 1,
-      kind: 'canonical-score-tail-certificate',
+      kind: 'score-tail-certificate',
       massLowerBound: 0.4,
       massUpperBound: 0.4,
       lowerBound: 10,
       probabilityErrorBound: 0,
     }
-    const canonical = await calculateCanonicalDamageOnDemand(
+    const canonical = await calculateDamageOnDemand(
       {
-        action: canonicalScoreEnvelope([[1, 0.6]], {
+        action: ScoreEnvelope([[1, 0.6]], {
           support: { kind: 'infinite' },
           overflow: {
             kind: 'exact',
@@ -489,7 +489,7 @@ describe('canonical on-demand damage calculation', () => {
           },
           metadata: { scoreTailCertificate: tailCertificate },
         }),
-        reaction: canonicalScoreEnvelope([[0, 1]]),
+        reaction: ScoreEnvelope([[0, 1]]),
       },
       attack,
       noDefence,
@@ -518,10 +518,10 @@ describe('canonical on-demand damage calculation', () => {
 
   it('keeps reaction score tail uncertainty capable of reaching damage zero', async () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
-    const canonical = await calculateCanonicalDamageOnDemand(
+    const canonical = await calculateDamageOnDemand(
       {
-        action: canonicalScoreEnvelope([[1, 1]]),
-        reaction: canonicalScoreEnvelope([[0, 0.6]], {
+        action: ScoreEnvelope([[1, 1]]),
+        reaction: ScoreEnvelope([[0, 0.6]], {
           support: { kind: 'infinite' },
           overflow: {
             kind: 'exact',
@@ -564,10 +564,10 @@ describe('canonical on-demand damage calculation', () => {
       },
       'full-tail'
     )
-    const canonical = await calculateCanonicalDamageOnDemand(
+    const canonical = await calculateDamageOnDemand(
       {
-        action: canonicalScoreEnvelope([[1, 1]]),
-        reaction: canonicalScoreEnvelope([[0, 1]]),
+        action: ScoreEnvelope([[1, 1]]),
+        reaction: ScoreEnvelope([[0, 1]]),
       },
       attack,
       noDefence,
@@ -602,9 +602,9 @@ describe('canonical on-demand damage calculation', () => {
       },
       'full-tail'
     )
-    const canonical = await calculateCanonicalDamageOnDemand(
+    const canonical = await calculateDamageOnDemand(
       {
-        action: canonicalScoreEnvelope([[1, 0.6]], {
+        action: ScoreEnvelope([[1, 0.6]], {
           support: { kind: 'infinite' },
           overflow: {
             kind: 'exact',
@@ -613,7 +613,7 @@ describe('canonical on-demand damage calculation', () => {
             errorBound: 0,
           },
         }),
-        reaction: canonicalScoreEnvelope([[0, 0.6]], {
+        reaction: ScoreEnvelope([[0, 0.6]], {
           support: { kind: 'infinite' },
           overflow: {
             kind: 'exact',

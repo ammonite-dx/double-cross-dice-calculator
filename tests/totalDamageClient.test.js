@@ -8,12 +8,12 @@ import {
 } from '../src/runtime/ResourceGuard'
 import {
   createDistributionResult,
-  getCanonicalTotalDamageSummary,
+  getTotalDamageSummary,
 } from '../src/calculation/DistributionResult'
 import {
-  planCanonicalDamageAggregation,
-  sumCanonicalDamage,
-} from '../src/calculation/CanonicalDamageAggregation'
+  planDamageAggregation,
+  sumDamage,
+} from '../src/calculation/DamageAggregation'
 
 function createEnvelope(values, options = {}) {
   return {
@@ -32,9 +32,9 @@ function createEnvelope(values, options = {}) {
 
 function createDependencies(overrides = {}) {
   return {
-    getCanonicalTotalDamageSummary,
-    planCanonicalDamageAggregation,
-    sumCanonicalDamage,
+    getTotalDamageSummary,
+    planDamageAggregation,
+    sumDamage,
     ...overrides,
   }
 }
@@ -43,7 +43,7 @@ describe('CalculationClient canonical total damage', () => {
   it('snapshots input, reserves the published plan, executes it, and summarizes after execution', async () => {
     const events = []
     const plan = Object.freeze({
-      operation: 'canonical-damage-aggregation',
+      operation: 'damage-aggregation',
       estimates: Object.freeze({ float64Bytes: 128, operations: 4, timeMs: null }),
     })
     const aggregate = Object.freeze({
@@ -51,18 +51,18 @@ describe('CalculationClient canonical total damage', () => {
       metadata: Object.freeze({ modeledDistribution: true }),
     })
     const input = [createEnvelope([1])]
-    const planCanonicalDamageAggregation = vi.fn((snapshot) => {
+    const planDamageAggregation = vi.fn((snapshot) => {
       events.push('plan')
       expect(snapshot).not.toBe(input)
       return plan
     })
-    const sumCanonicalDamage = vi.fn((snapshot, options) => {
+    const sumDamage = vi.fn((snapshot, options) => {
       events.push('sum')
       expect(snapshot).not.toBe(input)
       expect(options.plan).toBe(plan)
       return aggregate
     })
-    const getCanonicalTotalDamageSummary = vi.fn(() => {
+    const getTotalDamageSummary = vi.fn(() => {
       events.push('summary')
       return 'canonical total summary'
     })
@@ -73,29 +73,29 @@ describe('CalculationClient canonical total damage', () => {
         expect(passedPlan).toBe(plan)
         expect(options).toMatchObject({
           requestId: 'canonical-total-1',
-          operation: 'canonical-total-damage',
+          operation: 'total-damage',
         })
         return { release }
       }),
     }
     const client = createCalculationClient(createDependencies({
-      getCanonicalTotalDamageSummary,
-      planCanonicalDamageAggregation,
+      getTotalDamageSummary,
+      planDamageAggregation,
       resourceGuard,
-      sumCanonicalDamage,
+      sumDamage,
     }))
 
-    await expect(client.calculateCanonicalTotalDamage(input, {
+    await expect(client.calculateTotalDamage(input, {
       requestId: 'canonical-total-1',
     })).resolves.toEqual({
-      canonicalTotalDamage: aggregate,
-      canonicalTotalDamageSummary: 'canonical total summary',
+      totalDamage: aggregate,
+      totalDamageSummary: 'canonical total summary',
     })
     expect(events).toEqual(['plan', 'lease', 'sum', 'summary', 'release'])
     expect(resourceGuard.acquirePlan).toHaveBeenCalledWith(plan, {
       signal: undefined,
       requestId: 'canonical-total-1',
-      operation: 'canonical-total-damage',
+      operation: 'total-damage',
     })
   })
 
@@ -107,7 +107,7 @@ describe('CalculationClient canonical total damage', () => {
       resourceGuard: { acquirePlan },
     }))
 
-    await expect(client.calculateCanonicalTotalDamage([], {
+    await expect(client.calculateTotalDamage([], {
       signal: controller.signal,
     })).rejects.toMatchObject({ code: 'aborted' })
     expect(acquirePlan).not.toHaveBeenCalled()
@@ -117,10 +117,10 @@ describe('CalculationClient canonical total damage', () => {
     const controller = new AbortController()
     const release = vi.fn()
     const plan = Object.freeze({
-      operation: 'canonical-damage-aggregation',
+      operation: 'damage-aggregation',
       estimates: Object.freeze({ float64Bytes: 128 }),
     })
-    const sumCanonicalDamage = vi.fn()
+    const sumDamage = vi.fn()
     const resourceGuard = {
       acquirePlan: vi.fn(() => {
         controller.abort()
@@ -128,34 +128,34 @@ describe('CalculationClient canonical total damage', () => {
       }),
     }
     const client = createCalculationClient(createDependencies({
-      planCanonicalDamageAggregation: vi.fn(() => plan),
+      planDamageAggregation: vi.fn(() => plan),
       resourceGuard,
-      sumCanonicalDamage,
+      sumDamage,
     }))
 
-    await expect(client.calculateCanonicalTotalDamage([], {
+    await expect(client.calculateTotalDamage([], {
       signal: controller.signal,
     })).rejects.toMatchObject({ name: 'AbortError' })
-    expect(sumCanonicalDamage).not.toHaveBeenCalled()
+    expect(sumDamage).not.toHaveBeenCalled()
     expect(release).toHaveBeenCalledOnce()
   })
 
   it.each([
-    ['aggregation', { sumCanonicalDamage: vi.fn(() => { throw new Error('aggregate') }) }],
-    ['summary', { getCanonicalTotalDamageSummary: vi.fn(() => { throw new Error('summary') }) }],
+    ['aggregation', { sumDamage: vi.fn(() => { throw new Error('aggregate') }) }],
+    ['summary', { getTotalDamageSummary: vi.fn(() => { throw new Error('summary') }) }],
   ])('releases a lease when %s fails', async (_label, overrides) => {
     const release = vi.fn()
     const plan = Object.freeze({
-      operation: 'canonical-damage-aggregation',
+      operation: 'damage-aggregation',
       estimates: Object.freeze({ float64Bytes: 128 }),
     })
     const client = createCalculationClient(createDependencies({
-      planCanonicalDamageAggregation: vi.fn(() => plan),
+      planDamageAggregation: vi.fn(() => plan),
       resourceGuard: { acquirePlan: vi.fn(() => ({ release })) },
       ...overrides,
     }))
 
-    await expect(client.calculateCanonicalTotalDamage([])).rejects.toThrow()
+    await expect(client.calculateTotalDamage([])).rejects.toThrow()
     expect(release).toHaveBeenCalledOnce()
   })
 
@@ -169,16 +169,16 @@ describe('CalculationClient canonical total damage', () => {
       resourceGuard: createResourceGuard(),
     }))
 
-    const output = await client.calculateCanonicalTotalDamage(input, {
+    const output = await client.calculateTotalDamage(input, {
       onFftLength: (length) => observedFftLengths.push(length),
     })
 
     expect(input).toEqual(before)
-    expect(output.canonicalTotalDamage.result).not.toBe(first.result)
-    expect(output.canonicalTotalDamage.result.values)
+    expect(output.totalDamage.result).not.toBe(first.result)
+    expect(output.totalDamage.result.values)
       .not.toBe(first.result.values)
     expect(observedFftLengths).toEqual([4])
-    expect(output.canonicalTotalDamageSummary).toEqual({
+    expect(output.totalDamageSummary).toEqual({
       expectedValue: { kind: 'exact', value: 1.25 },
       mass: expect.objectContaining({ totalMass: 1 }),
     })

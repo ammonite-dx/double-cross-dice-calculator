@@ -6,12 +6,12 @@ import {
 } from '../src/runtime/CalculationClient'
 import {
   createDistributionResult,
-  getCanonicalTotalDamageSummary,
+  getTotalDamageSummary,
 } from '../src/calculation/DistributionResult'
 import {
-  planCanonicalDamageAggregation,
-  sumCanonicalDamage,
-} from '../src/calculation/CanonicalDamageAggregation'
+  planDamageAggregation,
+  sumDamage,
+} from '../src/calculation/DamageAggregation'
 import { createResourceGuard } from '../src/runtime/ResourceGuard'
 
 const score = {
@@ -36,7 +36,7 @@ function attackParams(seed = 0) {
   }
 }
 
-function canonicalEnvelope(value = 0) {
+function Envelope(value = 0) {
   return Object.freeze({
     result: createDistributionResult({
       values: [1],
@@ -51,7 +51,7 @@ function canonicalEnvelope(value = 0) {
   })
 }
 
-function canonicalScoreEnvelope(
+function ScoreEnvelope(
   params,
   _getDistribution,
   _scoreRangePlan,
@@ -83,23 +83,23 @@ function createRecordingResourceGuard(events = []) {
 }
 
 function createDependencies(overrides = {}) {
-  let canonicalCall = 0
+  let Call = 0
   return {
-    calculateCanonicalDamageOnDemand: vi.fn(async () => {
-      canonicalCall += 1
-      return canonicalEnvelope(canonicalCall - 1)
+    calculateDamageOnDemand: vi.fn(async () => {
+      Call += 1
+      return Envelope(Call - 1)
     }),
-    calculateScoreCanonical: vi.fn(canonicalScoreEnvelope),
-    getCanonicalDamageSummary: vi.fn((damage) => damage),
-    getCanonicalTotalDamageSummary,
+    calculateScore: vi.fn(ScoreEnvelope),
+    getDamageSummary: vi.fn((damage) => damage),
+    getTotalDamageSummary,
     getD10Distribution: vi.fn(),
     planCalculationRanges: vi.fn(() => ({
       accepted: true,
       operation: 'attack',
     })),
-    planCanonicalDamageAggregation,
+    planDamageAggregation,
     resourceGuard: createResourceGuard(),
-    sumCanonicalDamage,
+    sumDamage,
     ...overrides,
   }
 }
@@ -111,33 +111,33 @@ describe('CalculationClient canonical attack batch', () => {
       { accepted: true, operation: 'attack', id: 'plan-1' },
       { accepted: true, operation: 'attack', id: 'plan-2' },
     ]
-    const totalPlan = { operation: 'canonical-damage-aggregation' }
+    const totalPlan = { operation: 'damage-aggregation' }
     const aggregate = { result: 'aggregate', metadata: 'metadata' }
     const planCalculationRanges = vi.fn(() => plans.shift())
-    const calculateCanonicalDamageOnDemand = vi.fn(async () => {
+    const calculateDamageOnDemand = vi.fn(async () => {
       events.push('attack')
-      return canonicalEnvelope()
+      return Envelope()
     })
-    const planCanonicalDamageAggregation = vi.fn(() => {
+    const planDamageAggregation = vi.fn(() => {
       events.push('plan-total')
       return totalPlan
     })
-    const sumCanonicalDamage = vi.fn(() => {
+    const sumDamage = vi.fn(() => {
       events.push('sum-total')
       return aggregate
     })
     const resourceGuard = createRecordingResourceGuard(events)
     const dependencies = createDependencies({
-      calculateCanonicalDamageOnDemand,
-      getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
+      calculateDamageOnDemand,
+      getTotalDamageSummary: vi.fn(() => 'total summary'),
       planCalculationRanges,
-      planCanonicalDamageAggregation,
+      planDamageAggregation,
       resourceGuard,
-      sumCanonicalDamage,
+      sumDamage,
     })
     const client = createCalculationClient(dependencies)
 
-    const result = await client.calculateAttackCanonicalBatch([
+    const result = await client.calculateAttackBatch([
       { id: 'first', params: attackParams(1) },
       { id: 42, params: attackParams(2) },
     ])
@@ -147,14 +147,14 @@ describe('CalculationClient canonical attack batch', () => {
         expect.objectContaining({ id: 'first' }),
         expect.objectContaining({ id: 42 }),
       ],
-      canonicalTotalDamage: aggregate,
-      canonicalTotalDamageSummary: 'total summary',
+      totalDamage: aggregate,
+      totalDamageSummary: 'total summary',
     })
     expect(result.combos.map((combo) => combo.id)).toEqual(['first', 42])
     expect(planCalculationRanges).toHaveBeenCalledTimes(2)
-    expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledTimes(2)
-    expect(planCanonicalDamageAggregation).toHaveBeenCalledOnce()
-    expect(sumCanonicalDamage).toHaveBeenCalledOnce()
+    expect(calculateDamageOnDemand).toHaveBeenCalledTimes(2)
+    expect(planDamageAggregation).toHaveBeenCalledOnce()
+    expect(sumDamage).toHaveBeenCalledOnce()
     expect(events.filter((event) => event === 'attack')).toHaveLength(2)
     expect(events.indexOf('plan-total')).toBeGreaterThan(
       events.lastIndexOf('attack')
@@ -170,14 +170,14 @@ describe('CalculationClient canonical attack batch', () => {
       resourceGuard: createResourceGuard(),
     }))
 
-    const result = await client.calculateAttackCanonicalBatch([])
+    const result = await client.calculateAttackBatch([])
 
     expect(result.combos).toEqual([])
-    expect(result.canonicalTotalDamage.result.values).toEqual(
+    expect(result.totalDamage.result.values).toEqual(
       new Float64Array([1])
     )
-    expect(result.canonicalTotalDamage.result.offset).toBe(0)
-    expect(result.canonicalTotalDamageSummary.expectedValue).toEqual({
+    expect(result.totalDamage.result.offset).toBe(0)
+    expect(result.totalDamageSummary.expectedValue).toEqual({
       kind: 'exact',
       value: 0,
     })
@@ -200,7 +200,7 @@ describe('CalculationClient canonical attack batch', () => {
       planCalculationRanges,
     }))
 
-    await expect(client.calculateAttackCanonicalBatch(entries))
+    await expect(client.calculateAttackBatch(entries))
       .rejects.toSatisfy((error) => {
         expect(error).toBeInstanceOf(CalculationBatchInputError)
         expect(error.code).toBe(code)
@@ -220,7 +220,7 @@ describe('CalculationClient canonical attack batch', () => {
       planCalculationRanges,
     }))
 
-    await expect(client.calculateAttackCanonicalBatch([
+    await expect(client.calculateAttackBatch([
       { id: 1, params: attackParams() },
     ], options)).rejects.toMatchObject({
       name: 'CalculationBatchInputError',
@@ -237,13 +237,13 @@ describe('CalculationClient canonical attack batch', () => {
     ['component count exceeds maxComponents', { maxComponents: 1 }],
   ])('rejects %s before attack calculation', async (_label, options) => {
     const planCalculationRanges = vi.fn()
-    const calculateCanonicalDamageOnDemand = vi.fn()
+    const calculateDamageOnDemand = vi.fn()
     const client = createCalculationClient(createDependencies({
-      calculateCanonicalDamageOnDemand,
+      calculateDamageOnDemand,
       planCalculationRanges,
     }))
 
-    await expect(client.calculateAttackCanonicalBatch([
+    await expect(client.calculateAttackBatch([
       { id: 1, params: attackParams() },
       { id: 2, params: attackParams(1) },
     ], options)).rejects.toMatchObject({
@@ -251,7 +251,7 @@ describe('CalculationClient canonical attack batch', () => {
       code: 'invalid-options',
     })
     expect(planCalculationRanges).not.toHaveBeenCalled()
-    expect(calculateCanonicalDamageOnDemand).not.toHaveBeenCalled()
+    expect(calculateDamageOnDemand).not.toHaveBeenCalled()
   })
 
   it('snapshots all entries before calculation and does not alias caller input', async () => {
@@ -263,20 +263,20 @@ describe('CalculationClient canonical attack batch', () => {
       accepted: true,
       operation: 'attack',
     }))
-    const calculateCanonicalDamageOnDemand = vi.fn(async (_score, attack) => {
-      if (calculateCanonicalDamageOnDemand.mock.calls.length === 1) {
+    const calculateDamageOnDemand = vi.fn(async (_score, attack) => {
+      if (calculateDamageOnDemand.mock.calls.length === 1) {
         await firstCalculation
       }
-      return canonicalEnvelope(attack.value)
+      return Envelope(attack.value)
     })
     const dependencies = createDependencies({
-      calculateCanonicalDamageOnDemand,
+      calculateDamageOnDemand,
       planCalculationRanges,
-      getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
-      planCanonicalDamageAggregation: vi.fn(() => ({
-        operation: 'canonical-damage-aggregation',
+      getTotalDamageSummary: vi.fn(() => 'total summary'),
+      planDamageAggregation: vi.fn(() => ({
+        operation: 'damage-aggregation',
       })),
-      sumCanonicalDamage: vi.fn(() => ({
+      sumDamage: vi.fn(() => ({
         result: 'aggregate',
         metadata: 'metadata',
       })),
@@ -290,7 +290,7 @@ describe('CalculationClient canonical attack batch', () => {
     const originalFirst = structuredClone(entries[0].params)
     const originalSecond = structuredClone(entries[1].params)
 
-    const pending = client.calculateAttackCanonicalBatch(entries)
+    const pending = client.calculateAttackBatch(entries)
     entries[0].params.action.score.dice = 99
     entries[0].params.action.damage.value = 999
     entries[1].params.reaction.damage.dice = 99
@@ -305,9 +305,9 @@ describe('CalculationClient canonical attack batch', () => {
       .toBe(originalFirst.action.score.dice)
     expect(planCalculationRanges.mock.calls[1][0].score.action.dice)
       .toBe(originalSecond.action.score.dice)
-    expect(calculateCanonicalDamageOnDemand.mock.calls[0][1].value)
+    expect(calculateDamageOnDemand.mock.calls[0][1].value)
       .toBe(originalFirst.action.damage.value)
-    expect(calculateCanonicalDamageOnDemand.mock.calls[1][1].value)
+    expect(calculateDamageOnDemand.mock.calls[1][1].value)
       .toBe(originalSecond.action.damage.value)
     expect(result.combos).not.toBe(originalEntries)
     expect(result.combos[0]).not.toBe(originalEntries[0])
@@ -323,7 +323,7 @@ describe('CalculationClient canonical attack batch', () => {
       accepted: true,
       operation: 'attack',
     }))
-    const calculateCanonicalDamageOnDemand = vi.fn(async (
+    const calculateDamageOnDemand = vi.fn(async (
       _score,
       _attack,
       _defence,
@@ -335,16 +335,16 @@ describe('CalculationClient canonical attack batch', () => {
         await firstCalculation
       }
       expect(runtimeOptions.runtimeFlag).toEqual({ mode: 'before' })
-      return canonicalEnvelope()
+      return Envelope()
     })
     const client = createCalculationClient(createDependencies({
-      calculateCanonicalDamageOnDemand,
-      getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
+      calculateDamageOnDemand,
+      getTotalDamageSummary: vi.fn(() => 'total summary'),
       planCalculationRanges,
-      planCanonicalDamageAggregation: vi.fn(() => ({
-        operation: 'canonical-damage-aggregation',
+      planDamageAggregation: vi.fn(() => ({
+        operation: 'damage-aggregation',
       })),
-      sumCanonicalDamage: vi.fn(() => ({
+      sumDamage: vi.fn(() => ({
         result: 'aggregate',
         metadata: 'metadata',
       })),
@@ -356,7 +356,7 @@ describe('CalculationClient canonical attack batch', () => {
       runtimeFlag: { mode: 'before' },
     }
 
-    const pending = client.calculateAttackCanonicalBatch([
+    const pending = client.calculateAttackBatch([
       { id: 1, params: attackParams() },
       { id: 2, params: attackParams(1) },
     ], options)
@@ -376,7 +376,7 @@ describe('CalculationClient canonical attack batch', () => {
       expect.objectContaining({ operation: 'attack' }),
       { calculationMax: 10, scorePropagation: 'full-tail' }
     )
-    expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledTimes(2)
+    expect(calculateDamageOnDemand).toHaveBeenCalledTimes(2)
   })
 
   it('does not return partial results when a later attack fails', async () => {
@@ -386,26 +386,26 @@ describe('CalculationClient canonical attack batch', () => {
     }
     const failure = new Error('second attack failed')
     let attackCount = 0
-    const calculateCanonicalDamageOnDemand = vi.fn(async () => {
+    const calculateDamageOnDemand = vi.fn(async () => {
       attackCount += 1
       if (attackCount === 2) {
         throw failure
       }
-      return canonicalEnvelope()
+      return Envelope()
     })
-    const planCanonicalDamageAggregation = vi.fn()
+    const planDamageAggregation = vi.fn()
     const client = createCalculationClient(createDependencies({
-      calculateCanonicalDamageOnDemand,
-      planCanonicalDamageAggregation,
+      calculateDamageOnDemand,
+      planDamageAggregation,
       resourceGuard,
     }))
 
-    await expect(client.calculateAttackCanonicalBatch([
+    await expect(client.calculateAttackBatch([
       { id: 1, params: attackParams() },
       { id: 2, params: attackParams(1) },
     ])).rejects.toBe(failure)
     expect(release).toHaveBeenCalledTimes(2)
-    expect(planCanonicalDamageAggregation).not.toHaveBeenCalled()
+    expect(planDamageAggregation).not.toHaveBeenCalled()
   })
 
   it('does not return partial results when abort happens between entries', async () => {
@@ -414,51 +414,51 @@ describe('CalculationClient canonical attack batch', () => {
     const resourceGuard = {
       acquirePlan: vi.fn(() => ({ release })),
     }
-    const getCanonicalDamageSummary = vi.fn(() => {
+    const getDamageSummary = vi.fn(() => {
       controller.abort()
       return 'summary'
     })
-    const calculateCanonicalDamageOnDemand = vi.fn(async () =>
-      canonicalEnvelope()
+    const calculateDamageOnDemand = vi.fn(async () =>
+      Envelope()
     )
-    const planCanonicalDamageAggregation = vi.fn()
+    const planDamageAggregation = vi.fn()
     const client = createCalculationClient(createDependencies({
-      calculateCanonicalDamageOnDemand,
-      getCanonicalDamageSummary,
-      planCanonicalDamageAggregation,
+      calculateDamageOnDemand,
+      getDamageSummary,
+      planDamageAggregation,
       resourceGuard,
     }))
 
-    await expect(client.calculateAttackCanonicalBatch([
+    await expect(client.calculateAttackBatch([
       { id: 1, params: attackParams() },
       { id: 2, params: attackParams(1) },
     ], { signal: controller.signal })).rejects.toMatchObject({
       name: 'AbortError',
     })
-    expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
+    expect(calculateDamageOnDemand).toHaveBeenCalledOnce()
     expect(release).toHaveBeenCalledOnce()
-    expect(planCanonicalDamageAggregation).not.toHaveBeenCalled()
+    expect(planDamageAggregation).not.toHaveBeenCalled()
   })
 
   it('does not start calculation when the signal is already aborted', async () => {
     const controller = new AbortController()
     controller.abort()
     const planCalculationRanges = vi.fn()
-    const calculateCanonicalDamageOnDemand = vi.fn()
+    const calculateDamageOnDemand = vi.fn()
     const resourceGuard = createRecordingResourceGuard()
     const client = createCalculationClient(createDependencies({
-      calculateCanonicalDamageOnDemand,
+      calculateDamageOnDemand,
       planCalculationRanges,
       resourceGuard,
     }))
 
-    await expect(client.calculateAttackCanonicalBatch([
+    await expect(client.calculateAttackBatch([
       { id: 1, params: attackParams() },
     ], { signal: controller.signal })).rejects.toMatchObject({
       name: 'AbortError',
     })
     expect(planCalculationRanges).not.toHaveBeenCalled()
-    expect(calculateCanonicalDamageOnDemand).not.toHaveBeenCalled()
+    expect(calculateDamageOnDemand).not.toHaveBeenCalled()
     expect(resourceGuard.acquirePlan).not.toHaveBeenCalled()
   })
 
@@ -472,25 +472,25 @@ describe('CalculationClient canonical attack batch', () => {
     const onRangePlan = vi.fn()
     const onFftLength = vi.fn()
     const planCalculationRanges = vi.fn(() => plans.shift())
-    const planCanonicalDamageAggregation = vi.fn(() => ({
-      operation: 'canonical-damage-aggregation',
+    const planDamageAggregation = vi.fn(() => ({
+      operation: 'damage-aggregation',
     }))
-    const sumCanonicalDamage = vi.fn(() => ({
+    const sumDamage = vi.fn(() => ({
       result: 'aggregate',
       metadata: 'metadata',
     }))
     const resourceGuard = createRecordingResourceGuard()
-    const calculateCanonicalDamageOnDemand = vi.fn(async () =>
-      canonicalEnvelope()
+    const calculateDamageOnDemand = vi.fn(async () =>
+      Envelope()
     )
     const dependencies = createDependencies({
-      calculateCanonicalDamageOnDemand,
-      getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
+      calculateDamageOnDemand,
+      getTotalDamageSummary: vi.fn(() => 'total summary'),
       onFftLength,
       planCalculationRanges,
-      planCanonicalDamageAggregation,
+      planDamageAggregation,
       resourceGuard,
-      sumCanonicalDamage,
+      sumDamage,
     })
     const client = createCalculationClient(dependencies)
     const options = {
@@ -503,7 +503,7 @@ describe('CalculationClient canonical attack batch', () => {
     }
     const optionsSnapshot = { ...options }
 
-    await client.calculateAttackCanonicalBatch([
+    await client.calculateAttackBatch([
       { id: 1, params: attackParams() },
       { id: 2, params: attackParams(1) },
     ], options)
@@ -520,8 +520,8 @@ describe('CalculationClient canonical attack batch', () => {
       { ...rangePolicy, scorePropagation: 'full-tail' }
     )
     expect(onRangePlan).toHaveBeenCalledTimes(2)
-    expect(calculateCanonicalDamageOnDemand).toHaveBeenCalledTimes(2)
-    for (const call of calculateCanonicalDamageOnDemand.mock.calls) {
+    expect(calculateDamageOnDemand).toHaveBeenCalledTimes(2)
+    for (const call of calculateDamageOnDemand.mock.calls) {
       expect(call[4]).toEqual({
         signal,
         requestId: 'batch-request',
@@ -529,14 +529,14 @@ describe('CalculationClient canonical attack batch', () => {
         runtimeFlag: 'preserve',
       })
     }
-    expect(planCanonicalDamageAggregation).toHaveBeenCalledWith(
+    expect(planDamageAggregation).toHaveBeenCalledWith(
       expect.any(Array),
       {
       signal,
       onFftLength,
       }
     )
-    expect(sumCanonicalDamage).toHaveBeenCalledWith(
+    expect(sumDamage).toHaveBeenCalledWith(
       expect.any(Array),
       { signal, onFftLength, plan: expect.any(Object) }
     )
@@ -549,26 +549,26 @@ describe('CalculationClient canonical attack batch', () => {
     expect(resourceGuard.acquirePlan.mock.calls[2][1]).toMatchObject({
       signal,
       requestId: 'batch-request',
-      operation: 'canonical-total-damage',
+        operation: 'total-damage',
     })
   })
 
   it('releases attack leases before rejecting on total failure', async () => {
     const events = []
     const resourceGuard = createRecordingResourceGuard(events)
-    const sumCanonicalDamage = vi.fn(() => {
+    const sumDamage = vi.fn(() => {
       events.push('sum')
       throw new Error('total failed')
     })
     const client = createCalculationClient(createDependencies({
       resourceGuard,
-      sumCanonicalDamage,
-      planCanonicalDamageAggregation: vi.fn(() => ({
-        operation: 'canonical-damage-aggregation',
+      sumDamage,
+      planDamageAggregation: vi.fn(() => ({
+        operation: 'damage-aggregation',
       })),
     }))
 
-    await expect(client.calculateAttackCanonicalBatch([
+    await expect(client.calculateAttackBatch([
       { id: 1, params: attackParams() },
       { id: 2, params: attackParams(1) },
     ])).rejects.toThrow('total failed')

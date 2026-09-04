@@ -78,8 +78,8 @@ describe('Backtrack input flow contracts', () => {
     )?.[1]
     expect(backtrackTemplate).toMatch(/<BacktrackPage\s*\/>/)
     expect(backtrackPageSource).toMatch(/<InputPanel\b[\s\S]*@validated=/)
-    expect(backtrackTemplate).not.toMatch(/canonicalOptIn|canonical-toggle/)
-    expect(backtrackPageSource).not.toMatch(/canonicalOptIn|canonical-toggle/)
+    expect(backtrackTemplate).not.toMatch(/OptIn|canonical-toggle/)
+    expect(backtrackPageSource).not.toMatch(/OptIn|canonical-toggle/)
   })
 
   it('forwards only validated events through InputForm and InputPanel', () => {
@@ -90,7 +90,7 @@ describe('Backtrack input flow contracts', () => {
     )
     expect(inputPanelSource).toMatch(/@validated\s*=\s*['"]onValidated['"]/
     )
-    expect(inputPanelSource).not.toMatch(/canonicalOptIn|canonical-toggle|<v-switch/)
+    expect(inputPanelSource).not.toMatch(/OptIn|canonical-toggle|<v-switch/)
     expect(inputFormSource).not.toContain('createLatestCalculationRunner')
     expect(inputPanelSource).not.toContain('createLatestCalculationRunner')
   })

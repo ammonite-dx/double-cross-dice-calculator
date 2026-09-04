@@ -27,7 +27,7 @@ describe('Backtrack feature architecture', () => {
 
     expect(page).toContain("import { useBacktrack } from '../model/useBacktrack'")
     expect(page).toContain('useBacktrack({ calculationClient })')
-    expect(composable).toContain('createBacktrackCanonicalRunner')
+    expect(composable).toContain('createBacktrackRunner')
     expect(composable).toContain('onMounted(')
     expect(composable).toContain('onUnmounted(')
   })
@@ -36,7 +36,7 @@ describe('Backtrack feature architecture', () => {
     const removedPaths = [
       'src/application/BacktrackCalculationRunner.js',
       'src/application/BacktrackInputSnapshot.ts',
-      'src/presentation/BacktrackCanonicalPresentation.js',
+      'src/presentation/BacktrackPresentation.js',
       'src/components/Backtrack/BacktrackForm.vue',
       'src/components/Backtrack/InputForm.vue',
       'src/components/Backtrack/InputPanel.vue',

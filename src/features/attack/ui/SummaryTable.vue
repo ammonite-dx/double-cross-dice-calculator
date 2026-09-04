@@ -1,11 +1,11 @@
 <script setup>
 
     import {
-        findCanonicalComboPresentation,
-        formatCanonicalSummaryExpectedValue,
-        formatCanonicalScoreSuccessRateDisplay,
-        formatCanonicalScoreSummaryExpectedValue,
-        getCanonicalScoreSummaryForCombo,
+        findComboPresentation,
+        formatSummaryExpectedValue,
+        formatScoreSuccessRateDisplay,
+        formatScoreSummaryExpectedValue,
+        getScoreSummaryForCombo,
     } from './SummaryTable';
 
     const props = defineProps({
@@ -25,42 +25,42 @@
 
     function getComboDamageExpectedValue(combo) {
         if (props.presentation?.status !== 'ready') {
-            return formatCanonicalSummaryExpectedValue(null);
+            return formatSummaryExpectedValue(null);
         }
-        const display = findCanonicalComboPresentation(
+        const display = findComboPresentation(
             props.presentation,
             combo?.id
         );
-        return formatCanonicalSummaryExpectedValue(
+        return formatSummaryExpectedValue(
             display?.display?.expectedValue
         );
     }
 
     function getComboScoreExpectedValue(combo) {
-        const summary = getCanonicalScoreSummaryForCombo(
+        const summary = getScoreSummaryForCombo(
             props.scorePresentation,
             combo?.id
         );
-        return formatCanonicalScoreSummaryExpectedValue(
+        return formatScoreSummaryExpectedValue(
             summary?.action?.expectedValue
         );
     }
 
     function getComboScoreSuccessRate(combo) {
-        const summary = getCanonicalScoreSummaryForCombo(
+        const summary = getScoreSummaryForCombo(
             props.scorePresentation,
             combo?.id
         );
-        return formatCanonicalScoreSuccessRateDisplay(
+        return formatScoreSuccessRateDisplay(
             summary?.action?.successRate
         );
     }
 
     function getTotalDamageExpectedValue() {
         if (props.presentation?.status !== 'ready') {
-            return formatCanonicalSummaryExpectedValue(null);
+            return formatSummaryExpectedValue(null);
         }
-        return formatCanonicalSummaryExpectedValue(
+        return formatSummaryExpectedValue(
             props.presentation?.total?.display?.expectedValue
         );
     }

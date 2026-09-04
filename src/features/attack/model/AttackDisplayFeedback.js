@@ -1,6 +1,6 @@
 import {
-  ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
-} from './AttackCanonicalPresentation'
+  ATTACK_DISPLAY_PRESENTATION_DECISIONS,
+} from './AttackPresentation'
 
 const DISPLAY_FEEDBACK_CODES = Object.freeze({
   RECALCULATE: 'attack-display-recalculate',
@@ -54,7 +54,7 @@ function createRejectedPlan(presentation, sides, code) {
   const warnings = [{
     code,
     severity: 'reject',
-    message: 'Attack canonical display is not ready for this window',
+    message: 'Attack display is not ready for this window',
   }]
   return {
     accepted: false,
@@ -80,7 +80,7 @@ function createRejectedPlan(presentation, sides, code) {
  * Adapt the UI-independent Attack display decision to the existing feedback
  * state consumed by RangePlanNotice. This never creates a legacy display.
  */
-export function createAttackCanonicalDisplayFeedback(presentation) {
+export function createAttackDisplayFeedback(presentation) {
   if (!isRecord(presentation)) {
     return {
       status: 'idle',
@@ -92,7 +92,7 @@ export function createAttackCanonicalDisplayFeedback(presentation) {
   const sides = getSides(presentation)
   const decision = presentation.decision
   if (
-    decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+    decision === ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
   ) {
     return {
       status: 'rejected',
@@ -106,7 +106,7 @@ export function createAttackCanonicalDisplayFeedback(presentation) {
   }
 
   if (
-    decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    decision === ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
   ) {
     return {
       status: 'rejected',
@@ -120,7 +120,7 @@ export function createAttackCanonicalDisplayFeedback(presentation) {
   }
 
   if (
-    decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+    decision === ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   ) {
     return {
       status: 'rejected',
@@ -154,11 +154,11 @@ export function createAttackCanonicalDisplayFeedback(presentation) {
 }
 
 /**
- * Adapt the independent canonical Score display decision to the same
- * RangePlanNotice feedback lane. Score coverage is deliberately terminal in
+ * Adapt the independent score display decision to the same
+ * RangePlanNotice feedback lane. score coverage is deliberately terminal in
  * this phase: this helper never asks the calculation runner to recalculate.
  */
-export function createAttackCanonicalScoreDisplayFeedback(presentation) {
+export function createAttackScoreDisplayFeedback(presentation) {
   if (!isRecord(presentation)) {
     return {
       status: 'idle',
@@ -169,7 +169,7 @@ export function createAttackCanonicalScoreDisplayFeedback(presentation) {
 
   const sides = getScoreSides(presentation)
   const decision = presentation.decision
-  if (decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED) {
+  if (decision === ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED) {
     return {
       status: 'rejected',
       plan: createRejectedPlan(
@@ -181,7 +181,7 @@ export function createAttackCanonicalScoreDisplayFeedback(presentation) {
     }
   }
 
-  if (decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE) {
+  if (decision === ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE) {
     return {
       status: 'rejected',
       plan: createRejectedPlan(
@@ -194,7 +194,7 @@ export function createAttackCanonicalScoreDisplayFeedback(presentation) {
   }
 
   if (
-    decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    decision === ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
     || presentation.status === 'not-ready'
   ) {
     return {
@@ -210,16 +210,16 @@ export function createAttackCanonicalScoreDisplayFeedback(presentation) {
 
   return {
     status: 'idle',
-    // Score uncertainty is represented by the neutral summary value. Only
+    // score uncertainty is represented by the neutral summary value. Only
     // terminal/rejected display decisions reach RangePlanNotice.
     plan: null,
     error: null,
   }
 }
 
-export const ATTACK_CANONICAL_DISPLAY_FEEDBACK_CODES = DISPLAY_FEEDBACK_CODES
+export const ATTACK_DISPLAY_FEEDBACK_CODES = DISPLAY_FEEDBACK_CODES
 
-export const ATTACK_CANONICAL_SCORE_DISPLAY_FEEDBACK_CODES = Object.freeze({
+export const ATTACK_SCORE_DISPLAY_FEEDBACK_CODES = Object.freeze({
   RECALCULATE: DISPLAY_FEEDBACK_CODES.SCORE_RECALCULATE,
   RESOURCE_REJECTED: DISPLAY_FEEDBACK_CODES.SCORE_RESOURCE_REJECTED,
   NOT_PROJECTABLE: DISPLAY_FEEDBACK_CODES.SCORE_NOT_PROJECTABLE,

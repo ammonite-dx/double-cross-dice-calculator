@@ -3,12 +3,12 @@ import { toChartPercentages } from '@/shared/presentation/ChartPercentages';
 import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 
 /**
- * Adapt the action side of the canonical Attack score presentation to the
+ * Adapt the action side of the Attack score presentation to the
  * existing score chart. Attack's current chart has one series per combo and
- * intentionally does not draw the reaction side; the reaction canonical side
+ * intentionally does not draw the reaction side; the reaction side
  * remains available in the atomic presentation for summary/future consumers.
  */
-export function getCanonicalAttackScoreChartData (presentation, combos) {
+export function getAttackScoreChartData (presentation, combos) {
     const scorePresentation = presentation?.score ?? presentation;
     if (
         scorePresentation?.status !== 'ready'
@@ -71,17 +71,17 @@ export function getAttackScoreChartOptions () {
 
 }
 
-function getCanonicalChartColor (id, index) {
+function getIndexedChartColor (id, index) {
     return Number.isFinite(id) ? getChartColor(id) : getChartColor(index);
 }
 
 /**
- * Combine the independently planned canonical combo/total chart views into
+ * Combine the independently planned combo/total chart views into
  * the dataset shape consumed by the existing DamageChart component. This
- * boundary converts canonical probability data into the percentage array
- * expected by the existing damage chart without mutating the canonical data.
+ * boundary converts probability data into the percentage array expected by
+ * the existing damage chart without mutating the source data.
  */
-export function getCanonicalAttackDamageChartData (presentation, combos) {
+export function getAttackDamageChartData (presentation, combos) {
     if (
         presentation?.status !== 'ready'
         || !Array.isArray(presentation.combos)
@@ -104,8 +104,8 @@ export function getCanonicalAttackDamageChartData (presentation, combos) {
             ...dataset,
             data: toChartPercentages(dataset.data),
             label: combo?.name ?? `コンボ${index + 1}`,
-            backgroundColor: getCanonicalChartColor(id, index),
-            borderColor: getCanonicalChartColor(id, index),
+            backgroundColor: getIndexedChartColor(id, index),
+            borderColor: getIndexedChartColor(id, index),
         };
     });
     if (datasets.some((dataset) => dataset === null)) {

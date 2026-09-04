@@ -3,17 +3,16 @@ import {
   markCalculationAborted,
 } from '../../../runtime/CalculationFeedback'
 
-const CANONICAL_COMBO_DEFAULTS = Object.freeze({
-  canonicalScore: null,
-  canonicalScoreSummary: null,
-  canonicalScoreBatchSummary: null,
-  canonicalScorePresentation: null,
-  canonicalScoreReady: false,
-  canonicalDamage: null,
-  canonicalDamageSummary: null,
-  canonicalDamagePresentation: null,
-  canonicalRangePlan: null,
-  canonicalResultReady: false,
+const COMBO_DEFAULTS = Object.freeze({
+  score: null,
+  scoreSummary: null,
+  scorePresentation: null,
+  scoreReady: false,
+  damage: null,
+  damageSummary: null,
+  damagePresentation: null,
+  rangePlan: null,
+  resultReady: false,
 })
 
 const SCORE_PARAM_NAMES = Object.freeze([
@@ -76,11 +75,11 @@ function snapshotDamageParams(damage, path, includeKazanari) {
 }
 
 /**
- * Make a plain, non-aliased snapshot of the params accepted by the canonical
+ * Make a plain, non-aliased snapshot of the params accepted by the attack
  * attack batch API. This deliberately copies only calculation inputs, so
  * legacy result arrays and presentation state never enter the request watch.
  */
-export function snapshotCanonicalAttackParams(params) {
+export function snapshotAttackParams(params) {
   const source = requireRecord(params, 'params')
   const action = requireRecord(source.action, 'params.action')
   const reaction = requireRecord(source.reaction, 'params.reaction')
@@ -110,10 +109,10 @@ export function snapshotCanonicalAttackParams(params) {
 }
 
 /**
- * Convert the current combo order into the canonical batch request shape.
+ * Convert the current combo order into the attack batch request shape.
  * Every nested params object is copied before the caller can mutate it.
  */
-export function snapshotCanonicalAttackEntries(combos) {
+export function snapshotAttackEntries(combos) {
   if (!Array.isArray(combos)) {
     throw new TypeError('combos must be an array')
   }
@@ -123,7 +122,7 @@ export function snapshotCanonicalAttackEntries(combos) {
     const data = requireRecord(source.data, `combos[${index}].data`)
     return {
       id: source.id,
-      params: snapshotCanonicalAttackParams(data.params),
+      params: snapshotAttackParams(data.params),
     }
   })
 }
@@ -135,7 +134,7 @@ function sameParamRecord(left, right, names) {
   return names.every((name) => Object.is(left[name], right[name]))
 }
 
-function sameCanonicalAttackParams(left, right) {
+function sameAttackParams(left, right) {
   if (!isRecord(left) || !isRecord(right)) {
     return false
   }
@@ -174,17 +173,17 @@ function sameCanonicalAttackParams(left, right) {
     )
 }
 
-export function createCanonicalComboDataState() {
-  return { ...CANONICAL_COMBO_DEFAULTS }
+export function createComboDataState() {
+  return { ...COMBO_DEFAULTS }
 }
 
 /**
- * Lazily add canonical-only fields to combo data created by InputForm.
- * Existing legacy fields are not read or modified.
+ * Lazily add calculation fields to combo data created by InputForm.
+ * Existing unrelated fields are not read or modified.
  */
-export function ensureCanonicalComboData(data) {
+export function ensureComboData(data) {
   const target = requireRecord(data, 'combo.data')
-  for (const [property, value] of Object.entries(CANONICAL_COMBO_DEFAULTS)) {
+  for (const [property, value] of Object.entries(COMBO_DEFAULTS)) {
     if (!hasOwn(target, property)) {
       target[property] = value
     }
@@ -192,34 +191,34 @@ export function ensureCanonicalComboData(data) {
   return target
 }
 
-export function createCanonicalAttackState() {
+export function createAttackState() {
   return {
-    canonicalScoreDisplayPresentation: null,
-    canonicalTotalDamage: null,
-    canonicalTotalDamageSummary: null,
-    canonicalTotalDamagePresentation: null,
-    canonicalDisplayPresentation: null,
-    canonicalTotalDamageReady: false,
-    canonicalGeneration: 0,
-    canonicalFeedback: createCalculationFeedbackState(),
-    canonicalScoreDisplayFeedback: createCalculationFeedbackState(),
-    canonicalDisplayFeedback: createCalculationFeedbackState(),
+    scoreDisplayPresentation: null,
+    totalDamage: null,
+    totalDamageSummary: null,
+    totalDamagePresentation: null,
+    displayPresentation: null,
+    totalDamageReady: false,
+    generation: 0,
+    feedback: createCalculationFeedbackState(),
+    scoreDisplayFeedback: createCalculationFeedbackState(),
+    displayFeedback: createCalculationFeedbackState(),
   }
 }
 
-function clearCanonicalResults(state) {
-  state.canonicalScoreDisplayPresentation = null
-  state.canonicalTotalDamage = null
-  state.canonicalTotalDamageSummary = null
-  state.canonicalTotalDamagePresentation = null
-  state.canonicalDisplayPresentation = null
-  state.canonicalTotalDamageReady = false
+function clearResults(state) {
+  state.scoreDisplayPresentation = null
+  state.totalDamage = null
+  state.totalDamageSummary = null
+  state.totalDamagePresentation = null
+  state.displayPresentation = null
+  state.totalDamageReady = false
 
-  if (state.canonicalDisplayFeedback) {
-    markCalculationAborted(state.canonicalDisplayFeedback)
+  if (state.displayFeedback) {
+    markCalculationAborted(state.displayFeedback)
   }
-  if (state.canonicalScoreDisplayFeedback) {
-    markCalculationAborted(state.canonicalScoreDisplayFeedback)
+  if (state.scoreDisplayFeedback) {
+    markCalculationAborted(state.scoreDisplayFeedback)
   }
 
   if (!Array.isArray(state.combos)) {
@@ -229,41 +228,39 @@ function clearCanonicalResults(state) {
     if (!isRecord(combo) || !isRecord(combo.data)) {
       continue
     }
-    const data = ensureCanonicalComboData(combo.data)
-    data.canonicalScore = null
-    data.canonicalScoreSummary = null
-    data.canonicalScoreBatchSummary = null
-    data.canonicalScorePresentation = null
-    data.canonicalScoreReady = false
-    data.canonicalDamage = null
-    data.canonicalDamageSummary = null
-    data.canonicalDamagePresentation = null
-    data.canonicalRangePlan = null
-    data.canonicalResultReady = false
+    const data = ensureComboData(combo.data)
+    data.score = null
+    data.scoreSummary = null
+    data.scorePresentation = null
+    data.scoreReady = false
+    data.damage = null
+    data.damageSummary = null
+    data.damagePresentation = null
+    data.rangePlan = null
+    data.resultReady = false
   }
 }
 
 /**
- * Invalidate the current canonical request and clear only canonical results.
+ * Invalidate the current request and clear only calculation results.
  * The caller's latest-runner owns AbortSignal cancellation.
  */
-export function invalidateCanonicalAttackState(state) {
-  const currentGeneration = Number.isSafeInteger(state.canonicalGeneration)
-    ? state.canonicalGeneration
+export function invalidateAttackState(state) {
+  const currentGeneration = Number.isSafeInteger(state.generation)
+    ? state.generation
     : 0
-  state.canonicalGeneration = currentGeneration + 1
-  clearCanonicalResults(state)
-  return state.canonicalGeneration
+  state.generation = currentGeneration + 1
+  clearResults(state)
+  return state.generation
 }
 
 /**
- * Disable/reset canonical state, including user-facing canonical feedback.
- * Legacy result and feedback fields are intentionally outside this function.
+ * Disable/reset calculation state, including user-facing feedback.
  */
-export function clearCanonicalAttackState(state) {
-  const generation = invalidateCanonicalAttackState(state)
-  if (state.canonicalFeedback) {
-    markCalculationAborted(state.canonicalFeedback)
+export function clearAttackState(state) {
+  const generation = invalidateAttackState(state)
+  if (state.feedback) {
+    markCalculationAborted(state.feedback)
   }
   return generation
 }
@@ -281,10 +278,10 @@ function sameId(left, right) {
 }
 
 /**
- * Compare only the ordered canonical input shape. Results and presentation
+ * Compare only the ordered input shape. Results and presentation
  * arrays are deliberately excluded so this remains a small commit guard.
  */
-export function areCanonicalAttackEntriesEqual(leftEntries, rightEntries) {
+export function areAttackEntriesEqual(leftEntries, rightEntries) {
   if (
     !Array.isArray(leftEntries)
     || !Array.isArray(rightEntries)
@@ -300,7 +297,7 @@ export function areCanonicalAttackEntriesEqual(leftEntries, rightEntries) {
       !isRecord(leftEntry)
       || !isRecord(rightEntry)
       || !sameId(leftEntry.id, rightEntry.id)
-      || !sameCanonicalAttackParams(leftEntry.params, rightEntry.params)
+      || !sameAttackParams(leftEntry.params, rightEntry.params)
     ) {
       return false
     }
@@ -312,11 +309,11 @@ export function areCanonicalAttackEntriesEqual(leftEntries, rightEntries) {
  * Snapshot and compare the current combo inputs without observing any result
  * or presentation field. Invalid current input is a non-match.
  */
-export function isCanonicalAttackInputCurrent(combos, expectedEntries) {
+export function isAttackInputCurrent(combos, expectedEntries) {
   try {
-    return areCanonicalAttackEntriesEqual(
+    return areAttackEntriesEqual(
       expectedEntries,
-      snapshotCanonicalAttackEntries(combos)
+      snapshotAttackEntries(combos)
     )
   } catch {
     return false
@@ -340,8 +337,8 @@ function hasBatchResultShape(batchResult, presentation, combos) {
 
   if (isDisplayPresentation) {
     if (
-      !hasOwn(batchResult, 'canonicalTotalDamage')
-      || !hasOwn(batchResult, 'canonicalTotalDamageSummary')
+      !hasOwn(batchResult, 'totalDamage')
+      || !hasOwn(batchResult, 'totalDamageSummary')
       || !isRecord(presentation.total)
     ) {
       return false
@@ -356,8 +353,8 @@ function hasBatchResultShape(batchResult, presentation, combos) {
         || !isRecord(batchCombo)
         || !isRecord(presentedCombo)
         || !hasOwn(batchCombo, 'id')
-        || !hasOwn(batchCombo, 'canonicalDamage')
-        || !hasOwn(batchCombo, 'canonicalDamageSummary')
+        || !hasOwn(batchCombo, 'damage')
+        || !hasOwn(batchCombo, 'damageSummary')
         || !hasOwn(presentedCombo, 'id')
         || !hasOwn(presentedCombo, 'display')
         || !hasOwn(presentedCombo, 'plan')
@@ -372,11 +369,11 @@ function hasBatchResultShape(batchResult, presentation, combos) {
   }
 
   if (
-    !hasOwn(batchResult, 'canonicalTotalDamage')
-    || !hasOwn(batchResult, 'canonicalTotalDamageSummary')
-    || !hasOwn(presentation, 'canonicalTotalDamage')
-    || !hasOwn(presentation, 'canonicalTotalDamageSummary')
-    || !hasOwn(presentation, 'canonicalTotalDamagePresentation')
+    !hasOwn(batchResult, 'totalDamage')
+    || !hasOwn(batchResult, 'totalDamageSummary')
+    || !hasOwn(presentation, 'totalDamage')
+    || !hasOwn(presentation, 'totalDamageSummary')
+    || !hasOwn(presentation, 'totalDamagePresentation')
   ) {
     return false
   }
@@ -395,11 +392,11 @@ function hasBatchResultShape(batchResult, presentation, combos) {
     }
     if (
       !hasOwn(batchCombo, 'id')
-      || !hasOwn(batchCombo, 'canonicalDamage')
-      || !hasOwn(batchCombo, 'canonicalDamageSummary')
+      || !hasOwn(batchCombo, 'damage')
+      || !hasOwn(batchCombo, 'damageSummary')
       || !hasOwn(presentedCombo, 'id')
-      || !hasOwn(presentedCombo, 'canonicalDamagePresentation')
-      || !hasOwn(presentedCombo, 'canonicalRangePlan')
+      || !hasOwn(presentedCombo, 'damagePresentation')
+      || !hasOwn(presentedCombo, 'rangePlan')
       || !sameId(batchCombo.id, stateCombo.id)
       || !sameId(presentedCombo.id, stateCombo.id)
     ) {
@@ -413,13 +410,13 @@ function hasBatchResultShape(batchResult, presentation, combos) {
  * Atomically publish one completed batch and its presentation payload.
  * Validation happens before any combo or total field is written.
  */
-export function commitCanonicalAttackResult(
+export function commitAttackResult(
   state,
   generation,
   batchResult,
   presentation
 ) {
-  if (generation !== state.canonicalGeneration) {
+  if (generation !== state.generation) {
     return false
   }
   if (!Array.isArray(state.combos)) {
@@ -438,76 +435,68 @@ export function commitCanonicalAttackResult(
     const presentedCombo = presentation.combos[index]
     return {
       data,
-      canonicalScore: hasOwn(presentedCombo, 'canonicalScore')
-        ? presentedCombo.canonicalScore
+      score: hasOwn(presentedCombo, 'score')
+        ? presentedCombo.score
         : null,
-      canonicalScoreSummary: hasOwn(presentedCombo, 'canonicalScoreSummary')
-        ? presentedCombo.canonicalScoreSummary
+      scoreSummary: hasOwn(presentedCombo, 'scoreSummary')
+        ? presentedCombo.scoreSummary
         : null,
-      canonicalScoreBatchSummary: hasOwn(
+      scorePresentation: hasOwn(
         presentedCombo,
-        'canonicalScoreBatchSummary'
+        'scorePresentation'
       )
-        ? presentedCombo.canonicalScoreBatchSummary
+        ? presentedCombo.scorePresentation
         : null,
-      canonicalScorePresentation: hasOwn(
-        presentedCombo,
-        'canonicalScorePresentation'
-      )
-        ? presentedCombo.canonicalScorePresentation
-        : null,
-      canonicalDamage: batchCombo.canonicalDamage,
-      canonicalDamageSummary: batchCombo.canonicalDamageSummary,
-      canonicalDamagePresentation: isDisplayPresentation
+      damage: batchCombo.damage,
+      damageSummary: batchCombo.damageSummary,
+      damagePresentation: isDisplayPresentation
         ? presentedCombo.display
-        : presentedCombo.canonicalDamagePresentation,
-      canonicalRangePlan: isDisplayPresentation
-        ? presentedCombo.canonicalRangePlan ?? presentedCombo.plan
-        : presentedCombo.canonicalRangePlan,
+        : presentedCombo.damagePresentation,
+      rangePlan: isDisplayPresentation
+        ? presentedCombo.rangePlan ?? presentedCombo.plan
+        : presentedCombo.rangePlan,
     }
   })
 
   for (const {
     data,
-    canonicalScore,
-    canonicalScoreSummary,
-    canonicalScoreBatchSummary,
-    canonicalScorePresentation,
-    canonicalDamage,
-    canonicalDamageSummary,
-    canonicalDamagePresentation,
-    canonicalRangePlan,
+    score,
+    scoreSummary,
+    scorePresentation,
+    damage,
+    damageSummary,
+    damagePresentation,
+    rangePlan,
   } of comboValues) {
-    ensureCanonicalComboData(data)
-    data.canonicalScore = canonicalScore
-    data.canonicalScoreSummary = canonicalScoreSummary
-    data.canonicalScoreBatchSummary = canonicalScoreBatchSummary
-    data.canonicalScorePresentation = canonicalScorePresentation
-    data.canonicalScoreReady = canonicalScore !== null
-      && canonicalScore !== undefined
-    data.canonicalDamage = canonicalDamage
-    data.canonicalDamageSummary = canonicalDamageSummary
-    data.canonicalDamagePresentation = canonicalDamagePresentation
-    data.canonicalRangePlan = canonicalRangePlan
-    data.canonicalResultReady = true
+    ensureComboData(data)
+    data.score = score
+    data.scoreSummary = scoreSummary
+    data.scorePresentation = scorePresentation
+    data.scoreReady = score !== null
+      && score !== undefined
+    data.damage = damage
+    data.damageSummary = damageSummary
+    data.damagePresentation = damagePresentation
+    data.rangePlan = rangePlan
+    data.resultReady = true
   }
 
-  state.canonicalTotalDamage = batchResult.canonicalTotalDamage
-  state.canonicalTotalDamageSummary = batchResult.canonicalTotalDamageSummary
-  state.canonicalTotalDamagePresentation = isDisplayPresentation
+  state.totalDamage = batchResult.totalDamage
+  state.totalDamageSummary = batchResult.totalDamageSummary
+  state.totalDamagePresentation = isDisplayPresentation
     ? presentation.total.display
-    : presentation.canonicalTotalDamagePresentation
-  state.canonicalScoreDisplayPresentation = isDisplayPresentation
+    : presentation.totalDamagePresentation
+  state.scoreDisplayPresentation = isDisplayPresentation
     ? presentation.score ?? null
     : null
-  state.canonicalDisplayPresentation = isDisplayPresentation
+  state.displayPresentation = isDisplayPresentation
     ? presentation
     : null
-  state.canonicalTotalDamageReady = true
+  state.totalDamageReady = true
   return true
 }
 
-function hasCanonicalDisplayPresentationShape(presentation, combos) {
+function hasDisplayPresentationShape(presentation, combos) {
   if (
     !isRecord(presentation)
     || !hasOwn(presentation, 'total')
@@ -534,25 +523,22 @@ function hasCanonicalDisplayPresentationShape(presentation, combos) {
 
 /**
  * Publish a new chart/summary presentation for an already committed
- * canonical result. No canonical result fields are copied or recalculated.
+ * calculation result. No result fields are copied or recalculated.
  */
-export function commitCanonicalAttackDisplayPresentation(
+export function commitAttackDisplayPresentation(
   state,
   generation,
   presentation
 ) {
   if (
-    generation !== state.canonicalGeneration
-    || state.canonicalTotalDamageReady !== true
+    generation !== state.generation
+    || state.totalDamageReady !== true
     || !Array.isArray(state.combos)
-    || !hasCanonicalDisplayPresentationShape(presentation, state.combos)
+    || !hasDisplayPresentationShape(presentation, state.combos)
   ) {
     return false
   }
-  state.canonicalDisplayPresentation = presentation
-  state.canonicalScoreDisplayPresentation = presentation.score ?? null
+  state.displayPresentation = presentation
+  state.scoreDisplayPresentation = presentation.score ?? null
   return true
 }
-
-export const createCanonicalBatchEntries = snapshotCanonicalAttackEntries
-export const commitAttackCanonicalResult = commitCanonicalAttackResult

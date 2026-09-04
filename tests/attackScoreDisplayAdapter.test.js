@@ -1,52 +1,52 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
-  createAttackCanonicalDisplayPresentation,
-  createAttackCanonicalDisplayPresentationFromCanonical,
-} from '../src/features/attack/model/AttackCanonicalPresentation'
+  ATTACK_DISPLAY_PRESENTATION_DECISIONS,
+  createAttackDisplayPresentation,
+  createAttackDisplayPresentationFrom,
+} from '../src/features/attack/model/AttackPresentation'
 import {
   createCalculationClient,
 } from '../src/runtime/CalculationClient'
-import { createAttackCanonicalRunner } from '../src/features/attack/model/AttackCanonicalRunner'
+import { createAttackRunner } from '../src/features/attack/model/AttackRunner'
 import {
-  createCanonicalAttackState,
-  createCanonicalComboDataState,
-} from '../src/features/attack/model/AttackCanonicalState'
+  createAttackState,
+  createComboDataState,
+} from '../src/features/attack/model/AttackState'
 import {
   ATTACK_DISPLAY_MODES,
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
-  getCanonicalTotalDamageSummary,
+  getTotalDamageSummary,
 } from '../src/calculation/DistributionResult'
 import {
-  getCanonicalDamageSummary,
+  getDamageSummary,
 } from '../src/calculation/DamageCalculator'
 import {
   calculateDxDistribution,
 } from '../src/calculation/DxCalculator'
 import {
-  calculateCanonicalScoreSuccessProbabilityInterval,
-  calculateCanonicalScoreSuccessProbability,
+  calculateScoreSuccessProbabilityInterval,
+  calculateScoreSuccessProbability,
 } from '../src/calculation/ScoreCalculator'
 import {
-  calculateScoreCanonical,
+  calculateScore,
 } from '../src/calculation/ScoreCalculator'
-import { sumCanonicalDamage } from '../src/calculation/CanonicalDamageAggregation'
+import { sumDamage } from '../src/calculation/DamageAggregation'
 import {
-  getCanonicalAttackScoreChartData,
+  getAttackScoreChartData,
 } from '../src/features/attack/ui/ChartSetter'
 import {
-  CANONICAL_SUMMARY_UNAVAILABLE,
-  formatCanonicalSummaryExpectedValue,
-  formatCanonicalScoreSuccessRate,
-  formatCanonicalScoreSuccessRateDisplay,
-  formatCanonicalScoreSummaryExpectedValue,
-  getCanonicalScoreSummaryForCombo,
+  SUMMARY_UNAVAILABLE,
+  formatSummaryExpectedValue,
+  formatScoreSuccessRate,
+  formatScoreSuccessRateDisplay,
+  formatScoreSummaryExpectedValue,
+  getScoreSummaryForCombo,
 } from '../src/features/attack/ui/SummaryTable'
 
-function calculateCanonicalScore(
+function calculateScoreWithProvider(
   params,
   getDistribution,
   scoreRangePlan,
@@ -54,10 +54,10 @@ function calculateCanonicalScore(
 ) {
   if (typeof getDistribution !== 'function') {
     throw new TypeError(
-      'calculateScoreCanonical requires a runtime distribution provider'
+      'calculateScore requires a runtime distribution provider'
     )
   }
-  return calculateScoreCanonical(
+  return calculateScore(
     params,
     { getDxDistribution: getDistribution },
     scoreRangePlan,
@@ -124,7 +124,7 @@ function createTailEnvelope(
       modeledDistribution: true,
       scoreTailCertificate: {
         version: 1,
-        kind: 'canonical-score-tail-certificate',
+        kind: 'score-tail-certificate',
         massLowerBound: kind === 'upper-bound' ? 0 : probability,
         massUpperBound,
         lowerBound,
@@ -136,7 +136,7 @@ function createTailEnvelope(
 
 function createBatch(scoreAction, scoreReaction = scoreAction) {
   const damage = createEnvelope([1], 0)
-  const total = sumCanonicalDamage([damage])
+  const total = sumDamage([damage])
   return {
     combos: [{
       id: 0,
@@ -148,11 +148,11 @@ function createBatch(scoreAction, scoreReaction = scoreAction) {
         action: { expectedValue: 123, successRate: 45.6 },
         reaction: { expectedValue: 456, successRate: 54.4 },
       },
-      canonicalDamage: damage,
-      canonicalDamageSummary: getCanonicalDamageSummary(damage),
+      damage: damage,
+      damageSummary: getDamageSummary(damage),
     }],
-    canonicalTotalDamage: total,
-    canonicalTotalDamageSummary: getCanonicalTotalDamageSummary(total),
+    totalDamage: total,
+    totalDamageSummary: getTotalDamageSummary(total),
   }
 }
 
@@ -166,7 +166,7 @@ describe('Attack canonical score display adapter', () => {
     const damage = createEnvelope([1], 0)
     const rangePlans = []
     const client = createCalculationClient({
-      calculateCanonicalDamageOnDemand: vi.fn(async (score) => {
+      calculateDamageOnDemand: vi.fn(async (score) => {
         expect(score.action.result.values).toBeInstanceOf(Float64Array)
         expect(score.reaction.result.values).toBeInstanceOf(Float64Array)
         expect(score.action).not.toHaveProperty('distribution')
@@ -174,9 +174,9 @@ describe('Attack canonical score display adapter', () => {
         return damage
       }),
       calculateDxDistribution,
-      calculateScoreCanonical: calculateCanonicalScore,
-      getCanonicalDamageSummary,
-      getCanonicalTotalDamageSummary,
+      calculateScore: calculateScoreWithProvider,
+      getDamageSummary,
+      getTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
       planCalculationRanges: vi.fn(() => ({
@@ -201,10 +201,10 @@ describe('Attack canonical score display adapter', () => {
       resourceGuard: {
         acquirePlan: vi.fn(() => ({ release: vi.fn() })),
       },
-      sumCanonicalDamage,
+      sumDamage,
     })
 
-    const result = await client.calculateAttackCanonicalBatch([
+    const result = await client.calculateAttackBatch([
       {
         id: 'production-combo',
         params: {
@@ -229,12 +229,12 @@ describe('Attack canonical score display adapter', () => {
       value: 0,
     })
 
-    const presentation = createAttackCanonicalDisplayPresentation(result, {
+    const presentation = createAttackDisplayPresentation(result, {
       displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
       scoreDisplayRequest: { min: 0, max: 3, mode: ATTACK_DISPLAY_MODES.PMF },
       rangePlans,
     })
-    const chart = getCanonicalAttackScoreChartData(presentation, [
+    const chart = getAttackScoreChartData(presentation, [
       { id: 'production-combo', name: 'コンボ1' },
     ])
 
@@ -243,15 +243,15 @@ describe('Attack canonical score display adapter', () => {
     expect(chart.datasets[0].data).toEqual([100, 0, 0, 0])
   })
 
-  it('reaches ready Score coverage through the production calculation client after expansion', async () => {
+  it('reaches ready score coverage through the production calculation client after expansion', async () => {
     const damage = createEnvelope([1], 0)
     const planningPolicies = []
     const client = createCalculationClient({
-      calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+      calculateDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScoreCanonical: calculateCanonicalScore,
-      getCanonicalDamageSummary,
-      getCanonicalTotalDamageSummary,
+      calculateScore: calculateScoreWithProvider,
+      getDamageSummary,
+      getTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
       planCalculationRanges: vi.fn((_params, policy = {}) => {
@@ -280,10 +280,10 @@ describe('Attack canonical score display adapter', () => {
       resourceGuard: {
         acquirePlan: vi.fn(() => ({ release: vi.fn() })),
       },
-      sumCanonicalDamage,
+      sumDamage,
     })
     const state = {
-      ...createCanonicalAttackState(),
+      ...createAttackState(),
       combos: [{
         id: 'production-score-expansion',
         data: {
@@ -298,7 +298,7 @@ describe('Attack canonical score display adapter', () => {
               damage: { dice: 0, value: 0 },
             },
           },
-          ...createCanonicalComboDataState(),
+          ...createComboDataState(),
         },
       }],
     }
@@ -320,22 +320,22 @@ describe('Attack canonical score display adapter', () => {
     const createSource = (currentState) => ({
       combos: currentState.combos.map((combo) => ({
         id: combo.id,
-        canonicalScore: combo.data.canonicalScore,
-        canonicalScoreSummary: combo.data.canonicalScoreSummary,
-        canonicalScoreBatchSummary: combo.data.canonicalScoreBatchSummary,
-        canonicalScorePresentation: combo.data.canonicalScorePresentation,
-        canonicalDamagePresentation:
-          combo.data.canonicalDamagePresentation,
-        canonicalRangePlan: combo.data.canonicalRangePlan,
+        score: combo.data.score,
+        scoreSummary: combo.data.scoreSummary,
+        scoreBatchSummary: combo.data.scoreBatchSummary,
+        scorePresentation: combo.data.scorePresentation,
+        damagePresentation:
+          combo.data.damagePresentation,
+        rangePlan: combo.data.rangePlan,
       })),
-      canonicalTotalDamagePresentation:
-        currentState.canonicalTotalDamagePresentation,
+      totalDamagePresentation:
+        currentState.totalDamagePresentation,
     })
-    const runner = createAttackCanonicalRunner({
+    const runner = createAttackRunner({
       state,
       calculationClient: client,
       createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackCanonicalDisplayPresentation(batchResult, {
+        createAttackDisplayPresentation(batchResult, {
           displayRequest: request ?? damageRequest,
           scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
           rangePlans,
@@ -344,7 +344,7 @@ describe('Attack canonical score display adapter', () => {
         state: currentState,
         displayRequest,
         scoreDisplayRequest,
-      }) => createAttackCanonicalDisplayPresentationFromCanonical(
+      }) => createAttackDisplayPresentationFrom(
         createSource(currentState),
         {
           displayRequest: displayRequest ?? damageRequest,
@@ -358,7 +358,7 @@ describe('Attack canonical score display adapter', () => {
       scoreDisplayRequest: initialScoreRequest,
       rangePolicy: { calculationMax: 1022 },
     })).resolves.toBe(true)
-    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
+    expect(state.scoreDisplayPresentation.status).toBe('ready')
 
     await expect(runner.refreshPresentation({
       displayRequest: damageRequest,
@@ -371,14 +371,14 @@ describe('Attack canonical score display adapter', () => {
       { calculationMax: 1022, scorePropagation: 'full-tail' },
       { calculationMax: 1025, scorePropagation: 'full-tail' },
     ])
-    expect(state.canonicalScoreDisplayPresentation.status).toBe('ready')
-    expect(state.canonicalScoreDisplayPresentation.displayRequest)
+    expect(state.scoreDisplayPresentation.status).toBe('ready')
+    expect(state.scoreDisplayPresentation.displayRequest)
       .toEqual(expandedScoreRequest)
   })
 
   it('projects the action side with one-decimal percentages and keeps reaction atomic', () => {
     const score = createEnvelope([0.12345, 0.87655], 1)
-    const presentation = createAttackCanonicalDisplayPresentation(
+    const presentation = createAttackDisplayPresentation(
       createBatch(score),
       {
         displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
@@ -393,16 +393,16 @@ describe('Attack canonical score display adapter', () => {
     expect(Array.from(presentation.score.combos[0].action.series.values))
       .toEqual([0.12345, 0.87655])
 
-    const chart = getCanonicalAttackScoreChartData(presentation, attackData.combos)
+    const chart = getAttackScoreChartData(presentation, attackData.combos)
     expect(chart.labels).toEqual([0, 1])
     expect(chart.datasets[0].data).toEqual([12.3, 87.7])
     expect(chart.datasets[0].data)
       .not.toBe(presentation.score.combos[0].action.chart.datasets[0].data)
   })
 
-  it('reports score coverage as not-ready without changing the Damage decision', () => {
+  it('reports score coverage as not-ready without changing the damage decision', () => {
     const score = createEnvelope([0.5, 0.5], 4)
-    const presentation = createAttackCanonicalDisplayPresentation(
+    const presentation = createAttackDisplayPresentation(
       createBatch(score),
       {
         displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
@@ -412,27 +412,27 @@ describe('Attack canonical score display adapter', () => {
     )
 
     expect(presentation.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.REUSE)
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE)
     expect(presentation.score.status).toBe('not-ready')
     expect(presentation.score.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE)
-    expect(getCanonicalAttackScoreChartData(presentation, attackData.combos))
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE)
+    expect(getAttackScoreChartData(presentation, attackData.combos))
       .toBeNull()
   })
 
   it('does not pointify non-exact score summaries', () => {
-    expect(formatCanonicalSummaryExpectedValue({
+    expect(formatSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 1,
       upperBound: 2,
-    })).toBe(CANONICAL_SUMMARY_UNAVAILABLE)
-    expect(formatCanonicalSummaryExpectedValue({
+    })).toBe(SUMMARY_UNAVAILABLE)
+    expect(formatSummaryExpectedValue({
       kind: 'lower-bound',
       lowerBound: 1,
-    })).toBe(CANONICAL_SUMMARY_UNAVAILABLE)
+    })).toBe(SUMMARY_UNAVAILABLE)
   })
 
-  it('uses only the atomic canonical batch Score summary for summary cells', () => {
+  it('uses only the atomic canonical batch score summary for summary cells', () => {
     const summary = {
       action: {
         expectedValue: { kind: 'exact', value: 12.34 },
@@ -446,8 +446,8 @@ describe('Attack canonical score display adapter', () => {
     const scorePresentation = {
       status: 'ready',
       combos: [{
-        id: 0,
-        canonicalScoreBatchSummary: summary,
+      id: 0,
+        scoreSummary: summary,
         action: {
           display: {
             expectedValue: { kind: 'exact', value: 999 },
@@ -456,91 +456,91 @@ describe('Attack canonical score display adapter', () => {
       }],
     }
 
-    expect(getCanonicalScoreSummaryForCombo(scorePresentation, 0))
+    expect(getScoreSummaryForCombo(scorePresentation, 0))
       .toBe(summary)
-    expect(formatCanonicalScoreSummaryExpectedValue(
+    expect(formatScoreSummaryExpectedValue(
       summary.action.expectedValue
     )).toBe(12.3)
-    expect(formatCanonicalScoreSuccessRate(summary.action.successRate))
+    expect(formatScoreSuccessRate(summary.action.successRate))
       .toBe(56.7)
-    expect(formatCanonicalScoreSuccessRateDisplay(summary.action.successRate))
+    expect(formatScoreSuccessRateDisplay(summary.action.successRate))
       .toBe('56.7%')
-    expect(formatCanonicalScoreSummaryExpectedValue({
+    expect(formatScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 1,
       upperBound: 2,
     })).toBe('—')
-    expect(formatCanonicalScoreSummaryExpectedValue({
+    expect(formatScoreSummaryExpectedValue({
       kind: 'lower-bound',
       lowerBound: 1,
     })).toBe('—')
-    expect(formatCanonicalScoreSuccessRate({
+    expect(formatScoreSuccessRate({
       kind: 'bounded',
       lowerBound: 0,
       upperBound: 100,
     })).toBe('—')
-    expect(formatCanonicalScoreSuccessRate({
+    expect(formatScoreSuccessRate({
       kind: 'lower-bound',
       lowerBound: 0,
     })).toBe('—')
-    expect(formatCanonicalScoreSuccessRateDisplay({
+    expect(formatScoreSuccessRateDisplay({
       kind: 'lower-bound',
       lowerBound: 0,
     })).toBe('—')
   })
 
-  it('displays bounded Score values only when both rounded bounds agree', () => {
-    expect(formatCanonicalScoreSummaryExpectedValue({
+  it('displays bounded score values only when both rounded bounds agree', () => {
+    expect(formatScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 6.011111,
       upperBound: 6.011112,
     })).toBe(6)
-    expect(formatCanonicalScoreSuccessRate({
+    expect(formatScoreSuccessRate({
       kind: 'bounded',
       lowerBound: 45.4545,
       upperBound: 45.4546,
     })).toBe(45.5)
-    expect(formatCanonicalScoreSuccessRateDisplay({
+    expect(formatScoreSuccessRateDisplay({
       kind: 'bounded',
       lowerBound: 45.4545,
       upperBound: 45.4546,
     })).toBe('45.5%')
-    expect(formatCanonicalScoreSummaryExpectedValue({
+    expect(formatScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 6.04,
       upperBound: 6.06,
     })).toBe('—')
-    expect(formatCanonicalScoreSuccessRate({
+    expect(formatScoreSuccessRate({
       kind: 'bounded',
       lowerBound: 45.04,
       upperBound: 45.06,
     })).toBe('—')
-    expect(formatCanonicalScoreSummaryExpectedValue({
+    expect(formatScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 6.05,
       upperBound: 6.05,
     })).toBe(6.1)
-    expect(formatCanonicalScoreSuccessRate({
+    expect(formatScoreSuccessRate({
       kind: 'bounded',
       lowerBound: 45.05,
       upperBound: 45.05,
     })).toBe(45.1)
-    expect(formatCanonicalScoreSummaryExpectedValue({
+    expect(formatScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 6.049999999,
       upperBound: 6.05,
     })).toBe('—')
-    expect(formatCanonicalScoreSuccessRate({
+    expect(formatScoreSuccessRate({
       kind: 'bounded',
       lowerBound: 45.049999999,
       upperBound: 45.05,
     })).toBe('—')
-    expect(formatCanonicalScoreSummaryExpectedValue({
+    expect(formatScoreSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: -0.05,
       upperBound: -0.05,
     })).toBe(0)
-    expect(formatCanonicalScoreSummaryExpectedValue({
+    expect(formatScoreSummaryExpectedValue({
       kind: 'exact',
       value: 6.04,
     })).toBe(6)
@@ -549,7 +549,7 @@ describe('Attack canonical score display adapter', () => {
   it('keeps the four success interval event classes disjoint', () => {
     const action = createTailEnvelope([0.1, 0, 0, 0, 0, 0.2], 10, 0.7)
     const reaction = createTailEnvelope([0.15], 4, 0.85)
-    const interval = calculateCanonicalScoreSuccessProbabilityInterval(
+    const interval = calculateScoreSuccessProbabilityInterval(
       action,
       reaction
     )
@@ -562,7 +562,7 @@ describe('Attack canonical score display adapter', () => {
   it('keeps finite/no-tail and tail-mass-zero cases exact', () => {
     const finiteAction = createEnvelope([0, 1], 1)
     const finiteReaction = createEnvelope([1], 0)
-    const finiteInterval = calculateCanonicalScoreSuccessProbabilityInterval(
+    const finiteInterval = calculateScoreSuccessProbabilityInterval(
       finiteAction,
       finiteReaction
     )
@@ -587,7 +587,7 @@ describe('Attack canonical score display adapter', () => {
         modeledDistribution: true,
         scoreTailCertificate: {
           version: 1,
-          kind: 'canonical-score-tail-certificate',
+          kind: 'score-tail-certificate',
           massLowerBound: 0,
           massUpperBound: 0,
           lowerBound: 2,
@@ -595,7 +595,7 @@ describe('Attack canonical score display adapter', () => {
         },
       },
     }
-    const exactInterval = calculateCanonicalScoreSuccessProbabilityInterval(
+    const exactInterval = calculateScoreSuccessProbabilityInterval(
       zeroTailCertificate,
       finiteReaction
     )
@@ -619,7 +619,7 @@ describe('Attack canonical score display adapter', () => {
     )
 
     for (const action of [exactPotentialTail, upperPotentialTail]) {
-      const interval = calculateCanonicalScoreSuccessProbabilityInterval(
+      const interval = calculateScoreSuccessProbabilityInterval(
         action,
         finiteReaction
       )
@@ -634,16 +634,16 @@ describe('Attack canonical score display adapter', () => {
     const rangePlans = []
     const damage = createEnvelope([1], 0)
     const client = createCalculationClient({
-      calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+      calculateDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScoreCanonical: calculateCanonicalScore,
-      getCanonicalDamageSummary,
-      getCanonicalTotalDamageSummary,
+      calculateScore: calculateScoreWithProvider,
+      getDamageSummary,
+      getTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
-      sumCanonicalDamage,
+      sumDamage,
     })
-    const result = await client.calculateAttackCanonicalBatch([
+    const result = await client.calculateAttackBatch([
       {
         id: 'default-summary',
         params: {
@@ -659,22 +659,22 @@ describe('Attack canonical score display adapter', () => {
         },
       },
     ], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
-    const presentation = createAttackCanonicalDisplayPresentation(result, {
+    const presentation = createAttackDisplayPresentation(result, {
       displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
       scoreDisplayRequest: { min: 0, max: 100, mode: ATTACK_DISPLAY_MODES.PMF },
       rangePlans,
     })
-    const summary = getCanonicalScoreSummaryForCombo(
+    const summary = getScoreSummaryForCombo(
       presentation.score,
       'default-summary'
     )
 
-    expect(formatCanonicalScoreSummaryExpectedValue(
+    expect(formatScoreSummaryExpectedValue(
       summary.action.expectedValue
     )).toBe(6)
-    expect(formatCanonicalScoreSuccessRate(summary.action.successRate))
+    expect(formatScoreSuccessRate(summary.action.successRate))
       .toBe(45.5)
-    expect(formatCanonicalScoreSuccessRate(summary.reaction.successRate))
+    expect(formatScoreSuccessRate(summary.reaction.successRate))
       .toBe(54.5)
   })
 
@@ -689,14 +689,14 @@ describe('Attack canonical score display adapter', () => {
       const damage = createEnvelope([1], 0)
       const rangePlans = []
       const client = createCalculationClient({
-        calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+        calculateDamageOnDemand: vi.fn(async () => damage),
         calculateDxDistribution,
-        calculateScoreCanonical: calculateCanonicalScore,
-        getCanonicalDamageSummary,
-        getCanonicalTotalDamageSummary,
+        calculateScore: calculateScoreWithProvider,
+        getDamageSummary,
+        getTotalDamageSummary,
         getDamageRollDistribution: vi.fn(),
         getD10Distribution: vi.fn(),
-        sumCanonicalDamage,
+        sumDamage,
       })
       const score = {
         dice: 1,
@@ -706,7 +706,7 @@ describe('Attack canonical score display adapter', () => {
         shihai: 0,
         ...overrides,
       }
-      const result = await client.calculateAttackCanonicalBatch([
+      const result = await client.calculateAttackBatch([
         {
           id: label,
           params: {
@@ -733,7 +733,7 @@ describe('Attack canonical score display adapter', () => {
       expect(result.combos[0].score.reaction.metadata)
         .not.toHaveProperty('scoreExpectationCertificate')
 
-      const presentation = createAttackCanonicalDisplayPresentation(result, {
+      const presentation = createAttackDisplayPresentation(result, {
         displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
         scoreDisplayRequest: {
           min: 0,
@@ -742,38 +742,38 @@ describe('Attack canonical score display adapter', () => {
         },
         rangePlans,
       })
-      const scoreSummary = getCanonicalScoreSummaryForCombo(
+      const scoreSummary = getScoreSummaryForCombo(
         presentation.score,
         label
       )
       expect(presentation.status, label).toBe('ready')
       expect(presentation.score.status, label).toBe('ready')
-      expect(formatCanonicalScoreSummaryExpectedValue(
+      expect(formatScoreSummaryExpectedValue(
         scoreSummary.action.expectedValue
       ), label).toBe('—')
-      expect(formatCanonicalScoreSummaryExpectedValue(
+      expect(formatScoreSummaryExpectedValue(
         scoreSummary.reaction.expectedValue
       ), label).toBe('—')
-      expect(getCanonicalAttackScoreChartData(presentation, [
+      expect(getAttackScoreChartData(presentation, [
         { id: label, name: label },
       ]), label).not.toBeNull()
     }
   })
 
-  it('keeps finite critical-11 Score expectation exact and numerically displayed', async () => {
+  it('keeps finite critical-11 score expectation exact and numerically displayed', async () => {
     const damage = createEnvelope([1], 0)
     const rangePlans = []
     const client = createCalculationClient({
-      calculateCanonicalDamageOnDemand: vi.fn(async () => damage),
+      calculateDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
-      calculateScoreCanonical: calculateCanonicalScore,
-      getCanonicalDamageSummary,
-      getCanonicalTotalDamageSummary,
+      calculateScore: calculateScoreWithProvider,
+      getDamageSummary,
+      getTotalDamageSummary,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
-      sumCanonicalDamage,
+      sumDamage,
     })
-    const result = await client.calculateAttackCanonicalBatch([{
+    const result = await client.calculateAttackBatch([{
       id: 'finite-critical-11',
       params: {
         action: {
@@ -800,22 +800,22 @@ describe('Attack canonical score display adapter', () => {
       },
     }], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
 
-    const presentation = createAttackCanonicalDisplayPresentation(result, {
+    const presentation = createAttackDisplayPresentation(result, {
       displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
       scoreDisplayRequest: { min: 0, max: 100, mode: ATTACK_DISPLAY_MODES.PMF },
       rangePlans,
     })
-    const summary = getCanonicalScoreSummaryForCombo(
+    const summary = getScoreSummaryForCombo(
       presentation.score,
       'finite-critical-11'
     )
 
     expect(summary.action.expectedValue.kind).toBe('exact')
     expect(summary.reaction.expectedValue.kind).toBe('exact')
-    expect(formatCanonicalScoreSummaryExpectedValue(
+    expect(formatScoreSummaryExpectedValue(
       summary.action.expectedValue
     )).toBe(5.4)
-    expect(formatCanonicalScoreSummaryExpectedValue(
+    expect(formatScoreSummaryExpectedValue(
       summary.reaction.expectedValue
     )).toBe(5.4)
     expect(presentation.score.status).toBe('ready')
@@ -825,7 +825,7 @@ describe('Attack canonical score display adapter', () => {
     const score = createEnvelope([0.5, 0.5], 4)
     const batch = createBatch(score)
     const state = {
-      ...createCanonicalAttackState(),
+      ...createAttackState(),
       combos: [{
         id: 0,
         data: {
@@ -840,7 +840,7 @@ describe('Attack canonical score display adapter', () => {
               damage: { dice: 0, value: 0 },
             },
           },
-          ...createCanonicalComboDataState(),
+          ...createComboDataState(),
         },
       }],
     }
@@ -849,33 +849,33 @@ describe('Attack canonical score display adapter', () => {
     const source = (currentState) => ({
       combos: currentState.combos.map((combo) => ({
         id: combo.id,
-        canonicalScore: combo.data.canonicalScore,
-        canonicalScoreSummary: combo.data.canonicalScoreSummary,
-        canonicalScoreBatchSummary: combo.data.canonicalScoreBatchSummary,
-        canonicalScorePresentation: combo.data.canonicalScorePresentation,
-        canonicalDamagePresentation: combo.data.canonicalDamagePresentation,
-        canonicalRangePlan: combo.data.canonicalRangePlan,
+        score: combo.data.score,
+        scoreSummary: combo.data.scoreSummary,
+        scoreBatchSummary: combo.data.scoreBatchSummary,
+        scorePresentation: combo.data.scorePresentation,
+        damagePresentation: combo.data.damagePresentation,
+        rangePlan: combo.data.rangePlan,
       })),
-      canonicalTotalDamagePresentation:
-        currentState.canonicalTotalDamagePresentation,
+      totalDamagePresentation:
+        currentState.totalDamagePresentation,
     })
     const calculationClient = {
-      calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+      calculateAttackBatch: vi.fn(async (_entries, options) => {
         options.onRangePlan(plan)
         return batch
       }),
     }
-    const runner = createAttackCanonicalRunner({
+    const runner = createAttackRunner({
       state,
       calculationClient,
       createPresentation: (result, rangePlans, request) =>
-        createAttackCanonicalDisplayPresentation(result, {
+        createAttackDisplayPresentation(result, {
           displayRequest: request ?? damageRequest,
           scoreDisplayRequest: scoreRequest,
           rangePlans,
         }),
       createDisplayPresentation: ({ state: currentState, displayRequest }) =>
-        createAttackCanonicalDisplayPresentationFromCanonical(
+        createAttackDisplayPresentationFrom(
           source(currentState),
           {
             displayRequest: displayRequest ?? damageRequest,
@@ -885,16 +885,16 @@ describe('Attack canonical score display adapter', () => {
     })
 
     await expect(runner.run({ displayRequest: damageRequest })).resolves.toBe(true)
-    expect(state.canonicalScoreDisplayPresentation.status).toBe('not-ready')
-    expect(calculationClient.calculateAttackCanonicalBatch).toHaveBeenCalledOnce()
+    expect(state.scoreDisplayPresentation.status).toBe('not-ready')
+    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
 
     expect(runner.refreshPresentation({
       displayRequest: damageRequest,
     })).toBe(true)
-    expect(calculationClient.calculateAttackCanonicalBatch).toHaveBeenCalledOnce()
-    expect(state.canonicalDisplayPresentation.status).toBe('ready')
-    expect(getCanonicalScoreSummaryForCombo(
-      state.canonicalScoreDisplayPresentation,
+    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
+    expect(state.displayPresentation.status).toBe('ready')
+    expect(getScoreSummaryForCombo(
+      state.scoreDisplayPresentation,
       0
     )).toBeNull()
     runner.dispose()
@@ -918,14 +918,14 @@ describe('Attack canonical score display adapter', () => {
       0
     )
 
-    expect(calculateCanonicalScoreSuccessProbability(
+    expect(calculateScoreSuccessProbability(
       actionBuckets,
       reactionBuckets
     )).toBeCloseTo(expected)
   })
 
   it('keeps equal score buckets out of strict success', () => {
-    expect(calculateCanonicalScoreSuccessProbability(
+    expect(calculateScoreSuccessProbability(
       [
         { value: 5, probability: 0.5 },
         { value: 6, probability: 0.5 },
@@ -935,7 +935,7 @@ describe('Attack canonical score display adapter', () => {
   })
 
   it('walks sparse buckets with one cumulative reaction pointer', () => {
-    expect(calculateCanonicalScoreSuccessProbability(
+    expect(calculateScoreSuccessProbability(
       [
         { value: 0, probability: 0.2 },
         { value: 10, probability: 0.8 },
@@ -961,7 +961,7 @@ describe('Attack canonical score display adapter', () => {
     )
     let reactionVisits = 0
 
-    const actual = calculateCanonicalScoreSuccessProbability(
+    const actual = calculateScoreSuccessProbability(
       actionBuckets,
       reactionBuckets,
       () => {

@@ -1,5 +1,5 @@
 import {
-  CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+  DISTRIBUTION_DISPLAY_VERSION,
   DISPLAY_PROBABILITY_TOLERANCE,
 } from './DistributionPresenter'
 
@@ -146,7 +146,7 @@ function requireProbability(value, path) {
   return value
 }
 
-// `presentCanonicalDistribution` validates every coefficient before exposing
+// `presentDistribution` validates every coefficient before exposing
 // this versioned display contract. Planning a new window must therefore stay
 // O(1) in explicit.length: verify only the container kind, its length, and
 // the derived endpoint. Do not inspect coefficient values or array density.
@@ -358,7 +358,7 @@ function normalizeDisplay(display) {
     display,
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
     'display',
-    'display must be a plain canonical distribution display record'
+    'display must be a plain distribution display record'
   )
 
   const displayKind = getOwnDataProperty(
@@ -381,14 +381,14 @@ function normalizeDisplay(display) {
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
     'display'
   )
-  if (displayVersion !== CANONICAL_DISTRIBUTION_DISPLAY_VERSION) {
+  if (displayVersion !== DISTRIBUTION_DISPLAY_VERSION) {
     fail(
       DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      `display.version must be ${CANONICAL_DISTRIBUTION_DISPLAY_VERSION}`,
+      `display.version must be ${DISTRIBUTION_DISPLAY_VERSION}`,
       {
         path: 'display.version',
         version: displayVersion,
-        expected: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+        expected: DISTRIBUTION_DISPLAY_VERSION,
       }
     )
   }
@@ -625,7 +625,7 @@ function normalizePolicy(policy) {
   )
 
   // `limits` is accepted as a descriptive alias so the policy can be passed
-  // beside RangePlanner policies without changing the canonical metric names.
+  // beside RangePlanner policies without changing the metric names.
   const source = hasOwn(supplied, 'limits')
     ? getOwnDataProperty(
         supplied,
@@ -922,15 +922,15 @@ function deepFreeze(value, seen = new WeakSet()) {
 }
 
 /**
- * Plan how a canonical distribution display can satisfy a requested window.
+ * Plan how a distribution display can satisfy a requested window.
  *
  * The function is intentionally UI-independent. It does not project
  * probabilities, allocate a window-sized array, invoke RangePlanner, or
  * acquire a ResourceGuard lease. A caller may pass a window as
  * `{ displayWindow, policy }`, as `{ min, max, policy }`, or use the
- * `displayWindow` retained by `presentCanonicalDistribution`.
+ * `displayWindow` retained by `presentDistribution`.
  *
- * @param {Object} display A canonical-distribution-display payload.
+ * @param {Object} display A distribution-display payload.
  * @param {Object} [options]
  * @param {{ min: number, max: number }} [options.displayWindow]
  * @param {Object} [options.policy]
@@ -992,11 +992,11 @@ export function planDisplayRange(display, options, policyOverride) {
 /**
  * Plan only the resource cost of a display window.
  *
- * This is used before a canonical result exists (for example when the user
+ * This is used before a result exists (for example when the user
  * enters a window while the previous calculation is still unavailable). It
  * deliberately does not inspect or fabricate a distribution, and therefore
  * cannot make a coverage decision. Callers should treat the returned plan as
- * a resource preflight only and use `planDisplayRange` once a canonical
+ * a resource preflight only and use `planDisplayRange` once a
  * display is available.
  */
 export function planDisplayWindowResources(displayWindow, policy) {

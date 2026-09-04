@@ -6,7 +6,7 @@ import {
 import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
 import type { BacktrackParams } from '../../../domain/BacktrackRules'
 import {
-  createBacktrackCanonicalRunner,
+  createBacktrackRunner,
 } from './BacktrackCalculationRunner'
 import {
   createBacktrackInputSnapshot,
@@ -60,7 +60,7 @@ export function useBacktrack({
     rangeFeedback,
   })
 
-  const calculationRunner = createBacktrackCanonicalRunner({
+  const calculationRunner = createBacktrackRunner({
     state,
     feedback: rangeFeedback,
     calculationClient,

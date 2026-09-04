@@ -32,9 +32,9 @@ describe('canonical Attack Worker browser benchmark contract', () => {
 
   it('measures the public batch boundary instead of direct canonical damage', () => {
     expect(benchmarkSource).toContain(
-      'calculationClient.calculateAttackCanonicalBatch'
+      'calculationClient.calculateAttackBatch'
     )
-    expect(benchmarkSource).not.toContain('calculateCanonicalDamageOnDemand(')
+    expect(benchmarkSource).not.toContain('calculateDamageOnDemand(')
   })
 
   it('keeps the production Worker protocol diagnostic-only', () => {

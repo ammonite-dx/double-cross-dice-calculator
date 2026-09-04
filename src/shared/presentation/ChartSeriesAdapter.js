@@ -2,20 +2,20 @@ import {
   DISPLAY_RANGE_PLANNER_VERSION,
 } from './DisplayRangePlanner'
 import {
-  CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+  DISTRIBUTION_DISPLAY_VERSION,
   DISPLAY_PROBABILITY_TOLERANCE,
 } from './DistributionPresenter'
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 
-export const CANONICAL_CHART_SERIES_VERSION = 1
+export const CHART_SERIES_VERSION = 1
 
-export const CANONICAL_CHART_SERIES_MODES = Object.freeze({
+export const CHART_SERIES_MODES = Object.freeze({
   PMF: 'pmf',
   UPPER_TAIL: 'upper-tail',
 })
 
-export const CANONICAL_CHART_SERIES_ERROR_CODES = Object.freeze({
+export const CHART_SERIES_ERROR_CODES = Object.freeze({
   INVALID_DISPLAY: 'invalid-display',
   INVALID_PLAN: 'invalid-plan',
   INVALID_OPTIONS: 'invalid-options',
@@ -27,12 +27,12 @@ export const CANONICAL_CHART_SERIES_ERROR_CODES = Object.freeze({
   UPPER_BOUND_OVERFLOW: 'upper-bound-overflow',
 })
 
-export const CANONICAL_CHART_SERIES_NOT_READY_REASONS = Object.freeze({
+export const CHART_SERIES_NOT_READY_REASONS = Object.freeze({
   RECALCULATE: 'recalculate',
   RESOURCE_REJECTED: 'resource-rejected',
 })
 
-export const CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS = Object.freeze({
+export const CHART_SERIES_NOT_PROJECTABLE_REASONS = Object.freeze({
   EXACT_OVERFLOW_OVERLAP: 'exact-overflow-overlap',
   UPPER_BOUND_OVERFLOW: 'upper-bound-overflow',
 })
@@ -57,36 +57,36 @@ function freezeDetails(details) {
   return Object.freeze(isPlainRecord(details) ? { ...details } : {})
 }
 
-export class CanonicalChartSeriesError extends Error {
+export class ChartSeriesError extends Error {
   constructor(code, message, details = {}) {
     super(message)
-    this.name = 'CanonicalChartSeriesError'
+    this.name = 'ChartSeriesError'
     this.code = code
     this.details = freezeDetails(details)
-    this.canonicalChartSeries = true
+    this.ChartSeries = true
   }
 }
 
-export class CanonicalChartSeriesValidationError
-  extends CanonicalChartSeriesError {
+export class ChartSeriesValidationError
+  extends ChartSeriesError {
   constructor(code, message, details = {}) {
     super(code, message, details)
-    this.name = 'CanonicalChartSeriesValidationError'
+    this.name = 'ChartSeriesValidationError'
     this.validation = true
   }
 }
 
-export function isCanonicalChartSeriesError(error) {
-  return error?.canonicalChartSeries === true
+export function isChartSeriesError(error) {
+  return error?.ChartSeries === true
     && typeof error.code === 'string'
 }
 
-export function isCanonicalChartSeriesValidationError(error) {
-  return isCanonicalChartSeriesError(error) && error.validation === true
+export function isChartSeriesValidationError(error) {
+  return isChartSeriesError(error) && error.validation === true
 }
 
 function fail(code, message, details = {}) {
-  throw new CanonicalChartSeriesValidationError(code, message, details)
+  throw new ChartSeriesValidationError(code, message, details)
 }
 
 function getOwnDataProperty(value, property, code, path) {
@@ -265,21 +265,21 @@ function copyProjectionUncertainty(value, code, path) {
 function validateProbabilityContainer(values, path) {
   if (!Array.isArray(values) && !(values instanceof Float64Array)) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       `${path} must be an Array or Float64Array`,
       { path }
     )
   }
   if (!Number.isSafeInteger(values.length) || values.length < 0) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       `${path}.length must be a non-negative safe integer`,
       { path: `${path}.length`, value: values.length }
     )
   }
   if (values.length > Math.floor(MAX_SAFE_INTEGER / Float64Array.BYTES_PER_ELEMENT)) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.RANGE_OVERFLOW,
+      CHART_SERIES_ERROR_CODES.RANGE_OVERFLOW,
       `${path} is too large for a Float64Array copy`,
       { path, length: values.length }
     )
@@ -290,20 +290,20 @@ function validateProbabilityContainer(values, path) {
 function normalizeDisplay(display) {
   requirePlainRecord(
     display,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display',
-    'display must be a plain canonical distribution display record'
+    'display must be a plain distribution display record'
   )
 
   const kind = getOwnDataProperty(
     display,
     'kind',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display'
   )
   if (kind !== 'canonical-distribution-display') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display.kind must be canonical-distribution-display',
       { path: 'display.kind', value: kind }
     )
@@ -312,17 +312,17 @@ function normalizeDisplay(display) {
   const version = getOwnDataProperty(
     display,
     'version',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display'
   )
-  if (version !== CANONICAL_DISTRIBUTION_DISPLAY_VERSION) {
+  if (version !== DISTRIBUTION_DISPLAY_VERSION) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
-      `display.version must be ${CANONICAL_DISTRIBUTION_DISPLAY_VERSION}`,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      `display.version must be ${DISTRIBUTION_DISPLAY_VERSION}`,
       {
         path: 'display.version',
         value: version,
-        expected: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+        expected: DISTRIBUTION_DISPLAY_VERSION,
       }
     )
   }
@@ -331,35 +331,35 @@ function normalizeDisplay(display) {
     getOwnDataProperty(
       display,
       'explicit',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display.explicit'
   )
   const offset = getOwnDataProperty(
     explicit,
     'offset',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display.explicit'
   )
   requireSafeNonNegativeInteger(
     offset,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display.explicit.offset'
   )
   const probabilities = validateProbabilityContainer(
     getOwnDataProperty(
       explicit,
       'probabilities',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display.explicit'
     ),
     'display.explicit.probabilities'
   )
   if (probabilities.length > MAX_SAFE_INTEGER - offset) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.RANGE_OVERFLOW,
+      CHART_SERIES_ERROR_CODES.RANGE_OVERFLOW,
       'display explicit coverage exceeds the safe integer range',
       { offset, valuesLength: probabilities.length }
     )
@@ -367,7 +367,7 @@ function normalizeDisplay(display) {
   const explicitMax = getOwnDataProperty(
     display,
     'explicitMax',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display'
   )
   const derivedExplicitMax = probabilities.length === 0
@@ -375,7 +375,7 @@ function normalizeDisplay(display) {
     : offset + probabilities.length - 1
   if (explicitMax !== derivedExplicitMax) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display.explicitMax must match explicit coverage',
       { explicitMax, derivedExplicitMax }
     )
@@ -385,15 +385,15 @@ function normalizeDisplay(display) {
     getOwnDataProperty(
       display,
       'support',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display.support'
   )
   if (support.kind === 'finite' && explicitMax !== null && support.max < explicitMax) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display.support.max must not be below explicitMax',
       { supportMax: support.max, explicitMax }
     )
@@ -403,10 +403,10 @@ function normalizeDisplay(display) {
     getOwnDataProperty(
       display,
       'overflow',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display.overflow'
   )
   if (
@@ -415,7 +415,7 @@ function normalizeDisplay(display) {
     && support.max < overflow.lowerBound
   ) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       'display.support.max must contain the potential overflow lower bound',
       { supportMax: support.max, lowerBound: overflow.lowerBound }
     )
@@ -426,11 +426,11 @@ function normalizeDisplay(display) {
       ? getOwnDataProperty(
           display,
           'projectionUncertainty',
-          CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+          CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
           'display'
         )
       : undefined,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+    CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
     'display.projectionUncertainty'
   )
 
@@ -447,45 +447,45 @@ function normalizeDisplay(display) {
 function normalizeSegment(value, path) {
   const segment = requirePlainRecord(
     value,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     path
   )
   const min = getOwnDataProperty(
     segment,
     'min',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     path
   )
   const max = getOwnDataProperty(
     segment,
     'max',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     path
   )
   const pointCount = getOwnDataProperty(
     segment,
     'pointCount',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     path
   )
   requireSafeNonNegativeInteger(
     min,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     `${path}.min`
   )
   requireSafeNonNegativeInteger(
     max,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     `${path}.max`
   )
   requireSafeNonNegativeInteger(
     pointCount,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     `${path}.pointCount`
   )
   if (max < min || pointCount !== max - min + 1) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       `${path} has inconsistent bounds`,
       { min, max, pointCount }
     )
@@ -496,19 +496,19 @@ function normalizeSegment(value, path) {
 function normalizePlan(plan) {
   requirePlainRecord(
     plan,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan',
     'plan must be a display-range-plan record'
   )
   const version = getOwnDataProperty(
     plan,
     'version',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan'
   )
   if (version !== DISPLAY_RANGE_PLANNER_VERSION) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.version is not supported',
       { version, expected: DISPLAY_RANGE_PLANNER_VERSION }
     )
@@ -516,12 +516,12 @@ function normalizePlan(plan) {
   const kind = getOwnDataProperty(
     plan,
     'kind',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan'
   )
   if (kind !== 'display-range-plan') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.kind must be display-range-plan',
       { kind }
     )
@@ -529,45 +529,45 @@ function normalizePlan(plan) {
   const accepted = getOwnDataProperty(
     plan,
     'accepted',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan'
   )
   const status = getOwnDataProperty(
     plan,
     'status',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan'
   )
   const decision = getOwnDataProperty(
     plan,
     'decision',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan'
   )
   if (typeof accepted !== 'boolean') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.accepted must be boolean',
       { accepted }
     )
   }
   if (status !== 'ready' && status !== 'resource-rejected') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.status must be ready or resource-rejected',
       { status }
     )
   }
   if (accepted !== (status === 'ready')) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.accepted and plan.status disagree',
       { accepted, status }
     )
   }
   if (!['reuse', 'known-zero', 'recalculate'].includes(decision)) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.decision is not supported',
       { decision }
     )
@@ -577,7 +577,7 @@ function normalizePlan(plan) {
     getOwnDataProperty(
       plan,
       'displayWindow',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan'
     ),
     'plan.displayWindow'
@@ -586,37 +586,37 @@ function normalizePlan(plan) {
     getOwnDataProperty(
       plan,
       'coverage',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage'
   )
   const explicit = requirePlainRecord(
     getOwnDataProperty(
       coverage,
       'explicit',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.explicit'
   )
   const explicitOffset = getOwnDataProperty(
     explicit,
     'offset',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.explicit'
   )
   const explicitMax = getOwnDataProperty(
     explicit,
     'max',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.explicit'
   )
   requireSafeNonNegativeInteger(
     explicitOffset,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.explicit.offset'
   )
   if (
@@ -624,7 +624,7 @@ function normalizePlan(plan) {
     && (!Number.isSafeInteger(explicitMax) || explicitMax < explicitOffset)
   ) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage.explicit.max is invalid',
       { explicitOffset, explicitMax }
     )
@@ -633,20 +633,20 @@ function normalizePlan(plan) {
     getOwnDataProperty(
       coverage,
       'support',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.support'
   )
   const overflow = copyOverflow(
     getOwnDataProperty(
       coverage,
       'overflow',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage.overflow'
   )
   const projectionUncertainty = copyProjectionUncertainty(
@@ -654,22 +654,22 @@ function normalizePlan(plan) {
       ? getOwnDataProperty(
           coverage,
           'projectionUncertainty',
-          CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+          CHART_SERIES_ERROR_CODES.INVALID_PLAN,
           'plan.coverage'
         )
       : undefined,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.projectionUncertainty'
   )
   const missingSegments = getOwnDataProperty(
     coverage,
     'missingSegments',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage'
   )
   if (!Array.isArray(missingSegments)) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage.missingSegments must be an Array',
       { path: 'plan.coverage.missingSegments' }
     )
@@ -681,27 +681,27 @@ function normalizePlan(plan) {
     getOwnDataProperty(
       coverage,
       'knownZero',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.knownZero'
   )
   const knownZeroKind = getOwnDataProperty(
     knownZero,
     'kind',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.knownZero'
   )
   const knownZeroPointCount = getOwnDataProperty(
     knownZero,
     'pointCount',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.knownZero'
   )
   requireSafeNonNegativeInteger(
     knownZeroPointCount,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.coverage.knownZero.pointCount'
   )
   let copiedKnownZero
@@ -709,11 +709,11 @@ function normalizePlan(plan) {
     if (knownZeroPointCount !== 0 || getOwnDataProperty(
       knownZero,
       'right',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage.knownZero'
     ) !== null) {
       fail(
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         'empty known-zero coverage is inconsistent',
         { path: 'plan.coverage.knownZero' }
       )
@@ -724,14 +724,14 @@ function normalizePlan(plan) {
       getOwnDataProperty(
         knownZero,
         'right',
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         'plan.coverage.knownZero'
       ),
       'plan.coverage.knownZero.right'
     )
     if (right.pointCount !== knownZeroPointCount) {
       fail(
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         'known-zero pointCount does not match right segment',
         { knownZeroPointCount, rightPointCount: right.pointCount }
       )
@@ -743,7 +743,7 @@ function normalizePlan(plan) {
     }
   } else {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.coverage.knownZero.kind is not supported',
       { kind: knownZeroKind }
     )
@@ -753,48 +753,48 @@ function normalizePlan(plan) {
     getOwnDataProperty(
       plan,
       'estimates',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan'
     ),
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.estimates'
   )
   const pointCount = getOwnDataProperty(
     estimates,
     'pointCount',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.estimates'
   )
   const float64Bytes = getOwnDataProperty(
     estimates,
     'float64Bytes',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.estimates'
   )
   const chartPoints = getOwnDataProperty(
     estimates,
     'chartPoints',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.estimates'
   )
   requireSafeNonNegativeInteger(
     pointCount,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.estimates.pointCount'
   )
   requireSafeNonNegativeInteger(
     float64Bytes,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.estimates.float64Bytes'
   )
   requireSafeNonNegativeInteger(
     chartPoints,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+    CHART_SERIES_ERROR_CODES.INVALID_PLAN,
     'plan.estimates.chartPoints'
   )
   if (pointCount !== displayWindow.pointCount) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.estimates.pointCount must match displayWindow.pointCount',
       { pointCount, displayPointCount: displayWindow.pointCount }
     )
@@ -804,13 +804,13 @@ function normalizePlan(plan) {
     ? getOwnDataProperty(
         plan,
         'rejectionReasons',
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         'plan'
       )
     : []
   if (!Array.isArray(rejectionReasons)) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan.rejectionReasons must be an Array',
       { path: 'plan.rejectionReasons' }
     )
@@ -818,7 +818,7 @@ function normalizePlan(plan) {
   const copiedRejectionReasons = rejectionReasons.map((reason, index) => {
     if (typeof reason !== 'string') {
       fail(
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         `plan.rejectionReasons[${index}] must be a string`,
         { index, reason }
       )
@@ -833,7 +833,7 @@ function normalizePlan(plan) {
     reason: getOwnDataProperty(
       plan,
       'reason',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan'
     ),
     displayWindow,
@@ -894,14 +894,14 @@ function assertPlanMatchesDisplay(plan, display) {
     )
   ) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'plan coverage does not match display coverage',
       { path: 'plan.coverage' }
     )
   }
   if (plan.coverage.missingSegments.length !== 0) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'a ready chart series plan must have no missing coverage segments',
       { missingSegments: plan.coverage.missingSegments }
     )
@@ -913,7 +913,7 @@ function assertPlanMatchesDisplay(plan, display) {
       || plan.coverage.knownZero.kind !== 'finite-support-outside'
     ) {
       fail(
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         'known-zero plan must be entirely outside finite support',
         { path: 'plan.decision' }
       )
@@ -926,7 +926,7 @@ function assertPlanMatchesDisplay(plan, display) {
       || plan.displayWindow.max > display.explicitMax
     ) {
       fail(
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         'reuse plan must be contained by explicit coverage',
         { path: 'plan.coverage' }
       )
@@ -941,14 +941,14 @@ function readProbability(probabilities, index, path) {
     descriptor = Object.getOwnPropertyDescriptor(probabilities, property)
   } catch {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       `${path}[${index}] could not be inspected safely`,
       { path: `${path}[${index}]` }
     )
   }
   if (!descriptor || !hasOwn(descriptor, 'value')) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       `${path}[${index}] must be an own data property`,
       { path: `${path}[${index}]` }
     )
@@ -956,7 +956,7 @@ function readProbability(probabilities, index, path) {
   const value = descriptor.value
   if (!Number.isFinite(value) || value < 0 || value > 1) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
+      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
       `${path}[${index}] must be a finite probability between 0 and 1`,
       { path: `${path}[${index}]`, value }
     )
@@ -975,7 +975,7 @@ function copyWindow(window) {
 function makeNotReady(plan, mode, reason) {
   return Object.freeze({
     kind: 'not-ready',
-    version: CANONICAL_CHART_SERIES_VERSION,
+    version: CHART_SERIES_VERSION,
     status: 'not-ready',
     mode,
     reason,
@@ -989,7 +989,7 @@ function makeNotReady(plan, mode, reason) {
 function makeNotProjectable(plan, mode, reason, overflow) {
   return Object.freeze({
     kind: 'not-projectable',
-    version: CANONICAL_CHART_SERIES_VERSION,
+    version: CHART_SERIES_VERSION,
     status: 'not-projectable',
     mode,
     reason,
@@ -1026,8 +1026,8 @@ function assertOverflowDoesNotOverlapWindow(
       plan,
       mode,
       overflow.kind === 'exact'
-        ? CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
-        : CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+        ? CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
+        : CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
       overflow
     )
   }
@@ -1038,13 +1038,13 @@ function assertOverflowDoesNotOverlapWindow(
   // there is no separate output tail.
   if (
     overflow.kind === 'upper-bound'
-    && mode === CANONICAL_CHART_SERIES_MODES.UPPER_TAIL
+    && mode === CHART_SERIES_MODES.UPPER_TAIL
     && (!positionUnknownWithinTolerance || hasOutputOverflowLowerBound)
   ) {
     return makeNotProjectable(
       plan,
       mode,
-      CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
       overflow
     )
   }
@@ -1057,8 +1057,8 @@ function assertOverflowDoesNotOverlapWindow(
       plan,
       mode,
       overflow.kind === 'exact'
-        ? CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
-        : CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+        ? CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
+        : CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
       overflow
     )
   }
@@ -1082,7 +1082,7 @@ function fillPmf(seriesValues, display, plan) {
       continue
     }
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'ready plan does not cover a requested PMF coordinate',
       { value }
     )
@@ -1107,7 +1107,7 @@ function fillUpperTail(seriesValues, display, plan) {
         tail = 0
       } else {
         fail(
-          CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+          CHART_SERIES_ERROR_CODES.INVALID_PLAN,
           'ready plan does not cover a requested upper-tail prefix',
           { value }
         )
@@ -1116,7 +1116,7 @@ function fillUpperTail(seriesValues, display, plan) {
   } else {
     if (explicitMax === null || min < offset || min > explicitMax) {
       fail(
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+        CHART_SERIES_ERROR_CODES.INVALID_PLAN,
         'offset chart upper-tail projection requires explicit coverage at min',
         { offset, explicitMax, min }
       )
@@ -1154,7 +1154,7 @@ function fillUpperTail(seriesValues, display, plan) {
       continue
     }
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_PLAN,
+      CHART_SERIES_ERROR_CODES.INVALID_PLAN,
       'ready plan does not cover a requested upper-tail coordinate',
       { value }
     )
@@ -1165,7 +1165,7 @@ function normalizeModeOptions(options) {
   const supplied = options === undefined ? {} : options
   requirePlainRecord(
     supplied,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_OPTIONS,
+    CHART_SERIES_ERROR_CODES.INVALID_OPTIONS,
     'options',
     'chart series options must be a plain record'
   )
@@ -1173,16 +1173,16 @@ function normalizeModeOptions(options) {
     ? getOwnDataProperty(
         supplied,
         'mode',
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_OPTIONS,
+        CHART_SERIES_ERROR_CODES.INVALID_OPTIONS,
         'options'
       )
-    : CANONICAL_CHART_SERIES_MODES.PMF
+    : CHART_SERIES_MODES.PMF
   if (
-    mode !== CANONICAL_CHART_SERIES_MODES.PMF
-    && mode !== CANONICAL_CHART_SERIES_MODES.UPPER_TAIL
+    mode !== CHART_SERIES_MODES.PMF
+    && mode !== CHART_SERIES_MODES.UPPER_TAIL
   ) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MODE,
+      CHART_SERIES_ERROR_CODES.INVALID_MODE,
       'options.mode must be pmf or upper-tail',
       { mode }
     )
@@ -1193,7 +1193,7 @@ function normalizeModeOptions(options) {
 function makeReadySeries(plan, mode, values) {
   return Object.freeze({
     kind: 'canonical-chart-series',
-    version: CANONICAL_CHART_SERIES_VERSION,
+    version: CHART_SERIES_VERSION,
     status: 'ready',
     mode,
     displayWindow: copyWindow(plan.displayWindow),
@@ -1215,7 +1215,7 @@ function makeReadySeries(plan, mode, values) {
  * receives invented probabilities. A plan with `known-zero` is projected to
  * zero values using finite support as the proof of zero.
  */
-export function createCanonicalChartSeries(display, plan, options = {}) {
+export function createChartSeries(display, plan, options = {}) {
   const mode = normalizeModeOptions(options)
   const normalizedPlan = normalizePlan(plan)
 
@@ -1223,7 +1223,7 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
     return makeNotReady(
       normalizedPlan,
       mode,
-      CANONICAL_CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED
+      CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED
     )
   }
   const normalizedDisplay = normalizeDisplay(display)
@@ -1247,7 +1247,7 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
     return makeNotReady(
       normalizedPlan,
       mode,
-      CANONICAL_CHART_SERIES_NOT_READY_REASONS.RECALCULATE
+      CHART_SERIES_NOT_READY_REASONS.RECALCULATE
     )
   }
 
@@ -1269,7 +1269,7 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
     return makeReadySeries(normalizedPlan, mode, values)
   }
 
-  if (mode === CANONICAL_CHART_SERIES_MODES.PMF) {
+  if (mode === CHART_SERIES_MODES.PMF) {
     fillPmf(values, normalizedDisplay, normalizedPlan)
   } else {
     fillUpperTail(values, normalizedDisplay, normalizedPlan)
@@ -1280,18 +1280,18 @@ export function createCanonicalChartSeries(display, plan, options = {}) {
 function normalizeSeries(series) {
   requirePlainRecord(
     series,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+    CHART_SERIES_ERROR_CODES.INVALID_SERIES,
     'series',
     'series must be a canonical-chart-series record'
   )
   if (getOwnDataProperty(
     series,
     'kind',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+    CHART_SERIES_ERROR_CODES.INVALID_SERIES,
     'series'
   ) !== 'canonical-chart-series') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'series.kind must be canonical-chart-series',
       { path: 'series.kind' }
     )
@@ -1299,11 +1299,11 @@ function normalizeSeries(series) {
   if (getOwnDataProperty(
     series,
     'version',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+    CHART_SERIES_ERROR_CODES.INVALID_SERIES,
     'series'
-  ) !== CANONICAL_CHART_SERIES_VERSION) {
+  ) !== CHART_SERIES_VERSION) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'series.version is not supported',
       { path: 'series.version' }
     )
@@ -1311,11 +1311,11 @@ function normalizeSeries(series) {
   if (getOwnDataProperty(
     series,
     'status',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+    CHART_SERIES_ERROR_CODES.INVALID_SERIES,
     'series'
   ) !== 'ready') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'only ready chart series can be materialized',
       { path: 'series.status' }
     )
@@ -1323,15 +1323,15 @@ function normalizeSeries(series) {
   const mode = getOwnDataProperty(
     series,
     'mode',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+    CHART_SERIES_ERROR_CODES.INVALID_SERIES,
     'series'
   )
   if (
-    mode !== CANONICAL_CHART_SERIES_MODES.PMF
-    && mode !== CANONICAL_CHART_SERIES_MODES.UPPER_TAIL
+    mode !== CHART_SERIES_MODES.PMF
+    && mode !== CHART_SERIES_MODES.UPPER_TAIL
   ) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'series.mode is not supported',
       { mode }
     )
@@ -1340,7 +1340,7 @@ function normalizeSeries(series) {
     getOwnDataProperty(
       series,
       'displayWindow',
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'series'
     ),
     'series.displayWindow'
@@ -1348,19 +1348,19 @@ function normalizeSeries(series) {
   const values = getOwnDataProperty(
     series,
     'values',
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+    CHART_SERIES_ERROR_CODES.INVALID_SERIES,
     'series'
   )
   if (!(values instanceof Float64Array)) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'series.values must be a Float64Array',
       { path: 'series.values' }
     )
   }
   if (values.length !== displayWindow.pointCount) {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'series displayWindow.pointCount and values.length disagree',
       {
         pointCount: displayWindow.pointCount,
@@ -1375,7 +1375,7 @@ function normalizeMaterializerOptions(options) {
   const supplied = options === undefined ? {} : options
   requirePlainRecord(
     supplied,
-    CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
+    CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
     'options',
     'Chart.js materializer options must be a plain record'
   )
@@ -1383,13 +1383,13 @@ function normalizeMaterializerOptions(options) {
     ? getOwnDataProperty(
         supplied,
         'includeLabels',
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
+        CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
       )
     : true
   if (typeof includeLabels !== 'boolean') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
+      CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
       'options.includeLabels must be boolean',
       { includeLabels }
     )
@@ -1398,13 +1398,13 @@ function normalizeMaterializerOptions(options) {
     ? getOwnDataProperty(
         supplied,
         'label',
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
+        CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
       )
     : undefined
   if (label !== undefined && typeof label !== 'string') {
     fail(
-      CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
+      CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
       'options.label must be a string when supplied',
       { label }
     )
@@ -1413,7 +1413,7 @@ function normalizeMaterializerOptions(options) {
     ? getOwnDataProperty(
         supplied,
         'backgroundColor',
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
+        CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
       )
     : undefined
@@ -1421,7 +1421,7 @@ function normalizeMaterializerOptions(options) {
     ? getOwnDataProperty(
         supplied,
         'borderColor',
-        CANONICAL_CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
+        CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
       )
     : undefined
@@ -1429,7 +1429,7 @@ function normalizeMaterializerOptions(options) {
 }
 
 /**
- * Materialize a ready canonical series at the Chart.js boundary.
+ * Materialize a ready chart series at the Chart.js boundary.
  *
  * Chart.js 4.5's local implementation recognizes typed arrays as arrays and
  * its default primitive parser consumes numeric dataset values with a
@@ -1439,10 +1439,10 @@ function normalizeMaterializerOptions(options) {
  * buffer as a read-only view to avoid a second copy; it is not an alias to the
  * input display probabilities. Chart.js is expected to read the numeric
  * entries without changing them, so callers must not mutate `series.values`
- * while the chart uses the materialized data. The canonical series itself
+ * while the chart uses the materialized data. The source series itself
  * never contains those labels.
  */
-export function materializeCanonicalChartJsData(series, options = {}) {
+export function materializeChartJsData(series, options = {}) {
   const normalizedSeries = normalizeSeries(series)
   const materializerOptions = normalizeMaterializerOptions(options)
   const dataset = {

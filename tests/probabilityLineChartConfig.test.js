@@ -61,7 +61,7 @@ describe('probability line chart behavior baseline', () => {
     })
   })
 
-  it('keeps Attack Score and Damage line options distinct only by x-axis title', () => {
+  it('keeps Attack score and damage line options distinct only by x-axis title', () => {
     const scoreOptions = getAttackScoreChartOptions()
     const damageOptions = getAttackDamageChartOptions()
 

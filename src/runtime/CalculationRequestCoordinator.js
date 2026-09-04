@@ -336,7 +336,7 @@ export function createCalculationRequestCoordinator({
         const committed = commit?.(outcome.value, outcome.context)
         if (!isCurrent(item)) {
           // A commit may synchronously enqueue/start a newer request (for
-          // example, when a canonical result requests an extended range).
+  // example, when a result requests an extended range).
           // The newer request owns feedback and lifecycle notifications now;
           // never let this superseded finish publish SUCCESS/onCommitted.
           settle(item, false)

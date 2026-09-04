@@ -5,9 +5,9 @@ import {
   validateDistributionResult,
 } from '../../../calculation/DistributionResult'
 
-export const BACKTRACK_CANONICAL_PRESENTATION_VERSION = 1
+export const BACKTRACK_PRESENTATION_VERSION = 1
 
-export const BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES = Object.freeze({
+export const BACKTRACK_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_INPUT: 'invalid-input',
   INVALID_PARAMS: 'invalid-params',
   MISSING_RESULT: 'missing-result',
@@ -39,40 +39,40 @@ function freezeDetails(details) {
   return Object.freeze(isPlainRecord(details) ? { ...details } : {})
 }
 
-export class BacktrackCanonicalPresentationError extends Error {
+export class BacktrackPresentationError extends Error {
   constructor(code, message, details = {}, cause) {
     super(message, cause === undefined ? undefined : { cause })
-    this.name = 'BacktrackCanonicalPresentationError'
+    this.name = 'BacktrackPresentationError'
     this.code = code
     this.details = freezeDetails(details)
-    this.backtrackCanonicalPresentation = true
+    this.backtrackPresentation = true
     if (cause !== undefined && this.cause === undefined) {
       this.cause = cause
     }
   }
 }
 
-export class BacktrackCanonicalPresentationValidationError
-  extends BacktrackCanonicalPresentationError {
+export class BacktrackPresentationValidationError
+  extends BacktrackPresentationError {
   constructor(code, message, details = {}, cause) {
     super(code, message, details, cause)
-    this.name = 'BacktrackCanonicalPresentationValidationError'
+    this.name = 'BacktrackPresentationValidationError'
     this.validation = true
   }
 }
 
-export function isBacktrackCanonicalPresentationError(error) {
-  return error?.backtrackCanonicalPresentation === true
+export function isBacktrackPresentationError(error) {
+  return error?.backtrackPresentation === true
     && typeof error.code === 'string'
 }
 
-export function isBacktrackCanonicalPresentationValidationError(error) {
-  return isBacktrackCanonicalPresentationError(error)
+export function isBacktrackPresentationValidationError(error) {
+  return isBacktrackPresentationError(error)
     && error.validation === true
 }
 
 function fail(code, message, details = {}) {
-  throw new BacktrackCanonicalPresentationValidationError(
+  throw new BacktrackPresentationValidationError(
     code,
     message,
     details
@@ -82,7 +82,7 @@ function fail(code, message, details = {}) {
 function normalizeParams(params) {
   if (!isPlainRecord(params)) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
+      BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
       'backtrack params must be a plain record',
       { path: 'params' }
     )
@@ -91,7 +91,7 @@ function normalizeParams(params) {
   const encroachment = params.encroachment ?? 0
   if (!Number.isSafeInteger(encroachment)) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
+      BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
       'params.encroachment must be a safe integer',
       { path: 'params.encroachment', value: encroachment }
     )
@@ -100,7 +100,7 @@ function normalizeParams(params) {
   const value = params.value ?? 0
   if (!Number.isSafeInteger(value) || value < 0) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
+      BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
       'params.value must be a non-negative safe integer',
       { path: 'params.value', value }
     )
@@ -109,7 +109,7 @@ function normalizeParams(params) {
   const dlois = params.dlois ?? 'なし'
   if (typeof dlois !== 'string') {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
+      BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_PARAMS,
       'params.dlois must be a string',
       { path: 'params.dlois', value: dlois }
     )
@@ -118,37 +118,37 @@ function normalizeParams(params) {
   return { encroachment, value, dlois }
 }
 
-function normalizeDistribution(canonicalResult, key) {
-  if (!hasOwn(canonicalResult, key)) {
+function normalizeDistribution(Result, key) {
+  if (!hasOwn(Result, key)) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.MISSING_RESULT,
-      `canonical backtrack result is missing ${key}`,
+      BACKTRACK_PRESENTATION_ERROR_CODES.MISSING_RESULT,
+      `backtrack result is missing ${key}`,
       { path: key }
     )
   }
 
-  const result = canonicalResult[key]
+  const result = Result[key]
   try {
     validateDistributionResult(result)
   } catch (cause) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RESULT,
-      `canonical backtrack ${key} is not a valid DistributionResult`,
+      BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_RESULT,
+      `backtrack ${key} is not a valid DistributionResult`,
       { path: key, causeCode: cause?.code },
     )
   }
 
   if (result.support?.kind !== 'finite') {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT,
-      `canonical backtrack ${key} must have complete finite support`,
+      BACKTRACK_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT,
+      `backtrack ${key} must have complete finite support`,
       { path: `${key}.support` }
     )
   }
   if (result.overflow !== null) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSUPPORTED_OVERFLOW,
-      `canonical backtrack ${key} must not contain overflow`,
+      BACKTRACK_PRESENTATION_ERROR_CODES.UNSUPPORTED_OVERFLOW,
+      `backtrack ${key} must not contain overflow`,
       { path: `${key}.overflow` }
     )
   }
@@ -158,8 +158,8 @@ function normalizeDistribution(canonicalResult, key) {
     : result.offset + result.values.length - 1
   if (explicitMax === null || result.support.max !== explicitMax) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT,
-      `canonical backtrack ${key} must explicitly cover its finite support`,
+      BACKTRACK_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT,
+      `backtrack ${key} must explicitly cover its finite support`,
       {
         path: key,
         explicitMax,
@@ -171,18 +171,18 @@ function normalizeDistribution(canonicalResult, key) {
   return result
 }
 
-function normalizeCanonicalResults(canonicalResult) {
-  if (!isPlainRecord(canonicalResult)) {
+function normalizeResults(Result) {
+  if (!isPlainRecord(Result)) {
     fail(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_INPUT,
-      'canonical backtrack result must be a plain record',
-      { path: 'canonicalResult' }
+      BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_INPUT,
+      'backtrack result must be a plain record',
+      { path: 'Result' }
     )
   }
 
   const normalized = {}
   for (const key of RESULT_KEYS) {
-    normalized[key] = normalizeDistribution(canonicalResult, key)
+    normalized[key] = normalizeDistribution(Result, key)
   }
   return normalized
 }
@@ -237,38 +237,38 @@ function createChartPayload(results, params) {
 }
 
 /**
- * Convert complete canonical backtrack PMFs into the legacy ChartSetter
+ * Convert complete backtrack PMFs into the legacy ChartSetter
  * payload. The result's `finalEncroachment` field intentionally has the
  * existing `{ single, double, second }` array shape; callers pass that field
  * to `getFinalEncroachmentChartData` without sending signed results through a
  * generic PMF/display adapter.
  */
-export function createBacktrackCanonicalPresentation(
-  canonicalResult,
+export function createBacktrackPresentation(
+  Result,
   params
 ) {
   try {
     if (arguments.length !== 2) {
       fail(
-        BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_INPUT,
-        'createBacktrackCanonicalPresentation expects canonicalResult and params',
+        BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_INPUT,
+        'createBacktrackPresentation expects Result and params',
         { path: 'arguments' }
       )
     }
     const normalizedParams = normalizeParams(params)
-    const results = normalizeCanonicalResults(canonicalResult)
+    const results = normalizeResults(Result)
     return Object.freeze({
-      version: BACKTRACK_CANONICAL_PRESENTATION_VERSION,
+      version: BACKTRACK_PRESENTATION_VERSION,
       kind: 'backtrack-canonical-presentation',
       finalEncroachment: createChartPayload(results, normalizedParams),
     })
   } catch (error) {
-    if (isBacktrackCanonicalPresentationError(error)) {
+    if (isBacktrackPresentationError(error)) {
       throw error
     }
-    throw new BacktrackCanonicalPresentationError(
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.UNEXPECTED_ERROR,
-      'backtrack canonical presentation failed unexpectedly',
+    throw new BacktrackPresentationError(
+      BACKTRACK_PRESENTATION_ERROR_CODES.UNEXPECTED_ERROR,
+      'backtrack presentation failed unexpectedly',
       {},
       error
     )

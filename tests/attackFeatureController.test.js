@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ATTACK_DISPLAY_MODES } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
-import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageSummary } from '../src/calculation/DamageCalculator'
 import { useAttack } from '../src/features/attack/model/useAttack'
 
 function createPendingClient() {
   return {
-    calculateAttackCanonicalBatch: vi.fn(() => new Promise(() => {})),
+    calculateAttackBatch: vi.fn(() => new Promise(() => {})),
   }
 }
 
@@ -70,18 +70,18 @@ function createAttackBatch({ width = 101, marker = 0, damageMarker = marker } = 
       id: 0,
       score,
       scoreSummary,
-      canonicalDamage: damage,
-      canonicalDamageSummary: getCanonicalDamageSummary(damage),
+      damage: damage,
+      damageSummary: getDamageSummary(damage),
     }],
-    canonicalTotalDamage: damage,
-    canonicalTotalDamageSummary: getCanonicalDamageSummary(damage),
+    totalDamage: damage,
+    totalDamageSummary: getDamageSummary(damage),
   }
 }
 
 function createResolvedClient(batches = [createAttackBatch()]) {
   let batchIndex = 0
   return {
-    calculateAttackCanonicalBatch: vi.fn(async (_entries, options) => {
+    calculateAttackBatch: vi.fn(async (_entries, options) => {
       options.onRangePlan?.({
         id: `plan-${batchIndex + 1}`,
         operation: 'attack',
@@ -94,9 +94,9 @@ function createResolvedClient(batches = [createAttackBatch()]) {
   }
 }
 
-async function waitForCanonicalReady(controller) {
+async function waitForReady(controller) {
   await vi.waitFor(() => {
-    const presentation = controller.canonicalDisplayPresentation.value
+    const presentation = controller.displayPresentation.value
     expect(presentation?.status).toBe('ready')
   })
 }
@@ -138,7 +138,7 @@ describe('Attack feature controller', () => {
     expect(controller.combos.value.map((combo) => combo.id)).toEqual([0, 2])
     // The coordinator keeps one active request and coalesces rapid follow-up
     // events into its latest pending request.
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
@@ -161,7 +161,7 @@ describe('Attack feature controller', () => {
     expect(duplicate.params.action.score.dice).toBe(6)
     source.params.action.score.dice = 99
     expect(duplicate.params.action.score.dice).toBe(6)
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
@@ -175,7 +175,7 @@ describe('Attack feature controller', () => {
     })
     snapshot.score.dice = 99
     expect(controller.combos.value[0].params.action.score.dice).toBe(4)
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
@@ -216,11 +216,11 @@ describe('Attack feature controller', () => {
         value: 12,
       },
     })
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
-  it('reuses the committed Damage presentation for a display-only change', async () => {
+  it('reuses the committed damage presentation for a display-only change', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
     controller.onComboSideValidated({
@@ -228,8 +228,8 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await waitForCanonicalReady(controller)
-    const before = controller.canonicalDisplayPresentation.value
+    await waitForReady(controller)
+    const before = controller.displayPresentation.value
 
     controller.onDisplayValidated({
       min: 0,
@@ -238,15 +238,15 @@ describe('Attack feature controller', () => {
     })
 
     await vi.waitFor(() => expect(
-      controller.canonicalDisplayPresentation.value?.mode
+      controller.displayPresentation.value?.mode
     ).toBe(ATTACK_DISPLAY_MODES.UPPER_TAIL))
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(1)
-    expect(controller.canonicalDisplayPresentation.value).not.toBe(before)
-    expect(controller.canonicalDisplayPresentation.value?.status).toBe('ready')
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(controller.displayPresentation.value).not.toBe(before)
+    expect(controller.displayPresentation.value?.status).toBe('ready')
     controller.dispose()
   })
 
-  it('recalculates once when the Damage display needs uncovered Score range', async () => {
+  it('recalculates once when the damage display needs uncovered score range', async () => {
     const client = createResolvedClient([
       createAttackBatch({ width: 101 }),
       createAttackBatch({ width: 103, marker: 1 }),
@@ -257,7 +257,7 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await waitForCanonicalReady(controller)
+    await waitForReady(controller)
 
     controller.onDisplayValidated({
       min: 0,
@@ -266,16 +266,16 @@ describe('Attack feature controller', () => {
     })
 
     await vi.waitFor(() => expect(
-      client.calculateAttackCanonicalBatch
+      client.calculateAttackBatch
     ).toHaveBeenCalledTimes(2))
-    await waitForCanonicalReady(controller)
-    expect(controller.canonicalDisplayPresentation.value.displayRequest)
+    await waitForReady(controller)
+    expect(controller.displayPresentation.value.displayRequest)
       .toEqual({ min: 0, max: 102, mode: ATTACK_DISPLAY_MODES.PMF })
-    expect(controller.canonicalDisplayPresentation.value.status).toBe('ready')
+    expect(controller.displayPresentation.value.status).toBe('ready')
     controller.dispose()
   })
 
-  it('rejects a Damage display resource plan without starting a calculation', async () => {
+  it('rejects a damage display resource plan without starting a calculation', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
     controller.onComboSideValidated({
@@ -283,8 +283,8 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await waitForCanonicalReady(controller)
-    const callsBefore = client.calculateAttackCanonicalBatch.mock.calls.length
+    await waitForReady(controller)
+    const callsBefore = client.calculateAttackBatch.mock.calls.length
 
     controller.onDisplayValidated({
       min: 0,
@@ -292,13 +292,13 @@ describe('Attack feature controller', () => {
       mode: ATTACK_DISPLAY_MODES.PMF,
     })
 
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(callsBefore)
-    expect(controller.canonicalDisplayFeedback.value.status).toBe('rejected')
-    expect(controller.canonicalDisplayPresentation.value).toBeNull()
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(callsBefore)
+    expect(controller.displayFeedback.value.status).toBe('rejected')
+    expect(controller.displayPresentation.value).toBeNull()
     controller.dispose()
   })
 
-  it('reuses the Score presentation without starting a full batch', async () => {
+  it('reuses the score presentation without starting a full batch', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
     controller.onComboSideValidated({
@@ -306,7 +306,7 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await waitForCanonicalReady(controller)
+    await waitForReady(controller)
 
     controller.onScoreDisplayValidated({
       min: 0,
@@ -315,15 +315,15 @@ describe('Attack feature controller', () => {
     })
 
     await vi.waitFor(() => expect(
-      controller.canonicalScoreDisplayPresentation.value?.status
+      controller.scoreDisplayPresentation.value?.status
     ).toBe('ready'))
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(1)
-    expect(controller.canonicalDisplayPresentation.value).not.toBeNull()
-    expect(controller.canonicalDisplayPresentation.value?.total).not.toBeNull()
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(controller.displayPresentation.value).not.toBeNull()
+    expect(controller.displayPresentation.value?.total).not.toBeNull()
     controller.dispose()
   })
 
-  it('recalculates Score display coverage while preserving the Damage lane', async () => {
+  it('recalculates score display coverage while preserving the damage lane', async () => {
     const client = createResolvedClient([
       createAttackBatch({ width: 101 }),
       createAttackBatch({ width: 103, marker: 2, damageMarker: 0 }),
@@ -334,8 +334,8 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await waitForCanonicalReady(controller)
-    const previousDamage = controller.canonicalDisplayPresentation.value?.total
+    await waitForReady(controller)
+    const previousDamage = controller.displayPresentation.value?.total
 
     controller.onScoreDisplayValidated({
       min: 0,
@@ -344,24 +344,24 @@ describe('Attack feature controller', () => {
     })
 
     await vi.waitFor(() => expect(
-      client.calculateAttackCanonicalBatch
+      client.calculateAttackBatch
     ).toHaveBeenCalledTimes(2))
     await vi.waitFor(() => expect(
-      controller.canonicalScoreDisplayPresentation.value?.status
+      controller.scoreDisplayPresentation.value?.status
     ).toBe('ready'))
-    expect(controller.canonicalDisplayPresentation.value?.total?.display
+    expect(controller.displayPresentation.value?.total?.display
       ?.explicit?.probabilities)
       .toEqual([
         ...previousDamage.display.explicit.probabilities,
         0,
         0,
       ])
-    expect(controller.canonicalScoreDisplayPresentation.value.displayRequest)
+    expect(controller.scoreDisplayPresentation.value.displayRequest)
       .toEqual({ min: 0, max: 102, mode: ATTACK_DISPLAY_MODES.PMF })
     controller.dispose()
   })
 
-  it('rejects only Score display resources and keeps committed Damage', async () => {
+  it('rejects only score display resources and keeps committed damage', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
     controller.onComboSideValidated({
@@ -369,8 +369,8 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await waitForCanonicalReady(controller)
-    const committedDamage = controller.canonicalDisplayPresentation.value
+    await waitForReady(controller)
+    const committedDamage = controller.displayPresentation.value
 
     controller.onScoreDisplayValidated({
       min: 0,
@@ -378,12 +378,12 @@ describe('Attack feature controller', () => {
       mode: ATTACK_DISPLAY_MODES.PMF,
     })
 
-    expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledTimes(1)
-    expect(controller.canonicalScoreDisplayFeedback.value.status).toBe('rejected')
-    expect(controller.canonicalScoreDisplayPresentation.value).toBeNull()
-    expect(controller.canonicalDisplayPresentation.value?.total)
+    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(controller.scoreDisplayFeedback.value.status).toBe('rejected')
+    expect(controller.scoreDisplayPresentation.value).toBeNull()
+    expect(controller.displayPresentation.value?.total)
       .toBe(committedDamage.total)
-    expect(controller.canonicalDisplayPresentation.value?.score).toBeNull()
+    expect(controller.displayPresentation.value?.score).toBeNull()
     controller.dispose()
   })
 
@@ -393,7 +393,7 @@ describe('Attack feature controller', () => {
     const oldBatch = createAttackBatch({ marker: 0 })
     const latestBatch = createAttackBatch({ marker: 1 })
     const client = {
-      calculateAttackCanonicalBatch: vi.fn((_entries, options) => {
+      calculateAttackBatch: vi.fn((_entries, options) => {
         callCount += 1
         options.onRangePlan?.({
           id: `plan-${callCount}`,
@@ -423,18 +423,18 @@ describe('Attack feature controller', () => {
     })
     resolveOld(oldBatch)
     await vi.waitFor(() => expect(callCount).toBe(2))
-    await waitForCanonicalReady(controller)
+    await waitForReady(controller)
 
     expect(controller.combos.value[0].params.action.score.dice).toBe(3)
-    expect(controller.canonicalDisplayPresentation.value
-      .combos[0].canonicalScore.action.result.values[1]).toBe(1)
+    expect(controller.displayPresentation.value
+      .combos[0].score.action.result.values[1]).toBe(1)
     controller.dispose()
   })
 
   it('does not commit a stale result after controller disposal', async () => {
     let resolvePending
     const client = {
-      calculateAttackCanonicalBatch: vi.fn((_entries, options) => {
+      calculateAttackBatch: vi.fn((_entries, options) => {
         options.onRangePlan?.({ operation: 'attack', warnings: [] })
         return new Promise((resolve) => {
           resolvePending = resolve
@@ -447,11 +447,11 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await vi.waitFor(() => expect(client.calculateAttackCanonicalBatch).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(client.calculateAttackBatch).toHaveBeenCalledOnce())
     controller.dispose()
     resolvePending(createAttackBatch())
     await Promise.resolve()
-    expect(controller.canonicalDisplayPresentation.value).toBeNull()
+    expect(controller.displayPresentation.value).toBeNull()
   })
 
   it('does not calculate for labels, visibility, or details-only changes', () => {
@@ -464,7 +464,7 @@ describe('Attack feature controller', () => {
       show: false,
       showDetails: { action: true },
     })
-    expect(client.calculateAttackCanonicalBatch).not.toHaveBeenCalled()
+    expect(client.calculateAttackBatch).not.toHaveBeenCalled()
     controller.onComboDetailsChanged({
       id: 0,
       side: 'unknown',
@@ -484,7 +484,7 @@ describe('Attack feature controller', () => {
       snapshot: createActionSnapshot(),
     })
     expect(controller.combos.value).toHaveLength(1)
-    expect(client.calculateAttackCanonicalBatch).not.toHaveBeenCalled()
+    expect(client.calculateAttackBatch).not.toHaveBeenCalled()
     controller.dispose()
   })
 
@@ -492,6 +492,6 @@ describe('Attack feature controller', () => {
     const { controller, client } = createController()
     controller.dispose()
     controller.addCombo()
-    expect(client.calculateAttackCanonicalBatch).not.toHaveBeenCalled()
+    expect(client.calculateAttackBatch).not.toHaveBeenCalled()
   })
 })

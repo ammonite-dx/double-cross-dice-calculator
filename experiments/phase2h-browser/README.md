@@ -4,9 +4,9 @@
 
 ## ベンチマーク
 
-- `canonical-attack-worker-benchmark.html`は、`CalculationClient.calculateAttackCanonicalBatch`、既存のRuntime Damage Roll Worker、canonical total aggregationを測定します。
+- `canonical-attack-worker-benchmark.html`は、`CalculationClient.calculateAttackBatch`、既存のRuntime Damage Roll Worker、total aggregationを測定します。
 - `full-tail-attack-resource-benchmark.html`は、full-tail計画の入力範囲、推定資源量、Worker転送、メモリ、キャンセル、stale commitを測定します。
-- `playwright-runner.mjs`は、canonical AttackをFirefox、WebKit、Chrome channel CPU 4xで実測します。full-tail targetはChrome desktopとCPU 4xだけを対象にします。
+- `playwright-runner.mjs`は、AttackをFirefox、WebKit、Chrome channel CPU 4xで実測します。full-tail targetはChrome desktopとCPU 4xだけを対象にします。
 
 ## 実行
 

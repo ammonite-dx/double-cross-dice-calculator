@@ -11,7 +11,7 @@ import {
 import { createCheckRangePolicy } from '../src/runtime/CheckRangePolicy'
 
 const targetModules = [
-  'src/runtime/CanonicalAttackBatchInput.js',
+  'src/runtime/AttackBatchInput.js',
   'src/features/attack/model/AttackDisplayRequestSnapshot.js',
   'src/features/check/model/CheckDisplayRequestSnapshot.js',
   'src/runtime/CheckRangePolicy.js',

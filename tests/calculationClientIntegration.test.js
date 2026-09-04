@@ -2,33 +2,33 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createCalculationClient } from '../src/runtime/CalculationClient'
 import {
-  ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
-  createAttackCanonicalDisplayPresentation,
-} from '../src/features/attack/model/AttackCanonicalPresentation'
+  ATTACK_DISPLAY_PRESENTATION_DECISIONS,
+  createAttackDisplayPresentation,
+} from '../src/features/attack/model/AttackPresentation'
 import {
   ATTACK_DISPLAY_MODES,
   createAttackRangePolicy,
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
-  calculateCanonicalDamageOnDemand,
-  getCanonicalDamageSummary,
+  calculateDamageOnDemand,
+  getDamageSummary,
 } from '../src/calculation/DamageCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import {
-  calculateScoreCanonical,
-  getCanonicalScoreSummary,
+  calculateScore,
+  getScoreSummary,
 } from '../src/calculation/ScoreCalculator'
 import { createD10DistributionProvider } from '../src/calculation/D10Calculator'
 
-function calculateCanonicalScore(
+function calculateScoreWithProvider(
   params,
   getDistribution,
   scoreRangePlan,
   fix = false
 ) {
-  return calculateScoreCanonical(
+  return calculateScore(
     params,
     { getDxDistribution: getDistribution },
     scoreRangePlan,
@@ -39,13 +39,13 @@ function calculateCanonicalScore(
 const getD10Distribution = createD10DistributionProvider()
 
 const calculationClient = createCalculationClient({
-  calculateCanonicalDamageOnDemand,
+  calculateDamageOnDemand,
   calculateDxDistribution,
-  calculateScoreCanonical: calculateCanonicalScore,
-  getCanonicalScoreSummary,
+  calculateScore: calculateScoreWithProvider,
+  getScoreSummary,
   getD10Distribution,
   getDamageRollDistribution: generateMixedDamageDistribution,
-  getCanonicalDamageSummary,
+  getDamageSummary,
 })
 
 const scoreParams = {
@@ -80,7 +80,7 @@ describe('CalculationClient integration', () => {
         mode,
       }
       const rangePlans = []
-      const batch = await calculationClient.calculateAttackCanonicalBatch(
+      const batch = await calculationClient.calculateAttackBatch(
         [{ id: 0, params }],
         {
           rangePolicy: createAttackRangePolicy(
@@ -91,24 +91,24 @@ describe('CalculationClient integration', () => {
           onRangePlan: (plan) => rangePlans.push(plan),
         }
       )
-      const presentation = createAttackCanonicalDisplayPresentation(batch, {
+      const presentation = createAttackDisplayPresentation(batch, {
         displayRequest,
         scoreDisplayRequest: displayRequest,
         rangePlans,
       })
 
-      expect(batch.combos[0].canonicalDamage.metadata.scorePropagation)
+      expect(batch.combos[0].damage.metadata.scorePropagation)
         .toBe('full-tail')
-      expect(batch.combos[0].canonicalDamage.result.values)
+      expect(batch.combos[0].damage.result.values)
         .toBeInstanceOf(Float64Array)
-      expect(batch.canonicalTotalDamage.result.values)
+      expect(batch.totalDamage.result.values)
         .toBeInstanceOf(Float64Array)
 
       expect(presentation.combos[0].decision).not.toBe(
-        ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+        ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
       )
       expect(presentation.total.decision).not.toBe(
-        ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+        ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
       )
       expect(presentation.total.status).toBe('ready')
       expect(presentation.combos[0].chart).not.toBeNull()
@@ -117,7 +117,7 @@ describe('CalculationClient integration', () => {
   )
 
   it.each([100, 1200])(
-    'projects the 99D critical=2 Damage window through the canonical path (0..$0)',
+    'projects the 99D critical=2 damage window through the canonical path (0..$0)',
     async (max) => {
       const params = {
         action: {
@@ -136,7 +136,7 @@ describe('CalculationClient integration', () => {
         mode: ATTACK_DISPLAY_MODES.PMF,
       }
       const rangePlans = []
-      const batch = await calculationClient.calculateAttackCanonicalBatch(
+      const batch = await calculationClient.calculateAttackBatch(
         [{ id: `99d-${max}`, params }],
         {
           rangePolicy: createAttackRangePolicy(
@@ -147,7 +147,7 @@ describe('CalculationClient integration', () => {
           onRangePlan: (plan) => rangePlans.push(plan),
         }
       )
-      const presentation = createAttackCanonicalDisplayPresentation(batch, {
+      const presentation = createAttackDisplayPresentation(batch, {
         displayRequest,
         scoreDisplayRequest: displayRequest,
         rangePlans,
@@ -162,13 +162,13 @@ describe('CalculationClient integration', () => {
   it('completes the Attack path with an integrated Yousei score', async () => {
     const calculateDx = vi.fn(calculateDxDistribution)
     const client = createCalculationClient({
-      calculateCanonicalDamageOnDemand,
+      calculateDamageOnDemand,
       calculateDxDistribution: calculateDx,
-      calculateScoreCanonical: calculateCanonicalScore,
-      getCanonicalScoreSummary,
+      calculateScore: calculateScoreWithProvider,
+      getScoreSummary,
       getD10Distribution,
       getDamageRollDistribution: generateMixedDamageDistribution,
-      getCanonicalDamageSummary,
+      getDamageSummary,
     })
     const params = {
       action: {
@@ -193,7 +193,7 @@ describe('CalculationClient integration', () => {
       mode: ATTACK_DISPLAY_MODES.PMF,
     }
     const rangePlans = []
-    const batch = await client.calculateAttackCanonicalBatch(
+    const batch = await client.calculateAttackBatch(
       [{ id: 'yousei-attack', params }],
       {
         rangePolicy: createAttackRangePolicy(
@@ -204,7 +204,7 @@ describe('CalculationClient integration', () => {
         onRangePlan: (plan) => rangePlans.push(plan),
       }
     )
-    const presentation = createAttackCanonicalDisplayPresentation(batch, {
+    const presentation = createAttackDisplayPresentation(batch, {
       displayRequest,
       scoreDisplayRequest: displayRequest,
       rangePlans,
@@ -220,7 +220,7 @@ describe('CalculationClient integration', () => {
     expect(scoreMass).toBeCloseTo(1, 10)
     expect(calculateDx.mock.calls.some(([input]) => input.yousei === 1))
       .toBe(true)
-    expect(batch.combos[0].canonicalDamage.result.values)
+    expect(batch.combos[0].damage.result.values)
       .toBeInstanceOf(Float64Array)
     expect(presentation.combos[0].status).toBe('ready')
     expect(presentation.combos[0].chart).not.toBeNull()
@@ -311,12 +311,12 @@ describe('CalculationClient integration', () => {
       return generateMixedDamageDistribution(weights, kazanari, options)
     })
     const client = createCalculationClient({
-      calculateCanonicalDamageOnDemand,
-      calculateScoreCanonical: vi.fn(() => {
+      calculateDamageOnDemand,
+      calculateScore: vi.fn(() => {
         scoreCall += 1
         return scoreEnvelope(scoreCall === 1 ? 1030 : 0)
       }),
-      getCanonicalDamageSummary,
+      getDamageSummary,
       getDamageRollDistribution,
       getD10Distribution,
       planCalculationRanges,
@@ -325,7 +325,7 @@ describe('CalculationClient integration', () => {
       },
     })
 
-    const result = await client.calculateAttackCanonicalBatch([{
+    const result = await client.calculateAttackBatch([{
       id: 'tail-combo',
       params: {
         action: {
@@ -345,9 +345,9 @@ describe('CalculationClient integration', () => {
     expect(observedWeights[0][104]).toBeCloseTo(1, 12)
     expect(observedWeights[0][102]).toBe(0)
     expect(result.combos[0].score.action.result.values[1030]).toBe(1)
-    expect(result.combos[0].canonicalDamage.metadata.scorePropagation)
+    expect(result.combos[0].damage.metadata.scorePropagation)
       .toBe('full-tail')
-    expect(result.canonicalTotalDamage.result).toBeDefined()
+    expect(result.totalDamage.result).toBeDefined()
   })
 
 })

@@ -3,15 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
-import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageSummary } from '../src/calculation/DamageCalculator'
 import {
-  CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+  DISTRIBUTION_DISPLAY_VERSION,
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
   DISPLAY_RANGE_PLANNER_ERROR_CODES,
   DisplayRangePlannerError,
   createDisplayRangePlanner,
   planDisplayRange,
-  presentCanonicalDistribution,
+  presentDistribution,
 } from '../src/shared/presentation'
 
 function createEnvelope({
@@ -41,7 +41,7 @@ function createDisplay(options = {}) {
     overflow: options.overflow,
   })
   const presentationOptions = {
-    summary: getCanonicalDamageSummary(envelope),
+    summary: getDamageSummary(envelope),
   }
   if (options.displayWindow !== undefined) {
     presentationOptions.displayWindow = options.displayWindow
@@ -49,7 +49,7 @@ function createDisplay(options = {}) {
   if (options.projectionUncertainty !== undefined) {
     envelope.metadata.projectionUncertainty = options.projectionUncertainty
   }
-  return presentCanonicalDistribution(envelope, presentationOptions)
+  return presentDistribution(envelope, presentationOptions)
 }
 
 function plan(display, displayWindow, policy) {
@@ -428,7 +428,7 @@ describe('DisplayRangePlanner', () => {
     })
     const display = {
       kind: 'canonical-distribution-display',
-      version: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+      version: DISTRIBUTION_DISPLAY_VERSION,
       explicit: { offset: 0, probabilities },
       explicitMax: probabilities.length - 1,
       support: { kind: 'finite', max: probabilities.length - 1 },
@@ -554,7 +554,7 @@ describe('DisplayRangePlanner', () => {
   it('does not alias input objects and freezes the complete result', () => {
     const display = {
       kind: 'canonical-distribution-display',
-      version: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+      version: DISTRIBUTION_DISPLAY_VERSION,
       explicit: { offset: 2, probabilities: [1] },
       explicitMax: 2,
       support: { kind: 'finite', max: 4 },
@@ -612,7 +612,7 @@ describe('DisplayRangePlanner', () => {
     }, { min: 0, max: 0 })).toThrow(DisplayRangePlannerError)
     expect(() => planDisplayRange({
       kind: 'canonical-distribution-display',
-      version: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+      version: DISTRIBUTION_DISPLAY_VERSION,
       explicit: { offset: -1, probabilities: [1] },
       explicitMax: -1,
       support: { kind: 'finite', max: -1 },

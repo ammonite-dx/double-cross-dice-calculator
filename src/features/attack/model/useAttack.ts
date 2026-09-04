@@ -7,16 +7,16 @@ import {
 } from 'vue'
 
 import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
-import { createAttackCanonicalRunner } from './AttackCanonicalRunner'
+import { createAttackRunner } from './AttackRunner'
 import {
-  createAttackCanonicalDisplayFeedback,
-  createAttackCanonicalScoreDisplayFeedback,
-} from './AttackCanonicalDisplayFeedback'
+  createAttackDisplayFeedback,
+  createAttackScoreDisplayFeedback,
+} from './AttackDisplayFeedback'
 import {
-  clearCanonicalAttackState,
-  createCanonicalAttackState,
-  ensureCanonicalComboData,
-} from './AttackCanonicalState'
+  clearAttackState,
+  createAttackState,
+  ensureComboData,
+} from './AttackState'
 import { replaceAttackSideSnapshot } from './AttackInputSnapshot'
 import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
@@ -24,9 +24,9 @@ import {
   createAttackDisplayRequestSnapshot as createRawAttackDisplayRequestSnapshot,
 } from './AttackDisplayRequestSnapshot'
 import {
-  createAttackCanonicalDisplayPresentation,
-  createAttackCanonicalDisplayPresentationFromCanonical,
-} from './AttackCanonicalPresentation'
+  createAttackDisplayPresentation,
+  createAttackDisplayPresentationFrom,
+} from './AttackPresentation'
 import {
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
   planDisplayWindowResources,
@@ -44,31 +44,31 @@ type FeedbackState = {
   error: unknown
 }
 
-type CanonicalPresentation = {
+type Presentation = {
   status?: string
   [key: string]: unknown
 }
 
 type AttackState = Omit<
-  ReturnType<typeof createCanonicalAttackState>,
-  | 'canonicalScoreDisplayPresentation'
-  | 'canonicalTotalDamage'
-  | 'canonicalTotalDamageSummary'
-  | 'canonicalTotalDamagePresentation'
-  | 'canonicalDisplayPresentation'
-  | 'canonicalFeedback'
-  | 'canonicalScoreDisplayFeedback'
-  | 'canonicalDisplayFeedback'
+  ReturnType<typeof createAttackState>,
+  | 'scoreDisplayPresentation'
+  | 'totalDamage'
+  | 'totalDamageSummary'
+  | 'totalDamagePresentation'
+  | 'displayPresentation'
+  | 'feedback'
+  | 'scoreDisplayFeedback'
+  | 'displayFeedback'
 > & {
   combos: AttackCombo[]
-  canonicalScoreDisplayPresentation: CanonicalPresentation | null
-  canonicalTotalDamage: unknown
-  canonicalTotalDamageSummary: unknown
-  canonicalTotalDamagePresentation: CanonicalPresentation | null
-  canonicalDisplayPresentation: CanonicalPresentation | null
-  canonicalFeedback: FeedbackState
-  canonicalScoreDisplayFeedback: FeedbackState
-  canonicalDisplayFeedback: FeedbackState
+  scoreDisplayPresentation: Presentation | null
+  totalDamage: unknown
+  totalDamageSummary: unknown
+  totalDamagePresentation: Presentation | null
+  displayPresentation: Presentation | null
+  feedback: FeedbackState
+  scoreDisplayFeedback: FeedbackState
+  displayFeedback: FeedbackState
 }
 
 export interface AttackUiCombo {
@@ -112,7 +112,7 @@ const createAttackRangePolicy = createRawAttackRangePolicy as unknown as (
 function createState(): AttackState {
   return reactive({
     combos: [createAttackCombo(0)],
-    ...createCanonicalAttackState(),
+    ...createAttackState(),
   }) as unknown as AttackState
 }
 
@@ -120,15 +120,14 @@ function createDisplaySource(state: AttackState) {
   return {
     combos: state.combos.map((combo) => ({
       id: combo.id,
-      canonicalScore: combo.data.canonicalScore,
-      canonicalScoreSummary: combo.data.canonicalScoreSummary,
-      canonicalScoreBatchSummary: combo.data.canonicalScoreBatchSummary,
-      canonicalScorePresentation: combo.data.canonicalScorePresentation,
-      canonicalDamagePresentation: combo.data.canonicalDamagePresentation,
-      canonicalRangePlan: combo.data.canonicalRangePlan,
+      score: combo.data.score,
+      scoreSummary: combo.data.scoreSummary,
+      scorePresentation: combo.data.scorePresentation,
+      damagePresentation: combo.data.damagePresentation,
+      rangePlan: combo.data.rangePlan,
     })),
-    canonicalTotalDamagePresentation:
-      state.canonicalTotalDamagePresentation,
+    totalDamagePresentation:
+      state.totalDamagePresentation,
   }
 }
 
@@ -150,9 +149,9 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   if (
     client === null
     || typeof client !== 'object'
-    || typeof client.calculateAttackCanonicalBatch !== 'function'
+    || typeof client.calculateAttackBatch !== 'function'
   ) {
-    throw new TypeError('useAttack requires calculateAttackCanonicalBatch')
+    throw new TypeError('useAttack requires calculateAttackBatch')
   }
 
   const displayRangePolicy = DEFAULT_DISPLAY_RANGE_PLANNER_POLICY
@@ -168,13 +167,13 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   ) as DisplayRequestSnapshot
   const state = createState()
 
-  function publishCanonicalDisplayFeedback(
+  function publishDisplayFeedback(
     presentation: unknown,
     metadata: { scoreDisplaySuppressed?: boolean } = {},
   ) {
     Object.assign(
-      state.canonicalDisplayFeedback,
-      createAttackCanonicalDisplayFeedback(presentation)
+      state.displayFeedback,
+      createAttackDisplayFeedback(presentation)
     )
     if (metadata.scoreDisplaySuppressed !== true) {
       const scorePresentation = (
@@ -184,27 +183,27 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         : null
       )
       Object.assign(
-        state.canonicalScoreDisplayFeedback,
-        createAttackCanonicalScoreDisplayFeedback(scorePresentation)
+        state.scoreDisplayFeedback,
+        createAttackScoreDisplayFeedback(scorePresentation)
       )
-      state.canonicalScoreDisplayPresentation = (
+      state.scoreDisplayPresentation = (
         scorePresentation ?? null
-      ) as CanonicalPresentation | null
+      ) as Presentation | null
     }
   }
 
-  function publishCanonicalDisplayRejection(presentation: unknown) {
+  function publishDisplayRejection(presentation: unknown) {
     Object.assign(
-      state.canonicalDisplayFeedback,
-      createAttackCanonicalDisplayFeedback(presentation)
+      state.displayFeedback,
+      createAttackDisplayFeedback(presentation)
     )
-    state.canonicalScoreDisplayPresentation = null
-    state.canonicalScoreDisplayFeedback.status = 'idle'
-    state.canonicalScoreDisplayFeedback.plan = null
-    state.canonicalScoreDisplayFeedback.error = null
+    state.scoreDisplayPresentation = null
+    state.scoreDisplayFeedback.status = 'idle'
+    state.scoreDisplayFeedback.plan = null
+    state.scoreDisplayFeedback.error = null
   }
 
-  const canonicalCalculationRunner = createAttackCanonicalRunner(({
+  const calculationRunner = createAttackRunner(({
     state,
     calculationClient: client,
     createPresentation: (
@@ -212,7 +211,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       rangePlans: unknown[] = [],
       request?: DisplayRequestSnapshot,
       scoreRequest?: DisplayRequestSnapshot,
-    ) => createAttackCanonicalDisplayPresentation(batchResult, {
+    ) => createAttackDisplayPresentation(batchResult, {
       displayRequest: request ?? createAttackDisplayRequestSnapshot(displayRequest),
       scoreDisplayRequest: scoreRequest
         ?? createAttackDisplayRequestSnapshot(scoreDisplayRequest),
@@ -227,7 +226,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       state: AttackState
       displayRequest?: DisplayRequestSnapshot
       scoreDisplayRequest?: DisplayRequestSnapshot
-    }) => createAttackCanonicalDisplayPresentationFromCanonical(
+    }) => createAttackDisplayPresentationFrom(
       createDisplaySource(currentState),
       {
         displayRequest: request
@@ -237,110 +236,110 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         policy: displayRangePolicy,
       }
     ),
-    onPresentation: publishCanonicalDisplayFeedback,
-    onDisplayRejected: publishCanonicalDisplayRejection,
+    onPresentation: publishDisplayFeedback,
+    onDisplayRejected: publishDisplayRejection,
     onError: (error: unknown) => {
-      state.canonicalDisplayPresentation = null
-      state.canonicalScoreDisplayPresentation = null
-      state.canonicalDisplayFeedback.status = 'error'
-      state.canonicalDisplayFeedback.plan = null
-      state.canonicalDisplayFeedback.error = error
-      state.canonicalScoreDisplayFeedback.status = 'error'
-      state.canonicalScoreDisplayFeedback.plan = null
-      state.canonicalScoreDisplayFeedback.error = error
-      console.error('Failed to update canonical attack', error)
+      state.displayPresentation = null
+      state.scoreDisplayPresentation = null
+      state.displayFeedback.status = 'error'
+      state.displayFeedback.plan = null
+      state.displayFeedback.error = error
+      state.scoreDisplayFeedback.status = 'error'
+      state.scoreDisplayFeedback.plan = null
+      state.scoreDisplayFeedback.error = error
+      console.error('Failed to update attack', error)
     },
-  }) as unknown as Parameters<typeof createAttackCanonicalRunner>[0])
+  }) as unknown as Parameters<typeof createAttackRunner>[0])
 
-  function publishCanonicalDisplayResourceRejection(plan: unknown) {
-    state.canonicalDisplayPresentation = null
-    state.canonicalScoreDisplayPresentation = null
-    state.canonicalDisplayFeedback.status = 'rejected'
-    state.canonicalDisplayFeedback.plan = plan
-    state.canonicalDisplayFeedback.error = null
-    state.canonicalScoreDisplayFeedback.status = 'idle'
-    state.canonicalScoreDisplayFeedback.plan = null
-    state.canonicalScoreDisplayFeedback.error = null
+  function publishDisplayResourceRejection(plan: unknown) {
+    state.displayPresentation = null
+    state.scoreDisplayPresentation = null
+    state.displayFeedback.status = 'rejected'
+    state.displayFeedback.plan = plan
+    state.displayFeedback.error = null
+    state.scoreDisplayFeedback.status = 'idle'
+    state.scoreDisplayFeedback.plan = null
+    state.scoreDisplayFeedback.error = null
   }
 
-  function publishCanonicalDisplayError(error: unknown) {
-    state.canonicalDisplayPresentation = null
-    state.canonicalScoreDisplayPresentation = null
-    state.canonicalDisplayFeedback.status = 'error'
-    state.canonicalDisplayFeedback.plan = null
-    state.canonicalDisplayFeedback.error = error
-    state.canonicalScoreDisplayFeedback.status = 'error'
-    state.canonicalScoreDisplayFeedback.plan = null
-    state.canonicalScoreDisplayFeedback.error = error
+  function publishDisplayError(error: unknown) {
+    state.displayPresentation = null
+    state.scoreDisplayPresentation = null
+    state.displayFeedback.status = 'error'
+    state.displayFeedback.plan = null
+    state.displayFeedback.error = error
+    state.scoreDisplayFeedback.status = 'error'
+    state.scoreDisplayFeedback.plan = null
+    state.scoreDisplayFeedback.error = error
   }
 
-  function publishCanonicalScoreDisplayResourceRejection(plan: unknown) {
-    state.canonicalScoreDisplayPresentation = null
-    state.canonicalScoreDisplayFeedback.status = 'rejected'
-    state.canonicalScoreDisplayFeedback.plan = plan
-    state.canonicalScoreDisplayFeedback.error = null
+  function publishScoreDisplayResourceRejection(plan: unknown) {
+    state.scoreDisplayPresentation = null
+    state.scoreDisplayFeedback.status = 'rejected'
+    state.scoreDisplayFeedback.plan = plan
+    state.scoreDisplayFeedback.error = null
   }
 
-  function preflightCanonicalDisplay(request: DisplayRequestSnapshot) {
+  function preflightDisplay(request: DisplayRequestSnapshot) {
     try {
       const plan = planDisplayWindowResources(
         { min: request.min, max: request.max },
         displayRangePolicy
       )
       if (!plan.accepted) {
-        canonicalCalculationRunner.invalidate()
-        clearCanonicalAttackState(state)
-        publishCanonicalDisplayResourceRejection(plan)
+        calculationRunner.invalidate()
+        clearAttackState(state)
+        publishDisplayResourceRejection(plan)
         return false
       }
       return true
     } catch (error) {
-      canonicalCalculationRunner.invalidate()
-      clearCanonicalAttackState(state)
-      publishCanonicalDisplayError(error)
+      calculationRunner.invalidate()
+      clearAttackState(state)
+      publishDisplayError(error)
       return false
     }
   }
 
-  function preflightCanonicalScoreDisplay(request: DisplayRequestSnapshot) {
+  function preflightScoreDisplay(request: DisplayRequestSnapshot) {
     try {
       const plan = planDisplayWindowResources(
         { min: request.min, max: request.max },
         displayRangePolicy
       )
       if (!plan.accepted) {
-        canonicalCalculationRunner.invalidateScoreDisplay()
-        publishCanonicalScoreDisplayResourceRejection(plan)
+        calculationRunner.invalidateScoreDisplay()
+        publishScoreDisplayResourceRejection(plan)
         return false
       }
       return true
     } catch (error) {
-      canonicalCalculationRunner.invalidateScoreDisplay()
-      state.canonicalScoreDisplayPresentation = null
-      state.canonicalScoreDisplayFeedback.status = 'error'
-      state.canonicalScoreDisplayFeedback.plan = null
-      state.canonicalScoreDisplayFeedback.error = error
+      calculationRunner.invalidateScoreDisplay()
+      state.scoreDisplayPresentation = null
+      state.scoreDisplayFeedback.status = 'error'
+      state.scoreDisplayFeedback.plan = null
+      state.scoreDisplayFeedback.error = error
       return false
     }
   }
 
-  function runCanonicalCalculation(
+  function runCalculation(
     request: DisplayRequestSnapshot = displayRequest,
     scoreRequest: DisplayRequestSnapshot = scoreDisplayRequest,
   ): Promise<unknown> {
     const snapshot = createAttackDisplayRequestSnapshot(request)
     const scoreSnapshot = createAttackDisplayRequestSnapshot(scoreRequest)
-    if (!preflightCanonicalDisplay(snapshot)) {
+    if (!preflightDisplay(snapshot)) {
       return Promise.resolve(false)
     }
-    const scoreDisplayReady = preflightCanonicalScoreDisplay(scoreSnapshot)
+    const scoreDisplayReady = preflightScoreDisplay(scoreSnapshot)
     if (!scoreDisplayReady) {
-      return canonicalCalculationRunner.run({
+      return calculationRunner.run({
         displayRequest: snapshot,
         rangePolicy: createAttackRangePolicy(snapshot),
       }) as Promise<unknown>
     }
-    return canonicalCalculationRunner.run({
+    return calculationRunner.run({
       displayRequest: snapshot,
       scoreDisplayRequest: scoreSnapshot,
       rangePolicy: createAttackRangePolicy(snapshot, {}, scoreSnapshot),
@@ -364,7 +363,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
 
   function addCombo() {
     state.combos.push(createAttackCombo(allocateComboId()))
-    void runCanonicalCalculation()
+    void runCalculation()
   }
 
   function duplicateCombo(id: number | string) {
@@ -373,7 +372,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return
     }
     state.combos.push(cloneAttackCombo(source, allocateComboId()))
-    void runCanonicalCalculation()
+    void runCalculation()
   }
 
   function removeCombo(id: number | string) {
@@ -382,7 +381,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return
     }
     state.combos.splice(index, 1)
-    void runCanonicalCalculation()
+    void runCalculation()
   }
 
   function onComboNameChanged({ id, name }: { id: number | string; name: string }) {
@@ -423,7 +422,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     // The UI sends a detached validated snapshot. The application snapshot
     // helper performs the second detached copy at the state boundary.
     replaceAttackSideSnapshot(combo.data.params, side, snapshot)
-    void runCanonicalCalculation()
+    void runCalculation()
   }
 
   function onDisplayValidated(request: DisplayRequestSnapshot) {
@@ -432,12 +431,12 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     displayRequest.max = snapshot.max
     displayRequest.mode = snapshot.mode
 
-    if (!preflightCanonicalDisplay(snapshot)) {
+    if (!preflightDisplay(snapshot)) {
       return
     }
 
-    if (state.canonicalTotalDamageReady !== true) {
-      void runCanonicalCalculation(snapshot)
+    if (state.totalDamageReady !== true) {
+      void runCalculation(snapshot)
       return
     }
 
@@ -445,8 +444,8 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       const scoreSnapshot = createAttackDisplayRequestSnapshot(
         scoreDisplayRequest
       )
-      const scoreDisplayReady = preflightCanonicalScoreDisplay(scoreSnapshot)
-      const refreshed = canonicalCalculationRunner.refreshPresentation({
+      const scoreDisplayReady = preflightScoreDisplay(scoreSnapshot)
+      const refreshed = calculationRunner.refreshPresentation({
         displayRequest: snapshot,
         scoreDisplayRequest: scoreSnapshot,
         calculationOptions: {
@@ -456,10 +455,10 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         },
       })
       if (!refreshed) {
-        state.canonicalDisplayPresentation = null
+        state.displayPresentation = null
       }
     } catch (error) {
-      publishCanonicalDisplayError(error)
+      publishDisplayError(error)
     }
   }
 
@@ -469,17 +468,17 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     scoreDisplayRequest.max = snapshot.max
     scoreDisplayRequest.mode = snapshot.mode
 
-    if (!preflightCanonicalScoreDisplay(snapshot)) {
+    if (!preflightScoreDisplay(snapshot)) {
       return
     }
 
-    if (state.canonicalTotalDamageReady !== true) {
-      void runCanonicalCalculation(displayRequest, snapshot)
+    if (state.totalDamageReady !== true) {
+      void runCalculation(displayRequest, snapshot)
       return
     }
 
     try {
-      const refreshed = canonicalCalculationRunner.refreshPresentation({
+      const refreshed = calculationRunner.refreshPresentation({
         displayRequest: createAttackDisplayRequestSnapshot(displayRequest),
         scoreDisplayRequest: snapshot,
         scoreOnly: true,
@@ -492,52 +491,52 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         },
       })
       if (!refreshed) {
-        canonicalCalculationRunner.invalidateScoreDisplay()
-        state.canonicalScoreDisplayPresentation = null
+        calculationRunner.invalidateScoreDisplay()
+        state.scoreDisplayPresentation = null
       }
     } catch (error) {
-      canonicalCalculationRunner.invalidateScoreDisplay()
-      state.canonicalScoreDisplayPresentation = null
-      state.canonicalScoreDisplayFeedback.status = 'error'
-      state.canonicalScoreDisplayFeedback.plan = null
-      state.canonicalScoreDisplayFeedback.error = error
+      calculationRunner.invalidateScoreDisplay()
+      state.scoreDisplayPresentation = null
+      state.scoreDisplayFeedback.status = 'error'
+      state.scoreDisplayFeedback.plan = null
+      state.scoreDisplayFeedback.error = error
     }
   }
 
   onMounted(() => {
     for (const combo of state.combos) {
-      ensureCanonicalComboData(combo.data)
+      ensureComboData(combo.data)
     }
-    void runCanonicalCalculation()
+    void runCalculation()
   })
 
   function dispose() {
-    canonicalCalculationRunner.dispose()
-    clearCanonicalAttackState(state)
+    calculationRunner.dispose()
+    clearAttackState(state)
   }
 
   onUnmounted(dispose)
 
   const combos = computed(() => toUiCombos(state)) as ComputedRef<AttackUiCombo[]>
-  const canonicalDisplayPresentation = computed(
-    () => state.canonicalDisplayPresentation
+  const displayPresentation = computed(
+    () => state.displayPresentation
   )
-  const canonicalScoreDisplayPresentation = computed(
-    () => state.canonicalScoreDisplayPresentation
+  const scoreDisplayPresentation = computed(
+    () => state.scoreDisplayPresentation
   )
-  const canonicalDisplayFeedback = computed(
-    () => state.canonicalDisplayFeedback
+  const displayFeedback = computed(
+    () => state.displayFeedback
   )
-  const canonicalScoreDisplayFeedback = computed(
-    () => state.canonicalScoreDisplayFeedback
+  const scoreDisplayFeedback = computed(
+    () => state.scoreDisplayFeedback
   )
-  const canonicalSummaryReady = computed(
-    () => state.canonicalDisplayPresentation?.status === 'ready'
+  const summaryReady = computed(
+    () => state.displayPresentation?.status === 'ready'
   )
-  const canonicalFeedbackNotice = computed<FeedbackState>(() =>
-    state.canonicalFeedback?.status === 'rejected'
-      || state.canonicalFeedback?.status === 'error'
-      ? state.canonicalFeedback
+  const feedbackNotice = computed<FeedbackState>(() =>
+    state.feedback?.status === 'rejected'
+      || state.feedback?.status === 'error'
+      ? state.feedback
       : { status: 'idle', plan: null, error: null }
   )
 
@@ -545,12 +544,12 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     combos,
     displayRequest,
     scoreDisplayRequest,
-    canonicalDisplayPresentation,
-    canonicalScoreDisplayPresentation,
-    canonicalDisplayFeedback,
-    canonicalScoreDisplayFeedback,
-    canonicalSummaryReady,
-    canonicalFeedbackNotice,
+    displayPresentation,
+    scoreDisplayPresentation,
+    displayFeedback,
+    scoreDisplayFeedback,
+    summaryReady,
+    feedbackNotice,
     onDisplayValidated,
     onScoreDisplayValidated,
     addCombo,

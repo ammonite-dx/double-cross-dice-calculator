@@ -35,7 +35,7 @@ $$
 - [`decision.md`](./decision.md)は、実験から得られた根拠、暫定的な採用判断、本番実装前の未解決事項を記録します。
 - [`runtimeDamageRollExperiment.test.js`](../../tests/runtimeDamageRollExperiment.test.js)は、代表的な単一分布、混合分布、確率総和、非負性、参照実装と最適化実装の一致を検証します。
 - [`runtimeDamageRollClient.test.js`](../../tests/runtimeDamageRollClient.test.js)は、重複排除、キャッシュ、中断、エラー伝播、Worker再生成、終了処理を偽のWorkerで検証します。
-- [`canonicalDamageOnDemand.test.js`](../../tests/canonicalDamageOnDemand.test.js)と[`runtimeDamageRollProduction.test.js`](../../tests/runtimeDamageRollProduction.test.js)は、命中確率の集約、防御適用後の最終分布、Workerへ渡す混合分布をcanonical経路で検証します。
+- [`damageOnDemand.test.js`](../../tests/damageOnDemand.test.js)と[`runtimeDamageRollProduction.test.js`](../../tests/runtimeDamageRollProduction.test.js)は、命中確率の集約、防御適用後の最終分布、Workerへ渡す混合分布を検証します。
 - [`verify-runtime-dr-experiment.mjs`](../../scripts/verify-runtime-dr-experiment.mjs)は、公開schema-v2/revision-1 assetに含まれる203ダイス数と10種類の`kazanari`の全2030分布を比較します。
 - [`benchmark-runtime-dr-experiment.mjs`](../../scripts/benchmark-runtime-dr-experiment.mjs)は、同じ混合重みについて両実装を測定します。
 
@@ -44,7 +44,7 @@ $$
 ```shell
 npm test -- tests/runtimeDamageRollExperiment.test.js
 npm test -- tests/runtimeDamageRollClient.test.js
-npm test -- tests/canonicalDamageOnDemand.test.js tests/runtimeDamageRollProduction.test.js
+npm test -- tests/damageOnDemand.test.js tests/runtimeDamageRollProduction.test.js
 npm run test:runtime-dr:full
 npm run test:runtime-dr:full:reference
 npm run benchmark:runtime-dr

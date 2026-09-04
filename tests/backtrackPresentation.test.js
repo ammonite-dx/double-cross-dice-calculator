@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { calculateFinalEncroachmentCanonical } from '../src/calculation/BacktrackCalculator'
+import { calculateFinalEncroachment } from '../src/calculation/BacktrackCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
-  BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES,
-  BacktrackCanonicalPresentationValidationError,
-  createBacktrackCanonicalPresentation,
-  isBacktrackCanonicalPresentationError,
-} from '../src/features/backtrack/model/BacktrackCanonicalPresentation'
+  BACKTRACK_PRESENTATION_ERROR_CODES,
+  BacktrackPresentationValidationError,
+  createBacktrackPresentation,
+  isBacktrackPresentationError,
+} from '../src/features/backtrack/model/BacktrackPresentation'
 import {
   getFinalEncroachmentChartData,
 } from '../src/features/backtrack/ui/ChartSetter'
@@ -23,7 +23,7 @@ function createPointResult(finalEncroachment) {
   })
 }
 
-function createCanonicalPointResult(finalEncroachment) {
+function createResultsFromPoint(finalEncroachment) {
   const result = createPointResult(finalEncroachment)
   return {
     single: result,
@@ -47,7 +47,7 @@ function createResultFromEntries(entries) {
   })
 }
 
-function createCanonicalResult(result) {
+function createResult(result) {
   return {
     single: result,
     double: result,
@@ -55,13 +55,13 @@ function createCanonicalResult(result) {
   }
 }
 
-function createCanonicalFromProducer(params) {
+function createFromProducer(params) {
   const plan = planCalculationRanges({
     operation: 'backtrack',
-    canonicalBacktrack: true,
+    completeSupportBacktrack: true,
     backtrack: params,
   })
-  return calculateFinalEncroachmentCanonical(
+  return calculateFinalEncroachment(
     params,
     {},
     {},
@@ -77,8 +77,8 @@ function expectPresentationError(callback, code) {
     error = caught
   }
 
-  expect(error).toBeInstanceOf(BacktrackCanonicalPresentationValidationError)
-  expect(isBacktrackCanonicalPresentationError(error)).toBe(true)
+  expect(error).toBeInstanceOf(BacktrackPresentationValidationError)
+  expect(isBacktrackPresentationError(error)).toBe(true)
   expect(error.code).toBe(code)
   return error
 }
@@ -94,8 +94,8 @@ describe('backtrack canonical presentation adapter', () => {
     [99, 1],
     [100, 0],
   ])('uses standard single boundary %i exactly', (finalEncroachment, bucket) => {
-    const presentation = createBacktrackCanonicalPresentation(
-      createCanonicalPointResult(finalEncroachment),
+    const presentation = createBacktrackPresentation(
+      createResultsFromPoint(finalEncroachment),
       { encroachment: 100, value: 0, dlois: 'なし' }
     )
 
@@ -122,8 +122,8 @@ describe('backtrack canonical presentation adapter', () => {
     [119, 1],
     [120, 0],
   ])('uses nightmare single boundary %i exactly', (finalEncroachment, bucket) => {
-    const presentation = createBacktrackCanonicalPresentation(
-      createCanonicalPointResult(finalEncroachment),
+    const presentation = createBacktrackPresentation(
+      createResultsFromPoint(finalEncroachment),
       { encroachment: 100, value: 0, dlois: '不死者・悪夢' }
     )
 
@@ -138,8 +138,8 @@ describe('backtrack canonical presentation adapter', () => {
     ['不死者・悪夢', 119, [0, 100]],
     ['不死者・悪夢', 120, [100, 0]],
   ])('uses the %s success boundary at %i', (dlois, finalEncroachment, expected) => {
-    const presentation = createBacktrackCanonicalPresentation(
-      createCanonicalPointResult(finalEncroachment),
+    const presentation = createBacktrackPresentation(
+      createResultsFromPoint(finalEncroachment),
       { encroachment: 100, value: 0, dlois }
     )
 
@@ -154,8 +154,8 @@ describe('backtrack canonical presentation adapter', () => {
       [31, 0.25],
       [100, 0.25],
     ])
-    const presentation = createBacktrackCanonicalPresentation(
-      createCanonicalResult(result),
+    const presentation = createBacktrackPresentation(
+      createResult(result),
       { encroachment: 100, value: 0, dlois: 'なし' }
     )
 
@@ -179,8 +179,8 @@ describe('backtrack canonical presentation adapter', () => {
       [0, 0.0006],
       [100, 0.9988],
     ])
-    const presentation = createBacktrackCanonicalPresentation(
-      createCanonicalResult(result),
+    const presentation = createBacktrackPresentation(
+      createResult(result),
       { encroachment: 100, value: 0, dlois: 'なし' }
     )
 
@@ -202,8 +202,8 @@ describe('backtrack canonical presentation adapter', () => {
       value: 0,
       dlois: 'なし',
     }
-    const presentation = createBacktrackCanonicalPresentation(
-      createCanonicalFromProducer(params),
+    const presentation = createBacktrackPresentation(
+      createFromProducer(params),
       params
     )
 
@@ -243,8 +243,8 @@ describe('backtrack canonical presentation adapter', () => {
   })
 
   it('uses the undead ChartSetter mode for the six-category payload', () => {
-    const presentation = createBacktrackCanonicalPresentation(
-      createCanonicalPointResult(120),
+    const presentation = createBacktrackPresentation(
+      createResultsFromPoint(120),
       { encroachment: 120, value: 0, dlois: '不死者・悪夢' }
     )
     const chart = getFinalEncroachmentChartData(
@@ -265,25 +265,27 @@ describe('backtrack canonical presentation adapter', () => {
   })
 
   it('rejects missing result keys as a typed presentation error', () => {
-    const result = createCanonicalPointResult(50)
+    const result = createPointResult(50)
     delete result.second
 
     expectPresentationError(
-      () => createBacktrackCanonicalPresentation(
+      () => createBacktrackPresentation(
         result,
         { dlois: 'なし' }
       ),
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.MISSING_RESULT
+      BACKTRACK_PRESENTATION_ERROR_CODES.MISSING_RESULT
     )
   })
 
   it('rejects invalid DistributionResult values as a typed presentation error', () => {
-    const result = createCanonicalPointResult(50)
-    result.double = null
+    const result = {
+      ...createResultsFromPoint(50),
+      double: null,
+    }
 
     expectPresentationError(
-      () => createBacktrackCanonicalPresentation(result, { dlois: 'なし' }),
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RESULT
+      () => createBacktrackPresentation(result, { dlois: 'なし' }),
+      BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_RESULT
     )
   })
 
@@ -296,11 +298,11 @@ describe('backtrack canonical presentation adapter', () => {
     })
 
     expectPresentationError(
-      () => createBacktrackCanonicalPresentation(
-        createCanonicalResult(infinite),
+      () => createBacktrackPresentation(
+        createResult(infinite),
         { dlois: 'なし' }
       ),
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT
+      BACKTRACK_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT
     )
   })
 
@@ -318,11 +320,11 @@ describe('backtrack canonical presentation adapter', () => {
     })
 
     expectPresentationError(
-      () => createBacktrackCanonicalPresentation(
-        createCanonicalResult(overflow),
+      () => createBacktrackPresentation(
+        createResult(overflow),
         { dlois: 'なし' }
       ),
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSUPPORTED_OVERFLOW
+      BACKTRACK_PRESENTATION_ERROR_CODES.UNSUPPORTED_OVERFLOW
     )
   })
 
@@ -335,11 +337,11 @@ describe('backtrack canonical presentation adapter', () => {
     })
 
     expectPresentationError(
-      () => createBacktrackCanonicalPresentation(
-        createCanonicalResult(incomplete),
+      () => createBacktrackPresentation(
+        createResult(incomplete),
         { dlois: 'なし' }
       ),
-      BACKTRACK_CANONICAL_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT
+      BACKTRACK_PRESENTATION_ERROR_CODES.INCOMPLETE_SUPPORT
     )
   })
 })

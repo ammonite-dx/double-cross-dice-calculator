@@ -5,17 +5,17 @@ import {
   calculateDxDistribution,
 } from '../src/calculation/DxCalculator'
 import {
-  calculateScoreCanonical,
-  getCanonicalScoreSummary,
+  calculateScore,
+  getScoreSummary,
 } from '../src/calculation/ScoreCalculator'
 
-function calculateCanonicalScore(
+function calculateScoreWithProvider(
   params,
   getDistribution,
   scoreRangePlan,
   fix = false
 ) {
-  return calculateScoreCanonical(
+  return calculateScore(
     params,
     { getDxDistribution: getDistribution },
     scoreRangePlan,
@@ -43,23 +43,23 @@ describe('CalculationClient runtime DX cache identity', () => {
     const calculateDx = vi.fn(calculateDxDistribution)
     const client = createCalculationClient({
       calculateDxDistribution: calculateDx,
-      calculateScoreCanonical: calculateCanonicalScore,
-      getCanonicalScoreSummary,
+      calculateScore: calculateScoreWithProvider,
+      getScoreSummary,
     })
 
-    await client.calculateCheckCanonical(checkParams(0), {
+    await client.calculateCheck(checkParams(0), {
       opposed: true,
     })
     expect(calculateDx).toHaveBeenCalledTimes(1)
 
-    await client.calculateCheckCanonical(checkParams(1), {
+    await client.calculateCheck(checkParams(1), {
       opposed: true,
     })
     expect(calculateDx).toHaveBeenCalledTimes(2)
     expect(calculateDx.mock.calls.map(([params]) => params.yousei))
       .toEqual([0, 1])
 
-    await client.calculateCheckCanonical(checkParams(1), {
+    await client.calculateCheck(checkParams(1), {
       opposed: true,
     })
     expect(calculateDx).toHaveBeenCalledTimes(2)

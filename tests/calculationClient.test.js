@@ -27,7 +27,7 @@ function createScoreEnvelope(params, _getDistribution, _plan, fix = false) {
   }
 }
 
-function createCanonicalDamage() {
+function createDamage() {
   return Object.freeze({
     result: createDistributionResult({
       values: [1],
@@ -41,15 +41,15 @@ function createCanonicalDamage() {
 
 function createDependencies(overrides = {}) {
   return {
-    calculateCanonicalDamageOnDemand: vi.fn(async () => createCanonicalDamage()),
+    calculateDamageOnDemand: vi.fn(async () => createDamage()),
     calculateDxDistribution: vi.fn(() => new Float64Array([1])),
-    calculateScoreCanonical: vi.fn(createScoreEnvelope),
-    getCanonicalDamageSummary: vi.fn(() => 'canonical damage summary'),
-    getCanonicalScoreSummary: vi.fn(() => 'canonical score summary'),
-    getCanonicalTotalDamageSummary: vi.fn(() => 'canonical total summary'),
+    calculateScore: vi.fn(createScoreEnvelope),
+    getDamageSummary: vi.fn(() => 'canonical damage summary'),
+    getScoreSummary: vi.fn(() => 'canonical score summary'),
+    getTotalDamageSummary: vi.fn(() => 'canonical total summary'),
     getDamageRollDistribution: vi.fn(async () => new Float64Array([1])),
     getD10Distribution: vi.fn(),
-    getFinalEncroachmentCanonical: vi.fn(() => 'canonical backtrack'),
+    getFinalEncroachment: vi.fn(() => 'canonical backtrack'),
     ...overrides,
   }
 }
@@ -85,13 +85,13 @@ describe('canonical CalculationClient surface', () => {
       "from '../calculation/BacktrackCalculator'"
     )
     expect(calculationClientSource).not.toMatch(
-      /from ['"]\.\.\/data\/(?:Score|Backtrack)Calculator['"]/
+      /from ['"]\.\.\/data\/(?:score|Backtrack)Calculator['"]/
     )
     expect(calculationClientSource).not.toContain(
       'toPublishedBucketDistribution'
     )
     expect(calculationClientSource).not.toContain(
-      'createPublishedScoreFromCanonicalEnvelope'
+      'createPublishedScoreFromEnvelope'
     )
   })
 
@@ -105,7 +105,7 @@ describe('canonical CalculationClient surface', () => {
       shihai: 0,
     }
 
-    const check = await client.calculateCheckCanonical({
+    const check = await client.calculateCheck({
       action: score,
       reaction: { ...score },
     }, { opposed: false, target: 0 })
@@ -114,7 +114,7 @@ describe('canonical CalculationClient surface', () => {
       metadata: expect.objectContaining({ modeledDistribution: true }),
     })
 
-    const backtrack = await client.calculateBacktrackCanonical({
+    const backtrack = await client.calculateBacktrack({
       encroachment: 79,
       lois: 1,
       elois: 2,
@@ -132,14 +132,16 @@ describe('canonical CalculationClient surface', () => {
   it('exposes canonical operations and no legacy calculation or prepare methods', () => {
     const client = createCalculationClient(createDependencies())
 
-    expect(client.calculateCheckCanonical).toEqual(expect.any(Function))
-    expect(client.calculateAttackCanonicalBatch).toEqual(expect.any(Function))
-    expect(client.calculateCanonicalTotalDamage).toEqual(expect.any(Function))
-    expect(client.calculateBacktrackCanonical).toEqual(expect.any(Function))
-    expect(client).not.toHaveProperty('calculateCheck')
+    expect(client.calculateCheck).toEqual(expect.any(Function))
+    expect(client.calculateAttackBatch).toEqual(expect.any(Function))
+    expect(client.calculateTotalDamage).toEqual(expect.any(Function))
+    expect(client.calculateBacktrack).toEqual(expect.any(Function))
+    expect(client).not.toHaveProperty('calculateCheckCanonical')
     expect(client).not.toHaveProperty('calculateAttackCombo')
-    expect(client).not.toHaveProperty('calculateTotalDamage')
-    expect(client).not.toHaveProperty('calculateBacktrack')
+    expect(client).not.toHaveProperty('calculateAttackCanonical')
+    expect(client).not.toHaveProperty('calculateAttackCanonicalBatch')
+    expect(client).not.toHaveProperty('calculateCanonicalTotalDamage')
+    expect(client).not.toHaveProperty('calculateBacktrackCanonical')
     expect(client).not.toHaveProperty('prepare')
   })
 
@@ -181,14 +183,14 @@ describe('canonical CalculationClient surface', () => {
     const planned = client.planBacktrack(params)
     const executionPlans = []
 
-    await expect(client.calculateBacktrackCanonical(params, {
+    await expect(client.calculateBacktrack(params, {
       onRangePlan: (plan) => executionPlans.push(plan),
     })).resolves.toBe('canonical backtrack')
 
     expect(executionPlans).toHaveLength(1)
     expect(planned).toEqual(executionPlans[0])
     expect(planned.backtrack).toMatchObject({
-      calculationMode: 'canonical',
+      calculationMode: 'complete-support',
       distributionMode: 'on-demand',
     })
     expect(planned.estimates).toEqual(executionPlans[0].estimates)
@@ -197,43 +199,43 @@ describe('canonical CalculationClient surface', () => {
     expect(planCalculationRangesSpy.mock.calls[0][0]).toEqual(
       planCalculationRangesSpy.mock.calls[1][0]
     )
-    expect(planCalculationRangesSpy.mock.calls[0][0].canonicalBacktrack)
+    expect(planCalculationRangesSpy.mock.calls[0][0].completeSupportBacktrack)
       .toBe(true)
   })
 
   it('runs canonical Attack through the runtime D10 provider and canonical damage only', async () => {
-    const canonicalDamage = createCanonicalDamage()
+    const damage = createDamage()
     const planCalculationRangesSpy = vi.fn(planCalculationRanges)
-    const calculateCanonicalDamageOnDemand = vi.fn(async (score) => {
+    const calculateDamageOnDemand = vi.fn(async (score) => {
       expect(score.action).toHaveProperty('result')
       expect(score.reaction).toHaveProperty('result')
       expect(score.action).not.toHaveProperty('distribution')
       expect(score.reaction).not.toHaveProperty('distribution')
-      return canonicalDamage
+      return damage
     })
     const dependencies = createDependencies({
-      calculateCanonicalDamageOnDemand,
+      calculateDamageOnDemand,
       planCalculationRanges: planCalculationRangesSpy,
     })
     const client = createCalculationClient(dependencies)
 
-    const result = await client.calculateAttackCanonical(attackParams())
+    const result = await client.calculateAttack(attackParams())
 
     expect(result).toMatchObject({
       scoreSummary: 'canonical score summary',
-      canonicalDamage,
-      canonicalDamageSummary: 'canonical damage summary',
+      damage,
+      damageSummary: 'canonical damage summary',
     })
-    expect(result).not.toHaveProperty('damage')
-    expect(result).not.toHaveProperty('damageSummary')
-    expect(dependencies.calculateScoreCanonical).toHaveBeenCalledTimes(2)
-    expect(dependencies.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
-    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledOnce()
+    expect(result.damage).toBe(damage)
+    expect(result.damageSummary).toBe('canonical damage summary')
+    expect(dependencies.calculateScore).toHaveBeenCalledTimes(2)
+    expect(dependencies.calculateDamageOnDemand).toHaveBeenCalledOnce()
+    expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
     expect(planCalculationRangesSpy.mock.calls[0][1]).toMatchObject({
       scorePropagation: 'full-tail',
     })
 
-    await client.calculateAttackCanonical(attackParams(), {
+    await client.calculateAttack(attackParams(), {
       rangePolicy: { scorePropagation: 'published-bucket' },
     })
     expect(planCalculationRangesSpy.mock.calls[1][1]).toMatchObject({
@@ -245,7 +247,7 @@ describe('canonical CalculationClient surface', () => {
     const dependencies = createDependencies()
     const client = createCalculationClient(dependencies)
 
-    const result = await client.calculateCheckCanonical(
+    const result = await client.calculateCheck(
       {
         action: { ...scoreParams },
         reaction: { ...scoreParams, skill: 2 },
@@ -254,10 +256,10 @@ describe('canonical CalculationClient surface', () => {
     )
 
     expect(result.scoreSummary).toBe('canonical score summary')
-    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledWith(
+    expect(dependencies.getScoreSummary).toHaveBeenCalledWith(
       result.score,
       { opposed: true, target: 10 }
     )
-    expect(dependencies.calculateScoreCanonical).toHaveBeenCalledTimes(2)
+    expect(dependencies.calculateScore).toHaveBeenCalledTimes(2)
   })
 })

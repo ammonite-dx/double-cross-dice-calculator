@@ -5,15 +5,15 @@ import {
   isDistributionResultError,
 } from '../src/calculation/DistributionResult'
 import {
-  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
+  CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CHART_SERIES_NOT_READY_REASONS,
 } from '../src/shared/presentation'
 import {
-  CHECK_CANONICAL_PRESENTATION_ERROR_CODES,
-  CheckCanonicalPresentationError,
-  createCheckCanonicalPresentation,
-  isCheckCanonicalPresentationError,
-} from '../src/features/check/model/CheckCanonicalPresentation'
+  CHECK_PRESENTATION_ERROR_CODES,
+  CheckPresentationError,
+  createCheckPresentation,
+  isCheckPresentationError,
+} from '../src/features/check/model/CheckPresentation'
 import { getChartColor } from '../src/shared/theme/ChartPalette'
 
 function createScoreResult({
@@ -45,7 +45,7 @@ function present(
     policy,
   } = {}
 ) {
-  return createCheckCanonicalPresentation(checkResult, {
+  return createCheckPresentation(checkResult, {
     displayWindow: { min, max },
     mode,
     opposed,
@@ -53,7 +53,7 @@ function present(
   })
 }
 
-describe('createCheckCanonicalPresentation', () => {
+describe('createCheckPresentation', () => {
   it('connects finite action and reaction distributions through every shared contract', () => {
     const action = createScoreResult({
       values: [0.123456, 0.876544],
@@ -142,7 +142,7 @@ describe('createCheckCanonicalPresentation', () => {
     expect(presentation.action.decision).toBe('recalculate')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.action.reason)
-      .toBe(CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP)
+      .toBe(CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP)
     expect(presentation.action).not.toHaveProperty('display')
     expect(presentation.action).not.toHaveProperty('series')
     expect(presentation.chart).toBeNull()
@@ -208,7 +208,7 @@ describe('createCheckCanonicalPresentation', () => {
     })
     expect(presentation.action.status).toBe('not-ready')
     expect(presentation.action.reason)
-      .toBe(CANONICAL_CHART_SERIES_NOT_READY_REASONS.RECALCULATE)
+      .toBe(CHART_SERIES_NOT_READY_REASONS.RECALCULATE)
     expect(presentation.reaction.status).toBe('ready')
     expect(presentation.chart).toBeNull()
   })
@@ -239,7 +239,7 @@ describe('createCheckCanonicalPresentation', () => {
     expect(presentation.decision).toBe('not-projectable')
     expect(presentation.action.decision).toBe('not-projectable')
     expect(presentation.action.reason)
-      .toBe(CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)
+      .toBe(CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)
     expect(presentation.chart).toBeNull()
   })
 
@@ -270,7 +270,7 @@ describe('createCheckCanonicalPresentation', () => {
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.reaction.status).toBe('not-ready')
     expect(presentation.reaction.reason)
-      .toBe(CANONICAL_CHART_SERIES_NOT_READY_REASONS.RECALCULATE)
+      .toBe(CHART_SERIES_NOT_READY_REASONS.RECALCULATE)
     expect(presentation.chart).toBeNull()
   })
 
@@ -303,7 +303,7 @@ describe('createCheckCanonicalPresentation', () => {
     })
     expect(presentation.action.status).toBe('not-ready')
     expect(presentation.action.reason)
-      .toBe(CANONICAL_CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED)
+      .toBe(CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED)
     expect(presentation.chart).toBeNull()
   })
 
@@ -334,7 +334,7 @@ describe('createCheckCanonicalPresentation', () => {
     expect(presentation.decision).toBe('not-projectable')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.action.reason)
-      .toBe(CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)
+      .toBe(CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)
     expect(presentation.reaction.status).toBe('ready')
     expect(presentation.chart).toBeNull()
   })
@@ -376,7 +376,7 @@ describe('createCheckCanonicalPresentation', () => {
     const actionBefore = Array.from(action.result.values)
     const reactionBefore = Array.from(reaction.result.values)
 
-    createCheckCanonicalPresentation(input, {
+    createCheckPresentation(input, {
       displayWindow: window,
       mode: 'pmf',
       opposed: true,
@@ -394,22 +394,22 @@ describe('createCheckCanonicalPresentation', () => {
       support: { kind: 'finite', max: 0 },
     })
 
-    expect(() => createCheckCanonicalPresentation(
+    expect(() => createCheckPresentation(
       createCheckResult(action),
       { min: 0, max: 0 }
     )).toThrow(expect.objectContaining({
-      code: CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+      code: CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
     }))
-    expect(() => createCheckCanonicalPresentation(
+    expect(() => createCheckPresentation(
       createCheckResult(action),
       { displayWindow: { min: 0, max: 0 } },
       'pmf',
       false
     )).toThrow(expect.objectContaining({
-      code: CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+      code: CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
     }))
 
-    const presentation = createCheckCanonicalPresentation(
+    const presentation = createCheckPresentation(
       createCheckResult(action, null),
       {
         displayWindow: { min: 0, max: 0 },
@@ -439,13 +439,13 @@ describe('createCheckCanonicalPresentation', () => {
       expect(error.name).toBe('DistributionResultValidationError')
     }
 
-    expect(() => createCheckCanonicalPresentation({ score: {} }, {
+    expect(() => createCheckPresentation({ score: {} }, {
       displayWindow: { min: 0, max: 0 },
       opposed: true,
     })).toThrow(expect.objectContaining({
-      code: CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+      code: CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
     }))
-    expect(isCheckCanonicalPresentationError(new CheckCanonicalPresentationError(
+    expect(isCheckPresentationError(new CheckPresentationError(
       'test',
       'test'
     ))).toBe(true)

@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDistributionResult,
-  getCanonicalTotalDamageSummary,
+  getTotalDamageSummary,
 } from '../src/calculation/DistributionResult'
-import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageSummary } from '../src/calculation/DamageCalculator'
 import {
   DISTRIBUTION_PRESENTATION_ERROR_CODES,
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
   DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
   DistributionPresentationError,
-  presentCanonicalDistribution,
+  presentDistribution,
 } from '../src/shared/presentation'
 
 function createEnvelope(result, metadata = {}) {
@@ -33,13 +33,13 @@ function createResult(options = {}) {
 }
 
 function present(result, summary, warnings = []) {
-  return presentCanonicalDistribution(createEnvelope(result), {
+  return presentDistribution(createEnvelope(result), {
     summary,
     warnings,
   })
 }
 
-describe('presentCanonicalDistribution', () => {
+describe('presentDistribution', () => {
   it('uses offset coordinates, derives explicitMax, and keeps zero probabilities', () => {
     const result = createResult({
       values: [0, 0.25, 0, 0.75],
@@ -47,7 +47,7 @@ describe('presentCanonicalDistribution', () => {
       support: { kind: 'finite', max: 20 },
       overflow: null,
     })
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
+    const summary = getDamageSummary(createEnvelope(result))
     const display = present(result, summary)
 
     expect(display.explicit).toEqual({
@@ -66,9 +66,9 @@ describe('presentCanonicalDistribution', () => {
       offset: 10,
       support: { kind: 'finite', max: 12 },
     })
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
+    const summary = getDamageSummary(createEnvelope(result))
     const inputWindow = { min: 0, max: Number.MAX_SAFE_INTEGER }
-    const display = presentCanonicalDistribution(createEnvelope(result), {
+    const display = presentDistribution(createEnvelope(result), {
       summary,
       displayWindow: inputWindow,
     })
@@ -98,9 +98,9 @@ describe('presentCanonicalDistribution', () => {
     { label: 'null', displayWindow: null },
   ])('rejects invalid display window data: $label', ({ displayWindow }) => {
     const result = createResult()
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
+    const summary = getDamageSummary(createEnvelope(result))
 
-    expect(() => presentCanonicalDistribution(
+    expect(() => presentDistribution(
       createEnvelope(result),
       { summary, displayWindow }
     )).toThrow(DistributionPresentationError)
@@ -120,7 +120,7 @@ describe('presentCanonicalDistribution', () => {
     })
     const display = present(
       result,
-      getCanonicalDamageSummary(createEnvelope(result))
+      getDamageSummary(createEnvelope(result))
     )
 
     expect(display.explicit).toEqual({ offset: 5, probabilities: [] })
@@ -149,9 +149,9 @@ describe('presentCanonicalDistribution', () => {
       },
     })
 
-    expect(present(finite, getCanonicalDamageSummary(createEnvelope(finite))))
+    expect(present(finite, getDamageSummary(createEnvelope(finite))))
       .toMatchObject({ support: { kind: 'finite', max: 9 } })
-    expect(present(infinite, getCanonicalDamageSummary(createEnvelope(infinite))))
+    expect(present(infinite, getDamageSummary(createEnvelope(infinite))))
       .toMatchObject({ support: { kind: 'infinite' } })
   })
 
@@ -172,8 +172,8 @@ describe('presentCanonicalDistribution', () => {
         outputOverflowLowerBound: null,
       },
     })
-    const display = presentCanonicalDistribution(envelope, {
-      summary: getCanonicalDamageSummary(envelope),
+    const display = presentDistribution(envelope, {
+      summary: getDamageSummary(envelope),
     })
 
     expect(display.projectionUncertainty).toEqual({
@@ -235,7 +235,7 @@ describe('presentCanonicalDistribution', () => {
     })
     const display = present(
       result,
-      getCanonicalDamageSummary(createEnvelope(result))
+      getDamageSummary(createEnvelope(result))
     )
 
     expect(display.explicit.probabilities).toEqual(values)
@@ -255,15 +255,15 @@ describe('presentCanonicalDistribution', () => {
       },
     })
     const envelope = createEnvelope(result)
-    const singleSummary = getCanonicalDamageSummary(envelope)
-    const totalSummary = getCanonicalTotalDamageSummary(envelope)
+    const singleSummary = getDamageSummary(envelope)
+    const totalSummary = getTotalDamageSummary(envelope)
 
-    expect(presentCanonicalDistribution(envelope, { summary: singleSummary }))
+    expect(presentDistribution(envelope, { summary: singleSummary }))
       .toMatchObject({
         expectedValue: { kind: 'bounded', lowerBound: 3, upperBound: 5 },
         mass: { totalMass: 1 },
       })
-    expect(presentCanonicalDistribution(envelope, { summary: totalSummary }))
+    expect(presentDistribution(envelope, { summary: totalSummary }))
       .toMatchObject({
         expectedValue: { kind: 'bounded', lowerBound: 3, upperBound: 5 },
         mass: { totalMass: 1 },
@@ -293,9 +293,9 @@ describe('presentCanonicalDistribution', () => {
       },
     })
 
-    expect(present(exact, getCanonicalDamageSummary(createEnvelope(exact))))
+    expect(present(exact, getDamageSummary(createEnvelope(exact))))
       .toMatchObject({ expectedValue: { kind: 'exact', value: 0 } })
-    expect(present(bounded, getCanonicalDamageSummary(createEnvelope(bounded))))
+    expect(present(bounded, getDamageSummary(createEnvelope(bounded))))
       .toMatchObject({
         expectedValue: { kind: 'bounded', lowerBound: 2, upperBound: 4 },
         mass: {
@@ -305,7 +305,7 @@ describe('presentCanonicalDistribution', () => {
           errorBound: 0.1,
         },
       })
-    expect(present(lowerBound, getCanonicalDamageSummary(createEnvelope(lowerBound))))
+    expect(present(lowerBound, getDamageSummary(createEnvelope(lowerBound))))
       .toMatchObject({
         expectedValue: { kind: 'lower-bound', lowerBound: 2 },
         mass: { isExact: true, totalMass: 1 },
@@ -319,13 +319,13 @@ describe('presentCanonicalDistribution', () => {
       support: { kind: 'finite', max: 3 },
     })
     const envelope = createEnvelope(result)
-    const summary = getCanonicalDamageSummary(envelope)
+    const summary = getDamageSummary(envelope)
     const warning = {
       code: 'range-warning',
       severity: 'warning',
       details: { limits: { max: 1024 }, labels: ['raw', 'display'] },
     }
-    const display = presentCanonicalDistribution(envelope, {
+    const display = presentDistribution(envelope, {
       summary,
       warnings: [warning],
     })
@@ -367,7 +367,7 @@ describe('presentCanonicalDistribution', () => {
     const result = createResult()
     expect(() => present(
       result,
-      getCanonicalDamageSummary(createEnvelope(result)),
+      getDamageSummary(createEnvelope(result)),
       [warning]
     )).toThrow(DistributionPresentationError)
   })
@@ -379,7 +379,7 @@ describe('presentCanonicalDistribution', () => {
 
     expect(() => present(
       result,
-      getCanonicalDamageSummary(createEnvelope(result)),
+      getDamageSummary(createEnvelope(result)),
       [warning]
     )).toThrow(DistributionPresentationError)
   })
@@ -393,10 +393,10 @@ describe('presentCanonicalDistribution', () => {
       overflow: null,
     })
     const envelope = createEnvelope(result)
-    const summary = getCanonicalDamageSummary(envelope)
+    const summary = getDamageSummary(envelope)
     const valuesBefore = Array.from(values)
     const metadataBefore = { ...envelope.metadata }
-    const display = presentCanonicalDistribution(envelope, { summary })
+    const display = presentDistribution(envelope, { summary })
 
     expect(Array.from(values)).toEqual(valuesBefore)
     expect(Array.from(result.values)).toEqual(valuesBefore)
@@ -418,7 +418,7 @@ describe('presentCanonicalDistribution', () => {
     })
     const display = present(
       result,
-      getCanonicalDamageSummary(createEnvelope(result))
+      getDamageSummary(createEnvelope(result))
     )
 
     expect(display.explicit.probabilities).toHaveLength(2048)
@@ -438,8 +438,8 @@ describe('presentCanonicalDistribution', () => {
     { result: {}, metadata: { modeledDistribution: true } },
   ])('rejects invalid canonical envelopes with a typed error', (envelope) => {
     const result = createResult()
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
-    expect(() => presentCanonicalDistribution(envelope, { summary }))
+    const summary = getDamageSummary(createEnvelope(result))
+    expect(() => presentDistribution(envelope, { summary }))
       .toThrow(DistributionPresentationError)
   })
 
@@ -464,7 +464,7 @@ describe('presentCanonicalDistribution', () => {
     },
   ])('rejects invalid summaries with a typed error', (summary) => {
     const result = createResult()
-    expect(() => presentCanonicalDistribution(
+    expect(() => presentDistribution(
       createEnvelope(result),
       { summary }
     )).toThrow(DistributionPresentationError)
@@ -490,10 +490,10 @@ describe('presentCanonicalDistribution', () => {
         value: true,
       })
       const result = createResult()
-      const summary = getCanonicalDamageSummary(createEnvelope(result))
+      const summary = getDamageSummary(createEnvelope(result))
       const inheritedMetadata = Object.create(Object.prototype)
 
-      expect(() => presentCanonicalDistribution(
+      expect(() => presentDistribution(
         { result, metadata: inheritedMetadata },
         { summary }
       )).toThrow(DistributionPresentationError)
@@ -510,12 +510,12 @@ describe('presentCanonicalDistribution', () => {
       delete mass.errorBound
       const expectedValue = { value: summary.expectedValue.value }
 
-      expect(() => presentCanonicalDistribution(
+      expect(() => presentDistribution(
         createEnvelope(result),
         { summary: { mass, expectedValue } }
       )).toThrow(DistributionPresentationError)
 
-      expect(() => presentCanonicalDistribution(
+      expect(() => presentDistribution(
         createEnvelope(result),
         {
           summary: {
@@ -553,7 +553,7 @@ describe('presentCanonicalDistribution', () => {
 
   it('rejects summary accessors before executing their getters', () => {
     const result = createResult()
-    const baseSummary = getCanonicalDamageSummary(createEnvelope(result))
+    const baseSummary = getDamageSummary(createEnvelope(result))
     let getterCalled = false
     const summary = {
       ...baseSummary,
@@ -567,7 +567,7 @@ describe('presentCanonicalDistribution', () => {
       },
     })
 
-    expect(() => presentCanonicalDistribution(
+    expect(() => presentDistribution(
       createEnvelope(result),
       { summary }
     )).toThrow(DistributionPresentationError)
@@ -576,7 +576,7 @@ describe('presentCanonicalDistribution', () => {
 
   it('rejects JSON copies that exceed the depth limit with a typed error', () => {
     const result = createResult()
-    const baseSummary = getCanonicalDamageSummary(createEnvelope(result))
+    const baseSummary = getDamageSummary(createEnvelope(result))
     let nested = { leaf: true }
     for (
       let index = 0;
@@ -590,7 +590,7 @@ describe('presentCanonicalDistribution', () => {
       expectedValue: { ...baseSummary.expectedValue },
     }
 
-    expect(() => presentCanonicalDistribution(
+    expect(() => presentDistribution(
       createEnvelope(result),
       { summary }
     )).toThrow(DistributionPresentationError)
@@ -598,11 +598,11 @@ describe('presentCanonicalDistribution', () => {
 
   it('rejects JSON copies that exceed the total node limit', () => {
     const result = createResult()
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
+    const summary = getDamageSummary(createEnvelope(result))
     const details = new Array(DISTRIBUTION_PRESENTATION_MAX_JSON_NODES)
       .fill(0)
 
-    expect(() => presentCanonicalDistribution(
+    expect(() => presentDistribution(
       createEnvelope(result),
       {
         summary,
@@ -613,9 +613,9 @@ describe('presentCanonicalDistribution', () => {
 
   it('memoizes repeated warning subtrees without changing JSON tree semantics', () => {
     const result = createResult()
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
+    const summary = getDamageSummary(createEnvelope(result))
     const sharedDetails = new Array(5_000).fill(0)
-    const display = presentCanonicalDistribution(
+    const display = presentDistribution(
       createEnvelope(result),
       {
         summary,
@@ -634,21 +634,21 @@ describe('presentCanonicalDistribution', () => {
 
   it('rejects null and other invalid options with a typed error code', () => {
     const result = createResult()
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
+    const summary = getDamageSummary(createEnvelope(result))
 
-    expect(() => presentCanonicalDistribution(
+    expect(() => presentDistribution(
       createEnvelope(result),
       null
     )).toThrow(DistributionPresentationError)
 
     try {
-      presentCanonicalDistribution(createEnvelope(result), null)
+      presentDistribution(createEnvelope(result), null)
     } catch (error) {
       expect(error.code)
         .toBe(DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_OPTIONS)
     }
 
-    expect(() => presentCanonicalDistribution(
+    expect(() => presentDistribution(
       createEnvelope(result),
       { summary, warnings: null }
     )).toThrow(DistributionPresentationError)
@@ -656,8 +656,8 @@ describe('presentCanonicalDistribution', () => {
 
   it('accepts planner reject warnings without remapping their severity', () => {
     const result = createResult()
-    const summary = getCanonicalDamageSummary(createEnvelope(result))
-    const display = presentCanonicalDistribution(
+    const summary = getDamageSummary(createEnvelope(result))
+    const display = presentDistribution(
       createEnvelope(result),
       {
         summary,

@@ -4,32 +4,32 @@ import {
   isDistributionResultError,
 } from '../../../calculation/DistributionResult'
 import {
-  CANONICAL_CHART_SERIES_MODES,
-  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
-  createCanonicalChartSeries,
-  isCanonicalChartSeriesError,
-  materializeCanonicalChartJsData,
+  CHART_SERIES_MODES,
+  CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CHART_SERIES_NOT_READY_REASONS,
+  createChartSeries,
+  isChartSeriesError,
+  materializeChartJsData,
   isDisplayRangePlannerError,
   isDistributionPresentationError,
   planDisplayRange,
-  presentCanonicalDistribution,
+  presentDistribution,
   toChartPercentage,
 } from '../../../shared/presentation'
 import { getChartColor } from '../../../shared/theme/ChartPalette'
 
-export const CHECK_CANONICAL_PRESENTATION_VERSION = 1
+export const CHECK_PRESENTATION_VERSION = 1
 
-export const CHECK_CANONICAL_PRESENTATION_MODES = Object.freeze({
-  PMF: CANONICAL_CHART_SERIES_MODES.PMF,
-  UPPER_TAIL: CANONICAL_CHART_SERIES_MODES.UPPER_TAIL,
+export const CHECK_PRESENTATION_MODES = Object.freeze({
+  PMF: CHART_SERIES_MODES.PMF,
+  UPPER_TAIL: CHART_SERIES_MODES.UPPER_TAIL,
 })
 
 // `status` remains the low-level ready/not-ready compatibility state used by
 // the existing chart boundary. `decision` is the Check-specific interpretation
 // consumed by the view: exact score overflow can be recalculated, while an
 // upper-bound overflow remains terminally not-projectable.
-export const CHECK_CANONICAL_PRESENTATION_DECISIONS = Object.freeze({
+export const CHECK_PRESENTATION_DECISIONS = Object.freeze({
   REUSE: 'reuse',
   KNOWN_ZERO: 'known-zero',
   RECALCULATE: 'recalculate',
@@ -37,7 +37,7 @@ export const CHECK_CANONICAL_PRESENTATION_DECISIONS = Object.freeze({
   NOT_PROJECTABLE: 'not-projectable',
 })
 
-export const CHECK_CANONICAL_PRESENTATION_ERROR_CODES = Object.freeze({
+export const CHECK_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_RESULT: 'invalid-result',
   INVALID_SCORE: 'invalid-score',
   INVALID_OPTIONS: 'invalid-options',
@@ -62,39 +62,39 @@ function freezeDetails(details) {
   return Object.freeze(isPlainRecord(details) ? { ...details } : {})
 }
 
-export class CheckCanonicalPresentationError extends Error {
+export class CheckPresentationError extends Error {
   constructor(code, message, details = {}, cause) {
     super(message, cause === undefined ? undefined : { cause })
-    this.name = 'CheckCanonicalPresentationError'
+    this.name = 'CheckPresentationError'
     this.code = code
     this.details = freezeDetails(details)
-    this.checkCanonicalPresentation = true
+    this.checkPresentation = true
     if (cause !== undefined && this.cause === undefined) {
       this.cause = cause
     }
   }
 }
 
-export class CheckCanonicalPresentationValidationError
-  extends CheckCanonicalPresentationError {
+export class CheckPresentationValidationError
+  extends CheckPresentationError {
   constructor(code, message, details = {}, cause) {
     super(code, message, details, cause)
-    this.name = 'CheckCanonicalPresentationValidationError'
+    this.name = 'CheckPresentationValidationError'
     this.validation = true
   }
 }
 
-export function isCheckCanonicalPresentationError(error) {
-  return error?.checkCanonicalPresentation === true
+export function isCheckPresentationError(error) {
+  return error?.checkPresentation === true
     && typeof error.code === 'string'
 }
 
-export function isCheckCanonicalPresentationValidationError(error) {
-  return isCheckCanonicalPresentationError(error) && error.validation === true
+export function isCheckPresentationValidationError(error) {
+  return isCheckPresentationError(error) && error.validation === true
 }
 
 function fail(code, message, details = {}) {
-  throw new CheckCanonicalPresentationValidationError(code, message, details)
+  throw new CheckPresentationValidationError(code, message, details)
 }
 
 function requirePlainRecord(value, code, path, message) {
@@ -115,7 +115,7 @@ function readOwnDataProperty(
   try {
     descriptor = Object.getOwnPropertyDescriptor(value, property)
   } catch (cause) {
-    throw new CheckCanonicalPresentationValidationError(
+    throw new CheckPresentationValidationError(
       code,
       `${path}.${property} could not be inspected safely`,
       { path: `${path}.${property}`, property },
@@ -150,47 +150,47 @@ function readOwnDataProperty(
 function normalizeOptions(options) {
   requirePlainRecord(
     options,
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
     'options',
-    'Check canonical presentation options must be a plain record'
+      'Check presentation options must be a plain record'
   )
 
   const displayWindow = readOwnDataProperty(
     options,
     'displayWindow',
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
     'options'
   )
 
   const optionMode = readOwnDataProperty(
     options,
     'mode',
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
     'options',
     { required: false }
   )
   const optionOpposed = readOwnDataProperty(
     options,
     'opposed',
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
     'options',
     { required: false }
   )
   const optionPolicy = readOwnDataProperty(
     options,
     'policy',
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
     'options',
     { required: false }
   )
 
-  const mode = optionMode ?? CHECK_CANONICAL_PRESENTATION_MODES.PMF
+  const mode = optionMode ?? CHECK_PRESENTATION_MODES.PMF
   if (
-    mode !== CHECK_CANONICAL_PRESENTATION_MODES.PMF
-    && mode !== CHECK_CANONICAL_PRESENTATION_MODES.UPPER_TAIL
+    mode !== CHECK_PRESENTATION_MODES.PMF
+    && mode !== CHECK_PRESENTATION_MODES.UPPER_TAIL
   ) {
     fail(
-      CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_MODE,
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_MODE,
       'options.mode must be pmf or upper-tail',
       { mode }
     )
@@ -199,7 +199,7 @@ function normalizeOptions(options) {
   const opposed = optionOpposed ?? true
   if (typeof opposed !== 'boolean') {
     fail(
-      CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPPOSED,
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_OPPOSED,
       'options.opposed must be boolean',
       { opposed }
     )
@@ -216,19 +216,19 @@ function normalizeOptions(options) {
 function normalizeCheckResult(checkResult, opposed) {
   requirePlainRecord(
     checkResult,
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RESULT,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_RESULT,
     'checkResult',
-    'calculateCheckCanonical result must be a plain record'
+    'calculateCheck result must be a plain record'
   )
   const score = readOwnDataProperty(
     checkResult,
     'score',
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RESULT,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_RESULT,
     'checkResult'
   )
   requirePlainRecord(
     score,
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
     'checkResult.score',
     'checkResult.score must be a plain record'
   )
@@ -236,14 +236,14 @@ function normalizeCheckResult(checkResult, opposed) {
   const action = readOwnDataProperty(
     score,
     'action',
-    CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+    CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
     'checkResult.score'
   )
   const reaction = opposed
     ? readOwnDataProperty(
         score,
         'reaction',
-        CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+        CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
         'checkResult.score'
       )
     : undefined
@@ -256,7 +256,7 @@ function createScorePresentation(envelope, displayWindow, mode, policy) {
     mass: getProbabilityMassSummary(envelope.result),
     expectedValue: getExpectedValueSummary(envelope.result),
   }
-  const display = presentCanonicalDistribution(envelope, {
+  const display = presentDistribution(envelope, {
     summary,
     displayWindow,
   })
@@ -265,7 +265,7 @@ function createScorePresentation(envelope, displayWindow, mode, policy) {
     plannerOptions.policy = policy
   }
   const plan = planDisplayRange(display, plannerOptions)
-  const series = createCanonicalChartSeries(display, plan, { mode })
+  const series = createChartSeries(display, plan, { mode })
 
   return Object.freeze({ display, plan, series })
 }
@@ -296,63 +296,63 @@ function hasTerminalUpperBoundEvidence(side) {
   if (!hasPotentialUpperBoundOverflow(overflow)) {
     return false
   }
-  return side.series.mode === CHECK_CANONICAL_PRESENTATION_MODES.UPPER_TAIL
+  return side.series.mode === CHECK_PRESENTATION_MODES.UPPER_TAIL
     || overflow.lowerBound <= side.plan.displayWindow.max
 }
 
 function getSideDecision(side) {
   if (side.plan.status === 'resource-rejected') {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+    return CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED
   }
   if (hasTerminalUpperBoundEvidence(side)) {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+    return CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   }
   if (side.series.status === 'not-projectable') {
     if (
       side.series.reason
-      === CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
+      === CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
     ) {
-      return CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+      return CHECK_PRESENTATION_DECISIONS.RECALCULATE
     }
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+    return CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   }
   if (
     side.series.status === 'not-ready'
     && side.series.reason
-      === CANONICAL_CHART_SERIES_NOT_READY_REASONS.RECALCULATE
+      === CHART_SERIES_NOT_READY_REASONS.RECALCULATE
   ) {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+    return CHECK_PRESENTATION_DECISIONS.RECALCULATE
   }
   if (side.plan.decision === 'known-zero') {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.KNOWN_ZERO
+    return CHECK_PRESENTATION_DECISIONS.KNOWN_ZERO
   }
-  return CHECK_CANONICAL_PRESENTATION_DECISIONS.REUSE
+  return CHECK_PRESENTATION_DECISIONS.REUSE
 }
 
 function getSideReason(side) {
   if (hasTerminalUpperBoundEvidence(side)) {
-    return CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW
+    return CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW
   }
   return side.series.reason ?? null
 }
 
 function getPresentationDecision(sides) {
   const decisions = sides.map(getSideDecision)
-  if (decisions.includes(CHECK_CANONICAL_PRESENTATION_DECISIONS.NOT_PROJECTABLE)) {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+  if (decisions.includes(CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE)) {
+    return CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   }
-  if (decisions.includes(CHECK_CANONICAL_PRESENTATION_DECISIONS.RESOURCE_REJECTED)) {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+  if (decisions.includes(CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED)) {
+    return CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED
   }
-  if (decisions.includes(CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE)) {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+  if (decisions.includes(CHECK_PRESENTATION_DECISIONS.RECALCULATE)) {
+    return CHECK_PRESENTATION_DECISIONS.RECALCULATE
   }
   if (decisions.every((decision) =>
-    decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.KNOWN_ZERO
+    decision === CHECK_PRESENTATION_DECISIONS.KNOWN_ZERO
   )) {
-    return CHECK_CANONICAL_PRESENTATION_DECISIONS.KNOWN_ZERO
+    return CHECK_PRESENTATION_DECISIONS.KNOWN_ZERO
   }
-  return CHECK_CANONICAL_PRESENTATION_DECISIONS.REUSE
+  return CHECK_PRESENTATION_DECISIONS.REUSE
 }
 
 function createSideState(side) {
@@ -370,7 +370,7 @@ function toPercentageSeries(series) {
   for (let index = 0; index < series.values.length; index += 1) {
     // The legacy Check chart displays probability as a percentage rounded to
     // one decimal place. Keep this conversion at the Chart.js compatibility
-    // boundary; the canonical display and series remain probabilities.
+  // boundary; the display and series remain probabilities.
     values[index] = toChartPercentage(series.values[index])
   }
 
@@ -385,7 +385,7 @@ function toPercentageSeries(series) {
 }
 
 function materializeSideChart(side, label, color, includeLabels) {
-  return materializeCanonicalChartJsData(
+  return materializeChartJsData(
     toPercentageSeries(side.series),
     {
       includeLabels,
@@ -423,27 +423,27 @@ function createChartData(action, reaction, opposed) {
 }
 
 function isKnownTypedError(error) {
-  return isCheckCanonicalPresentationError(error)
+  return isCheckPresentationError(error)
     || isDistributionResultError(error)
     || isDistributionPresentationError(error)
     || isDisplayRangePlannerError(error)
-    || isCanonicalChartSeriesError(error)
+    || isChartSeriesError(error)
 }
 
 /**
- * Connect a calculateCheckCanonical result to the shared display and Chart.js
+ * Connect a calculateCheck result to the shared display and Chart.js
  * contracts. The second argument is
  * `{ displayWindow, mode, opposed, policy }`.
  */
-export function createCheckCanonicalPresentation(
+export function createCheckPresentation(
   checkResult,
   options = {}
 ) {
   try {
     if (arguments.length !== 2) {
       fail(
-        CHECK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-        'createCheckCanonicalPresentation expects checkResult and options',
+        CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+        'createCheckPresentation expects checkResult and options',
         { path: 'arguments' }
       )
     }
@@ -475,7 +475,7 @@ export function createCheckCanonicalPresentation(
       : createSideState(reaction)
 
     const result = {
-      version: CHECK_CANONICAL_PRESENTATION_VERSION,
+      version: CHECK_PRESENTATION_VERSION,
       kind: 'check-canonical-presentation',
       status,
       mode: normalized.mode,
@@ -492,9 +492,9 @@ export function createCheckCanonicalPresentation(
     if (isKnownTypedError(error)) {
       throw error
     }
-    throw new CheckCanonicalPresentationError(
-      CHECK_CANONICAL_PRESENTATION_ERROR_CODES.UNEXPECTED_ERROR,
-      'Check canonical presentation failed unexpectedly',
+    throw new CheckPresentationError(
+      CHECK_PRESENTATION_ERROR_CODES.UNEXPECTED_ERROR,
+    'Check presentation failed unexpectedly',
       {},
       error
     )

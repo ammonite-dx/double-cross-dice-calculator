@@ -2,7 +2,7 @@
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
     import {
-        getCanonicalAttackScoreChartData,
+        getAttackScoreChartData,
         getAttackScoreChartOptions,
     } from './ChartSetter';
 
@@ -16,7 +16,7 @@
             default: null,
         },
     });
-    const data = computed(() => getCanonicalAttackScoreChartData(
+    const data = computed(() => getAttackScoreChartData(
         props.presentation,
         props.combos
     ));

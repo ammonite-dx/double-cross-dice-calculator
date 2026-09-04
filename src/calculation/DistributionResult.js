@@ -3,13 +3,13 @@ const FLOAT64_BYTES = Float64Array.BYTES_PER_ELEMENT
 
 export const DISTRIBUTION_RESULT_VERSION = 1
 
-// Keep the canonical result's mass checks in one place. This matches the
+// Keep the distribution result's mass checks in one place. This matches the
 // existing runtime calculation total tolerance without changing those paths.
 export const DISTRIBUTION_RESULT_TOLERANCE = 1e-8
 export const PROBABILITY_TOLERANCE = DISTRIBUTION_RESULT_TOLERANCE
 
-export const LEGACY_PUBLISHED_BUCKET_LENGTH = 1024
-export const LEGACY_PUBLISHED_OVERFLOW_INDEX = 1023
+export const PUBLISHED_BUCKET_LENGTH = 1024
+export const PUBLISHED_OVERFLOW_INDEX = 1023
 
 export const DISTRIBUTION_RESULT_ERROR_CODES = Object.freeze({
   INVALID_INPUT: 'invalid-input',
@@ -487,7 +487,7 @@ function normalizeFactoryInput(input, options) {
 }
 
 /**
- * Create a canonical result with one defensive values copy.
+ * Create a distribution result with one defensive values copy.
  *
  * The returned result owns the copied Float64Array and exposes it directly.
  * Callers must treat `values` as read-only; use copyDistributionValues when a
@@ -515,9 +515,7 @@ export function createDistributionResult(input, options) {
   return createImmutableResult(values, offset, support, overflow)
 }
 
-export const createCanonicalDistributionResult = createDistributionResult
-
-/** Validate a canonical result. Returns true and throws a typed error on failure. */
+/** Validate a distribution result. Returns true and throws a typed error on failure. */
 export function validateDistributionResult(result) {
   inspectDistributionResult(result)
   return true
@@ -642,28 +640,28 @@ export function getExpectedValueSummary(result) {
   return createLowerBoundExpectedValue(explicitFirstMoment)
 }
 
-function validateCanonicalTotalDamageEnvelope(canonicalTotalDamage) {
+function validateTotalDamageEnvelope(totalDamage) {
   if (
-    !isRecord(canonicalTotalDamage)
-    || !hasOwn(canonicalTotalDamage, 'result')
-    || !isRecord(canonicalTotalDamage.metadata)
-    || canonicalTotalDamage.metadata.modeledDistribution !== true
+    !isRecord(totalDamage)
+    || !hasOwn(totalDamage, 'result')
+    || !isRecord(totalDamage.metadata)
+    || totalDamage.metadata.modeledDistribution !== true
   ) {
     failAdapter(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
-      'canonical total damage summary expects a modeled result envelope'
+      'total damage summary expects a modeled result envelope'
     )
   }
 
-  const inspected = inspectDistributionResult(canonicalTotalDamage.result)
+  const inspected = inspectDistributionResult(totalDamage.result)
   const overflow = inspected.overflow
   if (overflow?.kind === 'upper-bound') {
-    const lowerBound = canonicalTotalDamage.metadata
+    const lowerBound = totalDamage.metadata
       .overflowProbabilityLowerBound
     if (!Number.isFinite(lowerBound) || lowerBound < 0 || lowerBound > 1) {
       failAdapter(
         DISTRIBUTION_RESULT_ERROR_CODES.INVALID_LOWER_BOUND,
-        'canonical total damage metadata.overflowProbabilityLowerBound must be a probability',
+        'total damage metadata.overflowProbabilityLowerBound must be a probability',
         { overflowProbabilityLowerBound: lowerBound }
       )
     }
@@ -673,7 +671,7 @@ function validateCanonicalTotalDamageEnvelope(canonicalTotalDamage) {
     ) {
       failAdapter(
         DISTRIBUTION_RESULT_ERROR_CODES.UPPER_BOUND_TOO_SMALL,
-        'canonical total damage overflow probability lower bound exceeds its upper bound',
+        'total damage overflow probability lower bound exceeds its upper bound',
         {
           overflowProbabilityLowerBound: lowerBound,
           probabilityUpperBound: overflow.probabilityUpperBound,
@@ -685,14 +683,14 @@ function validateCanonicalTotalDamageEnvelope(canonicalTotalDamage) {
 }
 
 /**
- * Summarize an aggregated canonical damage envelope. Upper-bound aggregates
+ * Summarize an aggregated damage envelope. Upper-bound aggregates
  * retain the proven overflow probability lower bound from aggregation when
  * deriving their expected-value lower bound; numerical drift and error bounds
  * remain diagnostics and never widen the returned interval.
  */
-export function getCanonicalTotalDamageSummary(canonicalTotalDamage) {
-  const inspected = validateCanonicalTotalDamageEnvelope(canonicalTotalDamage)
-  const { result, metadata } = canonicalTotalDamage
+export function getTotalDamageSummary(totalDamage) {
+  const inspected = validateTotalDamageEnvelope(totalDamage)
+  const { result, metadata } = totalDamage
 
   if (inspected.overflow?.kind !== 'upper-bound') {
     return Object.freeze({
@@ -718,7 +716,7 @@ export function getCanonicalTotalDamageSummary(canonicalTotalDamage) {
   if (!Number.isFinite(lowerExpectedValue)) {
     failAdapter(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
-      'canonical total damage expected-value lower bound is not finite',
+      'total damage expected-value lower bound is not finite',
       { lowerExpectedValue }
     )
   }
@@ -732,7 +730,7 @@ export function getCanonicalTotalDamageSummary(canonicalTotalDamage) {
     if (!Number.isFinite(upperExpectedValue)) {
       failAdapter(
         DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
-        'canonical total damage expected-value upper bound is not finite',
+        'total damage expected-value upper bound is not finite',
         { upperExpectedValue }
       )
     }
@@ -757,10 +755,10 @@ function validateLegacyInputValues(distribution) {
       'legacy published distribution must be an Array or Float64Array'
     )
   }
-  if (distribution.length !== LEGACY_PUBLISHED_BUCKET_LENGTH) {
+  if (distribution.length !== PUBLISHED_BUCKET_LENGTH) {
     failAdapter(
       DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH,
-      `legacy published distribution must have ${LEGACY_PUBLISHED_BUCKET_LENGTH} entries`,
+      `legacy published distribution must have ${PUBLISHED_BUCKET_LENGTH} entries`,
       { length: distribution.length }
     )
   }
@@ -793,7 +791,7 @@ function validateLegacyInputValues(distribution) {
 }
 
 /**
- * Convert the current 1024 published buckets to the canonical result.
+ * Convert the current 1024 published buckets to the distribution result.
  * `options.support` is intentionally required; the legacy array cannot prove
  * finite versus infinite support by itself.
  */
@@ -806,7 +804,7 @@ export function fromPublishedBucketDistribution(distribution, options) {
     )
   }
 
-  const explicitValues = new Float64Array(LEGACY_PUBLISHED_OVERFLOW_INDEX)
+  const explicitValues = new Float64Array(PUBLISHED_OVERFLOW_INDEX)
   for (let index = 0; index < explicitValues.length; index += 1) {
     explicitValues[index] = legacyValues[index]
   }
@@ -817,8 +815,8 @@ export function fromPublishedBucketDistribution(distribution, options) {
     options.support,
     {
       kind: 'exact',
-      lowerBound: LEGACY_PUBLISHED_OVERFLOW_INDEX,
-      probability: legacyValues[LEGACY_PUBLISHED_OVERFLOW_INDEX],
+      lowerBound: PUBLISHED_OVERFLOW_INDEX,
+      probability: legacyValues[PUBLISHED_OVERFLOW_INDEX],
       errorBound: 0,
     }
   )
@@ -826,7 +824,7 @@ export function fromPublishedBucketDistribution(distribution, options) {
 
 function normalizeLegacyOutputLength(options) {
   if (options === undefined) {
-    return LEGACY_PUBLISHED_BUCKET_LENGTH
+    return PUBLISHED_BUCKET_LENGTH
   }
   if (!isRecord(options)) {
     failAdapter(
@@ -835,15 +833,15 @@ function normalizeLegacyOutputLength(options) {
     )
   }
   const length = options.length === undefined
-    ? LEGACY_PUBLISHED_BUCKET_LENGTH
+    ? PUBLISHED_BUCKET_LENGTH
     : options.length
   if (
     !Number.isSafeInteger(length)
-    || length !== LEGACY_PUBLISHED_BUCKET_LENGTH
+    || length !== PUBLISHED_BUCKET_LENGTH
   ) {
     failAdapter(
       DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH_OPTION,
-      `legacy output length must be ${LEGACY_PUBLISHED_BUCKET_LENGTH}`,
+      `legacy output length must be ${PUBLISHED_BUCKET_LENGTH}`,
       { length }
     )
   }
@@ -854,7 +852,7 @@ function validateExactOverflowProjection({ overflow }) {
   if (overflow === null || overflow.kind === 'upper-bound') {
     return
   }
-  if (overflow.lowerBound >= LEGACY_PUBLISHED_OVERFLOW_INDEX) {
+  if (overflow.lowerBound >= PUBLISHED_OVERFLOW_INDEX) {
     return
   }
 
@@ -869,13 +867,13 @@ function validateExactOverflowProjection({ overflow }) {
       lowerBound: overflow.lowerBound,
       probability: overflow.probability,
       errorBound: overflow.errorBound,
-      legacyOverflowIndex: LEGACY_PUBLISHED_OVERFLOW_INDEX,
+      legacyOverflowIndex: PUBLISHED_OVERFLOW_INDEX,
     }
   )
 }
 
 /**
- * Convert a canonical result to a fresh 1024-element legacy probability
+ * Convert a distribution result to a fresh 1024-element legacy probability
  * array. Exact overflow is folded into bucket 1023 only when its lower bound
  * is at least 1023, or when the overflow is inert.
  */
@@ -887,7 +885,7 @@ export function toPublishedBucketDistribution(result, options) {
   if (offset < 0) {
     failAdapter(
       DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION,
-      'canonical values below zero cannot be projected to legacy buckets without clamping',
+      'distribution values below zero cannot be projected to legacy buckets without clamping',
       { offset }
     )
   }
@@ -905,14 +903,14 @@ export function toPublishedBucketDistribution(result, options) {
   const published = new Float64Array(length)
   for (let index = 0; index < values.length; index += 1) {
     const value = offset + index
-    const target = value >= LEGACY_PUBLISHED_OVERFLOW_INDEX
-      ? LEGACY_PUBLISHED_OVERFLOW_INDEX
+    const target = value >= PUBLISHED_OVERFLOW_INDEX
+      ? PUBLISHED_OVERFLOW_INDEX
       : value
     published[target] += values[index]
   }
 
   if (overflow !== null) {
-    published[LEGACY_PUBLISHED_OVERFLOW_INDEX] += overflow.probability
+    published[PUBLISHED_OVERFLOW_INDEX] += overflow.probability
   }
   return published
 }

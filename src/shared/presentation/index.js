@@ -1,5 +1,5 @@
 export {
-  CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+  DISTRIBUTION_DISPLAY_VERSION,
   DISPLAY_PROBABILITY_TOLERANCE,
   DISTRIBUTION_PRESENTATION_ERROR_CODES,
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
@@ -8,7 +8,7 @@ export {
   DistributionPresentationValidationError,
   isDistributionPresentationError,
   isDistributionPresentationValidationError,
-  presentCanonicalDistribution,
+  presentDistribution,
 } from './DistributionPresenter'
 export {
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
@@ -23,25 +23,25 @@ export {
   planDisplayWindowResources,
 } from './DisplayRangePlanner'
 export {
-  CANONICAL_CHART_SERIES_ERROR_CODES,
-  CANONICAL_CHART_SERIES_MODES,
-  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
-  CANONICAL_CHART_SERIES_VERSION,
-  CanonicalChartSeriesError,
-  CanonicalChartSeriesValidationError,
-  createCanonicalChartSeries,
-  isCanonicalChartSeriesError,
-  isCanonicalChartSeriesValidationError,
-  materializeCanonicalChartJsData,
-} from './CanonicalChartSeriesAdapter'
+  CHART_SERIES_ERROR_CODES,
+  CHART_SERIES_MODES,
+  CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CHART_SERIES_NOT_READY_REASONS,
+  CHART_SERIES_VERSION,
+  ChartSeriesError,
+  ChartSeriesValidationError,
+  createChartSeries,
+  isChartSeriesError,
+  isChartSeriesValidationError,
+  materializeChartJsData,
+} from './ChartSeriesAdapter'
 export {
-  CANONICAL_SUMMARY_UNAVAILABLE,
-  formatCanonicalSummaryExpectedValue,
-  formatCanonicalScoreSummaryExpectedValue,
-  formatCanonicalScoreSuccessRate,
-  formatCanonicalScoreSuccessRateDisplay,
-} from './CanonicalSummaryFormatter'
+  SUMMARY_UNAVAILABLE,
+  formatSummaryExpectedValue,
+  formatScoreSummaryExpectedValue,
+  formatScoreSuccessRate,
+  formatScoreSuccessRateDisplay,
+} from './SummaryFormatter'
 export {
   toChartPercentage,
   toChartPercentages,

@@ -10,9 +10,9 @@ import type {
   CheckCalculationResult,
 } from '../../../runtime/CalculationClientTypes'
 import {
-  CHECK_CANONICAL_PRESENTATION_DECISIONS,
-  createCheckCanonicalPresentation,
-} from './CheckCanonicalPresentation'
+  CHECK_PRESENTATION_DECISIONS,
+  createCheckPresentation,
+} from './CheckPresentation'
 import {
   DEFAULT_CHECK_DISPLAY_REQUEST,
   createCheckCalculationRequestSnapshot,
@@ -29,8 +29,8 @@ import type {
   ScoreInput,
 } from '../../../domain/CalculationInputs'
 import type {
-  CanonicalScorePair,
-  CanonicalScoreSummary,
+  ScorePair,
+  ScoreSummary,
 } from '../../../calculation/DistributionResultTypes'
 
 interface CalculationFeedbackState {
@@ -59,7 +59,7 @@ interface CheckPresentationSide {
   readonly plan?: CheckDisplayPlan | null
 }
 
-interface CheckCanonicalPresentation {
+interface CheckPresentation {
   readonly status: string
   readonly decision: string
   readonly action?: CheckPresentationSide | null
@@ -74,8 +74,8 @@ interface CheckScoreParams {
 interface CheckState {
   difficulty: DifficultyInput
   scoreParams: CheckScoreParams
-  score: CanonicalScorePair | null
-  scoreSummary: CanonicalScoreSummary | null
+  score: ScorePair | null
+  scoreSummary: ScoreSummary | null
   resultReady: boolean
   displayRequest: DisplayRequestSnapshot
   rangeFeedback: CalculationFeedbackState
@@ -114,9 +114,9 @@ export async function useCheck({
   if (
     calculationClient === null
     || typeof calculationClient !== 'object'
-    || typeof calculationClient.calculateCheckCanonical !== 'function'
+    || typeof calculationClient.calculateCheck !== 'function'
   ) {
-    throw new TypeError('useCheck requires calculateCheckCanonical')
+    throw new TypeError('useCheck requires calculateCheck')
   }
 
   const displayRangePolicy = DEFAULT_DISPLAY_RANGE_PLANNER_POLICY
@@ -169,26 +169,26 @@ export async function useCheck({
   }
 
   function createNotProjectablePlan(
-    result: CheckCanonicalPresentation | null | undefined
+    result: CheckPresentation | null | undefined
   ): CheckDisplayPlan {
     const sides = [result?.action, result?.reaction].filter(
       (side): side is CheckPresentationSide => side !== null && side !== undefined
     )
     const terminalSides = sides.filter((side) =>
-      side.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.NOT_PROJECTABLE
-      || side.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+      side.decision === CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+      || side.decision === CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED
     )
     const feedbackSides = terminalSides.length > 0
       ? terminalSides
       : sides.filter((side) =>
-        side.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+        side.decision === CHECK_PRESENTATION_DECISIONS.RECALCULATE
       )
     const warnings = feedbackSides.map((side) => {
       const code = side.decision
-        === CHECK_CANONICAL_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+        === CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED
         ? side.plan?.rejectionReasons?.[0] ?? 'display-point-count'
         : side.decision
-            === CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+            === CHECK_PRESENTATION_DECISIONS.RECALCULATE
           ? 'check-not-projectable'
           : getNotProjectableCode(side.reason)
       return {
@@ -251,10 +251,10 @@ export async function useCheck({
   }
 
   function buildPresentationForScore(
-    score: CanonicalScorePair,
+    score: ScorePair,
     request: DisplayRequestSnapshot = state.displayRequest
-  ): CheckCanonicalPresentation {
-    return createCheckCanonicalPresentation(
+  ): CheckPresentation {
+    return createCheckPresentation(
       { score },
       {
         displayWindow: { min: request.min, max: request.max },
@@ -262,7 +262,7 @@ export async function useCheck({
         opposed: state.difficulty.opposed,
         policy: displayRangePolicy,
       }
-    ) as unknown as CheckCanonicalPresentation
+    ) as unknown as CheckPresentation
   }
 
   function buildPresentation(
@@ -277,7 +277,7 @@ export async function useCheck({
   const presentation = computed(() => buildPresentation())
 
   function updateDisplayFeedback(
-    result: CheckCanonicalPresentation | null = presentation.value
+    result: CheckPresentation | null = presentation.value
   ) {
     if (!preflightDisplayRequest()) {
       return
@@ -287,9 +287,9 @@ export async function useCheck({
       return
     }
     if (
-      result.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.RESOURCE_REJECTED
-      || result.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.NOT_PROJECTABLE
-      || result.decision === CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+      result.decision === CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+      || result.decision === CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+      || result.decision === CHECK_PRESENTATION_DECISIONS.RECALCULATE
     ) {
       publishDisplayPlan(createNotProjectablePlan(result))
       return
@@ -340,7 +340,7 @@ export async function useCheck({
     feedback: rangeFeedback,
     snapshotRequest: createCheckCalculationRequestSnapshot,
     calculate: (snapshot: ReturnType<typeof createCheckCalculationRequestSnapshot>) =>
-      calculationClient.calculateCheckCanonical(
+      calculationClient.calculateCheck(
         snapshot.params,
         snapshot.difficulty,
         snapshot
@@ -365,7 +365,7 @@ export async function useCheck({
       state.resultReady = true
       if (
         committedPresentation?.decision
-          === CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+          === CHECK_PRESENTATION_DECISIONS.RECALCULATE
       ) {
         requestDisplayRecalculation(state.displayRequest)
         return
@@ -434,7 +434,7 @@ export async function useCheck({
     }
     if (
       nextPresentation?.decision
-        === CHECK_CANONICAL_PRESENTATION_DECISIONS.RECALCULATE
+        === CHECK_PRESENTATION_DECISIONS.RECALCULATE
     ) {
       requestDisplayRecalculation(snapshot)
       return
@@ -453,7 +453,7 @@ export async function useCheck({
   const initialCalculation = await runInitialCalculation({
     feedback: rangeFeedback,
     calculate: (options: { onRangePlan: (plan: unknown) => void }) =>
-      calculationClient.calculateCheckCanonical(
+      calculationClient.calculateCheck(
         initialCalculationRequest.params,
         initialCalculationRequest.difficulty,
         {

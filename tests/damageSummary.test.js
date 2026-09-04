@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageSummary } from '../src/calculation/DamageCalculator'
 import {
   createDistributionResult,
   getExpectedValueSummary,
 } from '../src/calculation/DistributionResult'
 
-function createCanonicalDamage(result) {
+function createDamage(result) {
   return {
     result,
     metadata: {
@@ -36,9 +36,9 @@ describe('canonical damage summary', () => {
         errorBound: 0.125,
       },
     })
-    const canonicalDamage = createCanonicalDamage(result)
-    const metadataBefore = { ...canonicalDamage.metadata }
-    const summary = getCanonicalDamageSummary(canonicalDamage)
+    const damage = createDamage(result)
+    const metadataBefore = { ...damage.metadata }
+    const summary = getDamageSummary(damage)
 
     expect(summary).toEqual({
       expectedValue: {
@@ -61,14 +61,14 @@ describe('canonical damage summary', () => {
     expect(summary.expectedValue).toEqual(
       getExpectedValueSummary(result)
     )
-    expect(canonicalDamage.metadata).toEqual(metadataBefore)
+    expect(damage.metadata).toEqual(metadataBefore)
     expect(Object.isFrozen(summary)).toBe(true)
     expect(Object.isFrozen(summary.expectedValue)).toBe(true)
     expect(Object.isFrozen(summary.mass)).toBe(true)
   })
 
   it('round-trips the JSON-safe canonical summary without non-finite values', () => {
-    const summary = getCanonicalDamageSummary(createCanonicalDamage(
+    const summary = getDamageSummary(createDamage(
       createDistributionResult({
         values: [0.5],
         offset: 1,
@@ -115,11 +115,11 @@ describe('canonical damage summary', () => {
       },
     },
   ])('rejects invalid canonical damage envelope: $label', ({ value }) => {
-    expect(() => getCanonicalDamageSummary(value)).toThrow(TypeError)
+    expect(() => getDamageSummary(value)).toThrow(TypeError)
   })
 
   it('rejects an invalid result even when the envelope discriminator is valid', () => {
-    expect(() => getCanonicalDamageSummary({
+    expect(() => getDamageSummary({
       result: null,
       metadata: { modeledDistribution: true },
     })).toThrow()

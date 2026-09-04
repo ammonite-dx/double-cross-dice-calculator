@@ -19,7 +19,7 @@ const PERSISTENT_STEP_BYTES = 512
 const PERSISTENT_DESCRIPTOR_BYTES = 512
 const PERSISTENT_COMPONENT_METADATA_BYTES = 512
 const PERSISTENT_OUTPUT_BUFFER_COUNT = 2
-const CANONICAL_DAMAGE_AGGREGATION_PLAN_VERSION = 1
+const DAMAGE_AGGREGATION_PLAN_VERSION = 1
 
 // The public plan is intentionally opaque to the execution path. A frozen
 // object protects the published contract from ordinary mutation; this private
@@ -30,21 +30,21 @@ const PLAN_RECORDS = new WeakMap()
 // Values and FFT length share the existing runtime ceiling. The aggregation
 // options may lower these values for a caller, but never raise any absolute
 // safety ceiling.
-export const CANONICAL_DAMAGE_AGGREGATION_MAX_VALUES_LENGTH = 1 << 20
-export const CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH = 1 << 20
-export const CANONICAL_DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES = 512 * 1024 * 1024
-export const CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS = 1 << 12
+export const DAMAGE_AGGREGATION_MAX_VALUES_LENGTH = 1 << 20
+export const DAMAGE_AGGREGATION_MAX_FFT_LENGTH = 1 << 20
+export const DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES = 512 * 1024 * 1024
+export const DAMAGE_AGGREGATION_MAX_COMPONENTS = 1 << 12
 
-export const CANONICAL_DAMAGE_AGGREGATION_NUMERICAL_EPSILON = 1e-12
+export const DAMAGE_AGGREGATION_NUMERICAL_EPSILON = 1e-12
 
-export const CANONICAL_DAMAGE_AGGREGATION_LIMITS = Object.freeze({
-  maxValuesLength: CANONICAL_DAMAGE_AGGREGATION_MAX_VALUES_LENGTH,
-  maxFftLength: CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
-  maxResourceBytes: CANONICAL_DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES,
-  maxComponents: CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS,
+export const DAMAGE_AGGREGATION_LIMITS = Object.freeze({
+  maxValuesLength: DAMAGE_AGGREGATION_MAX_VALUES_LENGTH,
+  maxFftLength: DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
+  maxResourceBytes: DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES,
+  maxComponents: DAMAGE_AGGREGATION_MAX_COMPONENTS,
 })
 
-export const CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES = Object.freeze({
+export const DAMAGE_AGGREGATION_ERROR_CODES = Object.freeze({
   INVALID_ENVELOPE: 'invalid-envelope',
   INVALID_OPTIONS: 'invalid-options',
   INDEX_OVERFLOW: 'index-overflow',
@@ -65,21 +65,21 @@ function freezeDetails(details) {
   return Object.freeze(isRecord(details) ? { ...details } : {})
 }
 
-export class CanonicalDamageAggregationError extends Error {
+export class DamageAggregationError extends Error {
   constructor(code, message, details = {}) {
     super(message)
-    this.name = 'CanonicalDamageAggregationError'
+    this.name = 'DamageAggregationError'
     this.code = code
     this.details = freezeDetails(details)
-    this.canonicalDamageAggregation = true
+    this.DamageAggregation = true
   }
 }
 
-export class CanonicalDamageAggregationAbortError
-  extends CanonicalDamageAggregationError {
-  constructor(message = 'Canonical damage aggregation was aborted', details = {}) {
+export class DamageAggregationAbortError
+  extends DamageAggregationError {
+  constructor(message = ' damage aggregation was aborted', details = {}) {
     super(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.ABORTED,
+      DAMAGE_AGGREGATION_ERROR_CODES.ABORTED,
       message,
       details
     )
@@ -88,23 +88,23 @@ export class CanonicalDamageAggregationAbortError
   }
 }
 
-export function isCanonicalDamageAggregationError(error) {
-  return error?.canonicalDamageAggregation === true
+export function isDamageAggregationError(error) {
+  return error?.DamageAggregation === true
     && typeof error.code === 'string'
 }
 
-export function isCanonicalDamageAggregationAbortError(error) {
-  return isCanonicalDamageAggregationError(error)
-    && error.code === CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.ABORTED
+export function isDamageAggregationAbortError(error) {
+  return isDamageAggregationError(error)
+    && error.code === DAMAGE_AGGREGATION_ERROR_CODES.ABORTED
 }
 
 function fail(code, message, details = {}) {
-  throw new CanonicalDamageAggregationError(code, message, details)
+  throw new DamageAggregationError(code, message, details)
 }
 
 function failIndex(message, details = {}) {
   fail(
-    CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW,
+    DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW,
     message,
     details
   )
@@ -112,7 +112,7 @@ function failIndex(message, details = {}) {
 
 function failResource(message, details = {}) {
   fail(
-    CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT,
+    DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT,
     message,
     details
   )
@@ -120,7 +120,7 @@ function failResource(message, details = {}) {
 
 function failNumerical(message, details = {}) {
   fail(
-    CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE,
+    DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE,
     message,
     details
   )
@@ -128,21 +128,21 @@ function failNumerical(message, details = {}) {
 
 function checkAbort(signal) {
   if (signal?.aborted) {
-    throw new CanonicalDamageAggregationAbortError()
+    throw new DamageAggregationAbortError()
   }
 }
 
 function validateOptionLimit(value, name, absolute, allowZero = true) {
   if (!Number.isSafeInteger(value) || (allowZero ? value < 0 : value <= 0)) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
       `${name} must be a ${allowZero ? 'non-negative' : 'positive'} safe integer`,
       { name, value }
     )
   }
   if (value > absolute) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
       `${name} must not exceed the absolute safety limit of ${absolute}`,
       { name, value, absolute }
     )
@@ -156,8 +156,8 @@ function normalizeOptions(options, allowPlan = false) {
   }
   if (!isRecord(options)) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-      'canonical damage aggregation options must be an object'
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'damage aggregation options must be an object'
     )
   }
 
@@ -176,8 +176,8 @@ function normalizeOptions(options, allowPlan = false) {
     if (typeof name !== 'string' || !allowedOptionNames.has(name)) {
       const displayName = typeof name === 'symbol' ? name.toString() : name
       fail(
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-        `unknown canonical damage aggregation option: ${displayName}`,
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+        `unknown damage aggregation option: ${displayName}`,
         { name: displayName }
       )
     }
@@ -186,30 +186,30 @@ function normalizeOptions(options, allowPlan = false) {
   const maxValuesLength = validateOptionLimit(
     hasOwn(options, 'maxValuesLength')
       ? options.maxValuesLength
-      : CANONICAL_DAMAGE_AGGREGATION_MAX_VALUES_LENGTH,
+      : DAMAGE_AGGREGATION_MAX_VALUES_LENGTH,
     'maxValuesLength',
-    CANONICAL_DAMAGE_AGGREGATION_MAX_VALUES_LENGTH
+    DAMAGE_AGGREGATION_MAX_VALUES_LENGTH
   )
   const maxFftLength = validateOptionLimit(
     hasOwn(options, 'maxFftLength')
       ? options.maxFftLength
-      : CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
+      : DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
     'maxFftLength',
-    CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH
+    DAMAGE_AGGREGATION_MAX_FFT_LENGTH
   )
   const maxResourceBytes = validateOptionLimit(
     hasOwn(options, 'maxResourceBytes')
       ? options.maxResourceBytes
-      : CANONICAL_DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES,
+      : DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES,
     'maxResourceBytes',
-    CANONICAL_DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES
+    DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES
   )
   const maxComponents = validateOptionLimit(
     hasOwn(options, 'maxComponents')
       ? options.maxComponents
-      : CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS,
+      : DAMAGE_AGGREGATION_MAX_COMPONENTS,
     'maxComponents',
-    CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS
+    DAMAGE_AGGREGATION_MAX_COMPONENTS
   )
 
   const signal = options.signal ?? null
@@ -218,7 +218,7 @@ function normalizeOptions(options, allowPlan = false) {
     && (typeof signal !== 'object' || typeof signal.aborted !== 'boolean')
   ) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
       'options.signal must be an AbortSignal-like object',
       { signal }
     )
@@ -227,7 +227,7 @@ function normalizeOptions(options, allowPlan = false) {
   const onFftLength = options.onFftLength
   if (onFftLength !== undefined && typeof onFftLength !== 'function') {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
       'options.onFftLength must be a function when supplied'
     )
   }
@@ -337,16 +337,16 @@ function copyOverflow(overflow) {
 function validateSourceSupport(sourceSupport, index) {
   if (!isRecord(sourceSupport) || typeof sourceSupport.kind !== 'string') {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      `canonical damage metadata.sourceSupport[${index}] must be a support union`,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage metadata.sourceSupport[${index}] must be a support union`,
       { index, sourceSupport }
     )
   }
   if (sourceSupport.kind === 'infinite') {
     if (hasOwn(sourceSupport, 'max')) {
       fail(
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-        `canonical damage metadata.sourceSupport[${index}] infinite support must not contain max`,
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+        `damage metadata.sourceSupport[${index}] infinite support must not contain max`,
         { index }
       )
     }
@@ -358,8 +358,8 @@ function validateSourceSupport(sourceSupport, index) {
     || sourceSupport.max < 0
   ) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      `canonical damage metadata.sourceSupport[${index}] finite max must be a non-negative safe integer`,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage metadata.sourceSupport[${index}] finite max must be a non-negative safe integer`,
       { index, sourceSupport }
     )
   }
@@ -372,8 +372,8 @@ function copyProjectionUncertainty(value, index) {
   }
   if (!isRecord(value)) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      `canonical damage envelope[${index}] projectionUncertainty must be an object`,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage envelope[${index}] projectionUncertainty must be an object`,
       { index }
     )
   }
@@ -386,8 +386,8 @@ function copyProjectionUncertainty(value, index) {
     || positionUnknownProbabilityUpperBound > 1
   ) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      `canonical damage envelope[${index}] projectionUncertainty position bound must be between 0 and 1`,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage envelope[${index}] projectionUncertainty position bound must be between 0 and 1`,
       { index, positionUnknownProbabilityUpperBound }
     )
   }
@@ -400,8 +400,8 @@ function copyProjectionUncertainty(value, index) {
         || outputOverflowLowerBound < 0)
     ) {
       fail(
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-        `canonical damage envelope[${index}] output overflow lower bound must be null or a non-negative safe integer`,
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage envelope[${index}] output overflow lower bound must be null or a non-negative safe integer`,
         { index, outputOverflowLowerBound }
       )
     }
@@ -419,7 +419,7 @@ function sumValues(values, signal) {
     total += values[index]
   }
   if (!Number.isFinite(total)) {
-    failNumerical('canonical damage explicit mass is not finite')
+  failNumerical('damage explicit mass is not finite')
   }
   return total
 }
@@ -428,8 +428,8 @@ function inspectEnvelope(envelope, index, signal) {
   checkAbort(signal)
   if (!isRecord(envelope) || !hasOwn(envelope, 'result')) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      `canonical damage envelope[${index}] must contain result and metadata`,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage envelope[${index}] must contain result and metadata`,
       { index }
     )
   }
@@ -440,8 +440,8 @@ function inspectEnvelope(envelope, index, signal) {
     || !hasOwn(metadata, 'sourceSupport')
   ) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      `canonical damage envelope[${index}] metadata must mark a modeled distribution and provide sourceSupport`,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage envelope[${index}] metadata must mark a modeled distribution and provide sourceSupport`,
       { index }
     )
   }
@@ -450,8 +450,8 @@ function inspectEnvelope(envelope, index, signal) {
     validateDistributionResult(envelope.result)
   } catch (error) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      `canonical damage envelope[${index}] result failed canonical validation`,
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      `damage envelope[${index}] result failed validation`,
       {
         index,
         causeCode: error?.code,
@@ -684,8 +684,8 @@ function snapshotInspectedComponents(inspected, signal) {
       })
     } catch (error) {
       fail(
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-        `canonical damage envelope[${component.index}] changed while planning`,
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+        `damage envelope[${component.index}] changed while planning`,
         {
           index: component.index,
           causeCode: error?.code,
@@ -909,7 +909,7 @@ function allocateValues(length, details = {}) {
     return new Float64Array(length)
   } catch (error) {
     failResource(
-      'unable to allocate canonical damage aggregation values',
+    'unable to allocate damage aggregation values',
       { ...details, length, causeName: error?.name, causeMessage: error?.message }
     )
   }
@@ -928,7 +928,7 @@ function sanitizeConvolvedValues(values, signal) {
         { index, value }
       )
     }
-    if (value < -CANONICAL_DAMAGE_AGGREGATION_NUMERICAL_EPSILON) {
+    if (value < -DAMAGE_AGGREGATION_NUMERICAL_EPSILON) {
       failNumerical(
         'FFT convolution produced a material negative probability',
         { index, value }
@@ -937,7 +937,7 @@ function sanitizeConvolvedValues(values, signal) {
     if (value < 0) {
       value = 0
     }
-    if (value > 1 + CANONICAL_DAMAGE_AGGREGATION_NUMERICAL_EPSILON) {
+    if (value > 1 + DAMAGE_AGGREGATION_NUMERICAL_EPSILON) {
       failNumerical(
         'FFT convolution produced a probability above one',
         { index, value }
@@ -1032,8 +1032,8 @@ function normalizeValuesToMass(values, target, rawMass, signal) {
     const value = values[index] * factor
     if (
       !Number.isFinite(value)
-      || value < -CANONICAL_DAMAGE_AGGREGATION_NUMERICAL_EPSILON
-      || value > 1 + CANONICAL_DAMAGE_AGGREGATION_NUMERICAL_EPSILON
+      || value < -DAMAGE_AGGREGATION_NUMERICAL_EPSILON
+      || value > 1 + DAMAGE_AGGREGATION_NUMERICAL_EPSILON
     ) {
       failNumerical(
         'explicit probability normalization produced an unsafe value',
@@ -1103,8 +1103,8 @@ function createOutputResult(values, plan, overflow, singleResult, signal) {
       })
     } catch (error) {
       fail(
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE,
-        'single canonical damage result could not be safely reused',
+        DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE,
+      'single damage result could not be safely reused',
         { causeCode: error?.code, causeName: error?.name }
       )
     }
@@ -1120,11 +1120,11 @@ function createOutputResult(values, plan, overflow, singleResult, signal) {
     })
   } catch (error) {
     const code = error?.code === 'index-overflow'
-      ? CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW
-      : CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE
+      ? DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW
+      : DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE
     fail(
       code,
-      'aggregated canonical damage result failed canonical validation',
+      'aggregated damage result failed validation',
       { causeCode: error?.code, causeName: error?.name }
     )
   }
@@ -1204,7 +1204,7 @@ function createMetadata(inspected, plan, diagnostics) {
   })
 }
 
-function createPlanContract(canonicalDamages, inspected, plan, normalizedOptions) {
+function createPlanContract(Damages, inspected, plan, normalizedOptions) {
   const steps = Object.freeze(plan.steps.map((step) => Object.freeze({ ...step })))
   const estimates = Object.freeze({
     float64Bytes: plan.peakResourceBytes,
@@ -1215,9 +1215,9 @@ function createPlanContract(canonicalDamages, inspected, plan, normalizedOptions
     fftLengths: Object.freeze(steps.map((step) => step.fftLength)),
   })
   const publicPlan = Object.freeze({
-    version: CANONICAL_DAMAGE_AGGREGATION_PLAN_VERSION,
-    operation: 'canonical-damage-aggregation',
-    componentCount: canonicalDamages.length,
+    version: DAMAGE_AGGREGATION_PLAN_VERSION,
+    operation: 'damage-aggregation',
+    componentCount: Damages.length,
     outputLength: plan.outputLength,
     offset: plan.offset,
     modeledSupport: copySupport(plan.modeledSupport),
@@ -1227,7 +1227,7 @@ function createPlanContract(canonicalDamages, inspected, plan, normalizedOptions
   })
 
   PLAN_RECORDS.set(publicPlan, {
-    canonicalDamages,
+    Damages,
     inspected,
     plan,
     normalizedOptions,
@@ -1235,20 +1235,20 @@ function createPlanContract(canonicalDamages, inspected, plan, normalizedOptions
   return publicPlan
 }
 
-function createCanonicalDamagePlan(canonicalDamages, normalizedOptions) {
+function createDamagePlan(Damages, normalizedOptions) {
   checkAbort(normalizedOptions.signal)
 
-  if (!Array.isArray(canonicalDamages)) {
+  if (!Array.isArray(Damages)) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalDamages must be an array of canonical damage envelopes'
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
+      'Damages must be an array of damage envelopes'
     )
   }
-  if (canonicalDamages.length > normalizedOptions.maxComponents) {
+  if (Damages.length > normalizedOptions.maxComponents) {
     failResource(
-      'canonical damage component count exceeds the configured resource limit',
+      'damage component count exceeds the configured resource limit',
       {
-        componentCount: canonicalDamages.length,
+        componentCount: Damages.length,
         limit: normalizedOptions.maxComponents,
       }
     )
@@ -1258,21 +1258,21 @@ function createCanonicalDamagePlan(canonicalDamages, normalizedOptions) {
   // before allocating the inspected records; refine it with the actual output
   // length before buildPlan can allocate its step records.
   let persistentBytes = estimatePersistentBytes(
-    canonicalDamages.length,
+    Damages.length,
     1
   )
   if (persistentBytes > normalizedOptions.maxResourceBytes) {
     failResource(
-      'persistent canonical damage aggregation resources exceed the configured resource limit',
+      'persistent damage aggregation resources exceed the configured resource limit',
       {
-        componentCount: canonicalDamages.length,
+        componentCount: Damages.length,
         persistentBytes,
         limit: normalizedOptions.maxResourceBytes,
       }
     )
   }
 
-  if (canonicalDamages.length === 0) {
+  if (Damages.length === 0) {
     if (normalizedOptions.maxValuesLength < 1) {
       failResource(
         'zero-component identity exceeds the configured values length limit',
@@ -1298,14 +1298,14 @@ function createCanonicalDamagePlan(canonicalDamages, normalizedOptions) {
       steps: [],
     }
     return createPlanContract(
-      canonicalDamages,
+      Damages,
       [],
       plan,
       normalizedOptions
     )
   }
 
-  const inspected = canonicalDamages.map((envelope, index) =>
+  const inspected = Damages.map((envelope, index) =>
     inspectEnvelope(envelope, index, normalizedOptions.signal)
   )
   for (const component of inspected) {
@@ -1321,15 +1321,15 @@ function createCanonicalDamagePlan(canonicalDamages, normalizedOptions) {
     normalizedOptions
   )
   persistentBytes = estimatePersistentBytes(
-    canonicalDamages.length,
+    Damages.length,
     outputLength,
     getSourceValuesLength(inspected)
   )
   if (persistentBytes > normalizedOptions.maxResourceBytes) {
     failResource(
-      'persistent canonical damage aggregation resources exceed the configured resource limit',
+      'persistent damage aggregation resources exceed the configured resource limit',
       {
-        componentCount: canonicalDamages.length,
+        componentCount: Damages.length,
         outputLength,
         persistentBytes,
         limit: normalizedOptions.maxResourceBytes,
@@ -1338,7 +1338,7 @@ function createCanonicalDamagePlan(canonicalDamages, normalizedOptions) {
   }
   // Own a validated copy of each coefficient array before publishing the
   // plan. The public plan can then represent fixed work even if the caller
-  // mutates its original canonical results while waiting for admission.
+    // mutates its original results while waiting for admission.
   const ownedInspected = snapshotInspectedComponents(
     inspected,
     normalizedOptions.signal
@@ -1346,7 +1346,7 @@ function createCanonicalDamagePlan(canonicalDamages, normalizedOptions) {
   const plan = buildPlan(ownedInspected, normalizedOptions, persistentBytes)
   checkAbort(normalizedOptions.signal)
   return createPlanContract(
-    canonicalDamages,
+    Damages,
     ownedInspected,
     plan,
     normalizedOptions
@@ -1357,18 +1357,18 @@ function getPlanRecord(plan) {
   const record = PLAN_RECORDS.get(plan)
   if (!record) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-      'canonical damage aggregation plan is not an approved immutable plan'
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'damage aggregation plan is not an approved immutable plan'
     )
   }
   return record
 }
 
-function assertPlanMatchesInput(planRecord, canonicalDamages) {
-  if (planRecord.canonicalDamages !== canonicalDamages) {
+function assertPlanMatchesInput(planRecord, Damages) {
+  if (planRecord.Damages !== Damages) {
     fail(
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-      'canonical damage aggregation plan does not match the input snapshot'
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'damage aggregation plan does not match the input snapshot'
     )
   }
 }
@@ -1385,8 +1385,8 @@ function assertPlanLimitsMatch(planRecord, options) {
       && options[name] !== planRecord.normalizedOptions[name]
     ) {
       fail(
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-        `canonical damage aggregation plan does not match ${name}`,
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+        `damage aggregation plan does not match ${name}`,
         { name, planned: planRecord.normalizedOptions[name], value: options[name] }
       )
     }
@@ -1408,29 +1408,29 @@ function getExecutionOptions(planRecord, normalizedOptions) {
  * envelopes. CalculationClient uses this narrow preflight for batch input so
  * invalid resource limits are rejected before an attack starts.
  */
-export function validateCanonicalDamageAggregationOptions(options = {}) {
+export function validateDamageAggregationOptions(options = {}) {
   return normalizeOptions(options)
 }
 
 /**
- * Validate and plan an independent canonical damage sum without allocating
+ * Validate and plan an independent damage sum without allocating
  * convolution buffers. The returned plan is an immutable, opaque contract;
- * pass it back to sumCanonicalDamage to execute the exact planned work.
+ * pass it back to sumDamage to execute the exact planned work.
  */
-export function planCanonicalDamageAggregation(
-  canonicalDamages,
+export function planDamageAggregation(
+  Damages,
   options = {}
 ) {
   const normalizedOptions = normalizeOptions(options)
-  return createCanonicalDamagePlan(canonicalDamages, normalizedOptions)
+  return createDamagePlan(Damages, normalizedOptions)
 }
 
 /**
- * Add independent canonical damage distributions without collapsing overflow
- * into a point value. Every component must be a modeled canonical damage
+ * Add independent damage distributions without collapsing overflow into a
+ * point value. Every component must be a modeled damage
  * envelope with a source-support descriptor.
  */
-function executeCanonicalDamagePlan(planRecord, normalizedOptions) {
+function executeDamagePlan(planRecord, normalizedOptions) {
   const { inspected, plan } = planRecord
   const executionOptions = getExecutionOptions(planRecord, normalizedOptions)
   checkAbort(executionOptions.signal)
@@ -1474,7 +1474,7 @@ function executeCanonicalDamagePlan(planRecord, normalizedOptions) {
           executionOptions.signal?.aborted
           || error?.name === 'AbortError'
         ) {
-          throw new CanonicalDamageAggregationAbortError()
+          throw new DamageAggregationAbortError()
         }
         throw error
       }
@@ -1495,7 +1495,7 @@ function executeCanonicalDamagePlan(planRecord, normalizedOptions) {
     fftMassDrift = Math.abs(rawExplicitMass - plan.expectedExplicitMass)
     if (fftMassDrift > DISTRIBUTION_RESULT_TOLERANCE) {
       failNumerical(
-        'FFT convolution mass drift exceeds the canonical tolerance',
+    'FFT convolution mass drift exceeds the configured tolerance',
         {
           expectedExplicitMass: plan.expectedExplicitMass,
           rawExplicitMass,
@@ -1603,12 +1603,12 @@ function executeCanonicalDamagePlan(planRecord, normalizedOptions) {
 }
 
 /**
- * Execute a canonical damage sum. When `options.plan` (or the optional third
+ * Execute a damage sum. When `options.plan` (or the optional third
  * argument) is supplied, no envelope validation or resource planning is
  * repeated: the approved immutable plan is executed directly.
  */
-export function sumCanonicalDamage(
-  canonicalDamages,
+export function sumDamage(
+  Damages,
   options = {},
   explicitPlan = undefined
 ) {
@@ -1616,8 +1616,8 @@ export function sumCanonicalDamage(
   if (explicitPlan !== undefined) {
     if (!isRecord(options)) {
       fail(
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-        'canonical damage aggregation options must be an object'
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+        'damage aggregation options must be an object'
       )
     }
     rawOptions = { ...options, plan: explicitPlan }
@@ -1626,17 +1626,17 @@ export function sumCanonicalDamage(
   const normalizedOptions = normalizeOptions(rawOptions, true)
   let planRecord
   if (normalizedOptions.plan === null) {
-    const publicPlan = createCanonicalDamagePlan(
-      canonicalDamages,
+    const publicPlan = createDamagePlan(
+      Damages,
       normalizedOptions
     )
     planRecord = getPlanRecord(publicPlan)
   } else {
     planRecord = getPlanRecord(normalizedOptions.plan)
-    assertPlanMatchesInput(planRecord, canonicalDamages)
+    assertPlanMatchesInput(planRecord, Damages)
     assertPlanLimitsMatch(planRecord, rawOptions)
     checkAbort(normalizedOptions.signal)
   }
 
-  return executeCanonicalDamagePlan(planRecord, normalizedOptions)
+  return executeDamagePlan(planRecord, normalizedOptions)
 }

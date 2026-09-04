@@ -19,12 +19,12 @@
         combos,
         displayRequest,
         scoreDisplayRequest,
-        canonicalDisplayPresentation,
-        canonicalScoreDisplayPresentation,
-        canonicalDisplayFeedback,
-        canonicalScoreDisplayFeedback,
-        canonicalSummaryReady,
-        canonicalFeedbackNotice,
+        displayPresentation,
+        scoreDisplayPresentation,
+        displayFeedback,
+        scoreDisplayFeedback,
+        summaryReady,
+        feedbackNotice,
         onDisplayValidated,
         onScoreDisplayValidated,
         addCombo,
@@ -49,14 +49,14 @@
             @combo-details-changed="onComboDetailsChanged"
             @combo-side-validated="onComboSideValidated"
         /></v-col></v-row>
-        <v-row><v-col cols="12"><RangePlanNotice :feedback="canonicalFeedbackNotice" /></v-col></v-row>
+        <v-row><v-col cols="12"><RangePlanNotice :feedback="feedbackNotice" /></v-col></v-row>
         <v-row>
             <v-col md="6" cols="12">
                 <ScoreChartPanel
                     :combos="combos"
                     :displayRequest="scoreDisplayRequest"
-                    :presentation="canonicalScoreDisplayPresentation"
-                    :displayFeedback="canonicalScoreDisplayFeedback"
+                    :presentation="scoreDisplayPresentation"
+                    :displayFeedback="scoreDisplayFeedback"
                     @display-validated="onScoreDisplayValidated"
                 />
             </v-col>
@@ -64,17 +64,17 @@
                 <DamageChartPanel
                     :combos="combos"
                     :displayRequest="displayRequest"
-                    :presentation="canonicalDisplayPresentation"
-                    :displayFeedback="canonicalDisplayFeedback"
+                    :presentation="displayPresentation"
+                    :displayFeedback="displayFeedback"
                     @display-validated="onDisplayValidated"
                 />
             </v-col>
         </v-row>
-        <v-row v-if="canonicalSummaryReady"><v-col cols="12">
+        <v-row v-if="summaryReady"><v-col cols="12">
             <SummaryPanel
                 :combos="combos"
-                :presentation="canonicalDisplayPresentation"
-                :scorePresentation="canonicalScoreDisplayPresentation"
+                :presentation="displayPresentation"
+                :scorePresentation="scoreDisplayPresentation"
             />
         </v-col></v-row>
     </v-container>

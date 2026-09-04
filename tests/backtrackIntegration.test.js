@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  createBacktrackCanonicalRunner,
+  createBacktrackRunner,
 } from '../src/features/backtrack/model/BacktrackCalculationRunner'
 import {
   createBacktrackInputSnapshot,
@@ -41,7 +41,7 @@ function createDeferred() {
 }
 
 function createRunner({
-  canonicalResult = {
+  Result = {
     single: 'canonical-single',
     double: 'canonical-double',
     second: 'canonical-second',
@@ -55,8 +55,7 @@ function createRunner({
       second: [50, 60],
     },
   })),
-  legacyCalculate = vi.fn(async () => ({ legacy: true })),
-  canonicalCalculate = vi.fn(async () => canonicalResult),
+  Calculate = vi.fn(async () => Result),
   onError = vi.fn(),
 } = {}) {
   const state = {
@@ -65,10 +64,9 @@ function createRunner({
   }
   const feedback = createCalculationFeedbackState()
   const calculationClient = {
-    calculateBacktrack: legacyCalculate,
-    calculateBacktrackCanonical: canonicalCalculate,
+    calculateBacktrack: Calculate,
   }
-  const runner = createBacktrackCanonicalRunner({
+  const runner = createBacktrackRunner({
     state,
     feedback,
     calculationClient,
@@ -87,7 +85,7 @@ function createRunner({
 
 describe('Backtrack canonical integration', () => {
   it('always uses the canonical API and commits only the adapter payload', async () => {
-    const canonicalResult = {
+    const Result = {
       single: 'canonical-single',
       double: 'canonical-double',
       second: 'canonical-second',
@@ -102,15 +100,14 @@ describe('Backtrack canonical integration', () => {
       },
     }
     const createPresentation = vi.fn(() => presentation)
-    const setup = createRunner({ canonicalResult, createPresentation })
+    const setup = createRunner({ Result, createPresentation })
     const params = createParams({ dlois: '屍人' })
 
     await expect(setup.runner.run({params})).resolves.toBe(true)
 
-    expect(setup.calculationClient.calculateBacktrackCanonical)
+    expect(setup.calculationClient.calculateBacktrack)
       .toHaveBeenCalledOnce()
-    expect(setup.calculationClient.calculateBacktrack).not.toHaveBeenCalled()
-    expect(setup.calculationClient.calculateBacktrackCanonical)
+    expect(setup.calculationClient.calculateBacktrack)
       .toHaveBeenCalledWith(
         params,
         expect.objectContaining({
@@ -119,12 +116,12 @@ describe('Backtrack canonical integration', () => {
         })
       )
     expect(createPresentation).toHaveBeenCalledWith(
-      canonicalResult,
+      Result,
       params
     )
     expect(setup.state.finalEncroachment)
       .toBe(presentation.finalEncroachment)
-    expect(setup.state.finalEncroachment).not.toBe(canonicalResult)
+    expect(setup.state.finalEncroachment).not.toBe(Result)
     expect(setup.state.resultReady).toBe(true)
     expect(setup.feedback.status).toBe('ready')
   })
@@ -136,7 +133,7 @@ describe('Backtrack canonical integration', () => {
     expect(snapshot).toEqual({params})
     expect(snapshot).not.toBe(params)
     expect(snapshot.params).not.toBe(params)
-    expect(snapshot).not.toHaveProperty('canonicalOptIn')
+    expect(snapshot).not.toHaveProperty('OptIn')
 
     params.encroachment = 999
     snapshot.params.value = 123
@@ -148,7 +145,7 @@ describe('Backtrack canonical integration', () => {
   it('shares range-plan feedback and suppresses stale results', async () => {
     const first = createDeferred()
     const second = createDeferred()
-    const canonicalCalculate = vi.fn()
+    const Calculate = vi.fn()
       .mockImplementationOnce((_params, options) => {
         options.onRangePlan({id: 'first-plan', accepted: true})
         return first.promise
@@ -165,7 +162,7 @@ describe('Backtrack canonical integration', () => {
       },
     }
     const setup = createRunner({
-      canonicalCalculate,
+      Calculate,
       createPresentation: vi.fn(() => presentation),
     })
     const firstParams = createParams({encroachment: 90})
@@ -178,8 +175,8 @@ describe('Backtrack canonical integration', () => {
 
     first.resolve({stale: true})
     await expect(firstRun).resolves.toBe(false)
-    expect(canonicalCalculate).toHaveBeenCalledTimes(2)
-    expect(canonicalCalculate).toHaveBeenLastCalledWith(
+    expect(Calculate).toHaveBeenCalledTimes(2)
+    expect(Calculate).toHaveBeenLastCalledWith(
       expect.objectContaining({encroachment: 110}),
       expect.any(Object)
     )
@@ -197,7 +194,7 @@ describe('Backtrack canonical integration', () => {
   it('clears the result on abort and dispose without allowing a late commit', async () => {
     const deferred = createDeferred()
     const setup = createRunner({
-      canonicalCalculate: vi.fn(() => deferred.promise),
+      Calculate: vi.fn(() => deferred.promise),
     })
     const controller = new AbortController()
     const request = setup.runner.run({
@@ -215,7 +212,7 @@ describe('Backtrack canonical integration', () => {
     expect(setup.state.finalEncroachment).toBeNull()
 
     const secondDeferred = createDeferred()
-    setup.calculationClient.calculateBacktrackCanonical
+    setup.calculationClient.calculateBacktrack
       .mockReturnValueOnce(secondDeferred.promise)
     const secondRequest = setup.runner.run({
       params: createParams({value: 1}),
@@ -237,7 +234,7 @@ describe('Backtrack canonical integration', () => {
         capacityBytes: 64 * 1024 * 1024,
       }
     )
-    const canonicalResult = {
+    const Result = {
       single: 'canonical-single-after-retry',
       double: 'canonical-double-after-retry',
       second: 'canonical-second-after-retry',
@@ -251,18 +248,18 @@ describe('Backtrack canonical integration', () => {
         second: [55, 66],
       },
     }
-    const canonicalCalculate = vi.fn()
+    const Calculate = vi.fn()
       .mockRejectedValueOnce(resourceError)
-      .mockResolvedValueOnce(canonicalResult)
+      .mockResolvedValueOnce(Result)
     const setup = createRunner({
-      canonicalCalculate,
+      Calculate,
       createPresentation: vi.fn(() => presentation),
     })
 
     await expect(setup.runner.run({params: createParams()}))
       .resolves.toBe(false)
 
-    expect(setup.calculationClient.calculateBacktrack).not.toHaveBeenCalled()
+    expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledOnce()
     expect(setup.state.finalEncroachment).toBeNull()
     expect(setup.state.resultReady).toBe(false)
     expect(setup.feedback.status).toBe('error')
@@ -281,8 +278,8 @@ describe('Backtrack canonical integration', () => {
       params: createParams({encroachment: 105}),
     })).resolves.toBe(true)
 
-    expect(canonicalCalculate).toHaveBeenCalledTimes(2)
-    expect(setup.calculationClient.calculateBacktrack).not.toHaveBeenCalled()
+    expect(Calculate).toHaveBeenCalledTimes(2)
+    expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledTimes(2)
     expect(setup.state.finalEncroachment)
       .toBe(presentation.finalEncroachment)
     expect(setup.feedback.status).toBe('ready')
@@ -305,14 +302,14 @@ describe('Backtrack canonical integration', () => {
         throw presentationError
       })
       .mockReturnValueOnce(presentation)
-    const canonicalCalculate = vi.fn()
+    const Calculate = vi.fn()
       .mockResolvedValue({canonical: true})
-    const setup = createRunner({canonicalCalculate, createPresentation})
+    const setup = createRunner({Calculate, createPresentation})
 
     await expect(setup.runner.run({params: createParams()}))
       .resolves.toBe(false)
 
-    expect(setup.calculationClient.calculateBacktrack).not.toHaveBeenCalled()
+    expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledOnce()
     expect(setup.state.finalEncroachment).toBeNull()
     expect(setup.state.resultReady).toBe(false)
     expect(setup.feedback.status).toBe('error')
@@ -326,9 +323,9 @@ describe('Backtrack canonical integration', () => {
       params: createParams({encroachment: 105}),
     })).resolves.toBe(true)
 
-    expect(canonicalCalculate).toHaveBeenCalledTimes(2)
+    expect(Calculate).toHaveBeenCalledTimes(2)
     expect(createPresentation).toHaveBeenCalledTimes(2)
-    expect(setup.calculationClient.calculateBacktrack).not.toHaveBeenCalled()
+    expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledTimes(2)
     expect(setup.state.finalEncroachment)
       .toBe(presentation.finalEncroachment)
     expect(setup.state.resultReady).toBe(true)
@@ -345,7 +342,7 @@ describe('Backtrack canonical integration', () => {
     }
     const rangeError = new CalculationRangeError(plan)
     const setup = createRunner({
-      canonicalCalculate: vi.fn(async () => {
+      Calculate: vi.fn(async () => {
         throw rangeError
       }),
     })

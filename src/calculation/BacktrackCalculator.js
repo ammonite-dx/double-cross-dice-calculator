@@ -379,16 +379,16 @@ function validateBacktrackRangePlan(params, plan) {
   )
   const expectedAssetOverflow =
     expectedRawSupportMax > BACKTRACK_ASSET_SUPPORT_MAX
-  const canonicalPlan = plan.calculationMode === 'canonical'
+  const completeSupportPlan = plan.calculationMode === 'complete-support'
   if (
     plan.calculationMode !== undefined
-    && !canonicalPlan
+    && !completeSupportPlan
   ) {
     throw new RangeError(
-      'backtrackRangePlan.calculationMode must be canonical when present'
+      'backtrackRangePlan.calculationMode must be complete-support when present'
     )
   }
-  const expectedDistributionMode = canonicalPlan || expectedAssetOverflow
+  const expectedDistributionMode = completeSupportPlan || expectedAssetOverflow
     ? 'on-demand'
     : 'asset'
   if (plan.rawSupportMax !== expectedRawSupportMax) {
@@ -490,12 +490,12 @@ function getPlannedBacktrackDistributions(
 ) {
   if (!backtrackRangePlan) {
     throw new TypeError(
-      'canonical backtrack calculation requires a complete range plan'
+      'complete-support backtrack calculation requires a complete range plan'
     )
   }
-  if (backtrackRangePlan.calculationMode !== 'canonical') {
+  if (backtrackRangePlan.calculationMode !== 'complete-support') {
     throw new RangeError(
-      'canonical backtrack calculation requires a canonical range plan'
+      'complete-support backtrack calculation requires a complete-support range plan'
     )
   }
 
@@ -560,7 +560,7 @@ function createFinalEncroachmentDistributionResult(
   )
   const values = new Float64Array(rawSupportMax - rawSupportMin + 1)
 
-  // The providers model the decrease S. The canonical random variable is
+  // The providers model the decrease S. The result random variable is
   // the actual final encroachment F = base - S, so reverse the dense PMF
   // while preserving every probability without category aggregation.
   for (
@@ -580,21 +580,21 @@ function createFinalEncroachmentDistributionResult(
 }
 
 /**
- * Calculate complete canonical final-encroachment distributions.
+ * Calculate complete final-encroachment distributions.
  *
  * Each returned DistributionResult is keyed by the actual final encroachment
  * value, not by the intermediate decrease amount used by the legacy
- * category calculator. A canonical range plan always selects the on-demand
+ * category calculator. A complete-support range plan always selects the on-demand
  * generator because the current sparse assets do not prove complete support.
  */
-export function calculateFinalEncroachmentCanonical(
+export function calculateFinalEncroachment(
   params,
   dependencies,
   runtimeOptions = {},
   backtrackRangePlan
 ) {
   // Keep the positional dependency argument for the data-layer adapter. The
-  // canonical path intentionally does not inspect asset providers.
+  // Complete-support calculation intentionally does not inspect asset providers.
   void dependencies
   const normalizedArguments = normalizeBacktrackCalculationArguments(
     runtimeOptions,

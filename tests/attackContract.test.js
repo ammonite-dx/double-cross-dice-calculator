@@ -23,11 +23,11 @@ const damageFormSource = readSource('../src/features/attack/ui/DamageSettingForm
 describe('Attack canonical integration contract', () => {
   it('connects the production view to one canonical lifecycle', () => {
     expect(attackSource).toMatch(/onMounted\s*\(/)
-    expect(attackSource).toContain('createAttackCanonicalRunner')
-    expect(attackSource).toContain('canonicalCalculationRunner.dispose()')
-    expect(attackSource).toContain('canonicalCalculationRunner.run({')
+    expect(attackSource).toContain('createAttackRunner')
+    expect(attackSource).toContain('calculationRunner.dispose()')
+    expect(attackSource).toContain('calculationRunner.run({')
     expect(attackPageSource).toContain('RangePlanNotice')
-    expect(attackSource).not.toContain('canonicalOptIn')
+    expect(attackSource).not.toContain('OptIn')
     expect(attackSource).not.toContain('runInitialCalculation')
     expect(attackSource).not.toContain('calculateAttackCombo')
     expect(attackSource).not.toContain('calculateTotalDamage')
@@ -41,13 +41,13 @@ describe('Attack canonical integration contract', () => {
     ]) {
       expect(attackTemplate).toContain(output)
     }
-    expect(attackTemplate).toContain(':presentation="canonicalDisplayPresentation"')
-    expect(attackTemplate).toContain(':presentation="canonicalScoreDisplayPresentation"')
-    expect(scoreChartSource).toContain('getCanonicalAttackScoreChartData')
-    expect(damageChartSource).toContain('getCanonicalAttackDamageChartData')
-    expect(summaryTableSource).toContain('getCanonicalScoreSummaryForCombo')
+    expect(attackTemplate).toContain(':presentation="displayPresentation"')
+    expect(attackTemplate).toContain(':presentation="scoreDisplayPresentation"')
+    expect(scoreChartSource).toContain('getAttackScoreChartData')
+    expect(damageChartSource).toContain('getAttackDamageChartData')
+    expect(summaryTableSource).toContain('getScoreSummaryForCombo')
     for (const source of [scoreChartSource, damageChartSource, summaryTableSource]) {
-      expect(source).not.toContain('canonicalOptIn')
+      expect(source).not.toContain('OptIn')
     }
   })
 
@@ -55,8 +55,8 @@ describe('Attack canonical integration contract', () => {
     for (const source of [inputFormSource, comboFormSource, attackTemplate]) {
       expect(source).not.toContain('calculateAttackCombo')
       expect(source).not.toContain('calculateTotalDamage')
-      expect(source).not.toContain('CanonicalAttackPanel')
-      expect(source).not.toContain('canonicalOptIn')
+      expect(source).not.toContain('AttackPanel')
+      expect(source).not.toContain('OptIn')
     }
   })
 

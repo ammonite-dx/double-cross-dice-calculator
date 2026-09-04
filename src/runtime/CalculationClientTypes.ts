@@ -10,11 +10,11 @@ import type { ScoreInput } from '../domain/InputDomain'
 import type {
   AttackCalculationResult,
   BacktrackCalculationResult,
-  CanonicalDamageEnvelope,
-  CanonicalDamageSummary,
-  CanonicalScorePair,
-  CanonicalScoreSummary,
-  CanonicalTotalDamageResult,
+  DamageEnvelope,
+  DamageSummary,
+  ScorePair,
+  ScoreSummary,
+  TotalDamageResult,
   DistributionEnvelope,
 } from '../calculation/DistributionResultTypes'
 
@@ -28,8 +28,8 @@ export interface CalculationOptions {
 }
 
 export interface CheckCalculationResult {
-  readonly score: CanonicalScorePair
-  readonly scoreSummary: CanonicalScoreSummary
+  readonly score: ScorePair
+  readonly scoreSummary: ScoreSummary
 }
 
 export interface CalculationClient {
@@ -43,28 +43,28 @@ export interface CalculationClient {
     policy?: unknown,
   ): unknown
   planBacktrack(params: BacktrackParams, policy?: unknown): unknown
-  calculateCheckCanonical(
+  calculateCheck(
     params: CheckInputSnapshot['params'],
     difficulty: DifficultyInput,
     options?: CalculationOptions,
   ): Promise<CheckCalculationResult>
-  calculateAttackCanonical(
+  calculateAttack(
     params: AttackCalculationInput,
     options?: CalculationOptions,
   ): Promise<AttackCalculationResult>
-  calculateAttackCanonicalBatch(
+  calculateAttackBatch(
     entries: readonly AttackBatchEntry[],
     options?: CalculationOptions,
   ): Promise<{
     readonly combos: readonly (AttackCalculationResult & { id: string | number })[]
-    readonly canonicalTotalDamage: CanonicalDamageEnvelope
-    readonly canonicalTotalDamageSummary: CanonicalDamageSummary
+    readonly totalDamage: DamageEnvelope
+    readonly totalDamageSummary: DamageSummary
   }>
-  calculateCanonicalTotalDamage(
-    canonicalDamages: readonly DistributionEnvelope[],
+  calculateTotalDamage(
+    damages: readonly DistributionEnvelope[],
     options?: CalculationOptions,
-  ): Promise<CanonicalTotalDamageResult>
-  calculateBacktrackCanonical(
+  ): Promise<TotalDamageResult>
+  calculateBacktrack(
     params: BacktrackParams,
     options?: CalculationOptions,
   ): Promise<BacktrackCalculationResult>

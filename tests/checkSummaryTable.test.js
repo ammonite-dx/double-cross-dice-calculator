@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
-  calculateScoreCanonical,
-  getCanonicalScoreSummary,
+  calculateScore,
+  getScoreSummary,
 } from '../src/calculation/ScoreCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
-  CANONICAL_SUMMARY_UNAVAILABLE,
-  formatCanonicalScoreSummaryExpectedValue,
-  formatCanonicalScoreSuccessRate,
-  formatCanonicalScoreSuccessRateDisplay,
+  SUMMARY_UNAVAILABLE,
+  formatScoreSummaryExpectedValue,
+  formatScoreSuccessRate,
+  formatScoreSuccessRateDisplay,
 } from '../src/shared/presentation'
 
 function scoreParams(overrides = {}) {
@@ -24,12 +24,12 @@ function scoreParams(overrides = {}) {
   }
 }
 
-function getCanonicalSummary(params, difficulty) {
+function getSummary(params, difficulty) {
   const plan = planCalculationRanges({
     operation: 'score',
     score: params,
   }).scores[0]
-  const envelope = calculateScoreCanonical(
+  const envelope = calculateScore(
     params,
     {
       getDxDistribution: (shihai, dice, critical, options, yousei = 0) =>
@@ -37,7 +37,7 @@ function getCanonicalSummary(params, difficulty) {
     },
     plan
   )
-  return getCanonicalScoreSummary({
+  return getScoreSummary({
     action: envelope,
     reaction: envelope,
   }, difficulty)
@@ -63,52 +63,52 @@ describe('Check canonical summary formatter', () => {
     [
       'bounded values with different rounded bounds',
       { kind: 'bounded', lowerBound: 6.04, upperBound: 6.06 },
-      CANONICAL_SUMMARY_UNAVAILABLE,
+      SUMMARY_UNAVAILABLE,
     ],
     [
       'lower-bound tail',
       { kind: 'lower-bound', lowerBound: 6 },
-      CANONICAL_SUMMARY_UNAVAILABLE,
+      SUMMARY_UNAVAILABLE,
     ],
     [
       'unavailable summary',
       { kind: 'unavailable' },
-      CANONICAL_SUMMARY_UNAVAILABLE,
+      SUMMARY_UNAVAILABLE,
     ],
   ])('formats %s expected values without pointifying uncertainty', (
     _label,
     expectedValue,
     formatted
   ) => {
-    expect(formatCanonicalScoreSummaryExpectedValue(expectedValue))
+    expect(formatScoreSummaryExpectedValue(expectedValue))
       .toBe(formatted)
   })
 
   it('formats opposed and non-opposed success rates with a suffix only when numeric', () => {
-    expect(formatCanonicalScoreSuccessRateDisplay({
+    expect(formatScoreSuccessRateDisplay({
       kind: 'exact',
       value: 45.5,
     })).toBe('45.5%')
-    expect(formatCanonicalScoreSuccessRate({
+    expect(formatScoreSuccessRate({
       kind: 'exact',
       value: 54.5,
     })).toBe(54.5)
-    expect(formatCanonicalScoreSuccessRateDisplay({
+    expect(formatScoreSuccessRateDisplay({
       kind: 'bounded',
       lowerBound: 45.4545,
       upperBound: 45.4546,
     })).toBe('45.5%')
-    expect(formatCanonicalScoreSuccessRateDisplay({
+    expect(formatScoreSuccessRateDisplay({
       kind: 'bounded',
       lowerBound: 45.04,
       upperBound: 45.06,
-    })).toBe(CANONICAL_SUMMARY_UNAVAILABLE)
-    expect(formatCanonicalScoreSuccessRateDisplay({
+    })).toBe(SUMMARY_UNAVAILABLE)
+    expect(formatScoreSuccessRateDisplay({
       kind: 'lower-bound',
       lowerBound: 45,
-    })).toBe(CANONICAL_SUMMARY_UNAVAILABLE)
-    expect(formatCanonicalScoreSuccessRateDisplay(45.5))
-      .toBe(CANONICAL_SUMMARY_UNAVAILABLE)
+    })).toBe(SUMMARY_UNAVAILABLE)
+    expect(formatScoreSuccessRateDisplay(45.5))
+      .toBe(SUMMARY_UNAVAILABLE)
   })
 
   it.each([
@@ -174,23 +174,23 @@ describe('Check canonical summary formatter', () => {
     expectedValueKind,
     successRateKind,
   }) => {
-    const summary = getCanonicalSummary(params, difficulty)
+    const summary = getSummary(params, difficulty)
 
     expect(summary.action.expectedValue.kind).toBe(expectedValueKind)
     expect(summary.action.successRate.kind).toBe(successRateKind)
     expect(summary.reaction.expectedValue.kind).toBe(expectedValueKind)
     expect(summary.reaction.successRate.kind).toBe(successRateKind)
 
-    const expectedValue = formatCanonicalScoreSummaryExpectedValue(
+    const expectedValue = formatScoreSummaryExpectedValue(
       summary.action.expectedValue
     )
-    const successRate = formatCanonicalScoreSuccessRateDisplay(
+    const successRate = formatScoreSuccessRateDisplay(
       summary.action.successRate
     )
     expect(expectedValue).not.toBeUndefined()
     expect(successRate).not.toBeUndefined()
     if (expectedValueKind === 'lower-bound') {
-      expect(expectedValue).toBe(CANONICAL_SUMMARY_UNAVAILABLE)
+      expect(expectedValue).toBe(SUMMARY_UNAVAILABLE)
     }
   })
 })

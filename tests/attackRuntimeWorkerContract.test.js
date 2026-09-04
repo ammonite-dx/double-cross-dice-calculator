@@ -31,7 +31,7 @@ class FakeWorker {
   }
 }
 
-function canonicalEnvelope() {
+function Envelope() {
   return Object.freeze({
     result: createDistributionResult({
       values: [1],
@@ -69,7 +69,7 @@ function createHarness() {
       return worker
     },
   })
-  const calculateCanonicalDamageOnDemand = vi.fn(async (
+  const calculateDamageOnDemand = vi.fn(async (
     _score,
     attack,
     _defence,
@@ -79,29 +79,29 @@ function createHarness() {
       new Float64Array([1]),
       attack.kazanari
     )
-    return canonicalEnvelope()
+    return Envelope()
   })
   const release = vi.fn()
   const client = createCalculationClient({
-    calculateCanonicalDamageOnDemand,
-    calculateScoreCanonical: vi.fn(() => canonicalEnvelope()),
-    getCanonicalDamageSummary: vi.fn(() => 'canonical summary'),
-    getCanonicalTotalDamageSummary: vi.fn(() => 'total summary'),
+    calculateDamageOnDemand,
+    calculateScore: vi.fn(() => Envelope()),
+    getDamageSummary: vi.fn(() => 'canonical summary'),
+    getTotalDamageSummary: vi.fn(() => 'total summary'),
     getDamageRollDistribution: runtimeDamageRollClient.calculate,
     planCalculationRanges: vi.fn(() => ({
       accepted: true,
       operation: 'attack',
     })),
-    planCanonicalDamageAggregation: vi.fn(() => ({
-      operation: 'canonical-damage-aggregation',
+    planDamageAggregation: vi.fn(() => ({
+      operation: 'damage-aggregation',
     })),
     resourceGuard: {
       acquirePlan: vi.fn(() => ({ release })),
     },
-    sumCanonicalDamage: vi.fn(() => canonicalEnvelope()),
+    sumDamage: vi.fn(() => Envelope()),
   })
   return {
-    calculateCanonicalDamageOnDemand,
+    calculateDamageOnDemand,
     client,
     runtimeDamageRollClient,
     workers,
@@ -111,7 +111,7 @@ function createHarness() {
 describe('canonical Attack runtime Worker boundary', () => {
   it('passes the existing RuntimeDamageRollClient provider through canonical batch', async () => {
     const harness = createHarness()
-    const pending = harness.client.calculateAttackCanonicalBatch([
+    const pending = harness.client.calculateAttackBatch([
       { id: 'combo-1', params: attackParams() },
     ])
 
@@ -133,10 +133,10 @@ describe('canonical Attack runtime Worker boundary', () => {
 
     const result = await pending
     expect(result.combos).toHaveLength(1)
-    expect(result.combos[0].canonicalDamage).toEqual(
+    expect(result.combos[0].damage).toEqual(
       expect.objectContaining({ result: expect.any(Object) })
     )
-    expect(harness.calculateCanonicalDamageOnDemand).toHaveBeenCalledOnce()
+    expect(harness.calculateDamageOnDemand).toHaveBeenCalledOnce()
     harness.runtimeDamageRollClient.dispose()
   })
 })

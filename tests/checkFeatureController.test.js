@@ -61,7 +61,7 @@ function createPartialCoverageResult() {
 
 async function createController() {
   const client = {
-    calculateCheckCanonical: vi.fn(async () => createCalculationResult()),
+    calculateCheck: vi.fn(async () => createCalculationResult()),
   }
   const check = await useCheck({ calculationClient: client })
   return { check, client }
@@ -81,16 +81,16 @@ describe('useCheck', () => {
   it('performs the initial canonical calculation with the default snapshot', async () => {
     const { check, client } = await createController()
 
-    expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(1)
-    expect(client.calculateCheckCanonical.mock.calls[0][0]).toMatchObject({
+    expect(client.calculateCheck).toHaveBeenCalledTimes(1)
+    expect(client.calculateCheck.mock.calls[0][0]).toMatchObject({
       action: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
       reaction: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
     })
-    expect(client.calculateCheckCanonical.mock.calls[0][1]).toEqual({
+    expect(client.calculateCheck.mock.calls[0][1]).toEqual({
       opposed: false,
       target: 0,
     })
-    expect(client.calculateCheckCanonical.mock.calls[0][2].displayRequest).toEqual({
+    expect(client.calculateCheck.mock.calls[0][2].displayRequest).toEqual({
       min: 0,
       max: 30,
       mode: 'pmf',
@@ -102,10 +102,10 @@ describe('useCheck', () => {
     const { check, client } = await createController()
 
     check.onDifficultyValidated({ opposed: true, target: 12 })
-    await vi.waitFor(() => expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(2))
 
     expect(check.difficulty.value).toEqual({ opposed: true, target: 12 })
-    expect(client.calculateCheckCanonical.mock.calls[1][1]).toEqual({
+    expect(client.calculateCheck.mock.calls[1][1]).toEqual({
       opposed: true,
       target: 12,
     })
@@ -118,7 +118,7 @@ describe('useCheck', () => {
       side: 'action',
       params: { dice: 4, critical: 9, skill: 2, yousei: 0, shihai: 0 },
     })
-    await vi.waitFor(() => expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(2))
 
     expect(check.scoreParams.value.action).toEqual({
       dice: 4,
@@ -134,7 +134,7 @@ describe('useCheck', () => {
       yousei: 0,
       shihai: 0,
     })
-    expect(client.calculateCheckCanonical.mock.calls[1][0].action).toEqual(
+    expect(client.calculateCheck.mock.calls[1][0].action).toEqual(
       check.scoreParams.value.action
     )
   })
@@ -145,7 +145,7 @@ describe('useCheck', () => {
     check.onDisplayValidated({ min: 0, max: 30, mode: 'upper-tail' })
     await Promise.resolve()
 
-    expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(1)
+    expect(client.calculateCheck).toHaveBeenCalledTimes(1)
     expect(check.displayRequest.value).toEqual({
       min: 0,
       max: 30,
@@ -159,14 +159,14 @@ describe('useCheck', () => {
     check.onDisplayValidated({ min: 0, max: 0, mode: 'pmf' })
     await Promise.resolve()
 
-    expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(1)
+    expect(client.calculateCheck).toHaveBeenCalledTimes(1)
     expect(check.displayFeedback.value.status).toBe('idle')
   })
 
   it('recalculates once when an expanded display window needs missing coverage', async () => {
     const expandedResult = createExpandedCoverageResult()
     const client = {
-      calculateCheckCanonical: vi.fn()
+      calculateCheck: vi.fn()
         .mockResolvedValueOnce(createPartialCoverageResult())
         .mockResolvedValueOnce(expandedResult),
     }
@@ -174,11 +174,11 @@ describe('useCheck', () => {
 
     check.onDisplayValidated({ min: 0, max: 40, mode: 'pmf' })
     await vi.waitFor(() => expect(
-      client.calculateCheckCanonical
+      client.calculateCheck
     ).toHaveBeenCalledTimes(2))
     await vi.waitFor(() => expect(check.displayFeedback.value.status).toBe('idle'))
 
-    expect(client.calculateCheckCanonical.mock.calls[1][2].displayRequest)
+    expect(client.calculateCheck.mock.calls[1][2].displayRequest)
       .toMatchObject({ min: 0, max: 40, mode: 'pmf' })
     expect(check.displayRequest.value).toEqual({
       min: 0,
@@ -191,7 +191,7 @@ describe('useCheck', () => {
 
   it('stops after one recalculation when the same window remains uncovered', async () => {
     const client = {
-      calculateCheckCanonical: vi.fn()
+      calculateCheck: vi.fn()
         .mockResolvedValueOnce(createPartialCoverageResult())
         .mockResolvedValueOnce(createPartialCoverageResult()),
     }
@@ -199,12 +199,12 @@ describe('useCheck', () => {
 
     check.onDisplayValidated({ min: 0, max: 40, mode: 'pmf' })
     await vi.waitFor(() => expect(
-      client.calculateCheckCanonical
+      client.calculateCheck
     ).toHaveBeenCalledTimes(2))
     await vi.waitFor(() => expect(check.displayFeedback.value.status).toBe('rejected'))
 
     await Promise.resolve()
-    expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(2)
+    expect(client.calculateCheck).toHaveBeenCalledTimes(2)
     expect(check.displayFeedback.value.plan).toMatchObject({
       accepted: false,
       decision: 'terminal',
@@ -219,7 +219,7 @@ describe('useCheck', () => {
     check.onDisplayValidated({ min: 0, max: 16_384, mode: 'pmf' })
     await Promise.resolve()
 
-    expect(client.calculateCheckCanonical).toHaveBeenCalledTimes(1)
+    expect(client.calculateCheck).toHaveBeenCalledTimes(1)
     expect(check.displayFeedback.value.status).toBe('rejected')
     expect(check.displayFeedback.value.plan.rejectionReasons).toContain(
       'display-point-count'
@@ -229,7 +229,7 @@ describe('useCheck', () => {
   it('keeps only the latest calculation result when requests overlap', async () => {
     const pending = []
     const client = {
-      calculateCheckCanonical: vi.fn()
+      calculateCheck: vi.fn()
         .mockResolvedValueOnce(createCalculationResult())
         .mockImplementation((params) => new Promise((resolve) => {
           pending.push({ params, resolve })

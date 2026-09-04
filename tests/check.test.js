@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
-  calculateScoreCanonical,
-  getCanonicalScoreSummary,
+  calculateScore,
+  getScoreSummary,
 } from '../src/calculation/ScoreCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
@@ -33,7 +33,7 @@ function scoreParams(overrides = {}) {
   }
 }
 
-function createCanonicalScoreEnvelope({
+function createScoreEnvelope({
   values = [1],
   offset = 0,
   support = { kind: 'finite', max: 0 },
@@ -46,7 +46,7 @@ function createCanonicalScoreEnvelope({
   })
 }
 
-function createCanonicalScoreSummary() {
+function createScoreSummary() {
   return {
     action: {
       expectedValue: { kind: 'exact', value: 0 },
@@ -70,9 +70,9 @@ function getDxDistribution(shihai, dice, critical, options, yousei = 0) {
   return calculateDxDistribution({ dice, critical, shihai, yousei }, options)
 }
 
-function calculateCanonical(params, policy) {
+function calculate(params, policy) {
   const plan = getScorePlan(params, policy)
-  const envelope = calculateScoreCanonical(
+  const envelope = calculateScore(
     params,
     { getDxDistribution },
     plan
@@ -125,7 +125,7 @@ function expectedMaxReference(dice, critical, cutoff = 20000) {
 describe('canonical normal check score producer', () => {
   it('keeps a large fixed score as a sparse canonical point mass', () => {
     const fixedScore = 10_000
-    const envelope = calculateScoreCanonical(
+    const envelope = calculateScore(
       scoreParams({ skill: fixedScore }),
       { getDxDistribution: vi.fn() },
       { workingLength: 4, fftLength: 0 },
@@ -146,7 +146,7 @@ describe('canonical normal check score producer', () => {
   it('keeps an independently supplied working tail as exact overflow', () => {
     const params = scoreParams({ skill: 2 })
     const provider = vi.fn(() => new Float64Array([0.1, 0.2, 0.3, 0.4]))
-    const envelope = calculateScoreCanonical(
+    const envelope = calculateScore(
       params,
       { getDxDistribution: provider },
       { workingLength: 4, fftLength: 0 }
@@ -183,15 +183,15 @@ describe('canonical normal check score producer', () => {
   it('rejects non-negligible working tail when support is proven finite', () => {
     const provider = vi.fn(() => new Float64Array([0.1, 0.2, 0.3, 0.4]))
 
-    expect(() => calculateScoreCanonical(
+    expect(() => calculateScore(
       scoreParams({ critical: 11 }),
       { getDxDistribution: provider },
       { workingLength: 4, fftLength: 0 }
-    )).toThrow('finite canonical score support contains non-zero working tail')
+    )).toThrow('finite score support contains non-zero working tail')
   })
 
   it('rejects legacy projection when exact overflow may be below bucket 1023', () => {
-    const envelope = calculateScoreCanonical(
+    const envelope = calculateScore(
       scoreParams({ skill: 2 }),
       { getDxDistribution: () => new Float64Array([0.1, 0.2, 0.3, 0.4]) },
       { workingLength: 4, fftLength: 0 }
@@ -209,7 +209,7 @@ describe('canonical normal check score producer', () => {
   })
 
   it('requires an explicit runtime distribution provider', () => {
-    expect(() => calculateScoreCanonical(
+    expect(() => calculateScore(
       scoreParams(),
       {},
       { workingLength: 4097, fftLength: 0 }
@@ -218,7 +218,7 @@ describe('canonical normal check score producer', () => {
 
   it('uses the planned working coverage and models the DX tail as exact overflow', () => {
     const params = scoreParams({ skill: -3 })
-    const { plan, result } = calculateCanonical(params, {
+    const { plan, result } = calculate(params, {
       calculationMax: 0,
       display: { defaultMax: 0 },
     })
@@ -239,16 +239,16 @@ describe('canonical normal check score producer', () => {
   })
 
   it('certifies the default two-sided DX expectation and success intervals', () => {
-    const action = calculateCanonical(scoreParams())
-    const reaction = calculateCanonical(scoreParams())
-    const summary = getCanonicalScoreSummary({
+    const action = calculate(scoreParams())
+    const reaction = calculate(scoreParams())
+    const summary = getScoreSummary({
       action: action.envelope,
       reaction: reaction.envelope,
     })
 
     expect(action.envelope.metadata.scoreExpectationCertificate).toEqual(
       expect.objectContaining({
-        kind: 'canonical-score-expectation-certificate',
+        kind: 'score-expectation-certificate',
         modeledMax: action.plan.workingMax,
       })
     )
@@ -291,8 +291,8 @@ describe('canonical normal check score producer', () => {
       scoreParams({ dice: 2, critical: 2, shihai: 1 }),
       scoreParams({ yousei: 1 }),
     ]) {
-      const calculated = calculateCanonical(params)
-      const summary = getCanonicalScoreSummary({
+      const calculated = calculate(params)
+      const summary = getScoreSummary({
         action: calculated.envelope,
         reaction: calculated.envelope,
       })
@@ -306,7 +306,7 @@ describe('canonical normal check score producer', () => {
 
   it('keeps high-dice expectation certificates around a closed-form reference', () => {
     const params = scoreParams({ dice: 99, critical: 2 })
-    const { plan, envelope } = calculateCanonical(params)
+    const { plan, envelope } = calculate(params)
     const certificate = envelope.metadata.scoreExpectationCertificate
     const reference = expectedMaxReference(params.dice, params.critical)
 
@@ -325,7 +325,7 @@ describe('canonical normal check score producer', () => {
       fftLength: 0,
       tail: { model: 'exact-max', bound: 0.600000005 },
     }
-    const envelope = calculateScoreCanonical(
+    const envelope = calculateScore(
       params,
       { getDxDistribution: provider },
       basePlan
@@ -338,7 +338,7 @@ describe('canonical normal check score producer', () => {
       model: 'dx-max-tail',
     }))
 
-    const contradictory = calculateScoreCanonical(
+    const contradictory = calculateScore(
       params,
       { getDxDistribution: provider },
       {
@@ -353,7 +353,7 @@ describe('canonical normal check score producer', () => {
 
   it('uses the planner bound for zero stored tail with diagnostic error', () => {
     const params = scoreParams()
-    const envelope = calculateScoreCanonical(
+    const envelope = calculateScore(
       params,
       { getDxDistribution: () => new Float64Array([0.1, 0.9, 0]) },
       {
@@ -381,7 +381,7 @@ describe('canonical normal check score producer', () => {
       critical: 11,
       skill: -3,
     })
-    const { plan, result } = calculateCanonical(params, {
+    const { plan, result } = calculate(params, {
       calculationMax: 0,
       display: { defaultMax: 0 },
     })
@@ -402,7 +402,7 @@ describe('canonical normal check score producer', () => {
       skill: -7,
       yousei: 9,
     })
-    const { plan, result } = calculateCanonical(params)
+    const { plan, result } = calculate(params)
     expect(plan.workingLength).toBe(4173)
     expect(result.values).toHaveLength(plan.workingMax + params.skill + 1)
     expect(result.support).toEqual({ kind: 'infinite' })
@@ -415,7 +415,7 @@ describe('canonical normal check score producer', () => {
     scoreParams({ dice: 0, critical: 2, skill: -9, yousei: 4 }),
     scoreParams({ dice: 1, critical: 2, skill: 7, shihai: 2 }),
   ])('represents a proven zero-score finite support for %o', (params) => {
-    const { result } = calculateCanonical(params, {
+    const { result } = calculate(params, {
       calculationMax: 0,
       display: { defaultMax: 0 },
     })
@@ -429,7 +429,7 @@ describe('canonical normal check score producer', () => {
   it('keeps fumble and both signs of skill in the canonical score coordinate', () => {
     for (const skill of [-7, 7]) {
       const params = scoreParams({ skill })
-      const { result } = calculateCanonical(params)
+      const { result } = calculate(params)
 
       expect(result.values[0]).toBeGreaterThanOrEqual(0)
       expect(result.values.length).toBeGreaterThan(0)
@@ -437,7 +437,7 @@ describe('canonical normal check score producer', () => {
   })
 
   it('is exposed through the default CalculationClient with a canonical summary', async () => {
-    const result = await calculationClient.calculateCheckCanonical({
+    const result = await calculationClient.calculateCheck({
       action: scoreParams({ skill: 2 }),
       reaction: scoreParams({ skill: -1 }),
     }, { opposed: true, target: 0 })
@@ -451,7 +451,7 @@ describe('canonical normal check score producer', () => {
 
   it('extends canonical Check score coverage beyond the legacy display range', async () => {
     const displayRequest = { min: 0, max: 1200, mode: CHECK_DISPLAY_MODES.PMF }
-    const result = await calculationClient.calculateCheckCanonical(
+    const result = await calculationClient.calculateCheck(
       {
         action: scoreParams(),
         reaction: scoreParams(),
@@ -484,9 +484,9 @@ function createClientDependencies(overrides = {}) {
     acquirePlan: vi.fn(() => ({ release: vi.fn() })),
   }
   return {
-    calculateScoreCanonical: vi.fn(() => createCanonicalScoreEnvelope()),
+    calculateScore: vi.fn(() => createScoreEnvelope()),
     calculateDxDistribution: vi.fn(),
-    getCanonicalScoreSummary: vi.fn(() => createCanonicalScoreSummary()),
+    getScoreSummary: vi.fn(() => createScoreSummary()),
     planCalculationRanges: vi.fn(() => plan),
     resourceGuard,
     ...overrides,
@@ -516,7 +516,7 @@ describe('CalculationClient canonical normal check API', () => {
     const params = checkParams()
     const difficulty = { opposed: true, target: 0 }
 
-    const resultPromise = client.calculateCheckCanonical(
+    const resultPromise = client.calculateCheck(
       params,
       difficulty,
       options
@@ -536,19 +536,19 @@ describe('CalculationClient canonical normal check API', () => {
       },
     }, options.rangePolicy)
     expect(onRangePlan).toHaveBeenCalledWith(dependencies.plan)
-    expect(dependencies.calculateScoreCanonical).toHaveBeenNthCalledWith(
+    expect(dependencies.calculateScore).toHaveBeenNthCalledWith(
       1,
       scoreParams({ skill: 2 }),
       expect.any(Function),
       dependencies.plan.scores[0]
     )
-    expect(dependencies.calculateScoreCanonical).toHaveBeenNthCalledWith(
+    expect(dependencies.calculateScore).toHaveBeenNthCalledWith(
       2,
       scoreParams({ skill: -1 }),
       expect.any(Function),
       dependencies.plan.scores[1]
     )
-    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledWith(
+    expect(dependencies.getScoreSummary).toHaveBeenCalledWith(
       result.score,
       { opposed: true, target: 0 }
     )
@@ -572,7 +572,7 @@ describe('CalculationClient canonical normal check API', () => {
     const client = createCalculationClient(dependencies)
     const onRangePlan = vi.fn()
 
-    await expect(client.calculateCheckCanonical(
+    await expect(client.calculateCheck(
       checkParams(),
       { opposed: true, target: 0 },
       { onRangePlan }
@@ -583,11 +583,11 @@ describe('CalculationClient canonical normal check API', () => {
     })
     expect(onRangePlan).toHaveBeenCalledWith(plan)
     expect(dependencies.resourceGuard.acquirePlan).not.toHaveBeenCalled()
-    expect(dependencies.calculateScoreCanonical).not.toHaveBeenCalled()
+    expect(dependencies.calculateScore).not.toHaveBeenCalled()
   })
 
   it('passes canonical envelopes to the typed summary without published projection', async () => {
-    const safeEnvelope = createCanonicalScoreEnvelope({
+    const safeEnvelope = createScoreEnvelope({
       values: [0.4],
       support: { kind: 'infinite' },
       overflow: {
@@ -598,20 +598,20 @@ describe('CalculationClient canonical normal check API', () => {
       },
       failureProbability: 0.25,
     })
-    const canonicalSummary = createCanonicalScoreSummary()
+    const Summary = createScoreSummary()
     const dependencies = createClientDependencies({
-      calculateScoreCanonical: vi.fn(() => safeEnvelope),
-      getCanonicalScoreSummary: vi.fn(() => canonicalSummary),
+      calculateScore: vi.fn(() => safeEnvelope),
+      getScoreSummary: vi.fn(() => Summary),
     })
     const client = createCalculationClient(dependencies)
 
-    const result = await client.calculateCheckCanonical(
+    const result = await client.calculateCheck(
       checkParams(),
       { opposed: false, target: 0 }
     )
     expect(result.score.action).toBe(safeEnvelope)
-    expect(result.scoreSummary).toBe(canonicalSummary)
-    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledWith(
+    expect(result.scoreSummary).toBe(Summary)
+    expect(dependencies.getScoreSummary).toHaveBeenCalledWith(
       { action: safeEnvelope, reaction: safeEnvelope },
       { opposed: false, target: 0 }
     )
@@ -631,23 +631,23 @@ describe('CalculationClient canonical normal check API', () => {
       errorBound: 0,
     },
   ])('keeps non-projectable canonical overflow in the typed summary path: $kind', async (overflow) => {
-    const unsafeEnvelope = createCanonicalScoreEnvelope({
+    const unsafeEnvelope = createScoreEnvelope({
       values: [0.4],
       support: { kind: 'infinite' },
       overflow,
     })
-    const canonicalSummary = createCanonicalScoreSummary()
+    const Summary = createScoreSummary()
     const dependencies = createClientDependencies({
-      calculateScoreCanonical: vi.fn(() => unsafeEnvelope),
-      getCanonicalScoreSummary: vi.fn(() => canonicalSummary),
+      calculateScore: vi.fn(() => unsafeEnvelope),
+      getScoreSummary: vi.fn(() => Summary),
     })
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateCheckCanonical(
+    await expect(client.calculateCheck(
       checkParams(),
       { opposed: true, target: 0 }
-    )).resolves.toMatchObject({ scoreSummary: canonicalSummary })
-    expect(dependencies.getCanonicalScoreSummary).toHaveBeenCalledOnce()
+    )).resolves.toMatchObject({ scoreSummary: Summary })
+    expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
   })
 
   it('aborts after admission and always releases the lease', async () => {
@@ -663,35 +663,35 @@ describe('CalculationClient canonical normal check API', () => {
     })
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateCheckCanonical(
+    await expect(client.calculateCheck(
       checkParams(),
       { opposed: true, target: 0 },
       { signal: controller.signal }
     )).rejects.toMatchObject({ name: 'AbortError' })
-    expect(dependencies.calculateScoreCanonical).not.toHaveBeenCalled()
+    expect(dependencies.calculateScore).not.toHaveBeenCalled()
     expect(release).toHaveBeenCalledOnce()
   })
 
   it('releases the lease when canonical score production aborts or fails', async () => {
     const release = vi.fn()
     const controller = new AbortController()
-    const canonicalError = new Error('canonical score failure')
+    const failure = new Error('canonical score failure')
     const dependencies = createClientDependencies({
       resourceGuard: {
         acquirePlan: vi.fn(() => ({ release })),
       },
-      calculateScoreCanonical: vi.fn(() => {
+      calculateScore: vi.fn(() => {
         controller.abort()
-        throw canonicalError
+        throw failure
       }),
     })
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateCheckCanonical(
+    await expect(client.calculateCheck(
       checkParams(),
       { opposed: true, target: 0 },
       { signal: controller.signal }
-    )).rejects.toBe(canonicalError)
+    )).rejects.toBe(failure)
     expect(release).toHaveBeenCalledOnce()
   })
 })

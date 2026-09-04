@@ -14,7 +14,7 @@ import {
   getDxYouseiFftLength,
 } from './DxCalculator'
 import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from './RuntimeDamageRollLimits'
-import { LEGACY_PUBLISHED_OVERFLOW_INDEX } from './DistributionResult'
+import { PUBLISHED_OVERFLOW_INDEX } from './DistributionResult'
 import {
   getBacktrackDiceCounts,
   getBacktrackRule,
@@ -29,8 +29,8 @@ import {
 
 const DEFAULT_ERROR_BUDGET = 1e-8
 const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
-const LEGACY_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
-const BACKTRACK_CANONICAL_RESULT_COUNT = 3
+const LEGACY_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
+const BACKTRACK_RESULT_COUNT = 3
 // Runtime damage-roll work grows sublinearly across the supported reroll
 // counts in the measured Node workload. Keep the max-dice and FFT terms
 // explicit below, and use this coefficient only for the kazanari multiplier.
@@ -175,9 +175,9 @@ function getPublishedScoreUpperBound(calculationMax) {
  * @property {number} fftLength
  * @property {number} operations
  * @property {number} float64Bytes
- * @property {'canonical'} [calculationMode]
- * @property {number} [baseFloat64Bytes] Canonical source/generation buffers.
- * @property {number} [canonicalResultFloat64Bytes] Canonical owned results.
+ * @property {'complete-support'} [calculationMode]
+ * @property {number} [baseFloat64Bytes] Source/generation buffers.
+ * @property {number} [resultFloat64Bytes] Owned results.
  * @property {true} finiteSupport
  * @property {'asset' | 'on-demand'} distributionMode
  * @property {number} assetSupportMax
@@ -1042,7 +1042,7 @@ function planScore(params, display, policy, tailBudget) {
   }
 }
 
-function planBacktrack(params, display, canonical = false) {
+function planBacktrack(params, display, completeSupport = false) {
   object(params, 'backtrack')
   const normalized = {
     encroachment: integer(
@@ -1082,7 +1082,7 @@ function planBacktrack(params, display, canonical = false) {
   // boundary, so it must not be used to classify asset overflow.
   const assetSupportMax = BACKTRACK_ASSET_SUPPORT_MAX
   const assetOverflow = rawSupportMax > assetSupportMax
-  const distributionMode = canonical || assetOverflow ? 'on-demand' : 'asset'
+  const distributionMode = completeSupport || assetOverflow ? 'on-demand' : 'asset'
   const dynamicSupport = distributionMode === 'on-demand'
   const generationOperations = dynamicSupport
     ? getBacktrackGenerationOperationEstimate(
@@ -1100,8 +1100,8 @@ function planBacktrack(params, display, canonical = false) {
   const baseFloat64Bytes = (
     3 + generationFloat64Arrays
   ) * workingLength * Float64Array.BYTES_PER_ELEMENT
-  const canonicalResultFloat64Bytes = canonical
-    ? BACKTRACK_CANONICAL_RESULT_COUNT *
+  const resultFloat64Bytes = completeSupport
+    ? BACKTRACK_RESULT_COUNT *
       workingLength *
       Float64Array.BYTES_PER_ELEMENT
     : 0
@@ -1129,17 +1129,17 @@ function planBacktrack(params, display, canonical = false) {
     workingLength,
     fftLength: 0,
     operations,
-    float64Bytes: baseFloat64Bytes + canonicalResultFloat64Bytes,
+    float64Bytes: baseFloat64Bytes + resultFloat64Bytes,
     finiteSupport: true,
     distributionMode,
     assetSupportMax,
     assetOverflow,
     assetOverflowLowerBound: assetSupportMax + 1,
   }
-  if (canonical) {
-    plan.calculationMode = 'canonical'
+  if (completeSupport) {
+    plan.calculationMode = 'complete-support'
     plan.baseFloat64Bytes = baseFloat64Bytes
-    plan.canonicalResultFloat64Bytes = canonicalResultFloat64Bytes
+    plan.resultFloat64Bytes = resultFloat64Bytes
   }
   return plan
 }
@@ -1665,7 +1665,7 @@ export function planCalculationRanges(params, policy = {}) {
     backtrack = planBacktrack(
       params.backtrack ?? params,
       display,
-      params.canonicalBacktrack === true
+      params.completeSupportBacktrack === true
     )
   } else {
     const scoreParams = operation === 'score'

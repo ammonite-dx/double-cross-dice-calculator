@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
-  ATTACK_CANONICAL_PRESENTATION_ERROR_CODES,
-  createAttackCanonicalDisplayPresentation,
-} from '../src/features/attack/model/AttackCanonicalPresentation'
+  ATTACK_DISPLAY_PRESENTATION_DECISIONS,
+  ATTACK_PRESENTATION_ERROR_CODES,
+  createAttackDisplayPresentation,
+} from '../src/features/attack/model/AttackPresentation'
 import {
   ATTACK_DISPLAY_MODES,
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
-  getCanonicalTotalDamageSummary,
+  getTotalDamageSummary,
 } from '../src/calculation/DistributionResult'
-import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
-import { sumCanonicalDamage } from '../src/calculation/CanonicalDamageAggregation'
+import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { sumDamage } from '../src/calculation/DamageAggregation'
 import {
-  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
+  CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CHART_SERIES_NOT_READY_REASONS,
 } from '../src/shared/presentation'
 
 function createEnvelope({
@@ -48,22 +48,22 @@ function createScore(seed) {
 }
 
 function createBatch(damages) {
-  const combos = damages.map((canonicalDamage, index) => ({
+  const combos = damages.map((damage, index) => ({
     id: `combo-${index + 1}`,
     score: createScore((index + 1) / (damages.length + 1)),
     scoreSummary: {
       action: { expectedValue: index + 1 },
       reaction: { expectedValue: index + 2 },
     },
-    canonicalDamage,
-    canonicalDamageSummary: getCanonicalDamageSummary(canonicalDamage),
+    damage,
+    damageSummary: getDamageSummary(damage),
   }))
-  const canonicalTotalDamage = sumCanonicalDamage(damages)
+  const totalDamage = sumDamage(damages)
   return {
     combos,
-    canonicalTotalDamage,
-    canonicalTotalDamageSummary:
-      getCanonicalTotalDamageSummary(canonicalTotalDamage),
+    totalDamage,
+    totalDamageSummary:
+      getTotalDamageSummary(totalDamage),
   }
 }
 
@@ -72,14 +72,14 @@ function createPlan() {
 }
 
 function present(damages, displayRequest, policy) {
-  return createAttackCanonicalDisplayPresentation(createBatch(damages), {
+  return createAttackDisplayPresentation(createBatch(damages), {
     displayRequest,
     rangePlans: damages.map(() => createPlan()),
     ...(policy === undefined ? {} : { policy }),
   })
 }
 
-describe('createAttackCanonicalDisplayPresentation', () => {
+describe('createAttackDisplayPresentation', () => {
   it('connects combo and total damage through planner, series, and materializer', () => {
     const presentation = present([
       createEnvelope({ values: [0.25, 0.75], support: { kind: 'finite', max: 1 } }),
@@ -92,7 +92,7 @@ describe('createAttackCanonicalDisplayPresentation', () => {
     expect(presentation).toMatchObject({
       kind: 'attack-canonical-display-presentation',
       status: 'ready',
-      decision: ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.REUSE,
+      decision: ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE,
       mode: ATTACK_DISPLAY_MODES.PMF,
       displayRequest: { min: 0, max: 1, mode: 'pmf' },
     })
@@ -171,7 +171,7 @@ describe('createAttackCanonicalDisplayPresentation', () => {
 
     expect(presentation.status).toBe('not-ready')
     expect(presentation.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE)
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE)
     expect(presentation.combos[0]).toMatchObject({
       status: 'not-ready',
       decision: 'recalculate',
@@ -181,7 +181,7 @@ describe('createAttackCanonicalDisplayPresentation', () => {
       },
       series: {
         status: 'not-ready',
-        reason: CANONICAL_CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
+        reason: CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
       },
       chart: null,
     })
@@ -201,7 +201,7 @@ describe('createAttackCanonicalDisplayPresentation', () => {
 
     expect(presentation.status).toBe('ready')
     expect(presentation.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO)
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO)
     expect(presentation.combos[0]).toMatchObject({
       status: 'ready',
       decision: 'known-zero',
@@ -289,11 +289,11 @@ describe('createAttackCanonicalDisplayPresentation', () => {
     })
     expect(overlap.status).toBe('not-projectable')
     expect(overlap.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE)
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE)
     expect(overlap.combos[0]).toMatchObject({
       status: 'not-projectable',
       decision: 'recalculate',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP,
       chart: null,
     })
     expect(overlap.combos[0].series).not.toHaveProperty('values')
@@ -319,11 +319,11 @@ describe('createAttackCanonicalDisplayPresentation', () => {
 
     expect(presentation.status).toBe('not-projectable')
     expect(presentation.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE)
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE)
     expect(presentation.combos[0]).toMatchObject({
       status: 'not-projectable',
       decision: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
       chart: null,
     })
   })
@@ -348,15 +348,15 @@ describe('createAttackCanonicalDisplayPresentation', () => {
 
     expect(presentation.status).toBe('not-ready')
     expect(presentation.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE)
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE)
     expect(presentation.combos[0]).toMatchObject({
       status: 'not-ready',
       decision: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
       plan: { decision: 'recalculate' },
       series: {
         status: 'not-ready',
-        reason: CANONICAL_CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
+        reason: CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
       },
       chart: null,
     })
@@ -376,14 +376,14 @@ describe('createAttackCanonicalDisplayPresentation', () => {
 
     expect(presentation.status).toBe('not-ready')
     expect(presentation.decision)
-      .toBe(ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED)
+      .toBe(ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED)
     expect(presentation.combos[0]).toMatchObject({
       status: 'not-ready',
       decision: 'resource-rejected',
       plan: { status: 'resource-rejected' },
       series: {
         status: 'not-ready',
-        reason: CANONICAL_CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED,
+        reason: CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED,
       },
       chart: null,
     })
@@ -419,8 +419,8 @@ describe('createAttackCanonicalDisplayPresentation', () => {
       max: 1,
       mode: ATTACK_DISPLAY_MODES.PMF,
     }
-    const inputValues = Array.from(batch.combos[0].canonicalDamage.result.values)
-    const presentation = createAttackCanonicalDisplayPresentation(batch, {
+    const inputValues = Array.from(batch.combos[0].damage.result.values)
+    const presentation = createAttackDisplayPresentation(batch, {
       displayRequest: request,
       rangePlans: [createPlan()],
     })
@@ -434,10 +434,10 @@ describe('createAttackCanonicalDisplayPresentation', () => {
     expect(Object.isFrozen(presentation.combos[0].chart)).toBe(true)
     expect(presentation.displayRequest).not.toBe(request)
     expect(presentation.combos[0].series.values)
-      .not.toBe(batch.combos[0].canonicalDamage.result.values)
+      .not.toBe(batch.combos[0].damage.result.values)
 
     request.max = 1200
-    batch.combos[0].canonicalDamage.result.values[0] = 0
+    batch.combos[0].damage.result.values[0] = 0
     expect(presentation.displayRequest.max).toBe(1)
     expect(Array.from(presentation.combos[0].display.explicit.probabilities))
       .toEqual(inputValues)
@@ -450,27 +450,27 @@ describe('createAttackCanonicalDisplayPresentation', () => {
     const rangePlans = [createPlan()]
     const validRequest = { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF }
 
-    expect(() => createAttackCanonicalDisplayPresentation(batch, {
+    expect(() => createAttackDisplayPresentation(batch, {
       displayRequest: null,
       rangePlans,
     })).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
     }))
-    expect(() => createAttackCanonicalDisplayPresentation(batch, {
+    expect(() => createAttackDisplayPresentation(batch, {
       displayRequest: validRequest,
       rangePlans: null,
     })).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
     }))
-    expect(() => createAttackCanonicalDisplayPresentation(batch, {
+    expect(() => createAttackDisplayPresentation(batch, {
       displayRequest: validRequest,
       rangePlans,
       policy: null,
     })).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
     }))
 
-    expect(() => createAttackCanonicalDisplayPresentation(batch, {
+    expect(() => createAttackDisplayPresentation(batch, {
       displayRequest: undefined,
       rangePlans,
       policy: undefined,

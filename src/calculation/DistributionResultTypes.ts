@@ -34,8 +34,8 @@ export interface DistributionEnvelope {
   readonly metadata: ModeledDistributionMetadata
 }
 
-export type CanonicalScoreEnvelope = DistributionEnvelope
-export type CanonicalDamageEnvelope = DistributionEnvelope
+export type ScoreEnvelope = DistributionEnvelope
+export type DamageEnvelope = DistributionEnvelope
 
 export interface ProbabilityMassSummary {
   readonly explicitMass: number
@@ -54,55 +54,53 @@ export type ExpectedValueSummary =
   | Readonly<{ kind: 'bounded'; lowerBound: number; upperBound: number }>
   | Readonly<{ kind: 'lower-bound'; lowerBound: number }>
 
-export interface CanonicalScoreRateSummaryExact {
+export interface ScoreRateSummaryExact {
   readonly kind: 'exact'
   readonly value: number
 }
 
-export interface CanonicalScoreRateSummaryBounded {
+export interface ScoreRateSummaryBounded {
   readonly kind: 'bounded'
   readonly lowerBound: number
   readonly upperBound: number
 }
 
-export type CanonicalScoreRateSummary =
-  | CanonicalScoreRateSummaryExact
-  | CanonicalScoreRateSummaryBounded
+export type ScoreRateSummary =
+  | ScoreRateSummaryExact
+  | ScoreRateSummaryBounded
 
-export interface CanonicalScoreSummaryLane {
+export interface ScoreSummaryLane {
   readonly expectedValue: ExpectedValueSummary
-  readonly successRate: CanonicalScoreRateSummary
+  readonly successRate: ScoreRateSummary
 }
 
-export interface CanonicalScoreSummary {
-  readonly action: CanonicalScoreSummaryLane
-  readonly reaction: CanonicalScoreSummaryLane
+export interface ScoreSummary {
+  readonly action: ScoreSummaryLane
+  readonly reaction: ScoreSummaryLane
 }
 
-export interface CanonicalScorePair {
-  readonly action: CanonicalScoreEnvelope
-  readonly reaction: CanonicalScoreEnvelope
+export interface ScorePair {
+  readonly action: ScoreEnvelope
+  readonly reaction: ScoreEnvelope
 }
 
-export interface CanonicalDamageSummary {
+export interface DamageSummary {
   readonly expectedValue: ExpectedValueSummary
   readonly mass: ProbabilityMassSummary
 }
 
 export interface AttackCalculationResult {
-  readonly score: CanonicalScorePair
-  readonly scoreSummary: CanonicalScoreSummary
-  readonly canonicalScore: CanonicalScorePair
-  readonly canonicalScoreBatchSummary: CanonicalScoreSummary
-  readonly canonicalDamage: CanonicalDamageEnvelope
-  readonly canonicalDamageSummary: CanonicalDamageSummary
+  readonly score: ScorePair
+  readonly scoreSummary: ScoreSummary
+  readonly damage: DamageEnvelope
+  readonly damageSummary: DamageSummary
 }
 
 export interface BacktrackCalculationResult {
   readonly [label: string]: DistributionResult
 }
 
-export interface CanonicalTotalDamageResult {
-  readonly canonicalTotalDamage: CanonicalDamageEnvelope
-  readonly canonicalTotalDamageSummary: CanonicalDamageSummary
+export interface TotalDamageResult {
+  readonly totalDamage: DamageEnvelope
+  readonly totalDamageSummary: DamageSummary
 }

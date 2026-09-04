@@ -1,20 +1,20 @@
 export {
-  CANONICAL_SUMMARY_UNAVAILABLE,
-  formatCanonicalSummaryExpectedValue,
-  formatCanonicalScoreSummaryExpectedValue,
-  formatCanonicalScoreSuccessRate,
-  formatCanonicalScoreSuccessRateDisplay,
-} from '../../../shared/presentation/CanonicalSummaryFormatter'
+  SUMMARY_UNAVAILABLE,
+  formatSummaryExpectedValue,
+  formatScoreSummaryExpectedValue,
+  formatScoreSuccessRate,
+  formatScoreSuccessRateDisplay,
+} from '../../../shared/presentation/SummaryFormatter'
 
-export function getCanonicalScoreSummaryForCombo(presentation, comboId) {
+export function getScoreSummaryForCombo(presentation, comboId) {
   if (presentation?.status !== 'ready') {
     return null
   }
-  const combo = findCanonicalComboPresentation(presentation, comboId)
-  return combo?.canonicalScoreBatchSummary ?? null
+  const combo = findComboPresentation(presentation, comboId)
+  return combo?.scoreSummary ?? null
 }
 
-export function findCanonicalComboPresentation(presentation, comboId) {
+export function findComboPresentation(presentation, comboId) {
   if (!Array.isArray(presentation?.combos)) {
     return null
   }

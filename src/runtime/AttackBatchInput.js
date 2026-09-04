@@ -226,7 +226,7 @@ function snapshotBatchAttackParams(params, index) {
   }
 }
 
-function snapshotCanonicalAttackBatchEntries(entries) {
+function snapshotAttackBatchEntries(entries) {
   if (!Array.isArray(entries)) {
     failBatchInput(
       CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_ENTRIES,
@@ -335,7 +335,7 @@ function validateBatchSignal(signal) {
   }
 }
 
-function validateCanonicalAttackBatchOptions(options) {
+function validateAttackBatchOptions(options) {
   if (!isRecord(options)) {
     failBatchInput(
       CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS,
@@ -450,7 +450,7 @@ function validateCanonicalAttackBatchOptions(options) {
 }
 
 
-const CANONICAL_TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES = Object.freeze([
+const TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES = Object.freeze([
   'maxValuesLength',
   'maxFftLength',
   'maxResourceBytes',
@@ -463,12 +463,12 @@ function hasOwn(object, property) {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
 
-export function createCanonicalTotalDamageAggregationOptions(
+export function createTotalDamageAggregationOptions(
   options,
   defaultOnFftLength
 ) {
   const aggregationOptions = {}
-  for (const name of CANONICAL_TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES) {
+  for (const name of TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES) {
     if (hasOwn(options, name)) {
       aggregationOptions[name] = options[name]
     }
@@ -482,7 +482,7 @@ export function createCanonicalTotalDamageAggregationOptions(
   return aggregationOptions
 }
 
-export function snapshotCanonicalAttackBatchRequest(
+export function snapshotAttackBatchRequest(
   entries,
   options = {},
   {
@@ -492,14 +492,14 @@ export function snapshotCanonicalAttackBatchRequest(
 ) {
   if (typeof validateAggregationOptions !== 'function') {
     throw new TypeError(
-      'snapshotCanonicalAttackBatchRequest requires validateAggregationOptions'
+      'snapshotAttackBatchRequest requires validateAggregationOptions'
     )
   }
 
-  const batchOptions = validateCanonicalAttackBatchOptions(options)
-  const entrySnapshots = snapshotCanonicalAttackBatchEntries(entries)
+  const batchOptions = validateAttackBatchOptions(options)
+  const entrySnapshots = snapshotAttackBatchEntries(entries)
   const aggregationOptions =
-    createCanonicalTotalDamageAggregationOptions(
+    createTotalDamageAggregationOptions(
       batchOptions,
       defaultOnFftLength
     )
@@ -514,11 +514,11 @@ export function snapshotCanonicalAttackBatchRequest(
     }
     failBatchInput(
       CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS,
-      'canonical total damage options are invalid',
+      'total damage options are invalid',
       {
         causeCode: error?.code,
         causeName: error?.name,
-        field: 'canonicalTotalDamage',
+        field: 'totalDamage',
       }
     )
   }
@@ -528,8 +528,8 @@ export function snapshotCanonicalAttackBatchRequest(
   ) {
     failBatchInput(
       CALCULATION_BATCH_INPUT_ERROR_CODES.INVALID_OPTIONS,
-      'canonical total damage options could not be validated',
-      { field: 'canonicalTotalDamage' }
+      'total damage options could not be validated',
+      { field: 'totalDamage' }
     )
   }
   if (entrySnapshots.length > normalizedAggregationOptions.maxComponents) {

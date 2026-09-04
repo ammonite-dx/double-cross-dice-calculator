@@ -1,5 +1,5 @@
 import {
-  LEGACY_PUBLISHED_OVERFLOW_INDEX,
+  PUBLISHED_OVERFLOW_INDEX,
 } from '../../../calculation/DistributionResult'
 
 export const ATTACK_DISPLAY_REQUEST_VERSION = 1
@@ -24,7 +24,7 @@ export const DEFAULT_ATTACK_DISPLAY_REQUEST = Object.freeze({
   mode: ATTACK_DISPLAY_MODES.PMF,
 })
 
-const LEGACY_SAFE_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
+const LEGACY_SAFE_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -128,8 +128,8 @@ function normalizeMode(value) {
 }
 
 /**
- * Normalize the display-only Attack boundary shared by future Score and
- * Damage requests. Calculation aliases and legacy 999 limits deliberately do
+ * Normalize the display-only Attack boundary shared by future score and
+ * damage requests. Calculation aliases and legacy 999 limits deliberately do
  * not belong to this value.
  */
 export function normalizeAttackDisplayRequest(request) {
@@ -183,9 +183,9 @@ export function createAttackDisplayRequestSnapshot(
 
 /**
  * Expand the calculation range policy only when an Attack display request
- * needs coverage beyond the published calculation boundary. When a Score
+ * needs coverage beyond the published calculation boundary. When a score
  * request is supplied, the policy covers the envelope of both display
- * requests so a Score-only expansion cannot shrink the current Damage
+ * requests so a score-only expansion cannot shrink the current damage
  * coverage (and vice versa). The independent DisplayRangePlanner remains
  * responsible for display resource rejection; this policy only carries the
  * accepted requests into RangePlanner.
@@ -207,7 +207,7 @@ export function createAttackRangePolicy(
   // Keep the optional second display request out of the RangePlanner policy
   // itself. Accepting it as a third argument keeps the existing
   // createAttackRangePolicy(request, policy) contract intact while allowing
-  // callers to compose the Damage and Score request snapshots explicitly.
+  // callers to compose the damage and score request snapshots explicitly.
   let policyInput = suppliedPolicy
   let composedScoreDisplayRequest = scoreDisplayRequest
   if (

@@ -1,6 +1,6 @@
 import {
-  createBacktrackCanonicalPresentation,
-} from './BacktrackCanonicalPresentation'
+  createBacktrackPresentation,
+} from './BacktrackPresentation'
 import {
   createLatestCalculationRunner,
 } from '../../../runtime/CalculationFeedback'
@@ -16,30 +16,30 @@ function createCalculationEnvelope(params, result) {
 }
 
 /**
- * Connect one Backtrack request lane to the canonical client API and the
+ * Connect one Backtrack request lane to the calculation client API and the
  * Backtrack-specific presentation adapter. The shared runner owns feedback,
  * preflight, abort, latest-wins, and disposal behavior.
  */
-export function createBacktrackCanonicalRunner({
+export function createBacktrackRunner({
   state,
   feedback,
   calculationClient,
-  createPresentation = createBacktrackCanonicalPresentation,
+  createPresentation = createBacktrackPresentation,
   onError,
 }) {
   if (state === null || typeof state !== 'object') {
-    throw new TypeError('createBacktrackCanonicalRunner requires state')
+    throw new TypeError('createBacktrackRunner requires state')
   }
   if (feedback === null || typeof feedback !== 'object') {
-    throw new TypeError('createBacktrackCanonicalRunner requires feedback')
+    throw new TypeError('createBacktrackRunner requires feedback')
   }
   if (
     calculationClient === null
     || typeof calculationClient !== 'object'
-    || typeof calculationClient.calculateBacktrackCanonical !== 'function'
+    || typeof calculationClient.calculateBacktrack !== 'function'
   ) {
     throw new TypeError(
-      'createBacktrackCanonicalRunner requires calculateBacktrackCanonical'
+      'createBacktrackRunner requires calculateBacktrack'
     )
   }
 
@@ -49,7 +49,7 @@ export function createBacktrackCanonicalRunner({
     calculate: (snapshot) => {
       const { params, ...calculationOptions } = snapshot
       return Promise.resolve(
-        calculationClient.calculateBacktrackCanonical(
+        calculationClient.calculateBacktrack(
           params,
           calculationOptions
         )
@@ -67,7 +67,7 @@ export function createBacktrackCanonicalRunner({
       state.resultReady = true
     },
     onError: (error) => {
-      // Canonical errors must not leave the previous chart visible or fall
+      //  errors must not leave the previous chart visible or fall
       // back to the legacy calculation. A later run can retry normally.
       state.finalEncroachment = null
       state.resultReady = false

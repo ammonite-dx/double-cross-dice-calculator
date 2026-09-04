@@ -94,10 +94,10 @@ describe('CheckInputSnapshot', () => {
 
 describe('Check input flow contracts', () => {
   it('keeps calculation ownership and snapshot expansion in the Check feature model', () => {
-    expect(checkControllerSource).toContain('calculationClient.calculateCheckCanonical(')
+    expect(checkControllerSource).toContain('calculationClient.calculateCheck(')
     expect(checkControllerSource).toContain('snapshot.params')
     expect(checkControllerSource).toContain('snapshot.difficulty')
-    expect(checkControllerSource).not.toContain('calculationClient.calculateCheck(')
+    expect(checkControllerSource).not.toContain('calculationClient.calculateCheckCanonical(')
     expect(checkControllerSource).toContain(
       'snapshotRequest: createCheckCalculationRequestSnapshot'
     )
@@ -106,12 +106,12 @@ describe('Check input flow contracts', () => {
     expect(checkPageSource).toContain('useCheck({ calculationClient })')
     expect(checkPageSource).toContain('@dfclty-validated="onDifficultyValidated"')
     expect(checkPageSource).toContain('@score-validated="onScoreValidated"')
-    expect(checkViewSource).not.toContain('calculationClient.calculateCheckCanonical(')
+    expect(checkViewSource).not.toContain('calculationClient.calculateCheck(')
     expect(checkViewSource).not.toContain('watch(props.checkData')
   })
 
   it('connects Check charts to canonical presentation without a legacy data path', () => {
-    expect(scoreChartSource).not.toContain('createCheckCanonicalPresentation')
+    expect(scoreChartSource).not.toContain('createCheckPresentation')
     expect(scoreChartSource).not.toContain('displayRequest')
     expect(scoreChartSource).not.toContain('CHECK_DISPLAY_MODE_LABELS')
     expect(scoreChartSource).not.toContain('CHECK_DISPLAY_MODES')

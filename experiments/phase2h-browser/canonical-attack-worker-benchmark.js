@@ -1,11 +1,11 @@
 import {
   calculationClient,
 } from '../../src/runtime/CalculationClient.js'
-import { createAttackCanonicalRunner } from '../../src/features/attack/model/AttackCanonicalRunner.js'
+import { createAttackRunner } from '../../src/features/attack/model/AttackRunner.js'
 import {
-  createCanonicalAttackState,
-  createCanonicalComboDataState,
-} from '../../src/features/attack/model/AttackCanonicalState.js'
+  createAttackState,
+  createComboDataState,
+} from '../../src/features/attack/model/AttackState.js'
 import {
   BENCHMARK_CASES,
   BENCHMARK_CASE_IDS,
@@ -408,17 +408,17 @@ function summarizeBatch(batchResult) {
       ? batchResult.combos.map((combo) => ({
           id: combo.id,
           score: combo.scoreSummary ? clone(combo.scoreSummary) : null,
-          canonicalDamage: summarizeCanonicalDamage(combo.canonicalDamage),
-          canonicalDamageSummary: combo.canonicalDamageSummary
-            ? clone(combo.canonicalDamageSummary)
+          canonicalDamage: summarizeCanonicalDamage(combo.damage),
+          canonicalDamageSummary: combo.damageSummary
+            ? clone(combo.damageSummary)
             : null,
         }))
       : [],
     canonicalTotalDamage: summarizeCanonicalDamage(
-      batchResult.canonicalTotalDamage
+      batchResult.totalDamage
     ),
-    canonicalTotalDamageSummary: batchResult.canonicalTotalDamageSummary
-      ? clone(batchResult.canonicalTotalDamageSummary)
+    canonicalTotalDamageSummary: batchResult.totalDamageSummary
+      ? clone(batchResult.totalDamageSummary)
       : null,
   }
 }
@@ -558,7 +558,7 @@ async function runBatchSample(testCase, requestId) {
     (fftLength) => diagnostics.fftLengths.push(fftLength) && fftLengths.push(fftLength)
   )
   try {
-    const result = await calculationClient.calculateAttackCanonicalBatch(
+    const result = await calculationClient.calculateAttackBatch(
       testCase.entries,
       options
     )
@@ -639,7 +639,7 @@ async function runCase(testCase) {
   }
 
   const stage = await measureSamples({
-    name: 'CalculationClient.calculateAttackCanonicalBatch',
+    name: 'CalculationClient.calculateAttackBatch',
     iterations: measurement.iterations,
     warmupIterations: measurement.warmupIterations,
     operation: () => runBatchSample(testCase, requestPrefix),
@@ -659,7 +659,7 @@ async function runCase(testCase) {
         : 'error'
   return createCaseReport(testCase, measurement, stage, {
     status: caseStatus,
-    publicBoundary: 'calculationClient.calculateAttackCanonicalBatch',
+    publicBoundary: 'calculationClient.calculateAttackBatch',
     expectedReject,
     plan: lastOutcome?.rangePlans ?? null,
     worker: expectedReject && gotExpectedReject ? 'not-called' : 'diagnosed',
@@ -687,7 +687,7 @@ async function runCancelProbe() {
   const timed = await invokeTimed(async () => {
     const rangePlans = []
     try {
-      const result = await calculationClient.calculateAttackCanonicalBatch(
+      const result = await calculationClient.calculateAttackBatch(
         [entry],
         {
           signal: controller.signal,
@@ -731,18 +731,17 @@ async function runStaleProbe() {
   const source = findCase('small-normal-kazanari-0').entries[0]
   const changed = findCase('fixed-shift-defence').entries[0]
   const state = {
-    ...createCanonicalAttackState(),
-    canonicalOptIn: true,
+    ...createAttackState(),
     combos: [{
       id: 'stale-probe',
       data: {
         params: clone(source.params),
-        ...createCanonicalComboDataState(),
+        ...createComboDataState(),
       },
     }],
   }
   const runnerErrors = []
-  const runner = createAttackCanonicalRunner({
+  const runner = createAttackRunner({
     state,
     calculationClient,
     onError: (error) => runnerErrors.push(serializeError(error)),
@@ -758,7 +757,7 @@ async function runStaleProbe() {
     status: runnerErrors.length === 0 ? 'measured' : 'error',
     firstCommit: firstResult,
     secondCommit: secondResult,
-    canonicalResultReady: state.combos[0].data.canonicalResultReady,
+    canonicalResultReady: state.combos[0].data.resultReady,
     runnerErrors,
     diagnostics: counterDelta(before, after),
     interpretation: 'first latest-runner request is expected to be stale/aborted; second request is the only commit candidate',
@@ -829,8 +828,8 @@ function createReport(cases, cancelProbe, staleProbe) {
     resultSink: round(resultSink),
     limitations: [
       'Worker error counters record naturally observed native error/messageerror events; this page does not crash a production Worker to create a synthetic error.',
-      'calculateAttackCanonicalBatch has no stale commit policy by itself; stale behavior is measured through the existing AttackCanonicalRunner.',
-      'Attack.vue keeps canonicalOptIn=false by default, so this page is an explicit experiment and is not a production UI path.',
+      'calculateAttackBatch has no stale commit policy by itself; stale behavior is measured through the existing AttackRunner.',
+      'Attack.vue uses this benchmark as an explicit diagnostic page and is not a production UI path.',
     ],
   }
 }

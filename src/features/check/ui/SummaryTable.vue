@@ -1,8 +1,8 @@
 <script setup>
 
     import {
-        formatCanonicalScoreSummaryExpectedValue,
-        formatCanonicalScoreSuccessRateDisplay,
+        formatScoreSummaryExpectedValue,
+        formatScoreSuccessRateDisplay,
     } from '@/shared/presentation';
 
     const props = defineProps({
@@ -16,19 +16,19 @@
         },
     });
 
-    function getCanonicalSideSummary(side) {
+    function getSideSummary(side) {
         return props.scoreSummary?.[side] ?? null;
     }
 
     function getExpectedValue(side) {
-        return formatCanonicalScoreSummaryExpectedValue(
-            getCanonicalSideSummary(side)?.expectedValue
+        return formatScoreSummaryExpectedValue(
+            getSideSummary(side)?.expectedValue
         );
     }
 
     function getSuccessRate(side) {
-        return formatCanonicalScoreSuccessRateDisplay(
-            getCanonicalSideSummary(side)?.successRate
+        return formatScoreSuccessRateDisplay(
+            getSideSummary(side)?.successRate
         );
     }
 

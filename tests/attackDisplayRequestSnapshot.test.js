@@ -190,7 +190,7 @@ describe('Attack display request snapshot', () => {
     expect(plan.damage.workingMax).toBeGreaterThanOrEqual(1200)
   })
 
-  it('composes Damage and Score display windows without shrinking either range', () => {
+  it('composes damage and score display windows without shrinking either range', () => {
     const policy = createAttackRangePolicy(
       {
         min: 0,

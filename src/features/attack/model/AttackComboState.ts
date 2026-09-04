@@ -6,9 +6,9 @@ import type {
 } from '../../../domain/CalculationInputs'
 import type { ScoreInput } from '../../../domain/InputDomain'
 import {
-  createCanonicalComboDataState,
-  snapshotCanonicalAttackParams,
-} from './AttackCanonicalState'
+  createComboDataState,
+  snapshotAttackParams,
+} from './AttackState'
 
 export interface AttackComboParams extends AttackCalculationInput {
   action: {
@@ -24,16 +24,15 @@ export interface AttackComboParams extends AttackCalculationInput {
 
 export interface AttackComboData {
   params: AttackComboParams
-  canonicalScore: unknown
-  canonicalScoreSummary: unknown
-  canonicalScoreBatchSummary: unknown
-  canonicalScorePresentation: unknown
-  canonicalScoreReady: boolean
-  canonicalDamage: unknown
-  canonicalDamageSummary: unknown
-  canonicalDamagePresentation: unknown
-  canonicalRangePlan: unknown
-  canonicalResultReady: boolean
+  score: unknown
+  scoreSummary: unknown
+  scorePresentation: unknown
+  scoreReady: boolean
+  damage: unknown
+  damageSummary: unknown
+  damagePresentation: unknown
+  rangePlan: unknown
+  resultReady: boolean
 }
 
 export interface AttackCombo {
@@ -93,12 +92,12 @@ function createShowDetails() {
   }
 }
 
-export function createCanonicalComboData(
+export function createComboData(
   params: AttackComboParams = createAttackComboParams(),
 ): AttackComboData {
   return {
     params,
-    ...createCanonicalComboDataState(),
+    ...createComboDataState(),
   }
 }
 
@@ -111,7 +110,7 @@ export function createAttackCombo(
     name,
     show: true,
     showDetails: createShowDetails(),
-    data: createCanonicalComboData(),
+    data: createComboData(),
   }
 }
 
@@ -119,7 +118,7 @@ export function cloneAttackCombo(
   source: AttackCombo,
   id: number | string,
 ): AttackCombo {
-  const params = snapshotCanonicalAttackParams(
+  const params = snapshotAttackParams(
     source.data.params
   ) as AttackComboParams
   return {
@@ -130,6 +129,6 @@ export function cloneAttackCombo(
       action: source.showDetails.action,
       reaction: source.showDetails.reaction,
     },
-    data: createCanonicalComboData(params),
+    data: createComboData(params),
   }
 }

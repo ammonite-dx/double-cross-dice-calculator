@@ -56,7 +56,7 @@ function createPlan(operation = 'check', float64Bytes = 1) {
 }
 
 function createClientDependencies(overrides = {}) {
-  const canonicalEnvelope = {
+  const Envelope = {
     result: createDistributionResult({
       values: [1],
       offset: 0,
@@ -70,14 +70,14 @@ function createClientDependencies(overrides = {}) {
     },
   }
   return {
-    calculateCanonicalDamageOnDemand: vi.fn(async () => canonicalEnvelope),
-    calculateScoreCanonical: vi.fn(() => canonicalEnvelope),
-    getCanonicalDamageSummary: vi.fn(() => 'canonical damage summary'),
-    getCanonicalScoreSummary: vi.fn(() => 'canonical score summary'),
-    getCanonicalTotalDamageSummary: vi.fn(() => 'canonical total summary'),
+    calculateDamageOnDemand: vi.fn(async () => Envelope),
+    calculateScore: vi.fn(() => Envelope),
+    getDamageSummary: vi.fn(() => 'canonical damage summary'),
+    getScoreSummary: vi.fn(() => 'canonical score summary'),
+    getTotalDamageSummary: vi.fn(() => 'canonical total summary'),
     getDamageRollDistribution: vi.fn(),
     getD10Distribution: vi.fn(),
-    getFinalEncroachmentCanonical: vi.fn(() => 'canonical backtrack'),
+    getFinalEncroachment: vi.fn(() => 'canonical backtrack'),
     planCalculationRanges: vi.fn((params) => createPlan(params.operation)),
     ...overrides,
   }
@@ -353,10 +353,10 @@ describe('CalculationClient resource guard integration', () => {
       resourceGuard,
     })
 
-    await client.calculateCheckCanonical(checkParams(), {})
-    await client.calculateAttackCanonical(attackParams())
-    await client.calculateBacktrackCanonical(backtrackParams())
-    await client.calculateCanonicalTotalDamage([])
+    await client.calculateCheck(checkParams(), {})
+    await client.calculateAttack(attackParams())
+    await client.calculateBacktrack(backtrackParams())
+    await client.calculateTotalDamage([])
 
     expect(resourceGuard.acquirePlan).toHaveBeenCalledTimes(4)
     expect(leases).toHaveLength(4)
@@ -365,9 +365,9 @@ describe('CalculationClient resource guard integration', () => {
   })
 
   it.each([
-    ['check', (client, options) => client.calculateCheckCanonical(checkParams(), {}, options)],
-    ['attack', (client, options) => client.calculateAttackCanonical(attackParams(), options)],
-    ['backtrack', (client, options) => client.calculateBacktrackCanonical(backtrackParams(), options)],
+    ['check', (client, options) => client.calculateCheck(checkParams(), {}, options)],
+    ['attack', (client, options) => client.calculateAttack(attackParams(), options)],
+    ['backtrack', (client, options) => client.calculateBacktrack(backtrackParams(), options)],
   ])('releases a plan lease when %s aborts after admission', async (_name, run) => {
     const controller = new AbortController()
     const release = vi.fn()
@@ -383,7 +383,7 @@ describe('CalculationClient resource guard integration', () => {
     await expect(run(client, { signal: controller.signal }))
       .rejects.toMatchObject({ name: 'AbortError' })
     expect(release).toHaveBeenCalledOnce()
-    expect(dependencies.calculateScoreCanonical).not.toHaveBeenCalled()
+    expect(dependencies.calculateScore).not.toHaveBeenCalled()
   })
 
   it('shares one guard across clients and preserves FIFO admission', async () => {
@@ -396,7 +396,7 @@ describe('CalculationClient resource guard integration', () => {
     const loading = createDeferred()
     const dependencies = createClientDependencies({
       planCalculationRanges: vi.fn(() => createPlan('backtrack', 10)),
-      getFinalEncroachmentCanonical: vi.fn(() => loading.promise),
+      getFinalEncroachment: vi.fn(() => loading.promise),
     })
     const firstClient = createCalculationClient({
       ...dependencies,
@@ -406,8 +406,8 @@ describe('CalculationClient resource guard integration', () => {
       ...dependencies,
       resourceGuard: guard,
     })
-    const firstPromise = firstClient.calculateBacktrackCanonical(backtrackParams())
-    const secondPromise = secondClient.calculateBacktrackCanonical(backtrackParams())
+    const firstPromise = firstClient.calculateBacktrack(backtrackParams())
+    const secondPromise = secondClient.calculateBacktrack(backtrackParams())
 
     await Promise.resolve()
     expect(guard.snapshot()).toMatchObject({
@@ -434,9 +434,9 @@ describe('CalculationClient resource guard integration', () => {
     })
     const client = createCalculationClient({ ...dependencies, resourceGuard: guard })
 
-    await expect(client.calculateCheckCanonical(checkParams(), {}))
+    await expect(client.calculateCheck(checkParams(), {}))
       .rejects.toBeInstanceOf(CalculationRangeError)
-    expect(dependencies.calculateScoreCanonical).not.toHaveBeenCalled()
+    expect(dependencies.calculateScore).not.toHaveBeenCalled()
     expect(guard.snapshot()).toMatchObject({
       activeCount: 0,
       queuedCount: 0,
@@ -445,13 +445,13 @@ describe('CalculationClient resource guard integration', () => {
   })
 
   it.each([
-    ['success', async (client) => client.calculateCheckCanonical(checkParams(), {})],
-    ['runtime damage error', async (client) => client.calculateAttackCanonical({
+    ['success', async (client) => client.calculateCheck(checkParams(), {})],
+    ['runtime damage error', async (client) => client.calculateAttack({
       ...attackParams(),
       reaction: { ...attackParams().reaction, damage: { dice: 1, value: 0 } },
     })],
-    ['worker error', async (client) => client.calculateAttackCanonical(attackParams())],
-    ['synchronous error', async (client) => client.calculateCheckCanonical(checkParams(), {})],
+    ['worker error', async (client) => client.calculateAttack(attackParams())],
+    ['synchronous error', async (client) => client.calculateCheck(checkParams(), {})],
   ])('releases the lease on %s', async (kind, run) => {
     const guard = new ResourceGuard({
       capacityBytes: 100,
@@ -463,12 +463,12 @@ describe('CalculationClient resource guard integration', () => {
       planCalculationRanges: vi.fn((params) => createPlan(params.operation, 10)),
     }
     if (kind === 'runtime damage error' || kind === 'worker error') {
-      overrides.calculateCanonicalDamageOnDemand = vi.fn(async () => {
+      overrides.calculateDamageOnDemand = vi.fn(async () => {
         throw new Error('worker failure')
       })
     }
     if (kind === 'synchronous error') {
-      overrides.calculateScoreCanonical = vi.fn(() => {
+      overrides.calculateScore = vi.fn(() => {
         throw new Error('sync failure')
       })
     }
@@ -498,11 +498,11 @@ describe('CalculationClient resource guard integration', () => {
     const loading = createDeferred()
     const dependencies = createClientDependencies({
       planCalculationRanges: vi.fn(() => createPlan('backtrack', 10)),
-      getFinalEncroachmentCanonical: vi.fn(() => loading.promise),
+      getFinalEncroachment: vi.fn(() => loading.promise),
     })
     const client = createCalculationClient({ ...dependencies, resourceGuard: guard })
     const controller = new AbortController()
-    const calculation = client.calculateBacktrackCanonical(backtrackParams(), {
+    const calculation = client.calculateBacktrack(backtrackParams(), {
       signal: controller.signal,
     })
 
@@ -530,7 +530,7 @@ describe('CalculationClient resource guard integration', () => {
       planCalculationRanges: vi.fn(() => createPlan('check', 1)),
     })
     const client = createCalculationClient({ ...dependencies, resourceGuard: guard })
-    const error = await client.calculateCheckCanonical(checkParams(), {})
+    const error = await client.calculateCheck(checkParams(), {})
       .catch((caughtError) => caughtError)
     const display = formatRangeFeedback({ status: 'error', error })
 
@@ -571,12 +571,12 @@ describe('CalculationClient resource guard integration', () => {
       ...createClientDependencies(),
       resourceGuard,
     })
-    const attack = await client.calculateAttackCanonical(attackParams())
+    const attack = await client.calculateAttack(attackParams())
 
-    await expect(client.calculateCanonicalTotalDamage([
-      attack.canonicalDamage,
+    await expect(client.calculateTotalDamage([
+      attack.damage,
     ])).resolves.toMatchObject({
-      canonicalTotalDamageSummary: 'canonical total summary',
+      totalDamageSummary: 'canonical total summary',
     })
     expect(resourceGuard.acquirePlan).toHaveBeenCalledTimes(2)
     expect(releases).toHaveLength(2)

@@ -1,5 +1,5 @@
 /**
- * Canonical input-domain predicates shared by the application boundary and
+ *  input-domain predicates shared by the application boundary and
  * calculation planner. These checks describe values that can be represented
  * safely; they deliberately do not encode historical JSON or UI ceilings.
  */

@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES,
-  CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS,
-  CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
-  CanonicalDamageAggregationError,
-  planCanonicalDamageAggregation,
-  sumCanonicalDamage,
-} from '../src/calculation/CanonicalDamageAggregation'
+  DAMAGE_AGGREGATION_ERROR_CODES,
+  DAMAGE_AGGREGATION_MAX_COMPONENTS,
+  DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
+  DamageAggregationError,
+  planDamageAggregation,
+  sumDamage,
+} from '../src/calculation/DamageAggregation'
 import {
   createDistributionResult,
   DISTRIBUTION_RESULT_TOLERANCE,
@@ -45,7 +45,7 @@ function expectAggregationError(run, code) {
     run()
     throw new Error('expected aggregation error')
   } catch (error) {
-    expect(error).toBeInstanceOf(CanonicalDamageAggregationError)
+    expect(error).toBeInstanceOf(DamageAggregationError)
     expect(error.code).toBe(code)
     return error
   }
@@ -53,7 +53,7 @@ function expectAggregationError(run, code) {
 
 describe('canonical damage aggregation', () => {
   it('returns a frozen zero identity for no components', () => {
-    const aggregate = sumCanonicalDamage([])
+    const aggregate = sumDamage([])
 
     expect(Array.from(aggregate.result.values)).toEqual([1])
     expect(aggregate.result.offset).toBe(0)
@@ -83,7 +83,7 @@ describe('canonical damage aggregation', () => {
       sourceSupport: { kind: 'finite', max: 12 },
     })
     const onFftLength = vi.fn()
-    const aggregate = sumCanonicalDamage([input], { onFftLength })
+    const aggregate = sumDamage([input], { onFftLength })
 
     expect(aggregate.result).not.toBe(input.result)
     expect(aggregate.result).toStrictEqual(input.result)
@@ -117,7 +117,7 @@ describe('canonical damage aggregation', () => {
         },
       },
     })
-    const aggregate = sumCanonicalDamage([input])
+    const aggregate = sumDamage([input])
 
     expect(aggregate.metadata.projectionUncertainty).toEqual({
       positionUnknownProbabilityUpperBound: 1e-8,
@@ -144,7 +144,7 @@ describe('canonical damage aggregation', () => {
       sourceSupport: { kind: 'infinite' },
     })
     const observedFftLengths = []
-    const aggregate = sumCanonicalDamage([first, second], {
+    const aggregate = sumDamage([first, second], {
       onFftLength: (length) => observedFftLengths.push(length),
     })
 
@@ -182,7 +182,7 @@ describe('canonical damage aggregation', () => {
         errorBound: 0.2,
       },
     })
-    const exactAggregate = sumCanonicalDamage([exact, exactSecond])
+    const exactAggregate = sumDamage([exact, exactSecond])
     expect(exactAggregate.result.overflow).toMatchObject({
       kind: 'exact',
       lowerBound: 4,
@@ -205,7 +205,7 @@ describe('canonical damage aggregation', () => {
         errorBound: 0.4,
       },
     })
-    const mixed = sumCanonicalDamage([exact, upper])
+    const mixed = sumDamage([exact, upper])
     expect(mixed.result.overflow).toMatchObject({
       kind: 'upper-bound',
       lowerBound: 4,
@@ -222,7 +222,7 @@ describe('canonical damage aggregation', () => {
     expect(mixed.metadata).not.toHaveProperty('convolutionMassDrift')
     expect(mixed.metadata).not.toHaveProperty('normalizationMassDrift')
 
-    const nullOnly = sumCanonicalDamage([
+    const nullOnly = sumDamage([
       createEnvelope({ values: [1] }),
       createEnvelope({ values: [1] }),
     ])
@@ -230,7 +230,7 @@ describe('canonical damage aggregation', () => {
   })
 
   it('does not turn an overflow tail into a lower-bound point mass', () => {
-    const aggregate = sumCanonicalDamage([
+    const aggregate = sumDamage([
       createEnvelope({
         values: [0.5, 0.5],
         support: { kind: 'finite', max: 10 },
@@ -260,7 +260,7 @@ describe('canonical damage aggregation', () => {
   })
 
   it('preserves the lower bound when overflow has only numerical uncertainty', () => {
-    const aggregate = sumCanonicalDamage([
+    const aggregate = sumDamage([
       createEnvelope({
         values: [0.5, 0.5],
         support: { kind: 'finite', max: 10 },
@@ -286,7 +286,7 @@ describe('canonical damage aggregation', () => {
   })
 
   it('keeps an empty explicit range empty and preserves inert error metadata', () => {
-    const aggregate = sumCanonicalDamage([
+    const aggregate = sumDamage([
       createEnvelope({
         values: [],
         support: { kind: 'finite', max: 5 },
@@ -312,7 +312,7 @@ describe('canonical damage aggregation', () => {
 
   it('normalizes exact output probability from final empty explicit mass at the tolerance boundary', () => {
     const sourceProbability = 1 - DISTRIBUTION_RESULT_TOLERANCE / 2
-    const aggregate = sumCanonicalDamage([
+    const aggregate = sumDamage([
       createEnvelope({
         values: [],
         support: { kind: 'finite', max: 5 },
@@ -344,7 +344,7 @@ describe('canonical damage aggregation', () => {
   it('uses stable union probability for many tiny independent tails', () => {
     const probability = 1e-16
     const componentCount = 2_048
-    const aggregate = sumCanonicalDamage(
+    const aggregate = sumDamage(
       Array.from({ length: componentCount }, () => createEnvelope({
         values: [1 - probability],
         support: { kind: 'finite', max: 1 },
@@ -383,7 +383,7 @@ describe('canonical damage aggregation', () => {
     })
     const firstValues = Array.from(first.result.values)
     const secondValues = Array.from(second.result.values)
-    const aggregate = sumCanonicalDamage([first, second])
+    const aggregate = sumDamage([first, second])
 
     expect(Array.from(first.result.values)).toEqual(firstValues)
     expect(Array.from(second.result.values)).toEqual(secondValues)
@@ -398,23 +398,23 @@ describe('canonical damage aggregation', () => {
 
   it('rejects null, unmodeled, invalid source support, and invalid result envelopes', () => {
     expectAggregationError(
-      () => sumCanonicalDamage([null]),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
+      () => sumDamage([null]),
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
     )
     expectAggregationError(
-      () => sumCanonicalDamage([{ result: createEnvelope({ values: [1] }).result, metadata: {} }]),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
+      () => sumDamage([{ result: createEnvelope({ values: [1] }).result, metadata: {} }]),
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
     )
     expectAggregationError(
-      () => sumCanonicalDamage([createEnvelope({ values: [1], sourceSupport: null })]),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
+      () => sumDamage([createEnvelope({ values: [1], sourceSupport: null })]),
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
     )
     expectAggregationError(
-      () => sumCanonicalDamage([{
+      () => sumDamage([{
         result: null,
         metadata: { modeledDistribution: true, sourceSupport: { kind: 'infinite' } },
       }]),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE
     )
   })
 
@@ -431,7 +431,7 @@ describe('canonical damage aggregation', () => {
       },
     })
     expectAggregationError(
-      () => sumCanonicalDamage([
+      () => sumDamage([
         largeOffset,
         createEnvelope({
           values: [1],
@@ -439,31 +439,31 @@ describe('canonical damage aggregation', () => {
           support: { kind: 'finite', max: 1 },
         }),
       ]),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW
+      DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW
     )
     expectAggregationError(
-      () => sumCanonicalDamage([
+      () => sumDamage([
         createEnvelope({ values: [0.5, 0.5] }),
         createEnvelope({ values: [0.5, 0.5] }),
       ], { maxValuesLength: 2 }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
+      DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
     )
     expectAggregationError(
-      () => sumCanonicalDamage(new Array(CANONICAL_DAMAGE_AGGREGATION_MAX_COMPONENTS + 1)),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
+      () => sumDamage(new Array(DAMAGE_AGGREGATION_MAX_COMPONENTS + 1)),
+      DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
     )
     expectAggregationError(
-      () => sumCanonicalDamage([
+      () => sumDamage([
         createEnvelope({ values: [1] }),
       ], { maxValuesLength: 1, maxResourceBytes: 1_024 }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
+      DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
     )
     expectAggregationError(
-      () => sumCanonicalDamage([
+      () => sumDamage([
         createEnvelope({ values: [0.5, 0.5] }),
         createEnvelope({ values: [0.5, 0.5] }),
       ], { maxFftLength: 2 }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
+      DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
     )
   })
 
@@ -471,7 +471,7 @@ describe('canonical damage aggregation', () => {
     const controller = new AbortController()
     const observed = []
     expectAggregationError(
-      () => sumCanonicalDamage([
+      () => sumDamage([
         createEnvelope({ values: [0.5, 0.5] }),
         createEnvelope({ values: [0.5, 0.5] }),
       ], {
@@ -481,7 +481,7 @@ describe('canonical damage aggregation', () => {
           controller.abort()
         },
       }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.ABORTED
+      DAMAGE_AGGREGATION_ERROR_CODES.ABORTED
     )
     expect(observed).toEqual([4])
   })
@@ -489,9 +489,9 @@ describe('canonical damage aggregation', () => {
   it('publishes a frozen resource plan and executes that exact plan', () => {
     const first = createEnvelope({ values: [0.5, 0.5] })
     const second = createEnvelope({ values: [0.25, 0.75] })
-    const canonicalDamages = [first, second]
+    const Damages = [first, second]
     const onFftLength = vi.fn()
-    const plan = planCanonicalDamageAggregation(canonicalDamages)
+    const plan = planDamageAggregation(Damages)
 
     expect(Object.isFrozen(plan)).toBe(true)
     expect(Object.isFrozen(plan.estimates)).toBe(true)
@@ -500,7 +500,7 @@ describe('canonical damage aggregation', () => {
     expect(plan.estimates.fftLengths).toEqual([4])
     expect(onFftLength).not.toHaveBeenCalled()
 
-    const aggregate = sumCanonicalDamage(canonicalDamages, {
+    const aggregate = sumDamage(Damages, {
       plan,
       onFftLength,
     })
@@ -517,12 +517,12 @@ describe('canonical damage aggregation', () => {
   it('keeps planned coefficients private from later caller mutation', () => {
     const first = createEnvelope({ values: [0.5, 0.5] })
     const second = createEnvelope({ values: [0.25, 0.75] })
-    const canonicalDamages = [first, second]
-    const plan = planCanonicalDamageAggregation(canonicalDamages)
+    const Damages = [first, second]
+    const plan = planDamageAggregation(Damages)
 
     first.result.values[0] = 1
     first.result.values[1] = 0
-    const aggregate = sumCanonicalDamage(canonicalDamages, {
+    const aggregate = sumDamage(Damages, {
       plan,
       onFftLength: () => {
         second.result.values[0] = 1
@@ -538,30 +538,30 @@ describe('canonical damage aggregation', () => {
   })
 
   it('rejects forged or mismatched plans before execution', () => {
-    const canonicalDamages = [createEnvelope({ values: [1] })]
-    const plan = planCanonicalDamageAggregation(canonicalDamages)
+    const Damages = [createEnvelope({ values: [1] })]
+    const plan = planDamageAggregation(Damages)
     const forgedPlan = { ...plan, estimates: { ...plan.estimates } }
 
     expectAggregationError(
-      () => sumCanonicalDamage(canonicalDamages, { plan: forgedPlan }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+      () => sumDamage(Damages, { plan: forgedPlan }),
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
     )
     expectAggregationError(
-      () => sumCanonicalDamage([...canonicalDamages], { plan }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+      () => sumDamage([...Damages], { plan }),
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
     )
   })
 
   it('rejects invalid options with a typed code', () => {
     expectAggregationError(
-      () => sumCanonicalDamage([], null),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+      () => sumDamage([], null),
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
     )
     expectAggregationError(
-      () => sumCanonicalDamage([], {
-        maxFftLength: CANONICAL_DAMAGE_AGGREGATION_MAX_FFT_LENGTH + 1,
+      () => sumDamage([], {
+        maxFftLength: DAMAGE_AGGREGATION_MAX_FFT_LENGTH + 1,
       }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
     )
     for (const optionName of [
       'maxArrayLength',
@@ -570,13 +570,13 @@ describe('canonical damage aggregation', () => {
       'maxBytes',
     ]) {
       expectAggregationError(
-        () => sumCanonicalDamage([], { [optionName]: 1 }),
-        CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+        () => sumDamage([], { [optionName]: 1 }),
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
       )
     }
     expectAggregationError(
-      () => sumCanonicalDamage([], { unknownOption: 1 }),
-      CANONICAL_DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+      () => sumDamage([], { unknownOption: 1 }),
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
     )
   })
 })

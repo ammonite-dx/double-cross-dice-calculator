@@ -2,7 +2,7 @@ import {
   validateDistributionResult,
 } from '../../calculation/DistributionResult'
 
-export const CANONICAL_DISTRIBUTION_DISPLAY_VERSION = 1
+export const DISTRIBUTION_DISPLAY_VERSION = 1
 
 // The production probability labels use a 0.1 percentage-point display step.
 // A position-unknown probability bound at or below half that step keeps the
@@ -84,7 +84,7 @@ function isNullableFiniteNumber(value) {
   return value === null || isFiniteNumber(value)
 }
 
-function isCanonicalArrayIndex(property, length) {
+function isArrayIndex(property, length) {
   const index = Number(property)
   return Number.isSafeInteger(index)
     && index >= 0
@@ -308,7 +308,7 @@ function cloneJsonSafe(
       if (property === 'length') {
         continue
       }
-      if (!isCanonicalArrayIndex(property, length)) {
+      if (!isArrayIndex(property, length)) {
         fail(
           invalidCode,
           `${path} must be a JSON array without extra properties`,
@@ -433,42 +433,42 @@ function deepFreeze(value, seen = new WeakSet()) {
   return Object.freeze(value)
 }
 
-function validateCanonicalEnvelope(canonicalEnvelope) {
-  if (!isPlainRecord(canonicalEnvelope)) {
+function validateEnvelope(Envelope) {
+  if (!isPlainRecord(Envelope)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonical distribution presentation expects a modeled distribution envelope'
+      'distribution presentation expects a modeled distribution envelope'
     )
   }
 
   validatePlainRecordDataProperties(
-    canonicalEnvelope,
-    'canonicalEnvelope',
+    Envelope,
+    'Envelope',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE
   )
 
   const result = requireOwnDataProperty(
-    canonicalEnvelope,
+    Envelope,
     'result',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope'
+    'Envelope'
   )
   const metadata = requireOwnDataProperty(
-    canonicalEnvelope,
+    Envelope,
     'metadata',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope'
+    'Envelope'
   )
 
   if (!isPlainRecord(metadata)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.metadata must be a plain record'
+      'Envelope.metadata must be a plain record'
     )
   }
   validatePlainRecordDataProperties(
     metadata,
-    'canonicalEnvelope.metadata',
+    'Envelope.metadata',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE
   )
   if (
@@ -476,24 +476,24 @@ function validateCanonicalEnvelope(canonicalEnvelope) {
       metadata,
       'modeledDistribution',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.metadata'
+      'Envelope.metadata'
     ) !== true
   ) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.metadata.modeledDistribution must be true'
+      'Envelope.metadata.modeledDistribution must be true'
     )
   }
 
   if (!isPlainRecord(result)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result must be a plain record'
+      'Envelope.result must be a plain record'
     )
   }
   validatePlainRecordDataProperties(
     result,
-    'canonicalEnvelope.result',
+    'Envelope.result',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE
   )
 
@@ -501,56 +501,56 @@ function validateCanonicalEnvelope(canonicalEnvelope) {
     result,
     'version',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result'
+    'Envelope.result'
   )
   const values = requireOwnDataProperty(
     result,
     'values',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result'
+    'Envelope.result'
   )
   const offset = requireOwnDataProperty(
     result,
     'offset',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result'
+    'Envelope.result'
   )
   const support = requireOwnDataProperty(
     result,
     'support',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result'
+    'Envelope.result'
   )
   const overflow = requireOwnDataProperty(
     result,
     'overflow',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result'
+    'Envelope.result'
   )
 
   if (!isPlainRecord(support)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.support must be a plain record'
+      'Envelope.result.support must be a plain record'
     )
   }
   validatePlainRecordDataProperties(
     support,
-    'canonicalEnvelope.result.support',
+    'Envelope.result.support',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE
   )
   const supportKind = requireOwnDataProperty(
     support,
     'kind',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result.support'
+    'Envelope.result.support'
   )
   if (supportKind === 'finite') {
     requireOwnDataProperty(
       support,
       'max',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.support'
+      'Envelope.result.support'
     )
   }
 
@@ -558,45 +558,45 @@ function validateCanonicalEnvelope(canonicalEnvelope) {
     if (!isPlainRecord(overflow)) {
       fail(
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.result.overflow must be null or a plain record'
+        'Envelope.result.overflow must be null or a plain record'
       )
     }
     validatePlainRecordDataProperties(
       overflow,
-      'canonicalEnvelope.result.overflow',
+      'Envelope.result.overflow',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE
     )
     const overflowKind = requireOwnDataProperty(
       overflow,
       'kind',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.overflow'
+      'Envelope.result.overflow'
     )
     requireOwnDataProperty(
       overflow,
       'lowerBound',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.overflow'
+      'Envelope.result.overflow'
     )
     requireOwnDataProperty(
       overflow,
       'errorBound',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.overflow'
+      'Envelope.result.overflow'
     )
     if (overflowKind === 'exact') {
       requireOwnDataProperty(
         overflow,
         'probability',
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.result.overflow'
+        'Envelope.result.overflow'
       )
     } else if (overflowKind === 'upper-bound') {
       requireOwnDataProperty(
         overflow,
         'probabilityUpperBound',
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.result.overflow'
+        'Envelope.result.overflow'
       )
     }
   }
@@ -609,7 +609,7 @@ function validateCanonicalEnvelope(canonicalEnvelope) {
       : {}
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonical distribution envelope contains an invalid distribution result',
+      'distribution envelope contains an invalid distribution result',
       details
     )
   }
@@ -617,7 +617,7 @@ function validateCanonicalEnvelope(canonicalEnvelope) {
   if (offset < 0) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonical distribution display does not support negative explicit offsets',
+      'distribution display does not support negative explicit offsets',
       { offset }
     )
   }
@@ -902,7 +902,7 @@ function copySupport(support) {
     support,
     'kind',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result.support'
+    'Envelope.result.support'
   )
   if (kind === 'finite') {
     return {
@@ -911,7 +911,7 @@ function copySupport(support) {
         support,
         'max',
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.result.support'
+        'Envelope.result.support'
       ),
     }
   }
@@ -926,7 +926,7 @@ function copyOverflow(overflow) {
     overflow,
     'kind',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.result.overflow'
+    'Envelope.result.overflow'
   )
   if (kind === 'exact') {
     return {
@@ -935,19 +935,19 @@ function copyOverflow(overflow) {
         overflow,
         'lowerBound',
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.result.overflow'
+        'Envelope.result.overflow'
       ),
       probability: requireOwnDataProperty(
         overflow,
         'probability',
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.result.overflow'
+        'Envelope.result.overflow'
       ),
       errorBound: requireOwnDataProperty(
         overflow,
         'errorBound',
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.result.overflow'
+        'Envelope.result.overflow'
       ),
     }
   }
@@ -957,19 +957,19 @@ function copyOverflow(overflow) {
       overflow,
       'lowerBound',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.overflow'
+      'Envelope.result.overflow'
     ),
     probabilityUpperBound: requireOwnDataProperty(
       overflow,
       'probabilityUpperBound',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.overflow'
+      'Envelope.result.overflow'
     ),
     errorBound: requireOwnDataProperty(
       overflow,
       'errorBound',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.result.overflow'
+      'Envelope.result.overflow'
     ),
   }
 }
@@ -983,17 +983,17 @@ function copyProjectionUncertainty(metadata) {
     metadata,
     'projectionUncertainty',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.metadata'
+    'Envelope.metadata'
   )
   if (!isPlainRecord(value)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.metadata.projectionUncertainty must be a plain record'
+      'Envelope.metadata.projectionUncertainty must be a plain record'
     )
   }
   validatePlainRecordDataProperties(
     value,
-    'canonicalEnvelope.metadata.projectionUncertainty',
+    'Envelope.metadata.projectionUncertainty',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE
   )
 
@@ -1001,7 +1001,7 @@ function copyProjectionUncertainty(metadata) {
     value,
     'positionUnknownProbabilityUpperBound',
     DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-    'canonicalEnvelope.metadata.projectionUncertainty'
+    'Envelope.metadata.projectionUncertainty'
   )
   if (
     !isFiniteNumber(positionUnknownProbabilityUpperBound)
@@ -1010,7 +1010,7 @@ function copyProjectionUncertainty(metadata) {
   ) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.metadata.projectionUncertainty.positionUnknownProbabilityUpperBound must be between 0 and 1',
+      'Envelope.metadata.projectionUncertainty.positionUnknownProbabilityUpperBound must be between 0 and 1',
       { positionUnknownProbabilityUpperBound }
     )
   }
@@ -1021,7 +1021,7 @@ function copyProjectionUncertainty(metadata) {
       value,
       'outputOverflowLowerBound',
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-      'canonicalEnvelope.metadata.projectionUncertainty'
+      'Envelope.metadata.projectionUncertainty'
     )
     if (
       outputOverflowLowerBound !== null
@@ -1030,7 +1030,7 @@ function copyProjectionUncertainty(metadata) {
     ) {
       fail(
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
-        'canonicalEnvelope.metadata.projectionUncertainty.outputOverflowLowerBound must be null or a non-negative safe integer',
+        'Envelope.metadata.projectionUncertainty.outputOverflowLowerBound must be null or a non-negative safe integer',
         { outputOverflowLowerBound }
       )
     }
@@ -1103,26 +1103,26 @@ function copyDisplayWindow(options) {
   }
 
   // This is a request boundary only. The presenter deliberately keeps the
-  // complete canonical explicit coverage; Phase 3 owns projection,
+    // complete explicit coverage; Phase 3 owns projection,
   // recalculation, and resource-budget decisions.
   return { min, max }
 }
 
 /**
- * Convert a modeled canonical distribution into a UI-independent display
+ * Convert a modeled distribution into a UI-independent display
  * model. Summary values are supplied by the caller and are never recomputed.
  * An optional displayWindow is retained as a request boundary and never
- * truncates the canonical explicit coverage.
+ * truncates the explicit coverage.
  */
-export function presentCanonicalDistribution(
-  canonicalEnvelope,
+export function presentDistribution(
+  Envelope,
   options = {}
 ) {
   try {
     if (!isPlainRecord(options)) {
       fail(
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-        'presentCanonicalDistribution options must be a plain record'
+        'presentDistribution options must be a plain record'
       )
     }
     validatePlainRecordDataProperties(
@@ -1153,7 +1153,7 @@ export function presentCanonicalDistribution(
       : []
     const displayWindow = copyDisplayWindow(options)
 
-    const validated = validateCanonicalEnvelope(canonicalEnvelope)
+    const validated = validateEnvelope(Envelope)
     const cloneState = createJsonCloneState()
     const copiedSummary = copySummary(summary, cloneState)
     const copiedWarnings = copyWarnings(
@@ -1163,7 +1163,7 @@ export function presentCanonicalDistribution(
     const probabilities = Array.from(validated.values)
 
     const display = {
-      version: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+      version: DISTRIBUTION_DISPLAY_VERSION,
       kind: 'canonical-distribution-display',
       explicit: {
         offset: validated.offset,
@@ -1195,7 +1195,7 @@ export function presentCanonicalDistribution(
     }
     throw new DistributionPresentationValidationError(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.UNSAFE_JSON,
-      'canonical distribution presentation rejected unsafe input'
+    'distribution presentation rejected unsafe input'
     )
   }
 }

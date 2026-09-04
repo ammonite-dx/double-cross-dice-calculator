@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  ATTACK_CANONICAL_PRESENTATION_ERROR_CODES,
-  AttackCanonicalPresentationError,
-  createAttackCanonicalPresentation,
-  isAttackCanonicalPresentationError,
-} from '../src/features/attack/model/AttackCanonicalPresentation'
+  ATTACK_PRESENTATION_ERROR_CODES,
+  AttackPresentationError,
+  createAttackPresentation,
+  isAttackPresentationError,
+} from '../src/features/attack/model/AttackPresentation'
 import {
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
   DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
@@ -13,12 +13,12 @@ import {
 } from '../src/shared/presentation'
 import {
   createDistributionResult,
-  getCanonicalTotalDamageSummary,
+  getTotalDamageSummary,
 } from '../src/calculation/DistributionResult'
-import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageSummary } from '../src/calculation/DamageCalculator'
 import {
-  sumCanonicalDamage,
-} from '../src/calculation/CanonicalDamageAggregation'
+  sumDamage,
+} from '../src/calculation/DamageAggregation'
 
 function createEnvelope({
   values = [1],
@@ -54,26 +54,26 @@ function createScore(seed) {
 }
 
 function createBatch(damages, options = {}) {
-  const combos = damages.map((canonicalDamage, index) => ({
+  const combos = damages.map((damage, index) => ({
     id: options.ids?.[index] ?? `combo-${index + 1}`,
     score: createScore((index + 1) / (damages.length + 1)),
     scoreSummary: {
       action: { expectedValue: index + 1 },
       reaction: { expectedValue: index + 2 },
     },
-    canonicalDamage,
-    canonicalDamageSummary: getCanonicalDamageSummary(canonicalDamage),
+    damage,
+    damageSummary: getDamageSummary(damage),
     ...(options.legacyFields ? {
-      damage: { distribution: ['legacy'] },
-      damageSummary: { expectedValue: 'legacy' },
+      canonicalDamage: { distribution: ['retired'] },
+      canonicalDamageSummary: { expectedValue: 'retired' },
     } : {}),
   }))
-  const canonicalTotalDamage = sumCanonicalDamage(damages)
+  const totalDamage = sumDamage(damages)
   return {
     combos,
-    canonicalTotalDamage,
-    canonicalTotalDamageSummary:
-      getCanonicalTotalDamageSummary(canonicalTotalDamage),
+    totalDamage,
+    totalDamageSummary:
+      getTotalDamageSummary(totalDamage),
   }
 }
 
@@ -98,7 +98,7 @@ function revokedProxy(value = {}) {
   return proxy
 }
 
-describe('createAttackCanonicalPresentation', () => {
+describe('createAttackPresentation', () => {
   it('keeps two combo ids/order/scores and presents each combo plus total', () => {
     const firstDamage = createEnvelope({ offset: 1, support: { kind: 'finite', max: 1 } })
     const secondDamage = createEnvelope({ offset: 3, support: { kind: 'finite', max: 3 } })
@@ -107,7 +107,7 @@ describe('createAttackCanonicalPresentation', () => {
     })
     const plans = [createPlan(), createPlan()]
 
-    const presentation = createAttackCanonicalPresentation(batch, plans)
+    const presentation = createAttackPresentation(batch, plans)
 
     expect(presentation.combos.map((combo) => combo.id)).toEqual([
       'first',
@@ -116,27 +116,27 @@ describe('createAttackCanonicalPresentation', () => {
     expect(presentation.combos.map((combo) => combo.score)).toEqual(
       batch.combos.map((combo) => combo.score)
     )
-    expect(presentation.combos[0].canonicalDamagePresentation)
+    expect(presentation.combos[0].damagePresentation)
       .toMatchObject({
         explicit: { offset: 1, probabilities: [1] },
         expectedValue: { kind: 'exact', value: 1 },
       })
-    expect(presentation.combos[1].canonicalDamagePresentation)
+    expect(presentation.combos[1].damagePresentation)
       .toMatchObject({
         explicit: { offset: 3, probabilities: [1] },
         expectedValue: { kind: 'exact', value: 3 },
       })
-    expect(presentation.canonicalTotalDamagePresentation)
+    expect(presentation.totalDamagePresentation)
       .toMatchObject({
         explicit: { offset: 4, probabilities: [1] },
         expectedValue: { kind: 'exact', value: 4 },
       })
-    expect(presentation.combos[0].canonicalDamage).toBe(firstDamage)
-    expect(presentation.combos[0].canonicalDamageSummary)
-      .toBe(batch.combos[0].canonicalDamageSummary)
-    expect(presentation.canonicalTotalDamage).toBe(batch.canonicalTotalDamage)
-    expect(presentation.canonicalTotalDamageSummary)
-      .toBe(batch.canonicalTotalDamageSummary)
+    expect(presentation.combos[0].damage).toBe(firstDamage)
+    expect(presentation.combos[0].damageSummary)
+      .toBe(batch.combos[0].damageSummary)
+    expect(presentation.totalDamage).toBe(batch.totalDamage)
+    expect(presentation.totalDamageSummary)
+      .toBe(batch.totalDamageSummary)
   })
 
   it('maps planner warnings one-to-one and flattens total warnings by entry id', () => {
@@ -160,31 +160,31 @@ describe('createAttackCanonicalPresentation', () => {
       createEnvelope({ offset: 2, support: { kind: 'finite', max: 2 } }),
     ], { ids: ['a', 'b'] })
 
-    const presentation = createAttackCanonicalPresentation(batch, [
+    const presentation = createAttackPresentation(batch, [
       createPlan([firstWarning, secondWarning]),
       createPlan([thirdWarning]),
     ])
 
-    expect(presentation.combos[0].canonicalDamagePresentation.warnings)
+    expect(presentation.combos[0].damagePresentation.warnings)
       .toEqual([firstWarning, secondWarning])
-    expect(presentation.combos[1].canonicalDamagePresentation.warnings)
+    expect(presentation.combos[1].damagePresentation.warnings)
       .toEqual([thirdWarning])
-    expect(presentation.canonicalTotalDamagePresentation.warnings)
+    expect(presentation.totalDamagePresentation.warnings)
       .toEqual([
         { ...firstWarning, entryId: 'a' },
         { ...secondWarning, entryId: 'a' },
         { ...thirdWarning, entryId: 'b' },
       ])
-    expect(presentation.combos[0].canonicalRangePlan.warnings)
+    expect(presentation.combos[0].rangePlan.warnings)
       .toEqual([firstWarning, secondWarning])
-    expect(presentation.combos[1].canonicalRangePlan.warnings)
+    expect(presentation.combos[1].rangePlan.warnings)
       .toEqual([thirdWarning])
     expect(firstWarning).toEqual({
       code: 'first-warning',
       severity: 'warning',
       details: { order: 1 },
     })
-    expect(presentation.canonicalTotalDamagePresentation.warnings[0])
+    expect(presentation.totalDamagePresentation.warnings[0])
       .not.toBe(firstWarning)
   })
 
@@ -228,18 +228,18 @@ describe('createAttackCanonicalPresentation', () => {
     },
   ])('keeps $label summary semantics without recomputation', ({ damage, expected }) => {
     const batch = createBatch([damage])
-    const summary = batch.combos[0].canonicalDamageSummary
-    const totalSummary = batch.canonicalTotalDamageSummary
-    const presentation = createAttackCanonicalPresentation(
+    const summary = batch.combos[0].damageSummary
+    const totalSummary = batch.totalDamageSummary
+    const presentation = createAttackPresentation(
       batch,
       [createPlan()]
     )
 
-    expect(presentation.combos[0].canonicalDamageSummary).toBe(summary)
-    expect(presentation.combos[0].canonicalDamagePresentation.expectedValue)
+    expect(presentation.combos[0].damageSummary).toBe(summary)
+    expect(presentation.combos[0].damagePresentation.expectedValue)
       .toEqual(expected)
-    expect(presentation.canonicalTotalDamageSummary).toBe(totalSummary)
-    expect(presentation.canonicalTotalDamagePresentation.expectedValue)
+    expect(presentation.totalDamageSummary).toBe(totalSummary)
+    expect(presentation.totalDamagePresentation.expectedValue)
       .toEqual(expected)
   })
 
@@ -256,36 +256,36 @@ describe('createAttackCanonicalPresentation', () => {
       },
     })
     const batch = createBatch([damage])
-    const presentation = createAttackCanonicalPresentation(batch, [createPlan()])
+    const presentation = createAttackPresentation(batch, [createPlan()])
 
-    expect(presentation.combos[0].canonicalDamagePresentation.explicit)
+    expect(presentation.combos[0].damagePresentation.explicit)
       .toEqual({ offset: 2, probabilities: [0.25, 0, 0.25] })
-    expect(presentation.combos[0].canonicalDamagePresentation.overflow)
+    expect(presentation.combos[0].damagePresentation.overflow)
       .toEqual({
         kind: 'exact',
         lowerBound: 5,
         probability: 0.5,
         errorBound: 0.01,
       })
-    expect(presentation.combos[0].canonicalDamagePresentation.explicit.probabilities)
+    expect(presentation.combos[0].damagePresentation.explicit.probabilities)
       .toHaveLength(3)
   })
 
   it('returns the empty batch identity with an empty plan list', () => {
-    const canonicalTotalDamage = sumCanonicalDamage([])
+    const totalDamage = sumDamage([])
     const batch = {
       combos: [],
-      canonicalTotalDamage,
-      canonicalTotalDamageSummary:
-        getCanonicalTotalDamageSummary(canonicalTotalDamage),
+      totalDamage,
+      totalDamageSummary:
+        getTotalDamageSummary(totalDamage),
     }
 
-    const presentation = createAttackCanonicalPresentation(batch)
+    const presentation = createAttackPresentation(batch)
 
     expect(presentation.combos).toEqual([])
     expect(presentation.combos).not.toBe(batch.combos)
-    expect(presentation.canonicalTotalDamage).toBe(canonicalTotalDamage)
-    expect(presentation.canonicalTotalDamagePresentation)
+    expect(presentation.totalDamage).toBe(totalDamage)
+    expect(presentation.totalDamagePresentation)
       .toMatchObject({
         explicit: { offset: 0, probabilities: [1] },
         explicitMax: 0,
@@ -304,17 +304,20 @@ describe('createAttackCanonicalPresentation', () => {
     const summaryBefore = JSON.parse(JSON.stringify(batch.combos[0].scoreSummary))
     const planBefore = JSON.parse(JSON.stringify(plan))
 
-    const presentation = createAttackCanonicalPresentation(batch, [plan])
+    const presentation = createAttackPresentation(batch, [plan])
 
     expect(presentation.combos).not.toBe(batch.combos)
     expect(presentation.combos[0]).not.toBe(batch.combos[0])
     expect(presentation.combos[0].score).not.toBe(batch.combos[0].score)
     expect(presentation.combos[0].scoreSummary)
       .not.toBe(batch.combos[0].scoreSummary)
-    expect(presentation.combos[0].canonicalRangePlan).not.toBe(plan)
-    expect(presentation.combos[0]).not.toHaveProperty('damage')
-    expect(presentation.combos[0]).not.toHaveProperty('damageSummary')
-    expect(batch.combos[0]).not.toHaveProperty('canonicalDamagePresentation')
+    expect(presentation.combos[0].rangePlan).not.toBe(plan)
+    expect(presentation.combos[0].damage).toBe(damage)
+    expect(presentation.combos[0].damageSummary)
+      .toBe(batch.combos[0].damageSummary)
+    expect(presentation.combos[0]).not.toHaveProperty('canonicalDamage')
+    expect(presentation.combos[0]).not.toHaveProperty('canonicalDamageSummary')
+    expect(batch.combos[0]).not.toHaveProperty('damagePresentation')
 
     expect(batch.combos[0].score).toEqual(JSON.parse(JSON.stringify(scoreBefore)))
     expect(batch.combos[0].scoreSummary)
@@ -329,54 +332,54 @@ describe('createAttackCanonicalPresentation', () => {
       details: { limits: { max: 1024 }, labels: ['tail'] },
     }
     const batch = createBatch([createEnvelope()])
-    const presentation = createAttackCanonicalPresentation(
+    const presentation = createAttackPresentation(
       batch,
       [createPlan([warning])]
     )
-    const display = presentation.combos[0].canonicalDamagePresentation
+    const display = presentation.combos[0].damagePresentation
 
     expect(Object.isFrozen(display)).toBe(true)
     expect(Object.isFrozen(display.warnings)).toBe(true)
     expect(Object.isFrozen(display.warnings[0].details)).toBe(true)
     expect(JSON.parse(JSON.stringify(display))).toEqual(display)
     expect(JSON.parse(JSON.stringify(
-      presentation.canonicalTotalDamagePresentation
-    ))).toEqual(presentation.canonicalTotalDamagePresentation)
+      presentation.totalDamagePresentation
+    ))).toEqual(presentation.totalDamagePresentation)
   })
 
   it('rejects plan count mismatch and invalid batch shape with typed errors', () => {
     const batch = createBatch([createEnvelope()])
 
-    expect(() => createAttackCanonicalPresentation(batch, [])).toThrow(
-      AttackCanonicalPresentationError
+    expect(() => createAttackPresentation(batch, [])).toThrow(
+      AttackPresentationError
     )
     try {
-      createAttackCanonicalPresentation(batch, [])
+      createAttackPresentation(batch, [])
     } catch (error) {
-      expect(isAttackCanonicalPresentationError(error)).toBe(true)
+      expect(isAttackPresentationError(error)).toBe(true)
       expect(error.code).toBe(
-        ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.RANGE_PLAN_COUNT_MISMATCH
+        ATTACK_PRESENTATION_ERROR_CODES.RANGE_PLAN_COUNT_MISMATCH
       )
     }
 
-    expect(() => createAttackCanonicalPresentation(null, [])).toThrow(
-      AttackCanonicalPresentationError
+    expect(() => createAttackPresentation(null, [])).toThrow(
+      AttackPresentationError
     )
-    expect(() => createAttackCanonicalPresentation({
+    expect(() => createAttackPresentation({
       combos: [],
-      canonicalTotalDamage: batch.canonicalTotalDamage,
+      totalDamage: batch.totalDamage,
     }, [])).toThrow(
       expect.objectContaining({
-        code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY,
+        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY,
       })
     )
-    expect(() => createAttackCanonicalPresentation({
+    expect(() => createAttackPresentation({
       combos: [{}],
-      canonicalTotalDamage: batch.canonicalTotalDamage,
-      canonicalTotalDamageSummary: batch.canonicalTotalDamageSummary,
+      totalDamage: batch.totalDamage,
+      totalDamageSummary: batch.totalDamageSummary,
     }, [createPlan()])).toThrow(
       expect.objectContaining({
-        code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO,
+        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO,
       })
     )
   })
@@ -387,36 +390,36 @@ describe('createAttackCanonicalPresentation', () => {
       ...batch,
       combos: [{
         ...batch.combos[0],
-        canonicalDamageSummary: {},
+        damageSummary: {},
       }],
     }
 
-    expect(() => createAttackCanonicalPresentation(malformed, [createPlan()]))
+    expect(() => createAttackPresentation(malformed, [createPlan()]))
       .toThrow(DistributionPresentationError)
   })
 
   it('converts revoked proxy reflection failures into field-specific typed errors', () => {
     const batch = createBatch([createEnvelope()])
 
-    expect(() => createAttackCanonicalPresentation(revokedProxy(), []))
+    expect(() => createAttackPresentation(revokedProxy(), []))
       .toThrow(expect.objectContaining({
-        code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
+        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
       }))
-    expect(() => createAttackCanonicalPresentation({
+    expect(() => createAttackPresentation({
       ...batch,
       combos: revokedProxy([]),
     }, [])).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
+      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
     }))
-    expect(() => createAttackCanonicalPresentation(batch, revokedProxy([])))
+    expect(() => createAttackPresentation(batch, revokedProxy([])))
       .toThrow(expect.objectContaining({
-        code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLANS,
+        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLANS,
       }))
-    expect(() => createAttackCanonicalPresentation(
+    expect(() => createAttackPresentation(
       batchWithComboOverride(batch, { score: revokedProxy() }),
       [createPlan()]
     )).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO,
+      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO,
     }))
   })
 
@@ -433,11 +436,11 @@ describe('createAttackCanonicalPresentation', () => {
       },
     })
 
-    expect(() => createAttackCanonicalPresentation({
+    expect(() => createAttackPresentation({
       ...batch,
       combos: [combo],
     }, [createPlan()])).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO,
+      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO,
     }))
     expect(comboGetterCalled).toBe(false)
 
@@ -451,11 +454,11 @@ describe('createAttackCanonicalPresentation', () => {
         throw new Error('nested getter must not run')
       },
     })
-    expect(() => createAttackCanonicalPresentation(
+    expect(() => createAttackPresentation(
       batchWithComboOverride(batch, { score }),
       [createPlan()]
     )).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_CLONE,
+      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_CLONE,
     }))
     expect(nestedGetterCalled).toBe(false)
   })
@@ -473,11 +476,11 @@ describe('createAttackCanonicalPresentation', () => {
   ])('rejects unsafe clone values: %s', (_label, value) => {
     const batch = createBatch([createEnvelope()])
 
-    expect(() => createAttackCanonicalPresentation(
+    expect(() => createAttackPresentation(
       batchWithComboOverride(batch, { score: { value } }),
       [createPlan()]
     )).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
     }))
   })
 
@@ -485,33 +488,33 @@ describe('createAttackCanonicalPresentation', () => {
     const batch = createBatch([createEnvelope()])
     const cycle = {}
     cycle.self = cycle
-    expect(() => createAttackCanonicalPresentation(
+    expect(() => createAttackPresentation(
       batchWithComboOverride(batch, { score: cycle }),
       [createPlan()]
     )).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
     }))
 
     let deep = { leaf: true }
     for (let index = 0; index <= DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH; index += 1) {
       deep = { next: deep }
     }
-    expect(() => createAttackCanonicalPresentation(
+    expect(() => createAttackPresentation(
       batchWithComboOverride(batch, { score: { deep } }),
       [createPlan()]
     )).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
     }))
 
     const manyValues = Array.from(
       { length: DISTRIBUTION_PRESENTATION_MAX_JSON_NODES },
       () => 0
     )
-    expect(() => createAttackCanonicalPresentation(
+    expect(() => createAttackPresentation(
       batchWithComboOverride(batch, { score: { manyValues } }),
       [createPlan()]
     )).toThrow(expect.objectContaining({
-      code: ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
     }))
   })
 
@@ -524,7 +527,7 @@ describe('createAttackCanonicalPresentation', () => {
     const batch = createBatch([createEnvelope()])
     const inputScore = { buffer, typed, dataView }
 
-    const presentation = createAttackCanonicalPresentation(
+    const presentation = createAttackPresentation(
       batchWithComboOverride(batch, { score: inputScore }),
       [createPlan()]
     )
@@ -551,7 +554,7 @@ describe('createAttackCanonicalPresentation', () => {
     const plan = createPlan([], {
       scores: [{ tail: { bound: 0.01 } }],
     })
-    const presentation = createAttackCanonicalPresentation(batch, [plan])
+    const presentation = createAttackPresentation(batch, [plan])
     const combo = presentation.combos[0]
 
     expect(Object.isFrozen(presentation)).toBe(true)
@@ -562,10 +565,10 @@ describe('createAttackCanonicalPresentation', () => {
     expect(Object.isFrozen(combo.score.action.distribution)).toBe(true)
     expect(Object.isFrozen(combo.scoreSummary)).toBe(true)
     expect(Object.isFrozen(combo.scoreSummary.action)).toBe(true)
-    expect(Object.isFrozen(combo.canonicalRangePlan)).toBe(true)
-    expect(Object.isFrozen(combo.canonicalRangePlan.scores)).toBe(true)
-    expect(Object.isFrozen(combo.canonicalRangePlan.scores[0])).toBe(true)
-    expect(Object.isFrozen(combo.canonicalRangePlan.scores[0].tail)).toBe(true)
-    expect(Object.isFrozen(combo.canonicalRangePlan.warnings)).toBe(true)
+    expect(Object.isFrozen(combo.rangePlan)).toBe(true)
+    expect(Object.isFrozen(combo.rangePlan.scores)).toBe(true)
+    expect(Object.isFrozen(combo.rangePlan.scores[0])).toBe(true)
+    expect(Object.isFrozen(combo.rangePlan.scores[0].tail)).toBe(true)
+    expect(Object.isFrozen(combo.rangePlan.warnings)).toBe(true)
   })
 })

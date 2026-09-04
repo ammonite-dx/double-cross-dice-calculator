@@ -841,18 +841,18 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
   )
   const executionMeasurement = await measureSafely(async () => {
     const score = {
-      action: dependencies.calculateScoreCanonical(
+      action: dependencies.calculateScore(
         testCase.params.action.score,
         { getDxDistribution: runtimeDx },
         plan.scores[0]
       ),
-      reaction: dependencies.calculateScoreCanonical(
+      reaction: dependencies.calculateScore(
         testCase.params.reaction.score,
         { getDxDistribution: runtimeDx },
         plan.scores[1]
       ),
     }
-    const damage = await dependencies.calculateCanonicalDamageOnDemand(
+    const damage = await dependencies.calculateDamageOnDemand(
       score,
       testCase.params.action.damage,
       testCase.params.reaction.damage,
@@ -863,7 +863,7 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
       {},
       plan
     )
-    const total = dependencies.sumCanonicalDamage([damage])
+    const total = dependencies.sumDamage([damage])
     return {
       score,
       damage,
@@ -948,15 +948,15 @@ async function loadDependencies() {
         '/src/calculation/RuntimeDamageRollCalculator.js'
       ),
       server.ssrLoadModule('/src/calculation/RangePlanner.js'),
-      server.ssrLoadModule('/src/calculation/CanonicalDamageAggregation.js'),
+      server.ssrLoadModule('/src/calculation/DamageAggregation.js'),
       server.ssrLoadModule('/src/calculation/D10Calculator.js'),
     ])
     return {
       server,
-      calculateCanonicalDamageOnDemand:
-        damageCalculation.calculateCanonicalDamageOnDemand,
+      calculateDamageOnDemand:
+        damageCalculation.calculateDamageOnDemand,
       calculateDxDistribution: dxCalculation.calculateDxDistribution,
-      calculateScoreCanonical: scoreCalculation.calculateScoreCanonical,
+      calculateScore: scoreCalculation.calculateScore,
       generateMixedDamageDistribution:
         runtimeDamageRollCalculation.generateMixedDamageDistribution,
       getD10Distribution: (dice, size, options) =>
@@ -965,7 +965,7 @@ async function loadDependencies() {
           ...options,
         }),
       planCalculationRanges: rangePlanner.planCalculationRanges,
-      sumCanonicalDamage: canonicalDamageAggregation.sumCanonicalDamage,
+      sumDamage: canonicalDamageAggregation.sumDamage,
     }
   } catch (error) {
     await server.close()

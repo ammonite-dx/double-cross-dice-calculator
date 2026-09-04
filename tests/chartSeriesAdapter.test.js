@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import { getUpperTailProbability } from '../src/core/probability/Distribution'
 import {
-  CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+  DISTRIBUTION_DISPLAY_VERSION,
 } from '../src/shared/presentation/DistributionPresenter'
 import {
-  CANONICAL_CHART_SERIES_MODES,
-  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
-  createCanonicalChartSeries,
-  materializeCanonicalChartJsData,
-} from '../src/shared/presentation/CanonicalChartSeriesAdapter'
+  CHART_SERIES_MODES,
+  CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CHART_SERIES_NOT_READY_REASONS,
+  createChartSeries,
+  materializeChartJsData,
+} from '../src/shared/presentation/ChartSeriesAdapter'
 import { planDisplayRange } from '../src/shared/presentation/DisplayRangePlanner'
 import * as presentation from '../src/shared/presentation/index'
 
@@ -28,7 +28,7 @@ function makeDisplay({
     ? null
     : offset + probabilities.length - 1
   return {
-    version: CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
+    version: DISTRIBUTION_DISPLAY_VERSION,
     kind: 'canonical-distribution-display',
     explicit: { offset, probabilities },
     explicitMax,
@@ -47,7 +47,7 @@ function makePlan(display, displayWindow, policy) {
   })
 }
 
-describe('CanonicalChartSeriesAdapter', () => {
+describe('ChartSeriesAdapter', () => {
   it('projects offset PMF values without treating the lower side as zero', () => {
     const display = makeDisplay({
       values: [0.2, 0.3, 0.5],
@@ -55,8 +55,8 @@ describe('CanonicalChartSeriesAdapter', () => {
       support: { kind: 'finite', max: 7 },
     })
     const plan = makePlan(display, { min: 5, max: 7 })
-    const series = createCanonicalChartSeries(display, plan, {
-      mode: CANONICAL_CHART_SERIES_MODES.PMF,
+    const series = createChartSeries(display, plan, {
+      mode: CHART_SERIES_MODES.PMF,
     })
 
     expect(series).toMatchObject({
@@ -86,13 +86,13 @@ describe('CanonicalChartSeriesAdapter', () => {
       support: { kind: 'finite', max: 8 },
     })
     const plan = makePlan(display, { min: 4, max: 5 })
-    const series = createCanonicalChartSeries(display, plan)
+    const series = createChartSeries(display, plan)
 
     expect(plan.decision).toBe('recalculate')
     expect(series).toMatchObject({
       kind: 'not-ready',
       status: 'not-ready',
-      reason: CANONICAL_CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
+      reason: CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
     })
     expect(Object.keys(series).sort()).toEqual([
       'decision',
@@ -114,7 +114,7 @@ describe('CanonicalChartSeriesAdapter', () => {
       support: { kind: 'finite', max: 1 },
     })
     const plan = makePlan(display, { min: 0, max: 4 })
-    const series = createCanonicalChartSeries(display, plan)
+    const series = createChartSeries(display, plan)
 
     expect(plan.decision).toBe('reuse')
     expect(Array.from(series.values)).toEqual([0.5, 0.5, 0, 0, 0])
@@ -136,9 +136,9 @@ describe('CanonicalChartSeriesAdapter', () => {
     const plan = makePlan(display, { min: 5, max: 7 })
 
     expect(plan.decision).toBe('known-zero')
-    expect(Array.from(createCanonicalChartSeries(display, plan).values))
+    expect(Array.from(createChartSeries(display, plan).values))
       .toEqual([0, 0, 0])
-    expect(Array.from(createCanonicalChartSeries(display, plan, {
+    expect(Array.from(createChartSeries(display, plan, {
       mode: 'upper-tail',
     }).values)).toEqual([0, 0, 0])
   })
@@ -155,7 +155,7 @@ describe('CanonicalChartSeriesAdapter', () => {
     })
     const plan = makePlan(display, { min: 0, max: 1023 })
     const expected = getUpperTailProbability(Array.from(values))
-    const series = createCanonicalChartSeries(display, plan, {
+    const series = createChartSeries(display, plan, {
       mode: 'upper-tail',
     })
 
@@ -174,8 +174,8 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 1 })
-    const pmf = createCanonicalChartSeries(display, plan)
-    const tail = createCanonicalChartSeries(display, plan, {
+    const pmf = createChartSeries(display, plan)
+    const tail = createChartSeries(display, plan, {
       mode: 'upper-tail',
     })
 
@@ -196,12 +196,12 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 1 })
-    const result = createCanonicalChartSeries(display, plan)
+    const result = createChartSeries(display, plan)
 
     expect(result).toMatchObject({
       kind: 'not-projectable',
       status: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP,
     })
     expect(Object.keys(result).sort()).toEqual([
       'displayWindow',
@@ -227,15 +227,15 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 1 })
-    const pmf = createCanonicalChartSeries(display, plan)
-    const tail = createCanonicalChartSeries(display, plan, {
+    const pmf = createChartSeries(display, plan)
+    const tail = createChartSeries(display, plan, {
       mode: 'upper-tail',
     })
 
     expect(Array.from(pmf.values)).toEqual([0.4, 0.4])
     expect(tail).toMatchObject({
       kind: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
     })
   })
 
@@ -251,11 +251,11 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 1 })
-    const result = createCanonicalChartSeries(display, plan)
+    const result = createChartSeries(display, plan)
 
     expect(result).toMatchObject({
       kind: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
     })
   })
 
@@ -275,9 +275,9 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 1 })
-    const pmf = createCanonicalChartSeries(display, plan)
-    const upperTail = createCanonicalChartSeries(display, plan, {
-      mode: CANONICAL_CHART_SERIES_MODES.UPPER_TAIL,
+    const pmf = createChartSeries(display, plan)
+    const upperTail = createChartSeries(display, plan, {
+      mode: CHART_SERIES_MODES.UPPER_TAIL,
     })
 
     expect(plan.decision).toBe('reuse')
@@ -304,7 +304,7 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 1 })
-    const series = createCanonicalChartSeries(display, plan)
+    const series = createChartSeries(display, plan)
 
     expect(plan.decision).toBe('reuse')
     expect(series.status).toBe('ready')
@@ -328,19 +328,19 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 100 })
-    const pmf = createCanonicalChartSeries(display, plan)
-    const upperTail = createCanonicalChartSeries(display, plan, {
-      mode: CANONICAL_CHART_SERIES_MODES.UPPER_TAIL,
+    const pmf = createChartSeries(display, plan)
+    const upperTail = createChartSeries(display, plan, {
+      mode: CHART_SERIES_MODES.UPPER_TAIL,
     })
 
     expect(plan.decision).toBe('recalculate')
     expect(pmf).toMatchObject({
       status: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
     })
     expect(upperTail).toMatchObject({
       status: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
     })
   })
 
@@ -360,13 +360,13 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 5 })
-    const result = createCanonicalChartSeries(display, plan)
+    const result = createChartSeries(display, plan)
 
     expect(plan.decision).toBe('recalculate')
     expect(result).toMatchObject({
       kind: 'not-projectable',
       status: 'not-projectable',
-      reason: CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
     })
   })
 
@@ -384,7 +384,7 @@ describe('CanonicalChartSeriesAdapter', () => {
       },
     })
     const plan = makePlan(display, { min: 0, max: 100 })
-    const series = createCanonicalChartSeries(display, plan)
+    const series = createChartSeries(display, plan)
 
     expect(plan.decision).toBe('reuse')
     expect(series).toMatchObject({
@@ -408,12 +408,12 @@ describe('CanonicalChartSeriesAdapter', () => {
       warning: { pointCount: 1 },
       hard: { pointCount: 2 },
     })
-    const result = createCanonicalChartSeries(display, plan)
+    const result = createChartSeries(display, plan)
 
     expect(result).toMatchObject({
       kind: 'not-ready',
       status: 'not-ready',
-      reason: CANONICAL_CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED,
+      reason: CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED,
       plannerStatus: 'resource-rejected',
     })
     expect(Object.keys(result).sort()).toEqual([
@@ -437,7 +437,7 @@ describe('CanonicalChartSeriesAdapter', () => {
       support: { kind: 'finite', max: 1 },
     })
     const plan = makePlan(display, { min: 0, max: 1 })
-    const series = createCanonicalChartSeries(display, plan)
+    const series = createChartSeries(display, plan)
 
     expect(series.values[0]).toBe(probabilities[0])
     expect(series.values).not.toBe(display.explicit.probabilities)
@@ -448,16 +448,16 @@ describe('CanonicalChartSeriesAdapter', () => {
   })
 
   it('exports only the canonical chart series entry points', () => {
-    expect(presentation.createCanonicalChartSeries).toBe(createCanonicalChartSeries)
-    expect(presentation.materializeCanonicalChartJsData)
-      .toBe(materializeCanonicalChartJsData)
+    expect(presentation.createChartSeries).toBe(createChartSeries)
+    expect(presentation.materializeChartJsData)
+      .toBe(materializeChartJsData)
     expect(presentation).not.toHaveProperty(
-      'projectCanonicalDistributionToChartSeries'
+      'projectDistributionToChartSeries'
     )
     expect(presentation).not.toHaveProperty(
-      'adaptCanonicalDistributionToChartSeries'
+      'adaptDistributionToChartSeries'
     )
-    expect(presentation).not.toHaveProperty('materializeCanonicalChartData')
+    expect(presentation).not.toHaveProperty('materializeChartData')
   })
 
   it('uses an owned dense typed series for a large window and materializes labels only at the Chart.js boundary', () => {
@@ -468,7 +468,7 @@ describe('CanonicalChartSeriesAdapter', () => {
       support: { kind: 'finite', max: 4_095 },
     })
     const plan = makePlan(display, { min: 0, max: 4_095 })
-    const series = createCanonicalChartSeries(display, plan)
+    const series = createChartSeries(display, plan)
 
     expect(series.values).toBeInstanceOf(Float64Array)
     expect(series.values).toHaveLength(4_096)
@@ -476,7 +476,7 @@ describe('CanonicalChartSeriesAdapter', () => {
     expect(series).not.toHaveProperty('points')
     expect(series).not.toHaveProperty('datasets')
 
-    const chartData = materializeCanonicalChartJsData(series, {
+    const chartData = materializeChartJsData(series, {
       label: 'fixture',
     })
     expect(chartData.labels).toHaveLength(4_096)

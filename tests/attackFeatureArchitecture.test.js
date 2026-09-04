@@ -43,9 +43,9 @@ describe('Attack feature architecture', () => {
       'watch(',
       'onMounted(',
       'onUnmounted(',
-      'createAttackCanonicalRunner',
-      'createCanonicalAttackState',
-      'calculateAttackCanonicalBatch',
+      'createAttackRunner',
+      'createAttackState',
+      'calculateAttackBatch',
     ]) {
       expect(routeSource).not.toContain(pattern)
     }
@@ -53,20 +53,20 @@ describe('Attack feature architecture', () => {
 
   it('co-locates Attack canonical modules in the feature model and injects the client at Page', () => {
     for (const path of [
-      'src/features/attack/model/AttackCanonicalDisplayFeedback.js',
-      'src/features/attack/model/AttackCanonicalPresentation.js',
-      'src/features/attack/model/AttackCanonicalRunner.js',
-      'src/features/attack/model/AttackCanonicalState.js',
+      'src/features/attack/model/AttackDisplayFeedback.js',
+      'src/features/attack/model/AttackPresentation.js',
+      'src/features/attack/model/AttackRunner.js',
+      'src/features/attack/model/AttackState.js',
       'src/features/attack/model/AttackDisplayRequestSnapshot.js',
       'src/features/attack/model/AttackInputSnapshot.js',
     ]) {
       expect(existsSync(new URL(`../${path}`, import.meta.url))).toBe(true)
     }
     for (const path of [
-      'src/application/AttackCanonicalDisplayFeedback.js',
-      'src/application/AttackCanonicalPresentation.js',
-      'src/application/AttackCanonicalRunner.js',
-      'src/application/AttackCanonicalState.js',
+      'src/application/AttackDisplayFeedback.js',
+      'src/application/AttackPresentation.js',
+      'src/application/AttackRunner.js',
+      'src/application/AttackState.js',
       'src/application/AttackDisplayRequestSnapshot.js',
       'src/application/AttackInputSnapshot.js',
     ]) {
@@ -82,8 +82,8 @@ describe('Attack feature architecture', () => {
     expect(modelSource).toContain('let nextComboId')
     expect(modelSource).toContain('allocateComboId')
     expect(modelSource).toContain('cloneAttackCombo')
-    expect(comboStateSource).toContain('createCanonicalComboDataState')
-    expect(comboStateSource).toContain('snapshotCanonicalAttackParams')
+    expect(comboStateSource).toContain('createComboDataState')
+    expect(comboStateSource).toContain('snapshotAttackParams')
   })
 
   it('uses one-way events and does not mutate UI props', () => {

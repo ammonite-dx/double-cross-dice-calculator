@@ -1,5 +1,5 @@
 import {
-  LEGACY_PUBLISHED_OVERFLOW_INDEX,
+  PUBLISHED_OVERFLOW_INDEX,
 } from '../calculation/DistributionResult'
 
 /**
@@ -21,7 +21,7 @@ const CHECK_DISPLAY_MODES = Object.freeze({
   UPPER_TAIL: 'upper-tail',
 })
 
-const LEGACY_SAFE_CALCULATION_MAX = LEGACY_PUBLISHED_OVERFLOW_INDEX - 1
+const LEGACY_SAFE_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)

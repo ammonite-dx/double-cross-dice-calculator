@@ -9,7 +9,7 @@ import {
   createCalculationFeedbackState,
   createLatestCalculationRunner,
 } from '../src/runtime/CalculationFeedback'
-import { LEGACY_PUBLISHED_OVERFLOW_INDEX } from '../src/calculation/DistributionResult'
+import { PUBLISHED_OVERFLOW_INDEX } from '../src/calculation/DistributionResult'
 import { planDisplayWindowResources } from '../src/shared/presentation'
 
 function createInput() {
@@ -83,7 +83,7 @@ describe('Check display request snapshot', () => {
     expect(request.rangePolicy.calculationMax).toBe(1200)
     expect(request.rangePolicy.display.maxPoints).toBe(1201)
     expect(request.rangePolicy.calculationMax)
-      .toBeGreaterThanOrEqual(LEGACY_PUBLISHED_OVERFLOW_INDEX - 1)
+      .toBeGreaterThanOrEqual(PUBLISHED_OVERFLOW_INDEX - 1)
     expect(Object.isFrozen(request)).toBe(true)
     expect(Object.isFrozen(request.params.action)).toBe(true)
     expect(Object.isFrozen(request.difficulty)).toBe(true)

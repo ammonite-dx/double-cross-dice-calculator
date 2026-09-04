@@ -274,7 +274,7 @@ function composePlannedDamage(
   }
 }
 
-function validateCanonicalRangePlan(rangePlan, attack, defence) {
+function validateRangePlan(rangePlan, attack, defence) {
   if (!rangePlan || typeof rangePlan !== 'object' || Array.isArray(rangePlan)) {
     throw new TypeError('rangePlan must be a top-level range plan object')
   }
@@ -284,12 +284,12 @@ function validateCanonicalRangePlan(rangePlan, attack, defence) {
   const scorePropagation = rangePlan.propagation?.score
   if (!['published-bucket', 'full-tail'].includes(scorePropagation)) {
     throw new RangeError(
-      'canonical damage requires a published-bucket or full-tail score propagation plan'
+      'damage requires a published-bucket or full-tail score propagation plan'
     )
   }
   if (rangePlan.damage?.scoreValueMode !== scorePropagation) {
     throw new RangeError(
-      'canonical damage score propagation must match the damage scoreValueMode'
+      'damage score propagation must match the damage scoreValueMode'
     )
   }
   if (!Array.isArray(rangePlan.scores) || rangePlan.scores.length === 0) {
@@ -360,7 +360,7 @@ function sumProbabilities(values) {
   return values.reduce((total, probability) => total + probability, 0)
 }
 
-function validateCanonicalScoreEnvelope(envelope, label) {
+function validateScoreEnvelope(envelope, label) {
   if (
     envelope === null ||
     typeof envelope !== 'object' ||
@@ -369,7 +369,7 @@ function validateCanonicalScoreEnvelope(envelope, label) {
     typeof envelope.result !== 'object'
   ) {
     throw new TypeError(
-      `${label} must be a canonical score envelope with a result`
+      `${label} must be a score envelope with a result`
     )
   }
 
@@ -425,7 +425,7 @@ function getReactionExplicitBelowLookup(reaction) {
   }
 }
 
-function getCanonicalScoreSourceSupport(action, reaction) {
+function getScoreSourceSupport(action, reaction) {
   if (
     action.result.support.kind === 'finite' &&
     reaction.result.support.kind === 'finite'
@@ -446,7 +446,7 @@ async function requestDamageRollDistribution(
   runtimeOptions,
   damageRangePlan
 ) {
-  const request = createCanonicalDamageRollRequest(
+  const request = createDamageRollRequest(
     score,
     attack,
     damageRangePlan
@@ -497,18 +497,18 @@ async function requestDamageRollDistribution(
 }
 
 /**
- * Build a damage-roll request directly from canonical score coverage.
+ * Build a damage-roll request directly from score coverage.
  * Explicit score values are paired with explicit reaction values only. Any
  * score tail is retained as an unmodeled probability bound rather than being
  * folded into the last damage-dice coefficient.
  */
-export function createCanonicalDamageRollRequest(
+export function createDamageRollRequest(
   score,
   attack,
   damageRangePlan
 ) {
-  const action = validateCanonicalScoreEnvelope(score?.action, 'score.action')
-  const reaction = validateCanonicalScoreEnvelope(
+  const action = validateScoreEnvelope(score?.action, 'score.action')
+  const reaction = validateScoreEnvelope(
     score?.reaction,
     'score.reaction'
   )
@@ -590,11 +590,11 @@ export function createCanonicalDamageRollRequest(
       action.certificate,
       reaction.certificate,
     ]),
-    sourceSupport: getCanonicalScoreSourceSupport(action, reaction),
+    sourceSupport: getScoreSourceSupport(action, reaction),
   }
 }
 
-export async function calculateCanonicalDamageOnDemand(
+export async function calculateDamageOnDemand(
   score,
   attack,
   defence,
@@ -612,7 +612,7 @@ export async function calculateCanonicalDamageOnDemand(
     )
   }
 
-  const canonicalPlan = validateCanonicalRangePlan(
+  const plan = validateRangePlan(
     rangePlan,
     attack,
     defence
@@ -623,12 +623,12 @@ export async function calculateCanonicalDamageOnDemand(
     defence,
     getDamageRollDistribution,
     runtimeOptions,
-    canonicalPlan.damage
+    plan.damage
   )
   const totalProbability =
     requested.failureProbability + requested.hitProbability
   if (
-    canonicalPlan.scorePropagation === 'published-bucket' &&
+    plan.scorePropagation === 'published-bucket' &&
     (
       !Number.isFinite(totalProbability) ||
       Math.abs(totalProbability - 1) > TOTAL_TOLERANCE
@@ -658,11 +658,11 @@ export async function calculateCanonicalDamageOnDemand(
     kind: 'finite',
     max: modeledSupportMax,
   })
-  const sourceSupport = canonicalPlan.scorePropagation === 'full-tail'
+  const sourceSupport = plan.scorePropagation === 'full-tail'
     ? requested.sourceSupport
     : Object.freeze({ kind: 'infinite' })
 
-  if (canonicalPlan.scorePropagation === 'full-tail') {
+  if (plan.scorePropagation === 'full-tail') {
     const explicitMax = Math.min(
       composed.plan.workingMax,
       modeledSupportMax
@@ -734,7 +734,7 @@ export async function calculateCanonicalDamageOnDemand(
     const overflow = hasUnmodeledTail
       ? {
           kind: 'upper-bound',
-          // Score tails are not damage-output tails: an unmodeled action or
+          // score tails are not damage-output tails: an unmodeled action or
           // reaction score can affect a low damage coordinate (including
           // failure at zero). Only overflow created after the damage output
           // has been composed can use its positional lower bound.
@@ -754,7 +754,7 @@ export async function calculateCanonicalDamageOnDemand(
     const metadata = Object.freeze({
       modeledDistribution: true,
       scorePropagation: 'full-tail',
-      scoreTails: canonicalPlan.scoreTails,
+      scoreTails: plan.scoreTails,
       scoreTailCertificates: requested.scoreTailCertificates,
       scoreTailProbabilityUpperBound,
       scoreTailErrorBound,
@@ -818,7 +818,7 @@ export async function calculateCanonicalDamageOnDemand(
   const metadata = Object.freeze({
     modeledDistribution: true,
     scorePropagation: 'published-bucket',
-    scoreTails: canonicalPlan.scoreTails,
+    scoreTails: plan.scoreTails,
     modeledSupport,
     sourceSupport,
   })
@@ -826,7 +826,7 @@ export async function calculateCanonicalDamageOnDemand(
   return Object.freeze({ result, metadata })
 }
 
-function isCanonicalDamageEnvelope(value) {
+function isDamageEnvelope(value) {
   return value !== null
     && typeof value === 'object'
     && !Array.isArray(value)
@@ -842,17 +842,17 @@ function isCanonicalDamageEnvelope(value) {
 }
 
 /**
- * Summarize a canonical damage envelope without converting it to legacy
+ * Summarize a damage envelope without converting it to legacy
  * buckets or copying its values buffer.
  */
-export function getCanonicalDamageSummary(canonicalDamage) {
-  if (!isCanonicalDamageEnvelope(canonicalDamage)) {
+export function getDamageSummary(damage) {
+  if (!isDamageEnvelope(damage)) {
     throw new TypeError(
-      'canonical damage summary expects an envelope with result and metadata'
+      'damage summary expects an envelope with result and metadata'
     )
   }
 
-  const expectedValue = getExpectedValueSummary(canonicalDamage.result)
-  const mass = getProbabilityMassSummary(canonicalDamage.result)
+  const expectedValue = getExpectedValueSummary(damage.result)
+  const mass = getProbabilityMassSummary(damage.result)
   return Object.freeze({ expectedValue, mass })
 }

@@ -4,13 +4,13 @@ import {
   DISTRIBUTION_RESULT_ERROR_CODES,
   DISTRIBUTION_RESULT_TOLERANCE,
   DistributionResultError,
-  LEGACY_PUBLISHED_BUCKET_LENGTH,
-  LEGACY_PUBLISHED_OVERFLOW_INDEX,
+  PUBLISHED_BUCKET_LENGTH,
+  PUBLISHED_OVERFLOW_INDEX,
   copyDistributionValues,
   createDistributionResult,
   fromPublishedBucketDistribution,
   getExplicitMax,
-  getCanonicalTotalDamageSummary,
+  getTotalDamageSummary,
   getExpectedValueSummary,
   getProbabilityMassSummary,
   isDistributionResultAdapterError,
@@ -410,7 +410,7 @@ describe('canonical distribution result', () => {
         errorBound: 0.75,
       },
     })
-    const summary = getCanonicalTotalDamageSummary({
+    const summary = getTotalDamageSummary({
       result,
       metadata: {
         modeledDistribution: true,
@@ -442,7 +442,7 @@ describe('canonical distribution result', () => {
       },
     })
 
-    expect(getCanonicalTotalDamageSummary({
+    expect(getTotalDamageSummary({
       result,
       metadata: {
         modeledDistribution: true,
@@ -468,7 +468,7 @@ describe('canonical distribution result', () => {
       },
     })
 
-    expect(getCanonicalTotalDamageSummary({
+    expect(getTotalDamageSummary({
       result,
       metadata: {
         modeledDistribution: true,
@@ -501,11 +501,11 @@ describe('canonical distribution result', () => {
       overflow: null,
     })
 
-    expect(getCanonicalTotalDamageSummary({
+    expect(getTotalDamageSummary({
       result: exact,
       metadata: { modeledDistribution: true, overflowProbabilityLowerBound: 0 },
     }).expectedValue).toEqual(getExpectedValueSummary(exact))
-    expect(getCanonicalTotalDamageSummary({
+    expect(getTotalDamageSummary({
       result: noOverflow,
       metadata: { modeledDistribution: true },
     }).expectedValue).toEqual(getExpectedValueSummary(noOverflow))
@@ -703,17 +703,17 @@ describe('canonical distribution result', () => {
 
 describe('published bucket distribution adapters', () => {
   it('requires explicit support and maps index 1023 to exact overflow', () => {
-    const legacy = new Float64Array(LEGACY_PUBLISHED_BUCKET_LENGTH)
+    const legacy = new Float64Array(PUBLISHED_BUCKET_LENGTH)
     legacy[0] = 0.2
     legacy[10] = 0.3
     legacy[1022] = 0.1
-    legacy[LEGACY_PUBLISHED_OVERFLOW_INDEX] = 0.4
+    legacy[PUBLISHED_OVERFLOW_INDEX] = 0.4
 
     const result = fromPublishedBucketDistribution(legacy, {
       support: { kind: 'infinite' },
     })
 
-    expect(result.values.length).toBe(LEGACY_PUBLISHED_OVERFLOW_INDEX)
+    expect(result.values.length).toBe(PUBLISHED_OVERFLOW_INDEX)
     expect(result.offset).toBe(0)
     expect(getExplicitMax(result)).toBe(1022)
     expect(result.values[1022]).toBe(0.1)
@@ -730,7 +730,7 @@ describe('published bucket distribution adapters', () => {
   })
 
   it('round-trips finite and infinite legacy support without treating the tail as a normal value', () => {
-    const legacy = Array(LEGACY_PUBLISHED_BUCKET_LENGTH).fill(0)
+    const legacy = Array(PUBLISHED_BUCKET_LENGTH).fill(0)
     legacy[1] = 0.2
     legacy[1023] = 0.8
 
@@ -740,7 +740,7 @@ describe('published bucket distribution adapters', () => {
     const infinite = fromPublishedBucketDistribution(legacy, {
       support: { kind: 'infinite' },
     })
-    const finiteWithoutTail = Array(LEGACY_PUBLISHED_BUCKET_LENGTH).fill(0)
+    const finiteWithoutTail = Array(PUBLISHED_BUCKET_LENGTH).fill(0)
     finiteWithoutTail[0] = 1
     const finiteNoOverflow = fromPublishedBucketDistribution(finiteWithoutTail, {
       support: { kind: 'finite', max: 1022 },
@@ -817,7 +817,7 @@ describe('published bucket distribution adapters', () => {
   })
 
   it('rejects exact potential mass below 1023 even when the explicit range is complete, but permits inert overflow', () => {
-    const values = new Float64Array(LEGACY_PUBLISHED_OVERFLOW_INDEX)
+    const values = new Float64Array(PUBLISHED_OVERFLOW_INDEX)
     values[0] = 0.4
     const unsafeResult = createExactResult({
       values,
@@ -853,7 +853,7 @@ describe('published bucket distribution adapters', () => {
       }),
       DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH
     )
-    const nanLegacy = new Float64Array(LEGACY_PUBLISHED_BUCKET_LENGTH)
+    const nanLegacy = new Float64Array(PUBLISHED_BUCKET_LENGTH)
     nanLegacy[0] = Number.NaN
     expectTypedError(
       () => fromPublishedBucketDistribution(nanLegacy, {
@@ -861,7 +861,7 @@ describe('published bucket distribution adapters', () => {
       }),
       DISTRIBUTION_RESULT_ERROR_CODES.NON_FINITE_PROBABILITY
     )
-    const negativeLegacy = new Float64Array(LEGACY_PUBLISHED_BUCKET_LENGTH)
+    const negativeLegacy = new Float64Array(PUBLISHED_BUCKET_LENGTH)
     negativeLegacy[0] = -0.1
     expectTypedError(
       () => fromPublishedBucketDistribution(negativeLegacy, {

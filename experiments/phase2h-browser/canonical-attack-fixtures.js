@@ -74,7 +74,7 @@ export const BENCHMARK_CASES = Object.freeze([
       attack: { dice: 1, value: 8, kazanari: 0 },
       defence: { dice: 1, value: 3 },
     })],
-    note: 'CalculationClient.calculateAttackCanonicalBatchのscore、DR、D10、防御、canonical totalを含む',
+    note: 'CalculationClient.calculateAttackBatchのscore、DR、D10、防御、totalを含む',
   }),
   makeCase({
     id: 'fixed-shift-defence',
@@ -169,7 +169,7 @@ export const BENCHMARK_CASES = Object.freeze([
         hard: { estimatedTimeMs: 0 },
       },
     },
-    executionReason: 'public calculateAttackCanonicalBatch rejects during preflight before asset, score, or Worker work',
+    executionReason: 'public calculateAttackBatch rejects during preflight before asset, score, or Worker work',
     entries: [makeAttackEntry('reject-boundary-1', {
       actionScore: scoreParams({ dice: 99, critical: 8, shihai: 0 }),
       reactionScore: scoreParams({ dice: 99, critical: 2, shihai: 19 }),

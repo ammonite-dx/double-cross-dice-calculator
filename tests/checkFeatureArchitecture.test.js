@@ -32,7 +32,7 @@ describe('Check feature architecture', () => {
     expect(page).toContain('<InputPanel')
     expect(page).toContain('<ChartPanel')
     expect(page).toContain('<SummaryPanel')
-    expect(page).not.toContain('calculateCheckCanonical')
+    expect(page).not.toContain('calculateCheck')
     expect(page).not.toContain('checkData')
   })
 
@@ -40,7 +40,7 @@ describe('Check feature architecture', () => {
     const oldPaths = [
       'src/application/CheckInputSnapshot.ts',
       'src/application/CheckDisplayRequestSnapshot.js',
-      'src/application/CheckCanonicalPresentation.js',
+      'src/application/CheckPresentation.js',
       'src/components/Check',
     ]
 
@@ -75,7 +75,7 @@ describe('Check feature architecture', () => {
 
   it('does not retain old Check import paths in production or tests', () => {
     const directories = ['src', 'tests']
-    const forbidden = /(?:application\/(?:CheckInputSnapshot|CheckDisplayRequestSnapshot|CheckCanonicalPresentation)|components\/Check)/
+    const forbidden = /(?:application\/(?:CheckInputSnapshot|CheckDisplayRequestSnapshot|CheckPresentation)|components\/Check)/
 
     for (const directory of directories) {
       const files = sourceFilesRecursive(directory)

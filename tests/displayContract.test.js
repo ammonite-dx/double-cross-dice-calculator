@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
-import { getCanonicalDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageSummary } from '../src/calculation/DamageCalculator'
 import {
   DISTRIBUTION_PRESENTATION_ERROR_CODES,
   DistributionPresentationError,
-  presentCanonicalDistribution,
+  presentDistribution,
 } from '../src/shared/presentation'
 
 function createEnvelope({
@@ -120,8 +120,8 @@ describe('shared canonical display contract golden fixtures', () => {
     'preserves $path support, coverage, tail, mass, and expected-value meanings',
     ({ envelope: fixture, expected }) => {
       const envelope = createEnvelope(fixture)
-      const display = presentCanonicalDistribution(envelope, {
-        summary: getCanonicalDamageSummary(envelope),
+      const display = presentDistribution(envelope, {
+        summary: getDamageSummary(envelope),
         warnings: [{ code: `${fixture.path}-range`, severity: 'warning' }],
         displayWindow: { min: 0, max: 8 },
       })
@@ -146,15 +146,15 @@ describe('shared canonical display contract golden fixtures', () => {
       overflow: null,
     })
 
-    expect(() => presentCanonicalDistribution(envelope, {
-      summary: getCanonicalDamageSummary(envelope),
+    expect(() => presentDistribution(envelope, {
+      summary: getDamageSummary(envelope),
     })).toThrowError(
       expect.objectContaining({
         code: DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
       })
     )
-    expect(() => presentCanonicalDistribution(envelope, {
-      summary: getCanonicalDamageSummary(envelope),
+    expect(() => presentDistribution(envelope, {
+      summary: getDamageSummary(envelope),
     })).toThrow(DistributionPresentationError)
   })
 })

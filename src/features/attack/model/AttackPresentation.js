@@ -3,15 +3,15 @@ import {
   getProbabilityMassSummary,
 } from '../../../calculation/DistributionResult'
 import {
-  CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CANONICAL_CHART_SERIES_NOT_READY_REASONS,
+  CHART_SERIES_NOT_PROJECTABLE_REASONS,
+  CHART_SERIES_NOT_READY_REASONS,
   DISPLAY_PROBABILITY_TOLERANCE,
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
   DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
-  createCanonicalChartSeries,
-  materializeCanonicalChartJsData,
+  createChartSeries,
+  materializeChartJsData,
   planDisplayRange,
-  presentCanonicalDistribution,
+  presentDistribution,
 } from '../../../shared/presentation'
 import {
   ATTACK_DISPLAY_MODES,
@@ -19,7 +19,7 @@ import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
 } from './AttackDisplayRequestSnapshot'
 
-export const ATTACK_CANONICAL_PRESENTATION_ERROR_CODES = Object.freeze({
+export const ATTACK_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_BATCH_RESULT: 'invalid-batch-result',
   INVALID_BATCH_SUMMARY: 'invalid-batch-summary',
   INVALID_CLONE: 'invalid-clone',
@@ -31,9 +31,9 @@ export const ATTACK_CANONICAL_PRESENTATION_ERROR_CODES = Object.freeze({
   UNSAFE_CLONE: 'unsafe-clone',
 })
 
-export const ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION = 1
+export const ATTACK_DISPLAY_PRESENTATION_VERSION = 1
 
-export const ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS = Object.freeze({
+export const ATTACK_DISPLAY_PRESENTATION_DECISIONS = Object.freeze({
   REUSE: 'reuse',
   KNOWN_ZERO: 'known-zero',
   RECALCULATE: 'recalculate',
@@ -41,21 +41,21 @@ export const ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS = Object.freeze({
   NOT_PROJECTABLE: 'not-projectable',
 })
 
-export const ATTACK_CANONICAL_SCORE_DISPLAY_PRESENTATION_DECISIONS =
-  ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS
+export const ATTACK_SCORE_DISPLAY_PRESENTATION_DECISIONS =
+  ATTACK_DISPLAY_PRESENTATION_DECISIONS
 
-export class AttackCanonicalPresentationError extends Error {
+export class AttackPresentationError extends Error {
   constructor(code, message, details = {}) {
     super(message)
-    this.name = 'AttackCanonicalPresentationError'
+    this.name = 'AttackPresentationError'
     this.code = code
     this.details = Object.freeze({ ...details })
-    this.attackCanonicalPresentation = true
+    this.attackPresentation = true
   }
 }
 
-export function isAttackCanonicalPresentationError(error) {
-  return error?.attackCanonicalPresentation === true
+export function isAttackPresentationError(error) {
+  return error?.attackPresentation === true
     && typeof error.code === 'string'
 }
 
@@ -81,7 +81,7 @@ const BIGINT_TYPED_ARRAY_CONSTRUCTORS = [
 ]
 
 function fail(code, message, details = {}) {
-  throw new AttackCanonicalPresentationError(code, message, details)
+  throw new AttackPresentationError(code, message, details)
 }
 
 function reflectionFailure(code, path, operation, error) {
@@ -276,7 +276,7 @@ function validateId(id, path) {
     && !(typeof id === 'number' && Number.isFinite(id))
   ) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO,
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO,
       `${path} must be a string or finite number`,
       { path }
     )
@@ -287,7 +287,7 @@ function snapshotBatchResult(batchResult) {
   validateOwnDataProperties(
     batchResult,
     'batchResult',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
   )
 
   const combos = requireArray(
@@ -295,28 +295,28 @@ function snapshotBatchResult(batchResult) {
       batchResult,
       'combos',
       'batchResult',
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
     ),
     'batchResult.combos',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
   )
   const comboCount = readArrayLength(
     combos,
     'batchResult.combos',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT
   )
 
-  const canonicalTotalDamage = requireOwnDataProperty(
+  const totalDamage = requireOwnDataProperty(
     batchResult,
-    'canonicalTotalDamage',
+    'totalDamage',
     'batchResult',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
   )
-  const canonicalTotalDamageSummary = requireOwnDataProperty(
+  const totalDamageSummary = requireOwnDataProperty(
     batchResult,
-    'canonicalTotalDamageSummary',
+    'totalDamageSummary',
     'batchResult',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
   )
 
   const comboSnapshots = []
@@ -326,22 +326,22 @@ function snapshotBatchResult(batchResult) {
         combos,
         index,
         'batchResult.combos',
-        ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+        ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
       ),
       `batchResult.combos[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
     validateOwnDataProperties(
       combo,
       `batchResult.combos[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
 
     const id = requireOwnDataProperty(
       combo,
       'id',
       `batchResult.combos[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
     validateId(id, `batchResult.combos[${index}].id`)
 
@@ -349,40 +349,40 @@ function snapshotBatchResult(batchResult) {
       combo,
       'score',
       `batchResult.combos[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
     const scoreSummary = requireOwnDataProperty(
       combo,
       'scoreSummary',
       `batchResult.combos[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
-    const canonicalDamage = requireOwnDataProperty(
+    const damage = requireOwnDataProperty(
       combo,
-      'canonicalDamage',
+      'damage',
       `batchResult.combos[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
-    const canonicalDamageSummary = requireOwnDataProperty(
+    const damageSummary = requireOwnDataProperty(
       combo,
-      'canonicalDamageSummary',
+      'damageSummary',
       `batchResult.combos[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
     )
 
     comboSnapshots.push({
       id,
       score,
       scoreSummary,
-      canonicalDamage,
-      canonicalDamageSummary,
+      damage,
+      damageSummary,
     })
   }
 
   return {
     combos: comboSnapshots,
-    canonicalTotalDamage,
-    canonicalTotalDamageSummary,
+    totalDamage,
+    totalDamageSummary,
   }
 }
 
@@ -390,16 +390,16 @@ function snapshotRangePlans(rangePlans, comboCount) {
   requireArray(
     rangePlans,
     'rangePlans',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLANS
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLANS
   )
   const rangePlanCount = readArrayLength(
     rangePlans,
     'rangePlans',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLANS
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLANS
   )
   if (rangePlanCount !== comboCount) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.RANGE_PLAN_COUNT_MISMATCH,
+      ATTACK_PRESENTATION_ERROR_CODES.RANGE_PLAN_COUNT_MISMATCH,
       'rangePlans length must match batchResult.combos length',
       { comboCount, rangePlanCount }
     )
@@ -411,23 +411,23 @@ function snapshotRangePlans(rangePlans, comboCount) {
       rangePlans,
       index,
       'rangePlans',
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
     )
     requirePlainRecord(
       rangePlan,
       `rangePlans[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
     )
     validateOwnDataProperties(
       rangePlan,
       `rangePlans[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
     )
     const warningsDescriptor = safeGetOwnPropertyDescriptor(
       rangePlan,
       'warnings',
       `rangePlans[${index}]`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
     )
     const warnings = warningsDescriptor === undefined
       ? []
@@ -435,15 +435,15 @@ function snapshotRangePlans(rangePlans, comboCount) {
           rangePlan,
           'warnings',
           `rangePlans[${index}]`,
-          ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
+          ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
         )
     if (warnings !== undefined && !safeIsArray(
       warnings,
       `rangePlans[${index}].warnings`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN
     )) {
       fail(
-        ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN,
+        ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN,
         `rangePlans[${index}].warnings must be an array`,
         { path: `rangePlans[${index}].warnings` }
       )
@@ -468,7 +468,7 @@ function countCloneNode(state, path) {
   state.nodes += 1
   if (state.nodes > DISTRIBUTION_PRESENTATION_MAX_JSON_NODES) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+      ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
       `${path} exceeds the clone node limit`,
       {
         path,
@@ -481,7 +481,7 @@ function countCloneNode(state, path) {
 function validateCloneDepth(depth, path) {
   if (depth > DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+      ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
       `${path} exceeds the clone depth limit`,
       {
         path,
@@ -493,7 +493,7 @@ function validateCloneDepth(depth, path) {
 
 function cloneFailure(path, message, details = {}) {
   fail(
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_CLONE,
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_CLONE,
     message,
     { path, ...details }
   )
@@ -501,7 +501,7 @@ function cloneFailure(path, message, details = {}) {
 
 function unsafeClone(path, message, details = {}) {
   fail(
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+    ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
     message,
     { path, ...details }
   )
@@ -621,7 +621,7 @@ function cloneMutableValue(
     const length = readArrayLength(value, path, code)
     if (length > DISTRIBUTION_PRESENTATION_MAX_JSON_NODES) {
       fail(
-        ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
+        ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
         `${path} exceeds the clone node limit`,
         {
           path,
@@ -750,12 +750,12 @@ function freezeClone(value, path = 'clone', seen = new WeakSet()) {
       value,
       ArrayBuffer,
       path,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
+      ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
     )
     || safeArrayBufferIsView(
       value,
       path,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
+      ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
     )
   ) {
     try {
@@ -770,13 +770,13 @@ function freezeClone(value, path = 'clone', seen = new WeakSet()) {
   for (const property of safeGetOwnPropertyNames(
     value,
     path,
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
+    ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
   )) {
     const descriptor = safeGetOwnPropertyDescriptor(
       value,
       property,
       path,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
+      ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE
     )
     if (isDataDescriptor(descriptor)) {
       freezeClone(descriptor.value, `${path}.${property}`, seen)
@@ -795,7 +795,7 @@ function copyRangePlan(rangePlan, warnings, path) {
   const copy = cloneMutableValue(
     rangePlan,
     path,
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN,
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN,
     state,
     0,
     new Set(['warnings'])
@@ -806,7 +806,7 @@ function copyRangePlan(rangePlan, warnings, path) {
     value: cloneMutableValue(
       warnings,
       `${path}.warnings`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN,
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLAN,
       state
     ),
     writable: true,
@@ -825,15 +825,15 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isCanonicalScoreEnvelope(value) {
+function isScoreEnvelope(value) {
   return isRecord(value)
     && isRecord(value.result)
     && isRecord(value.metadata)
     && value.metadata.modeledDistribution === true
 }
 
-function createCanonicalScoreSidePresentation(envelope) {
-  if (!isCanonicalScoreEnvelope(envelope)) {
+function createScoreSidePresentation(envelope) {
+  if (!isScoreEnvelope(envelope)) {
     return null
   }
 
@@ -841,65 +841,65 @@ function createCanonicalScoreSidePresentation(envelope) {
     mass: getProbabilityMassSummary(envelope.result),
     expectedValue: getExpectedValueSummary(envelope.result),
   }
-  return presentCanonicalDistribution(envelope, { summary })
+  return presentDistribution(envelope, { summary })
 }
 
 /**
- * Keep the complete canonical score display separate from the selected chart
+ * Keep the complete score display separate from the selected chart
  * window. The action side is the side currently shown by Attack's score
- * chart; the reaction side is retained for the same canonical batch and for
+ * chart; the reaction side is retained for the same batch and for
  * future consumers without making it a reason to recalculate this chart.
  */
-function createCanonicalScorePresentation(score) {
+function createScorePresentation(score) {
   if (!isRecord(score)) {
     return null
   }
 
-  const action = createCanonicalScoreSidePresentation(score.action)
+  const action = createScoreSidePresentation(score.action)
   if (action === null) {
     return null
   }
-  const reaction = createCanonicalScoreSidePresentation(score.reaction)
+  const reaction = createScoreSidePresentation(score.reaction)
   return Object.freeze({
     action,
     ...(reaction === null ? {} : { reaction }),
   })
 }
 
-export const createAttackCanonicalScorePresentation =
-  createCanonicalScorePresentation
+export const createAttackScorePresentation =
+  createScorePresentation
 
-function normalizeAttackCanonicalDisplayOptions(options) {
+function normalizeAttackDisplayOptions(options) {
   requirePlainRecord(
     options,
     'options',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
   )
 
   const rawDisplayRequest = readOptionalOwnDataProperty(
     options,
     'displayRequest',
     'options',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
   )
   const rangePlans = readOptionalOwnDataProperty(
     options,
     'rangePlans',
     'options',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
   )
   const policy = readOptionalOwnDataProperty(
     options,
     'policy',
     'options',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
   )
 
   // An own `undefined` value keeps the existing optional-property semantics;
   // null is an explicit value and must not silently become an omission.
   if (rawDisplayRequest === null) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
       'options.displayRequest must not be null',
       { path: 'options.displayRequest' }
     )
@@ -908,25 +908,25 @@ function normalizeAttackCanonicalDisplayOptions(options) {
     options,
     'scoreDisplayRequest',
     'options',
-    ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
+    ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS
   )
   if (rangePlans === null) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
       'options.rangePlans must not be null',
       { path: 'options.rangePlans' }
     )
   }
   if (rawScoreDisplayRequest === null) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
       'options.scoreDisplayRequest must not be null',
       { path: 'options.scoreDisplayRequest' }
     )
   }
   if (policy === null) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_OPTIONS,
       'options.policy must not be null',
       { path: 'options.policy' }
     )
@@ -997,47 +997,47 @@ function hasTerminalUpperBoundEvidence(side) {
     || overflow.lowerBound <= side.plan.displayWindow.max
 }
 
-function getAttackCanonicalDisplaySideDecision(side) {
+function getAttackDisplaySideDecision(side) {
   if (
     side.plan.status === 'resource-rejected'
-    || side.series.reason === CANONICAL_CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED
+    || side.series.reason === CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED
   ) {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
   }
 
   if (hasTerminalUpperBoundEvidence(side)) {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   }
 
   if (side.series.status === 'not-projectable') {
     if (
       side.series.reason
-      === CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
+      === CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
     ) {
-      return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+      return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
     }
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   }
 
   if (side.series.status === 'not-ready') {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
   }
 
   if (side.plan.decision === 'known-zero') {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
   }
 
-  return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.REUSE
+  return ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE
 }
 
-function getAttackCanonicalDisplaySideReason(side) {
+function getAttackDisplaySideReason(side) {
   if (hasTerminalUpperBoundEvidence(side)) {
-    return CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW
+    return CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW
   }
   return side.series.reason ?? null
 }
 
-function getAttackCanonicalDisplayStatus(sides) {
+function getAttackDisplayStatus(sides) {
   if (sides.some(({ series }) => series.status === 'not-projectable')) {
     return 'not-projectable'
   }
@@ -1047,32 +1047,32 @@ function getAttackCanonicalDisplayStatus(sides) {
   return 'ready'
 }
 
-function getAttackCanonicalDisplayDecision(sides) {
-  const decisions = sides.map(getAttackCanonicalDisplaySideDecision)
+function getAttackDisplayDecision(sides) {
+  const decisions = sides.map(getAttackDisplaySideDecision)
   if (decisions.includes(
-    ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+    ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   )) {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   }
   if (decisions.includes(
-    ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+    ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
   )) {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
   }
   if (decisions.includes(
-    ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
   )) {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
   }
   if (decisions.every((decision) => (
-    decision === ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
+    decision === ATTACK_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
   ))) {
-    return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
+    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
   }
-  return ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.REUSE
+  return ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE
 }
 
-function createAttackCanonicalDisplaySide(
+function createAttackDisplaySide(
   display,
   displayRequest,
   policy,
@@ -1089,11 +1089,11 @@ function createAttackCanonicalDisplaySide(
   }
 
   const plan = planDisplayRange(display, plannerOptions)
-  const series = createCanonicalChartSeries(display, plan, {
+  const series = createChartSeries(display, plan, {
     mode: displayRequest.mode,
   })
   const chart = series.status === 'ready'
-    ? materializeCanonicalChartJsData(series)
+    ? materializeChartJsData(series)
     : null
   const side = {
     ...(id === undefined ? {} : { id }),
@@ -1104,35 +1104,35 @@ function createAttackCanonicalDisplaySide(
     status: series.status,
     reason: null,
   }
-  side.reason = getAttackCanonicalDisplaySideReason(side)
-  side.decision = getAttackCanonicalDisplaySideDecision(side)
+  side.reason = getAttackDisplaySideReason(side)
+  side.decision = getAttackDisplaySideDecision(side)
   return Object.freeze(side)
 }
 
-function createAttackCanonicalScoreDisplayPresentation(
-  canonicalScorePresentation,
+function createAttackScoreDisplayPresentation(
+  scorePresentation,
   displayRequest,
   policy
 ) {
   if (
-    !isRecord(canonicalScorePresentation)
-    || !isRecord(canonicalScorePresentation.action)
+    !isRecord(scorePresentation)
+    || !isRecord(scorePresentation.action)
   ) {
     return null
   }
 
-  const action = createAttackCanonicalDisplaySide(
-    canonicalScorePresentation.action,
+  const action = createAttackDisplaySide(
+    scorePresentation.action,
     displayRequest,
     policy
   )
   if (action === null) {
     return null
   }
-  const reaction = !isRecord(canonicalScorePresentation.reaction)
+  const reaction = !isRecord(scorePresentation.reaction)
     ? null
-    : createAttackCanonicalDisplaySide(
-        canonicalScorePresentation.reaction,
+    : createAttackDisplaySide(
+        scorePresentation.reaction,
         displayRequest,
         policy
       )
@@ -1142,10 +1142,10 @@ function createAttackCanonicalScoreDisplayPresentation(
   // trigger a score chart recalculation or hide the action chart.
   const displayedSides = [action]
   return Object.freeze({
-    version: ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION,
+    version: ATTACK_DISPLAY_PRESENTATION_VERSION,
     kind: 'attack-canonical-score-display-presentation',
-    status: getAttackCanonicalDisplayStatus(displayedSides),
-    decision: getAttackCanonicalDisplayDecision(displayedSides),
+    status: getAttackDisplayStatus(displayedSides),
+    decision: getAttackDisplayDecision(displayedSides),
     mode: displayRequest.mode,
     displayRequest,
     action,
@@ -1154,11 +1154,11 @@ function createAttackCanonicalScoreDisplayPresentation(
 }
 
 /**
- * Build one UI-independent presentation payload for a canonical attack batch.
+ * Build one UI-independent presentation payload for an attack batch.
  * The batch result is consumed as a completed value; no calculation or
  * legacy projection is performed here.
  */
-export function createAttackCanonicalPresentation(
+export function createAttackPresentation(
   batchResult,
   rangePlans = []
 ) {
@@ -1170,86 +1170,83 @@ export function createAttackCanonicalPresentation(
   for (let index = 0; index < snapshot.combos.length; index += 1) {
     const combo = snapshot.combos[index]
     const rangePlan = planSnapshots[index]
-    const canonicalDamagePresentation = presentCanonicalDistribution(
-      combo.canonicalDamage,
+    const damagePresentation = presentDistribution(
+      combo.damage,
       {
-        summary: combo.canonicalDamageSummary,
+        summary: combo.damageSummary,
         warnings: rangePlan.warnings,
       }
     )
 
-    for (const warning of canonicalDamagePresentation.warnings) {
+    for (const warning of damagePresentation.warnings) {
       totalWarnings.push(addEntryId(warning, combo.id))
     }
 
-    const canonicalScore = cloneAndFreeze(
+    const score = cloneAndFreeze(
       combo.score,
       `batchResult.combos[${index}].score`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
-    const canonicalScoreBatchSummary = cloneAndFreeze(
+    const scoreSummary = cloneAndFreeze(
       combo.scoreSummary,
       `batchResult.combos[${index}].scoreSummary`,
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_COMBO
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
-    const canonicalScorePresentation = createCanonicalScorePresentation(
-      canonicalScore
+    const scorePresentation = createScorePresentation(
+      score
     )
 
     combos.push(Object.freeze({
       id: combo.id,
-      score: canonicalScore,
-      scoreSummary: canonicalScoreBatchSummary,
-      canonicalScore,
-      canonicalScoreBatchSummary,
-      canonicalScorePresentation,
-      canonicalScoreSummary: canonicalScoreBatchSummary,
-      canonicalDamage: combo.canonicalDamage,
-      canonicalDamageSummary: combo.canonicalDamageSummary,
-      canonicalDamagePresentation,
-      canonicalRangePlan: copyRangePlan(
+      score,
+      scoreSummary,
+      scorePresentation,
+      damage: combo.damage,
+      damageSummary: combo.damageSummary,
+      damagePresentation,
+      rangePlan: copyRangePlan(
         rangePlan.plan,
-        canonicalDamagePresentation.warnings,
+        damagePresentation.warnings,
         `rangePlans[${index}]`
       ),
     }))
   }
 
-  const canonicalTotalDamagePresentation = presentCanonicalDistribution(
-    snapshot.canonicalTotalDamage,
+  const totalDamagePresentation = presentDistribution(
+    snapshot.totalDamage,
     {
-      summary: snapshot.canonicalTotalDamageSummary,
+      summary: snapshot.totalDamageSummary,
       warnings: totalWarnings,
     }
   )
 
   return Object.freeze({
     combos: Object.freeze(combos),
-    canonicalTotalDamage: snapshot.canonicalTotalDamage,
-    canonicalTotalDamageSummary: snapshot.canonicalTotalDamageSummary,
-    canonicalTotalDamagePresentation,
+    totalDamage: snapshot.totalDamage,
+    totalDamageSummary: snapshot.totalDamageSummary,
+    totalDamagePresentation,
   })
 }
 
 /**
- * Connect a completed canonical Attack batch to the shared dynamic display
+ * Connect a completed Attack batch to the shared dynamic display
  * contract. The calculation result is first passed through the existing
- * Attack canonical presenter, then each combo and the canonical total are
+ * Attack presenter, then each combo and the total are
  * independently planned and adapted to a dense chart series. No calculation,
  * legacy projection, or fallback is performed here.
  *
  * `options` is `{ displayRequest, rangePlans, policy }`. `rangePlans` are the
- * calculation plans already collected by AttackCanonicalRunner; they are only
+ * calculation plans already collected by AttackRunner; they are only
  * used by the existing presenter to retain calculation warnings. `policy` is
  * the independent DisplayRangePlanner resource policy.
  */
-function buildAttackCanonicalDisplayPresentationFromCanonical(
-  canonical,
+function buildAttackDisplayPresentationFrom(
+  presentation,
   normalized
 ) {
-  const scoreCombos = canonical.combos.map((combo) => {
-    const scorePresentation = createAttackCanonicalScoreDisplayPresentation(
-      combo.canonicalScorePresentation,
+  const scoreCombos = presentation.combos.map((combo) => {
+    const scorePresentation = createAttackScoreDisplayPresentation(
+      combo.scorePresentation,
       normalized.scoreDisplayRequest,
       normalized.policy
     )
@@ -1258,13 +1255,13 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
     }
     return Object.freeze({
       id: combo.id,
-      canonicalScoreBatchSummary: combo.canonicalScoreBatchSummary,
+      scoreSummary: combo.scoreSummary,
       ...scorePresentation,
     })
   })
-  const combos = canonical.combos.map((combo, index) => {
-    const side = createAttackCanonicalDisplaySide(
-      combo.canonicalDamagePresentation,
+  const combos = presentation.combos.map((combo, index) => {
+    const side = createAttackDisplaySide(
+      combo.damagePresentation,
       normalized.displayRequest,
       normalized.policy,
       combo.id
@@ -1273,16 +1270,15 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
       ...side,
       // Keep the calculation plan available to the application feedback
       // lane while `plan` remains the display-window plan.
-      canonicalRangePlan: combo.canonicalRangePlan,
-      canonicalScore: combo.canonicalScore ?? null,
-      canonicalScorePresentation: combo.canonicalScorePresentation ?? null,
-      canonicalScoreSummary: combo.canonicalScoreSummary ?? null,
-      canonicalScoreBatchSummary: combo.canonicalScoreBatchSummary ?? null,
-      score: scoreCombos[index],
+      rangePlan: combo.rangePlan,
+      score: combo.score ?? null,
+      scoreSummary: combo.scoreSummary ?? null,
+      scorePresentation: combo.scorePresentation ?? null,
+      scoreDisplay: scoreCombos[index],
     })
   })
-  const total = createAttackCanonicalDisplaySide(
-    canonical.canonicalTotalDamagePresentation,
+  const total = createAttackDisplaySide(
+    presentation.totalDamagePresentation,
     normalized.displayRequest,
     normalized.policy,
   )
@@ -1294,24 +1290,24 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
   const score = scoreSides.length === 0
     ? null
     : Object.freeze({
-        version: ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION,
+        version: ATTACK_DISPLAY_PRESENTATION_VERSION,
         kind: 'attack-canonical-score-display-presentation',
         status: hasMissingScore
           ? 'not-ready'
-          : getAttackCanonicalDisplayStatus(scoreSides),
+          : getAttackDisplayStatus(scoreSides),
         decision: hasMissingScore
-          ? ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
-          : getAttackCanonicalDisplayDecision(scoreSides),
+          ? ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
+          : getAttackDisplayDecision(scoreSides),
         mode: normalized.scoreDisplayRequest.mode,
         displayRequest: normalized.scoreDisplayRequest,
         combos: Object.freeze(scoreCombos),
       })
 
   return Object.freeze({
-    version: ATTACK_CANONICAL_DISPLAY_PRESENTATION_VERSION,
+    version: ATTACK_DISPLAY_PRESENTATION_VERSION,
     kind: 'attack-canonical-display-presentation',
-    status: getAttackCanonicalDisplayStatus(sides),
-    decision: getAttackCanonicalDisplayDecision(sides),
+    status: getAttackDisplayStatus(sides),
+    decision: getAttackDisplayDecision(sides),
     mode: normalized.displayRequest.mode,
     displayRequest: normalized.displayRequest,
     combos: Object.freeze(combos),
@@ -1321,55 +1317,55 @@ function buildAttackCanonicalDisplayPresentationFromCanonical(
 }
 
 /**
- * Re-plan an already presented canonical Attack result for a new display
- * window or mode. The canonical distribution presenter has already made the
+ * Re-plan an already presented Attack result for a new display
+ * window or mode. The distribution presenter has already made the
  * defensive copy at the calculation-result boundary, so changing the window
  * only creates the window-sized chart series.
  */
-export function createAttackCanonicalDisplayPresentationFromCanonical(
-  canonical,
+export function createAttackDisplayPresentationFrom(
+  presentation,
   options = {}
 ) {
-  const normalized = normalizeAttackCanonicalDisplayOptions(options)
+  const normalized = normalizeAttackDisplayOptions(options)
   if (
-    canonical === null
-    || typeof canonical !== 'object'
-    || Array.isArray(canonical)
-    || !Array.isArray(canonical.combos)
+    presentation === null
+    || typeof presentation !== 'object'
+    || Array.isArray(presentation)
+    || !Array.isArray(presentation.combos)
   ) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
-      'canonical presentation must contain a combos array',
-      { path: 'canonical.combos' }
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
+      'attack presentation must contain a combos array',
+      { path: 'presentation.combos' }
     )
   }
   if (!Object.prototype.hasOwnProperty.call(
-    canonical,
-    'canonicalTotalDamagePresentation'
+    presentation,
+    'totalDamagePresentation'
   )) {
     fail(
-      ATTACK_CANONICAL_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY,
-      'canonical presentation must contain a total damage presentation',
-      { path: 'canonical.canonicalTotalDamagePresentation' }
+      ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY,
+      'attack presentation must contain a total damage presentation',
+      { path: 'presentation.totalDamagePresentation' }
     )
   }
-  return buildAttackCanonicalDisplayPresentationFromCanonical(
-    canonical,
+  return buildAttackDisplayPresentationFrom(
+    presentation,
     normalized
   )
 }
 
-export function createAttackCanonicalDisplayPresentation(
+export function createAttackDisplayPresentation(
   batchResult,
   options = {}
 ) {
-  const normalized = normalizeAttackCanonicalDisplayOptions(options)
-  const canonical = createAttackCanonicalPresentation(
+  const normalized = normalizeAttackDisplayOptions(options)
+  const presentation = createAttackPresentation(
     batchResult,
     normalized.rangePlans
   )
-  return buildAttackCanonicalDisplayPresentationFromCanonical(
-    canonical,
+  return buildAttackDisplayPresentationFrom(
+    presentation,
     normalized
   )
 }

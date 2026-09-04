@@ -1,25 +1,25 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  calculateFinalEncroachmentCanonical,
+  calculateFinalEncroachment,
 } from '../src/calculation/BacktrackCalculator'
 import {
-  calculateCanonicalDamageOnDemand,
+  calculateDamageOnDemand,
 } from '../src/calculation/DamageCalculator'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
 import {
-  calculateScoreCanonical,
-  getCanonicalScoreSummary,
+  calculateScore,
+  getScoreSummary,
 } from '../src/calculation/ScoreCalculator'
 import {
   generateMixedDamageDistribution,
 } from '../src/calculation/RuntimeDamageRollCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
-  createBacktrackCanonicalPresentation,
-} from '../src/features/backtrack/model/BacktrackCanonicalPresentation'
+  createBacktrackPresentation,
+} from '../src/features/backtrack/model/BacktrackPresentation'
 
 const SCORE_PARAMS = {
   dice: 1,
@@ -41,7 +41,7 @@ function sparseDistribution(entries) {
   return { offset: first, values }
 }
 
-function canonicalScoreEnvelope(entries, failureProbability = 0) {
+function ScoreEnvelope(entries, failureProbability = 0) {
   const maxValue = Math.max(...entries.map(([value]) => value))
   const values = new Float64Array(maxValue + 1)
   for (const [value, probability] of entries) {
@@ -62,12 +62,12 @@ function canonicalScoreEnvelope(entries, failureProbability = 0) {
   }
 }
 
-function fixedCanonicalScore(value) {
-  return canonicalScoreEnvelope([[value, 1]])
+function fixedScore(value) {
+  return ScoreEnvelope([[value, 1]])
 }
 
 function calculateRuleScore(params, getDxDistribution) {
-  return calculateScoreCanonical(
+  return calculateScore(
     params,
     { getDxDistribution }
   )
@@ -132,7 +132,7 @@ function createRuleDamageRangePlan(score, attack, defence) {
 
 async function calculateRuleDamage(score, attack, defence) {
   const rangePlan = createRuleDamageRangePlan(score, attack, defence)
-  const canonical = await calculateCanonicalDamageOnDemand(
+  const canonical = await calculateDamageOnDemand(
     score,
     attack,
     defence,
@@ -146,7 +146,7 @@ async function calculateRuleDamage(score, attack, defence) {
   return canonical
 }
 
-function expectCanonicalDistributionClose(actual, expected, tolerance = 1e-10) {
+function expectDistributionClose(actual, expected, tolerance = 1e-10) {
   expect(actual).toHaveLength(expected.length)
   for (let value = 0; value < expected.length; value += 1) {
     expect(Math.abs(actual[value] - expected[value])).toBeLessThanOrEqual(
@@ -310,10 +310,10 @@ describe('runtime score rules', () => {
       { ...SCORE_PARAMS, critical: 11, skill: -3 },
       () => sparseDistribution([[2, 1]])
     )
-    const summary = getCanonicalScoreSummary(
+    const summary = getScoreSummary(
       {
         action: result,
-        reaction: canonicalScoreEnvelope([[0, 1]]),
+        reaction: ScoreEnvelope([[0, 1]]),
       },
       { opposed: false, target: 0 }
     )
@@ -332,10 +332,10 @@ describe('runtime score rules', () => {
         [2, 0.5],
       ])
     )
-    const summary = getCanonicalScoreSummary(
+    const summary = getScoreSummary(
       {
         action: result,
-        reaction: canonicalScoreEnvelope([[0, 1]]),
+        reaction: ScoreEnvelope([[0, 1]]),
       },
       { opposed: false, target: 0 }
     )
@@ -379,17 +379,17 @@ describe('runtime score rules', () => {
   })
 
   it('awards opposed ties to the reaction side', () => {
-    const action = canonicalScoreEnvelope([
+    const action = ScoreEnvelope([
       [0, 0.1],
       [5, 0.4],
       [10, 0.5],
     ])
-    const reaction = canonicalScoreEnvelope([
+    const reaction = ScoreEnvelope([
       [0, 0.2],
       [5, 0.3],
       [10, 0.5],
     ])
-    const summary = getCanonicalScoreSummary({ action, reaction })
+    const summary = getScoreSummary({ action, reaction })
 
     expect(summary.action.successRate).toEqual({ kind: 'exact', value: 33 })
     expect(summary.reaction.successRate).toEqual({ kind: 'exact', value: 67 })
@@ -399,12 +399,12 @@ describe('runtime score rules', () => {
 describe('runtime damage rules', () => {
   it('uses floor(score / 10) + 1 damage dice after a hit', async () => {
     const oneDieScore = {
-      action: fixedCanonicalScore(9),
-      reaction: fixedCanonicalScore(0),
+      action: fixedScore(9),
+      reaction: fixedScore(0),
     }
     const twoDiceScore = {
-      action: fixedCanonicalScore(10),
-      reaction: fixedCanonicalScore(0),
+      action: fixedScore(10),
+      reaction: fixedScore(0),
     }
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const defence = { dice: 0, value: 0 }
@@ -419,11 +419,11 @@ describe('runtime damage rules', () => {
       defence
     )
 
-    expectCanonicalDistributionClose(
+    expectDistributionClose(
       oneDieDamage.result.values,
       Float64Array.from(independentD10Sum(1))
     )
-    expectCanonicalDistributionClose(
+    expectDistributionClose(
       twoDiceDamage.result.values,
       Float64Array.from(independentD10Sum(2))
     )
@@ -432,8 +432,8 @@ describe('runtime damage rules', () => {
   it('deals zero damage when the reaction ties the action', async () => {
     const damage = await calculateRuleDamage(
       {
-        action: fixedCanonicalScore(10),
-        reaction: fixedCanonicalScore(10),
+        action: fixedScore(10),
+        reaction: fixedScore(10),
       },
       { dice: 0, value: 0, kazanari: 0 },
       { dice: 0, value: 0 }
@@ -445,8 +445,8 @@ describe('runtime damage rules', () => {
   it('subtracts dice reduction after adding a positive fixed value', async () => {
     const damage = await calculateRuleDamage(
       {
-        action: fixedCanonicalScore(1),
-        reaction: fixedCanonicalScore(0),
+        action: fixedScore(1),
+        reaction: fixedScore(0),
       },
       { dice: 0, value: 5, kazanari: 0 },
       { dice: 1, value: 0 }
@@ -471,16 +471,16 @@ describe('runtime backtrack rules', () => {
 
       const plan = planCalculationRanges({
         operation: 'backtrack',
-        canonicalBacktrack: true,
+        completeSupportBacktrack: true,
         backtrack: params,
       })
-      const canonical = calculateFinalEncroachmentCanonical(
+      const canonical = calculateFinalEncroachment(
         params,
         {},
         {},
         plan.backtrack
       )
-      const presentation = createBacktrackCanonicalPresentation(
+      const presentation = createBacktrackPresentation(
         canonical,
         params
       )

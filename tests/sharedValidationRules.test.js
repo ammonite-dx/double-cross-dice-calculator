@@ -40,8 +40,8 @@ describe('shared integer validation rules', () => {
   })
 })
 
-describe('shared Score input rules', () => {
-  it('preserves the canonical Score domain', () => {
+describe('shared score input rules', () => {
+  it('preserves the canonical score domain', () => {
     const rules = createScoreFieldRules()
 
     expectValid(rules.dice, 0)

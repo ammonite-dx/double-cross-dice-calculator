@@ -10,7 +10,7 @@ function createPlan() {
     accepted: true,
     operation: 'backtrack',
     backtrack: {
-      calculationMode: 'canonical',
+      calculationMode: 'complete-support',
       distributionMode: 'on-demand',
       workingMax: 0,
       workingLength: 1,
@@ -19,7 +19,7 @@ function createPlan() {
   }
 }
 
-function createDependencies(plan, canonicalResult = 'canonical-result') {
+function createDependencies(plan, Result = 'canonical-result') {
   const release = vi.fn()
   const resourceGuard = {
     acquirePlan: vi.fn(() => ({ release })),
@@ -27,7 +27,7 @@ function createDependencies(plan, canonicalResult = 'canonical-result') {
   return {
     planCalculationRanges: vi.fn(() => plan),
     resourceGuard,
-    getFinalEncroachmentCanonical: vi.fn(() => canonicalResult),
+    getFinalEncroachment: vi.fn(() => Result),
     release,
   }
 }
@@ -41,7 +41,7 @@ const params = {
   dlois: 'なし',
 }
 
-describe('CalculationClient.calculateBacktrackCanonical', () => {
+describe('CalculationClient.calculateBacktrack', () => {
   it('snapshots input, preflights, acquires/releases the canonical plan', async () => {
     const plan = createPlan()
     const dependencies = createDependencies(plan)
@@ -55,7 +55,7 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
       onRangePlan,
     }
 
-    await expect(client.calculateBacktrackCanonical(params, options))
+    await expect(client.calculateBacktrack(params, options))
       .resolves.toBe('canonical-result')
 
     const request = dependencies.planCalculationRanges.mock.calls[0][0]
@@ -65,7 +65,7 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     expect(dependencies.planCalculationRanges).toHaveBeenCalledWith(
       {
         operation: 'backtrack',
-        canonicalBacktrack: true,
+        completeSupportBacktrack: true,
         backtrack: request,
       },
       options.rangePolicy
@@ -79,9 +79,9 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
         operation: 'backtrack',
       }
     )
-    expect(plan.backtrack.calculationMode).toBe('canonical')
+    expect(plan.backtrack.calculationMode).toBe('complete-support')
     expect(plan.backtrack.distributionMode).toBe('on-demand')
-    expect(dependencies.getFinalEncroachmentCanonical).toHaveBeenCalledWith(
+    expect(dependencies.getFinalEncroachment).toHaveBeenCalledWith(
       request,
       { signal, requestId: options.requestId },
       plan.backtrack
@@ -94,12 +94,12 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     const dependencies = createDependencies(plan)
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateBacktrackCanonical({
+    await expect(client.calculateBacktrack({
       ...params,
       dice: 103,
     })).resolves.toBe('canonical-result')
 
-    expect(dependencies.getFinalEncroachmentCanonical).toHaveBeenCalledOnce()
+    expect(dependencies.getFinalEncroachment).toHaveBeenCalledOnce()
     expect(dependencies.release).toHaveBeenCalledOnce()
   })
 
@@ -112,11 +112,11 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     const dependencies = createDependencies(plan)
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateBacktrackCanonical(params))
+    await expect(client.calculateBacktrack(params))
       .rejects.toBeInstanceOf(CalculationRangeError)
 
     expect(dependencies.resourceGuard.acquirePlan).not.toHaveBeenCalled()
-    expect(dependencies.getFinalEncroachmentCanonical).not.toHaveBeenCalled()
+    expect(dependencies.getFinalEncroachment).not.toHaveBeenCalled()
     expect(dependencies.release).not.toHaveBeenCalled()
   })
 
@@ -127,11 +127,11 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     const controller = new AbortController()
     controller.abort()
 
-    await expect(client.calculateBacktrackCanonical(params, {
+    await expect(client.calculateBacktrack(params, {
       signal: controller.signal,
     })).rejects.toMatchObject({ name: 'AbortError' })
 
-    expect(dependencies.getFinalEncroachmentCanonical).not.toHaveBeenCalled()
+    expect(dependencies.getFinalEncroachment).not.toHaveBeenCalled()
     expect(dependencies.release).toHaveBeenCalledOnce()
   })
 
@@ -139,12 +139,12 @@ describe('CalculationClient.calculateBacktrackCanonical', () => {
     const plan = createPlan()
     const dependencies = createDependencies(plan)
     const error = new Error('canonical failure')
-    dependencies.getFinalEncroachmentCanonical.mockImplementation(() => {
+    dependencies.getFinalEncroachment.mockImplementation(() => {
       throw error
     })
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateBacktrackCanonical(params))
+    await expect(client.calculateBacktrack(params))
       .rejects.toBe(error)
     expect(dependencies.release).toHaveBeenCalledOnce()
   })
