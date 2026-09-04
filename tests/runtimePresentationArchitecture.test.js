@@ -12,8 +12,13 @@ function source(relativePath) {
 
 function sourceFiles(directory) {
   return readdirSync(`${repositoryRoot}/${directory}`, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /\.(?:js|ts)$/.test(entry.name))
-    .map((entry) => `${directory}/${entry.name}`)
+    .flatMap((entry) => {
+      const relativePath = `${directory}/${entry.name}`
+      if (entry.isDirectory()) {
+        return sourceFiles(relativePath)
+      }
+      return /\.(?:js|ts)$/.test(entry.name) ? [relativePath] : []
+    })
 }
 
 async function lintText(filePath, text) {
@@ -82,6 +87,9 @@ describe('runtime and shared presentation architecture', () => {
         /(?:from|import\s*\()\s*['"][^'"]*(?:core|domain|shared\/(?:chart|theme|validation))\//,
       )
       expect(contents, path).not.toMatch(
+        /(?:from|import\s*\()\s*['"](?:\.\.\/)+(?:chart|theme|validation)(?:\/|['"])/,
+      )
+      expect(contents, path).not.toMatch(
         /(?:from|import\s*\()\s*['"](?:vue|vuetify|vue-router|chart\.js|vue-chartjs|chartjs-plugin-)/,
       )
       expect(contents, path).not.toMatch(/(?:from|import\s*\()\s*['"]node:/)
@@ -140,5 +148,55 @@ describe('runtime and shared presentation architecture', () => {
         expect.objectContaining({ ruleId: 'no-restricted-imports' }),
       ]),
     )
+
+    for (const [filePath, importStatement] of [
+      [
+        'src/shared/presentation/ArchitectureFixture.js',
+        "import config from '../chart/ProbabilityLineChartConfig'",
+      ],
+      [
+        'src/shared/presentation/ArchitectureFixture.js',
+        "import palette from '../theme/ChartPalette'",
+      ],
+      [
+        'src/shared/presentation/internal/ArchitectureFixture.js',
+        "import rules from '../../validation/IntegerRules'",
+      ],
+    ]) {
+      const result = await lintText(filePath, importStatement)
+      expect(result.messages, `${filePath}: ${importStatement}`).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+        ]),
+      )
+    }
+
+    const sharedLocalResult = await lintText(
+      'src/shared/presentation/ArchitectureFixture.js',
+      "import presenter from './DistributionPresenter'",
+    )
+    expect(sharedLocalResult.messages).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+      ]),
+    )
+
+    for (const [filePath, importStatement] of [
+      [
+        'src/ArchitectureFixture.js',
+        "import legacy from '@/application/CompatibilityShim'",
+      ],
+      [
+        'src/components/ArchitectureFixture.js',
+        "import legacy from '@/presentation/LegacyPresenter'",
+      ],
+    ]) {
+      const result = await lintText(filePath, importStatement)
+      expect(result.messages, `${filePath}: ${importStatement}`).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ ruleId: 'no-restricted-imports' }),
+        ]),
+      )
+    }
   })
 })

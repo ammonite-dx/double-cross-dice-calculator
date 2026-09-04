@@ -22,6 +22,11 @@ const legacyDataPattern = {
   message: 'The retired src/data path must not be reintroduced; import the owning module from its current boundary.',
 }
 
+const retiredArchitectureLayerPattern = internalPattern(
+  ['application', 'presentation'],
+  'The retired application and presentation paths must not be reintroduced.',
+)
+
 const corePackagePattern = {
   regex: '^(?:vue|vuetify|vue-router|chart\\.js|vue-chartjs|chartjs-plugin-[^/]+)(?:/|$)',
   message: 'Core modules must remain independent of Vue, UI, routing, and chart packages.',
@@ -102,6 +107,11 @@ const sharedPresentationSharedPattern = {
   message: 'Shared presentation must remain independent of other shared subsystems.',
 }
 
+const sharedPresentationSiblingPattern = {
+  regex: '^(?:\\.\\./)+(?:chart|theme|validation)(?:/|$)',
+  message: 'Shared presentation must remain independent of other shared subsystems.',
+}
+
 const sharedPresentationPackagePattern = {
   regex: '^(?:vue|vuetify|vue-router|chart\\.js|vue-chartjs|chartjs-plugin-[^/]+)(?:/|$)',
   message: 'Shared presentation adapters must remain framework-independent and pure.',
@@ -177,7 +187,11 @@ export default [
     files: ['src/**/*.{js,mjs,ts,vue}'],
     rules: {
       'no-restricted-imports': ['error', {
-        patterns: [referenceToolingPattern, legacyDataPattern],
+        patterns: [
+          referenceToolingPattern,
+          legacyDataPattern,
+          retiredArchitectureLayerPattern,
+        ],
       }],
     },
   },
@@ -255,6 +269,7 @@ export default [
           sharedPresentationCalculationPattern,
           sharedPresentationCorePattern,
           sharedPresentationSharedPattern,
+          sharedPresentationSiblingPattern,
           sharedPresentationPackagePattern,
           sharedPresentationNodePattern,
           referenceToolingPattern,
@@ -326,6 +341,7 @@ export default [
           uiProbabilityPattern,
           referenceToolingPattern,
           legacyDataPattern,
+          retiredArchitectureLayerPattern,
         ],
       }],
     },
