@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createRuntimeDamageRollClient,
-} from '../src/application/RuntimeDamageRollClient'
+} from '../src/runtime/RuntimeDamageRollClient'
 
 class FakeWorker {
   constructor() {

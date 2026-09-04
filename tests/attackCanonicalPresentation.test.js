@@ -5,12 +5,12 @@ import {
   AttackCanonicalPresentationError,
   createAttackCanonicalPresentation,
   isAttackCanonicalPresentationError,
-} from '../src/application/AttackCanonicalPresentation'
+} from '../src/features/attack/model/AttackCanonicalPresentation'
 import {
   DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
   DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
   DistributionPresentationError,
-} from '../src/presentation'
+} from '../src/shared/presentation'
 import {
   createDistributionResult,
   getCanonicalTotalDamageSummary,

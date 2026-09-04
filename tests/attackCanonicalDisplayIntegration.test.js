@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createAttackCanonicalRunner } from '../src/application/AttackCanonicalRunner'
+import { createAttackCanonicalRunner } from '../src/features/attack/model/AttackCanonicalRunner'
 import {
   createAttackCanonicalDisplayPresentation,
   createAttackCanonicalDisplayPresentationFromCanonical,
-} from '../src/application/AttackCanonicalPresentation'
+} from '../src/features/attack/model/AttackCanonicalPresentation'
 import {
   createCanonicalAttackState,
   createCanonicalComboDataState,
-} from '../src/application/AttackCanonicalState'
+} from '../src/features/attack/model/AttackCanonicalState'
 import {
   ATTACK_DISPLAY_MODES,
-} from '../src/application/AttackDisplayRequestSnapshot'
+} from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'

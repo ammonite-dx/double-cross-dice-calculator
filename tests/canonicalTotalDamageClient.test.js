@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createCalculationClient,
-} from '../src/application/CalculationClient'
+} from '../src/runtime/CalculationClient'
 import {
   createResourceGuard,
-} from '../src/application/ResourceGuard'
+} from '../src/runtime/ResourceGuard'
 import {
   createDistributionResult,
   getCanonicalTotalDamageSummary,

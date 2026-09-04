@@ -6,31 +6,31 @@ import {
   type ComputedRef,
 } from 'vue'
 
-import type { CalculationClient } from '../../../application/CalculationClientTypes'
-import { createAttackCanonicalRunner } from '../../../application/AttackCanonicalRunner'
+import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
+import { createAttackCanonicalRunner } from './AttackCanonicalRunner'
 import {
   createAttackCanonicalDisplayFeedback,
   createAttackCanonicalScoreDisplayFeedback,
-} from '../../../application/AttackCanonicalDisplayFeedback'
+} from './AttackCanonicalDisplayFeedback'
 import {
   clearCanonicalAttackState,
   createCanonicalAttackState,
   ensureCanonicalComboData,
-} from '../../../application/AttackCanonicalState'
-import { replaceAttackSideSnapshot } from '../../../application/AttackInputSnapshot'
+} from './AttackCanonicalState'
+import { replaceAttackSideSnapshot } from './AttackInputSnapshot'
 import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
   createAttackRangePolicy as createRawAttackRangePolicy,
   createAttackDisplayRequestSnapshot as createRawAttackDisplayRequestSnapshot,
-} from '../../../application/AttackDisplayRequestSnapshot'
+} from './AttackDisplayRequestSnapshot'
 import {
   createAttackCanonicalDisplayPresentation,
   createAttackCanonicalDisplayPresentationFromCanonical,
-} from '../../../application/AttackCanonicalPresentation'
+} from './AttackCanonicalPresentation'
 import {
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
   planDisplayWindowResources,
-} from '../../../presentation'
+} from '../../../shared/presentation'
 import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
 import {
   cloneAttackCombo,

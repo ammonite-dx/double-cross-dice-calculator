@@ -16,11 +16,11 @@ import {
   CalculationRangeError,
   calculationClient,
   createCalculationClient,
-} from '../src/application/CalculationClient'
+} from '../src/runtime/CalculationClient'
 import {
   CHECK_DISPLAY_MODES,
-  createCheckRangePolicy,
 } from '../src/features/check/model/CheckDisplayRequestSnapshot'
+import { createCheckRangePolicy } from '../src/runtime/CheckRangePolicy'
 
 function scoreParams(overrides = {}) {
   return {

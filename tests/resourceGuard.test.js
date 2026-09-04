@@ -6,15 +6,15 @@ import {
   calculationResourceGuard,
   createCalculationClient,
   createCalculationDependencies,
-} from '../src/application/CalculationClient'
+} from '../src/runtime/CalculationClient'
 import {
   DEFAULT_RESOURCE_GUARD_POLICY,
   ResourceGuard,
   ResourceGuardAbortError,
   ResourceGuardError,
   createResourceGuard,
-} from '../src/application/ResourceGuard'
-import { formatRangeFeedback } from '../src/application/CalculationFeedback'
+} from '../src/runtime/ResourceGuard'
+import { formatRangeFeedback } from '../src/runtime/CalculationFeedback'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 
 function createDeferred() {

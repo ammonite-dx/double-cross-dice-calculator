@@ -1,7 +1,7 @@
 <script setup>
 
     import { computed } from 'vue';
-    import { formatRangeFeedback } from '@/application/CalculationFeedback';
+    import { formatRangeFeedback } from '@/runtime/CalculationFeedback';
 
     const props = defineProps({
         feedback: {

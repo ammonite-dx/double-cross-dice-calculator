@@ -28,7 +28,7 @@ const corePackagePattern = {
 }
 
 const coreInternalPattern = internalPattern(
-  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features'],
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'runtime'],
   'Core modules must not depend on application, UI, or presentation layers.',
 )
 
@@ -43,7 +43,7 @@ const coreSharedPattern = internalPattern(
 )
 
 const sharedThemeInternalPattern = internalPattern(
-  ['application', 'calculation', 'core', 'domain', 'features', 'presentation', 'components', 'views', 'router', 'plugins', 'layouts', 'tooling', 'data'],
+  ['application', 'calculation', 'core', 'domain', 'features', 'presentation', 'components', 'views', 'router', 'plugins', 'layouts', 'tooling', 'data', 'runtime'],
   'Shared theme utilities must remain independent of application, calculation, core, domain, feature, UI, and reference layers.',
 )
 
@@ -58,14 +58,59 @@ const sharedThemeSiblingPattern = {
 }
 
 const sharedValidationInternalPattern = internalPattern(
-  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'tooling'],
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'tooling', 'runtime'],
   'Shared validation must remain independent of application, UI, feature, calculation, probability, and reference layers.',
 )
 
 const sharedChartInternalPattern = internalPattern(
-  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'domain', 'tooling', 'shared'],
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'calculation', 'core', 'data', 'domain', 'tooling', 'shared', 'runtime'],
   'Shared chart infrastructure must remain independent of application, feature, calculation, probability, data, domain, reference, and other shared layers.',
 )
+
+const runtimeInternalPattern = internalPattern(
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'tooling', 'data'],
+  'Runtime modules must remain independent of feature, UI, presentation, and reference layers.',
+)
+
+const runtimePackagePattern = {
+  regex: '^(?:vue|vuetify|vue-router|chart\\.js|vue-chartjs|chartjs-plugin-[^/]+)(?:/|$)',
+  message: 'Runtime modules must remain framework-independent.',
+}
+
+const runtimeNodePattern = {
+  regex: '^node:',
+  message: 'Runtime modules must remain browser-independent and must not import Node modules.',
+}
+
+const sharedPresentationInternalPattern = internalPattern(
+  ['application', 'components', 'views', 'router', 'plugins', 'layouts', 'presentation', 'features', 'runtime', 'tooling', 'data'],
+  'Shared presentation must remain independent of runtime, feature, UI, and reference layers.',
+)
+
+const sharedPresentationCalculationPattern = {
+  regex: `^${relativeOrAlias}calculation/(?!DistributionResult(?:\\.js)?(?:/|$))`,
+  message: 'Shared presentation may read only the canonical DistributionResult contract from calculation.',
+}
+
+const sharedPresentationCorePattern = internalPattern(
+  ['core', 'domain'],
+  'Shared presentation must remain independent of calculation core and domain layers.',
+)
+
+const sharedPresentationSharedPattern = {
+  regex: `^${relativeOrAlias}shared/(?:chart|theme|validation)(?:/|$)`,
+  message: 'Shared presentation must remain independent of other shared subsystems.',
+}
+
+const sharedPresentationPackagePattern = {
+  regex: '^(?:vue|vuetify|vue-router|chart\\.js|vue-chartjs|chartjs-plugin-[^/]+)(?:/|$)',
+  message: 'Shared presentation adapters must remain framework-independent and pure.',
+}
+
+const sharedPresentationNodePattern = {
+  regex: '^node:',
+  message: 'Shared presentation must not import Node modules.',
+}
 
 const uiCalculationPattern = internalPattern(
   ['calculation'],
@@ -80,26 +125,6 @@ const uiProbabilityPattern = {
 const featureModelUiPattern = {
   regex: `^${relativeOrAlias}(?:ui|features/[^/]+/ui)(?:/|$)`,
   message: 'Feature models must not depend on feature UI modules.',
-}
-
-const applicationUiPattern = internalPattern(
-  ['views', 'components', 'router', 'plugins', 'layouts'],
-  'Application orchestration must not depend on Vue UI modules.',
-)
-
-const presentationUiPattern = internalPattern(
-  ['views', 'components', 'router', 'plugins', 'layouts'],
-  'Presentation adapters must remain independent of Vue UI modules.',
-)
-
-const presentationApplicationPattern = internalPattern(
-  ['application'],
-  'Presentation adapters must not execute calculations through CalculationClient.',
-)
-
-const presentationPackagePattern = {
-  regex: '^(?:vue|vuetify|vue-router|chart\\.js|vue-chartjs|chartjs-plugin-[^/]+)(?:/|$)',
-  message: 'Presentation adapters must remain framework-independent and pure.',
 }
 
 export default [
@@ -202,6 +227,49 @@ export default [
     },
   },
   {
+    files: ['src/runtime/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          runtimeInternalPattern,
+          runtimePackagePattern,
+          runtimeNodePattern,
+          referenceToolingPattern,
+          legacyDataPattern,
+        ],
+      }],
+      'no-restricted-globals': [
+        'error',
+        { name: 'window', message: 'Runtime modules must not access the browser window directly.' },
+        { name: 'document', message: 'Runtime modules must not access the browser document directly.' },
+        { name: 'fetch', message: 'Runtime modules must not perform network requests directly.' },
+      ],
+    },
+  },
+  {
+    files: ['src/shared/presentation/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          sharedPresentationInternalPattern,
+          sharedPresentationCalculationPattern,
+          sharedPresentationCorePattern,
+          sharedPresentationSharedPattern,
+          sharedPresentationPackagePattern,
+          sharedPresentationNodePattern,
+          referenceToolingPattern,
+          legacyDataPattern,
+        ],
+      }],
+      'no-restricted-globals': [
+        'error',
+        { name: 'window', message: 'Shared presentation must not access the browser window directly.' },
+        { name: 'document', message: 'Shared presentation must not access the browser document directly.' },
+        { name: 'fetch', message: 'Shared presentation must not perform network requests directly.' },
+      ],
+    },
+  },
+  {
     files: ['src/shared/chart/**/*.{js,ts,vue}'],
     rules: {
       'no-restricted-imports': ['error', {
@@ -272,32 +340,6 @@ export default [
             'Feature models must remain independent of application UI modules.',
           ),
           featureModelUiPattern,
-          referenceToolingPattern,
-          legacyDataPattern,
-        ],
-      }],
-    },
-  },
-  {
-    files: ['src/application/**/*.{js,ts}'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          applicationUiPattern,
-          referenceToolingPattern,
-          legacyDataPattern,
-        ],
-      }],
-    },
-  },
-  {
-    files: ['src/presentation/**/*.{js,ts}'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          presentationUiPattern,
-          presentationApplicationPattern,
-          presentationPackagePattern,
           referenceToolingPattern,
           legacyDataPattern,
         ],

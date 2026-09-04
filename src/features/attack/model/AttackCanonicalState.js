@@ -1,7 +1,7 @@
 import {
   createCalculationFeedbackState,
   markCalculationAborted,
-} from './CalculationFeedback'
+} from '../../../runtime/CalculationFeedback'
 
 const CANONICAL_COMBO_DEFAULTS = Object.freeze({
   canonicalScore: null,

@@ -8,7 +8,7 @@ import {
   DISTRIBUTION_PRESENTATION_ERROR_CODES,
   DistributionPresentationError,
   presentCanonicalDistribution,
-} from '../src/presentation'
+} from '../src/shared/presentation'
 
 function createEnvelope({
   values,

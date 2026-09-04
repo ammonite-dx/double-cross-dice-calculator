@@ -4,7 +4,7 @@
     import {
         ATTACK_DISPLAY_MODES,
         createAttackDisplayRequestSnapshot,
-    } from '@/application/AttackDisplayRequestSnapshot';
+    } from '@/features/attack/model/AttackDisplayRequestSnapshot';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
     import { createDisplayRangeRules } from '@/shared/validation/DisplayRangeRules';
 

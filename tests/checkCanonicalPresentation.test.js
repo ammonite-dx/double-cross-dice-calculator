@@ -7,7 +7,7 @@ import {
 import {
   CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
   CANONICAL_CHART_SERIES_NOT_READY_REASONS,
-} from '../src/presentation'
+} from '../src/shared/presentation'
 import {
   CHECK_CANONICAL_PRESENTATION_ERROR_CODES,
   CheckCanonicalPresentationError,

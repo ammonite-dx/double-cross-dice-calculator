@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   toChartPercentage,
   toChartPercentages,
-} from '../src/presentation/ChartPercentages'
+} from '../src/shared/presentation/ChartPercentages'
 
 describe('Attack chart percentage formatter', () => {
   it.each([

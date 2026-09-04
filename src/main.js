@@ -9,7 +9,7 @@ import { registerPlugins } from '@/plugins'
 import {
   CALCULATION_CLIENT_KEY,
   calculationClient,
-} from '@/application/CalculationClient'
+} from '@/runtime/CalculationClient'
 
 const app = createApp(App)
 

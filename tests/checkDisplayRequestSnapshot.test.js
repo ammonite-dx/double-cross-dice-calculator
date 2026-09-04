@@ -8,9 +8,9 @@ import {
 import {
   createCalculationFeedbackState,
   createLatestCalculationRunner,
-} from '../src/application/CalculationFeedback'
+} from '../src/runtime/CalculationFeedback'
 import { LEGACY_PUBLISHED_OVERFLOW_INDEX } from '../src/calculation/DistributionResult'
-import { planDisplayWindowResources } from '../src/presentation'
+import { planDisplayWindowResources } from '../src/shared/presentation'
 
 function createInput() {
   return {

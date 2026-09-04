@@ -14,7 +14,7 @@ import {
   beginCalculation,
   createLatestCalculationRunner,
   markCalculationAborted,
-} from './CalculationFeedback'
+} from '../../../runtime/CalculationFeedback'
 
 /**
  * Connect the canonical attack batch client to a latest-request runner.

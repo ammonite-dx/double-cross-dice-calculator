@@ -33,7 +33,7 @@ import {
   isCalculationBatchInputError,
   snapshotCanonicalAttackBatchRequest,
 } from './CanonicalAttackBatchInput'
-import { createCheckRangePolicy } from '../features/check/model/CheckDisplayRequestSnapshot'
+import { createCheckRangePolicy } from './CheckRangePolicy'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 import { createResourceGuard } from './ResourceGuard'
 
@@ -105,7 +105,7 @@ const defaultDependencies = {
 
 const EVASION_MODE = '《イベイジョン》'
 
-export { CALCULATION_CLIENT_KEY } from './CalculationClientTypes'
+export const CALCULATION_CLIENT_KEY = Symbol('calculationClient')
 
 export class CalculationRangeError extends Error {
   constructor(plan) {

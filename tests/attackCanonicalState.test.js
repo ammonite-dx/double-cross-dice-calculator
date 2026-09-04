@@ -6,8 +6,8 @@ import {
   createCanonicalAttackState,
   createCanonicalComboDataState,
   snapshotCanonicalAttackEntries,
-} from '../src/application/AttackCanonicalState'
-import { createAttackCanonicalRunner } from '../src/application/AttackCanonicalRunner'
+} from '../src/features/attack/model/AttackCanonicalState'
+import { createAttackCanonicalRunner } from '../src/features/attack/model/AttackCanonicalRunner'
 
 const legacyScore = { value: 'legacy score' }
 const legacyDamage = { value: 'legacy damage' }

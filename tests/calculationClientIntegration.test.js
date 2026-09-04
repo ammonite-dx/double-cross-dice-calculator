@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createCalculationClient } from '../src/application/CalculationClient'
+import { createCalculationClient } from '../src/runtime/CalculationClient'
 import {
   ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
   createAttackCanonicalDisplayPresentation,
-} from '../src/application/AttackCanonicalPresentation'
+} from '../src/features/attack/model/AttackCanonicalPresentation'
 import {
   ATTACK_DISPLAY_MODES,
   createAttackRangePolicy,
-} from '../src/application/AttackDisplayRequestSnapshot'
+} from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   calculateCanonicalDamageOnDemand,
   getCanonicalDamageSummary,

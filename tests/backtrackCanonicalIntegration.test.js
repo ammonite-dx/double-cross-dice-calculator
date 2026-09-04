@@ -9,14 +9,14 @@ import {
 import {
   createCalculationFeedbackState,
   formatRangeFeedback,
-} from '../src/application/CalculationFeedback'
+} from '../src/runtime/CalculationFeedback'
 import {
   CalculationRangeError,
-} from '../src/application/CalculationClient'
+} from '../src/runtime/CalculationClient'
 import {
   ResourceGuardError,
   RESOURCE_GUARD_ERROR_CODES,
-} from '../src/application/ResourceGuard'
+} from '../src/runtime/ResourceGuard'
 
 function createParams(overrides = {}) {
   return {

@@ -1,6 +1,6 @@
 import {
   LEGACY_PUBLISHED_OVERFLOW_INDEX,
-} from '../calculation/DistributionResult'
+} from '../../../calculation/DistributionResult'
 
 export const ATTACK_DISPLAY_REQUEST_VERSION = 1
 

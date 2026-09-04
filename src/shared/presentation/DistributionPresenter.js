@@ -1,6 +1,6 @@
 import {
   validateDistributionResult,
-} from '../calculation/DistributionResult'
+} from '../../calculation/DistributionResult'
 
 export const CANONICAL_DISTRIBUTION_DISPLAY_VERSION = 1
 

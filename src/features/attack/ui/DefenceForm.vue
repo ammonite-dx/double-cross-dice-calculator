@@ -4,7 +4,7 @@
     import {
         createDefenceInputDraftSnapshot,
         normalizeDefenceInputDraft,
-    } from '@/application/AttackInputSnapshot';
+    } from '@/features/attack/model/AttackInputSnapshot';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
     import {
         createScoreFeatureCompatibilityRule,

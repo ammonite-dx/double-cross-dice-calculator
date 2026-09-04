@@ -4,18 +4,18 @@ import {
   ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
   createAttackCanonicalDisplayPresentation,
   createAttackCanonicalDisplayPresentationFromCanonical,
-} from '../src/application/AttackCanonicalPresentation'
+} from '../src/features/attack/model/AttackCanonicalPresentation'
 import {
   createCalculationClient,
-} from '../src/application/CalculationClient'
-import { createAttackCanonicalRunner } from '../src/application/AttackCanonicalRunner'
+} from '../src/runtime/CalculationClient'
+import { createAttackCanonicalRunner } from '../src/features/attack/model/AttackCanonicalRunner'
 import {
   createCanonicalAttackState,
   createCanonicalComboDataState,
-} from '../src/application/AttackCanonicalState'
+} from '../src/features/attack/model/AttackCanonicalState'
 import {
   ATTACK_DISPLAY_MODES,
-} from '../src/application/AttackDisplayRequestSnapshot'
+} from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
   getCanonicalTotalDamageSummary,

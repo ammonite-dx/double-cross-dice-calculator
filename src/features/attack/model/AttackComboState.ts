@@ -8,7 +8,7 @@ import type { ScoreInput } from '../../../domain/InputDomain'
 import {
   createCanonicalComboDataState,
   snapshotCanonicalAttackParams,
-} from '../../../application/AttackCanonicalState'
+} from './AttackCanonicalState'
 
 export interface AttackComboParams extends AttackCalculationInput {
   action: {

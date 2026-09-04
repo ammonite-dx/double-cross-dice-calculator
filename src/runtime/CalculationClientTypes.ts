@@ -1,5 +1,3 @@
-import type { InjectionKey } from 'vue'
-
 import type {
   AttackBatchEntry,
   AttackCalculationInput,
@@ -71,6 +69,3 @@ export interface CalculationClient {
     options?: CalculationOptions,
   ): Promise<BacktrackCalculationResult>
 }
-
-export const CALCULATION_CLIENT_KEY: InjectionKey<CalculationClient> =
-  Symbol('calculationClient')

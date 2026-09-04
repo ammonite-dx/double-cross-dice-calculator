@@ -11,7 +11,7 @@ import {
   formatCanonicalScoreSummaryExpectedValue,
   formatCanonicalScoreSuccessRate,
   formatCanonicalScoreSuccessRateDisplay,
-} from '../src/presentation'
+} from '../src/shared/presentation'
 
 function scoreParams(overrides = {}) {
   return {

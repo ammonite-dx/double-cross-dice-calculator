@@ -3,16 +3,16 @@ import { describe, expect, it } from 'vitest'
 import { getUpperTailProbability } from '../src/core/probability/Distribution'
 import {
   CANONICAL_DISTRIBUTION_DISPLAY_VERSION,
-} from '../src/presentation/DistributionPresenter'
+} from '../src/shared/presentation/DistributionPresenter'
 import {
   CANONICAL_CHART_SERIES_MODES,
   CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
   CANONICAL_CHART_SERIES_NOT_READY_REASONS,
   createCanonicalChartSeries,
   materializeCanonicalChartJsData,
-} from '../src/presentation/CanonicalChartSeriesAdapter'
-import { planDisplayRange } from '../src/presentation/DisplayRangePlanner'
-import * as presentation from '../src/presentation/index'
+} from '../src/shared/presentation/CanonicalChartSeriesAdapter'
+import { planDisplayRange } from '../src/shared/presentation/DisplayRangePlanner'
+import * as presentation from '../src/shared/presentation/index'
 
 function makeDisplay({
   values = [1],

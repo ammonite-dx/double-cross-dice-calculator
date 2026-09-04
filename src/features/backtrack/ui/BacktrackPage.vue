@@ -3,7 +3,7 @@
     import {
         CALCULATION_CLIENT_KEY,
         calculationClient as defaultCalculationClient,
-    } from '@/application/CalculationClient'
+    } from '@/runtime/CalculationClient'
     import { useBacktrack } from '../model/useBacktrack'
     import InputPanel from './InputPanel.vue'
     import FinalEncroachmentChartPanel from './FinalEncroachmentChartPanel.vue'

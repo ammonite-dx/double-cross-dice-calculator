@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createCalculationClient } from '../src/application/CalculationClient'
+import { createCalculationClient } from '../src/runtime/CalculationClient'
 import {
   calculateDxDistribution,
 } from '../src/calculation/DxCalculator'

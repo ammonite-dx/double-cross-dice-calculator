@@ -11,7 +11,7 @@ import {
   DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
   DistributionPresentationError,
   presentCanonicalDistribution,
-} from '../src/presentation'
+} from '../src/shared/presentation'
 
 function createEnvelope(result, metadata = {}) {
   return {

@@ -51,7 +51,17 @@ describe('Attack feature architecture', () => {
     }
   })
 
-  it('keeps application Attack modules in place and injects the client at Page', () => {
+  it('co-locates Attack canonical modules in the feature model and injects the client at Page', () => {
+    for (const path of [
+      'src/features/attack/model/AttackCanonicalDisplayFeedback.js',
+      'src/features/attack/model/AttackCanonicalPresentation.js',
+      'src/features/attack/model/AttackCanonicalRunner.js',
+      'src/features/attack/model/AttackCanonicalState.js',
+      'src/features/attack/model/AttackDisplayRequestSnapshot.js',
+      'src/features/attack/model/AttackInputSnapshot.js',
+    ]) {
+      expect(existsSync(new URL(`../${path}`, import.meta.url))).toBe(true)
+    }
     for (const path of [
       'src/application/AttackCanonicalDisplayFeedback.js',
       'src/application/AttackCanonicalPresentation.js',
@@ -60,7 +70,7 @@ describe('Attack feature architecture', () => {
       'src/application/AttackDisplayRequestSnapshot.js',
       'src/application/AttackInputSnapshot.js',
     ]) {
-      expect(existsSync(new URL(`../${path}`, import.meta.url))).toBe(true)
+      expect(existsSync(new URL(`../${path}`, import.meta.url))).toBe(false)
     }
     expect(pageSource).toContain('CALCULATION_CLIENT_KEY')
     expect(pageSource).toContain('useAttack({ calculationClient })')
@@ -124,4 +134,3 @@ describe('Attack feature architecture', () => {
     expect(modelSource).not.toMatch(/\bany\b|@ts-ignore|@ts-nocheck/)
   })
 })
-

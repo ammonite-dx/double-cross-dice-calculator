@@ -15,7 +15,7 @@ import {
   planDisplayRange,
   presentCanonicalDistribution,
   toChartPercentage,
-} from '../../../presentation'
+} from '../../../shared/presentation'
 import { getChartColor } from '../../../shared/theme/ChartPalette'
 
 export const CHECK_CANONICAL_PRESENTATION_VERSION = 1

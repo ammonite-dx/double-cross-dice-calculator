@@ -3,7 +3,7 @@
     import {
         CALCULATION_CLIENT_KEY,
         calculationClient as defaultCalculationClient,
-    } from '../../../application/CalculationClient'
+    } from '../../../runtime/CalculationClient'
     import { useAttack } from '../model/useAttack'
     import InputPanel from './InputPanel.vue'
     import ScoreChartPanel from './ScoreChartPanel.vue'

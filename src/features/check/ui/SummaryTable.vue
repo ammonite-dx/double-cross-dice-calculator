@@ -3,7 +3,7 @@
     import {
         formatCanonicalScoreSummaryExpectedValue,
         formatCanonicalScoreSuccessRateDisplay,
-    } from '@/presentation';
+    } from '@/shared/presentation';
 
     const props = defineProps({
         difficulty: {

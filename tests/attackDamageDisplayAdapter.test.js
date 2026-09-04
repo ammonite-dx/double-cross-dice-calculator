@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createAttackCanonicalDisplayFeedback,
-} from '../src/application/AttackCanonicalDisplayFeedback'
+} from '../src/features/attack/model/AttackCanonicalDisplayFeedback'
 import {
   ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
-} from '../src/application/AttackCanonicalPresentation'
-import { ATTACK_DISPLAY_MODES } from '../src/application/AttackDisplayRequestSnapshot'
+} from '../src/features/attack/model/AttackCanonicalPresentation'
+import { ATTACK_DISPLAY_MODES } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   getCanonicalAttackDamageChartData,
 } from '../src/features/attack/ui/ChartSetter'

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createCalculationClient } from '../src/application/CalculationClient'
-import { createRuntimeDamageRollClient } from '../src/application/RuntimeDamageRollClient'
+import { createCalculationClient } from '../src/runtime/CalculationClient'
+import { createRuntimeDamageRollClient } from '../src/runtime/RuntimeDamageRollClient'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'

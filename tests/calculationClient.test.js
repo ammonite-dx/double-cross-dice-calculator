@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { createCalculationClient } from '../src/application/CalculationClient'
+import { createCalculationClient } from '../src/runtime/CalculationClient'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 const calculationClientSource = readFileSync(
-  new URL('../src/application/CalculationClient.js', import.meta.url),
+  new URL('../src/runtime/CalculationClient.js', import.meta.url),
   'utf8'
 )
 

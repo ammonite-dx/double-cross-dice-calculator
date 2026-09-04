@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ATTACK_DISPLAY_MODES,
   createAttackDisplayRequestSnapshot,
-} from '../src/application/AttackDisplayRequestSnapshot'
+} from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 
 function readSource(path) {
   return readFileSync(new URL(path, import.meta.url), 'utf8')

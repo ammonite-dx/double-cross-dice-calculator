@@ -1,9 +1,9 @@
-import { calculationClient } from '../../src/application/CalculationClient.js'
-import { createAttackCanonicalRunner } from '../../src/application/AttackCanonicalRunner.js'
+import { calculationClient } from '../../src/runtime/CalculationClient.js'
+import { createAttackCanonicalRunner } from '../../src/features/attack/model/AttackCanonicalRunner.js'
 import {
   createCanonicalAttackState,
   createCanonicalComboDataState,
-} from '../../src/application/AttackCanonicalState.js'
+} from '../../src/features/attack/model/AttackCanonicalState.js'
 import {
   FULL_TAIL_ATTACK_BENCHMARK_POLICY,
   FULL_TAIL_ATTACK_CASES,

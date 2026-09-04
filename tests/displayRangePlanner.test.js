@@ -12,7 +12,7 @@ import {
   createDisplayRangePlanner,
   planDisplayRange,
   presentCanonicalDistribution,
-} from '../src/presentation'
+} from '../src/shared/presentation'
 
 function createEnvelope({
   values,

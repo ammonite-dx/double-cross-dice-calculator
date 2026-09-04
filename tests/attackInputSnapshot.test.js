@@ -7,7 +7,7 @@ import {
   normalizeAttackInputDraft,
   normalizeDefenceInputDraft,
   replaceAttackSideSnapshot,
-} from '../src/application/AttackInputSnapshot'
+} from '../src/features/attack/model/AttackInputSnapshot'
 import { createLatestValidationGate } from '../src/shared/validation/LatestValidationGate'
 
 const attackFormSource = readFileSync(
@@ -27,7 +27,7 @@ const inputFormSource = readFileSync(
   'utf8'
 )
 const attackSnapshotSource = readFileSync(
-  new URL('../src/application/AttackInputSnapshot.js', import.meta.url),
+  new URL('../src/features/attack/model/AttackInputSnapshot.js', import.meta.url),
   'utf8'
 )
 

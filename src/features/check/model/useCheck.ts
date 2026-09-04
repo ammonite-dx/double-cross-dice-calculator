@@ -4,11 +4,11 @@ import {
   createCalculationFeedbackState,
   createLatestCalculationRunner,
   runInitialCalculation,
-} from '../../../application/CalculationFeedback'
+} from '../../../runtime/CalculationFeedback'
 import type {
   CalculationClient,
   CheckCalculationResult,
-} from '../../../application/CalculationClientTypes'
+} from '../../../runtime/CalculationClientTypes'
 import {
   CHECK_CANONICAL_PRESENTATION_DECISIONS,
   createCheckCanonicalPresentation,
@@ -22,7 +22,7 @@ import { createCheckInputSnapshot } from './CheckInputSnapshot'
 import {
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
   planDisplayWindowResources,
-} from '../../../presentation'
+} from '../../../shared/presentation'
 import type {
   DifficultyInput,
   DisplayRequestSnapshot,

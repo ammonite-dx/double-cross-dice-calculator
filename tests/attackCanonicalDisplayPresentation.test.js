@@ -4,10 +4,10 @@ import {
   ATTACK_CANONICAL_DISPLAY_PRESENTATION_DECISIONS,
   ATTACK_CANONICAL_PRESENTATION_ERROR_CODES,
   createAttackCanonicalDisplayPresentation,
-} from '../src/application/AttackCanonicalPresentation'
+} from '../src/features/attack/model/AttackCanonicalPresentation'
 import {
   ATTACK_DISPLAY_MODES,
-} from '../src/application/AttackDisplayRequestSnapshot'
+} from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
   getCanonicalTotalDamageSummary,
@@ -17,7 +17,7 @@ import { sumCanonicalDamage } from '../src/calculation/CanonicalDamageAggregatio
 import {
   CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
   CANONICAL_CHART_SERIES_NOT_READY_REASONS,
-} from '../src/presentation'
+} from '../src/shared/presentation'
 
 function createEnvelope({
   values = [1],

@@ -2,8 +2,8 @@ import { onMounted, onUnmounted, reactive, toRefs } from 'vue'
 
 import {
   createCalculationFeedbackState,
-} from '../../../application/CalculationFeedback'
-import type { CalculationClient } from '../../../application/CalculationClientTypes'
+} from '../../../runtime/CalculationFeedback'
+import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
 import type { BacktrackParams } from '../../../domain/BacktrackRules'
 import {
   createBacktrackCanonicalRunner,

@@ -1,7 +1,7 @@
 import {
   getExpectedValueSummary,
   getProbabilityMassSummary,
-} from '../calculation/DistributionResult'
+} from '../../../calculation/DistributionResult'
 import {
   CANONICAL_CHART_SERIES_NOT_PROJECTABLE_REASONS,
   CANONICAL_CHART_SERIES_NOT_READY_REASONS,
@@ -12,7 +12,7 @@ import {
   materializeCanonicalChartJsData,
   planDisplayRange,
   presentCanonicalDistribution,
-} from '../presentation'
+} from '../../../shared/presentation'
 import {
   ATTACK_DISPLAY_MODES,
   createAttackDisplayRequestSnapshot,

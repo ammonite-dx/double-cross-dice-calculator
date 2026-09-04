@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   CalculationBatchInputError,
   createCalculationClient,
-} from '../src/application/CalculationClient'
+} from '../src/runtime/CalculationClient'
 import {
   createDistributionResult,
   getCanonicalTotalDamageSummary,
@@ -12,7 +12,7 @@ import {
   planCanonicalDamageAggregation,
   sumCanonicalDamage,
 } from '../src/calculation/CanonicalDamageAggregation'
-import { createResourceGuard } from '../src/application/ResourceGuard'
+import { createResourceGuard } from '../src/runtime/ResourceGuard'
 
 const score = {
   dice: 1,

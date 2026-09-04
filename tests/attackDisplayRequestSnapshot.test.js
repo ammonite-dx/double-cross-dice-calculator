@@ -6,7 +6,7 @@ import {
   ATTACK_DISPLAY_REQUEST_ERROR_CODES,
   createAttackRangePolicy,
   createAttackDisplayRequestSnapshot,
-} from '../src/application/AttackDisplayRequestSnapshot'
+} from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 const displayFormSources = [

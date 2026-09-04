@@ -9,7 +9,7 @@ import {
   formatRangeFeedback,
   invalidateTotalDamage,
   runInitialCalculation,
-} from '../src/application/CalculationFeedback'
+} from '../src/runtime/CalculationFeedback'
 
 function createDeferred() {
   let resolve

@@ -3,7 +3,7 @@
     import {
         CALCULATION_CLIENT_KEY,
         calculationClient as defaultCalculationClient,
-    } from '@/application/CalculationClient'
+    } from '@/runtime/CalculationClient'
     import { useCheck } from '../model/useCheck'
     import InputPanel from './InputPanel.vue'
     import ChartPanel from './ChartPanel.vue'

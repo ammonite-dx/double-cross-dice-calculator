@@ -90,7 +90,7 @@ describe('shared validation architecture', () => {
   })
 
   it('keeps the generic gate out of AttackInputSnapshot and the core', () => {
-    expect(source('src/application/AttackInputSnapshot.js')).not.toContain(
+    expect(source('src/features/attack/model/AttackInputSnapshot.js')).not.toContain(
       'createLatestValidationGate',
     )
 

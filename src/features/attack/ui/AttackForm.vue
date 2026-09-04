@@ -3,7 +3,7 @@
     import { onUnmounted, reactive, ref, watch } from 'vue';
     import {
         createAttackInputSnapshot,
-    } from '@/application/AttackInputSnapshot';
+    } from '@/features/attack/model/AttackInputSnapshot';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
     import {
         createScoreFeatureCompatibilityRule,

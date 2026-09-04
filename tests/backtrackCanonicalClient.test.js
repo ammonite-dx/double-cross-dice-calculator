@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   CalculationRangeError,
   createCalculationClient,
-} from '../src/application/CalculationClient'
+} from '../src/runtime/CalculationClient'
 
 function createPlan() {
   return {

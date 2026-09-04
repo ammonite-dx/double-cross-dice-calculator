@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   CALCULATION_REQUEST_STATUS,
   createCalculationRequestCoordinator,
-} from '../src/application/CalculationRequestCoordinator'
+} from '../src/runtime/CalculationRequestCoordinator'
 
 function createDeferred() {
   let resolve
