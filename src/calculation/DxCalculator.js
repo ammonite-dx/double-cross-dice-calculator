@@ -7,6 +7,13 @@ import {
   convolveDistributions,
   getConvolutionFftLength,
 } from '../core/probability/FFT'
+import {
+  calculateYouseiTailProbability,
+  maxGeometricTail,
+  negativeBinomialPmf,
+  oneDieCumulative,
+  oneDieTail,
+} from './DxTailModel'
 
 export const DX_DISTRIBUTION_SIZE = 2048
 // The planner's default hard policy is deliberately lower than this direct
@@ -281,52 +288,6 @@ function getTerminalOrderStatistic(dice, shihai, critical, workingLength) {
   return result
 }
 
-function geometricSum(probability, terms) {
-  return (1 - probability ** terms) / (1 - probability)
-}
-
-function oneDieCumulative(value, critical) {
-  if (value <= 0) {
-    return 0
-  }
-
-  if (critical === DX_CRITICAL_MAX && value >= 10) {
-    return 1
-  }
-
-  const criticalProbability = (11 - critical) / 10
-  let result = 0
-  for (let face = 1; face < critical && face <= value; face += 1) {
-    const terms = Math.floor((value - face) / 10) + 1
-    result += 0.1 * geometricSum(criticalProbability, terms)
-  }
-  return result
-}
-
-function oneDieTail(value, critical) {
-  if (value < 0) {
-    return 1
-  }
-
-  const criticalProbability = (11 - critical) / 10
-  let result = 0
-  for (let face = 1; face < critical; face += 1) {
-    const firstExcludedRepeat =
-      value < face ? 0 : Math.floor((value - face) / 10) + 1
-    if (criticalProbability === 0) {
-      if (firstExcludedRepeat === 0) {
-        result += 0.1
-      }
-      continue
-    }
-    result +=
-      0.1 *
-      criticalProbability ** firstExcludedRepeat /
-      (1 - criticalProbability)
-  }
-  return Math.max(0, Math.min(1, result))
-}
-
 function calculateShihaiZeroDistribution(
   dice,
   critical,
@@ -489,222 +450,6 @@ function clampMass(value, label = 'DX probability') {
   return value < 0 ? 0 : value
 }
 
-function maxGeometricTail(maxCriticalCount, dice, criticalProbability) {
-  if (maxCriticalCount < 0) {
-    return 1
-  }
-  if (dice === 0 || criticalProbability === 0) {
-    return 0
-  }
-
-  const oneDieTail = criticalProbability ** (maxCriticalCount + 1)
-  return Math.max(
-    0,
-    Math.min(
-      1,
-      -Math.expm1(dice * Math.log1p(-oneDieTail))
-    )
-  )
-}
-
-function negativeBinomialLogStep(logPmf, sum, yousei, criticalProbability) {
-  return logPmf +
-    Math.log(criticalProbability) +
-    Math.log(sum + yousei) -
-    Math.log(sum + 1)
-}
-
-function negativeBinomialTailFrom(
-  logPmf,
-  sum,
-  yousei,
-  criticalProbability
-) {
-  let result = 0
-  let compensation = 0
-  const logMinimum = Math.log(Number.MIN_VALUE)
-
-  while (true) {
-    const pmf = Math.exp(logPmf)
-    if (pmf > 0) {
-      const corrected = pmf - compensation
-      const next = result + corrected
-      compensation = next - result - corrected
-      result = next
-    }
-
-    const logRatio = negativeBinomialLogStep(
-      0,
-      sum,
-      yousei,
-      criticalProbability
-    )
-    const nextLogPmf = logPmf + logRatio
-    const nextPmf = Math.exp(nextLogPmf)
-    if (
-      logRatio < 0
-      && (
-        nextPmf === 0
-        || nextPmf <= Number.EPSILON * Math.max(result, Number.MIN_VALUE)
-      )
-    ) {
-      break
-    }
-    if (logRatio < 0 && nextLogPmf < logMinimum) {
-      break
-    }
-
-    logPmf = nextLogPmf
-    sum += 1
-  }
-
-  return Math.max(0, Math.min(1, result))
-}
-
-function maxPlusNegativeBinomialTail(
-  threshold,
-  dice,
-  yousei,
-  criticalProbability
-) {
-  if (threshold < 0) {
-    return 1
-  }
-  if (criticalProbability === 0) {
-    return 0
-  }
-
-  let logPmf = yousei * Math.log1p(-criticalProbability)
-  let result = 0
-  let compensation = 0
-  for (let sum = 0; sum <= threshold; sum += 1) {
-    const pmf = Math.exp(logPmf)
-    const term =
-      pmf * maxGeometricTail(threshold - sum, dice, criticalProbability)
-    if (term > 0) {
-      const corrected = term - compensation
-      const next = result + corrected
-      compensation = next - result - corrected
-      result = next
-    }
-    logPmf = negativeBinomialLogStep(
-      logPmf,
-      sum,
-      yousei,
-      criticalProbability
-    )
-  }
-
-  return Math.max(
-    0,
-    Math.min(
-      1,
-      result + negativeBinomialTailFrom(
-        logPmf,
-        threshold + 1,
-        yousei,
-        criticalProbability
-      )
-    )
-  )
-}
-
-function calculateYouseiOverflowProbability(
-  explicitMax,
-  dice,
-  critical,
-  yousei
-) {
-  if (dice === 0) {
-    return 0
-  }
-
-  const criticalProbability = (11 - critical) / 10
-  const remainderCount = critical - 1
-  let result = 0
-  let previousThreshold = null
-  let multiplicity = 0
-  for (let remainder = 1; remainder <= remainderCount; remainder += 1) {
-    const threshold =
-      Math.floor((explicitMax - remainder) / 10) - yousei
-    if (threshold === previousThreshold) {
-      multiplicity += 1
-      continue
-    }
-    if (previousThreshold !== null) {
-      result += multiplicity * maxPlusNegativeBinomialTail(
-        previousThreshold,
-        dice,
-        yousei,
-        criticalProbability
-      )
-    }
-    previousThreshold = threshold
-    multiplicity = 1
-  }
-  if (previousThreshold !== null) {
-    result += multiplicity * maxPlusNegativeBinomialTail(
-      previousThreshold,
-      dice,
-      yousei,
-      criticalProbability
-    )
-  }
-
-  return Math.max(0, Math.min(1, result / remainderCount))
-}
-
-// Lanczos approximation for log(Gamma(z)).  All callers use positive integer
-// arguments, but keeping the reflection branch makes this helper safe to
-// reuse for diagnostics without factorial-sized intermediate values.
-const LOG_GAMMA_COEFFICIENTS = [
-  676.5203681218851,
-  -1259.1392167224028,
-  771.32342877765313,
-  -176.61502916214059,
-  12.507343278686905,
-  -0.13857109526572012,
-  9.9843695780195716e-6,
-  1.5056327351493116e-7,
-]
-
-function logGamma(value) {
-  if (value < 0.5) {
-    return Math.log(Math.PI) -
-      Math.log(Math.sin(Math.PI * value)) -
-      logGamma(1 - value)
-  }
-
-  let shifted = value - 1
-  let sum = 0.99999999999980993
-  for (let index = 0; index < LOG_GAMMA_COEFFICIENTS.length; index += 1) {
-    sum += LOG_GAMMA_COEFFICIENTS[index] / (shifted + index + 1)
-  }
-  const g = 7
-  const t = shifted + g + 0.5
-  return 0.5 * Math.log(2 * Math.PI) +
-    (shifted + 0.5) * Math.log(t) -
-    t +
-    Math.log(sum)
-}
-
-function negativeBinomialPmf(sum, yousei, criticalProbability) {
-  if (yousei === 0) {
-    return sum === 0 ? 1 : 0
-  }
-  if (criticalProbability === 0) {
-    return sum === 0 ? 1 : 0
-  }
-
-  const logPmf =
-    logGamma(sum + yousei) -
-    logGamma(yousei) -
-    logGamma(sum + 1) +
-    yousei * Math.log1p(-criticalProbability) +
-    sum * Math.log(criticalProbability)
-  return Math.exp(logPmf)
-}
-
 /**
  * Number of critical blocks that can contribute to explicit score buckets.
  * The final score remainder is at least one, and the last array entry is the
@@ -837,7 +582,7 @@ function calculateYouseiDistribution(
   if (explicitTotal > 1 + FULL_PRECISION_NEGATIVE_TOLERANCE) {
     throw new RangeError('Yousei distribution explicit mass exceeds one')
   }
-  result[overflowIndex] = calculateYouseiOverflowProbability(
+  result[overflowIndex] = calculateYouseiTailProbability(
     overflowIndex - 1,
     dice,
     critical,

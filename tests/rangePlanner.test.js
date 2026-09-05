@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_POLICY,
-  findTailCutoff,
-  maxTailFirstMomentUpperBound,
   nextPowerOfTwo,
   planCalculationRanges,
-  scoreTailBound,
 } from '../src/calculation/RangePlanner'
+import {
+  findTailCutoff,
+  maxTailFirstMomentUpperBound,
+  scoreTailBound,
+} from '../src/calculation/DxTailModel'
 import { OUTPUT_DISTRIBUTION_SIZE } from '../src/core/probability/Distribution'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {

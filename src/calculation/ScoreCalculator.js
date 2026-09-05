@@ -11,7 +11,7 @@ import {
 import {
   maxTailFirstMomentUpperBound,
   maxTailBound,
-} from './RangePlanner'
+} from './DxTailModel'
 
 const SCORE_TAIL_CERTIFICATE_VERSION = 1
 const SCORE_EXPECTATION_CERTIFICATE_VERSION = 1
