@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_POLICY,
-  nextPowerOfTwo,
   planCalculationRanges,
 } from '../src/calculation/RangePlanner'
+import { nextPowerOfTwo } from '../src/calculation/planning/PlanningMath'
 import {
   findTailCutoff,
   maxTailFirstMomentUpperBound,
