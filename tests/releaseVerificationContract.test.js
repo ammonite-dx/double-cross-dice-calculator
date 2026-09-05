@@ -1,0 +1,64 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repositoryRoot = resolve(fileURLToPath(new URL('../', import.meta.url)))
+
+function readRepositoryFile(relativePath) {
+  return readFileSync(resolve(repositoryRoot, relativePath), 'utf8')
+}
+
+const packageJson = JSON.parse(readRepositoryFile('package.json'))
+const scripts = packageJson.scripts
+const workflow = readRepositoryFile('.github/workflows/ci.yml')
+
+const releaseSteps = [
+  'npm run check:node',
+  'npm run data:check',
+  'npm run data:verify-generator',
+  'npm test',
+  'npm run generator:test',
+  'npm run generator:test:simulation',
+  'npm run generator:lint',
+  'npm run typecheck',
+  'npm run verify:runtime-dx',
+  'npm run lint',
+  'npm run lint:markdown',
+  'npm run build',
+  'npm run smoke:production:built',
+  'npm run diff:check',
+]
+
+describe('release verification contract', () => {
+  it('defines one ordered release gate in package.json', () => {
+    expect(scripts).toHaveProperty('verify:release')
+    expect(scripts).toHaveProperty('smoke:production:built')
+    expect(scripts).toHaveProperty('diff:check', 'git diff --check')
+
+    let previousIndex = -1
+    for (const step of releaseSteps) {
+      const index = scripts['verify:release'].indexOf(step)
+      expect(index, `missing release step: ${step}`).toBeGreaterThan(-1)
+      expect(index, `out-of-order release step: ${step}`).toBeGreaterThan(
+        previousIndex
+      )
+      previousIndex = index
+    }
+  })
+
+  it('keeps standalone production smoke and the built smoke path', () => {
+    expect(scripts['smoke:production']).toContain('npm run build')
+    expect(scripts['smoke:production']).toContain(
+      'npm run smoke:production:built'
+    )
+    expect(scripts['smoke:production:built']).toContain(
+      'production-browser-smoke.mjs'
+    )
+  })
+
+  it('connects CI to the release gate and installs Chromium explicitly', () => {
+    expect(workflow).toContain('npm run verify:release')
+    expect(workflow).toContain('npx playwright install --with-deps chromium')
+  })
+})

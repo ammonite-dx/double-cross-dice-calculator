@@ -20,7 +20,9 @@
     "benchmark:phase2h:browser:playwright:full-tail-attack": "node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource",
     "benchmark:phase2h:browser:playwright:full-tail-attack:short": "node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource --iterations 1 --warmup 0",
     "benchmark:runtime-dr": "node scripts/benchmark-runtime-dr-experiment.mjs",
-    "smoke:production": "npm run build && node scripts/production-browser-smoke.mjs",
+    "smoke:production": "npm run build && npm run smoke:production:built",
+    "smoke:production:built": "node scripts/production-browser-smoke.mjs",
+    "diff:check": "git diff --check",
     "preview": "vite preview",
     "data:generate": "npm run data:regenerate",
     "data:check": "npm run data:verify-generator",
@@ -38,6 +40,7 @@
     "pretest": "node scripts/check-node-version.mjs",
     "test": "vitest run",
     "verify:runtime-dx": "node scripts/verify-runtime-dx.mjs",
+    "verify:release": "npm run check:node && npm run data:check && npm run data:verify-generator && npm test && npm run generator:test && npm run generator:test:simulation && npm run generator:lint && npm run typecheck && npm run verify:runtime-dx && npm run lint && npm run lint:markdown && npm run build && npm run smoke:production:built && npm run diff:check",
     "test:runtime-dr:full": "node scripts/verify-runtime-dr-experiment.mjs --optimized",
     "test:runtime-dr:full:reference": "node scripts/verify-runtime-dr-experiment.mjs",
     "test:watch": "vitest"

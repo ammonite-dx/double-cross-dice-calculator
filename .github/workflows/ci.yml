@@ -38,24 +38,8 @@ jobs:
       - name: Install generator dependencies
         run: uv sync --project generator --locked --dev
 
-      - name: Validate precomputed data
-        run: |
-          npm run data:check
-          npm run data:verify-generator
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
-      - name: Lint
-        run: |
-          npm run lint
-          npm run lint:markdown
-          npm run generator:lint
-
-      - name: Test
-        run: |
-          npm run typecheck
-          npm run verify:runtime-dx
-          npm test
-          npm run generator:test
-          npm run generator:test:simulation
-
-      - name: Build
-        run: npm run build
+      - name: Verify release
+        run: npm run verify:release
