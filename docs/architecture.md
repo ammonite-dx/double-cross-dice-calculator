@@ -11,6 +11,13 @@
 - `src/runtime/CalculationFeedback.js`、`CalculationRequestCoordinator.js`、`ResourceGuard.js`: 計算要求のlatest-wins、フィードバック、資源予約を管理するframework-independent runtime
 - `src/runtime/RuntimeDamageRollClient.js`、`RuntimeDamageRollProtocol.ts`、`RuntimeDamageRollWorker.js`: ダメージロールのWorker境界と通信契約
 - `src/calculation/D10Calculator.js`: 通常D10合計の完全有限supportを生成するruntime primitive
+- `src/calculation/DxTailModel.js`: DX一個・最大値・《妖精の手》の尾部確率と、範囲計画で共有するtail certificateを計算するpure model
+- `src/calculation/planning/ScoreRangePlanner.js`: Scoreのworking range、DX tail、Yousei FFT、配列見積りを計画する
+- `src/calculation/planning/DamageRangePlanner.js`: 攻撃・防御の差分、DR support、D10防御、畳み込み範囲を計画する
+- `src/calculation/planning/BacktrackRangePlanner.js`: バックトラックの有限support、asset coverage、on-demand生成資源を計画する
+- `src/calculation/planning/PlanningMath.js`: safe integer算術、FFT長、共通の計画コスト係数を提供する
+- `src/calculation/planning/RangePolicy.js`: `DEFAULT_POLICY`、policy検証、表示windowの正規化を提供する
+- `src/calculation/planning/ResourcePlan.js`: 操作別の資源見積りとwarning／reject判定を提供する
 - `src/calculation/RuntimeDamageRollCalculator.js`: `kazanari`を含むDRのruntime生成とFFT境界
 - `src/core/probability/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
 - `src/core/probability/FFT.js`: 独立な確率分布の加算・減算
@@ -22,6 +29,8 @@
 現行productionの`CalculationClient`はScore、Damage、Backtrackの計算コアを直接参照する。公開assetのReference repositoryはproduction経路へ注入せず、テストと独立比較に限定する。
 
 Vueコンポーネントは入力状態と表示を管理し、`CalculationClient`だけを介して確率計算を利用します。`src/calculation/`の計算コアはVue、DOM、`fetch`、静的アセットの配置に依存せず、必要な分布は引数で渡される関数から取得します。
+
+R12では、`RangePlanner.js`を後方互換の調整役として残し、操作別の計画式を`planning/`へ分離しました。`ScoreRangePlanner`と`DxCalculator`は`DxTailModel`へ依存し、`ScoreCalculator`はplannerを参照しません。`DamageRangePlanner`と`BacktrackRangePlanner`はそれぞれの計算ドメインと`PlanningMath`だけを参照し、`ResourcePlan`が全操作の見積りと制限判定を担当します。この依存方向により、tail計算や個別操作の式をUI・runtime・他の操作plannerから独立して検証できます。
 
 Phase 8の棚卸しでは、ファイル単位で削除を判断せず、旧`src/data`にあったmixed-use moduleをexport/symbol単位で分類します。R8でproduction probability symbolは`src/core/probability/`へ、paletteは`src/shared/theme/`へ、reference supportは`tooling/reference-data/`へ移し、`src/data`を廃止しました。published-bucket adapter、Distribution/FFTのproduction symbol、互換に必要なsymbolは保持しています。
 
@@ -95,3 +104,9 @@ Checkの表示範囲policyは`src/runtime/CheckRangePolicy.js`を正本とし、
 feature非依存の表示変換は`src/shared/presentation/`へ移し、`DistributionPresenter.js`が`DistributionResult`を検証する依存だけを例外として許可する。runtimeとshared presentationは相互に依存せず、Vue、Vuetify、Chart.js、Node、DOM、`fetch`にも依存しない。旧`src/application/`と`src/presentation/`は空directoryを含めて削除し、compatibility re-exportは作成していない。
 
 このR9はbehavior-neutralな構造変更であり、canonical result、legacy/published-bucket互換adapter、public asset、generator、表示ラベルと数値丸めは変更していない。構造境界は[`runtimePresentationArchitecture.test.js`](../tests/runtimePresentationArchitecture.test.js)とESLintで検証し、shared presentationの相対sibling importおよび廃止済み`src/application`／`src/presentation` pathの再導入も禁止する。最終実装`31b9271`でfresh full gateとproduction smokeを完了し、R9を`CLOSED / GREEN`とした。詳細な移動表と検証記録は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
+
+## R12現在の責務分離（2026-09-05）
+
+R12では、DX tailの数式を`DxTailModel.js`へ集約し、Score、Damage、Backtrackの範囲計画と資源判定を`src/calculation/planning/`へ分離した。`RangePlanner.js`は入力operationを振り分け、計画を合成し、overflow情報を作る薄いfacadeである。`PlanningMath.js`へsafe arithmeticとFFT見積りを集約したが、working range、tail error budget、cost係数、resource threshold、DistributionResult、Worker protocolの意味は変更していない。
+
+`tests/dxTailModel.test.js`は一個のDX、最大値、負の二項分布、《妖精の手》の境界と単調性を直接検証し、`tests/corePlanningArchitecture.test.js`はfacade、計算core、planning moduleの依存方向と重複tail実装の不在を検証する。既存のRangePlanner、runtime rule、resource、browser smokeの契約は引き続きRangePlannerの公開入口から検証する。詳細な変更表とR12の検証結果は[`refactoring-core-decomposition.md`](./refactoring-core-decomposition.md)を参照する。
