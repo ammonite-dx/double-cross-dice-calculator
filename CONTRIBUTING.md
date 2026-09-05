@@ -37,6 +37,8 @@ npm run verify:release
 
 このコマンドには事前計算データ、generator、型検査、runtime、lint、ビルド、production browser smoke、`git diff --check`が含まれます。production browser smokeをローカルで実行する場合は、必要に応じて`npx playwright install chromium`でChromiumを導入してください。環境にあるChromeを利用できる場合は既存のfallbackも使われます。CIでは`npx playwright install --with-deps chromium`を先に実行します。
 
+ローカルの`git diff --check`は作業ツリーの未コミット差分を検査します。CIでは同じrelease gateにbase commitからcheckoutされたheadまでのコミット範囲検査を加えるため、コミット済みの差分も検証されます。
+
 Markdownではmarkdownlintの規約に従い、段落内の文章を途中で改行しません。コードブロック、表、箇条書きなど、Markdownの構造に必要な改行は維持します。
 
 ## 確率計算の変更

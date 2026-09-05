@@ -14,6 +14,7 @@ const scripts = packageJson.scripts
 const workflow = readRepositoryFile('.github/workflows/ci.yml')
 const readme = readRepositoryFile('README.md')
 const contributing = readRepositoryFile('CONTRIBUTING.md')
+const diffCheck = readRepositoryFile('scripts/diff-check.mjs')
 
 const releaseSteps = [
   'npm run check:node',
@@ -36,7 +37,7 @@ describe('release verification contract', () => {
   it('defines one ordered release gate in package.json', () => {
     expect(scripts).toHaveProperty('verify:release')
     expect(scripts).toHaveProperty('smoke:production:built')
-    expect(scripts).toHaveProperty('diff:check', 'git diff --check')
+    expect(scripts).toHaveProperty('diff:check', 'node scripts/diff-check.mjs')
 
     let previousIndex = -1
     for (const step of releaseSteps) {
@@ -62,6 +63,18 @@ describe('release verification contract', () => {
   it('connects CI to the release gate and installs Chromium explicitly', () => {
     expect(workflow).toContain('npm run verify:release')
     expect(workflow).toContain('npx playwright install --with-deps chromium')
+    expect(workflow).toContain('fetch-depth: 0')
+    expect(workflow).toContain('DIFF_CHECK_BASE:')
+    expect(workflow).toContain('DIFF_CHECK_HEAD:')
+  })
+
+  it('checks the working tree locally and a committed range in CI', () => {
+    expect(diffCheck).toContain(
+      "execFileSync('git', [command, '--check', ...argumentsList]"
+    )
+    expect(diffCheck).toContain("`${base}..${head}`")
+    expect(diffCheck).toContain("runGitDiffCheck([], 'working tree')")
+    expect(diffCheck).toContain("'diff-tree'")
   })
 
   it('keeps live developer documentation on the current release command', () => {

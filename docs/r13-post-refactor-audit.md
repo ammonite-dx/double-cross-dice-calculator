@@ -84,3 +84,14 @@ git diff --check: GREEN
 ```
 
 docs更新後にも`npm run lint`、`npm run lint:markdown`、`npm run diff:check`を再実行し、すべてGREENでした。docs commit後の作業ツリーはcleanとなり、R14を`CLOSED / GREEN`とします。最終local HEADとremote HEADの実際の値は作業完了時の報告に記録します。
+
+R14の追補では、作業ツリー用の検査を維持したまま、CIの`DIFF_CHECK_BASE`・`DIFF_CHECK_HEAD`でPRまたはpushのコミット範囲を明示して検査します。checkoutはfull history（`fetch-depth: 0`）とし、root commitの場合は`git diff-tree --check --root`へ切り替えます。
+
+追補実装では`diff:check`を`diff-check.mjs`へ切り出し、環境変数がないローカル実行では作業ツリーを、CI実行では指定されたbase〜headのコミット範囲を検査するようにしました。契約テスト、ESLint、Markdown lint、作業ツリー検査、既存HEADを対象にしたコミット範囲検査、root commit分岐の検査がすべてGREENです。これによりR14の最終判定は次のとおりです。
+
+```text
+P0: 0
+P1: 0
+P2: 0
+R14: CLOSED / GREEN
+```

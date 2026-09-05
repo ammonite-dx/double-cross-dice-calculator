@@ -22,7 +22,7 @@
     "benchmark:runtime-dr": "node scripts/benchmark-runtime-dr-experiment.mjs",
     "smoke:production": "npm run build && npm run smoke:production:built",
     "smoke:production:built": "node scripts/production-browser-smoke.mjs",
-    "diff:check": "git diff --check",
+    "diff:check": "node scripts/diff-check.mjs",
     "preview": "vite preview",
     "data:generate": "npm run data:regenerate",
     "data:check": "npm run data:verify-generator",

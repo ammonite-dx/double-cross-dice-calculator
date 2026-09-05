@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -42,4 +44,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Verify release
+        env:
+          DIFF_CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DIFF_CHECK_HEAD: ${{ github.sha }}
         run: npm run verify:release
