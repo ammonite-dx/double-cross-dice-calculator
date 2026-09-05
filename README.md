@@ -12,7 +12,7 @@ TRPG『ダブルクロス The 3rd Edition』のダイスロールについて、
 - バックトラック後の侵蝕率分布の計算
 - 《妖精の手》《支配の領域》《絶対支配》《風鳴りの爪》、Dロイス《屍人》など、一部エフェクト・Dロイスの反映
 
-ダイスロールの解釈、対応範囲、事前計算するダイス数の根拠は[`docs/dice-rules.md`](./docs/dice-rules.md)に記載しています。canonicalの確率分布は`DistributionResult`としてsupport、explicit coverage、overflowを保持し、必要なworking rangeは`RangePlanner`と`ResourceGuard`で要求window・supportに応じて動的に計画します。legacy compatibility・migration comparison用の1024 bucketではインデックス1023に1023以上を集約しますが、これはcanonical resultや最終表示の上限ではありません。canonicalの中間計算は要求されたwindowとsupportに合わせたworking rangeを使い、legacy published projectionとの比較時だけ1024 bucketへ投影します。
+ダイスロールの解釈、対応範囲、事前計算するダイス数の根拠は[`docs/dice-rules.md`](./docs/dice-rules.md)に記載しています。計算結果は`DistributionResult`としてsupport、明示済み範囲、overflowを保持し、必要なworking rangeは`RangePlanner`と`ResourceGuard`で要求window・supportに応じて動的に計画します。互換用のpublished-bucket形式ではインデックス1023に1023以上を集約しますが、これは計算結果や最終表示の上限ではありません。中間計算は要求されたwindowとsupportに合わせたworking rangeを使い、published-bucketへ投影するのは互換比較が必要な場合だけです。
 
 ## 技術構成
 
@@ -38,18 +38,18 @@ npm run dev
 
 ## 品質確認
 
+通常の開発中は、変更に応じて個別のlintやテストを実行します。Pull Request作成前やリリース前には、Node.js、事前計算データ、JavaScript・Pythonのテスト、型検査、runtime検証、lint、ビルド、production browser smoke、差分検査をまとめて実行する`npm run verify:release`を使用してください。
+
 ```sh
-npm run check:node
 npm run lint
 npm test
-npm run build
 ```
 
 `npm run lint:fix` はESLintで自動修正可能な箇所を更新します。
 
 事前計算後にブラウザで行う判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証は[`docs/precomputation-validation.md`](./docs/precomputation-validation.md)を参照してください。
 
-判定・ダメージ計算の参考ベンチマークは`npm run benchmark:calculators`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
+Attackのfull-tail計算に関する参考ベンチマークは`npm run benchmark:full-tail-attack`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 
 確率計算を変更する場合は、少なくとも次の不変条件を保つ必要があります。
 
@@ -79,17 +79,23 @@ Cloudflare Pagesの基本設定:
 
 ```text
 src/
+  calculation/ 確率・範囲計画の計算コア
+  core/        汎用的な確率計算primitive
+  domain/      入力・結果などのドメイン契約
+  features/    Check・Attack・Backtrackの画面と状態
+  runtime/     非同期計算、資源制御、Worker境界
+  shared/      検証、チャート、表示、テーマの共通処理
   components/  画面を構成するVueコンポーネント
-  data/        データ取得・確率計算ロジック
   layouts/     共通レイアウト
   router/      ルーティング
-  views/       ページ単位のコンポーネント
+  views/       ページ単位のroute adapter
+tooling/reference-data/  参照用スキーマとデータリポジトリ
 public/data/   バージョン管理された事前計算済み静的アセット
 generator/     Python製の事前計算データ生成器
 experiments/   runtime計算・性能検証の参照実装と履歴資料
 schemas/       事前計算データのJSON Schema
 scripts/       事前計算データの生成・検証スクリプト
-tests/         canonical計算、ルール、asset、Workerのテスト
+tests/         runtime、ルール、asset、architecture、Workerのテスト
 ```
 
 アプリケーションのモジュール境界とデータ読込の流れは[`docs/architecture.md`](./docs/architecture.md)を参照してください。

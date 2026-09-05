@@ -12,6 +12,8 @@ function readRepositoryFile(relativePath) {
 const packageJson = JSON.parse(readRepositoryFile('package.json'))
 const scripts = packageJson.scripts
 const workflow = readRepositoryFile('.github/workflows/ci.yml')
+const readme = readRepositoryFile('README.md')
+const contributing = readRepositoryFile('CONTRIBUTING.md')
 
 const releaseSteps = [
   'npm run check:node',
@@ -60,5 +62,14 @@ describe('release verification contract', () => {
   it('connects CI to the release gate and installs Chromium explicitly', () => {
     expect(workflow).toContain('npm run verify:release')
     expect(workflow).toContain('npx playwright install --with-deps chromium')
+  })
+
+  it('keeps live developer documentation on the current release command', () => {
+    expect(readme).toContain('npm run verify:release')
+    expect(contributing).toContain('npm run verify:release')
+    expect(readme).not.toContain('src/data/')
+    expect(readme).not.toContain('npm run benchmark:calculators')
+    expect(readme).not.toContain('canonical')
+    expect(readme).not.toContain('legacy')
   })
 })

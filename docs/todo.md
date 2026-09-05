@@ -4,7 +4,7 @@
 
 状態ラベルは`open`（現行実装に対する未完了の課題）、`done`（現行実装で完了）、`obsolete`（現行方針では実施しない課題）、`historical`（過去の実装・判断を記録する項目）を用います。過去の作業記録に残る「未着手」「継続」「一部完了」は、現在の状態を示すラベルとして解釈しません。
 
-canonical移行の横断的な実装順序と判断は [canonical-migration-roadmap.md](./canonical-migration-roadmap.md) を参照してください。
+R1〜R12のcanonical移行に関する横断的な実装順序と判断は、historical documentである[canonical-migration-roadmap.md](./canonical-migration-roadmap.md)に記録しています。現在の作業はこのTODOと個別のpost-refactor documentで管理します。
 
 ## 推奨実装順
 
@@ -26,6 +26,8 @@ G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark
 12. 完了（R11 Canonical / Migration Terminology Cleanup、2026-09-05）: R11開始SHAは`ffe05c70d9cf5d61e861a63445f73da72b30e99b`、production実装は`269d20e63cdf8eb319341d2c3a0ea28435c4f85b`、命名境界テストは`6e36594b557ba63d1c67b3eda61f5c2241bd5126`である。productionのCanonical filename、廃止identifier、compatibility aliasは各0件となり、`published-bucket`互換語だけを現行境界として保持した。protected area（`public`、`generator`、`tooling/reference-data`）の差分は0件だった。Vitest 74 files / 866 tests、generator 18、simulation 13、data 32 assets、typecheck／ESLint／Ruff／Markdown lint、runtime DX 20,000 cases、production build 408 modules、production browser smoke、`git diff --check`をGREENで確認し、P0／P1／P2=0、R11を`CLOSED / GREEN`とした。詳細は[`r11-terminology-cleanup.md`](./r11-terminology-cleanup.md)を参照する。次はR12 core module decompositionとする。
 
 13. 完了（R12 Core Module Decomposition、2026-09-05）: R12開始SHAは`2267027e1df386e6509cac90821d64ab16d7d6b1`である。`DxTailModel`へ一個のDX、最大値、Yousei、tail cutoff、first-moment boundを集約し、`ScoreRangePlanner`、`DamageRangePlanner`、`BacktrackRangePlanner`へ操作別の範囲計画を分離した。`PlanningMath`はsafe arithmetic・FFT長・見積り係数、`RangePolicy`はpolicyとdisplay正規化、`ResourcePlan`は資源見積りとwarning／rejectを担当し、`RangePlanner`はorchestration facadeとして残した。`ScoreCalculator`と`DxCalculator`からplanner依存をなくし、数値式、tail error budget、resource threshold、公開結果、UI、public／generator／reference-dataは変更していない。`51c7ae5`と`dab6bd4`で実装し、`tests/dxTailModel.test.js`と`tests/corePlanningArchitecture.test.js`を追加した。Vitest 76 files / 873 tests、typecheck、ESLint、`git diff --check`をGREENで確認し、P0／P1／P2=0、R12を`CLOSED / GREEN`とした。詳細は[`refactoring-core-decomposition.md`](./refactoring-core-decomposition.md)を参照する。次はR13候補の整理へ進む。
+14. 完了（R13 Post-refactor Technical Debt / Release Readiness Audit、2026-09-05）: R12完了後のproduction source、runtime lifecycle、architecture boundary、実験面を監査し、RD-01（release gateのCI・開発者手順との不一致）、RD-02（READMEのarchitecture・コマンド記述の不一致）、RD-03（migration roadmapのactive扱い継続）を記録した。runtime correctness、数値契約、ResourceGuard、Worker lifecycle、逆依存には新たなblockerを確認せず、`experiments/runtime-dr`とpublished-bucket互換境界は維持する。R13は`CLOSED / AUDIT COMPLETE`とし、詳細は[`r13-post-refactor-audit.md`](./r13-post-refactor-audit.md)を参照する。
+15. 完了（R14 Release Verification & Live Documentation Consolidation、2026-09-05）: `verify:release`をrelease gateの正本としてpackage.jsonに定義し、CI・README・CONTRIBUTINGから参照した。production browser smokeはCIでChromiumを明示導入したうえで実行し、`git diff --check`も同じgateへ接続した。RD-01〜RD-03を解消し、Node／data／Vitest／generator／simulation／Ruff／typecheck／runtime DX／ESLint／Markdown lint／build／production smoke／差分検査をGREENで確認した。R14を`CLOSED / GREEN`とし、Cloudflare Worker、HTTP API、MCPの公開は引き続き延期する。
 
 ### R7 closure follow-up（2026-09-03）
 

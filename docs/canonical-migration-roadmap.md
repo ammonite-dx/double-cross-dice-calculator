@@ -2,6 +2,8 @@
 
 この文書は、Attack、通常のCheck、バックトラックの計算結果をcanonical resultへ段階的に移行するための設計判断と実装順序を記録する。移行中は既存のlegacy表示を比較用の安全網として残すが、完了時にはdebug panel、legacy計算、固定1024表示、legacy fallbackを削除し、既存チャート・サマリーの見た目だけを維持する。
 
+R1〜R12のmigration・refactoring seriesは完了しています。この文書は当時の設計判断と履歴を保持するhistorical roadmapとしてfreezeし、post-refactorのactive workは[`docs/todo.md`](./todo.md)で管理します。以下の過去記録にあるcanonical、legacy、migrationという用語は、その時点の文脈を示すために変更しません。
+
 ## 現在地
 
 - `RangePlanner` と `ResourceGuard` による実行前の範囲計画・資源制限があり、`DistributionResult` がsupport、explicit maximum、overflowを保持するcanonical境界になっている。
