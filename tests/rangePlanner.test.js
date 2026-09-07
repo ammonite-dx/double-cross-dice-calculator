@@ -303,6 +303,26 @@ describe('production range planner', () => {
     expect(score.float64Bytes).toBeLessThan(100_000 * score.workingLength)
   })
 
+  it('accounts for dense score output buffers when estimating memory', () => {
+    const plan = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({
+        dice: 1,
+        critical: 10,
+        skill: 10_000_000,
+        yousei: 0,
+        shihai: 0,
+      }),
+    }))
+    const score = plan.scores[0]
+    const outputBufferLength = score.outputMax + 1
+
+    expect(plan.accepted).toBe(false)
+    expect(plan.rejectionReasons).toContain('estimated-memory')
+    expect(score.float64Bytes).toBeGreaterThanOrEqual(
+      2 * outputBufferLength * Float64Array.BYTES_PER_ELEMENT
+    )
+  })
+
   it('matches a finite round-and-convolution oracle for small yousei cases', () => {
     const cases = [
       { dice: 1, critical: 2, shihai: 0, yousei: 1 },

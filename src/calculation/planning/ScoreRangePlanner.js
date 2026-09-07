@@ -16,6 +16,7 @@ import {
   fftOperationCount,
 } from './PlanningMath'
 import { getPublishedScoreUpperBound } from './RangePolicy'
+import { getScoreOutputBufferLength } from '../ScoreSupport'
 
 function scoreOperationCount(plan) {
   const dice = plan.params.dice
@@ -87,6 +88,13 @@ export function planScore(params, display, policy, tailBudget) {
   // Keep every value through workingMax explicit. The final array entry is a
   // separate bucket for values strictly greater than workingMax.
   const workingLength = addSafe(workingMax, 2, 'score working range')
+  const outputBufferLength = getScoreOutputBufferLength(
+    normalized,
+    workingMax
+  )
+  // `outputMax` remains the score propagation boundary used by the damage
+  // planner. The separate buffer length follows the producer's actual dense
+  // allocation, which can be much smaller for finite-support score paths.
   const outputMax = Math.max(
     0,
     addSafe(workingMax, normalized.skill, 'score output range')
@@ -113,11 +121,16 @@ export function planScore(params, display, policy, tailBudget) {
   // its normalized copy are the only two Float64 buffers for the DX step.
   const shihaiShortcut =
     normalized.shihai > 0 && normalized.dice <= normalized.shihai
+  const outputBufferElements = multiplySafe(
+    2,
+    outputBufferLength,
+    'score output array size'
+  )
   const arrayElements = normalized.shihai === 0 && normalized.yousei > 0
     ? addSafe(
         addSafe(
           multiplySafe(2, workingLength, 'score array size'),
-          addSafe(outputMax, 1, 'score output array size'),
+          outputBufferElements,
           'score array size'
         ),
         addSafe(
@@ -133,8 +146,13 @@ export function planScore(params, display, policy, tailBudget) {
     : shihaiShortcut
       ? 2
       : addSafe(normalized.dice, 4, 'score array count')
+  const baseArrayElements = arrayElements
+    ?? multiplySafe(arrayCount, workingLength, 'score array size')
+  const scoreArrayElements = shihaiShortcut
+    ? Math.max(baseArrayElements, outputBufferElements)
+    : addSafe(baseArrayElements, outputBufferElements, 'score array size')
   const float64Bytes = multiplySafe(
-    arrayElements ?? multiplySafe(arrayCount, workingLength, 'score array size'),
+    scoreArrayElements,
     Float64Array.BYTES_PER_ELEMENT,
     'score array size'
   )

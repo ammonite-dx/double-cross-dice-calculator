@@ -12,6 +12,10 @@ import {
   maxTailFirstMomentUpperBound,
   maxTailBound,
 } from './DxTailModel'
+import {
+  getScoreOutputMax,
+  getScoreSupport,
+} from './ScoreSupport'
 
 const SCORE_TAIL_CERTIFICATE_VERSION = 1
 const SCORE_EXPECTATION_CERTIFICATE_VERSION = 1
@@ -165,36 +169,6 @@ function calculateScoreWorking(
   }
 }
 
-function getFiniteRawSupportMax(params) {
-  if (params.dice === 0 || params.dice <= (params.shihai ?? 0)) {
-    return 0
-  }
-  if (params.critical === 11) {
-    return 10
-  }
-  return null
-}
-
-function getSupport(params, alreadyShifted = false) {
-  if (alreadyShifted) {
-    return {
-      kind: 'finite',
-      max: Math.max(0, params.skill),
-    }
-  }
-  const finiteRawSupportMax = getFiniteRawSupportMax(params)
-  if (finiteRawSupportMax === null) {
-    return { kind: 'infinite' }
-  }
-  if (finiteRawSupportMax === 0) {
-    return { kind: 'finite', max: 0 }
-  }
-  return {
-    kind: 'finite',
-    max: Math.max(0, finiteRawSupportMax + params.skill),
-  }
-}
-
 function createScoreResult(
   params,
   workingDistribution,
@@ -220,11 +194,13 @@ function createScoreResult(
     ? scoreRangePlan.workingLength - 2
     : workingDistribution.length - 2
   const overflowIndex = workingDistribution.length - 1
-  const support = getSupport(params, alreadyShifted)
+  const support = getScoreSupport(params, alreadyShifted)
   const finiteSupport = support.kind === 'finite'
-  const explicitMax = finiteSupport
-    ? support.max
-    : Math.max(0, workingMax + params.skill)
+  const explicitMax = getScoreOutputMax(
+    params,
+    workingMax,
+    alreadyShifted
+  )
   const values = new Float64Array(explicitMax + 1)
 
   for (let rawValue = 0; rawValue < overflowIndex; rawValue += 1) {
