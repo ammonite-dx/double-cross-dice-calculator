@@ -115,6 +115,11 @@ describe('incremental Attack runner ownership', () => {
     expect(state.combos[0].data.calculation).toBeNull()
     expect(state.combos[1].data.calculation).toBe(unaffected)
     expect(state.totalCalculation).toBeNull()
+    expect(state.feedback.status).toBe('error')
+    expect(state.feedback.error).toBe(error)
+    expect(runner.refreshPresentation()).toBe(false)
+    expect(state.feedback.status).toBe('error')
+    expect(state.feedback.error).toBe(error)
 
     await expect(runner.run()).resolves.toBe(true)
     expect(client.calculateAttack).toHaveBeenCalledTimes(4)
@@ -136,6 +141,12 @@ describe('incremental Attack runner ownership', () => {
     expect(state.combos.map(({ data }) => data.calculation))
       .toEqual(records)
     expect(state.totalCalculation).toBeNull()
+    expect(state.feedback.status).toBe('error')
+    const totalError = state.feedback.error
+    expect(totalError).toBeInstanceOf(Error)
+    expect(runner.refreshPresentation()).toBe(false)
+    expect(state.feedback.status).toBe('error')
+    expect(state.feedback.error).toBe(totalError)
     const attackCalls = client.calculateAttack.mock.calls.length
 
     await expect(runner.run()).resolves.toBe(true)
@@ -178,6 +189,8 @@ describe('incremental Attack runner ownership', () => {
     expect(state.combos[1].data.calculation).toBe(records[1])
     expect(state.totalCalculation).toBe(total)
     expect(state.displayPresentation).not.toBeNull()
+    expect(state.feedback.status).toBe('ready')
+    expect(state.feedback.error).toBeNull()
     runner.dispose()
   })
 
@@ -227,6 +240,67 @@ describe('incremental Attack runner ownership', () => {
     expect(state.totalCalculation).toBe(total)
     expect(state.basePresentation).not.toBeNull()
     expect(state.displayPresentation).not.toBeNull()
+    expect(state.feedback.status).toBe('ready')
+    expect(state.feedback.error).toBeNull()
+    runner.dispose()
+  })
+
+  it('rejects an invalid presentation and recovers feedback without recalculation', async () => {
+    const state = createState()
+    const client = createClient()
+    const createPresentation = vi
+      .fn()
+      .mockImplementationOnce((batch) => {
+        const invalid = createDisplayPresentation(batch)
+        invalid.combos[0].id = 'wrong-id'
+        return invalid
+      })
+      .mockImplementation(createDisplayPresentation)
+    const runner = createRunner(state, client, createPresentation)
+
+    await expect(runner.run()).resolves.toBe(false)
+    expect(state.feedback.status).toBe('error')
+    expect(state.combos.every(({ data }) => data.calculation !== null))
+      .toBe(true)
+    expect(state.totalCalculation).not.toBeNull()
+
+    const attackCalls = client.calculateAttack.mock.calls.length
+    const totalCalls = client.calculateTotalDamage.mock.calls.length
+    expect(runner.refreshPresentation()).toBe(true)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(attackCalls)
+    expect(client.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
+    expect(state.feedback.status).toBe('ready')
+    expect(state.feedback.error).toBeNull()
+    runner.dispose()
+  })
+
+  it('does not let a new combo calculation error inherit presentation recovery', async () => {
+    const state = createState()
+    const client = createClient()
+    const presentationError = new Error('presentation failed')
+    const createPresentation = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw presentationError
+      })
+      .mockImplementation(createDisplayPresentation)
+    const runner = createRunner(state, client, createPresentation)
+
+    await expect(runner.run()).resolves.toBe(false)
+    expect(state.feedback.error).toBe(presentationError)
+
+    const calculationError = new Error('new combo failed')
+    client.calculateAttack.mockRejectedValueOnce(calculationError)
+    state.combos[0].data.params.action.score.dice = 9
+    await expect(runner.run()).resolves.toBe(false)
+    expect(state.feedback.status).toBe('error')
+    expect(state.feedback.error).toBe(calculationError)
+
+    // The failed calculation invalidates the cached batch, so a presentation
+    // refresh cannot commit anything and must leave the newer error intact.
+    expect(runner.refreshPresentation()).toBe(false)
+    expect(state.feedback.status).toBe('error')
+    expect(state.feedback.error).toBe(calculationError)
     runner.dispose()
   })
 })

@@ -17,6 +17,7 @@ import { createAttackDisplayRequestSnapshot } from './AttackDisplayRequestSnapsh
 import {
   beginCalculation,
   createLatestCalculationRunner,
+  completeCalculation,
   markCalculationAborted,
 } from '../../../runtime/CalculationFeedback'
 
@@ -46,6 +47,10 @@ export function createAttackRunner({
   let lastScoreDisplayRequest = null
   let preserveResultOnNextRun = false
   let scoreDisplayRecalculationActive = false
+  // Incremental calculation keeps committed records when presentation fails.
+  // Remember that provenance so a presentation-only retry can recover the
+  // calculation feedback without clearing a later calculation error.
+  let presentationErrorActive = false
 
   function clearRequestCache() {
     activeRequest = null
@@ -197,17 +202,20 @@ export function createAttackRunner({
     if (typeof executeCalculation === 'function') {
       const stage = error?.attackExecutionStage
       if (stage === 'combo') {
+        presentationErrorActive = false
         invalidateAttackComboCalculation(
           state,
           error?.attackExecutionEntryId
         )
         invalidateAttackTotalCalculation(state)
       } else if (stage === 'total') {
+        presentationErrorActive = false
         state.totalCalculation = null
         state.basePresentation = null
         state.displayPresentation = null
         state.scoreDisplayPresentation = null
       } else {
+        presentationErrorActive = true
         // Presentation failures do not invalidate a valid calculation record.
         state.basePresentation = null
         state.displayPresentation = null
@@ -219,6 +227,7 @@ export function createAttackRunner({
     }
     requestGeneration = invalidateAttackState(state)
     clearRequestCache()
+    presentationErrorActive = false
     scoreDisplayRecalculationActive = false
     onError?.(error)
   }
@@ -271,6 +280,10 @@ export function createAttackRunner({
       )
     },
     clearResult: () => {
+      // Every coordinator start is a new calculation lifecycle. Do this
+      // before the preserve branch as score-display recalculation also starts
+      // a request and must not inherit an older presentation failure.
+      presentationErrorActive = false
       if (preserveResultOnNextRun) {
         preserveResultOnNextRun = false
         return
@@ -824,6 +837,10 @@ export function createAttackRunner({
             committedPresentation
           )
       if (committed) {
+        if (presentationErrorActive) {
+          completeCalculation(state.feedback)
+          presentationErrorActive = false
+        }
         if (
           requestedScoreDisplayRequest !== null
           && scoreDisplayEnabled
@@ -842,6 +859,7 @@ export function createAttackRunner({
       scoreDisplayRequestGeneration += 1
       scoreDisplayEnabled = false
       requestGeneration = null
+      presentationErrorActive = false
       clearRequestCache()
     },
   }
