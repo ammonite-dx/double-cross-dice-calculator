@@ -106,7 +106,7 @@ incremental production pathでは、計算と表示を二つのatomic commitへ�
 
 ## 検証
 
-`tests/attackIncrementalExecution.test.js`では、初回計算、変更コンボの単独再計算、追加・duplicate・削除、再利用条件、コンボ失敗、合計失敗、計算結果に含まれるidより要求されたstable combo idを優先することを検証する。`tests/attackIncrementalRunner.test.js`では、失敗したコンボだけの再試行、合計だけの再試行、baseまたはdisplayの生成失敗時のrecord保持、同一record referenceを使うpresentation-only retryを検証する。`tests/attackState.test.js`では、計算commitとpresentation commitの分離、無効なpresentationを計算stateへ反映しないことを検証する。`tests/attackFeatureController.test.js`では、production controllerの入力変更、表示範囲拡張、resource拒否からの表示復帰、Score表示拒否時のDamage保持、latest-winsを検証する。Check側は`tests/checkFeatureController.test.js`で入力変更時のrecord失効、表示拒否中の不整合防止、表示のみの再利用を検証する。
+`tests/attackIncrementalExecution.test.js`では、初回計算、変更コンボの単独再計算、追加・duplicate・削除、再利用条件、コンボ失敗、合計失敗、計算結果に含まれるidより要求されたstable combo idを優先することを検証する。`tests/attackIncrementalRunner.test.js`では、失敗したコンボだけの再試行、合計だけの再試行、baseまたはdisplayの生成失敗時のrecord保持、同一record referenceを使うpresentation-only retry、無効なpresentationのatomic reject、表示専用再試行後のfeedback復旧、後続の計算エラーを表示再試行で消さないことを検証する。`tests/attackState.test.js`では、計算commitとpresentation commitの分離、無効なpresentationを計算stateへ反映しないことを検証する。`tests/attackFeatureController.test.js`では、production controllerの入力変更、表示範囲拡張、resource拒否からの表示復帰、Score表示拒否時のDamage保持、latest-winsを検証する。Check側は`tests/checkFeatureController.test.js`で入力変更時のrecord失効、表示拒否中の不整合防止、表示のみの再利用を検証する。
 
 R17の完了時点で、これらのテストに加えて既存のrelease gate、typecheck、ESLint、Markdown lint、build、production smokeを実行し、結果をTODOと本書のclosure evidenceへ追記する。追補でも同じrelease gateを最終implementation HEADに対して再実行する。
 
@@ -139,7 +139,7 @@ Next: R18 Presentation Boundary Simplification
 
 ## R17 presentation ownership follow-up closure evidence
 
-元のR17は実装最終commit`5e55d98`と文書closure commit`6d3f3ca`で完了した。追補では、incremental Attackの計算commitとpresentation commitを分離し、presentation生成失敗後も計算recordと合計recordを保持する契約を実装した。base生成失敗、display生成失敗、無効なpresentation payload、presentation-only retry、stable combo idの保持を回帰テストで固定した。
+元のR17は実装最終commit`5e55d98`と文書closure commit`6d3f3ca`で完了した。追補では、incremental Attackの計算commitとpresentation commitを分離し、presentation生成失敗後も計算recordと合計recordを保持する契約を実装した。base生成失敗、display生成失敗、無効なpresentation payload、presentation-only retry、stable combo idの保持を回帰テストで固定した。さらに、表示専用再試行が成功したときだけ計算feedbackを`ready`へ戻し、後続のcombo／total計算エラーを表示再試行で消さない出所管理を追加した。
 
 ```text
 R17 original implementation HEAD: 5e55d98
@@ -147,13 +147,16 @@ R17 original closure HEAD: 6d3f3ca
 R17 follow-up start: 6d3f3ca
 R17 follow-up implementation: ed3ab40
 R17 follow-up guard tests: e0d78db
-R17 follow-up final HEAD: docs closure (this commit)
+R17 follow-up documentation before feedback recovery: 314ac7e
+R17 feedback recovery implementation and tests: 713c399
 Presentation failure ownership: FIXED
 Calculation records after presentation failure: RETAINED
 Total calculation after presentation failure: RETAINED
 Presentation-only retry: GREEN
 Recalculation on presentation-only retry: 0
-Vitest: 82 files / 934 tests
+Presentation feedback recovery: GREEN
+Calculation error survives presentation refresh: GREEN
+Vitest: 82 files / 936 tests
 generator: 18 passed
 simulation: 13 passed
 runtime DX: 20,000 cases PASS
