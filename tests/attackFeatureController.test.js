@@ -375,6 +375,7 @@ describe('Attack feature controller', () => {
     expect(client.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
     expect(controller.displayPresentation.value).not.toBe(committed)
     expect(controller.displayPresentation.value?.status).toBe('ready')
+    expect(controller.displayPresentation.value?.score).not.toBeNull()
     controller.dispose()
   })
 

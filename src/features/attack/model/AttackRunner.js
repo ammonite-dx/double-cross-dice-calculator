@@ -710,6 +710,21 @@ export function createAttackRunner({
         })
       }
 
+      if (
+        !scoreOnly
+        && requestedScoreDisplayRequest !== null
+        && !scoreDisplaySuppressedForRefresh
+        && scoreDecision
+          !== ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
+        && scoreDecision
+          !== ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
+      ) {
+        // A prior damage-display rejection also suppresses the score lane.
+        // Re-enable it when this normal display refresh has a valid,
+        // projectable score request; the committed calculation is reused.
+        scoreDisplayEnabled = true
+      }
+
       const committedPresentation = scoreDisplayEnabled
         ? presentation
         : suppressScoreDisplay(
