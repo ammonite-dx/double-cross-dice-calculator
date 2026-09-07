@@ -4,15 +4,7 @@ import {
 } from '../../../runtime/CalculationFeedback'
 
 const COMBO_DEFAULTS = Object.freeze({
-  score: null,
-  scoreStatistics: null,
-  scorePresentation: null,
-  scoreReady: false,
-  damage: null,
-  damageStatistics: null,
-  damagePresentation: null,
-  rangePlan: null,
-  resultReady: false,
+  calculation: null,
 })
 
 const SCORE_PARAM_NAMES = Object.freeze([
@@ -193,12 +185,17 @@ export function ensureComboData(data) {
 
 export function createAttackState() {
   return {
-    scoreDisplayPresentation: null,
+    totalCalculation: null,
+    basePresentation: null,
+    // Deprecated mirrors are retained only for callers that still exercise
+    // the pre-R17 runner contract. Production incremental state reads the
+    // owned records above.
     totalDamage: null,
     totalDamageStatistics: null,
     totalDamagePresentation: null,
-    displayPresentation: null,
     totalDamageReady: false,
+    scoreDisplayPresentation: null,
+    displayPresentation: null,
     generation: 0,
     feedback: createCalculationFeedbackState(),
     scoreDisplayFeedback: createCalculationFeedbackState(),
@@ -207,12 +204,24 @@ export function createAttackState() {
 }
 
 function clearResults(state) {
+  state.totalCalculation = null
+  state.basePresentation = null
   state.scoreDisplayPresentation = null
-  state.totalDamage = null
-  state.totalDamageStatistics = null
-  state.totalDamagePresentation = null
   state.displayPresentation = null
-  state.totalDamageReady = false
+
+  // Keep compatibility fields out of the normal state shape. If a legacy
+  // test double attached them dynamically, clear them without making them
+  // part of the production record contract.
+  for (const property of [
+    'totalDamage',
+    'totalDamageStatistics',
+    'totalDamagePresentation',
+    'totalDamageReady',
+  ]) {
+    if (hasOwn(state, property)) {
+      state[property] = property === 'totalDamageReady' ? false : null
+    }
+  }
 
   if (state.displayFeedback) {
     markCalculationAborted(state.displayFeedback)
@@ -229,15 +238,22 @@ function clearResults(state) {
       continue
     }
     const data = ensureComboData(combo.data)
-    data.score = null
-    data.scoreStatistics = null
-    data.scorePresentation = null
-    data.scoreReady = false
-    data.damage = null
-    data.damageStatistics = null
-    data.damagePresentation = null
-    data.rangePlan = null
-    data.resultReady = false
+    data.calculation = null
+    for (const property of [
+      'score',
+      'scoreStatistics',
+      'scorePresentation',
+      'scoreReady',
+      'damage',
+      'damageStatistics',
+      'damagePresentation',
+      'rangePlan',
+      'resultReady',
+    ]) {
+      data[property] = property === 'scoreReady' || property === 'resultReady'
+        ? false
+        : null
+    }
   }
 }
 
@@ -318,6 +334,132 @@ export function isAttackInputCurrent(combos, expectedEntries) {
   } catch {
     return false
   }
+}
+
+/**
+ * Return the committed calculation records in the current combo order. The
+ * returned array is a snapshot of references, so an in-flight execution can
+ * never observe later input mutations.
+ */
+export function getAttackCalculationRecords(combos) {
+  if (!Array.isArray(combos)) {
+    return []
+  }
+  return combos
+    .filter((combo) => isRecord(combo) && isRecord(combo.data))
+    .map((combo) => ({
+      id: combo.id,
+      record: combo.data.calculation ?? null,
+    }))
+    .filter(({ record }) => record !== null)
+}
+
+export function invalidateAttackComboCalculation(state, id) {
+  if (!Array.isArray(state?.combos)) {
+    return false
+  }
+  const combo = state.combos.find((candidate) => sameId(candidate?.id, id))
+  if (!isRecord(combo) || !isRecord(combo.data)) {
+    return false
+  }
+  const data = ensureComboData(combo.data)
+  data.calculation = null
+  for (const property of [
+    'score',
+    'scoreStatistics',
+    'scorePresentation',
+    'scoreReady',
+    'damage',
+    'damageStatistics',
+    'damagePresentation',
+    'rangePlan',
+    'resultReady',
+  ]) {
+    if (hasOwn(data, property)) {
+      data[property] = property === 'scoreReady' || property === 'resultReady'
+        ? false
+        : null
+    }
+  }
+  return true
+}
+
+export function invalidateAttackTotalCalculation(state) {
+  if (!state || typeof state !== 'object') {
+    return false
+  }
+  state.totalCalculation = null
+  state.basePresentation = null
+  state.displayPresentation = null
+  state.scoreDisplayPresentation = null
+  for (const property of [
+    'totalDamage',
+    'totalDamageStatistics',
+    'totalDamagePresentation',
+    'totalDamageReady',
+  ]) {
+    if (hasOwn(state, property)) {
+      state[property] = property === 'totalDamageReady' ? false : null
+    }
+  }
+  return true
+}
+
+export function isAttackCalculationReady(state) {
+  return (
+    state?.totalCalculation !== null
+    && state?.totalCalculation !== undefined
+  ) || state?.totalDamageReady === true
+}
+
+function hasIncrementalExecutionShape(execution, combos) {
+  if (!isRecord(execution)
+    || !Array.isArray(execution.records)
+    || execution.records.length !== combos.length
+    || !isRecord(execution.totalCalculation)
+    || !isRecord(execution.batchResult)) {
+    return false
+  }
+  return combos.every((combo, index) => {
+    const entry = execution.records[index]
+    return isRecord(combo)
+      && isRecord(entry)
+      && sameId(combo.id, entry.id)
+      && isRecord(entry.record)
+      && isRecord(entry.record.input)
+      && isRecord(entry.record.result)
+  })
+}
+
+/**
+ * Atomically publish an incremental execution. No combo or total field is
+ * written until every record and the aggregate have been validated.
+ */
+export function commitAttackExecution(
+  state,
+  generation,
+  execution,
+  basePresentation,
+  displayPresentation,
+) {
+  if (generation !== state.generation
+    || !Array.isArray(state.combos)
+    || !hasIncrementalExecutionShape(execution, state.combos)) {
+    return false
+  }
+  const records = state.combos.map((combo, index) => ({
+    data: ensureComboData(combo.data),
+    record: execution.records[index].record,
+  }))
+
+  for (const { data, record } of records) {
+    data.calculation = record
+  }
+  state.totalCalculation = execution.totalCalculation
+  state.basePresentation = basePresentation ?? null
+  state.displayPresentation = displayPresentation ?? null
+  state.scoreDisplayPresentation = displayPresentation?.score ?? null
+  return true
 }
 
 function hasBatchResultShape(batchResult, presentation, combos) {
@@ -532,7 +674,10 @@ export function commitAttackDisplayPresentation(
 ) {
   if (
     generation !== state.generation
-    || state.totalDamageReady !== true
+    || (
+      !isAttackCalculationReady(state)
+      && state.totalDamageReady !== true
+    )
     || !Array.isArray(state.combos)
     || !hasDisplayPresentationShape(presentation, state.combos)
   ) {

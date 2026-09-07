@@ -9,6 +9,7 @@ import {
   createComboDataState,
   snapshotAttackParams,
 } from './AttackState'
+import type { AttackCalculationRecord } from './AttackCalculationRecord'
 
 export interface AttackComboParams extends AttackCalculationInput {
   action: {
@@ -24,15 +25,7 @@ export interface AttackComboParams extends AttackCalculationInput {
 
 export interface AttackComboData {
   params: AttackComboParams
-  score: unknown
-  scoreStatistics: unknown
-  scorePresentation: unknown
-  scoreReady: boolean
-  damage: unknown
-  damageStatistics: unknown
-  damagePresentation: unknown
-  rangePlan: unknown
-  resultReady: boolean
+  calculation: AttackCalculationRecord | null
 }
 
 export interface AttackCombo {

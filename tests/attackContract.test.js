@@ -30,7 +30,8 @@ describe('Attack canonical integration contract', () => {
     expect(attackSource).not.toContain('OptIn')
     expect(attackSource).not.toContain('runInitialCalculation')
     expect(attackSource).not.toContain('calculateAttackCombo')
-    expect(attackSource).not.toContain('calculateTotalDamage')
+    expect(attackSource).toContain('calculateAttack')
+    expect(attackSource).toContain('calculateTotalDamage')
   })
 
   it('uses canonical presentation for every production output', () => {

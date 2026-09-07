@@ -16,7 +16,12 @@ import {
   clearAttackState,
   createAttackState,
   ensureComboData,
+  getAttackCalculationRecords,
+  invalidateAttackComboCalculation,
+  invalidateAttackTotalCalculation,
+  isAttackCalculationReady,
 } from './AttackState'
+import { executeAttackIncrementally } from './AttackIncrementalExecution'
 import { replaceAttackSideSnapshot } from './AttackInputSnapshot'
 import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
@@ -24,6 +29,7 @@ import {
   createAttackDisplayRequestSnapshot as createRawAttackDisplayRequestSnapshot,
 } from './AttackDisplayRequestSnapshot'
 import {
+  createAttackPresentation,
   createAttackDisplayPresentation,
   createAttackDisplayPresentationFrom,
 } from './AttackPresentation'
@@ -49,23 +55,13 @@ type Presentation = {
   [key: string]: unknown
 }
 
-type AttackState = Omit<
-  ReturnType<typeof createAttackState>,
-  | 'scoreDisplayPresentation'
-  | 'totalDamage'
-  | 'totalDamageStatistics'
-  | 'totalDamagePresentation'
-  | 'displayPresentation'
-  | 'feedback'
-  | 'scoreDisplayFeedback'
-  | 'displayFeedback'
-> & {
+type AttackState = {
   combos: AttackCombo[]
+  totalCalculation: unknown
   scoreDisplayPresentation: Presentation | null
-  totalDamage: unknown
-  totalDamageStatistics: unknown
-  totalDamagePresentation: Presentation | null
+  basePresentation: Presentation | null
   displayPresentation: Presentation | null
+  generation: number
   feedback: FeedbackState
   scoreDisplayFeedback: FeedbackState
   displayFeedback: FeedbackState
@@ -116,18 +112,21 @@ function createState(): AttackState {
   }) as unknown as AttackState
 }
 
-function createDisplaySource(state: AttackState) {
+function createLegacyDisplaySource(state: AttackState) {
   return {
-    combos: state.combos.map((combo) => ({
+    combos: state.combos.map((combo) => {
+      const data = combo.data as unknown as Record<string, unknown>
+      return {
       id: combo.id,
-      score: combo.data.score,
-      scoreStatistics: combo.data.scoreStatistics,
-      scorePresentation: combo.data.scorePresentation,
-      damagePresentation: combo.data.damagePresentation,
-      rangePlan: combo.data.rangePlan,
-    })),
-    totalDamagePresentation:
-      state.totalDamagePresentation,
+      score: data.score,
+      scoreStatistics: data.scoreStatistics,
+      scorePresentation: data.scorePresentation,
+      damagePresentation: data.damagePresentation,
+      rangePlan: data.rangePlan,
+    }
+    }),
+    totalDamagePresentation: (state as unknown as Record<string, unknown>)
+      .totalDamagePresentation,
   }
 }
 
@@ -146,12 +145,20 @@ function toUiCombos(state: AttackState): AttackUiCombo[] {
 
 export function useAttack({ calculationClient }: UseAttackOptions) {
   const client = calculationClient as unknown as CalculationClient
+  const supportsIncrementalExecution = client !== null
+    && typeof client === 'object'
+    && typeof client.calculateAttack === 'function'
+    && typeof client.calculateTotalDamage === 'function'
+  const supportsLegacyBatchExecution = client !== null
+    && typeof client === 'object'
+    && typeof client.calculateAttackBatch === 'function'
   if (
-    client === null
-    || typeof client !== 'object'
-    || typeof client.calculateAttackBatch !== 'function'
+    !supportsIncrementalExecution
+    && !supportsLegacyBatchExecution
   ) {
-    throw new TypeError('useAttack requires calculateAttackBatch')
+    throw new TypeError(
+      'useAttack requires calculateAttack and calculateTotalDamage'
+    )
   }
 
   const displayRangePolicy = DEFAULT_DISPLAY_RANGE_PLANNER_POLICY
@@ -206,6 +213,35 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   const calculationRunner = createAttackRunner(({
     state,
     calculationClient: client,
+    executeCalculation: supportsIncrementalExecution
+      ? ({
+      entries,
+      calculationOptions,
+      signal,
+      onRangePlan,
+      forceAll,
+    }: {
+      entries: readonly unknown[]
+      calculationOptions: Record<string, unknown>
+      signal?: AbortSignal
+      onRangePlan?: (plan: unknown) => void
+      forceAll?: boolean
+    }) => executeAttackIncrementally({
+      entries,
+      committedRecords: getAttackCalculationRecords(state.combos) as unknown[],
+      calculationClient: client,
+      options: {
+        ...calculationOptions,
+        signal,
+      },
+      onRangePlan,
+      forceAll,
+        })
+      : undefined,
+    createBasePresentation: (
+      batchResult: unknown,
+      rangePlans: unknown[] = [],
+    ) => createAttackPresentation(batchResult, rangePlans),
     createPresentation: (
       batchResult: unknown,
       rangePlans: unknown[] = [],
@@ -227,7 +263,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       displayRequest?: DisplayRequestSnapshot
       scoreDisplayRequest?: DisplayRequestSnapshot
     }) => createAttackDisplayPresentationFrom(
-      createDisplaySource(currentState),
+      currentState.basePresentation ?? createLegacyDisplaySource(currentState),
       {
         displayRequest: request
           ?? createAttackDisplayRequestSnapshot(displayRequest),
@@ -244,9 +280,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       state.displayFeedback.status = 'error'
       state.displayFeedback.plan = null
       state.displayFeedback.error = error
-      state.scoreDisplayFeedback.status = 'error'
-      state.scoreDisplayFeedback.plan = null
-      state.scoreDisplayFeedback.error = error
       console.error('Failed to update attack', error)
     },
   }) as unknown as Parameters<typeof createAttackRunner>[0])
@@ -260,6 +293,11 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     state.scoreDisplayFeedback.status = 'idle'
     state.scoreDisplayFeedback.plan = null
     state.scoreDisplayFeedback.error = null
+  }
+
+  function clearDisplayPresentation() {
+    state.displayPresentation = null
+    state.scoreDisplayPresentation = null
   }
 
   function publishDisplayError(error: unknown) {
@@ -288,14 +326,14 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       )
       if (!plan.accepted) {
         calculationRunner.invalidate()
-        clearAttackState(state)
+        clearDisplayPresentation()
         publishDisplayResourceRejection(plan)
         return false
       }
       return true
     } catch (error) {
       calculationRunner.invalidate()
-      clearAttackState(state)
+      clearDisplayPresentation()
       publishDisplayError(error)
       return false
     }
@@ -363,6 +401,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
 
   function addCombo() {
     state.combos.push(createAttackCombo(allocateComboId()))
+    invalidateAttackTotalCalculation(state)
     void runCalculation()
   }
 
@@ -372,6 +411,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return
     }
     state.combos.push(cloneAttackCombo(source, allocateComboId()))
+    invalidateAttackTotalCalculation(state)
     void runCalculation()
   }
 
@@ -381,6 +421,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return
     }
     state.combos.splice(index, 1)
+    invalidateAttackTotalCalculation(state)
     void runCalculation()
   }
 
@@ -422,6 +463,8 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     // The UI sends a detached validated snapshot. The application snapshot
     // helper performs the second detached copy at the state boundary.
     replaceAttackSideSnapshot(combo.data.params, side, snapshot)
+    invalidateAttackComboCalculation(state, id)
+    invalidateAttackTotalCalculation(state)
     void runCalculation()
   }
 
@@ -435,7 +478,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return
     }
 
-    if (state.totalDamageReady !== true) {
+    if (!isAttackCalculationReady(state)) {
       void runCalculation(snapshot)
       return
     }
@@ -472,7 +515,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return
     }
 
-    if (state.totalDamageReady !== true) {
+    if (!isAttackCalculationReady(state)) {
       void runCalculation(displayRequest, snapshot)
       return
     }
