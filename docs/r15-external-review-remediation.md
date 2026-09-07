@@ -24,7 +24,40 @@
 - Node/Vitestの対象テスト: 4ファイル、38テスト。
 - production browser smoke: Check／Attack／Backtrack、同一オリジンHTTPエラー0、console warning/error 0、D10静的取得0。
 - full-tail Attack Node benchmark: 24ケース、planner-rejectedを除く計算エラー0。
-- full-tail Attack browser benchmark: `d10Fetch: true`、`reportStatus: true`、`executionError: 0`。
+- full-tail Attack browser benchmark: D10 static fetches 0、D10 no-fetch validation GREEN、`reportStatus: true`、`executionError: 0`。
 - production build、ESLint、`git diff --check`。
 
 これらにより、R15のP0/P1指摘は解消しました。Worker全体の常駐化、結果契約の全面再設計、TypeScript化、FFT/D10の追加最適化、Cloudflare Worker/API/MCP化は今回の範囲に含めず、既存ロードマップの後続課題として維持します。
+
+## 最終closure evidence
+
+最終HEADは`28ada427b7996aa7cabc13f5b0e778cf9e2a1cd5`です。このHEADで`verify:release`を実行し、次の結果を得ました。
+
+| Gate | 結果 |
+| --- | --- |
+| Vitest | 78 files / 888 tests |
+| generator | 18 passed |
+| simulation | 13 passed |
+| runtime DX | 20,000 cases PASS |
+| production smoke | PASS |
+| typecheck | GREEN |
+| ESLint | GREEN |
+| Markdown lint | GREEN |
+| production build | GREEN |
+| `git diff --check` | GREEN |
+| working tree | clean |
+
+ブラウザfull-tail測定の`d10Fetch: true`は、validatorが「静的D10取得なし」を表すbooleanです。利用者向けの記録では、D10 static fetches 0、D10 no-fetch validation GREENと表記します。
+
+既知の外部レビュー指摘は次の状態です。
+
+```text
+Known external-review P0: 0
+Known external-review P1: 0
+Known external-review P2: 0
+
+R15: CLOSED / GREEN
+Next: R16 Certified Result / Precision Contract
+```
+
+RR-03は`f17ae56`で局所的に修正済みです。R16ではこの修正を作り直すのではなく、分布、成功確率、期待値、失敗確率、精度・不確かさを統一したproduction result contractとして設計します。

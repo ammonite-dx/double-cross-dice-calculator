@@ -31,6 +31,20 @@ G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark
 
 16. 完了（R15 Correctness & Measurement Foundation、2026-09-07）: 外部レビューのRR-01〜RR-04を修正した。Score出力バッファをResourcePlannerの見積りへ加え（`9299a04`）、表示拒否後のCheck結果失効（`f3c6cfc`）、固定難易度のScore tail-aware成功率（`f17ae56`）、Worker実処理完了後のResourceGuard lease解放（`37ab270`）を実装した。full-tail Attack測定の`yousei`／FFT長伝播、実ケースエラーの非0終了、canonical D10の静的取得ゼロ、release gate重複除去を`aa73437`で固定し、production browser smokeのCheck回帰ケースと契約テストを`eb53073`で追加した。Nightmare境界の古い記述、レビュー文書の絶対パス、`html lang`も更新した。詳細は[`r15-external-review-remediation.md`](./r15-external-review-remediation.md)を参照する。Worker全体の常駐化、結果契約の全面再設計、TypeScript化、FFT／D10追加最適化、Cloudflare Worker／API／MCP化は後続課題として維持する。
 
+### R15後のactive roadmap
+
+R15完了後の実装順序は、二つの独立レビューを統合して次のとおりとする。`canonical-migration-roadmap.md`はR1〜R12のhistorical roadmapとしてfreezeしており、ここでは更新しない。
+
+1. R16 — Certified Result / Precision Contract
+2. R17 — Result Ownership / Incremental Execution
+3. R18 — Presentation Boundary Simplification
+4. R19 — Worker Architecture Decision
+5. R20 — Graph-first UI / Rendering Redesign
+6. R21 — Compatibility / Verification / Repository Cleanup
+7. Optional — Measured Numerical Optimization
+
+R20でもグラフ先行の現行方針を維持し、サマリーをグラフより前へ移動する提案は採用しない。API／MCPは今回の更新範囲外のdeferred goalとして扱う。
+
 ### R7 closure follow-up（2026-09-03）
 
 `91e30da`を開始点として、R7 acceptance criteriaの残件だったcontroller wiringの直接回帰テスト、Attack固有browser acceptance、closure優先度記録を完了した。`44c1b4f`でreaction snapshot、表示reuse／recalculation／resource rejection、Score-only rejection時のDamage保持、latest-wins、dispose後stale抑止を追加し、テストで判明した凍結display requestの問題を`30febb2`で修正した。`5b4ad75`ではaction／reaction入力とcombo add／rename／duplicate／removeをproduction smokeへ追加した。最終gateはVitest 69 files／857 tests、data 32 assets、generator／simulation、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases、build、production smoke、`git diff --check`がGREENで、P0／P1／P2は0件である。詳細は[`refactoring-attack-feature.md`](./refactoring-attack-feature.md)を参照する。R7は`CLOSED / GREEN`とし、次はR8とする。
