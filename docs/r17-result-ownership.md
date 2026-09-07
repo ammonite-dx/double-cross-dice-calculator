@@ -79,19 +79,23 @@ commit済みの計算recordが存在する
 
 ## atomic commitと最新要求
 
-差分executorはstateを直接変更しない。すべてのコンボrecord、合計record、batch互換結果を組み立ててから、`commitAttackExecution()`が一度に検証・commitする。commit前に入力snapshot、コンボid、source reference、rangePlanの数、現在stateとの一致を確認するため、途中まで計算された結果が画面へ出ることはない。
+差分executorはstateを直接変更しない。すべてのコンボrecord、合計record、batch互換結果を組み立ててからcommitする。commit前に入力snapshot、コンボid、source reference、batchResultのid、rangePlanの数、現在stateとの一致を確認するため、途中まで計算された結果が画面へ出ることはない。
+
+incremental production pathでは、計算と表示を二つのatomic commitへ分ける。まず`commitAttackCalculationExecution()`が全コンボrecordと`AttackTotalCalculationRecord`を検証して一度に保存し、その後にbase presentationとdisplay presentationを生成し、`commitAttackPresentation()`でpresentationだけを保存する。したがって、baseまたはdisplayの生成が失敗しても、正常に完了した計算recordと合計recordは保持される。
+
+表示生成に失敗した場合は、runnerが直前の`batchResult`、`rangePlans`、入力snapshotを保持する。`refreshPresentation()`はそれらを使ってbaseが未保存なら再生成し、`calculateAttack()`と`calculateTotalDamage()`を呼ばずにpresentationだけを再試行する。generation、入力snapshot、コンボidentityが一致しない場合は、計算commitも表示commitも行わない。
 
 入力変更や新しい表示要求で古いrequestが無効になった場合、latest-wins coordinatorがAbortまたはstale判定を行う。古いrequestが後で解決しても、現在の入力とgenerationが一致しなければcommitしない。
 
 ## 失敗時の所有権
 
-計算段階と表示段階の失敗を分けて扱う。
+計算段階と表示段階の失敗を分けて扱う。表示段階ではbase生成とdisplay生成を別々に実行するが、どちらが失敗しても同じ所有権契約を適用する。
 
 | 失敗箇所 | 保持するもの | 無効にするもの | 次回の動作 |
 | --- | --- | --- | --- |
 | 一つのコンボ計算 | 成功済みの他コンボrecord | 失敗コンボrecord、合計、表示 | 失敗コンボだけ再計算して合計を再集約 |
 | 合計Damageの集約 | すべてのコンボrecord | 合計record、base／display presentation | コンボを再計算せず合計だけ再試行 |
-| base／display presentation生成 | すべての計算recordと合計record | 表示presentation | 同じ計算結果から表示だけ再生成 |
+| baseまたはdisplay presentation生成 | すべての計算recordと合計record | base／display／score presentation | 同じ計算結果から表示だけ再生成 |
 | 表示範囲のresource拒否 | 計算recordと合計record、可能ならbase presentation | 現在のdisplay presentation | 範囲を戻せばcoverage内は再計算なしで復帰 |
 
 表示拒否中に入力が変わった場合は、変更されたコンボrecordと合計recordを失効させる。表示が回復した時点で、最新入力のコンボだけを計算し、他のrecordは条件を満たせば再利用する。
@@ -102,9 +106,9 @@ commit済みの計算recordが存在する
 
 ## 検証
 
-`tests/attackIncrementalExecution.test.js`では、初回計算、変更コンボの単独再計算、追加・duplicate・削除、再利用条件、コンボ失敗、合計失敗を検証する。`tests/attackIncrementalRunner.test.js`では、失敗したコンボだけの再試行、合計だけの再試行、表示生成失敗時のrecord保持を検証する。`tests/attackFeatureController.test.js`では、production controllerの入力変更、表示範囲拡張、resource拒否からの表示復帰、Score表示拒否時のDamage保持、latest-winsを検証する。Check側は`tests/checkFeatureController.test.js`で入力変更時のrecord失効、表示拒否中の不整合防止、表示のみの再利用を検証する。
+`tests/attackIncrementalExecution.test.js`では、初回計算、変更コンボの単独再計算、追加・duplicate・削除、再利用条件、コンボ失敗、合計失敗、計算結果に含まれるidより要求されたstable combo idを優先することを検証する。`tests/attackIncrementalRunner.test.js`では、失敗したコンボだけの再試行、合計だけの再試行、baseまたはdisplayの生成失敗時のrecord保持、同一record referenceを使うpresentation-only retryを検証する。`tests/attackState.test.js`では、計算commitとpresentation commitの分離、無効なpresentationを計算stateへ反映しないことを検証する。`tests/attackFeatureController.test.js`では、production controllerの入力変更、表示範囲拡張、resource拒否からの表示復帰、Score表示拒否時のDamage保持、latest-winsを検証する。Check側は`tests/checkFeatureController.test.js`で入力変更時のrecord失効、表示拒否中の不整合防止、表示のみの再利用を検証する。
 
-R17の完了時点で、これらのテストに加えて既存のrelease gate、typecheck、ESLint、Markdown lint、build、production smokeを実行し、結果をTODOと本書のclosure evidenceへ追記する。
+R17の完了時点で、これらのテストに加えて既存のrelease gate、typecheck、ESLint、Markdown lint、build、production smokeを実行し、結果をTODOと本書のclosure evidenceへ追記する。追補でも同じrelease gateを最終implementation HEADに対して再実行する。
 
 ## R17 closure evidence
 
@@ -126,6 +130,38 @@ build: 420 modules GREEN
 production smoke: PASS
 git diff --check: GREEN
 working tree: clean
+P0: 0
+P1: 0
+P2: 0
+R17: CLOSED / GREEN
+Next: R18 Presentation Boundary Simplification
+```
+
+## R17 presentation ownership follow-up closure evidence
+
+元のR17は実装最終commit`5e55d98`と文書closure commit`6d3f3ca`で完了した。追補では、incremental Attackの計算commitとpresentation commitを分離し、presentation生成失敗後も計算recordと合計recordを保持する契約を実装した。base生成失敗、display生成失敗、無効なpresentation payload、presentation-only retry、stable combo idの保持を回帰テストで固定した。
+
+```text
+R17 original implementation HEAD: 5e55d98
+R17 original closure HEAD: 6d3f3ca
+R17 follow-up start: 6d3f3ca
+R17 follow-up implementation: ed3ab40
+R17 follow-up final HEAD: docs closure (this commit)
+Presentation failure ownership: FIXED
+Calculation records after presentation failure: RETAINED
+Total calculation after presentation failure: RETAINED
+Presentation-only retry: GREEN
+Recalculation on presentation-only retry: 0
+Vitest: 82 files / 933 tests
+generator: 18 passed
+simulation: 13 passed
+runtime DX: 20,000 cases PASS
+typecheck: GREEN
+ESLint: GREEN
+Markdown lint: 42 files / 0 issues
+build: 420 modules GREEN
+production smoke: PASS
+git diff --check: GREEN
 P0: 0
 P1: 0
 P2: 0
