@@ -14,7 +14,7 @@ function roundScoreValue(value) {
   return Object.is(rounded, -0) ? 0 : rounded
 }
 
-function getStableBoundedDisplayValue(value) {
+function getStableBoundedDisplayValue(value, scale = 1) {
   if (
     value?.kind !== 'bounded'
     || typeof value.lowerBound !== 'number'
@@ -25,8 +25,8 @@ function getStableBoundedDisplayValue(value) {
   ) {
     return null
   }
-  const roundedLowerBound = roundScoreValue(value.lowerBound)
-  const roundedUpperBound = roundScoreValue(value.upperBound)
+  const roundedLowerBound = roundScoreValue(value.lowerBound * scale)
+  const roundedUpperBound = roundScoreValue(value.upperBound * scale)
   return roundedLowerBound !== null
     && roundedLowerBound === roundedUpperBound
     ? roundedLowerBound
@@ -47,7 +47,7 @@ export function formatSummaryExpectedValue(expectedValue) {
     : SUMMARY_UNAVAILABLE
 }
 
-export function formatScoreSummaryExpectedValue(expectedValue) {
+export function formatScoreStatisticsExpectedValue(expectedValue) {
   if (isExactFiniteExpectedValue(expectedValue)) {
     return roundScoreValue(expectedValue.value)
       ?? SUMMARY_UNAVAILABLE
@@ -56,14 +56,14 @@ export function formatScoreSummaryExpectedValue(expectedValue) {
     ?? SUMMARY_UNAVAILABLE
 }
 
-export function formatScoreSuccessRate(successRate) {
-  if (successRate?.kind === 'exact') {
-    return typeof successRate.value === 'number'
-      && Number.isFinite(successRate.value)
-      ? successRate.value
+export function formatCertifiedProbabilityPercent(successProbability) {
+  if (successProbability?.kind === 'exact') {
+    return typeof successProbability.value === 'number'
+      && Number.isFinite(successProbability.value)
+      ? roundScoreValue(successProbability.value * 100)
       : SUMMARY_UNAVAILABLE
   }
-  return getStableBoundedDisplayValue(successRate)
+  return getStableBoundedDisplayValue(successProbability, 100)
     ?? SUMMARY_UNAVAILABLE
 }
 
@@ -72,8 +72,8 @@ export function formatScoreSuccessRate(successRate) {
  * Numeric values retain the published percent suffix; unavailable values are
  * represented by the neutral dash without a misleading suffix.
  */
-export function formatScoreSuccessRateDisplay(successRate) {
-  const formatted = formatScoreSuccessRate(successRate)
+export function formatCertifiedProbabilityPercentDisplay(successProbability) {
+  const formatted = formatCertifiedProbabilityPercent(successProbability)
   return typeof formatted === 'number' && Number.isFinite(formatted)
     ? `${formatted}%`
     : SUMMARY_UNAVAILABLE

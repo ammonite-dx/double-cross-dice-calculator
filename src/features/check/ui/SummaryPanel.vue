@@ -8,7 +8,7 @@
             type: Object,
             required: true,
         },
-        scoreSummary: {
+        scoreStatistics: {
             type: Object,
             default: null,
         },
@@ -24,7 +24,7 @@
             <v-card-text class="pt-0 pb-2 text-md-body-1 text-caption">
                 <SummaryTable
                     :difficulty="props.difficulty"
-                    :scoreSummary="props.scoreSummary"
+                    :scoreStatistics="props.scoreStatistics"
                 />
             </v-card-text>
         </v-container>

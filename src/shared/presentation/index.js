@@ -38,9 +38,9 @@ export {
 export {
   SUMMARY_UNAVAILABLE,
   formatSummaryExpectedValue,
-  formatScoreSummaryExpectedValue,
-  formatScoreSuccessRate,
-  formatScoreSuccessRateDisplay,
+  formatScoreStatisticsExpectedValue,
+  formatCertifiedProbabilityPercent,
+  formatCertifiedProbabilityPercentDisplay,
 } from './SummaryFormatter'
 export {
   toChartPercentage,

@@ -16,7 +16,7 @@
     const {
         difficulty,
         scoreParams,
-        scoreSummary,
+        scoreStatistics,
         resultReady,
         displayRequest,
         presentation,
@@ -46,7 +46,7 @@
         /></v-col></v-row>
         <v-row v-if="resultReady"><v-col cols="12"><SummaryPanel
             :difficulty="difficulty"
-            :scoreSummary="scoreSummary"
+            :scoreStatistics="scoreStatistics"
         /></v-col></v-row>
     </v-container>
 </template>

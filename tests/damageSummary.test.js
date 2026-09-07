@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import {
   createDistributionResult,
-  getExpectedValueSummary,
+  getCertifiedExpectedValue,
 } from '../src/calculation/DistributionResult'
 
 function createDamage(result) {
@@ -38,7 +38,7 @@ describe('canonical damage summary', () => {
     })
     const damage = createDamage(result)
     const metadataBefore = { ...damage.metadata }
-    const summary = getDamageSummary(damage)
+    const summary = getDamageStatistics(damage)
 
     expect(summary).toEqual({
       expectedValue: {
@@ -59,7 +59,7 @@ describe('canonical damage summary', () => {
       },
     })
     expect(summary.expectedValue).toEqual(
-      getExpectedValueSummary(result)
+      getCertifiedExpectedValue(result)
     )
     expect(damage.metadata).toEqual(metadataBefore)
     expect(Object.isFrozen(summary)).toBe(true)
@@ -68,7 +68,7 @@ describe('canonical damage summary', () => {
   })
 
   it('round-trips the JSON-safe canonical summary without non-finite values', () => {
-    const summary = getDamageSummary(createDamage(
+    const summary = getDamageStatistics(createDamage(
       createDistributionResult({
         values: [0.5],
         offset: 1,
@@ -115,11 +115,11 @@ describe('canonical damage summary', () => {
       },
     },
   ])('rejects invalid canonical damage envelope: $label', ({ value }) => {
-    expect(() => getDamageSummary(value)).toThrow(TypeError)
+    expect(() => getDamageStatistics(value)).toThrow(TypeError)
   })
 
   it('rejects an invalid result even when the envelope discriminator is valid', () => {
-    expect(() => getDamageSummary({
+    expect(() => getDamageStatistics({
       result: null,
       metadata: { modeledDistribution: true },
     })).toThrow()

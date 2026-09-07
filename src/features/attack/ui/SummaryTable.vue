@@ -3,9 +3,9 @@
     import {
         findComboPresentation,
         formatSummaryExpectedValue,
-        formatScoreSuccessRateDisplay,
-        formatScoreSummaryExpectedValue,
-        getScoreSummaryForCombo,
+        formatCertifiedProbabilityPercentDisplay,
+        formatScoreStatisticsExpectedValue,
+        getScoreStatisticsForCombo,
     } from './SummaryTable';
 
     const props = defineProps({
@@ -37,22 +37,22 @@
     }
 
     function getComboScoreExpectedValue(combo) {
-        const summary = getScoreSummaryForCombo(
+        const summary = getScoreStatisticsForCombo(
             props.scorePresentation,
             combo?.id
         );
-        return formatScoreSummaryExpectedValue(
+        return formatScoreStatisticsExpectedValue(
             summary?.action?.expectedValue
         );
     }
 
     function getComboScoreSuccessRate(combo) {
-        const summary = getScoreSummaryForCombo(
+        const summary = getScoreStatisticsForCombo(
             props.scorePresentation,
             combo?.id
         );
-        return formatScoreSuccessRateDisplay(
-            summary?.action?.successRate
+        return formatCertifiedProbabilityPercentDisplay(
+            summary?.action?.successProbability
         );
     }
 

@@ -1,5 +1,5 @@
 import {
-  getExpectedValueSummary,
+  getCertifiedExpectedValue,
   getProbabilityMassSummary,
   isDistributionResultError,
 } from '../../../calculation/DistributionResult'
@@ -254,7 +254,7 @@ function normalizeCheckResult(checkResult, opposed) {
 function createScorePresentation(envelope, displayWindow, mode, policy) {
   const summary = {
     mass: getProbabilityMassSummary(envelope.result),
-    expectedValue: getExpectedValueSummary(envelope.result),
+    expectedValue: getCertifiedExpectedValue(envelope.result),
   }
   const display = presentDistribution(envelope, {
     summary,

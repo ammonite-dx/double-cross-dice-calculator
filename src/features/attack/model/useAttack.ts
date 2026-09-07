@@ -53,7 +53,7 @@ type AttackState = Omit<
   ReturnType<typeof createAttackState>,
   | 'scoreDisplayPresentation'
   | 'totalDamage'
-  | 'totalDamageSummary'
+  | 'totalDamageStatistics'
   | 'totalDamagePresentation'
   | 'displayPresentation'
   | 'feedback'
@@ -63,7 +63,7 @@ type AttackState = Omit<
   combos: AttackCombo[]
   scoreDisplayPresentation: Presentation | null
   totalDamage: unknown
-  totalDamageSummary: unknown
+  totalDamageStatistics: unknown
   totalDamagePresentation: Presentation | null
   displayPresentation: Presentation | null
   feedback: FeedbackState
@@ -121,7 +121,7 @@ function createDisplaySource(state: AttackState) {
     combos: state.combos.map((combo) => ({
       id: combo.id,
       score: combo.data.score,
-      scoreSummary: combo.data.scoreSummary,
+      scoreStatistics: combo.data.scoreStatistics,
       scorePresentation: combo.data.scorePresentation,
       damagePresentation: combo.data.damagePresentation,
       rangePlan: combo.data.rangePlan,

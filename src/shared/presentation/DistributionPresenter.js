@@ -711,7 +711,7 @@ function validateMassSummary(mass) {
   }
 }
 
-function validateExpectedValueSummary(expectedValue) {
+function validateCertifiedExpectedValue(expectedValue) {
   if (!isPlainRecord(expectedValue)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_SUMMARY,
@@ -839,7 +839,7 @@ function copySummary(summary, state) {
     1
   )
   validateMassSummary(mass)
-  validateExpectedValueSummary(expectedValue)
+  validateCertifiedExpectedValue(expectedValue)
   return { mass, expectedValue }
 }
 

@@ -26,7 +26,7 @@ function createScoreResult({
     result: createDistributionResult({ values, offset, support, overflow }),
     metadata: {
       modeledDistribution: true,
-      failureProbability: 0,
+      automaticFailureProbability: 0,
     },
   }
 }

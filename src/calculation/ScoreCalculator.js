@@ -1,11 +1,16 @@
 import {
+  createBoundedProbability,
+  createBoundedCertifiedValue,
+  createExactProbability,
+} from '../domain/CertifiedValue'
+import {
   WORKING_DISTRIBUTION_SIZE,
   expandSparseDistribution,
 } from '../core/probability/Distribution'
 import {
   DISTRIBUTION_RESULT_TOLERANCE,
   createDistributionResult,
-  getExpectedValueSummary,
+  getCertifiedExpectedValue,
   validateDistributionResult,
 } from './DistributionResult'
 import {
@@ -104,7 +109,7 @@ function calculateScoreWorking(
     // same point mass with an offset of `fixedScore`.
     return {
       workingDistribution: [1],
-      failureProbability: 0,
+      automaticFailureProbability: 0,
       alreadyShifted: true,
       fixedScore,
       plan,
@@ -153,7 +158,8 @@ function calculateScoreWorking(
     validateProbabilityDistribution(diceResult, 'DX distribution')
   }
 
-  const fumble = (diceResult[0] ?? 0) + (diceResult[1] ?? 0)
+  const automaticFailureProbability =
+    (diceResult[0] ?? 0) + (diceResult[1] ?? 0)
   if (diceResult.length > 0) {
     diceResult[0] = 0
   }
@@ -163,7 +169,7 @@ function calculateScoreWorking(
 
   return {
     workingDistribution: diceResult,
-    failureProbability: fumble,
+    automaticFailureProbability,
     alreadyShifted: false,
     plan,
   }
@@ -172,7 +178,7 @@ function calculateScoreWorking(
 function createScoreResult(
   params,
   workingDistribution,
-  failureProbability,
+  automaticFailureProbability,
   scoreRangePlan,
   alreadyShifted = false,
   fixedScore = null
@@ -216,7 +222,7 @@ function createScoreResult(
     }
   }
 
-  values[0] += failureProbability
+  values[0] += automaticFailureProbability
 
   const tailProbability = workingDistribution[overflowIndex] ?? 0
   if (
@@ -429,7 +435,7 @@ export function calculateScore(
 ) {
   const {
     workingDistribution,
-    failureProbability,
+    automaticFailureProbability,
     alreadyShifted,
     fixedScore,
   } = calculateScoreWorking(
@@ -441,7 +447,7 @@ export function calculateScore(
   const result = createScoreResult(
     params,
     workingDistribution,
-    failureProbability,
+    automaticFailureProbability,
     scoreRangePlan,
     alreadyShifted,
     fixedScore
@@ -458,7 +464,7 @@ export function calculateScore(
     )
   const metadata = Object.freeze({
     modeledDistribution: true,
-    failureProbability,
+    automaticFailureProbability,
     scoreTailCertificate,
     ...(scoreExpectationCertificate === null
       ? {}
@@ -468,8 +474,11 @@ export function calculateScore(
   return Object.freeze({ result, metadata })
 }
 
-function createScoreRateSummary(kind, details = {}) {
-  return Object.freeze({ kind, ...details })
+function createScoreProbability(kind, details = {}) {
+  if (kind === 'exact') {
+    return createExactProbability(details.value)
+  }
+  return createBoundedProbability(details.lowerBound, details.upperBound)
 }
 
 function getScoreBuckets(envelope) {
@@ -682,7 +691,7 @@ export function calculateScoreSuccessProbabilityInterval(
   return Object.freeze({ lowerBound, upperBound })
 }
 
-function getScoreSuccessRateSummary(action, reaction) {
+function getScoreSuccessProbability(action, reaction) {
   const actionBuckets = getExactScoreBuckets(action)
   const reactionBuckets = getExactScoreBuckets(reaction)
   if (actionBuckets === null || reactionBuckets === null) {
@@ -691,48 +700,42 @@ function getScoreSuccessRateSummary(action, reaction) {
       reaction
     )
     if (interval !== null) {
-      const actionLowerBound = interval.lowerBound * 100
-      const actionUpperBound = interval.upperBound * 100
       return {
-        action: createScoreRateSummary('bounded', {
-          lowerBound: actionLowerBound,
-          upperBound: actionUpperBound,
-        }),
-        reaction: createScoreRateSummary('bounded', {
-          lowerBound: 100 - actionUpperBound,
-          upperBound: 100 - actionLowerBound,
+        action: createScoreProbability('bounded', interval),
+        reaction: createScoreProbability('bounded', {
+          lowerBound: 1 - interval.upperBound,
+          upperBound: 1 - interval.lowerBound,
         }),
       }
     }
     return {
-      action: createScoreRateSummary('bounded', {
+      action: createScoreProbability('bounded', {
         lowerBound: 0,
-        upperBound: 100,
+        upperBound: 1,
       }),
-      reaction: createScoreRateSummary('bounded', {
+      reaction: createScoreProbability('bounded', {
         lowerBound: 0,
-        upperBound: 100,
+        upperBound: 1,
       }),
     }
   }
 
-  const actionSuccessRate = calculateScoreSuccessProbability(
+  const actionSuccessProbability = calculateScoreSuccessProbability(
     actionBuckets,
     reactionBuckets
   )
 
-  const roundedActionSuccessRate = Math.round(actionSuccessRate * 1000) / 10
   return {
-    action: createScoreRateSummary('exact', {
-      value: roundedActionSuccessRate,
+    action: createScoreProbability('exact', {
+      value: actionSuccessProbability,
     }),
-    reaction: createScoreRateSummary('exact', {
-      value: Math.round((100 - roundedActionSuccessRate) * 10) / 10,
+    reaction: createScoreProbability('exact', {
+      value: 1 - actionSuccessProbability,
     }),
   }
 }
 
-function getScoreExpectedValueSummary(envelope) {
+function getScoreExpectedValueStatistic(envelope) {
   const certificate = envelope?.metadata?.scoreExpectationCertificate
   if (
     certificate?.version === SCORE_EXPECTATION_CERTIFICATE_VERSION
@@ -742,21 +745,20 @@ function getScoreExpectedValueSummary(envelope) {
     && certificate.lowerBound >= 0
     && certificate.upperBound >= certificate.lowerBound
   ) {
-    return Object.freeze({
-      kind: 'bounded',
-      lowerBound: certificate.lowerBound,
-      upperBound: certificate.upperBound,
-    })
+    return createBoundedCertifiedValue(
+      certificate.lowerBound,
+      certificate.upperBound
+    )
   }
-  return getExpectedValueSummary(envelope.result)
+  return getCertifiedExpectedValue(envelope.result)
 }
 
-function getFixedDifficultySuccessRateSummary(envelope, target) {
+function getFixedDifficultySuccessProbability(envelope, target) {
   const partition = getScorePartition(envelope)
   if (partition === null) {
-    return createScoreRateSummary('bounded', {
+    return createScoreProbability('bounded', {
       lowerBound: 0,
-      upperBound: 100,
+      upperBound: 1,
     })
   }
 
@@ -764,7 +766,7 @@ function getFixedDifficultySuccessRateSummary(envelope, target) {
     .filter(({ value }) => value >= target)
     .reduce((sum, bucket) => sum + bucket.probability, 0)
     - (target === 0
-      ? (envelope.metadata?.failureProbability ?? 0)
+      ? (envelope.metadata?.automaticFailureProbability ?? 0)
       : 0)
   const tail = partition.tail
   const tailLowerBound = Number.isFinite(tail.lowerBound)
@@ -782,13 +784,13 @@ function getFixedDifficultySuccessRateSummary(envelope, target) {
   )
 
   if (tail.massUpperBound === 0 && tail.probabilityErrorBound === 0) {
-    return createScoreRateSummary('exact', {
-      value: Math.round(lowerBound * 1000) / 10,
+    return createScoreProbability('exact', {
+      value: lowerBound,
     })
   }
-  return createScoreRateSummary('bounded', {
-    lowerBound: lowerBound * 100,
-    upperBound: upperBound * 100,
+  return createScoreProbability('bounded', {
+    lowerBound,
+    upperBound,
   })
 }
 
@@ -798,7 +800,7 @@ function getFixedDifficultySuccessRateSummary(envelope, target) {
  * exact/bounded/lower-bound semantics; bounded success-rate intervals are
  * retained unless both score supports are fully represented.
  */
-export function getScoreSummary(
+export function getScoreStatistics(
   score,
   dfclty = { opposed: true, target: 0 }
 ) {
@@ -813,30 +815,36 @@ export function getScoreSummary(
     throw new TypeError('score must contain action and reaction envelopes')
   }
 
-  const actionExpectedValue = getScoreExpectedValueSummary(score.action)
-  const reactionExpectedValue = getScoreExpectedValueSummary(score.reaction)
+  const actionExpectedValue = getScoreExpectedValueStatistic(score.action)
+  const reactionExpectedValue = getScoreExpectedValueStatistic(score.reaction)
   let rates
   if (dfclty.opposed) {
-    rates = getScoreSuccessRateSummary(
+    rates = getScoreSuccessProbability(
       score.action,
       score.reaction
     )
   } else {
     const target = dfclty.target ?? 0
     rates = {
-      action: getFixedDifficultySuccessRateSummary(score.action, target),
-      reaction: createScoreRateSummary('exact', { value: 0 }),
+      action: getFixedDifficultySuccessProbability(score.action, target),
+      reaction: createScoreProbability('exact', { value: 0 }),
     }
   }
 
   return Object.freeze({
     action: Object.freeze({
       expectedValue: actionExpectedValue,
-      successRate: rates.action,
+      successProbability: rates.action,
+      automaticFailureProbability: createExactProbability(
+        score.action.metadata?.automaticFailureProbability ?? 0
+      ),
     }),
     reaction: Object.freeze({
       expectedValue: reactionExpectedValue,
-      successRate: rates.reaction,
+      successProbability: rates.reaction,
+      automaticFailureProbability: createExactProbability(
+        score.reaction.metadata?.automaticFailureProbability ?? 0
+      ),
     }),
   })
 }

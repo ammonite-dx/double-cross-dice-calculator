@@ -10,8 +10,8 @@ import {
   createDistributionResult,
   fromPublishedBucketDistribution,
   getExplicitMax,
-  getTotalDamageSummary,
-  getExpectedValueSummary,
+  getTotalDamageStatistics,
+  getCertifiedExpectedValue,
   getProbabilityMassSummary,
   isDistributionResultAdapterError,
   toPublishedBucketDistribution,
@@ -131,7 +131,7 @@ describe('canonical distribution result', () => {
     expect(result.offset).toBe(-4)
     expect(result.support).toEqual({ kind: 'finite', max: -4 })
     expect(getExplicitMax(result)).toBe(-4)
-    expect(getExpectedValueSummary(result)).toEqual({
+    expect(getCertifiedExpectedValue(result)).toEqual({
       kind: 'exact',
       value: -4,
     })
@@ -218,7 +218,7 @@ describe('canonical distribution result', () => {
       overflow: null,
     })
 
-    expect(getExpectedValueSummary(result)).toEqual({
+    expect(getCertifiedExpectedValue(result)).toEqual({
       kind: 'exact',
       value: 10.8,
     })
@@ -229,7 +229,7 @@ describe('canonical distribution result', () => {
       support: { kind: 'finite', max: 5 },
       overflow: null,
     })
-    expect(getExpectedValueSummary(finiteResult)).toEqual({
+    expect(getCertifiedExpectedValue(finiteResult)).toEqual({
       kind: 'exact',
       value: 4.75,
     })
@@ -294,7 +294,7 @@ describe('canonical distribution result', () => {
       expected: { kind: 'exact', value: 2 },
     },
   ])('summarizes $label without folding overflow into a point value', ({ result, expected }) => {
-    expect(getExpectedValueSummary(result)).toEqual(expected)
+    expect(getCertifiedExpectedValue(result)).toEqual(expected)
   })
 
   it.each([
@@ -359,7 +359,7 @@ describe('canonical distribution result', () => {
       expected: { kind: 'lower-bound', lowerBound: 0.5 },
     },
   ])('summarizes $label using its probability upper bound', ({ result, expected }) => {
-    expect(getExpectedValueSummary(result)).toEqual(expected)
+    expect(getCertifiedExpectedValue(result)).toEqual(expected)
   })
 
   it('freezes summaries, propagates error metadata through mass, and leaves the result untouched', () => {
@@ -381,7 +381,7 @@ describe('canonical distribution result', () => {
     const beforeSupport = { ...result.support }
     const beforeOverflow = { ...result.overflow }
 
-    const expectedValue = getExpectedValueSummary(result)
+    const expectedValue = getCertifiedExpectedValue(result)
     const mass = getProbabilityMassSummary(result)
 
     expect(Object.isFrozen(expectedValue)).toBe(true)
@@ -410,7 +410,7 @@ describe('canonical distribution result', () => {
         errorBound: 0.75,
       },
     })
-    const summary = getTotalDamageSummary({
+    const summary = getTotalDamageStatistics({
       result,
       metadata: {
         modeledDistribution: true,
@@ -442,7 +442,7 @@ describe('canonical distribution result', () => {
       },
     })
 
-    expect(getTotalDamageSummary({
+    expect(getTotalDamageStatistics({
       result,
       metadata: {
         modeledDistribution: true,
@@ -468,7 +468,7 @@ describe('canonical distribution result', () => {
       },
     })
 
-    expect(getTotalDamageSummary({
+    expect(getTotalDamageStatistics({
       result,
       metadata: {
         modeledDistribution: true,
@@ -501,18 +501,18 @@ describe('canonical distribution result', () => {
       overflow: null,
     })
 
-    expect(getTotalDamageSummary({
+    expect(getTotalDamageStatistics({
       result: exact,
       metadata: { modeledDistribution: true, overflowProbabilityLowerBound: 0 },
-    }).expectedValue).toEqual(getExpectedValueSummary(exact))
-    expect(getTotalDamageSummary({
+    }).expectedValue).toEqual(getCertifiedExpectedValue(exact))
+    expect(getTotalDamageStatistics({
       result: noOverflow,
       metadata: { modeledDistribution: true },
-    }).expectedValue).toEqual(getExpectedValueSummary(noOverflow))
+    }).expectedValue).toEqual(getCertifiedExpectedValue(noOverflow))
   })
 
   it('rejects invalid canonical input before calculating an expected value', () => {
-    expectTypedError(() => getExpectedValueSummary({}),
+    expectTypedError(() => getCertifiedExpectedValue({}),
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_VERSION)
   })
 

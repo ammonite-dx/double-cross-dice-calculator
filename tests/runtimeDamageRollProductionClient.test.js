@@ -388,7 +388,7 @@ describe('production runtime damage roll Worker client', () => {
         support: { kind: 'finite', max: 0 },
         overflow: null,
       }),
-      metadata: { failureProbability: 0, modeledDistribution: true },
+      metadata: { automaticFailureProbability: 0, modeledDistribution: true },
     }
     const plan = {
       accepted: true,
@@ -415,8 +415,8 @@ describe('production runtime damage roll Worker client', () => {
         })
         return envelope
       }),
-      getScoreSummary: vi.fn(() => ({})),
-      getDamageSummary: vi.fn(() => ({})),
+      getScoreStatistics: vi.fn(() => ({})),
+      getDamageStatistics: vi.fn(() => ({})),
       getDamageRollDistribution: runtimeClient.calculate,
     })
     const controller = new AbortController()

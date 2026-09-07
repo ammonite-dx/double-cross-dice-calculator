@@ -6,7 +6,7 @@ import {
 } from '../src/runtime/CalculationClient'
 import {
   createDistributionResult,
-  getTotalDamageSummary,
+  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
 import {
   planDamageAggregation,
@@ -67,7 +67,7 @@ function ScoreEnvelope(
     }),
     metadata: Object.freeze({
       modeledDistribution: true,
-      failureProbability: 0,
+      automaticFailureProbability: 0,
     }),
   })
 }
@@ -90,8 +90,8 @@ function createDependencies(overrides = {}) {
       return Envelope(Call - 1)
     }),
     calculateScore: vi.fn(ScoreEnvelope),
-    getDamageSummary: vi.fn((damage) => damage),
-    getTotalDamageSummary,
+    getDamageStatistics: vi.fn((damage) => damage),
+    getTotalDamageStatistics,
     getD10Distribution: vi.fn(),
     planCalculationRanges: vi.fn(() => ({
       accepted: true,
@@ -129,7 +129,7 @@ describe('CalculationClient canonical attack batch', () => {
     const resourceGuard = createRecordingResourceGuard(events)
     const dependencies = createDependencies({
       calculateDamageOnDemand,
-      getTotalDamageSummary: vi.fn(() => 'total summary'),
+      getTotalDamageStatistics: vi.fn(() => 'total summary'),
       planCalculationRanges,
       planDamageAggregation,
       resourceGuard,
@@ -148,7 +148,7 @@ describe('CalculationClient canonical attack batch', () => {
         expect.objectContaining({ id: 42 }),
       ],
       totalDamage: aggregate,
-      totalDamageSummary: 'total summary',
+      totalDamageStatistics: 'total summary',
     })
     expect(result.combos.map((combo) => combo.id)).toEqual(['first', 42])
     expect(planCalculationRanges).toHaveBeenCalledTimes(2)
@@ -177,7 +177,7 @@ describe('CalculationClient canonical attack batch', () => {
       new Float64Array([1])
     )
     expect(result.totalDamage.result.offset).toBe(0)
-    expect(result.totalDamageSummary.expectedValue).toEqual({
+    expect(result.totalDamageStatistics.expectedValue).toEqual({
       kind: 'exact',
       value: 0,
     })
@@ -272,7 +272,7 @@ describe('CalculationClient canonical attack batch', () => {
     const dependencies = createDependencies({
       calculateDamageOnDemand,
       planCalculationRanges,
-      getTotalDamageSummary: vi.fn(() => 'total summary'),
+      getTotalDamageStatistics: vi.fn(() => 'total summary'),
       planDamageAggregation: vi.fn(() => ({
         operation: 'damage-aggregation',
       })),
@@ -339,7 +339,7 @@ describe('CalculationClient canonical attack batch', () => {
     })
     const client = createCalculationClient(createDependencies({
       calculateDamageOnDemand,
-      getTotalDamageSummary: vi.fn(() => 'total summary'),
+      getTotalDamageStatistics: vi.fn(() => 'total summary'),
       planCalculationRanges,
       planDamageAggregation: vi.fn(() => ({
         operation: 'damage-aggregation',
@@ -414,7 +414,7 @@ describe('CalculationClient canonical attack batch', () => {
     const resourceGuard = {
       acquirePlan: vi.fn(() => ({ release })),
     }
-    const getDamageSummary = vi.fn(() => {
+    const getDamageStatistics = vi.fn(() => {
       controller.abort()
       return 'summary'
     })
@@ -424,7 +424,7 @@ describe('CalculationClient canonical attack batch', () => {
     const planDamageAggregation = vi.fn()
     const client = createCalculationClient(createDependencies({
       calculateDamageOnDemand,
-      getDamageSummary,
+      getDamageStatistics,
       planDamageAggregation,
       resourceGuard,
     }))
@@ -485,7 +485,7 @@ describe('CalculationClient canonical attack batch', () => {
     )
     const dependencies = createDependencies({
       calculateDamageOnDemand,
-      getTotalDamageSummary: vi.fn(() => 'total summary'),
+      getTotalDamageStatistics: vi.fn(() => 'total summary'),
       onFftLength,
       planCalculationRanges,
       planDamageAggregation,

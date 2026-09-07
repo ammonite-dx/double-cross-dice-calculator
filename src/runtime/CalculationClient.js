@@ -3,11 +3,11 @@ import {
 } from '../calculation/BacktrackCalculator'
 import {
   calculateDamageOnDemand,
-  getDamageSummary,
+  getDamageStatistics,
 } from '../calculation/DamageCalculator'
 import {
   createDistributionResult,
-  getTotalDamageSummary,
+  getTotalDamageStatistics,
 } from '../calculation/DistributionResult'
 import {
   planDamageAggregation,
@@ -23,7 +23,7 @@ import {
 } from '../calculation/D10Calculator'
 import {
   calculateScore as calculateCoreScore,
-  getScoreSummary,
+  getScoreStatistics,
 } from '../calculation/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
 import {
@@ -90,9 +90,9 @@ const defaultDependencies = {
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore: calculateScoreAdapter,
-  getScoreSummary,
-  getDamageSummary,
-  getTotalDamageSummary,
+  getScoreStatistics,
+  getDamageStatistics,
+  getTotalDamageStatistics,
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachment: getFinalEncroachmentAdapter,
   getD10Distribution: runtimeD10DistributionProvider,
@@ -384,9 +384,9 @@ export function createCalculationClient(
   const damageOptionsValidator =
     dependencies.validateDamageAggregationOptions
     ?? validateDamageAggregationOptions
-  const totalDamageSummary =
-    dependencies.getTotalDamageSummary
-    ?? getTotalDamageSummary
+  const totalDamageStatistics =
+    dependencies.getTotalDamageStatistics
+    ?? getTotalDamageStatistics
   const hasRuntimeDxDependency =
     typeof dependencies.calculateDxDistribution === 'function'
   const getDxDistribution = hasRuntimeDxDependency
@@ -445,8 +445,8 @@ export function createCalculationClient(
     return null
   })()
 
-  const scoreSummaryCalculator =
-    dependencies.getScoreSummary ?? getScoreSummary
+  const scoreStatisticsCalculator =
+    dependencies.getScoreStatistics ?? getScoreStatistics
 
   async function runAttackCalculation(params, options) {
     const request = snapshotAttackParams(params)
@@ -508,13 +508,13 @@ export function createCalculationClient(
       )
       throwIfAborted(options, 'Attack')
 
-      const scoreSummary = scoreSummaryCalculator(score)
+      const scoreStatistics = scoreStatisticsCalculator(score)
       return {
         score,
-        scoreSummary,
+        scoreStatistics,
         damage: finalizedDamage,
-        damageSummary:
-          dependencies.getDamageSummary(finalizedDamage),
+        damageStatistics:
+          dependencies.getDamageStatistics(finalizedDamage),
       }
     } finally {
       releaseLeaseAfterUnderlyingWork(lease, underlyingWork)
@@ -561,10 +561,10 @@ export function createCalculationClient(
         { ...aggregationOptions, plan },
       )
       throwIfAborted(calculationOptions, 'total damage')
-      const summary = totalDamageSummary(aggregate)
+      const summary = totalDamageStatistics(aggregate)
       return {
         totalDamage: copyTotalDamageEnvelope(aggregate),
-        totalDamageSummary: summary,
+        totalDamageStatistics: summary,
       }
     } finally {
       lease.release()
@@ -635,7 +635,7 @@ export function createCalculationClient(
         throwIfAborted(options, 'check')
         return {
           score,
-          scoreSummary: scoreSummaryCalculator(
+          scoreStatistics: scoreStatisticsCalculator(
             score,
             difficultyRequest
           ),

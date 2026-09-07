@@ -45,7 +45,7 @@ describe('Attack canonical integration contract', () => {
     expect(attackTemplate).toContain(':presentation="scoreDisplayPresentation"')
     expect(scoreChartSource).toContain('getAttackScoreChartData')
     expect(damageChartSource).toContain('getAttackDamageChartData')
-    expect(summaryTableSource).toContain('getScoreSummaryForCombo')
+    expect(summaryTableSource).toContain('getScoreStatisticsForCombo')
     for (const source of [scoreChartSource, damageChartSource, summaryTableSource]) {
       expect(source).not.toContain('OptIn')
     }

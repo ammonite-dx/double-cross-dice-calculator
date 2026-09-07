@@ -155,10 +155,10 @@ function hasValue(value) {
 
 export function createTotalDamageState(initialCalculation = null) {
   const ready = hasValue(initialCalculation?.damage)
-    && hasValue(initialCalculation?.damageSummary)
+    && hasValue(initialCalculation?.damageStatistics)
   return {
     totalDamage: ready ? initialCalculation.damage : null,
-    totalDamageSummary: ready ? initialCalculation.damageSummary : null,
+    totalDamageStatistics: ready ? initialCalculation.damageStatistics : null,
     totalDamageGeneration: 0,
     totalDamageReady: ready,
   }
@@ -168,7 +168,7 @@ export function invalidateTotalDamage(state) {
   state.totalDamageGeneration += 1
   state.totalDamageReady = false
   state.totalDamage = null
-  state.totalDamageSummary = null
+  state.totalDamageStatistics = null
   return state.totalDamageGeneration
 }
 
@@ -176,11 +176,11 @@ export function commitTotalDamage(state, generation, result) {
   if (generation !== state.totalDamageGeneration) {
     return false
   }
-  if (!hasValue(result?.totalDamage) || !hasValue(result?.totalDamageSummary)) {
+  if (!hasValue(result?.totalDamage) || !hasValue(result?.totalDamageStatistics)) {
     return false
   }
   state.totalDamage = result.totalDamage
-  state.totalDamageSummary = result.totalDamageSummary
+  state.totalDamageStatistics = result.totalDamageStatistics
   state.totalDamageReady = true
   return true
 }
@@ -192,9 +192,9 @@ export function areAllComboResultsReady(combos) {
       const data = combo?.data
       return data?.resultReady === true
         && hasValue(data.score)
-        && hasValue(data.scoreSummary)
+        && hasValue(data.scoreStatistics)
         && hasValue(data.damage)
-        && hasValue(data.damageSummary)
+        && hasValue(data.damageStatistics)
     })
 }
 

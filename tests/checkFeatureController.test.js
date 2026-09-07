@@ -17,7 +17,7 @@ function createScoreEnvelope({
     }),
     metadata: {
       modeledDistribution: true,
-      failureProbability: 0,
+      automaticFailureProbability: 0,
     },
   }
 }
@@ -27,11 +27,11 @@ function createCalculationResult({
 } = {}) {
   const lane = {
     expectedValue: { kind: 'exact', value: 0 },
-    successRate: { kind: 'exact', value: 1 },
+    successProbability: { kind: 'exact', value: 1 },
   }
   return {
     score: { action: scoreEnvelope, reaction: scoreEnvelope },
-    scoreSummary: { action: lane, reaction: lane },
+    scoreStatistics: { action: lane, reaction: lane },
   }
 }
 

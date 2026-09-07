@@ -62,8 +62,8 @@ function createHarness(overrides = {}) {
   const getFinalEncroachment = vi.fn(() => ({
     kind: 'backtrack',
   }))
-  const getScoreSummary = vi.fn(() => ({ kind: 'score-summary' }))
-  const getDamageSummary = vi.fn(() => ({ kind: 'damage-summary' }))
+  const getScoreStatistics = vi.fn(() => ({ kind: 'score-summary' }))
+  const getDamageStatistics = vi.fn(() => ({ kind: 'damage-summary' }))
   const release = vi.fn()
   const resourceGuard = {
     acquirePlan: vi.fn(() => ({ release })),
@@ -72,8 +72,8 @@ function createHarness(overrides = {}) {
   const dependencies = {
     calculateDamageOnDemand,
     calculateScore,
-    getDamageSummary,
-    getScoreSummary,
+    getDamageStatistics,
+    getScoreStatistics,
     getD10Distribution,
     getDamageRollDistribution,
     getFinalEncroachment,
@@ -87,8 +87,8 @@ function createHarness(overrides = {}) {
     client,
     calculateDamageOnDemand,
     calculateScore,
-    getDamageSummary,
-    getScoreSummary,
+    getDamageStatistics,
+    getScoreStatistics,
     getD10Distribution,
     getDamageRollDistribution,
     getFinalEncroachment,

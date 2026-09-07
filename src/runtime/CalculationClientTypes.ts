@@ -11,9 +11,9 @@ import type {
   AttackCalculationResult,
   BacktrackCalculationResult,
   DamageEnvelope,
-  DamageSummary,
+  DamageStatistics,
   ScorePair,
-  ScoreSummary,
+  ScoreStatistics,
   TotalDamageResult,
   DistributionEnvelope,
 } from '../calculation/DistributionResultTypes'
@@ -29,7 +29,7 @@ export interface CalculationOptions {
 
 export interface CheckCalculationResult {
   readonly score: ScorePair
-  readonly scoreSummary: ScoreSummary
+  readonly scoreStatistics: ScoreStatistics
 }
 
 export interface CalculationClient {
@@ -58,7 +58,7 @@ export interface CalculationClient {
   ): Promise<{
     readonly combos: readonly (AttackCalculationResult & { id: string | number })[]
     readonly totalDamage: DamageEnvelope
-    readonly totalDamageSummary: DamageSummary
+    readonly totalDamageStatistics: DamageStatistics
   }>
   calculateTotalDamage(
     damages: readonly DistributionEnvelope[],

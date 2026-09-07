@@ -1,17 +1,17 @@
 export {
   SUMMARY_UNAVAILABLE,
   formatSummaryExpectedValue,
-  formatScoreSummaryExpectedValue,
-  formatScoreSuccessRate,
-  formatScoreSuccessRateDisplay,
+  formatScoreStatisticsExpectedValue,
+  formatCertifiedProbabilityPercent,
+  formatCertifiedProbabilityPercentDisplay,
 } from '../../../shared/presentation/SummaryFormatter'
 
-export function getScoreSummaryForCombo(presentation, comboId) {
+export function getScoreStatisticsForCombo(presentation, comboId) {
   if (presentation?.status !== 'ready') {
     return null
   }
   const combo = findComboPresentation(presentation, comboId)
-  return combo?.scoreSummary ?? null
+  return combo?.scoreStatistics ?? null
 }
 
 export function findComboPresentation(presentation, comboId) {

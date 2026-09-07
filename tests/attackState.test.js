@@ -60,12 +60,12 @@ function createBatch(ids, suffix = 'result') {
     combos: ids.map((id, index) => ({
       id,
       score: { value: `score-${suffix}-${index}` },
-      scoreSummary: { value: `score-summary-${suffix}-${index}` },
+      scoreStatistics: { value: `score-summary-${suffix}-${index}` },
       damage: { value: `damage-${suffix}-${index}` },
-      damageSummary: { value: `damage-summary-${suffix}-${index}` },
+      damageStatistics: { value: `damage-summary-${suffix}-${index}` },
     })),
     totalDamage: { value: `total-${suffix}` },
-    totalDamageSummary: { value: `total-summary-${suffix}` },
+    totalDamageStatistics: { value: `total-summary-${suffix}` },
   }
 }
 
@@ -79,7 +79,7 @@ function createPresentation(batch, plans) {
       rangePlan: plans[index],
     })),
     totalDamage: batch.totalDamage,
-    totalDamageSummary: batch.totalDamageSummary,
+    totalDamageStatistics: batch.totalDamageStatistics,
     totalDamagePresentation: {
       value: 'total presentation',
     },
@@ -153,7 +153,7 @@ describe('AttackState', () => {
     )
     expect(state.totalDamageReady).toBe(true)
     expect(state.totalDamage).toBe(batch.totalDamage)
-    expect(state.totalDamageSummary).toBe(batch.totalDamageSummary)
+    expect(state.totalDamageStatistics).toBe(batch.totalDamageStatistics)
     expect(state.combos[0].data.damage).toBe(batch.combos[0].damage)
   })
 
@@ -430,7 +430,7 @@ describe('createAttackRunner', () => {
     })
     const state = createState([combo('first')])
     state.totalDamage = { value: 'old total' }
-    state.totalDamageSummary = { value: 'old total summary' }
+    state.totalDamageStatistics = { value: 'old total summary' }
     state.totalDamageReady = true
     state.combos[0].data.score = legacyScore
     state.combos[0].data.damage = legacyDamage
@@ -448,7 +448,7 @@ describe('createAttackRunner', () => {
     expect(state.feedback.status).toBe('rejected')
     expect(state.totalDamageReady).toBe(false)
     expect(state.totalDamage).toBeNull()
-    expect(state.totalDamageSummary).toBeNull()
+    expect(state.totalDamageStatistics).toBeNull()
     expect(state.combos[0].data.score).toBeNull()
     expect(state.combos[0].data.damage).toBeNull()
     expect(state.combos[0].data.resultReady).toBe(false)
@@ -462,7 +462,7 @@ describe('createAttackRunner', () => {
     expect(state.feedback.status).toBe('error')
     expect(state.totalDamageReady).toBe(false)
     expect(state.totalDamage).toBeNull()
-    expect(state.totalDamageSummary).toBeNull()
+    expect(state.totalDamageStatistics).toBeNull()
     expect(state.combos[0].data.resultReady).toBe(false)
 
     const resourceError = Object.assign(new Error('resource rejected'), {
@@ -476,7 +476,7 @@ describe('createAttackRunner', () => {
     expect(state.feedback.status).toBe('error')
     expect(state.totalDamageReady).toBe(false)
     expect(state.totalDamage).toBeNull()
-    expect(state.totalDamageSummary).toBeNull()
+    expect(state.totalDamageStatistics).toBeNull()
     expect(state.combos[0].data.resultReady).toBe(false)
   })
 

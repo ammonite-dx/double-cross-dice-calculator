@@ -8,7 +8,7 @@ import {
 } from '../src/runtime/ResourceGuard'
 import {
   createDistributionResult,
-  getTotalDamageSummary,
+  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
 import {
   planDamageAggregation,
@@ -32,7 +32,7 @@ function createEnvelope(values, options = {}) {
 
 function createDependencies(overrides = {}) {
   return {
-    getTotalDamageSummary,
+    getTotalDamageStatistics,
     planDamageAggregation,
     sumDamage,
     ...overrides,
@@ -62,7 +62,7 @@ describe('CalculationClient canonical total damage', () => {
       expect(options.plan).toBe(plan)
       return aggregate
     })
-    const getTotalDamageSummary = vi.fn(() => {
+    const getTotalDamageStatistics = vi.fn(() => {
       events.push('summary')
       return 'canonical total summary'
     })
@@ -79,7 +79,7 @@ describe('CalculationClient canonical total damage', () => {
       }),
     }
     const client = createCalculationClient(createDependencies({
-      getTotalDamageSummary,
+      getTotalDamageStatistics,
       planDamageAggregation,
       resourceGuard,
       sumDamage,
@@ -89,7 +89,7 @@ describe('CalculationClient canonical total damage', () => {
       requestId: 'canonical-total-1',
     })).resolves.toEqual({
       totalDamage: aggregate,
-      totalDamageSummary: 'canonical total summary',
+      totalDamageStatistics: 'canonical total summary',
     })
     expect(events).toEqual(['plan', 'lease', 'sum', 'summary', 'release'])
     expect(resourceGuard.acquirePlan).toHaveBeenCalledWith(plan, {
@@ -142,7 +142,7 @@ describe('CalculationClient canonical total damage', () => {
 
   it.each([
     ['aggregation', { sumDamage: vi.fn(() => { throw new Error('aggregate') }) }],
-    ['summary', { getTotalDamageSummary: vi.fn(() => { throw new Error('summary') }) }],
+    ['summary', { getTotalDamageStatistics: vi.fn(() => { throw new Error('summary') }) }],
   ])('releases a lease when %s fails', async (_label, overrides) => {
     const release = vi.fn()
     const plan = Object.freeze({
@@ -178,7 +178,7 @@ describe('CalculationClient canonical total damage', () => {
     expect(output.totalDamage.result.values)
       .not.toBe(first.result.values)
     expect(observedFftLengths).toEqual([4])
-    expect(output.totalDamageSummary).toEqual({
+    expect(output.totalDamageStatistics).toEqual({
       expectedValue: { kind: 'exact', value: 1.25 },
       mass: expect.objectContaining({ totalMass: 1 }),
     })

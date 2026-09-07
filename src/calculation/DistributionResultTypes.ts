@@ -1,3 +1,8 @@
+import type {
+  CertifiedProbability,
+  CertifiedValue,
+} from '../domain/CertifiedValue'
+
 export type DistributionSupport =
   | Readonly<{ kind: 'finite'; max: number }>
   | Readonly<{ kind: 'infinite' }>
@@ -34,7 +39,40 @@ export interface DistributionEnvelope {
   readonly metadata: ModeledDistributionMetadata
 }
 
-export type ScoreEnvelope = DistributionEnvelope
+export interface ScoreTailCertificate {
+  readonly version: number
+  readonly kind: 'score-tail-certificate'
+  readonly massLowerBound: number
+  readonly massUpperBound: number
+  readonly lowerBound: number | null
+  readonly probabilityErrorBound: number
+}
+
+export interface ScoreExpectationCertificate {
+  readonly version: number
+  readonly kind: 'score-expectation-certificate'
+  readonly model: 'dx-max-tail'
+  readonly modeledMax: number
+  readonly lowerBound: number
+  readonly upperBound: number
+  readonly residualUpperBound: number
+  readonly tailEvaluationErrorBound: number
+  readonly fumbleCorrectionErrorBound: number
+  readonly residualArithmeticErrorBound: number
+  readonly numericalErrorBound: number
+}
+
+export interface ScoreMetadata extends ModeledDistributionMetadata {
+  readonly automaticFailureProbability: number
+  readonly scoreTailCertificate: ScoreTailCertificate | null
+  readonly scoreExpectationCertificate?: ScoreExpectationCertificate
+}
+
+export interface ScoreEnvelope {
+  readonly result: DistributionResult
+  readonly metadata: ScoreMetadata
+}
+
 export type DamageEnvelope = DistributionEnvelope
 
 export interface ProbabilityMassSummary {
@@ -49,34 +87,15 @@ export interface ProbabilityMassSummary {
   readonly isExact: boolean
 }
 
-export type ExpectedValueSummary =
-  | Readonly<{ kind: 'exact'; value: number }>
-  | Readonly<{ kind: 'bounded'; lowerBound: number; upperBound: number }>
-  | Readonly<{ kind: 'lower-bound'; lowerBound: number }>
-
-export interface ScoreRateSummaryExact {
-  readonly kind: 'exact'
-  readonly value: number
+export interface ScoreStatisticsLane {
+  readonly expectedValue: CertifiedValue
+  readonly successProbability: CertifiedProbability
+  readonly automaticFailureProbability: CertifiedProbability
 }
 
-export interface ScoreRateSummaryBounded {
-  readonly kind: 'bounded'
-  readonly lowerBound: number
-  readonly upperBound: number
-}
-
-export type ScoreRateSummary =
-  | ScoreRateSummaryExact
-  | ScoreRateSummaryBounded
-
-export interface ScoreSummaryLane {
-  readonly expectedValue: ExpectedValueSummary
-  readonly successRate: ScoreRateSummary
-}
-
-export interface ScoreSummary {
-  readonly action: ScoreSummaryLane
-  readonly reaction: ScoreSummaryLane
+export interface ScoreStatistics {
+  readonly action: ScoreStatisticsLane
+  readonly reaction: ScoreStatisticsLane
 }
 
 export interface ScorePair {
@@ -84,16 +103,16 @@ export interface ScorePair {
   readonly reaction: ScoreEnvelope
 }
 
-export interface DamageSummary {
-  readonly expectedValue: ExpectedValueSummary
+export interface DamageStatistics {
+  readonly expectedValue: CertifiedValue
   readonly mass: ProbabilityMassSummary
 }
 
 export interface AttackCalculationResult {
   readonly score: ScorePair
-  readonly scoreSummary: ScoreSummary
+  readonly scoreStatistics: ScoreStatistics
   readonly damage: DamageEnvelope
-  readonly damageSummary: DamageSummary
+  readonly damageStatistics: DamageStatistics
 }
 
 export interface BacktrackCalculationResult {
@@ -102,5 +121,5 @@ export interface BacktrackCalculationResult {
 
 export interface TotalDamageResult {
   readonly totalDamage: DamageEnvelope
-  readonly totalDamageSummary: DamageSummary
+  readonly totalDamageStatistics: DamageStatistics
 }

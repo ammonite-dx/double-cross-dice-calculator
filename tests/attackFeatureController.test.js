@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ATTACK_DISPLAY_MODES } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
-import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import { useAttack } from '../src/features/attack/model/useAttack'
 
 function createPendingClient() {
@@ -54,14 +54,14 @@ function createAttackBatch({ width = 101, marker = 0, damageMarker = marker } = 
     action: createInfiniteEnvelope(values),
     reaction: createInfiniteEnvelope(values),
   }
-  const scoreSummary = {
+  const scoreStatistics = {
     action: {
       expectedValue: { kind: 'exact', value: marker },
-      successRate: { kind: 'exact', value: 50 },
+      successProbability: { kind: 'exact', value: 50 },
     },
     reaction: {
       expectedValue: { kind: 'exact', value: marker },
-      successRate: { kind: 'exact', value: 50 },
+      successProbability: { kind: 'exact', value: 50 },
     },
   }
   const damage = createInfiniteEnvelope(damageValues)
@@ -69,12 +69,12 @@ function createAttackBatch({ width = 101, marker = 0, damageMarker = marker } = 
     combos: [{
       id: 0,
       score,
-      scoreSummary,
+      scoreStatistics,
       damage: damage,
-      damageSummary: getDamageSummary(damage),
+      damageStatistics: getDamageStatistics(damage),
     }],
     totalDamage: damage,
-    totalDamageSummary: getDamageSummary(damage),
+    totalDamageStatistics: getDamageStatistics(damage),
   }
 }
 

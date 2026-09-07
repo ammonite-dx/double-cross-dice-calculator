@@ -10,9 +10,9 @@ import {
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
-  getTotalDamageSummary,
+  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
-import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import { sumDamage } from '../src/calculation/DamageAggregation'
 import {
   CHART_SERIES_NOT_PROJECTABLE_REASONS,
@@ -51,19 +51,19 @@ function createBatch(damages) {
   const combos = damages.map((damage, index) => ({
     id: `combo-${index + 1}`,
     score: createScore((index + 1) / (damages.length + 1)),
-    scoreSummary: {
+    scoreStatistics: {
       action: { expectedValue: index + 1 },
       reaction: { expectedValue: index + 2 },
     },
     damage,
-    damageSummary: getDamageSummary(damage),
+    damageStatistics: getDamageStatistics(damage),
   }))
   const totalDamage = sumDamage(damages)
   return {
     combos,
     totalDamage,
-    totalDamageSummary:
-      getTotalDamageSummary(totalDamage),
+    totalDamageStatistics:
+      getTotalDamageStatistics(totalDamage),
   }
 }
 

@@ -15,7 +15,7 @@ import {
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
-import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 
 function createEnvelope(values, max = values.length - 1) {
   return {
@@ -88,12 +88,12 @@ function createBatch(supportMax = 1, values = [0.25, 0.75]) {
     combos: [{
       id: 'combo-1',
       score: createScore(),
-      scoreSummary: { action: { expectedValue: 1 } },
+      scoreStatistics: { action: { expectedValue: 1 } },
       damage,
-      damageSummary: getDamageSummary(damage),
+      damageStatistics: getDamageStatistics(damage),
     }],
     totalDamage: damage,
-    totalDamageSummary: getDamageSummary(damage),
+    totalDamageStatistics: getDamageStatistics(damage),
   }
 }
 
@@ -104,26 +104,26 @@ function createScoreBatch() {
     action: createEnvelope([0.25, 0.75], 1),
     reaction: createEnvelope([0.5, 0.5], 1),
   }
-  const scoreSummary = {
+  const scoreStatistics = {
     action: {
       expectedValue: { kind: 'exact', value: 0.75 },
-      successRate: { kind: 'exact', value: 0 },
+      successProbability: { kind: 'exact', value: 0 },
     },
     reaction: {
       expectedValue: { kind: 'exact', value: 0.5 },
-      successRate: { kind: 'exact', value: 100 },
+      successProbability: { kind: 'exact', value: 100 },
     },
   }
   return {
     combos: [{
       id: 'combo-1',
       score,
-      scoreSummary,
+      scoreStatistics,
       damage: damage,
-      damageSummary: getDamageSummary(damage),
+      damageStatistics: getDamageStatistics(damage),
     }],
     totalDamage: total,
-    totalDamageSummary: getDamageSummary(total),
+    totalDamageStatistics: getDamageStatistics(total),
   }
 }
 
@@ -142,26 +142,26 @@ function createScoreExpansion(actionValues, reactionValues = actionValues) {
     action: createInfiniteEnvelope(actionValues),
     reaction: createInfiniteEnvelope(reactionValues),
   }
-  const scoreSummary = {
+  const scoreStatistics = {
     action: {
       expectedValue: { kind: 'exact', value: 1 },
-      successRate: { kind: 'exact', value: 50 },
+      successProbability: { kind: 'exact', value: 50 },
     },
     reaction: {
       expectedValue: { kind: 'exact', value: 1 },
-      successRate: { kind: 'exact', value: 50 },
+      successProbability: { kind: 'exact', value: 50 },
     },
   }
   return {
     combos: [{
       id: 'combo-1',
       score,
-      scoreSummary,
+      scoreStatistics,
       damage: damage,
-      damageSummary: getDamageSummary(damage),
+      damageStatistics: getDamageStatistics(damage),
     }],
     totalDamage: damage,
-    totalDamageSummary: getDamageSummary(damage),
+    totalDamageStatistics: getDamageStatistics(damage),
   }
 }
 
@@ -170,7 +170,7 @@ function createSource(state) {
     combos: state.combos.map((combo) => ({
       id: combo.id,
       score: combo.data.score,
-      scoreSummary: combo.data.scoreSummary,
+      scoreStatistics: combo.data.scoreStatistics,
       scoreBatchSummary: combo.data.scoreBatchSummary,
       scorePresentation: combo.data.scorePresentation,
       damagePresentation:
@@ -693,19 +693,19 @@ describe('Attack canonical display integration', () => {
     const initialBatch = createScoreBatch()
     const initialDamage = createInfiniteEnvelope([1])
     initialBatch.combos[0].damage = initialDamage
-    initialBatch.combos[0].damageSummary =
-      getDamageSummary(initialDamage)
+    initialBatch.combos[0].damageStatistics =
+      getDamageStatistics(initialDamage)
     initialBatch.totalDamage = initialDamage
-    initialBatch.totalDamageSummary =
-      getDamageSummary(initialDamage)
+    initialBatch.totalDamageStatistics =
+      getDamageStatistics(initialDamage)
     const expandedBatch = createScoreBatch()
     const expandedDamage = createEnvelope([0.5, 0.5], 1)
     expandedBatch.combos[0].damage = expandedDamage
-    expandedBatch.combos[0].damageSummary =
-      getDamageSummary(expandedDamage)
+    expandedBatch.combos[0].damageStatistics =
+      getDamageStatistics(expandedDamage)
     expandedBatch.totalDamage = expandedDamage
-    expandedBatch.totalDamageSummary =
-      getDamageSummary(expandedDamage)
+    expandedBatch.totalDamageStatistics =
+      getDamageStatistics(expandedDamage)
     const displayPolicy = {
       warning: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
       hard: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },

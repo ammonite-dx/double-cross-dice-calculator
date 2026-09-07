@@ -30,7 +30,7 @@ import type {
 } from '../../../domain/CalculationInputs'
 import type {
   ScorePair,
-  ScoreSummary,
+  ScoreStatistics,
 } from '../../../calculation/DistributionResultTypes'
 
 interface CalculationFeedbackState {
@@ -75,7 +75,7 @@ interface CheckState {
   difficulty: DifficultyInput
   scoreParams: CheckScoreParams
   score: ScorePair | null
-  scoreSummary: ScoreSummary | null
+  scoreStatistics: ScoreStatistics | null
   resultReady: boolean
   displayRequest: DisplayRequestSnapshot
   rangeFeedback: CalculationFeedbackState
@@ -144,7 +144,7 @@ export async function useCheck({
       reaction: { ...initialInputSnapshot.params.reaction },
     },
     score: null,
-    scoreSummary: null,
+    scoreStatistics: null,
     resultReady: false,
     displayRequest: { ...initialDisplayRequest },
     rangeFeedback,
@@ -347,7 +347,7 @@ export async function useCheck({
       ),
     clearResult: () => {
       state.score = null
-      state.scoreSummary = null
+      state.scoreStatistics = null
       state.resultReady = false
       resetDisplayFeedback()
     },
@@ -361,7 +361,7 @@ export async function useCheck({
         return
       }
       state.score = result.score
-      state.scoreSummary = result.scoreSummary
+      state.scoreStatistics = result.scoreStatistics
       state.resultReady = true
       if (
         committedPresentation?.decision
@@ -384,7 +384,7 @@ export async function useCheck({
     // display request is rejected before a new runner request can start.
     calculationRunner.invalidate()
     state.score = null
-    state.scoreSummary = null
+    state.scoreStatistics = null
     state.resultReady = false
     resetDisplayFeedback()
   }
@@ -482,7 +482,7 @@ export async function useCheck({
   })
   if (initialCalculation !== null) {
     state.score = initialCalculation.score
-    state.scoreSummary = initialCalculation.scoreSummary
+    state.scoreStatistics = initialCalculation.scoreStatistics
     state.resultReady = true
   }
 
@@ -491,7 +491,7 @@ export async function useCheck({
     difficulty: stateRefs.difficulty,
     scoreParams: stateRefs.scoreParams,
     score: stateRefs.score,
-    scoreSummary: stateRefs.scoreSummary,
+    scoreStatistics: stateRefs.scoreStatistics,
     resultReady: stateRefs.resultReady,
     displayRequest: stateRefs.displayRequest,
     presentation,

@@ -25,11 +25,11 @@ export interface AttackComboParams extends AttackCalculationInput {
 export interface AttackComboData {
   params: AttackComboParams
   score: unknown
-  scoreSummary: unknown
+  scoreStatistics: unknown
   scorePresentation: unknown
   scoreReady: boolean
   damage: unknown
-  damageSummary: unknown
+  damageStatistics: unknown
   damagePresentation: unknown
   rangePlan: unknown
   resultReady: boolean

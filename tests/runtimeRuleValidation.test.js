@@ -11,7 +11,7 @@ import {
 } from '../src/calculation/DistributionResult'
 import {
   calculateScore,
-  getScoreSummary,
+  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
 import {
   generateMixedDamageDistribution,
@@ -41,7 +41,7 @@ function sparseDistribution(entries) {
   return { offset: first, values }
 }
 
-function ScoreEnvelope(entries, failureProbability = 0) {
+function ScoreEnvelope(entries, automaticFailureProbability = 0) {
   const maxValue = Math.max(...entries.map(([value]) => value))
   const values = new Float64Array(maxValue + 1)
   for (const [value, probability] of entries) {
@@ -57,7 +57,7 @@ function ScoreEnvelope(entries, failureProbability = 0) {
     }),
     metadata: {
       modeledDistribution: true,
-      failureProbability,
+      automaticFailureProbability,
     },
   }
 }
@@ -302,7 +302,7 @@ describe('runtime score rules', () => {
 
     expect(result.result.values[0]).toBe(0.5)
     expect(result.result.values[7]).toBe(0.5)
-    expect(result.metadata.failureProbability).toBe(0.5)
+    expect(result.metadata.automaticFailureProbability).toBe(0.5)
   })
 
   it('retains a non-fumble score clamped to zero as a successful result', () => {
@@ -310,7 +310,7 @@ describe('runtime score rules', () => {
       { ...SCORE_PARAMS, critical: 11, skill: -3 },
       () => sparseDistribution([[2, 1]])
     )
-    const summary = getScoreSummary(
+    const summary = getScoreStatistics(
       {
         action: result,
         reaction: ScoreEnvelope([[0, 1]]),
@@ -319,8 +319,8 @@ describe('runtime score rules', () => {
     )
 
     expect(result.result.values[0]).toBe(1)
-    expect(result.metadata.failureProbability).toBe(0)
-    expect(summary.action.successRate).toEqual({ kind: 'exact', value: 100 })
+    expect(result.metadata.automaticFailureProbability).toBe(0)
+    expect(summary.action.successProbability).toEqual({ kind: 'exact', value: 1 })
   })
 
   it('excludes automatic failure and fumble from difficulty zero success', () => {
@@ -332,7 +332,7 @@ describe('runtime score rules', () => {
         [2, 0.5],
       ])
     )
-    const summary = getScoreSummary(
+    const summary = getScoreStatistics(
       {
         action: result,
         reaction: ScoreEnvelope([[0, 1]]),
@@ -342,8 +342,8 @@ describe('runtime score rules', () => {
 
     expect(result.result.values[0]).toBe(0.5)
     expect(result.result.values[2]).toBe(0.5)
-    expect(result.metadata.failureProbability).toBe(0.5)
-    expect(summary.action.successRate).toEqual({ kind: 'exact', value: 50 })
+    expect(result.metadata.automaticFailureProbability).toBe(0.5)
+    expect(summary.action.successProbability).toEqual({ kind: 'exact', value: 0.5 })
   })
 
   it('keeps zero dice as automatic failure when yousei is specified', () => {
@@ -357,7 +357,7 @@ describe('runtime score rules', () => {
     )
 
     expect(result.result.values[0]).toBe(1)
-    expect(result.metadata.failureProbability).toBe(1)
+    expect(result.metadata.automaticFailureProbability).toBe(1)
   })
 
   it('consumes one complete DX distribution when yousei is present', () => {
@@ -389,10 +389,11 @@ describe('runtime score rules', () => {
       [5, 0.3],
       [10, 0.5],
     ])
-    const summary = getScoreSummary({ action, reaction })
+    const summary = getScoreStatistics({ action, reaction })
 
-    expect(summary.action.successRate).toEqual({ kind: 'exact', value: 33 })
-    expect(summary.reaction.successRate).toEqual({ kind: 'exact', value: 67 })
+    expect(summary.action.successProbability).toEqual({ kind: 'exact', value: 0.33 })
+    expect(summary.reaction.successProbability).toMatchObject({ kind: 'exact' })
+    expect(summary.reaction.successProbability.value).toBeCloseTo(0.67, 12)
   })
 })
 

@@ -11,14 +11,14 @@ import {
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   calculateDamageOnDemand,
-  getDamageSummary,
+  getDamageStatistics,
 } from '../src/calculation/DamageCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import {
   calculateScore,
-  getScoreSummary,
+  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
 import { createD10DistributionProvider } from '../src/calculation/D10Calculator'
 
@@ -42,10 +42,10 @@ const calculationClient = createCalculationClient({
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore: calculateScoreWithProvider,
-  getScoreSummary,
+  getScoreStatistics,
   getD10Distribution,
   getDamageRollDistribution: generateMixedDamageDistribution,
-  getDamageSummary,
+  getDamageStatistics,
 })
 
 const scoreParams = {
@@ -165,10 +165,10 @@ describe('CalculationClient integration', () => {
       calculateDamageOnDemand,
       calculateDxDistribution: calculateDx,
       calculateScore: calculateScoreWithProvider,
-      getScoreSummary,
+      getScoreStatistics,
       getD10Distribution,
       getDamageRollDistribution: generateMixedDamageDistribution,
-      getDamageSummary,
+      getDamageStatistics,
     })
     const params = {
       action: {
@@ -280,7 +280,7 @@ describe('CalculationClient integration', () => {
         support: { kind: 'finite', max: value },
         overflow: null,
       }),
-      metadata: { modeledDistribution: true, failureProbability: 0 },
+      metadata: { modeledDistribution: true, automaticFailureProbability: 0 },
     })
     const planCalculationRanges = vi.fn((_params, policy) => {
       observedPolicies.push(policy)
@@ -316,7 +316,7 @@ describe('CalculationClient integration', () => {
         scoreCall += 1
         return scoreEnvelope(scoreCall === 1 ? 1030 : 0)
       }),
-      getDamageSummary,
+      getDamageStatistics,
       getDamageRollDistribution,
       getD10Distribution,
       planCalculationRanges,

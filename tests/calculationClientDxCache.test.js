@@ -6,7 +6,7 @@ import {
 } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
-  getScoreSummary,
+  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
 
 function calculateScoreWithProvider(
@@ -44,7 +44,7 @@ describe('CalculationClient runtime DX cache identity', () => {
     const client = createCalculationClient({
       calculateDxDistribution: calculateDx,
       calculateScore: calculateScoreWithProvider,
-      getScoreSummary,
+      getScoreStatistics,
     })
 
     await client.calculateCheck(checkParams(0), {

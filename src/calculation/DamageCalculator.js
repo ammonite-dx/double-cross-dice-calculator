@@ -11,7 +11,7 @@ import {
 } from './RuntimeDamageRollLimits'
 import {
   createDistributionResult,
-  getExpectedValueSummary,
+  getCertifiedExpectedValue,
   getProbabilityMassSummary,
   validateDistributionResult,
 } from './DistributionResult'
@@ -845,14 +845,14 @@ function isDamageEnvelope(value) {
  * Summarize a damage envelope without converting it to legacy
  * buckets or copying its values buffer.
  */
-export function getDamageSummary(damage) {
+export function getDamageStatistics(damage) {
   if (!isDamageEnvelope(damage)) {
     throw new TypeError(
       'damage summary expects an envelope with result and metadata'
     )
   }
 
-  const expectedValue = getExpectedValueSummary(damage.result)
+  const expectedValue = getCertifiedExpectedValue(damage.result)
   const mass = getProbabilityMassSummary(damage.result)
   return Object.freeze({ expectedValue, mass })
 }

@@ -22,7 +22,7 @@ function createScoreEnvelope(params, _getDistribution, _plan, fix = false) {
     }),
     metadata: {
       modeledDistribution: true,
-      failureProbability: 0,
+      automaticFailureProbability: 0,
     },
   }
 }
@@ -44,9 +44,9 @@ function createDependencies(overrides = {}) {
     calculateDamageOnDemand: vi.fn(async () => createDamage()),
     calculateDxDistribution: vi.fn(() => new Float64Array([1])),
     calculateScore: vi.fn(createScoreEnvelope),
-    getDamageSummary: vi.fn(() => 'canonical damage summary'),
-    getScoreSummary: vi.fn(() => 'canonical score summary'),
-    getTotalDamageSummary: vi.fn(() => 'canonical total summary'),
+    getDamageStatistics: vi.fn(() => 'canonical damage summary'),
+    getScoreStatistics: vi.fn(() => 'canonical score summary'),
+    getTotalDamageStatistics: vi.fn(() => 'canonical total summary'),
     getDamageRollDistribution: vi.fn(async () => new Float64Array([1])),
     getD10Distribution: vi.fn(),
     getFinalEncroachment: vi.fn(() => 'canonical backtrack'),
@@ -222,15 +222,15 @@ describe('canonical CalculationClient surface', () => {
     const result = await client.calculateAttack(attackParams())
 
     expect(result).toMatchObject({
-      scoreSummary: 'canonical score summary',
+      scoreStatistics: 'canonical score summary',
       damage,
-      damageSummary: 'canonical damage summary',
+      damageStatistics: 'canonical damage summary',
     })
     expect(result.damage).toBe(damage)
-    expect(result.damageSummary).toBe('canonical damage summary')
+    expect(result.damageStatistics).toBe('canonical damage summary')
     expect(dependencies.calculateScore).toHaveBeenCalledTimes(2)
     expect(dependencies.calculateDamageOnDemand).toHaveBeenCalledOnce()
-    expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
+    expect(dependencies.getScoreStatistics).toHaveBeenCalledOnce()
     expect(planCalculationRangesSpy.mock.calls[0][1]).toMatchObject({
       scorePropagation: 'full-tail',
     })
@@ -255,8 +255,8 @@ describe('canonical CalculationClient surface', () => {
       { opposed: true, target: 10 }
     )
 
-    expect(result.scoreSummary).toBe('canonical score summary')
-    expect(dependencies.getScoreSummary).toHaveBeenCalledWith(
+    expect(result.scoreStatistics).toBe('canonical score summary')
+    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
       result.score,
       { opposed: true, target: 10 }
     )

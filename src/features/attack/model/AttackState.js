@@ -5,11 +5,11 @@ import {
 
 const COMBO_DEFAULTS = Object.freeze({
   score: null,
-  scoreSummary: null,
+  scoreStatistics: null,
   scorePresentation: null,
   scoreReady: false,
   damage: null,
-  damageSummary: null,
+  damageStatistics: null,
   damagePresentation: null,
   rangePlan: null,
   resultReady: false,
@@ -195,7 +195,7 @@ export function createAttackState() {
   return {
     scoreDisplayPresentation: null,
     totalDamage: null,
-    totalDamageSummary: null,
+    totalDamageStatistics: null,
     totalDamagePresentation: null,
     displayPresentation: null,
     totalDamageReady: false,
@@ -209,7 +209,7 @@ export function createAttackState() {
 function clearResults(state) {
   state.scoreDisplayPresentation = null
   state.totalDamage = null
-  state.totalDamageSummary = null
+  state.totalDamageStatistics = null
   state.totalDamagePresentation = null
   state.displayPresentation = null
   state.totalDamageReady = false
@@ -230,11 +230,11 @@ function clearResults(state) {
     }
     const data = ensureComboData(combo.data)
     data.score = null
-    data.scoreSummary = null
+    data.scoreStatistics = null
     data.scorePresentation = null
     data.scoreReady = false
     data.damage = null
-    data.damageSummary = null
+    data.damageStatistics = null
     data.damagePresentation = null
     data.rangePlan = null
     data.resultReady = false
@@ -338,7 +338,7 @@ function hasBatchResultShape(batchResult, presentation, combos) {
   if (isDisplayPresentation) {
     if (
       !hasOwn(batchResult, 'totalDamage')
-      || !hasOwn(batchResult, 'totalDamageSummary')
+      || !hasOwn(batchResult, 'totalDamageStatistics')
       || !isRecord(presentation.total)
     ) {
       return false
@@ -354,7 +354,7 @@ function hasBatchResultShape(batchResult, presentation, combos) {
         || !isRecord(presentedCombo)
         || !hasOwn(batchCombo, 'id')
         || !hasOwn(batchCombo, 'damage')
-        || !hasOwn(batchCombo, 'damageSummary')
+        || !hasOwn(batchCombo, 'damageStatistics')
         || !hasOwn(presentedCombo, 'id')
         || !hasOwn(presentedCombo, 'display')
         || !hasOwn(presentedCombo, 'plan')
@@ -370,9 +370,9 @@ function hasBatchResultShape(batchResult, presentation, combos) {
 
   if (
     !hasOwn(batchResult, 'totalDamage')
-    || !hasOwn(batchResult, 'totalDamageSummary')
+    || !hasOwn(batchResult, 'totalDamageStatistics')
     || !hasOwn(presentation, 'totalDamage')
-    || !hasOwn(presentation, 'totalDamageSummary')
+    || !hasOwn(presentation, 'totalDamageStatistics')
     || !hasOwn(presentation, 'totalDamagePresentation')
   ) {
     return false
@@ -393,7 +393,7 @@ function hasBatchResultShape(batchResult, presentation, combos) {
     if (
       !hasOwn(batchCombo, 'id')
       || !hasOwn(batchCombo, 'damage')
-      || !hasOwn(batchCombo, 'damageSummary')
+      || !hasOwn(batchCombo, 'damageStatistics')
       || !hasOwn(presentedCombo, 'id')
       || !hasOwn(presentedCombo, 'damagePresentation')
       || !hasOwn(presentedCombo, 'rangePlan')
@@ -438,8 +438,8 @@ export function commitAttackResult(
       score: hasOwn(presentedCombo, 'score')
         ? presentedCombo.score
         : null,
-      scoreSummary: hasOwn(presentedCombo, 'scoreSummary')
-        ? presentedCombo.scoreSummary
+      scoreStatistics: hasOwn(presentedCombo, 'scoreStatistics')
+        ? presentedCombo.scoreStatistics
         : null,
       scorePresentation: hasOwn(
         presentedCombo,
@@ -448,7 +448,7 @@ export function commitAttackResult(
         ? presentedCombo.scorePresentation
         : null,
       damage: batchCombo.damage,
-      damageSummary: batchCombo.damageSummary,
+      damageStatistics: batchCombo.damageStatistics,
       damagePresentation: isDisplayPresentation
         ? presentedCombo.display
         : presentedCombo.damagePresentation,
@@ -461,28 +461,28 @@ export function commitAttackResult(
   for (const {
     data,
     score,
-    scoreSummary,
+    scoreStatistics,
     scorePresentation,
     damage,
-    damageSummary,
+    damageStatistics,
     damagePresentation,
     rangePlan,
   } of comboValues) {
     ensureComboData(data)
     data.score = score
-    data.scoreSummary = scoreSummary
+    data.scoreStatistics = scoreStatistics
     data.scorePresentation = scorePresentation
     data.scoreReady = score !== null
       && score !== undefined
     data.damage = damage
-    data.damageSummary = damageSummary
+    data.damageStatistics = damageStatistics
     data.damagePresentation = damagePresentation
     data.rangePlan = rangePlan
     data.resultReady = true
   }
 
   state.totalDamage = batchResult.totalDamage
-  state.totalDamageSummary = batchResult.totalDamageSummary
+  state.totalDamageStatistics = batchResult.totalDamageStatistics
   state.totalDamagePresentation = isDisplayPresentation
     ? presentation.total.display
     : presentation.totalDamagePresentation

@@ -1,8 +1,8 @@
 <script setup>
 
     import {
-        formatScoreSummaryExpectedValue,
-        formatScoreSuccessRateDisplay,
+        formatScoreStatisticsExpectedValue,
+        formatCertifiedProbabilityPercentDisplay,
     } from '@/shared/presentation';
 
     const props = defineProps({
@@ -10,25 +10,25 @@
             type: Object,
             required: true,
         },
-        scoreSummary: {
+        scoreStatistics: {
             type: Object,
             default: null,
         },
     });
 
     function getSideSummary(side) {
-        return props.scoreSummary?.[side] ?? null;
+        return props.scoreStatistics?.[side] ?? null;
     }
 
     function getExpectedValue(side) {
-        return formatScoreSummaryExpectedValue(
+        return formatScoreStatisticsExpectedValue(
             getSideSummary(side)?.expectedValue
         );
     }
 
     function getSuccessRate(side) {
-        return formatScoreSuccessRateDisplay(
-            getSideSummary(side)?.successRate
+        return formatCertifiedProbabilityPercentDisplay(
+            getSideSummary(side)?.successProbability
         );
     }
 

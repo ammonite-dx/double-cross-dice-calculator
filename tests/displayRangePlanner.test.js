@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
-import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import {
   DISTRIBUTION_DISPLAY_VERSION,
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
@@ -41,7 +41,7 @@ function createDisplay(options = {}) {
     overflow: options.overflow,
   })
   const presentationOptions = {
-    summary: getDamageSummary(envelope),
+    summary: getDamageStatistics(envelope),
   }
   if (options.displayWindow !== undefined) {
     presentationOptions.displayWindow = options.displayWindow

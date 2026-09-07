@@ -67,18 +67,18 @@ describe('CalculationFeedback', () => {
         data: {
           resultReady: true,
           score: {},
-          scoreSummary: {},
+          scoreStatistics: {},
           damage: {},
-          damageSummary: {},
+          damageStatistics: {},
         },
       },
       {
         data: {
           resultReady: false,
           score: null,
-          scoreSummary: null,
+          scoreStatistics: null,
           damage: null,
-          damageSummary: null,
+          damageStatistics: null,
         },
       },
     ]
@@ -87,15 +87,15 @@ describe('CalculationFeedback', () => {
     combos[1].data = {
       resultReady: true,
       score: {},
-      scoreSummary: {},
+      scoreStatistics: {},
       damage: {},
-      damageSummary: {},
+      damageStatistics: {},
     }
     expect(areAllComboResultsReady(combos)).toBe(true)
 
     const state = createTotalDamageState({
       damage: 'old total',
-      damageSummary: 'old summary',
+      damageStatistics: 'old summary',
     })
     const staleGeneration = invalidateTotalDamage(state)
     const currentGeneration = invalidateTotalDamage(state)
@@ -103,12 +103,12 @@ describe('CalculationFeedback', () => {
     expect(state.totalDamageReady).toBe(false)
     expect(commitTotalDamage(state, staleGeneration, {
       totalDamage: 'stale total',
-      totalDamageSummary: 'stale summary',
+      totalDamageStatistics: 'stale summary',
     })).toBe(false)
     expect(state.totalDamage).toBeNull()
     expect(commitTotalDamage(state, currentGeneration, {
       totalDamage: 'current total',
-      totalDamageSummary: 'current summary',
+      totalDamageStatistics: 'current summary',
     })).toBe(true)
     expect(state.totalDamageReady).toBe(true)
     expect(state.totalDamage).toBe('current total')

@@ -13,9 +13,9 @@ import {
 } from '../src/shared/presentation'
 import {
   createDistributionResult,
-  getTotalDamageSummary,
+  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
-import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import {
   sumDamage,
 } from '../src/calculation/DamageAggregation'
@@ -57,23 +57,23 @@ function createBatch(damages, options = {}) {
   const combos = damages.map((damage, index) => ({
     id: options.ids?.[index] ?? `combo-${index + 1}`,
     score: createScore((index + 1) / (damages.length + 1)),
-    scoreSummary: {
+    scoreStatistics: {
       action: { expectedValue: index + 1 },
       reaction: { expectedValue: index + 2 },
     },
     damage,
-    damageSummary: getDamageSummary(damage),
+    damageStatistics: getDamageStatistics(damage),
     ...(options.legacyFields ? {
       canonicalDamage: { distribution: ['retired'] },
-      canonicalDamageSummary: { expectedValue: 'retired' },
+      canonicalDamageStatistics: { expectedValue: 'retired' },
     } : {}),
   }))
   const totalDamage = sumDamage(damages)
   return {
     combos,
     totalDamage,
-    totalDamageSummary:
-      getTotalDamageSummary(totalDamage),
+    totalDamageStatistics:
+      getTotalDamageStatistics(totalDamage),
   }
 }
 
@@ -132,11 +132,11 @@ describe('createAttackPresentation', () => {
         expectedValue: { kind: 'exact', value: 4 },
       })
     expect(presentation.combos[0].damage).toBe(firstDamage)
-    expect(presentation.combos[0].damageSummary)
-      .toBe(batch.combos[0].damageSummary)
+    expect(presentation.combos[0].damageStatistics)
+      .toBe(batch.combos[0].damageStatistics)
     expect(presentation.totalDamage).toBe(batch.totalDamage)
-    expect(presentation.totalDamageSummary)
-      .toBe(batch.totalDamageSummary)
+    expect(presentation.totalDamageStatistics)
+      .toBe(batch.totalDamageStatistics)
   })
 
   it('maps planner warnings one-to-one and flattens total warnings by entry id', () => {
@@ -228,17 +228,17 @@ describe('createAttackPresentation', () => {
     },
   ])('keeps $label summary semantics without recomputation', ({ damage, expected }) => {
     const batch = createBatch([damage])
-    const summary = batch.combos[0].damageSummary
-    const totalSummary = batch.totalDamageSummary
+    const summary = batch.combos[0].damageStatistics
+    const totalSummary = batch.totalDamageStatistics
     const presentation = createAttackPresentation(
       batch,
       [createPlan()]
     )
 
-    expect(presentation.combos[0].damageSummary).toBe(summary)
+    expect(presentation.combos[0].damageStatistics).toBe(summary)
     expect(presentation.combos[0].damagePresentation.expectedValue)
       .toEqual(expected)
-    expect(presentation.totalDamageSummary).toBe(totalSummary)
+    expect(presentation.totalDamageStatistics).toBe(totalSummary)
     expect(presentation.totalDamagePresentation.expectedValue)
       .toEqual(expected)
   })
@@ -276,8 +276,8 @@ describe('createAttackPresentation', () => {
     const batch = {
       combos: [],
       totalDamage,
-      totalDamageSummary:
-        getTotalDamageSummary(totalDamage),
+      totalDamageStatistics:
+        getTotalDamageStatistics(totalDamage),
     }
 
     const presentation = createAttackPresentation(batch)
@@ -301,7 +301,7 @@ describe('createAttackPresentation', () => {
       scores: [{ tail: { bound: 0.01 } }],
     })
     const scoreBefore = JSON.parse(JSON.stringify(batch.combos[0].score))
-    const summaryBefore = JSON.parse(JSON.stringify(batch.combos[0].scoreSummary))
+    const summaryBefore = JSON.parse(JSON.stringify(batch.combos[0].scoreStatistics))
     const planBefore = JSON.parse(JSON.stringify(plan))
 
     const presentation = createAttackPresentation(batch, [plan])
@@ -309,18 +309,18 @@ describe('createAttackPresentation', () => {
     expect(presentation.combos).not.toBe(batch.combos)
     expect(presentation.combos[0]).not.toBe(batch.combos[0])
     expect(presentation.combos[0].score).not.toBe(batch.combos[0].score)
-    expect(presentation.combos[0].scoreSummary)
-      .not.toBe(batch.combos[0].scoreSummary)
+    expect(presentation.combos[0].scoreStatistics)
+      .not.toBe(batch.combos[0].scoreStatistics)
     expect(presentation.combos[0].rangePlan).not.toBe(plan)
     expect(presentation.combos[0].damage).toBe(damage)
-    expect(presentation.combos[0].damageSummary)
-      .toBe(batch.combos[0].damageSummary)
+    expect(presentation.combos[0].damageStatistics)
+      .toBe(batch.combos[0].damageStatistics)
     expect(presentation.combos[0]).not.toHaveProperty('canonicalDamage')
-    expect(presentation.combos[0]).not.toHaveProperty('canonicalDamageSummary')
+    expect(presentation.combos[0]).not.toHaveProperty('canonicalDamageStatistics')
     expect(batch.combos[0]).not.toHaveProperty('damagePresentation')
 
     expect(batch.combos[0].score).toEqual(JSON.parse(JSON.stringify(scoreBefore)))
-    expect(batch.combos[0].scoreSummary)
+    expect(batch.combos[0].scoreStatistics)
       .toEqual(JSON.parse(JSON.stringify(summaryBefore)))
     expect(plan).toEqual(JSON.parse(JSON.stringify(planBefore)))
   })
@@ -376,7 +376,7 @@ describe('createAttackPresentation', () => {
     expect(() => createAttackPresentation({
       combos: [{}],
       totalDamage: batch.totalDamage,
-      totalDamageSummary: batch.totalDamageSummary,
+      totalDamageStatistics: batch.totalDamageStatistics,
     }, [createPlan()])).toThrow(
       expect.objectContaining({
         code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO,
@@ -390,7 +390,7 @@ describe('createAttackPresentation', () => {
       ...batch,
       combos: [{
         ...batch.combos[0],
-        damageSummary: {},
+        damageStatistics: {},
       }],
     }
 
@@ -563,8 +563,8 @@ describe('createAttackPresentation', () => {
     expect(Object.isFrozen(combo.score)).toBe(true)
     expect(Object.isFrozen(combo.score.action)).toBe(true)
     expect(Object.isFrozen(combo.score.action.distribution)).toBe(true)
-    expect(Object.isFrozen(combo.scoreSummary)).toBe(true)
-    expect(Object.isFrozen(combo.scoreSummary.action)).toBe(true)
+    expect(Object.isFrozen(combo.scoreStatistics)).toBe(true)
+    expect(Object.isFrozen(combo.scoreStatistics.action)).toBe(true)
     expect(Object.isFrozen(combo.rangePlan)).toBe(true)
     expect(Object.isFrozen(combo.rangePlan.scores)).toBe(true)
     expect(Object.isFrozen(combo.rangePlan.scores[0])).toBe(true)

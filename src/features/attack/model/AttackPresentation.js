@@ -1,5 +1,5 @@
 import {
-  getExpectedValueSummary,
+  getCertifiedExpectedValue,
   getProbabilityMassSummary,
 } from '../../../calculation/DistributionResult'
 import {
@@ -312,9 +312,9 @@ function snapshotBatchResult(batchResult) {
     'batchResult',
     ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
   )
-  const totalDamageSummary = requireOwnDataProperty(
+  const totalDamageStatistics = requireOwnDataProperty(
     batchResult,
-    'totalDamageSummary',
+    'totalDamageStatistics',
     'batchResult',
     ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
   )
@@ -351,9 +351,9 @@ function snapshotBatchResult(batchResult) {
       `batchResult.combos[${index}]`,
       ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
-    const scoreSummary = requireOwnDataProperty(
+    const scoreStatistics = requireOwnDataProperty(
       combo,
-      'scoreSummary',
+      'scoreStatistics',
       `batchResult.combos[${index}]`,
       ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
@@ -363,9 +363,9 @@ function snapshotBatchResult(batchResult) {
       `batchResult.combos[${index}]`,
       ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
-    const damageSummary = requireOwnDataProperty(
+    const damageStatistics = requireOwnDataProperty(
       combo,
-      'damageSummary',
+      'damageStatistics',
       `batchResult.combos[${index}]`,
       ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY
     )
@@ -373,16 +373,16 @@ function snapshotBatchResult(batchResult) {
     comboSnapshots.push({
       id,
       score,
-      scoreSummary,
+      scoreStatistics,
       damage,
-      damageSummary,
+      damageStatistics,
     })
   }
 
   return {
     combos: comboSnapshots,
     totalDamage,
-    totalDamageSummary,
+    totalDamageStatistics,
   }
 }
 
@@ -839,7 +839,7 @@ function createScoreSidePresentation(envelope) {
 
   const summary = {
     mass: getProbabilityMassSummary(envelope.result),
-    expectedValue: getExpectedValueSummary(envelope.result),
+    expectedValue: getCertifiedExpectedValue(envelope.result),
   }
   return presentDistribution(envelope, { summary })
 }
@@ -1173,7 +1173,7 @@ export function createAttackPresentation(
     const damagePresentation = presentDistribution(
       combo.damage,
       {
-        summary: combo.damageSummary,
+        summary: combo.damageStatistics,
         warnings: rangePlan.warnings,
       }
     )
@@ -1187,9 +1187,9 @@ export function createAttackPresentation(
       `batchResult.combos[${index}].score`,
       ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
-    const scoreSummary = cloneAndFreeze(
-      combo.scoreSummary,
-      `batchResult.combos[${index}].scoreSummary`,
+    const scoreStatistics = cloneAndFreeze(
+      combo.scoreStatistics,
+      `batchResult.combos[${index}].scoreStatistics`,
       ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
     )
     const scorePresentation = createScorePresentation(
@@ -1199,10 +1199,10 @@ export function createAttackPresentation(
     combos.push(Object.freeze({
       id: combo.id,
       score,
-      scoreSummary,
+      scoreStatistics,
       scorePresentation,
       damage: combo.damage,
-      damageSummary: combo.damageSummary,
+      damageStatistics: combo.damageStatistics,
       damagePresentation,
       rangePlan: copyRangePlan(
         rangePlan.plan,
@@ -1215,7 +1215,7 @@ export function createAttackPresentation(
   const totalDamagePresentation = presentDistribution(
     snapshot.totalDamage,
     {
-      summary: snapshot.totalDamageSummary,
+      summary: snapshot.totalDamageStatistics,
       warnings: totalWarnings,
     }
   )
@@ -1223,7 +1223,7 @@ export function createAttackPresentation(
   return Object.freeze({
     combos: Object.freeze(combos),
     totalDamage: snapshot.totalDamage,
-    totalDamageSummary: snapshot.totalDamageSummary,
+    totalDamageStatistics: snapshot.totalDamageStatistics,
     totalDamagePresentation,
   })
 }
@@ -1255,7 +1255,7 @@ function buildAttackDisplayPresentationFrom(
     }
     return Object.freeze({
       id: combo.id,
-      scoreSummary: combo.scoreSummary,
+      scoreStatistics: combo.scoreStatistics,
       ...scorePresentation,
     })
   })
@@ -1272,7 +1272,7 @@ function buildAttackDisplayPresentationFrom(
       // lane while `plan` remains the display-window plan.
       rangePlan: combo.rangePlan,
       score: combo.score ?? null,
-      scoreSummary: combo.scoreSummary ?? null,
+      scoreStatistics: combo.scoreStatistics ?? null,
       scorePresentation: combo.scorePresentation ?? null,
       scoreDisplay: scoreCombos[index],
     })

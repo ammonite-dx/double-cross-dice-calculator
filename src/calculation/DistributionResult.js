@@ -1,3 +1,9 @@
+import {
+  createBoundedCertifiedValue,
+  createExactCertifiedValue,
+  createLowerBoundCertifiedValue,
+} from '../domain/CertifiedValue'
+
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const FLOAT64_BYTES = Float64Array.BYTES_PER_ELEMENT
 
@@ -577,18 +583,6 @@ function sumExplicitFirstMoment(values, offset) {
   return firstMoment
 }
 
-function createExactExpectedValue(value) {
-  return Object.freeze({ kind: 'exact', value })
-}
-
-function createBoundedExpectedValue(lowerBound, upperBound) {
-  return Object.freeze({ kind: 'bounded', lowerBound, upperBound })
-}
-
-function createLowerBoundExpectedValue(lowerBound) {
-  return Object.freeze({ kind: 'lower-bound', lowerBound })
-}
-
 /**
  * Summarize the expected value without assigning a point value to overflow.
  *
@@ -597,13 +591,13 @@ function createLowerBoundExpectedValue(lowerBound) {
  * the result retains the strongest safe interval or lower bound available.
  * Upper-bound overflow is never treated as actual probability mass.
  */
-export function getExpectedValueSummary(result) {
+export function getCertifiedExpectedValue(result) {
   const inspected = inspectDistributionResult(result)
   const { values, offset, support, overflow } = inspected
   const explicitFirstMoment = sumExplicitFirstMoment(values, offset)
 
   if (overflow === null) {
-    return createExactExpectedValue(explicitFirstMoment)
+    return createExactCertifiedValue(explicitFirstMoment)
   }
 
   if (overflow.kind === 'exact') {
@@ -614,30 +608,30 @@ export function getExpectedValueSummary(result) {
       const upperExpectedValue = explicitFirstMoment
         + overflow.probability * support.max
       if (overflow.probability === 0 || overflow.lowerBound === support.max) {
-        return createExactExpectedValue(lowerExpectedValue)
+        return createExactCertifiedValue(lowerExpectedValue)
       }
-      return createBoundedExpectedValue(
+      return createBoundedCertifiedValue(
         lowerExpectedValue,
         upperExpectedValue
       )
     }
 
     if (overflow.probability === 0) {
-      return createExactExpectedValue(explicitFirstMoment)
+      return createExactCertifiedValue(explicitFirstMoment)
     }
-    return createLowerBoundExpectedValue(lowerExpectedValue)
+    return createLowerBoundCertifiedValue(lowerExpectedValue)
   }
 
   if (overflow.probabilityUpperBound === 0) {
-    return createExactExpectedValue(explicitFirstMoment)
+    return createExactCertifiedValue(explicitFirstMoment)
   }
   if (support.kind === 'finite') {
-    return createBoundedExpectedValue(
+    return createBoundedCertifiedValue(
       explicitFirstMoment,
       explicitFirstMoment + overflow.probabilityUpperBound * support.max
     )
   }
-  return createLowerBoundExpectedValue(explicitFirstMoment)
+  return createLowerBoundCertifiedValue(explicitFirstMoment)
 }
 
 function validateTotalDamageEnvelope(totalDamage) {
@@ -688,13 +682,13 @@ function validateTotalDamageEnvelope(totalDamage) {
  * deriving their expected-value lower bound; numerical drift and error bounds
  * remain diagnostics and never widen the returned interval.
  */
-export function getTotalDamageSummary(totalDamage) {
+export function getTotalDamageStatistics(totalDamage) {
   const inspected = validateTotalDamageEnvelope(totalDamage)
   const { result, metadata } = totalDamage
 
   if (inspected.overflow?.kind !== 'upper-bound') {
     return Object.freeze({
-      expectedValue: getExpectedValueSummary(result),
+      expectedValue: getCertifiedExpectedValue(result),
       mass: getProbabilityMassSummary(result),
     })
   }
@@ -723,7 +717,7 @@ export function getTotalDamageSummary(totalDamage) {
 
   let expectedValue
   if (inspected.overflow.probabilityUpperBound === 0) {
-    expectedValue = createExactExpectedValue(explicitFirstMoment)
+    expectedValue = createExactCertifiedValue(explicitFirstMoment)
   } else if (inspected.support.kind === 'finite') {
     const upperExpectedValue = explicitFirstMoment
       + inspected.overflow.probabilityUpperBound * inspected.support.max
@@ -734,12 +728,12 @@ export function getTotalDamageSummary(totalDamage) {
         { upperExpectedValue }
       )
     }
-    expectedValue = createBoundedExpectedValue(
+    expectedValue = createBoundedCertifiedValue(
       lowerExpectedValue,
       upperExpectedValue
     )
   } else {
-    expectedValue = createLowerBoundExpectedValue(lowerExpectedValue)
+    expectedValue = createLowerBoundCertifiedValue(lowerExpectedValue)
   }
 
   return Object.freeze({

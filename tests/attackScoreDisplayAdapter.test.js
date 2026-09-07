@@ -18,10 +18,10 @@ import {
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
-  getTotalDamageSummary,
+  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
 import {
-  getDamageSummary,
+  getDamageStatistics,
 } from '../src/calculation/DamageCalculator'
 import {
   calculateDxDistribution,
@@ -40,10 +40,10 @@ import {
 import {
   SUMMARY_UNAVAILABLE,
   formatSummaryExpectedValue,
-  formatScoreSuccessRate,
-  formatScoreSuccessRateDisplay,
-  formatScoreSummaryExpectedValue,
-  getScoreSummaryForCombo,
+  formatCertifiedProbabilityPercent,
+  formatCertifiedProbabilityPercentDisplay,
+  formatScoreStatisticsExpectedValue,
+  getScoreStatisticsForCombo,
 } from '../src/features/attack/ui/SummaryTable'
 
 function calculateScoreWithProvider(
@@ -76,7 +76,7 @@ function createEnvelope(values, supportMax = values.length - 1) {
     metadata: {
       modeledDistribution: true,
       sourceSupport: { kind: 'finite', max: supportMax },
-      failureProbability: 0,
+      automaticFailureProbability: 0,
     },
   }
 }
@@ -144,15 +144,15 @@ function createBatch(scoreAction, scoreReaction = scoreAction) {
         action: scoreAction,
         reaction: scoreReaction,
       },
-      scoreSummary: {
-        action: { expectedValue: 123, successRate: 45.6 },
-        reaction: { expectedValue: 456, successRate: 54.4 },
+      scoreStatistics: {
+        action: { expectedValue: 123, successProbability: 45.6 },
+        reaction: { expectedValue: 456, successProbability: 54.4 },
       },
       damage: damage,
-      damageSummary: getDamageSummary(damage),
+      damageStatistics: getDamageStatistics(damage),
     }],
     totalDamage: total,
-    totalDamageSummary: getTotalDamageSummary(total),
+    totalDamageStatistics: getTotalDamageStatistics(total),
   }
 }
 
@@ -175,8 +175,8 @@ describe('Attack canonical score display adapter', () => {
       }),
       calculateDxDistribution,
       calculateScore: calculateScoreWithProvider,
-      getDamageSummary,
-      getTotalDamageSummary,
+      getDamageStatistics,
+      getTotalDamageStatistics,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
       planCalculationRanges: vi.fn(() => ({
@@ -224,7 +224,7 @@ describe('Attack canonical score display adapter', () => {
     expect(result.combos[0].score.action.result).toBeDefined()
     expect(result.combos[0].score.action.metadata.modeledDistribution)
       .toBe(true)
-    expect(result.combos[0].scoreSummary.action.expectedValue).toEqual({
+    expect(result.combos[0].scoreStatistics.action.expectedValue).toEqual({
       kind: 'exact',
       value: 0,
     })
@@ -250,8 +250,8 @@ describe('Attack canonical score display adapter', () => {
       calculateDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
       calculateScore: calculateScoreWithProvider,
-      getDamageSummary,
-      getTotalDamageSummary,
+      getDamageStatistics,
+      getTotalDamageStatistics,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
       planCalculationRanges: vi.fn((_params, policy = {}) => {
@@ -321,7 +321,7 @@ describe('Attack canonical score display adapter', () => {
       combos: currentState.combos.map((combo) => ({
         id: combo.id,
         score: combo.data.score,
-        scoreSummary: combo.data.scoreSummary,
+        scoreStatistics: combo.data.scoreStatistics,
         scoreBatchSummary: combo.data.scoreBatchSummary,
         scorePresentation: combo.data.scorePresentation,
         damagePresentation:
@@ -436,18 +436,18 @@ describe('Attack canonical score display adapter', () => {
     const summary = {
       action: {
         expectedValue: { kind: 'exact', value: 12.34 },
-        successRate: { kind: 'exact', value: 56.7 },
+        successProbability: { kind: 'exact', value: 0.567 },
       },
       reaction: {
         expectedValue: { kind: 'exact', value: 7 },
-        successRate: { kind: 'exact', value: 43.3 },
+        successProbability: { kind: 'exact', value: 0.433 },
       },
     }
     const scorePresentation = {
       status: 'ready',
       combos: [{
       id: 0,
-        scoreSummary: summary,
+        scoreStatistics: summary,
         action: {
           display: {
             expectedValue: { kind: 'exact', value: 999 },
@@ -456,91 +456,91 @@ describe('Attack canonical score display adapter', () => {
       }],
     }
 
-    expect(getScoreSummaryForCombo(scorePresentation, 0))
+    expect(getScoreStatisticsForCombo(scorePresentation, 0))
       .toBe(summary)
-    expect(formatScoreSummaryExpectedValue(
+    expect(formatScoreStatisticsExpectedValue(
       summary.action.expectedValue
     )).toBe(12.3)
-    expect(formatScoreSuccessRate(summary.action.successRate))
+    expect(formatCertifiedProbabilityPercent(summary.action.successProbability))
       .toBe(56.7)
-    expect(formatScoreSuccessRateDisplay(summary.action.successRate))
+    expect(formatCertifiedProbabilityPercentDisplay(summary.action.successProbability))
       .toBe('56.7%')
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'bounded',
       lowerBound: 1,
       upperBound: 2,
     })).toBe('—')
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'lower-bound',
       lowerBound: 1,
     })).toBe('—')
-    expect(formatScoreSuccessRate({
+    expect(formatCertifiedProbabilityPercent({
       kind: 'bounded',
       lowerBound: 0,
-      upperBound: 100,
+      upperBound: 1,
     })).toBe('—')
-    expect(formatScoreSuccessRate({
+    expect(formatCertifiedProbabilityPercent({
       kind: 'lower-bound',
       lowerBound: 0,
     })).toBe('—')
-    expect(formatScoreSuccessRateDisplay({
+    expect(formatCertifiedProbabilityPercentDisplay({
       kind: 'lower-bound',
       lowerBound: 0,
     })).toBe('—')
   })
 
   it('displays bounded score values only when both rounded bounds agree', () => {
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'bounded',
       lowerBound: 6.011111,
       upperBound: 6.011112,
     })).toBe(6)
-    expect(formatScoreSuccessRate({
+    expect(formatCertifiedProbabilityPercent({
       kind: 'bounded',
-      lowerBound: 45.4545,
-      upperBound: 45.4546,
+      lowerBound: 0.454545,
+      upperBound: 0.454546,
     })).toBe(45.5)
-    expect(formatScoreSuccessRateDisplay({
+    expect(formatCertifiedProbabilityPercentDisplay({
       kind: 'bounded',
-      lowerBound: 45.4545,
-      upperBound: 45.4546,
+      lowerBound: 0.454545,
+      upperBound: 0.454546,
     })).toBe('45.5%')
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'bounded',
       lowerBound: 6.04,
       upperBound: 6.06,
     })).toBe('—')
-    expect(formatScoreSuccessRate({
+    expect(formatCertifiedProbabilityPercent({
       kind: 'bounded',
-      lowerBound: 45.04,
-      upperBound: 45.06,
+      lowerBound: 0.4504,
+      upperBound: 0.4506,
     })).toBe('—')
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'bounded',
       lowerBound: 6.05,
       upperBound: 6.05,
     })).toBe(6.1)
-    expect(formatScoreSuccessRate({
+    expect(formatCertifiedProbabilityPercent({
       kind: 'bounded',
-      lowerBound: 45.05,
-      upperBound: 45.05,
+      lowerBound: 0.4505,
+      upperBound: 0.4505,
     })).toBe(45.1)
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'bounded',
       lowerBound: 6.049999999,
       upperBound: 6.05,
     })).toBe('—')
-    expect(formatScoreSuccessRate({
+    expect(formatCertifiedProbabilityPercent({
       kind: 'bounded',
-      lowerBound: 45.049999999,
-      upperBound: 45.05,
+      lowerBound: 0.450499999,
+      upperBound: 0.4505,
     })).toBe('—')
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'bounded',
       lowerBound: -0.05,
       upperBound: -0.05,
     })).toBe(0)
-    expect(formatScoreSummaryExpectedValue({
+    expect(formatScoreStatisticsExpectedValue({
       kind: 'exact',
       value: 6.04,
     })).toBe(6)
@@ -637,8 +637,8 @@ describe('Attack canonical score display adapter', () => {
       calculateDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
       calculateScore: calculateScoreWithProvider,
-      getDamageSummary,
-      getTotalDamageSummary,
+      getDamageStatistics,
+      getTotalDamageStatistics,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
       sumDamage,
@@ -664,17 +664,17 @@ describe('Attack canonical score display adapter', () => {
       scoreDisplayRequest: { min: 0, max: 100, mode: ATTACK_DISPLAY_MODES.PMF },
       rangePlans,
     })
-    const summary = getScoreSummaryForCombo(
+    const summary = getScoreStatisticsForCombo(
       presentation.score,
       'default-summary'
     )
 
-    expect(formatScoreSummaryExpectedValue(
+    expect(formatScoreStatisticsExpectedValue(
       summary.action.expectedValue
     )).toBe(6)
-    expect(formatScoreSuccessRate(summary.action.successRate))
+    expect(formatCertifiedProbabilityPercent(summary.action.successProbability))
       .toBe(45.5)
-    expect(formatScoreSuccessRate(summary.reaction.successRate))
+    expect(formatCertifiedProbabilityPercent(summary.reaction.successProbability))
       .toBe(54.5)
   })
 
@@ -692,8 +692,8 @@ describe('Attack canonical score display adapter', () => {
         calculateDamageOnDemand: vi.fn(async () => damage),
         calculateDxDistribution,
         calculateScore: calculateScoreWithProvider,
-        getDamageSummary,
-        getTotalDamageSummary,
+        getDamageStatistics,
+        getTotalDamageStatistics,
         getDamageRollDistribution: vi.fn(),
         getD10Distribution: vi.fn(),
         sumDamage,
@@ -723,7 +723,7 @@ describe('Attack canonical score display adapter', () => {
         },
       ], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
 
-      const summary = result.combos[0].scoreSummary
+      const summary = result.combos[0].scoreStatistics
       expect(summary.action.expectedValue.kind, label)
         .toBe('lower-bound')
       expect(summary.reaction.expectedValue.kind, label)
@@ -742,17 +742,17 @@ describe('Attack canonical score display adapter', () => {
         },
         rangePlans,
       })
-      const scoreSummary = getScoreSummaryForCombo(
+      const scoreStatistics = getScoreStatisticsForCombo(
         presentation.score,
         label
       )
       expect(presentation.status, label).toBe('ready')
       expect(presentation.score.status, label).toBe('ready')
-      expect(formatScoreSummaryExpectedValue(
-        scoreSummary.action.expectedValue
+      expect(formatScoreStatisticsExpectedValue(
+        scoreStatistics.action.expectedValue
       ), label).toBe('—')
-      expect(formatScoreSummaryExpectedValue(
-        scoreSummary.reaction.expectedValue
+      expect(formatScoreStatisticsExpectedValue(
+        scoreStatistics.reaction.expectedValue
       ), label).toBe('—')
       expect(getAttackScoreChartData(presentation, [
         { id: label, name: label },
@@ -767,8 +767,8 @@ describe('Attack canonical score display adapter', () => {
       calculateDamageOnDemand: vi.fn(async () => damage),
       calculateDxDistribution,
       calculateScore: calculateScoreWithProvider,
-      getDamageSummary,
-      getTotalDamageSummary,
+      getDamageStatistics,
+      getTotalDamageStatistics,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
       sumDamage,
@@ -805,17 +805,17 @@ describe('Attack canonical score display adapter', () => {
       scoreDisplayRequest: { min: 0, max: 100, mode: ATTACK_DISPLAY_MODES.PMF },
       rangePlans,
     })
-    const summary = getScoreSummaryForCombo(
+    const summary = getScoreStatisticsForCombo(
       presentation.score,
       'finite-critical-11'
     )
 
     expect(summary.action.expectedValue.kind).toBe('exact')
     expect(summary.reaction.expectedValue.kind).toBe('exact')
-    expect(formatScoreSummaryExpectedValue(
+    expect(formatScoreStatisticsExpectedValue(
       summary.action.expectedValue
     )).toBe(5.4)
-    expect(formatScoreSummaryExpectedValue(
+    expect(formatScoreStatisticsExpectedValue(
       summary.reaction.expectedValue
     )).toBe(5.4)
     expect(presentation.score.status).toBe('ready')
@@ -850,7 +850,7 @@ describe('Attack canonical score display adapter', () => {
       combos: currentState.combos.map((combo) => ({
         id: combo.id,
         score: combo.data.score,
-        scoreSummary: combo.data.scoreSummary,
+        scoreStatistics: combo.data.scoreStatistics,
         scoreBatchSummary: combo.data.scoreBatchSummary,
         scorePresentation: combo.data.scorePresentation,
         damagePresentation: combo.data.damagePresentation,
@@ -893,7 +893,7 @@ describe('Attack canonical score display adapter', () => {
     })).toBe(true)
     expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
     expect(state.displayPresentation.status).toBe('ready')
-    expect(getScoreSummaryForCombo(
+    expect(getScoreStatisticsForCombo(
       state.scoreDisplayPresentation,
       0
     )).toBeNull()

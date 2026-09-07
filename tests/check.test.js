@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
-  getScoreSummary,
+  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
@@ -38,23 +38,26 @@ function createScoreEnvelope({
   offset = 0,
   support = { kind: 'finite', max: 0 },
   overflow = null,
-  failureProbability = 0,
+  automaticFailureProbability = 0,
 } = {}) {
   return Object.freeze({
     result: createDistributionResult({ values, offset, support, overflow }),
-    metadata: Object.freeze({ modeledDistribution: true, failureProbability }),
+    metadata: Object.freeze({
+      modeledDistribution: true,
+      automaticFailureProbability,
+    }),
   })
 }
 
-function createScoreSummary() {
+function createScoreStatistics() {
   return {
     action: {
       expectedValue: { kind: 'exact', value: 0 },
-      successRate: { kind: 'exact', value: 0 },
+      successProbability: { kind: 'exact', value: 0 },
     },
     reaction: {
       expectedValue: { kind: 'exact', value: 0 },
-      successRate: { kind: 'exact', value: 0 },
+      successProbability: { kind: 'exact', value: 0 },
     },
   }
 }
@@ -139,7 +142,7 @@ describe('canonical normal check score producer', () => {
       max: fixedScore,
     })
     expect(envelope.result.overflow).toBeNull()
-    expect(envelope.metadata.failureProbability).toBe(0)
+    expect(envelope.metadata.automaticFailureProbability).toBe(0)
     expect(envelope.metadata.modeledDistribution).toBe(true)
   })
 
@@ -175,7 +178,7 @@ describe('canonical normal check score producer', () => {
     })
     expect(validateDistributionResult(result)).toBe(true)
     expect(envelope.metadata.modeledDistribution).toBe(true)
-    expect(envelope.metadata.failureProbability).toBeCloseTo(0.3, 12)
+    expect(envelope.metadata.automaticFailureProbability).toBeCloseTo(0.3, 12)
     expect(Object.isFrozen(envelope)).toBe(true)
     expect(Object.isFrozen(envelope.metadata)).toBe(true)
   })
@@ -241,7 +244,7 @@ describe('canonical normal check score producer', () => {
   it('certifies the default two-sided DX expectation and success intervals', () => {
     const action = calculate(scoreParams())
     const reaction = calculate(scoreParams())
-    const summary = getScoreSummary({
+    const summary = getScoreStatistics({
       action: action.envelope,
       reaction: reaction.envelope,
     })
@@ -274,30 +277,30 @@ describe('canonical normal check score producer', () => {
       .toBeLessThanOrEqual(6.0111111112)
     expect(summary.action.expectedValue.upperBound)
       .toBeGreaterThanOrEqual(6.0111111110)
-    expect(summary.action.successRate.kind).toBe('bounded')
-    expect(summary.action.successRate.lowerBound)
-      .toBeLessThanOrEqual(45.45454546)
-    expect(summary.action.successRate.upperBound)
-      .toBeGreaterThanOrEqual(45.45454544)
-    expect(summary.reaction.successRate.lowerBound)
-      .toBeLessThanOrEqual(54.54545456)
-    expect(summary.reaction.successRate.upperBound)
-      .toBeGreaterThanOrEqual(54.54545454)
+    expect(summary.action.successProbability.kind).toBe('bounded')
+    expect(summary.action.successProbability.lowerBound)
+      .toBeLessThanOrEqual(0.45454546)
+    expect(summary.action.successProbability.upperBound)
+      .toBeGreaterThanOrEqual(0.45454544)
+    expect(summary.reaction.successProbability.lowerBound)
+      .toBeLessThanOrEqual(0.54545456)
+    expect(summary.reaction.successProbability.upperBound)
+      .toBeGreaterThanOrEqual(0.54545454)
   })
 
   it('uses the score tail certificate for fixed-difficulty success rates', () => {
     const params = scoreParams({ dice: 10, critical: 7 })
     const calculated = calculate(params)
-    const summary = getScoreSummary({
+    const summary = getScoreStatistics({
       action: calculated.envelope,
       reaction: calculated.envelope,
     }, { opposed: false, target: 10 })
-    const successRate = summary.action.successRate
+    const successProbability = summary.action.successProbability
 
-    expect(successRate.kind).toBe('bounded')
-    expect(successRate.lowerBound).toBeGreaterThan(99)
-    expect(successRate.upperBound).toBeLessThanOrEqual(100)
-    expect(successRate.upperBound - successRate.lowerBound)
+    expect(successProbability.kind).toBe('bounded')
+    expect(successProbability.lowerBound).toBeGreaterThan(0.99)
+    expect(successProbability.upperBound).toBeLessThanOrEqual(1)
+    expect(successProbability.upperBound - successProbability.lowerBound)
       .toBeLessThan(1)
   })
 
@@ -308,7 +311,7 @@ describe('canonical normal check score producer', () => {
       scoreParams({ yousei: 1 }),
     ]) {
       const calculated = calculate(params)
-      const summary = getScoreSummary({
+      const summary = getScoreStatistics({
         action: calculated.envelope,
         reaction: calculated.envelope,
       })
@@ -462,7 +465,7 @@ describe('canonical normal check score producer', () => {
     expect(validateDistributionResult(result.score.reaction.result)).toBe(true)
     expect(result.score.action.metadata.modeledDistribution).toBe(true)
     expect(result.score.reaction.metadata.modeledDistribution).toBe(true)
-    expect(result).toHaveProperty('scoreSummary')
+    expect(result).toHaveProperty('scoreStatistics')
   })
 
   it('extends canonical Check score coverage beyond the legacy display range', async () => {
@@ -502,7 +505,7 @@ function createClientDependencies(overrides = {}) {
   return {
     calculateScore: vi.fn(() => createScoreEnvelope()),
     calculateDxDistribution: vi.fn(),
-    getScoreSummary: vi.fn(() => createScoreSummary()),
+    getScoreStatistics: vi.fn(() => createScoreStatistics()),
     planCalculationRanges: vi.fn(() => plan),
     resourceGuard,
     ...overrides,
@@ -564,7 +567,7 @@ describe('CalculationClient canonical normal check API', () => {
       expect.any(Function),
       dependencies.plan.scores[1]
     )
-    expect(dependencies.getScoreSummary).toHaveBeenCalledWith(
+    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
       result.score,
       { opposed: true, target: 0 }
     )
@@ -612,12 +615,12 @@ describe('CalculationClient canonical normal check API', () => {
         probability: 0.6,
         errorBound: 0,
       },
-      failureProbability: 0.25,
+      automaticFailureProbability: 0.25,
     })
-    const Summary = createScoreSummary()
+    const Summary = createScoreStatistics()
     const dependencies = createClientDependencies({
       calculateScore: vi.fn(() => safeEnvelope),
-      getScoreSummary: vi.fn(() => Summary),
+      getScoreStatistics: vi.fn(() => Summary),
     })
     const client = createCalculationClient(dependencies)
 
@@ -626,8 +629,8 @@ describe('CalculationClient canonical normal check API', () => {
       { opposed: false, target: 0 }
     )
     expect(result.score.action).toBe(safeEnvelope)
-    expect(result.scoreSummary).toBe(Summary)
-    expect(dependencies.getScoreSummary).toHaveBeenCalledWith(
+    expect(result.scoreStatistics).toBe(Summary)
+    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
       { action: safeEnvelope, reaction: safeEnvelope },
       { opposed: false, target: 0 }
     )
@@ -652,18 +655,18 @@ describe('CalculationClient canonical normal check API', () => {
       support: { kind: 'infinite' },
       overflow,
     })
-    const Summary = createScoreSummary()
+    const Summary = createScoreStatistics()
     const dependencies = createClientDependencies({
       calculateScore: vi.fn(() => unsafeEnvelope),
-      getScoreSummary: vi.fn(() => Summary),
+      getScoreStatistics: vi.fn(() => Summary),
     })
     const client = createCalculationClient(dependencies)
 
     await expect(client.calculateCheck(
       checkParams(),
       { opposed: true, target: 0 }
-    )).resolves.toMatchObject({ scoreSummary: Summary })
-    expect(dependencies.getScoreSummary).toHaveBeenCalledOnce()
+    )).resolves.toMatchObject({ scoreStatistics: Summary })
+    expect(dependencies.getScoreStatistics).toHaveBeenCalledOnce()
   })
 
   it('aborts after admission and always releases the lease', async () => {

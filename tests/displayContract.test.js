@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
-import { getDamageSummary } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import {
   DISTRIBUTION_PRESENTATION_ERROR_CODES,
   DistributionPresentationError,
@@ -121,7 +121,7 @@ describe('shared canonical display contract golden fixtures', () => {
     ({ envelope: fixture, expected }) => {
       const envelope = createEnvelope(fixture)
       const display = presentDistribution(envelope, {
-        summary: getDamageSummary(envelope),
+        summary: getDamageStatistics(envelope),
         warnings: [{ code: `${fixture.path}-range`, severity: 'warning' }],
         displayWindow: { min: 0, max: 8 },
       })
@@ -147,14 +147,14 @@ describe('shared canonical display contract golden fixtures', () => {
     })
 
     expect(() => presentDistribution(envelope, {
-      summary: getDamageSummary(envelope),
+      summary: getDamageStatistics(envelope),
     })).toThrowError(
       expect.objectContaining({
         code: DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
       })
     )
     expect(() => presentDistribution(envelope, {
-      summary: getDamageSummary(envelope),
+      summary: getDamageStatistics(envelope),
     })).toThrow(DistributionPresentationError)
   })
 })

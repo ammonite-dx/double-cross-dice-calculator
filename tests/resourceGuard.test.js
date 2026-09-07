@@ -65,16 +65,16 @@ function createClientDependencies(overrides = {}) {
     }),
     metadata: {
       modeledDistribution: true,
-      failureProbability: 0,
+      automaticFailureProbability: 0,
       sourceSupport: { kind: 'finite', max: 0 },
     },
   }
   return {
     calculateDamageOnDemand: vi.fn(async () => Envelope),
     calculateScore: vi.fn(() => Envelope),
-    getDamageSummary: vi.fn(() => 'canonical damage summary'),
-    getScoreSummary: vi.fn(() => 'canonical score summary'),
-    getTotalDamageSummary: vi.fn(() => 'canonical total summary'),
+    getDamageStatistics: vi.fn(() => 'canonical damage summary'),
+    getScoreStatistics: vi.fn(() => 'canonical score summary'),
+    getTotalDamageStatistics: vi.fn(() => 'canonical total summary'),
     getDamageRollDistribution: vi.fn(),
     getD10Distribution: vi.fn(),
     getFinalEncroachment: vi.fn(() => 'canonical backtrack'),
@@ -576,7 +576,7 @@ describe('CalculationClient resource guard integration', () => {
     await expect(client.calculateTotalDamage([
       attack.damage,
     ])).resolves.toMatchObject({
-      totalDamageSummary: 'canonical total summary',
+      totalDamageStatistics: 'canonical total summary',
     })
     expect(resourceGuard.acquirePlan).toHaveBeenCalledTimes(2)
     expect(releases).toHaveLength(2)

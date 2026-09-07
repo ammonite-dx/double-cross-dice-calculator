@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
-  getScoreSummary,
+  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   SUMMARY_UNAVAILABLE,
-  formatScoreSummaryExpectedValue,
-  formatScoreSuccessRate,
-  formatScoreSuccessRateDisplay,
+  formatScoreStatisticsExpectedValue,
+  formatCertifiedProbabilityPercent,
+  formatCertifiedProbabilityPercentDisplay,
 } from '../src/shared/presentation'
 
 function scoreParams(overrides = {}) {
@@ -37,7 +37,7 @@ function getSummary(params, difficulty) {
     },
     plan
   )
-  return getScoreSummary({
+  return getScoreStatistics({
     action: envelope,
     reaction: envelope,
   }, difficulty)
@@ -80,34 +80,34 @@ describe('Check canonical summary formatter', () => {
     expectedValue,
     formatted
   ) => {
-    expect(formatScoreSummaryExpectedValue(expectedValue))
+    expect(formatScoreStatisticsExpectedValue(expectedValue))
       .toBe(formatted)
   })
 
   it('formats opposed and non-opposed success rates with a suffix only when numeric', () => {
-    expect(formatScoreSuccessRateDisplay({
+    expect(formatCertifiedProbabilityPercentDisplay({
       kind: 'exact',
-      value: 45.5,
+      value: 0.455,
     })).toBe('45.5%')
-    expect(formatScoreSuccessRate({
+    expect(formatCertifiedProbabilityPercent({
       kind: 'exact',
-      value: 54.5,
+      value: 0.545,
     })).toBe(54.5)
-    expect(formatScoreSuccessRateDisplay({
+    expect(formatCertifiedProbabilityPercentDisplay({
       kind: 'bounded',
-      lowerBound: 45.4545,
-      upperBound: 45.4546,
+      lowerBound: 0.454545,
+      upperBound: 0.454546,
     })).toBe('45.5%')
-    expect(formatScoreSuccessRateDisplay({
+    expect(formatCertifiedProbabilityPercentDisplay({
       kind: 'bounded',
-      lowerBound: 45.04,
-      upperBound: 45.06,
+      lowerBound: 0.4504,
+      upperBound: 0.4506,
     })).toBe(SUMMARY_UNAVAILABLE)
-    expect(formatScoreSuccessRateDisplay({
+    expect(formatCertifiedProbabilityPercentDisplay({
       kind: 'lower-bound',
       lowerBound: 45,
     })).toBe(SUMMARY_UNAVAILABLE)
-    expect(formatScoreSuccessRateDisplay(45.5))
+    expect(formatCertifiedProbabilityPercentDisplay(0.455))
       .toBe(SUMMARY_UNAVAILABLE)
   })
 
@@ -117,78 +117,78 @@ describe('Check canonical summary formatter', () => {
       params: scoreParams(),
       difficulty: { opposed: true, target: 0 },
       expectedValueKind: 'bounded',
-      successRateKind: 'bounded',
+      successProbabilityKind: 'bounded',
     },
     {
       label: 'non-opposed dice zero critical eleven',
       params: scoreParams({ dice: 0, critical: 11 }),
       difficulty: { opposed: false, target: 0 },
       expectedValueKind: 'exact',
-      successRateKind: 'exact',
+      successProbabilityKind: 'exact',
     },
     {
       label: 'critical eleven',
       params: scoreParams({ dice: 1, critical: 11 }),
       difficulty: { opposed: true, target: 0 },
       expectedValueKind: 'exact',
-      successRateKind: 'exact',
+      successProbabilityKind: 'exact',
     },
     {
       label: 'critical two dice ninety-nine tail',
       params: scoreParams({ dice: 99, critical: 2 }),
       difficulty: { opposed: true, target: 0 },
       expectedValueKind: 'bounded',
-      successRateKind: 'bounded',
+      successProbabilityKind: 'bounded',
     },
     {
       label: 'negative skill tail',
       params: scoreParams({ skill: -1 }),
       difficulty: { opposed: true, target: 0 },
       expectedValueKind: 'lower-bound',
-      successRateKind: 'bounded',
+      successProbabilityKind: 'bounded',
     },
     {
       label: 'positive skill',
       params: scoreParams({ skill: 7 }),
       difficulty: { opposed: true, target: 0 },
       expectedValueKind: 'bounded',
-      successRateKind: 'bounded',
+      successProbabilityKind: 'bounded',
     },
     {
       label: 'yousei tail',
       params: scoreParams({ yousei: 1 }),
       difficulty: { opposed: true, target: 0 },
       expectedValueKind: 'lower-bound',
-      successRateKind: 'bounded',
+      successProbabilityKind: 'bounded',
     },
     {
       label: 'shihai tail',
       params: scoreParams({ dice: 2, critical: 2, shihai: 1 }),
       difficulty: { opposed: true, target: 0 },
       expectedValueKind: 'lower-bound',
-      successRateKind: 'bounded',
+      successProbabilityKind: 'bounded',
     },
   ])('keeps $label in the typed canonical summary contract', ({
     params,
     difficulty,
     expectedValueKind,
-    successRateKind,
+    successProbabilityKind,
   }) => {
     const summary = getSummary(params, difficulty)
 
     expect(summary.action.expectedValue.kind).toBe(expectedValueKind)
-    expect(summary.action.successRate.kind).toBe(successRateKind)
+    expect(summary.action.successProbability.kind).toBe(successProbabilityKind)
     expect(summary.reaction.expectedValue.kind).toBe(expectedValueKind)
-    expect(summary.reaction.successRate.kind).toBe(successRateKind)
+    expect(summary.reaction.successProbability.kind).toBe(successProbabilityKind)
 
-    const expectedValue = formatScoreSummaryExpectedValue(
+    const expectedValue = formatScoreStatisticsExpectedValue(
       summary.action.expectedValue
     )
-    const successRate = formatScoreSuccessRateDisplay(
-      summary.action.successRate
+    const successProbability = formatCertifiedProbabilityPercentDisplay(
+      summary.action.successProbability
     )
     expect(expectedValue).not.toBeUndefined()
-    expect(successRate).not.toBeUndefined()
+    expect(successProbability).not.toBeUndefined()
     if (expectedValueKind === 'lower-bound') {
       expect(expectedValue).toBe(SUMMARY_UNAVAILABLE)
     }
