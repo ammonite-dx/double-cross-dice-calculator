@@ -56,7 +56,7 @@ scoreTailCertificate
 scoreExpectationCertificate（証明できる場合のみ）
 ```
 
-tail certificateの`massLowerBound`と`massUpperBound`は、未列挙部分の確率質量の範囲である。expectation certificateの`lowerBound`と`upperBound`は、DXの最大値の尾部を解析的に評価した期待値の範囲である。これらは`DistributionResult.overflow.errorBound`とは異なり、期待値の誤差幅を表す専用metadataである。
+tail certificateの`massLowerBound`と`massUpperBound`は、未列挙部分の確率質量の範囲であり、期待値の誤差幅ではない。expectation certificateの`lowerBound`と`upperBound`は、DXの最大値の尾部を解析的に評価した期待値の範囲である。後者は`DistributionResult.overflow.errorBound`とは異なり、期待値の上下界とfirst-moment側の誤差を表す専用metadataである。
 
 Damageの期待値も同じ`CertifiedValue`を使う。有限supportまたはoverflowを完全に評価できる場合は`exact`、overflowの位置だけが分かる場合は`bounded`、無限tailの下限だけを使う場合は`lower-bound`となる。R16ではDamage UIの既存方針を維持し、`exact`でない期待値は従来どおり`—`と表示する。
 
@@ -85,3 +85,29 @@ Total damage: { totalDamage, totalDamageStatistics }
 - 有限supportの対決では、`P(A > R)`と同値を含むリアクション側の確率が独立列挙と一致する。
 
 R16の対象はresult contractの統一である。入力状態の所有権整理、表示presenterの簡素化、Worker/API/MCP化、全面的なTypeScript化は後続フェーズで扱う。
+
+## R16 closure evidence
+
+R16は次の実測結果をもって`CLOSED / GREEN`とした。protected area（`public/**`、`generator/**`、`tooling/reference-data/**`）の変更は0件である。
+
+```text
+R16 start SHA: 5515e84b7427876ae0a0cd6961c1b2a341cfe46a
+R16 final HEAD: 9181a71b1d1a5c9bd9a9802c20dbf56c55497438
+verify:release: GREEN
+Vitest: 80 files / 908 tests
+generator: GREEN
+simulation: GREEN
+runtime DX: 20,000 PASS
+typecheck: GREEN
+ESLint: GREEN
+Markdown lint: GREEN
+build: GREEN
+production smoke: PASS
+full-tail Attack benchmark: all cases error: null
+working tree: clean
+P0: 0
+P1: 0
+P2: 0
+R16: CLOSED / GREEN
+Next: R17 Result Ownership / Incremental Execution
+```
