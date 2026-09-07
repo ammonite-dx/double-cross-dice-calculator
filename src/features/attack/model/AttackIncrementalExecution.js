@@ -32,8 +32,7 @@ function findCommittedRecord(committedRecords, id) {
  * Decide which ordered entries can reuse their committed calculation record.
  * This helper only compares stable ids and detached calculation inputs; it
  * deliberately ignores names, visibility, presentation, and display ranges.
- */
-/**
+ *
  * @param {unknown[]} requestedEntries
  * @param {unknown[]} committedRecords
  * @param {{ forceAll?: boolean }} options

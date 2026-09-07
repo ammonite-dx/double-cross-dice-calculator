@@ -416,18 +416,40 @@ function hasIncrementalExecutionShape(execution, combos) {
   if (!isRecord(execution)
     || !Array.isArray(execution.records)
     || execution.records.length !== combos.length
+    || !Array.isArray(execution.rangePlans)
+    || execution.rangePlans.length !== combos.length
     || !isRecord(execution.totalCalculation)
-    || !isRecord(execution.batchResult)) {
+    || !Array.isArray(execution.totalCalculation.sources)
+    || execution.totalCalculation.sources.length !== combos.length
+    || !isRecord(execution.totalCalculation.result)
+    || !isRecord(execution.batchResult)
+    || !Array.isArray(execution.batchResult.combos)
+    || execution.batchResult.combos.length !== combos.length) {
     return false
   }
   return combos.every((combo, index) => {
     const entry = execution.records[index]
+    const source = execution.totalCalculation.sources[index]
+    const inputMatches = (() => {
+      try {
+        return areAttackEntriesEqual(
+          [{ id: combo?.id, params: snapshotAttackParams(combo?.data?.params) }],
+          [{ id: entry?.id, params: entry?.record?.input }]
+        )
+      } catch {
+        return false
+      }
+    })()
     return isRecord(combo)
       && isRecord(entry)
       && sameId(combo.id, entry.id)
       && isRecord(entry.record)
       && isRecord(entry.record.input)
       && isRecord(entry.record.result)
+      && isRecord(source)
+      && sameId(source.id, combo.id)
+      && source.record === entry.record
+      && inputMatches
   })
 }
 

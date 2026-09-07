@@ -2,11 +2,18 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   clearAttackState,
+  commitAttackExecution,
   commitAttackResult,
   createAttackState,
   createComboDataState,
+  invalidateAttackComboCalculation,
+  invalidateAttackTotalCalculation,
   snapshotAttackEntries,
 } from '../src/features/attack/model/AttackState'
+import {
+  createAttackCalculationRecord,
+  createAttackTotalCalculationRecord,
+} from '../src/features/attack/model/AttackCalculationRecord'
 import { createAttackRunner } from '../src/features/attack/model/AttackRunner'
 
 const legacyScore = { value: 'legacy score' }
@@ -130,6 +137,105 @@ describe('AttackState', () => {
 
     expect(snapshotAttackEntries(state.combos).map((entry) => entry.id))
       .toEqual(['copy', 'c', 'a'])
+  })
+
+  it('commits owned combo and total records atomically', () => {
+    const state = createState()
+    const batch = createBatch(['first', 'second'])
+    const first = createAttackCalculationRecord(
+      params(0),
+      batch.combos[0],
+      { id: 'first-plan' }
+    )
+    const second = createAttackCalculationRecord(
+      params(1),
+      batch.combos[1],
+      { id: 'second-plan' }
+    )
+    const total = createAttackTotalCalculationRecord(
+      [{ id: 'first', record: first }, { id: 'second', record: second }],
+      {
+        totalDamage: batch.totalDamage,
+        totalDamageStatistics: batch.totalDamageStatistics,
+      }
+    )
+    const execution = {
+      records: [
+        { id: 'first', record: first },
+        { id: 'second', record: second },
+      ],
+      rangePlans: [first.rangePlan, second.rangePlan],
+      totalCalculation: total,
+      batchResult: batch,
+    }
+
+    expect(commitAttackExecution(
+      state,
+      state.generation,
+      execution,
+      { kind: 'base' },
+      { kind: 'display' },
+    )).toBe(true)
+    expect(state.combos[0].data.calculation).toBe(first)
+    expect(state.combos[1].data.calculation).toBe(second)
+    expect(state.totalCalculation).toBe(total)
+    expect(state.basePresentation).toEqual({ kind: 'base' })
+  })
+
+  it('invalidates one combo without discarding unaffected records', () => {
+    const state = createState()
+    const first = createAttackCalculationRecord(params(0), { value: 'first' }, {})
+    const second = createAttackCalculationRecord(params(1), { value: 'second' }, {})
+    state.combos[0].data.calculation = first
+    state.combos[1].data.calculation = second
+    state.totalCalculation = { sources: [], result: {} }
+
+    expect(invalidateAttackComboCalculation(state, 'first')).toBe(true)
+    expect(state.combos[0].data.calculation).toBeNull()
+    expect(state.combos[1].data.calculation).toBe(second)
+    expect(invalidateAttackTotalCalculation(state)).toBe(true)
+    expect(state.totalCalculation).toBeNull()
+    expect(state.combos[1].data.calculation).toBe(second)
+  })
+
+  it('rejects an execution whose record input does not match current params', () => {
+    const state = createState()
+    const batch = createBatch(['first', 'second'])
+    const first = createAttackCalculationRecord(
+      params(9),
+      batch.combos[0],
+      { id: 'first-plan' }
+    )
+    const second = createAttackCalculationRecord(
+      params(1),
+      batch.combos[1],
+      { id: 'second-plan' }
+    )
+    const total = createAttackTotalCalculationRecord(
+      [{ id: 'first', record: first }, { id: 'second', record: second }],
+      {
+        totalDamage: batch.totalDamage,
+        totalDamageStatistics: batch.totalDamageStatistics,
+      }
+    )
+
+    expect(commitAttackExecution(
+      state,
+      state.generation,
+      {
+        records: [
+          { id: 'first', record: first },
+          { id: 'second', record: second },
+        ],
+        rangePlans: [first.rangePlan, second.rangePlan],
+        totalCalculation: total,
+        batchResult: batch,
+      },
+      {},
+      {},
+    )).toBe(false)
+    expect(state.combos.every(({ data }) => data.calculation === null))
+      .toBe(true)
   })
 
   it('commits complete batch and presentation payloads atomically', () => {
