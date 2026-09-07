@@ -105,3 +105,30 @@ commit済みの計算recordが存在する
 `tests/attackIncrementalExecution.test.js`では、初回計算、変更コンボの単独再計算、追加・duplicate・削除、再利用条件、コンボ失敗、合計失敗を検証する。`tests/attackIncrementalRunner.test.js`では、失敗したコンボだけの再試行、合計だけの再試行、表示生成失敗時のrecord保持を検証する。`tests/attackFeatureController.test.js`では、production controllerの入力変更、表示範囲拡張、resource拒否からの表示復帰、Score表示拒否時のDamage保持、latest-winsを検証する。Check側は`tests/checkFeatureController.test.js`で入力変更時のrecord失効、表示拒否中の不整合防止、表示のみの再利用を検証する。
 
 R17の完了時点で、これらのテストに加えて既存のrelease gate、typecheck、ESLint、Markdown lint、build、production smokeを実行し、結果をTODOと本書のclosure evidenceへ追記する。
+
+## R17 closure evidence
+
+R17は、開始時点のR16 closure commit `3a1920a`から、次の実装・テスト・文書コミットを積み上げて完了した。protected area（`public/**`、`generator/**`、`tooling/reference-data/**`）の変更は0件である。
+
+```text
+R17 start: 3a1920a
+R17 final HEAD: 5e55d98
+Implementation: acbcebc, ef46f7c, b644ef8, 1f5178f, 85ec222, 5e55d98
+Documentation: 39636b1
+Vitest: 82 files / 928 tests
+generator: 18 passed
+simulation: 13 passed
+runtime DX: 20,000 cases PASS
+typecheck: GREEN
+ESLint: GREEN
+Markdown lint: 42 files / 0 issues
+build: 420 modules GREEN
+production smoke: PASS
+git diff --check: GREEN
+working tree: clean
+P0: 0
+P1: 0
+P2: 0
+R17: CLOSED / GREEN
+Next: R18 Presentation Boundary Simplification
+```
