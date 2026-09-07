@@ -146,13 +146,14 @@ R17 original implementation HEAD: 5e55d98
 R17 original closure HEAD: 6d3f3ca
 R17 follow-up start: 6d3f3ca
 R17 follow-up implementation: ed3ab40
+R17 follow-up guard tests: e0d78db
 R17 follow-up final HEAD: docs closure (this commit)
 Presentation failure ownership: FIXED
 Calculation records after presentation failure: RETAINED
 Total calculation after presentation failure: RETAINED
 Presentation-only retry: GREEN
 Recalculation on presentation-only retry: 0
-Vitest: 82 files / 933 tests
+Vitest: 82 files / 934 tests
 generator: 18 passed
 simulation: 13 passed
 runtime DX: 20,000 cases PASS
