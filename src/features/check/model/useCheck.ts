@@ -18,6 +18,10 @@ import {
   createCheckCalculationRequestSnapshot,
   createCheckDisplayRequestSnapshot,
 } from './CheckDisplayRequestSnapshot'
+import {
+  createCheckCalculationRecord,
+} from './CheckCalculationRecord'
+import type { CheckCalculationRecord } from './CheckCalculationRecord'
 import { createCheckInputSnapshot } from './CheckInputSnapshot'
 import {
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
@@ -74,9 +78,7 @@ interface CheckScoreParams {
 interface CheckState {
   difficulty: DifficultyInput
   scoreParams: CheckScoreParams
-  score: ScorePair | null
-  scoreStatistics: ScoreStatistics | null
-  resultReady: boolean
+  calculationRecord: CheckCalculationRecord | null
   displayRequest: DisplayRequestSnapshot
   rangeFeedback: CalculationFeedbackState
   displayFeedback: CalculationFeedbackState
@@ -143,9 +145,7 @@ export async function useCheck({
       action: { ...initialInputSnapshot.params.action },
       reaction: { ...initialInputSnapshot.params.reaction },
     },
-    score: null,
-    scoreStatistics: null,
-    resultReady: false,
+    calculationRecord: null,
     displayRequest: { ...initialDisplayRequest },
     rangeFeedback,
     displayFeedback,
@@ -265,13 +265,21 @@ export async function useCheck({
     ) as unknown as CheckPresentation
   }
 
+  function currentCalculationInput() {
+    return createCheckInputSnapshot({
+      difficulty: state.difficulty,
+      params: state.scoreParams,
+    })
+  }
+
   function buildPresentation(
     request: DisplayRequestSnapshot = state.displayRequest
   ) {
-    if (!state.resultReady || state.score === null) {
+    const record = state.calculationRecord
+    if (record === null) {
       return null
     }
-    return buildPresentationForScore(state.score, request)
+    return buildPresentationForScore(record.result.score, request)
   }
 
   const presentation = computed(() => buildPresentation())
@@ -346,23 +354,23 @@ export async function useCheck({
         snapshot
       ),
     clearResult: () => {
-      state.score = null
-      state.scoreStatistics = null
-      state.resultReady = false
+      state.calculationRecord = null
       resetDisplayFeedback()
     },
     commitResult: (result: CheckCalculationResult) => {
+      const record = createCheckCalculationRecord(
+        currentCalculationInput(),
+        result
+      )
       let committedPresentation
       try {
-        committedPresentation = buildPresentationForScore(result.score)
+        committedPresentation = buildPresentationForScore(record.result.score)
       } catch (error) {
         displayRecalculationKey = null
         publishDisplayError(error)
         return
       }
-      state.score = result.score
-      state.scoreStatistics = result.scoreStatistics
-      state.resultReady = true
+      state.calculationRecord = record
       if (
         committedPresentation?.decision
           === CHECK_PRESENTATION_DECISIONS.RECALCULATE
@@ -383,9 +391,7 @@ export async function useCheck({
     // Input changes invalidate the previous score even when the current
     // display request is rejected before a new runner request can start.
     calculationRunner.invalidate()
-    state.score = null
-    state.scoreStatistics = null
-    state.resultReady = false
+    state.calculationRecord = null
     resetDisplayFeedback()
   }
 
@@ -427,7 +433,7 @@ export async function useCheck({
       return
     }
 
-    if (!state.resultReady || state.score === null) {
+    if (state.calculationRecord === null) {
       resetDisplayFeedback()
       displayRecalculationKey = null
       void submitCheck(snapshot)
@@ -458,7 +464,7 @@ export async function useCheck({
   }
 
   onMounted(() => {
-    if (!state.resultReady && rangeFeedback.status !== 'rejected') {
+    if (state.calculationRecord === null && rangeFeedback.status !== 'rejected') {
       void calculationRunner.run(initialCalculationRequest)
     }
   })
@@ -481,18 +487,25 @@ export async function useCheck({
     },
   })
   if (initialCalculation !== null) {
-    state.score = initialCalculation.score
-    state.scoreStatistics = initialCalculation.scoreStatistics
-    state.resultReady = true
+    state.calculationRecord = createCheckCalculationRecord(
+      currentCalculationInput(),
+      initialCalculation
+    )
   }
 
   const stateRefs = toRefs(state)
+  const score = computed(() => state.calculationRecord?.result.score ?? null)
+  const scoreStatistics = computed(() =>
+    state.calculationRecord?.result.scoreStatistics ?? null
+  )
+  const resultReady = computed(() => state.calculationRecord !== null)
   return {
     difficulty: stateRefs.difficulty,
     scoreParams: stateRefs.scoreParams,
-    score: stateRefs.score,
-    scoreStatistics: stateRefs.scoreStatistics,
-    resultReady: stateRefs.resultReady,
+    calculationRecord: computed(() => state.calculationRecord),
+    score,
+    scoreStatistics,
+    resultReady,
     displayRequest: stateRefs.displayRequest,
     presentation,
     rangeFeedback: stateRefs.rangeFeedback,

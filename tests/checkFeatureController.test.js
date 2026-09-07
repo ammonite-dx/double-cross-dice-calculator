@@ -2,6 +2,10 @@ import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createDistributionResult } from '../src/calculation/DistributionResult'
+import {
+  areCheckCalculationInputsEqual,
+  createCheckCalculationRecord,
+} from '../src/features/check/model/CheckCalculationRecord'
 import { useCheck } from '../src/features/check/model/useCheck'
 
 function createScoreEnvelope({
@@ -96,6 +100,47 @@ describe('useCheck', () => {
       mode: 'pmf',
     })
     expect(check.resultReady.value).toBe(true)
+    expect(check.calculationRecord.value).toMatchObject({
+      input: {
+        difficulty: { opposed: false, target: 0 },
+      },
+    })
+  })
+
+  it('keeps the owned calculation record across display-only changes and rejects', async () => {
+    const { check, client } = await createController()
+    const record = check.calculationRecord.value
+
+    check.onDisplayValidated({ min: 0, max: 30, mode: 'upper-tail' })
+    await Promise.resolve()
+    expect(client.calculateCheck).toHaveBeenCalledTimes(1)
+    expect(check.calculationRecord.value).toBe(record)
+
+    check.onDisplayValidated({ min: 0, max: 16_384, mode: 'pmf' })
+    await Promise.resolve()
+    expect(client.calculateCheck).toHaveBeenCalledTimes(1)
+    expect(check.calculationRecord.value).toBe(record)
+    expect(check.displayFeedback.value.status).toBe('rejected')
+  })
+
+  it('detaches the input snapshot owned by a calculation record', () => {
+    const input = {
+      difficulty: { opposed: true, target: 12 },
+      params: {
+        action: { dice: 4, critical: 9, skill: 2, yousei: 0, shihai: 0 },
+        reaction: { dice: 3, critical: 10, skill: -1, yousei: 0, shihai: 0 },
+      },
+    }
+    const result = createCalculationResult()
+    const record = createCheckCalculationRecord(input, result)
+
+    expect(Object.isFrozen(record)).toBe(true)
+    expect(Object.isFrozen(record.input)).toBe(true)
+    expect(Object.isFrozen(record.input.params.action)).toBe(true)
+    expect(areCheckCalculationInputsEqual(record.input, input)).toBe(true)
+    input.params.action.dice = 99
+    expect(record.input.params.action.dice).toBe(4)
+    expect(areCheckCalculationInputsEqual(record.input, input)).toBe(false)
   })
 
   it('updates difficulty and submits a new canonical snapshot', async () => {

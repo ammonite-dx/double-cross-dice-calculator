@@ -191,10 +191,10 @@ describe('Check input flow contracts', () => {
     )
 
     const presentationIndex = checkControllerSource.indexOf(
-      'committedPresentation = buildPresentationForScore(result.score)'
+      'committedPresentation = buildPresentationForScore(record.result.score)'
     )
     const scoreCommitIndex = checkControllerSource.indexOf(
-      'state.score = result.score'
+      'state.calculationRecord = record'
     )
     expect(presentationIndex).toBeGreaterThanOrEqual(0)
     expect(scoreCommitIndex).toBeGreaterThan(presentationIndex)
