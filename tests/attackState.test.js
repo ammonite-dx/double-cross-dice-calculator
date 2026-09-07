@@ -242,6 +242,92 @@ describe('AttackState', () => {
     expect(state.displayPresentation).toBeNull()
   })
 
+  it('rejects invalid calculation executions before writing any record', () => {
+    const createExecution = () => {
+      const state = createState()
+      const batch = createBatch(['first', 'second'])
+      const first = createAttackCalculationRecord(
+        params(0),
+        batch.combos[0],
+        { id: 'first-plan' }
+      )
+      const second = createAttackCalculationRecord(
+        params(1),
+        batch.combos[1],
+        { id: 'second-plan' }
+      )
+      const total = createAttackTotalCalculationRecord(
+        [{ id: 'first', record: first }, { id: 'second', record: second }],
+        {
+          totalDamage: batch.totalDamage,
+          totalDamageStatistics: batch.totalDamageStatistics,
+        }
+      )
+      return {
+        state,
+        execution: {
+          records: [
+            { id: 'first', record: first },
+            { id: 'second', record: second },
+          ],
+          rangePlans: [first.rangePlan, second.rangePlan],
+          totalCalculation: total,
+          batchResult: batch,
+        },
+      }
+    }
+
+    const cases = [
+      {
+        name: 'generation',
+        mutate: ({ state }) => {
+          state.generation += 1
+        },
+      },
+      {
+        name: 'id',
+        mutate: ({ execution }) => {
+          execution.records[0].id = 'wrong-id'
+        },
+      },
+      {
+        name: 'input',
+        mutate: ({ execution }) => {
+          execution.records[0].record = createAttackCalculationRecord(
+            params(9),
+            execution.batchResult.combos[0],
+            { id: 'replacement-plan' }
+          )
+        },
+      },
+      {
+        name: 'source reference',
+        mutate: ({ execution }) => {
+          execution.totalCalculation = {
+            ...execution.totalCalculation,
+            sources: [
+              { id: 'first', record: {} },
+              execution.totalCalculation.sources[1],
+            ],
+          }
+        },
+      },
+    ]
+
+    for (const testCase of cases) {
+      const fixture = createExecution()
+      testCase.mutate(fixture)
+      expect(commitAttackCalculationExecution(
+        fixture.state,
+        0,
+        fixture.execution,
+      ), testCase.name).toBe(false)
+      expect(fixture.state.combos.every(({ data }) => data.calculation === null))
+        .toBe(true)
+      expect(fixture.state.totalCalculation).toBeNull()
+    }
+  })
+
   it('commits presentation without replacing calculation records', () => {
     const state = createState()
     const batch = createBatch(['first', 'second'])
