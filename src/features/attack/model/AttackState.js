@@ -430,6 +430,7 @@ function hasIncrementalExecutionShape(execution, combos) {
   return combos.every((combo, index) => {
     const entry = execution.records[index]
     const source = execution.totalCalculation.sources[index]
+    const batchCombo = execution.batchResult.combos[index]
     const inputMatches = (() => {
       try {
         return areAttackEntriesEqual(
@@ -446,6 +447,9 @@ function hasIncrementalExecutionShape(execution, combos) {
       && isRecord(entry.record)
       && isRecord(entry.record.input)
       && isRecord(entry.record.result)
+      && isRecord(batchCombo)
+      && hasOwn(batchCombo, 'id')
+      && sameId(batchCombo.id, combo.id)
       && isRecord(source)
       && sameId(source.id, combo.id)
       && source.record === entry.record
@@ -454,8 +458,9 @@ function hasIncrementalExecutionShape(execution, combos) {
 }
 
 /**
- * Atomically publish an incremental execution. No combo or total field is
- * written until every record and the aggregate have been validated.
+ * Atomically publish an incremental execution and its presentation. This
+ * combined helper remains for compatibility callers; production incremental
+ * execution uses the calculation and presentation helpers below.
  */
 export function commitAttackExecution(
   state,
@@ -481,6 +486,37 @@ export function commitAttackExecution(
   state.basePresentation = basePresentation ?? null
   state.displayPresentation = displayPresentation ?? null
   state.scoreDisplayPresentation = displayPresentation?.score ?? null
+  return true
+}
+
+/**
+ * Atomically publish only the calculation part of an incremental execution.
+ * Presentation generation is deliberately a separate commit so a presenter
+ * failure cannot discard otherwise valid combo and total records.
+ */
+export function commitAttackCalculationExecution(
+  state,
+  generation,
+  execution,
+) {
+  if (generation !== state.generation
+    || !Array.isArray(state.combos)
+    || !hasIncrementalExecutionShape(execution, state.combos)) {
+    return false
+  }
+
+  // Validate every data container before writing the first record. The shape
+  // check above already validates the execution payload; this pass keeps the
+  // state-side mutation atomic even for malformed test doubles.
+  const records = state.combos.map((combo, index) => ({
+    data: requireRecord(combo.data, `combos[${index}].data`),
+    record: execution.records[index].record,
+  }))
+
+  for (const { data, record } of records) {
+    data.calculation = record
+  }
+  state.totalCalculation = execution.totalCalculation
   return true
 }
 
@@ -707,5 +743,29 @@ export function commitAttackDisplayPresentation(
   }
   state.displayPresentation = presentation
   state.scoreDisplayPresentation = presentation.score ?? null
+  return true
+}
+
+/**
+ * Atomically publish base and display presentations for an already committed
+ * incremental calculation. Calculation records are never touched here.
+ */
+export function commitAttackPresentation(
+  state,
+  generation,
+  basePresentation,
+  displayPresentation,
+) {
+  if (
+    generation !== state.generation
+    || !isAttackCalculationReady(state)
+    || !Array.isArray(state.combos)
+    || !hasDisplayPresentationShape(displayPresentation, state.combos)
+  ) {
+    return false
+  }
+  state.basePresentation = basePresentation ?? null
+  state.displayPresentation = displayPresentation
+  state.scoreDisplayPresentation = displayPresentation.score ?? null
   return true
 }

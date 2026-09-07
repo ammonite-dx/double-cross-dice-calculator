@@ -61,6 +61,23 @@ function createClient() {
   return { calculateAttack, calculateTotalDamage }
 }
 
+function createDisplayPresentation(batch) {
+  return {
+    kind: 'display',
+    displayRequest: { min: 0, max: 10, mode: 'pmf' },
+    combos: batch.combos.map(({ id }) => ({
+      id,
+      display: {},
+      plan: {},
+    })),
+    total: {
+      display: {},
+      plan: {},
+    },
+    score: null,
+  }
+}
+
 function createRunner(state, calculationClient, createPresentation = null) {
   return createAttackRunner({
     state,
@@ -74,10 +91,7 @@ function createRunner(state, calculationClient, createPresentation = null) {
         onRangePlan,
         forceAll,
       }),
-    createPresentation: createPresentation ?? ((batch) => ({
-      kind: 'display',
-      batch,
-    })),
+    createPresentation: createPresentation ?? createDisplayPresentation,
     createBasePresentation: (batch) => ({
       kind: 'base',
       batch,
@@ -130,7 +144,7 @@ describe('incremental Attack runner ownership', () => {
     runner.dispose()
   })
 
-  it('retains calculation records when presentation creation fails', async () => {
+  it('retains calculation records when display presentation creation fails', async () => {
     const state = createState()
     const client = createClient()
     const presentationError = new Error('presentation failed')
@@ -139,18 +153,80 @@ describe('incremental Attack runner ownership', () => {
       .mockImplementationOnce(() => {
         throw presentationError
       })
-      .mockImplementation((batch) => ({ kind: 'display', batch }))
+      .mockImplementation(createDisplayPresentation)
     const runner = createRunner(state, client, createPresentation)
 
     await expect(runner.run()).resolves.toBe(false)
-    expect(state.combos.every(({ data }) => data.calculation === null))
-      .toBe(true)
-    expect(state.totalCalculation).toBeNull()
-    expect(state.displayPresentation).toBeNull()
-
-    await expect(runner.run()).resolves.toBe(true)
+    const records = state.combos.map(({ data }) => data.calculation)
+    const total = state.totalCalculation
     expect(state.combos.every(({ data }) => data.calculation !== null))
       .toBe(true)
+    expect(total).not.toBeNull()
+    expect(state.combos.map(({ data }) => data.calculation))
+      .toEqual(records)
+    expect(state.basePresentation).toBeNull()
+    expect(state.displayPresentation).toBeNull()
+    expect(state.scoreDisplayPresentation).toBeNull()
+    expect(state.feedback.status).toBe('error')
+
+    const attackCalls = client.calculateAttack.mock.calls.length
+    const totalCalls = client.calculateTotalDamage.mock.calls.length
+    expect(runner.refreshPresentation()).toBe(true)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(attackCalls)
+    expect(client.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
+    expect(state.combos[0].data.calculation).toBe(records[0])
+    expect(state.combos[1].data.calculation).toBe(records[1])
+    expect(state.totalCalculation).toBe(total)
+    expect(state.displayPresentation).not.toBeNull()
+    runner.dispose()
+  })
+
+  it('retains calculation records when base presentation creation fails', async () => {
+    const state = createState()
+    const client = createClient()
+    const baseError = new Error('base presentation failed')
+    const createBasePresentation = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw baseError
+      })
+      .mockImplementation((batch) => ({ kind: 'base', batch }))
+    const runner = createAttackRunner({
+      state,
+      calculationClient: client,
+      executeCalculation: ({ entries, calculationOptions, signal, onRangePlan, forceAll }) =>
+        executeAttackIncrementally({
+          entries,
+          committedRecords: getAttackCalculationRecords(state.combos),
+          calculationClient: client,
+          options: { ...calculationOptions, signal },
+          onRangePlan,
+          forceAll,
+        }),
+      createPresentation: createDisplayPresentation,
+      createBasePresentation,
+    })
+
+    await expect(runner.run()).resolves.toBe(false)
+    const records = state.combos.map(({ data }) => data.calculation)
+    const total = state.totalCalculation
+    expect(records.every((record) => record !== null)).toBe(true)
+    expect(total).not.toBeNull()
+    expect(state.basePresentation).toBeNull()
+    expect(state.displayPresentation).toBeNull()
+    expect(state.scoreDisplayPresentation).toBeNull()
+    expect(state.feedback.status).toBe('error')
+
+    const attackCalls = client.calculateAttack.mock.calls.length
+    const totalCalls = client.calculateTotalDamage.mock.calls.length
+    expect(runner.refreshPresentation()).toBe(true)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(attackCalls)
+    expect(client.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
+    expect(state.combos[0].data.calculation).toBe(records[0])
+    expect(state.combos[1].data.calculation).toBe(records[1])
+    expect(state.totalCalculation).toBe(total)
+    expect(state.basePresentation).not.toBeNull()
+    expect(state.displayPresentation).not.toBeNull()
     runner.dispose()
   })
 })

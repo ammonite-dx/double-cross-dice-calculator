@@ -3,7 +3,8 @@ import {
   createAttackPresentation,
 } from './AttackPresentation'
 import {
-  commitAttackExecution,
+  commitAttackCalculationExecution,
+  commitAttackPresentation,
   commitAttackResult,
   commitAttackDisplayPresentation,
   invalidateAttackState,
@@ -208,8 +209,10 @@ export function createAttackRunner({
         state.scoreDisplayPresentation = null
       } else {
         // Presentation failures do not invalidate a valid calculation record.
+        state.basePresentation = null
         state.displayPresentation = null
         state.scoreDisplayPresentation = null
+        scoreDisplayRecalculationActive = false
       }
       onError?.(error)
       return
@@ -335,6 +338,78 @@ export function createAttackRunner({
         : null
       const batchResult = execution?.batchResult ?? calculationResult
       const rangePlans = execution?.rangePlans ?? activeRequest.rangePlans
+      if (execution !== null) {
+        // Incremental execution has two ownership boundaries. First publish
+        // the complete calculation snapshot; presentation code is allowed to
+        // fail without losing those records.
+        const committedCalculation = commitAttackCalculationExecution(
+          state,
+          requestGeneration,
+          execution,
+        )
+        if (!committedCalculation) {
+          if (requestGeneration === state.generation) {
+            throw new Error(' attack calculation result was incomplete')
+          }
+          return false
+        }
+
+        lastBatchResult = batchResult
+        lastRangePlans = rangePlans.slice()
+        lastEntries = activeRequest.entries
+        if (!scoreDisplaySuppressed && activeRequest.scoreDisplayRequest !== null) {
+          lastScoreDisplayRequest = activeRequest.scoreDisplayRequest
+        }
+        const previousScoreDisplayPresentation =
+          state.scoreDisplayPresentation ?? null
+        state.basePresentation = null
+        state.displayPresentation = null
+        state.scoreDisplayPresentation = null
+
+        const basePresentation = createBaseBatchPresentation(
+          batchResult,
+          rangePlans
+        )
+        const presentation = createBatchPresentation(
+          batchResult,
+          activeRequest.displayRequest,
+          activeRequest.scoreDisplayRequest,
+          rangePlans
+        )
+        const committedPresentation = scoreDisplaySuppressed
+          ? suppressScoreDisplay(
+              presentation,
+              previousScoreDisplayPresentation
+            )
+          : presentation
+        const committed = commitAttackPresentation(
+          state,
+          requestGeneration,
+          basePresentation,
+          committedPresentation
+        )
+        if (!committed && requestGeneration === state.generation) {
+          throw new Error(' attack presentation was incomplete')
+        }
+        if (committed) {
+          if (scoreDisplayRecalculationActive) {
+            scoreDisplayRecalculationActive = false
+            if (
+              scoreDisplaySuppressed
+              && state.scoreDisplayFeedback?.status === 'loading'
+            ) {
+              markCalculationAborted(state.scoreDisplayFeedback)
+            }
+          }
+          onPresentation?.(committedPresentation, {
+            scoreDisplaySuppressed,
+          })
+        }
+        return committed
+      }
+
+      // The compatibility batch path keeps its original all-or-nothing
+      // calculation-plus-presentation commit until that API is retired.
       const presentation = createBatchPresentation(
         batchResult,
         activeRequest.displayRequest,
@@ -347,23 +422,12 @@ export function createAttackRunner({
             state.scoreDisplayPresentation ?? null
           )
         : presentation
-      const basePresentation = execution === null
-        ? null
-        : createBaseBatchPresentation(batchResult, rangePlans)
-      const committed = execution === null
-        ? commitAttackResult(
-            state,
-            requestGeneration,
-            batchResult,
-            committedPresentation
-          )
-        : commitAttackExecution(
-            state,
-            requestGeneration,
-            execution,
-            basePresentation,
-            committedPresentation
-          )
+      const committed = commitAttackResult(
+        state,
+        requestGeneration,
+        batchResult,
+        committedPresentation
+      )
       if (!committed && requestGeneration === state.generation) {
         throw new Error(' attack result was incomplete')
       }
@@ -391,8 +455,9 @@ export function createAttackRunner({
     },
     onError: (error) => {
       // Generic/resource errors do not pass through the coordinator's
-      // range-rejection clearResult hook. Drop the result here so an old
-      // result cannot survive an error as a stale display.
+      // range-rejection clearResult hook. The incremental path keeps valid
+      // calculation records while clearing presentation; the compatibility
+      // path drops its old result so it cannot survive as a stale display.
       handlePresentationError(error)
     },
     onCancelled: () => {
@@ -518,8 +583,22 @@ export function createAttackRunner({
           options.displayRequest
         )
       }
+      let basePresentation = state.basePresentation
       let presentation
       try {
+        // A base presentation is itself a presentation artifact. If a prior
+        // base/display attempt failed before it was committed, rebuild it
+        // from the cached calculation records during the retry rather than
+        // recalculating any combo or total.
+        if (
+          typeof executeCalculation === 'function'
+          && basePresentation === null
+        ) {
+          basePresentation = createBaseBatchPresentation(
+            lastBatchResult,
+            lastRangePlans
+          )
+        }
         presentation = createDisplayPresentation
           ? createDisplayPresentation({
               ...options,
@@ -527,6 +606,7 @@ export function createAttackRunner({
               generation: requestGeneration,
               batchResult: lastBatchResult,
               rangePlans: lastRangePlans,
+              basePresentation,
               ...(Object.prototype.hasOwnProperty.call(options, 'displayRequest')
                 ? {
                     displayRequest: createAttackDisplayRequestSnapshot(
@@ -731,11 +811,18 @@ export function createAttackRunner({
             presentation,
             state.scoreDisplayPresentation ?? null
           )
-      const committed = commitAttackDisplayPresentation(
-        state,
-        requestGeneration,
-        committedPresentation
-      )
+      const committed = typeof executeCalculation === 'function'
+        ? commitAttackPresentation(
+            state,
+            requestGeneration,
+            basePresentation,
+            committedPresentation
+          )
+        : commitAttackDisplayPresentation(
+            state,
+            requestGeneration,
+            committedPresentation
+          )
       if (committed) {
         if (
           requestedScoreDisplayRequest !== null

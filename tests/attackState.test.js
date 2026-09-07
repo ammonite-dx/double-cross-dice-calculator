@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   clearAttackState,
+  commitAttackCalculationExecution,
   commitAttackExecution,
+  commitAttackPresentation,
   commitAttackResult,
   createAttackState,
   createComboDataState,
@@ -93,6 +95,22 @@ function createPresentation(batch, plans) {
   }
 }
 
+function createDisplayPresentation(batch) {
+  return {
+    displayRequest: { min: 0, max: 10, mode: 'pmf' },
+    combos: batch.combos.map(({ id }) => ({
+      id,
+      display: {},
+      plan: {},
+    })),
+    total: {
+      display: {},
+      plan: {},
+    },
+    score: null,
+  }
+}
+
 function createDeferred() {
   let resolve
   let reject
@@ -180,6 +198,114 @@ describe('AttackState', () => {
     expect(state.combos[1].data.calculation).toBe(second)
     expect(state.totalCalculation).toBe(total)
     expect(state.basePresentation).toEqual({ kind: 'base' })
+  })
+
+  it('commits calculation records independently of presentation', () => {
+    const state = createState()
+    const batch = createBatch(['first', 'second'])
+    const first = createAttackCalculationRecord(
+      params(0),
+      batch.combos[0],
+      { id: 'first-plan' }
+    )
+    const second = createAttackCalculationRecord(
+      params(1),
+      batch.combos[1],
+      { id: 'second-plan' }
+    )
+    const total = createAttackTotalCalculationRecord(
+      [{ id: 'first', record: first }, { id: 'second', record: second }],
+      {
+        totalDamage: batch.totalDamage,
+        totalDamageStatistics: batch.totalDamageStatistics,
+      }
+    )
+    const execution = {
+      records: [
+        { id: 'first', record: first },
+        { id: 'second', record: second },
+      ],
+      rangePlans: [first.rangePlan, second.rangePlan],
+      totalCalculation: total,
+      batchResult: batch,
+    }
+
+    expect(commitAttackCalculationExecution(
+      state,
+      state.generation,
+      execution,
+    )).toBe(true)
+    expect(state.combos[0].data.calculation).toBe(first)
+    expect(state.combos[1].data.calculation).toBe(second)
+    expect(state.totalCalculation).toBe(total)
+    expect(state.basePresentation).toBeNull()
+    expect(state.displayPresentation).toBeNull()
+  })
+
+  it('commits presentation without replacing calculation records', () => {
+    const state = createState()
+    const batch = createBatch(['first', 'second'])
+    const first = createAttackCalculationRecord(params(0), batch.combos[0], {})
+    const second = createAttackCalculationRecord(params(1), batch.combos[1], {})
+    const total = createAttackTotalCalculationRecord(
+      [{ id: 'first', record: first }, { id: 'second', record: second }],
+      {
+        totalDamage: batch.totalDamage,
+        totalDamageStatistics: batch.totalDamageStatistics,
+      }
+    )
+    state.combos[0].data.calculation = first
+    state.combos[1].data.calculation = second
+    state.totalCalculation = total
+    const base = { kind: 'base' }
+    const display = createDisplayPresentation(batch)
+
+    expect(commitAttackPresentation(
+      state,
+      state.generation,
+      base,
+      display,
+    )).toBe(true)
+    expect(state.combos[0].data.calculation).toBe(first)
+    expect(state.combos[1].data.calculation).toBe(second)
+    expect(state.totalCalculation).toBe(total)
+    expect(state.basePresentation).toBe(base)
+    expect(state.displayPresentation).toBe(display)
+  })
+
+  it('rejects an invalid presentation without changing calculation state', () => {
+    const state = createState()
+    const batch = createBatch(['first', 'second'])
+    const first = createAttackCalculationRecord(params(0), batch.combos[0], {})
+    const second = createAttackCalculationRecord(params(1), batch.combos[1], {})
+    const total = createAttackTotalCalculationRecord(
+      [{ id: 'first', record: first }, { id: 'second', record: second }],
+      {
+        totalDamage: batch.totalDamage,
+        totalDamageStatistics: batch.totalDamageStatistics,
+      }
+    )
+    state.combos[0].data.calculation = first
+    state.combos[1].data.calculation = second
+    state.totalCalculation = total
+    const previousBase = { kind: 'previous-base' }
+    const previousDisplay = { kind: 'previous-display' }
+    state.basePresentation = previousBase
+    state.displayPresentation = previousDisplay
+    const invalidDisplay = createDisplayPresentation(batch)
+    invalidDisplay.combos[1].id = 'wrong-id'
+
+    expect(commitAttackPresentation(
+      state,
+      state.generation,
+      { kind: 'new-base' },
+      invalidDisplay,
+    )).toBe(false)
+    expect(state.combos[0].data.calculation).toBe(first)
+    expect(state.combos[1].data.calculation).toBe(second)
+    expect(state.totalCalculation).toBe(total)
+    expect(state.basePresentation).toBe(previousBase)
+    expect(state.displayPresentation).toBe(previousDisplay)
   })
 
   it('invalidates one combo without discarding unaffected records', () => {

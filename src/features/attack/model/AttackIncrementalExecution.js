@@ -103,8 +103,12 @@ function createFallbackRangePlan() {
 function assembleBatch(records, totalResult) {
   return {
     combos: records.map(({ id, record }) => ({
-      id,
       ...record.result,
+      // The requested stable combo id is authoritative. A calculation
+      // result may carry an incidental id from a source batch, but it must
+      // never overwrite the id used for state ownership and presentation
+      // validation.
+      id,
     })),
     totalDamage: totalResult.totalDamage,
     totalDamageStatistics: totalResult.totalDamageStatistics,

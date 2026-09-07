@@ -119,6 +119,22 @@ describe('executeAttackIncrementally', () => {
       .toEqual(['a', 'b'])
   })
 
+  it('keeps requested combo ids when a calculation result contains an id', async () => {
+    const client = createClient()
+    client.calculateAttack.mockImplementation(async (input) => ({
+      ...result(`attack-${input.action.score.dice}`),
+      id: 'source-result-id',
+    }))
+
+    const execution = await executeAttackIncrementally({
+      entries: entries(),
+      calculationClient: client,
+    })
+
+    expect(execution.batchResult.combos.map(({ id }) => id))
+      .toEqual(['a', 'b'])
+  })
+
   it('reuses unchanged records and recalculates only a changed combo', async () => {
     const client = createClient()
     const initial = await executeAttackIncrementally({

@@ -228,14 +228,16 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     }),
     createDisplayPresentation: ({
       state: currentState,
+      basePresentation,
       displayRequest: request,
       scoreDisplayRequest: scoreRequest,
     }: {
       state: AttackState
+      basePresentation?: Presentation | null
       displayRequest?: DisplayRequestSnapshot
       scoreDisplayRequest?: DisplayRequestSnapshot
     }) => createAttackDisplayPresentationFrom(
-      currentState.basePresentation,
+      basePresentation ?? currentState.basePresentation,
       {
         displayRequest: request
           ?? createAttackDisplayRequestSnapshot(displayRequest),
