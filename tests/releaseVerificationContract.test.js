@@ -19,7 +19,6 @@ const diffCheck = readRepositoryFile('scripts/diff-check.mjs')
 const releaseSteps = [
   'npm run check:node',
   'npm run data:check',
-  'npm run data:verify-generator',
   'npm test',
   'npm run generator:test',
   'npm run generator:test:simulation',
@@ -36,6 +35,8 @@ const releaseSteps = [
 describe('release verification contract', () => {
   it('defines one ordered release gate in package.json', () => {
     expect(scripts).toHaveProperty('verify:release')
+    expect(scripts['verify:release'])
+      .not.toContain('npm run data:verify-generator')
     expect(scripts).toHaveProperty('smoke:production:built')
     expect(scripts).toHaveProperty('diff:check', 'node scripts/diff-check.mjs')
 

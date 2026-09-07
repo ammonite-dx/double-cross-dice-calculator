@@ -121,5 +121,8 @@ describe('full-tail Attack browser resource benchmark contract', () => {
     expect(packageJson.scripts['benchmark:phase2h:browser:playwright:full-tail-attack:short'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource --iterations 1 --warmup 0')
   })
-})
 
+  it('expects no static D10 fetches on the full-tail target', () => {
+    expect(runnerSource).toContain('d10Fetches.length === 0')
+  })
+})

@@ -442,11 +442,9 @@ function validateFullTailAttackReport(report, capturedPageErrors) {
       && report.worker.requestTimings.some((entry) => (
         isFiniteNonNegative(entry.responseElapsedMs)
       )),
-    d10Fetch: d10Fetches.some((entry) => (
-      entry.status === 200
-      && entry.error === null
-      && isFiniteNonNegative(entry.elapsedMs)
-    )),
+    // Full-tail production calculates D10 locally; no static d10 asset
+    // request is expected for this target.
+    d10Fetch: d10Fetches.length === 0,
     longTasks: typeof longTasks?.supported === 'boolean'
       && (longTasks.supported
         ? Number.isSafeInteger(longTasks.count) && Array.isArray(longTasks.entries)

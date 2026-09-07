@@ -8,6 +8,7 @@ import {
   BENCHMARK_CASES,
   DR_CASES,
   formatHumanReport,
+  getBenchmarkCaseFailures,
   MAX_ITERATIONS,
   MAX_WARMUP_ITERATIONS,
   parseBenchmarkArgs,
@@ -172,6 +173,19 @@ describe('full-tail Attack resource benchmark contract', () => {
       '--warmup',
       String(MAX_WARMUP_ITERATIONS + 1),
     ])).toThrow('must not exceed')
+  })
+
+  it('fails only for actual benchmark case errors', () => {
+    const failures = getBenchmarkCaseFailures({
+      cases: [
+        { id: 'measured', status: 'measured' },
+        { id: 'stress', status: 'planner-rejected', error: 'expected' },
+        { id: 'execution', status: 'execution-error' },
+        { id: 'planner', status: 'planner-error' },
+      ],
+    })
+
+    expect(failures.map(({ id }) => id)).toEqual(['execution', 'planner'])
   })
 
   it('exposes the package script and required human-readable fields', () => {

@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { createDistributionResult } from '../src/calculation/DistributionResult'
+import { createCalculationClient } from '../src/runtime/CalculationClient'
 import {
   createRuntimeDamageRollClient,
 } from '../src/runtime/RuntimeDamageRollClient'
+import { createResourceGuard } from '../src/runtime/ResourceGuard'
 
 class FakeWorker {
   constructor() {
@@ -247,6 +250,43 @@ describe('production runtime damage roll Worker client', () => {
     expect(worker.messages).toHaveLength(1)
   })
 
+  it('exposes the underlying Worker lifecycle separately from caller abort', async () => {
+    const { client, workers } = createHarness()
+    const lifecycle = []
+    const request = client.calculate([1], 0, {
+      onUnderlyingSettled: (promise) => lifecycle.push(promise),
+    })
+    const worker = workers[0]
+    let settled = false
+    lifecycle[0].then(
+      () => { settled = true },
+      () => { settled = true },
+    )
+
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    worker.respond(0, distributionAt(0))
+    await request
+    await lifecycle[0]
+    expect(settled).toBe(true)
+  })
+
+  it('settles the lifecycle hook when a Worker fails', async () => {
+    const { client, workers } = createHarness()
+    let lifecycle
+    const request = client.calculate([1], 0, {
+      onUnderlyingSettled: (promise) => {
+        lifecycle = promise
+        lifecycle.catch(() => {})
+      },
+    })
+
+    workers[0].emit('messageerror', { message: 'message channel failed' })
+
+    await expect(request).rejects.toThrow('message channel failed')
+    await expect(lifecycle).rejects.toThrow('message channel failed')
+  })
+
   it('evicts the least recently used cached result', async () => {
     const { client, workers } = createHarness({ cacheSize: 2 })
     expect(workers).toHaveLength(0)
@@ -324,5 +364,80 @@ describe('production runtime damage roll Worker client', () => {
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
     expect(worker.terminate).toHaveBeenCalledOnce()
     await expect(client.calculate([1], 0)).rejects.toThrow('disposed')
+  })
+
+  it('keeps the CalculationClient lease until an aborted Worker request settles', async () => {
+    const workers = []
+    const runtimeClient = createRuntimeDamageRollClient({
+      workerFactory: () => {
+        const worker = new FakeWorker()
+        workers.push(worker)
+        return worker
+      },
+    })
+    const guard = createResourceGuard({
+      capacityBytes: 1024,
+      maxActive: 1,
+      maxQueued: 0,
+      reservationMultiplier: 1,
+    })
+    const envelope = {
+      result: createDistributionResult({
+        values: [1],
+        offset: 0,
+        support: { kind: 'finite', max: 0 },
+        overflow: null,
+      }),
+      metadata: { failureProbability: 0, modeledDistribution: true },
+    }
+    const plan = {
+      accepted: true,
+      operation: 'attack',
+      estimates: { float64Bytes: 1, operations: 1, timeMs: 1 },
+      scores: [{}, {}],
+    }
+    const client = createCalculationClient({
+      planCalculationRanges: vi.fn(() => plan),
+      resourceGuard: guard,
+      calculateScore: vi.fn(() => envelope),
+      calculateDamageOnDemand: vi.fn(async (
+        _score,
+        _attack,
+        _defence,
+        providers,
+        runtimeOptions,
+      ) => {
+        await providers.getDamageRollDistribution([1], 0, {
+          ...runtimeOptions,
+          fftLength: 16,
+          distributionLength: 2,
+          rawSupportMax: 0,
+        })
+        return envelope
+      }),
+      getScoreSummary: vi.fn(() => ({})),
+      getDamageSummary: vi.fn(() => ({})),
+      getDamageRollDistribution: runtimeClient.calculate,
+    })
+    const controller = new AbortController()
+    const request = client.calculateAttack({
+      action: {
+        score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+        damage: { dice: 0, value: 0, kazanari: 0 },
+      },
+      reaction: {
+        mode: 'ドッジ',
+        score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+        damage: { dice: 0, value: 0 },
+      },
+    }, { signal: controller.signal })
+
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+    controller.abort()
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' })
+    expect(guard.snapshot().activeCount).toBe(1)
+
+    workers[0].respond(0, distributionAt(0, 2))
+    await vi.waitFor(() => expect(guard.snapshot().activeCount).toBe(0))
   })
 })

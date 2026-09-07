@@ -636,19 +636,21 @@ function createDynamicDamageProvider(dependencies, observed) {
 
 function createRuntimeDxProvider(calculateDxDistribution) {
   const cache = new Map()
-  return (shihai, dice, critical, options) => {
+  return (shihai, dice, critical, options, yousei = 0) => {
     const key = [
       shihai,
       dice,
       critical,
+      yousei,
       options?.workingLength ?? '',
       options?.rounding ?? '',
+      options?.fftLength ?? '',
     ].join(':')
     if (cache.has(key)) {
       return cache.get(key)
     }
     const distribution = calculateDxDistribution(
-      { shihai, dice, critical },
+      { shihai, dice, critical, yousei },
       options
     )
     cache.set(key, distribution)
@@ -1034,6 +1036,22 @@ export async function runBenchmark(options = {}) {
   }
 }
 
+/**
+ * Return benchmark cases that represent an actual benchmark failure. A
+ * planner-rejected case is an intentional stress result and is therefore not
+ * treated as a failed measurement.
+ */
+export function getBenchmarkCaseFailures(report) {
+  return (report?.cases ?? []).filter((entry) => {
+    if (entry?.status === 'planner-rejected') {
+      return false
+    }
+    return entry?.status === 'error'
+      || entry?.status === 'planner-error'
+      || entry?.status === 'execution-error'
+  })
+}
+
 function formatValue(value) {
   if (value === null || value === undefined) {
     return '-'
@@ -1117,6 +1135,13 @@ if (isMainModule()) {
           ? JSON.stringify(report, null, 2)
           : formatHumanReport(report)
       )
+      const failures = getBenchmarkCaseFailures(report)
+      if (failures.length > 0) {
+        console.error(
+          `Benchmark cases failed: ${failures.map(({ id }) => id).join(', ')}`
+        )
+        process.exitCode = 1
+      }
     }
   } catch (error) {
     console.error(formatError(error))
