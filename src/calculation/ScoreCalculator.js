@@ -751,6 +751,47 @@ function getScoreExpectedValueSummary(envelope) {
   return getExpectedValueSummary(envelope.result)
 }
 
+function getFixedDifficultySuccessRateSummary(envelope, target) {
+  const partition = getScorePartition(envelope)
+  if (partition === null) {
+    return createScoreRateSummary('bounded', {
+      lowerBound: 0,
+      upperBound: 100,
+    })
+  }
+
+  const explicitSuccess = partition.buckets
+    .filter(({ value }) => value >= target)
+    .reduce((sum, bucket) => sum + bucket.probability, 0)
+    - (target === 0
+      ? (envelope.metadata?.failureProbability ?? 0)
+      : 0)
+  const tail = partition.tail
+  const tailLowerBound = Number.isFinite(tail.lowerBound)
+    && target <= tail.lowerBound
+    ? tail.massLowerBound
+    : 0
+  const tailUpperBound = tail.massUpperBound
+  const lowerBound = Math.max(
+    0,
+    Math.min(1, explicitSuccess + tailLowerBound)
+  )
+  const upperBound = Math.max(
+    lowerBound,
+    Math.min(1, explicitSuccess + tailUpperBound)
+  )
+
+  if (tail.massUpperBound === 0 && tail.probabilityErrorBound === 0) {
+    return createScoreRateSummary('exact', {
+      value: Math.round(lowerBound * 1000) / 10,
+    })
+  }
+  return createScoreRateSummary('bounded', {
+    lowerBound: lowerBound * 100,
+    upperBound: upperBound * 100,
+  })
+}
+
 /**
  * Summarize the two Attack score envelopes without projecting them
  * into the legacy 1024 buckets. Expected values retain the
@@ -781,28 +822,10 @@ export function getScoreSummary(
       score.reaction
     )
   } else {
-    const actionBuckets = getExactScoreBuckets(score.action)
-    if (actionBuckets === null) {
-      rates = {
-        action: createScoreRateSummary('bounded', {
-          lowerBound: 0,
-          upperBound: 100,
-        }),
-        reaction: createScoreRateSummary('exact', { value: 0 }),
-      }
-    } else {
-      const target = dfclty.target ?? 0
-      const successProbability = actionBuckets
-        .filter(({ value }) => value >= target)
-        .reduce((sum, bucket) => sum + bucket.probability, 0)
-        - (target === 0
-          ? (score.action.metadata?.failureProbability ?? 0)
-          : 0)
-      const value = Math.round(successProbability * 1000) / 10
-      rates = {
-        action: createScoreRateSummary('exact', { value }),
-        reaction: createScoreRateSummary('exact', { value: 0 }),
-      }
+    const target = dfclty.target ?? 0
+    rates = {
+      action: getFixedDifficultySuccessRateSummary(score.action, target),
+      reaction: createScoreRateSummary('exact', { value: 0 }),
     }
   }
 

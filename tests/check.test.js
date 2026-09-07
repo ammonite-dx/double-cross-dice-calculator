@@ -285,6 +285,22 @@ describe('canonical normal check score producer', () => {
       .toBeGreaterThanOrEqual(54.54545454)
   })
 
+  it('uses the score tail certificate for fixed-difficulty success rates', () => {
+    const params = scoreParams({ dice: 10, critical: 7 })
+    const calculated = calculate(params)
+    const summary = getScoreSummary({
+      action: calculated.envelope,
+      reaction: calculated.envelope,
+    }, { opposed: false, target: 10 })
+    const successRate = summary.action.successRate
+
+    expect(successRate.kind).toBe('bounded')
+    expect(successRate.lowerBound).toBeGreaterThan(99)
+    expect(successRate.upperBound).toBeLessThanOrEqual(100)
+    expect(successRate.upperBound - successRate.lowerBound)
+      .toBeLessThan(1)
+  })
+
   it('keeps unsupported infinite score expectation summaries unavailable', () => {
     for (const params of [
       scoreParams({ skill: -1 }),
