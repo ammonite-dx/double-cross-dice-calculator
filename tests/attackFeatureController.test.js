@@ -7,7 +7,8 @@ import { useAttack } from '../src/features/attack/model/useAttack'
 
 function createPendingClient() {
   return {
-    calculateAttackBatch: vi.fn(() => new Promise(() => {})),
+    calculateAttack: vi.fn(() => new Promise(() => {})),
+    calculateTotalDamage: vi.fn(),
   }
 }
 
@@ -80,16 +81,31 @@ function createAttackBatch({ width = 101, marker = 0, damageMarker = marker } = 
 
 function createResolvedClient(batches = [createAttackBatch()]) {
   let batchIndex = 0
+  let comboCallCount = 0
+  const executionCalls = vi.fn()
+  const currentBatch = () => batches[Math.min(batchIndex, batches.length - 1)]
   return {
-    calculateAttackBatch: vi.fn(async (_entries, options) => {
+    executionCalls,
+    calculateAttack: vi.fn(async (_params, options) => {
+      if (comboCallCount === 0) {
+        executionCalls([], options)
+      }
       options.onRangePlan?.({
         id: `plan-${batchIndex + 1}`,
         operation: 'attack',
         warnings: [],
       })
-      const batch = batches[Math.min(batchIndex, batches.length - 1)]
+      comboCallCount += 1
+      return currentBatch().combos[0]
+    }),
+    calculateTotalDamage: vi.fn(async () => {
+      const batch = currentBatch()
+      comboCallCount = 0
       batchIndex += 1
-      return batch
+      return {
+        totalDamage: batch.totalDamage,
+        totalDamageStatistics: batch.totalDamageStatistics,
+      }
     }),
   }
 }
@@ -138,7 +154,7 @@ describe('Attack feature controller', () => {
     expect(controller.combos.value.map((combo) => combo.id)).toEqual([0, 2])
     // The coordinator keeps one active request and coalesces rapid follow-up
     // events into its latest pending request.
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
@@ -161,7 +177,7 @@ describe('Attack feature controller', () => {
     expect(duplicate.params.action.score.dice).toBe(6)
     source.params.action.score.dice = 99
     expect(duplicate.params.action.score.dice).toBe(6)
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
@@ -175,7 +191,7 @@ describe('Attack feature controller', () => {
     })
     snapshot.score.dice = 99
     expect(controller.combos.value[0].params.action.score.dice).toBe(4)
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
@@ -216,7 +232,7 @@ describe('Attack feature controller', () => {
         value: 12,
       },
     })
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
     controller.dispose()
   })
 
@@ -240,9 +256,38 @@ describe('Attack feature controller', () => {
     await vi.waitFor(() => expect(
       controller.displayPresentation.value?.mode
     ).toBe(ATTACK_DISPLAY_MODES.UPPER_TAIL))
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
     expect(controller.displayPresentation.value).not.toBe(before)
     expect(controller.displayPresentation.value?.status).toBe('ready')
+    controller.dispose()
+  })
+
+  it('recalculates only a changed combo and re-aggregates the total', async () => {
+    const client = createResolvedClient()
+    const { controller } = createController(client)
+    controller.onComboSideValidated({
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(),
+    })
+    await waitForReady(controller)
+
+    controller.addCombo()
+    await waitForReady(controller)
+    const attackCallsBeforeChange = client.calculateAttack.mock.calls.length
+    const totalCallsBeforeChange = client.calculateTotalDamage.mock.calls.length
+
+    controller.onComboSideValidated({
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(7),
+    })
+    await waitForReady(controller)
+
+    expect(client.calculateAttack.mock.calls.length)
+      .toBe(attackCallsBeforeChange + 1)
+    expect(client.calculateTotalDamage.mock.calls.length)
+      .toBe(totalCallsBeforeChange + 1)
     controller.dispose()
   })
 
@@ -266,7 +311,7 @@ describe('Attack feature controller', () => {
     })
 
     await vi.waitFor(() => expect(
-      client.calculateAttackBatch
+      client.executionCalls
     ).toHaveBeenCalledTimes(2))
     await waitForReady(controller)
     expect(controller.displayPresentation.value.displayRequest)
@@ -284,7 +329,7 @@ describe('Attack feature controller', () => {
       snapshot: createActionSnapshot(),
     })
     await waitForReady(controller)
-    const callsBefore = client.calculateAttackBatch.mock.calls.length
+    const callsBefore = client.executionCalls.mock.calls.length
 
     controller.onDisplayValidated({
       min: 0,
@@ -292,7 +337,7 @@ describe('Attack feature controller', () => {
       mode: ATTACK_DISPLAY_MODES.PMF,
     })
 
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(callsBefore)
+    expect(client.executionCalls).toHaveBeenCalledTimes(callsBefore)
     expect(controller.displayFeedback.value.status).toBe('rejected')
     expect(controller.displayPresentation.value).toBeNull()
     controller.dispose()
@@ -317,7 +362,7 @@ describe('Attack feature controller', () => {
     await vi.waitFor(() => expect(
       controller.scoreDisplayPresentation.value?.status
     ).toBe('ready'))
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
     expect(controller.displayPresentation.value).not.toBeNull()
     expect(controller.displayPresentation.value?.total).not.toBeNull()
     controller.dispose()
@@ -344,7 +389,7 @@ describe('Attack feature controller', () => {
     })
 
     await vi.waitFor(() => expect(
-      client.calculateAttackBatch
+      client.executionCalls
     ).toHaveBeenCalledTimes(2))
     await vi.waitFor(() => expect(
       controller.scoreDisplayPresentation.value?.status
@@ -378,7 +423,7 @@ describe('Attack feature controller', () => {
       mode: ATTACK_DISPLAY_MODES.PMF,
     })
 
-    expect(client.calculateAttackBatch).toHaveBeenCalledTimes(1)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
     expect(controller.scoreDisplayFeedback.value.status).toBe('rejected')
     expect(controller.scoreDisplayPresentation.value).toBeNull()
     expect(controller.displayPresentation.value?.total)
@@ -393,7 +438,7 @@ describe('Attack feature controller', () => {
     const oldBatch = createAttackBatch({ marker: 0 })
     const latestBatch = createAttackBatch({ marker: 1 })
     const client = {
-      calculateAttackBatch: vi.fn((_entries, options) => {
+      calculateAttack: vi.fn((_params, options) => {
         callCount += 1
         options.onRangePlan?.({
           id: `plan-${callCount}`,
@@ -405,8 +450,12 @@ describe('Attack feature controller', () => {
             resolveOld = resolve
           })
         }
-        return Promise.resolve(latestBatch)
+        return Promise.resolve(latestBatch.combos[0])
       }),
+      calculateTotalDamage: vi.fn(async () => ({
+        totalDamage: latestBatch.totalDamage,
+        totalDamageStatistics: latestBatch.totalDamageStatistics,
+      })),
     }
     const { controller } = createController(client)
 
@@ -434,12 +483,13 @@ describe('Attack feature controller', () => {
   it('does not commit a stale result after controller disposal', async () => {
     let resolvePending
     const client = {
-      calculateAttackBatch: vi.fn((_entries, options) => {
+      calculateAttack: vi.fn((_params, options) => {
         options.onRangePlan?.({ operation: 'attack', warnings: [] })
         return new Promise((resolve) => {
           resolvePending = resolve
         })
       }),
+      calculateTotalDamage: vi.fn(),
     }
     const { controller } = createController(client)
     controller.onComboSideValidated({
@@ -447,9 +497,9 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(),
     })
-    await vi.waitFor(() => expect(client.calculateAttackBatch).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(client.calculateAttack).toHaveBeenCalledOnce())
     controller.dispose()
-    resolvePending(createAttackBatch())
+    resolvePending(createAttackBatch().combos[0])
     await Promise.resolve()
     expect(controller.displayPresentation.value).toBeNull()
   })
@@ -464,7 +514,7 @@ describe('Attack feature controller', () => {
       show: false,
       showDetails: { action: true },
     })
-    expect(client.calculateAttackBatch).not.toHaveBeenCalled()
+    expect(client.calculateAttack).not.toHaveBeenCalled()
     controller.onComboDetailsChanged({
       id: 0,
       side: 'unknown',
@@ -484,7 +534,7 @@ describe('Attack feature controller', () => {
       snapshot: createActionSnapshot(),
     })
     expect(controller.combos.value).toHaveLength(1)
-    expect(client.calculateAttackBatch).not.toHaveBeenCalled()
+    expect(client.calculateAttack).not.toHaveBeenCalled()
     controller.dispose()
   })
 
@@ -492,6 +542,6 @@ describe('Attack feature controller', () => {
     const { controller, client } = createController()
     controller.dispose()
     controller.addCombo()
-    expect(client.calculateAttackBatch).not.toHaveBeenCalled()
+    expect(client.calculateAttack).not.toHaveBeenCalled()
   })
 })

@@ -112,24 +112,6 @@ function createState(): AttackState {
   }) as unknown as AttackState
 }
 
-function createLegacyDisplaySource(state: AttackState) {
-  return {
-    combos: state.combos.map((combo) => {
-      const data = combo.data as unknown as Record<string, unknown>
-      return {
-      id: combo.id,
-      score: data.score,
-      scoreStatistics: data.scoreStatistics,
-      scorePresentation: data.scorePresentation,
-      damagePresentation: data.damagePresentation,
-      rangePlan: data.rangePlan,
-    }
-    }),
-    totalDamagePresentation: (state as unknown as Record<string, unknown>)
-      .totalDamagePresentation,
-  }
-}
-
 function toUiCombos(state: AttackState): AttackUiCombo[] {
   return state.combos.map((combo) => ({
     id: combo.id,
@@ -149,16 +131,8 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     && typeof client === 'object'
     && typeof client.calculateAttack === 'function'
     && typeof client.calculateTotalDamage === 'function'
-  const supportsLegacyBatchExecution = client !== null
-    && typeof client === 'object'
-    && typeof client.calculateAttackBatch === 'function'
-  if (
-    !supportsIncrementalExecution
-    && !supportsLegacyBatchExecution
-  ) {
-    throw new TypeError(
-      'useAttack requires calculateAttack and calculateTotalDamage'
-    )
+  if (!supportsIncrementalExecution) {
+    throw new TypeError('useAttack requires calculateAttack and calculateTotalDamage')
   }
 
   const displayRangePolicy = DEFAULT_DISPLAY_RANGE_PLANNER_POLICY
@@ -213,31 +187,29 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   const calculationRunner = createAttackRunner(({
     state,
     calculationClient: client,
-    executeCalculation: supportsIncrementalExecution
-      ? ({
-      entries,
-      calculationOptions,
-      signal,
-      onRangePlan,
-      forceAll,
-    }: {
-      entries: readonly unknown[]
-      calculationOptions: Record<string, unknown>
-      signal?: AbortSignal
-      onRangePlan?: (plan: unknown) => void
-      forceAll?: boolean
-    }) => executeAttackIncrementally({
-      entries,
-      committedRecords: getAttackCalculationRecords(state.combos) as unknown[],
-      calculationClient: client,
-      options: {
-        ...calculationOptions,
+    executeCalculation: ({
+        entries,
+        calculationOptions,
         signal,
-      },
-      onRangePlan,
-      forceAll,
-        })
-      : undefined,
+        onRangePlan,
+        forceAll,
+      }: {
+        entries: readonly unknown[]
+        calculationOptions: Record<string, unknown>
+        signal?: AbortSignal
+        onRangePlan?: (plan: unknown) => void
+        forceAll?: boolean
+      }) => executeAttackIncrementally({
+        entries,
+        committedRecords: getAttackCalculationRecords(state.combos) as unknown[],
+        calculationClient: client,
+        options: {
+          ...calculationOptions,
+          signal,
+        },
+        onRangePlan,
+        forceAll,
+    }),
     createBasePresentation: (
       batchResult: unknown,
       rangePlans: unknown[] = [],
@@ -263,7 +235,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       displayRequest?: DisplayRequestSnapshot
       scoreDisplayRequest?: DisplayRequestSnapshot
     }) => createAttackDisplayPresentationFrom(
-      currentState.basePresentation ?? createLegacyDisplaySource(currentState),
+      currentState.basePresentation,
       {
         displayRequest: request
           ?? createAttackDisplayRequestSnapshot(displayRequest),

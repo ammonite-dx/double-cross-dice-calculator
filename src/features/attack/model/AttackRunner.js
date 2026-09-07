@@ -409,6 +409,7 @@ export function createAttackRunner({
       scoreDisplayRequest,
       scoreDisplayRequestGeneration: suppliedScoreDisplayRequestGeneration,
       preserveResult,
+      forceAll,
       ...calculationOptions
     } = options ?? {}
     const requestDisplay = displayRequest === undefined
@@ -460,6 +461,7 @@ export function createAttackRunner({
       scoreDisplayRequest: requestScoreDisplay,
       scoreDisplayRequestGeneration: requestScoreDisplayGeneration,
       scoreDisplayEnabled,
+      forceAll: forceAll === true,
     })
   }
 
