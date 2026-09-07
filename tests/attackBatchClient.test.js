@@ -526,6 +526,7 @@ describe('CalculationClient canonical attack batch', () => {
         signal,
         requestId: 'batch-request',
         onFftLength,
+        onUnderlyingSettled: expect.any(Function),
         runtimeFlag: 'preserve',
       })
     }
