@@ -30,12 +30,13 @@ G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark
 15. 完了（R14 Release Verification & Live Documentation Consolidation、2026-09-05）: `verify:release`をrelease gateの正本としてpackage.jsonに定義し、CI・README・CONTRIBUTINGから参照した。production browser smokeはCIでChromiumを明示導入したうえで実行し、ローカルでは作業ツリー、CIではbase〜headのコミット範囲を`git diff --check`で検査するよう同じgateへ接続した。RD-01〜RD-03を解消し、Node／data／Vitest／generator／simulation／Ruff／typecheck／runtime DX／ESLint／Markdown lint／build／production smoke／差分検査をGREENで確認した。R14を`CLOSED / GREEN`とし、Cloudflare Worker、HTTP API、MCPの公開は引き続き延期する。
 
 16. 完了（R15 Correctness & Measurement Foundation、2026-09-07）: 外部レビューのRR-01〜RR-04を修正した。Score出力バッファをResourcePlannerの見積りへ加え（`9299a04`）、表示拒否後のCheck結果失効（`f3c6cfc`）、固定難易度のScore tail-aware成功率（`f17ae56`）、Worker実処理完了後のResourceGuard lease解放（`37ab270`）を実装した。full-tail Attack測定の`yousei`／FFT長伝播、実ケースエラーの非0終了、canonical D10の静的取得ゼロ、release gate重複除去を`aa73437`で固定し、production browser smokeのCheck回帰ケースと契約テストを`eb53073`で追加した。Nightmare境界の古い記述、レビュー文書の絶対パス、`html lang`も更新した。詳細は[`r15-external-review-remediation.md`](./r15-external-review-remediation.md)を参照する。Worker全体の常駐化、結果契約の全面再設計、TypeScript化、FFT／D10追加最適化、Cloudflare Worker／API／MCP化は後続課題として維持する。
+17. 完了（R16 Certified Result / Precision Contract、2026-09-07）: `CertifiedValue`と`CertifiedProbability`のconstructorを`src/domain/CertifiedValue.ts`へ追加し、有限値・区間順序・確率範囲・immutabilityを共通契約にした。Scoreの`failureProbability`を`automaticFailureProbability`へ明確化し、期待値・成功確率・tail／expectation certificateを統計契約へ移行した。計算コアは確率を分数のまま返し、公開CalculationClientは`scoreStatistics`、`damageStatistics`、`totalDamageStatistics`を返す。百分率丸めはshared presentationへ移し、既存UIの表示は維持した。独立した1D10／2D10全列挙オラクルと対決同値テストを追加した。詳細は[`r16-certified-result-contract.md`](./r16-certified-result-contract.md)を参照する。R17の結果所有権整理、R18のpresenter簡素化、Worker/API/MCP化、UI redesignは対象外として後続へ残す。
 
 ### R15後のactive roadmap
 
 R15完了後の実装順序は、二つの独立レビューを統合して次のとおりとする。`canonical-migration-roadmap.md`はR1〜R12のhistorical roadmapとしてfreezeしており、ここでは更新しない。
 
-1. R16 — Certified Result / Precision Contract
+1. 完了: R16 — Certified Result / Precision Contract
 2. R17 — Result Ownership / Incremental Execution
 3. R18 — Presentation Boundary Simplification
 4. R19 — Worker Architecture Decision

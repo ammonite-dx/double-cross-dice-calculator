@@ -2,7 +2,7 @@
 
 ## 目的と範囲
 
-この文書は、ブラウザ内のcanonical計算コアが行う達成値、成功率、ダメージ、バックトラックの計算を、現在の実装に対応する形で説明します。ゲーム内処理の正規仕様は[`dice-rules.md`](./dice-rules.md)、事前計算データを作るアルゴリズムは[`precomputation-algorithms.md`](./precomputation-algorithms.md)、学習用の導入は[`probability-calculation-tutorial.md`](./probability-calculation-tutorial.md)を参照してください。公開assetは必要な箇所で参照されますが、DX、DR、Backtrackの主要計算は入力に応じてruntime生成します。
+この文書は、ブラウザ内のcanonical計算コアが行う達成値、成功率、ダメージ、バックトラックの計算を、現在の実装に対応する形で説明します。計算結果の確度と確率単位の共通契約は[`r16-certified-result-contract.md`](./r16-certified-result-contract.md)にまとめています。ゲーム内処理の正規仕様は[`dice-rules.md`](./dice-rules.md)、事前計算データを作るアルゴリズムは[`precomputation-algorithms.md`](./precomputation-algorithms.md)、学習用の導入は[`probability-calculation-tutorial.md`](./probability-calculation-tutorial.md)を参照してください。公開assetは必要な箇所で参照されますが、DX、DR、Backtrackの主要計算は入力に応じてruntime生成します。
 
 事前計算器は公開assetとして利用する`dx`、`dr`、`d10`、`livingdead`の基礎分布を生成します。実行時のJavaScriptは、DXとDRを必要な範囲で生成し、技能値、成功条件、対決、攻撃力、防御、バックトラックの区分など、画面操作によって変化する条件を合成します。
 
@@ -51,11 +51,11 @@ $$
 
 ## 2. 達成値
 
-実装は`src/calculation/ScoreCalculator.js`の`calculateScoreCanonical`です。
+実装は`src/calculation/ScoreCalculator.js`の`calculateScore`です。旧canonical専用名はproduction経路から整理され、現在のScore producerがcanonical結果を直接返します。
 
 ### 2.1 固定値判定
 
-固定値モードではダイスを使わず、非負化した技能値の位置に確率1を置きます。値はsafe integer domainの範囲で扱い、歴史的な1023バケットへ切り詰めません。canonical結果では大きな固定値を疎な一点分布（`offset`と長さ1の`values`）で表すため、値に比例した配列を確保しません。ダイスによる自動失敗やファンブルはないため、`failureProbability`は0です。
+固定値モードではダイスを使わず、非負化した技能値の位置に確率1を置きます。値はsafe integer domainの範囲で扱い、歴史的な1023バケットへ切り詰めません。canonical結果では大きな固定値を疎な一点分布（`offset`と長さ1の`values`）で表すため、値に比例した配列を確保しません。ダイスによる自動失敗やファンブルはないため、metadataの`automaticFailureProbability`は0です。
 
 ### 2.2 実行時判定分布の生成
 
@@ -71,9 +71,9 @@ $$
 
 ### 2.4 ファンブルと技能値
 
-事前計算分布のインデックス0と1を`failureProbability`として取り出してから、両方を0にします。残りの通常結果だけへ技能値をシフト加算し、取り出した失敗確率をインデックス0へ戻します。
+事前計算分布のインデックス0と1を`automaticFailureProbability`として取り出してから、両方を0にします。残りの通常結果だけへ技能値をシフト加算し、取り出した失敗確率をインデックス0へ戻します。
 
-この順序により、技能値が正でも自動失敗やファンブルへ技能値を加えません。一方、通常結果へ負の技能値を加えて0になった確率は結果分布のインデックス0へ入りますが、ルール上の自動失敗やファンブルではないため`failureProbability`には含めません。
+この順序により、技能値が正でも自動失敗やファンブルへ技能値を加えません。一方、通常結果へ負の技能値を加えて0になった確率は結果分布のインデックス0へ入りますが、ルール上の自動失敗やファンブルではないため`automaticFailureProbability`には含めません。
 
 canonical経路では固定長へ集約せず、要求された表示windowの境界で必要な投影だけを行います。上側確率もcanonicalのoffsetとsupportを保ったまま作成し、published-bucket互換が明示的に要求された場合だけ1024要素へ投影します。
 
@@ -91,9 +91,9 @@ canonical経路では固定長へ集約せず、要求された表示windowの�
 
 ## 3. 成功率と対決
 
-実装は`src/calculation/ScoreCalculator.js`の`getCanonicalScoreSummary`です。
+実装は`src/calculation/ScoreCalculator.js`の`getScoreStatistics`です。返却する確率は分数であり、百分率への丸めは表示層で行います。
 
-固定難易度$t$に対する成功確率は原則として$P(A\ge t)$です。ただし$t=0$では、分布のインデックス0に通常結果と自動失敗・ファンブルが共存するため、上側確率から`failureProbability`だけを除きます。
+固定難易度$t$に対する成功確率は原則として$P(A\ge t)$です。ただし$t=0$では、分布のインデックス0に通常結果と自動失敗・ファンブルが共存するため、上側確率から`automaticFailureProbability`だけを除きます。
 
 $$
 P(\text{成功})=
