@@ -379,7 +379,18 @@ export async function useCheck({
     onCancelled: undefined,
   })
 
+  function invalidateInputCalculation() {
+    // Input changes invalidate the previous score even when the current
+    // display request is rejected before a new runner request can start.
+    calculationRunner.invalidate()
+    state.score = null
+    state.scoreSummary = null
+    state.resultReady = false
+    resetDisplayFeedback()
+  }
+
   const onDifficultyValidated = (difficulty: DifficultyInput) => {
+    invalidateInputCalculation()
     state.difficulty = { ...difficulty }
     displayRecalculationKey = null
     void submitCheck()
@@ -395,6 +406,7 @@ export async function useCheck({
     if (side !== 'action' && side !== 'reaction') {
       return
     }
+    invalidateInputCalculation()
     state.scoreParams[side] = { ...params }
     displayRecalculationKey = null
     void submitCheck()
@@ -417,6 +429,8 @@ export async function useCheck({
 
     if (!state.resultReady || state.score === null) {
       resetDisplayFeedback()
+      displayRecalculationKey = null
+      void submitCheck(snapshot)
       return
     }
 

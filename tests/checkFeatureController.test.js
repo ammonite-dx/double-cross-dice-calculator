@@ -226,6 +226,37 @@ describe('useCheck', () => {
     )
   })
 
+  it('invalidates stale results across a rejected display and input change', async () => {
+    const pending = []
+    const client = {
+      calculateCheck: vi.fn()
+        .mockResolvedValueOnce(createCalculationResult())
+        .mockImplementation((params) => new Promise((resolve) => {
+          pending.push({ params, resolve })
+        })),
+    }
+    const check = await useCheck({ calculationClient: client })
+
+    check.onDisplayValidated({ min: 0, max: 16_384, mode: 'pmf' })
+    await Promise.resolve()
+    expect(check.resultReady.value).toBe(true)
+
+    check.onScoreValidated({
+      side: 'action',
+      params: { dice: 2, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+    })
+    expect(check.resultReady.value).toBe(false)
+    expect(check.score.value).toBeNull()
+
+    check.onDisplayValidated({ min: 0, max: 100, mode: 'pmf' })
+    await vi.waitFor(() => expect(pending).toHaveLength(1))
+    expect(pending[0].params.action.dice).toBe(2)
+
+    pending[0].resolve(createCalculationResult())
+    await vi.waitFor(() => expect(check.resultReady.value).toBe(true))
+    expect(check.scoreParams.value.action.dice).toBe(2)
+  })
+
   it('keeps only the latest calculation result when requests overlap', async () => {
     const pending = []
     const client = {
