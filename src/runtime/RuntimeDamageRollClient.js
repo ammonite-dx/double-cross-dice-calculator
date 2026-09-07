@@ -85,6 +85,18 @@ function waitWithSignal(promise, signal) {
   })
 }
 
+function notifyUnderlyingSettled(options, promise) {
+  if (typeof options?.onUnderlyingSettled !== 'function') {
+    return
+  }
+  try {
+    options.onUnderlyingSettled(promise)
+  } catch {
+    // Lifecycle observation is an internal diagnostic hook. A consumer
+    // callback must not change the calculation contract.
+  }
+}
+
 function defaultWorkerFactory() {
   return new Worker(new URL('./RuntimeDamageRollWorker.js', import.meta.url), {
     type: 'module',
@@ -212,7 +224,9 @@ export function createRuntimeDamageRollClient({
 
     const cached = takeCached(weights, kazanari, normalizedOptions)
     if (cached) {
-      return waitWithSignal(Promise.resolve(cached), signal)
+      const settled = Promise.resolve(cached)
+      notifyUnderlyingSettled(options, settled)
+      return waitWithSignal(settled, signal)
     }
 
     const existing = findPending(
@@ -221,6 +235,7 @@ export function createRuntimeDamageRollClient({
       normalizedOptions
     )
     if (existing) {
+      notifyUnderlyingSettled(options, existing.promise)
       return waitWithSignal(
         existing.promise.then((distribution) => distribution.slice()),
         signal
@@ -247,6 +262,7 @@ export function createRuntimeDamageRollClient({
       reject: rejectRequest,
     }
     pendingById.set(id, entry)
+    notifyUnderlyingSettled(options, promise)
 
     try {
       getWorker().postMessage(
