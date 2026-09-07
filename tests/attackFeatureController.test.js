@@ -343,6 +343,41 @@ describe('Attack feature controller', () => {
     controller.dispose()
   })
 
+  it('recovers a rejected damage display from committed records without recalculation', async () => {
+    const client = createResolvedClient()
+    const { controller } = createController(client)
+    controller.onComboSideValidated({
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(),
+    })
+    await waitForReady(controller)
+    const committed = controller.displayPresentation.value
+    const attackCalls = client.calculateAttack.mock.calls.length
+    const totalCalls = client.calculateTotalDamage.mock.calls.length
+
+    controller.onDisplayValidated({
+      min: 0,
+      max: 20_000,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    })
+    expect(controller.displayFeedback.value.status).toBe('rejected')
+    expect(controller.displayPresentation.value).toBeNull()
+
+    controller.onDisplayValidated({
+      min: 0,
+      max: 30,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    })
+    await waitForReady(controller)
+
+    expect(client.calculateAttack).toHaveBeenCalledTimes(attackCalls)
+    expect(client.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
+    expect(controller.displayPresentation.value).not.toBe(committed)
+    expect(controller.displayPresentation.value?.status).toBe('ready')
+    controller.dispose()
+  })
+
   it('reuses the score presentation without starting a full batch', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
