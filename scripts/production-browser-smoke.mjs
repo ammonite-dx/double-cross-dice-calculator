@@ -596,6 +596,25 @@ async function runCheck(browser, baseUrl) {
     assertNoBrowserErrors('check resource reject', record)
     summaries.push({ canvases: 0, id: 'check display 0..20000 rejected', precomputed: 0 })
 
+    // A rejected display request must not allow a later input edit to leave
+    // the previous score summary visible. The new input remains pending until
+    // the display window is made projectable again.
+    await fillBoundaryInput(
+      page,
+      record,
+      'check stale result invalidation',
+      page.getByLabel('ダイス数'),
+      2,
+      0,
+    )
+    assertCondition(
+      'check stale result invalidation',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'stale score summary remained after input changed under a rejected display request',
+    )
+    assertNoBrowserErrors('check stale result invalidation', record)
+    summaries.push({ canvases: 0, id: 'check stale result cleared', precomputed: 0 })
+
     const recoveryState = await captureResultState(page)
     await maxInput.fill('100')
     assertCondition(
@@ -613,6 +632,51 @@ async function runCheck(browser, baseUrl) {
     assertNoBrowserErrors('check resource recovery', record)
     assertNoPrecomputedRequests('check resource recovery', record)
     summaries.push({ canvases: 1, id: 'check display 0..100 recovered', precomputed: 0 })
+
+    // For a fixed difficulty, full-tail score metadata yields a bounded but
+    // displayable success rate instead of the old unavailable dash.
+    await fillBoundaryInput(
+      page,
+      record,
+      'check fixed difficulty=10',
+      page.getByLabel('難易度'),
+      10,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check fixed difficulty dice=10',
+      page.getByLabel('ダイス数'),
+      10,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check fixed difficulty critical=7',
+      page.getByLabel('クリティカル値'),
+      7,
+      1,
+    )
+    const checkSummaryRow = page
+      .locator('.v-card')
+      .filter({ hasText: 'サマリー' })
+      .locator('tbody tr')
+      .first()
+    await checkSummaryRow.waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    const checkSummaryText = (await checkSummaryRow.textContent())?.replace(/\s+/g, ' ') ?? ''
+    assertCondition(
+      'check fixed difficulty summary',
+      /99\.\d%/.test(checkSummaryText)
+        && !checkSummaryText.includes('—'),
+      `fixed-difficulty summary was unavailable: ${checkSummaryText}`,
+    )
+    assertNoBrowserErrors('check fixed difficulty summary', record)
+    summaries.push({ canvases: 1, id: 'check fixed difficulty summary', precomputed: 0 })
 
     assertNoPrecomputedRequests('check final', record)
     return summaries
