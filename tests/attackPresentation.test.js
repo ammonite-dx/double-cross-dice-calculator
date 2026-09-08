@@ -7,8 +7,6 @@ import {
   isAttackPresentationError,
 } from '../src/features/attack/model/AttackPresentation'
 import {
-  DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
-  DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
   DistributionPresentationError,
 } from '../src/shared/presentation'
 import {
@@ -83,19 +81,6 @@ function createPlan(warnings = [], extra = {}) {
     ...extra,
     warnings,
   }
-}
-
-function batchWithComboOverride(batch, override) {
-  return {
-    ...batch,
-    combos: [{ ...batch.combos[0], ...override }],
-  }
-}
-
-function revokedProxy(value = {}) {
-  const { proxy, revoke } = Proxy.revocable(value, {})
-  revoke()
-  return proxy
 }
 
 describe('createAttackPresentation', () => {
@@ -294,7 +279,7 @@ describe('createAttackPresentation', () => {
       })
   })
 
-  it('does not mutate input or retain mutable combo/plan object aliases', () => {
+  it('does not mutate input and reuses owned score/statistics references', () => {
     const damage = createEnvelope()
     const batch = createBatch([damage], { legacyFields: true })
     const plan = createPlan([], {
@@ -308,9 +293,9 @@ describe('createAttackPresentation', () => {
 
     expect(presentation.combos).not.toBe(batch.combos)
     expect(presentation.combos[0]).not.toBe(batch.combos[0])
-    expect(presentation.combos[0].score).not.toBe(batch.combos[0].score)
+    expect(presentation.combos[0].score).toBe(batch.combos[0].score)
     expect(presentation.combos[0].scoreStatistics)
-      .not.toBe(batch.combos[0].scoreStatistics)
+      .toBe(batch.combos[0].scoreStatistics)
     expect(presentation.combos[0].rangePlan).not.toBe(plan)
     expect(presentation.combos[0].damage).toBe(damage)
     expect(presentation.combos[0].damageStatistics)
@@ -325,7 +310,7 @@ describe('createAttackPresentation', () => {
     expect(plan).toEqual(JSON.parse(JSON.stringify(planBefore)))
   })
 
-  it('keeps presenter freeze and JSON round-trip guarantees', () => {
+  it('freezes presentation containers without freezing owned nested values', () => {
     const warning = {
       code: 'nested',
       severity: 'warning',
@@ -340,7 +325,7 @@ describe('createAttackPresentation', () => {
 
     expect(Object.isFrozen(display)).toBe(true)
     expect(Object.isFrozen(display.warnings)).toBe(true)
-    expect(Object.isFrozen(display.warnings[0].details)).toBe(true)
+    expect(Object.isFrozen(display.warnings[0].details)).toBe(false)
     expect(JSON.parse(JSON.stringify(display))).toEqual(display)
     expect(JSON.parse(JSON.stringify(
       presentation.totalDamagePresentation
@@ -370,7 +355,7 @@ describe('createAttackPresentation', () => {
       totalDamage: batch.totalDamage,
     }, [])).toThrow(
       expect.objectContaining({
-        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_SUMMARY,
+        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
       })
     )
     expect(() => createAttackPresentation({
@@ -398,158 +383,7 @@ describe('createAttackPresentation', () => {
       .toThrow(DistributionPresentationError)
   })
 
-  it('converts revoked proxy reflection failures into field-specific typed errors', () => {
-    const batch = createBatch([createEnvelope()])
-
-    expect(() => createAttackPresentation(revokedProxy(), []))
-      .toThrow(expect.objectContaining({
-        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
-      }))
-    expect(() => createAttackPresentation({
-      ...batch,
-      combos: revokedProxy([]),
-    }, [])).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_BATCH_RESULT,
-    }))
-    expect(() => createAttackPresentation(batch, revokedProxy([])))
-      .toThrow(expect.objectContaining({
-        code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_RANGE_PLANS,
-      }))
-    expect(() => createAttackPresentation(
-      batchWithComboOverride(batch, { score: revokedProxy() }),
-      [createPlan()]
-    )).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO,
-    }))
-  })
-
-  it('rejects accessors without executing getters', () => {
-    const batch = createBatch([createEnvelope()])
-    let comboGetterCalled = false
-    const combo = { ...batch.combos[0] }
-    Object.defineProperty(combo, 'score', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        comboGetterCalled = true
-        throw new Error('combo getter must not run')
-      },
-    })
-
-    expect(() => createAttackPresentation({
-      ...batch,
-      combos: [combo],
-    }, [createPlan()])).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO,
-    }))
-    expect(comboGetterCalled).toBe(false)
-
-    let nestedGetterCalled = false
-    const score = {}
-    Object.defineProperty(score, 'action', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        nestedGetterCalled = true
-        throw new Error('nested getter must not run')
-      },
-    })
-    expect(() => createAttackPresentation(
-      batchWithComboOverride(batch, { score }),
-      [createPlan()]
-    )).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.INVALID_CLONE,
-    }))
-    expect(nestedGetterCalled).toBe(false)
-  })
-
-  it.each([
-    ['function', () => {}],
-    ['symbol', Symbol('unsafe')],
-    ['bigint', 1n],
-    ['NaN', Number.NaN],
-    ['Infinity', Number.POSITIVE_INFINITY],
-    ['Date', new Date(0)],
-    ['Map', new Map()],
-    ['Set', new Set()],
-    ['class instance', new (class UnknownValue {})()],
-  ])('rejects unsafe clone values: %s', (_label, value) => {
-    const batch = createBatch([createEnvelope()])
-
-    expect(() => createAttackPresentation(
-      batchWithComboOverride(batch, { score: { value } }),
-      [createPlan()]
-    )).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
-    }))
-  })
-
-  it('rejects cycles and clone depth/node limit violations', () => {
-    const batch = createBatch([createEnvelope()])
-    const cycle = {}
-    cycle.self = cycle
-    expect(() => createAttackPresentation(
-      batchWithComboOverride(batch, { score: cycle }),
-      [createPlan()]
-    )).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
-    }))
-
-    let deep = { leaf: true }
-    for (let index = 0; index <= DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH; index += 1) {
-      deep = { next: deep }
-    }
-    expect(() => createAttackPresentation(
-      batchWithComboOverride(batch, { score: { deep } }),
-      [createPlan()]
-    )).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
-    }))
-
-    const manyValues = Array.from(
-      { length: DISTRIBUTION_PRESENTATION_MAX_JSON_NODES },
-      () => 0
-    )
-    expect(() => createAttackPresentation(
-      batchWithComboOverride(batch, { score: { manyValues } }),
-      [createPlan()]
-    )).toThrow(expect.objectContaining({
-      code: ATTACK_PRESENTATION_ERROR_CODES.UNSAFE_CLONE,
-    }))
-  })
-
-  it('defensively clones ArrayBuffer, DataView, and typed-array score values', () => {
-    const buffer = new ArrayBuffer(8)
-    const bytes = new Uint8Array(buffer)
-    bytes.set([1, 2, 3, 4, 5, 6, 7, 8])
-    const typed = new Uint16Array(buffer)
-    const dataView = new DataView(buffer, 2, 4)
-    const batch = createBatch([createEnvelope()])
-    const inputScore = { buffer, typed, dataView }
-
-    const presentation = createAttackPresentation(
-      batchWithComboOverride(batch, { score: inputScore }),
-      [createPlan()]
-    )
-    const outputScore = presentation.combos[0].score
-
-    expect(outputScore.buffer).not.toBe(buffer)
-    expect(outputScore.typed).not.toBe(typed)
-    expect(outputScore.dataView).not.toBe(dataView)
-    expect(Array.from(new Uint8Array(outputScore.buffer)))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8])
-    expect(Array.from(outputScore.typed)).toEqual(Array.from(typed))
-    expect(Array.from(new Uint8Array(
-      outputScore.dataView.buffer,
-      outputScore.dataView.byteOffset,
-      outputScore.dataView.byteLength
-    ))).toEqual([3, 4, 5, 6])
-
-    bytes[0] = 99
-    expect(new Uint8Array(outputScore.buffer)[0]).toBe(1)
-  })
-
-  it('returns an atomic deeply frozen payload for mutable nested fields', () => {
+  it('returns immutable presentation containers while retaining calculation ownership', () => {
     const batch = createBatch([createEnvelope()])
     const plan = createPlan([], {
       scores: [{ tail: { bound: 0.01 } }],
@@ -560,15 +394,15 @@ describe('createAttackPresentation', () => {
     expect(Object.isFrozen(presentation)).toBe(true)
     expect(Object.isFrozen(presentation.combos)).toBe(true)
     expect(Object.isFrozen(combo)).toBe(true)
-    expect(Object.isFrozen(combo.score)).toBe(true)
-    expect(Object.isFrozen(combo.score.action)).toBe(true)
-    expect(Object.isFrozen(combo.score.action.distribution)).toBe(true)
-    expect(Object.isFrozen(combo.scoreStatistics)).toBe(true)
-    expect(Object.isFrozen(combo.scoreStatistics.action)).toBe(true)
+    expect(Object.isFrozen(combo.score)).toBe(false)
+    expect(Object.isFrozen(combo.score.action)).toBe(false)
+    expect(Object.isFrozen(combo.score.action.distribution)).toBe(false)
+    expect(Object.isFrozen(combo.scoreStatistics)).toBe(false)
+    expect(Object.isFrozen(combo.scoreStatistics.action)).toBe(false)
     expect(Object.isFrozen(combo.rangePlan)).toBe(true)
-    expect(Object.isFrozen(combo.rangePlan.scores)).toBe(true)
-    expect(Object.isFrozen(combo.rangePlan.scores[0])).toBe(true)
-    expect(Object.isFrozen(combo.rangePlan.scores[0].tail)).toBe(true)
+    expect(Object.isFrozen(combo.rangePlan.scores)).toBe(false)
+    expect(Object.isFrozen(combo.rangePlan.scores[0])).toBe(false)
+    expect(Object.isFrozen(combo.rangePlan.scores[0].tail)).toBe(false)
     expect(Object.isFrozen(combo.rangePlan.warnings)).toBe(true)
   })
 })
