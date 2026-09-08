@@ -22,6 +22,8 @@
     "benchmark:runtime-dr": "node scripts/benchmark-runtime-dr-experiment.mjs",
     "benchmark:r19:worker": "node experiments/r19-worker-architecture/playwright-runner.mjs",
     "benchmark:r19:worker:short": "node experiments/r19-worker-architecture/playwright-runner.mjs --iterations 1 --warmup 0",
+    "benchmark:r20:conservative-rendering": "node experiments/r20-conservative-rendering/playwright-runner.mjs",
+    "benchmark:r20:conservative-rendering:short": "node experiments/r20-conservative-rendering/playwright-runner.mjs --iterations=1 --warmup=0 --initial-animation-ms=100 --update-animation-ms=100",
     "smoke:production": "npm run build && npm run smoke:production:built",
     "smoke:production:built": "node scripts/production-browser-smoke.mjs",
     "diff:check": "node scripts/diff-check.mjs",
