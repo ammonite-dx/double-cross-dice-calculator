@@ -58,7 +58,6 @@ type Presentation = {
 type AttackState = {
   combos: AttackCombo[]
   totalCalculation: unknown
-  scoreDisplayPresentation: Presentation | null
   basePresentation: Presentation | null
   displayPresentation: Presentation | null
   generation: number
@@ -167,9 +166,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         state.scoreDisplayFeedback,
         createAttackScoreDisplayFeedback(scorePresentation)
       )
-      state.scoreDisplayPresentation = (
-        scorePresentation ?? null
-      ) as Presentation | null
     }
   }
 
@@ -178,7 +174,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       state.displayFeedback,
       createAttackDisplayFeedback(presentation)
     )
-    state.scoreDisplayPresentation = null
     state.scoreDisplayFeedback.status = 'idle'
     state.scoreDisplayFeedback.plan = null
     state.scoreDisplayFeedback.error = null
@@ -186,7 +181,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
 
   const calculationRunner = createAttackRunner(({
     state,
-    calculationClient: client,
     executeCalculation: ({
         entries,
         calculationOptions,
@@ -250,7 +244,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     onDisplayRejected: publishDisplayRejection,
     onError: (error: unknown) => {
       state.displayPresentation = null
-      state.scoreDisplayPresentation = null
       state.displayFeedback.status = 'error'
       state.displayFeedback.plan = null
       state.displayFeedback.error = error
@@ -260,7 +253,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
 
   function publishDisplayResourceRejection(plan: unknown) {
     state.displayPresentation = null
-    state.scoreDisplayPresentation = null
     state.displayFeedback.status = 'rejected'
     state.displayFeedback.plan = plan
     state.displayFeedback.error = null
@@ -271,12 +263,10 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
 
   function clearDisplayPresentation() {
     state.displayPresentation = null
-    state.scoreDisplayPresentation = null
   }
 
   function publishDisplayError(error: unknown) {
     state.displayPresentation = null
-    state.scoreDisplayPresentation = null
     state.displayFeedback.status = 'error'
     state.displayFeedback.plan = null
     state.displayFeedback.error = error
@@ -286,7 +276,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   }
 
   function publishScoreDisplayResourceRejection(plan: unknown) {
-    state.scoreDisplayPresentation = null
     state.scoreDisplayFeedback.status = 'rejected'
     state.scoreDisplayFeedback.plan = plan
     state.scoreDisplayFeedback.error = null
@@ -327,7 +316,6 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return true
     } catch (error) {
       calculationRunner.invalidateScoreDisplay()
-      state.scoreDisplayPresentation = null
       state.scoreDisplayFeedback.status = 'error'
       state.scoreDisplayFeedback.plan = null
       state.scoreDisplayFeedback.error = error
@@ -509,11 +497,9 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       })
       if (!refreshed) {
         calculationRunner.invalidateScoreDisplay()
-        state.scoreDisplayPresentation = null
       }
     } catch (error) {
       calculationRunner.invalidateScoreDisplay()
-      state.scoreDisplayPresentation = null
       state.scoreDisplayFeedback.status = 'error'
       state.scoreDisplayFeedback.plan = null
       state.scoreDisplayFeedback.error = error
@@ -539,7 +525,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     () => state.displayPresentation
   )
   const scoreDisplayPresentation = computed(
-    () => state.scoreDisplayPresentation
+    () => (state.displayPresentation?.score ?? null) as Presentation | null
   )
   const displayFeedback = computed(
     () => state.displayFeedback

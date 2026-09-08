@@ -177,7 +177,7 @@ describe('incremental Attack runner ownership', () => {
       .toEqual(records)
     expect(state.basePresentation).toBeNull()
     expect(state.displayPresentation).toBeNull()
-    expect(state.scoreDisplayPresentation).toBeNull()
+    expect(state).not.toHaveProperty('scoreDisplayPresentation')
     expect(state.feedback.status).toBe('error')
 
     const attackCalls = client.calculateAttack.mock.calls.length
@@ -227,7 +227,7 @@ describe('incremental Attack runner ownership', () => {
     expect(total).not.toBeNull()
     expect(state.basePresentation).toBeNull()
     expect(state.displayPresentation).toBeNull()
-    expect(state.scoreDisplayPresentation).toBeNull()
+    expect(state).not.toHaveProperty('scoreDisplayPresentation')
     expect(state.feedback.status).toBe('error')
 
     const attackCalls = client.calculateAttack.mock.calls.length

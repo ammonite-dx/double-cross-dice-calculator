@@ -5,9 +5,6 @@ import {
 import {
   commitAttackCalculationExecution,
   commitAttackPresentation,
-  commitAttackResult,
-  commitAttackDisplayPresentation,
-  invalidateAttackState,
   invalidateAttackComboCalculation,
   invalidateAttackTotalCalculation,
   isAttackInputCurrent,
@@ -19,6 +16,7 @@ import {
   createLatestCalculationRunner,
   completeCalculation,
   markCalculationAborted,
+  recordCalculationError,
 } from '../../../runtime/CalculationFeedback'
 
 /**
@@ -27,7 +25,6 @@ import {
  */
 export function createAttackRunner({
   state,
-  calculationClient,
   executeCalculation,
   createBasePresentation,
   createPresentation = createAttackPresentation,
@@ -36,6 +33,11 @@ export function createAttackRunner({
   onDisplayRejected,
   onError,
 }) {
+  if (typeof executeCalculation !== 'function') {
+    throw new TypeError(
+      'createAttackRunner requires an incremental executeCalculation function'
+    )
+  }
   let requestGeneration = null
   let displayRequestGeneration = 0
   let scoreDisplayRequestGeneration = 0
@@ -62,7 +64,6 @@ export function createAttackRunner({
   }
 
   function clearScoreDisplayPresentation() {
-    state.scoreDisplayPresentation = null
     const current = state.displayPresentation
     if (
       current !== null
@@ -187,48 +188,34 @@ export function createAttackRunner({
     displayRequestGeneration += 1
     scoreDisplayRequestGeneration += 1
     scoreDisplayEnabled = false
-    if (typeof executeCalculation === 'function') {
-      state.displayPresentation = null
-      state.scoreDisplayPresentation = null
-      onDisplayRejected?.(presentation)
-      return
-    }
-    requestGeneration = invalidateAttackState(state)
-    clearRequestCache()
+    state.displayPresentation = null
     onDisplayRejected?.(presentation)
   }
 
   function handlePresentationError(error) {
-    if (typeof executeCalculation === 'function') {
-      const stage = error?.attackExecutionStage
-      if (stage === 'combo') {
-        presentationErrorActive = false
-        invalidateAttackComboCalculation(
-          state,
-          error?.attackExecutionEntryId
-        )
-        invalidateAttackTotalCalculation(state)
-      } else if (stage === 'total') {
-        presentationErrorActive = false
-        state.totalCalculation = null
-        state.basePresentation = null
-        state.displayPresentation = null
-        state.scoreDisplayPresentation = null
-      } else {
-        presentationErrorActive = true
-        // Presentation failures do not invalidate a valid calculation record.
-        state.basePresentation = null
-        state.displayPresentation = null
-        state.scoreDisplayPresentation = null
-        scoreDisplayRecalculationActive = false
-      }
-      onError?.(error)
-      return
+    if (scoreDisplayRecalculationActive) {
+      scoreDisplayRecalculationActive = false
+      recordCalculationError(state.scoreDisplayFeedback, error)
     }
-    requestGeneration = invalidateAttackState(state)
-    clearRequestCache()
-    presentationErrorActive = false
-    scoreDisplayRecalculationActive = false
+    const stage = error?.attackExecutionStage
+    if (stage === 'combo') {
+      presentationErrorActive = false
+      invalidateAttackComboCalculation(
+        state,
+        error?.attackExecutionEntryId
+      )
+      invalidateAttackTotalCalculation(state)
+    } else if (stage === 'total') {
+      presentationErrorActive = false
+      state.totalCalculation = null
+      state.basePresentation = null
+      state.displayPresentation = null
+    } else {
+      presentationErrorActive = true
+      // Presentation failures do not invalidate a valid calculation record.
+      state.basePresentation = null
+      state.displayPresentation = null
+    }
     onError?.(error)
   }
 
@@ -261,23 +248,13 @@ export function createAttackRunner({
         requestRangePlans.push(plan)
         onRangePlan?.(plan)
       }
-      if (typeof executeCalculation === 'function') {
-        return executeCalculation({
-          entries,
-          calculationOptions,
-          signal,
-          onRangePlan: rangePlanCallback,
-          forceAll: forceAll === true,
-        })
-      }
-      return calculationClient.calculateAttackBatch(
+      return executeCalculation({
         entries,
-        {
-          ...calculationOptions,
-          signal,
-          onRangePlan: rangePlanCallback,
-        }
-      )
+        calculationOptions,
+        signal,
+        onRangePlan: rangePlanCallback,
+        forceAll: forceAll === true,
+      })
     },
     clearResult: () => {
       // Every coordinator start is a new calculation lifecycle. Do this
@@ -288,42 +265,14 @@ export function createAttackRunner({
         preserveResultOnNextRun = false
         return
       }
-      if (typeof executeCalculation === 'function') {
-        // Incremental execution keeps unaffected combo records. Only the
-        // presentation and the generation guard are invalidated while the
-        // requested execution is assembled atomically.
-        cancelScoreDisplayRecalculation()
-        state.generation = Number.isSafeInteger(state.generation)
-          ? state.generation + 1
-          : 1
-        requestGeneration = state.generation
-        state.basePresentation = null
-        state.displayPresentation = null
-        state.scoreDisplayPresentation = null
-        clearRequestCache()
-        return
-      }
       cancelScoreDisplayRecalculation()
-      const scoreFeedback = state.scoreDisplayFeedback
-      const preservedScoreFeedback = !scoreDisplayEnabled
-        && (
-          scoreFeedback?.status === 'rejected'
-          || scoreFeedback?.status === 'error'
-        )
-        ? {
-            status: scoreFeedback.status,
-            plan: scoreFeedback.plan ?? null,
-            error: scoreFeedback.error ?? null,
-          }
-        : null
-      requestGeneration = invalidateAttackState(state)
+      state.generation = Number.isSafeInteger(state.generation)
+        ? state.generation + 1
+        : 1
+      requestGeneration = state.generation
+      state.basePresentation = null
+      state.displayPresentation = null
       clearRequestCache()
-      if (preservedScoreFeedback !== null) {
-        Object.assign(
-          state.scoreDisplayFeedback,
-          preservedScoreFeedback
-        )
-      }
     },
     commitResult: (calculationResult) => {
       if (
@@ -349,80 +298,45 @@ export function createAttackRunner({
       const execution = calculationResult?.batchResult
         ? calculationResult
         : null
-      const batchResult = execution?.batchResult ?? calculationResult
-      const rangePlans = execution?.rangePlans ?? activeRequest.rangePlans
-      if (execution !== null) {
-        // Incremental execution has two ownership boundaries. First publish
-        // the complete calculation snapshot; presentation code is allowed to
-        // fail without losing those records.
-        const committedCalculation = commitAttackCalculationExecution(
-          state,
-          requestGeneration,
-          execution,
-        )
-        if (!committedCalculation) {
-          if (requestGeneration === state.generation) {
-            throw new Error(' attack calculation result was incomplete')
-          }
-          return false
+      if (execution === null) {
+        if (requestGeneration === state.generation) {
+          throw new Error(' attack calculation result was incomplete')
         }
+        return false
+      }
+      const batchResult = execution.batchResult
+      const rangePlans = execution.rangePlans ?? activeRequest.rangePlans
 
-        lastBatchResult = batchResult
-        lastRangePlans = rangePlans.slice()
-        lastEntries = activeRequest.entries
-        if (!scoreDisplaySuppressed && activeRequest.scoreDisplayRequest !== null) {
-          lastScoreDisplayRequest = activeRequest.scoreDisplayRequest
+      // Incremental execution has two ownership boundaries. First publish the
+      // complete calculation snapshot; presentation code may fail without
+      // losing those records.
+      const committedCalculation = commitAttackCalculationExecution(
+        state,
+        requestGeneration,
+        execution,
+      )
+      if (!committedCalculation) {
+        if (requestGeneration === state.generation) {
+          throw new Error(' attack calculation result was incomplete')
         }
-        const previousScoreDisplayPresentation =
-          state.scoreDisplayPresentation ?? null
-        state.basePresentation = null
-        state.displayPresentation = null
-        state.scoreDisplayPresentation = null
-
-        const basePresentation = createBaseBatchPresentation(
-          batchResult,
-          rangePlans
-        )
-        const presentation = createBatchPresentation(
-          batchResult,
-          activeRequest.displayRequest,
-          activeRequest.scoreDisplayRequest,
-          rangePlans
-        )
-        const committedPresentation = scoreDisplaySuppressed
-          ? suppressScoreDisplay(
-              presentation,
-              previousScoreDisplayPresentation
-            )
-          : presentation
-        const committed = commitAttackPresentation(
-          state,
-          requestGeneration,
-          basePresentation,
-          committedPresentation
-        )
-        if (!committed && requestGeneration === state.generation) {
-          throw new Error(' attack presentation was incomplete')
-        }
-        if (committed) {
-          if (scoreDisplayRecalculationActive) {
-            scoreDisplayRecalculationActive = false
-            if (
-              scoreDisplaySuppressed
-              && state.scoreDisplayFeedback?.status === 'loading'
-            ) {
-              markCalculationAborted(state.scoreDisplayFeedback)
-            }
-          }
-          onPresentation?.(committedPresentation, {
-            scoreDisplaySuppressed,
-          })
-        }
-        return committed
+        return false
       }
 
-      // The compatibility batch path keeps its original all-or-nothing
-      // calculation-plus-presentation commit until that API is retired.
+      lastBatchResult = batchResult
+      lastRangePlans = rangePlans.slice()
+      lastEntries = activeRequest.entries
+      if (!scoreDisplaySuppressed && activeRequest.scoreDisplayRequest !== null) {
+        lastScoreDisplayRequest = activeRequest.scoreDisplayRequest
+      }
+      const previousScoreDisplayPresentation =
+        state.displayPresentation?.score ?? null
+      state.basePresentation = null
+      state.displayPresentation = null
+
+      const basePresentation = createBaseBatchPresentation(
+        batchResult,
+        rangePlans
+      )
       const presentation = createBatchPresentation(
         batchResult,
         activeRequest.displayRequest,
@@ -432,25 +346,19 @@ export function createAttackRunner({
       const committedPresentation = scoreDisplaySuppressed
         ? suppressScoreDisplay(
             presentation,
-            state.scoreDisplayPresentation ?? null
+            previousScoreDisplayPresentation
           )
         : presentation
-      const committed = commitAttackResult(
+      const committed = commitAttackPresentation(
         state,
         requestGeneration,
-        batchResult,
+        basePresentation,
         committedPresentation
       )
       if (!committed && requestGeneration === state.generation) {
-        throw new Error(' attack result was incomplete')
+        throw new Error(' attack presentation was incomplete')
       }
       if (committed) {
-        lastBatchResult = batchResult
-        lastRangePlans = rangePlans.slice()
-        lastEntries = activeRequest.entries
-        if (!scoreDisplaySuppressed && activeRequest.scoreDisplayRequest !== null) {
-          lastScoreDisplayRequest = activeRequest.scoreDisplayRequest
-        }
         if (scoreDisplayRecalculationActive) {
           scoreDisplayRecalculationActive = false
           if (
@@ -467,10 +375,8 @@ export function createAttackRunner({
       return committed
     },
     onError: (error) => {
-      // Generic/resource errors do not pass through the coordinator's
-      // range-rejection clearResult hook. The incremental path keeps valid
-      // calculation records while clearing presentation; the compatibility
-      // path drops its old result so it cannot survive as a stale display.
+      // Generic/resource errors keep valid calculation records while clearing
+      // presentation; range-rejection clearResult handles input invalidation.
       handlePresentationError(error)
     },
     onCancelled: () => {
@@ -550,17 +456,12 @@ export function createAttackRunner({
       displayRequestGeneration += 1
       scoreDisplayRequestGeneration += 1
       scoreDisplayEnabled = false
-      if (typeof executeCalculation === 'function') {
-        // A display preflight can cancel an in-flight request without
-        // discarding already committed calculation records. Keep the last
-        // completed batch available for display recovery.
-        requestGeneration = Number.isSafeInteger(state.generation)
-          ? state.generation
-          : null
-        return
-      }
-      requestGeneration = null
-      clearRequestCache()
+      // A display preflight can cancel an in-flight request without
+      // discarding already committed calculation records. Keep the last
+      // completed batch available for display recovery.
+      requestGeneration = Number.isSafeInteger(state.generation)
+        ? state.generation
+        : null
     },
     invalidateScoreDisplay() {
       invalidateScoreDisplay()
@@ -603,10 +504,7 @@ export function createAttackRunner({
         // base/display attempt failed before it was committed, rebuild it
         // from the cached calculation records during the retry rather than
         // recalculating any combo or total.
-        if (
-          typeof executeCalculation === 'function'
-          && basePresentation === null
-        ) {
+        if (basePresentation === null) {
           basePresentation = createBaseBatchPresentation(
             lastBatchResult,
             lastRangePlans
@@ -741,9 +639,7 @@ export function createAttackRunner({
           displayRequest: requestedDisplayRequest,
           displayRequestGeneration: nextDisplayRequestGeneration,
           scoreDisplayRequest: requestedScoreDisplayRequest,
-          ...(typeof executeCalculation === 'function'
-            ? { forceAll: true }
-            : {}),
+          forceAll: true,
         })
       }
 
@@ -761,9 +657,7 @@ export function createAttackRunner({
           ...calculationOptions,
           displayRequest: requestedDisplayRequest,
           displayRequestGeneration: nextDisplayRequestGeneration,
-          ...(typeof executeCalculation === 'function'
-            ? { forceAll: true }
-            : {}),
+          forceAll: true,
           ...(
             requestedScoreDisplayRequest !== null
             && !scoreDisplaySuppressedForRefresh
@@ -797,9 +691,7 @@ export function createAttackRunner({
           scoreDisplayRequest: requestedScoreDisplayRequest,
           scoreDisplayRequestGeneration: scoreDisplayRequestGeneration,
           preserveResult: true,
-          ...(typeof executeCalculation === 'function'
-            ? { forceAll: true }
-            : {}),
+          forceAll: true,
         })
       }
 
@@ -822,20 +714,14 @@ export function createAttackRunner({
         ? presentation
         : suppressScoreDisplay(
             presentation,
-            state.scoreDisplayPresentation ?? null
+            state.displayPresentation?.score ?? null
           )
-      const committed = typeof executeCalculation === 'function'
-        ? commitAttackPresentation(
-            state,
-            requestGeneration,
-            basePresentation,
-            committedPresentation
-          )
-        : commitAttackDisplayPresentation(
-            state,
-            requestGeneration,
-            committedPresentation
-          )
+      const committed = commitAttackPresentation(
+        state,
+        requestGeneration,
+        basePresentation,
+        committedPresentation
+      )
       if (committed) {
         if (presentationErrorActive) {
           completeCalculation(state.feedback)

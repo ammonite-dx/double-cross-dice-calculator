@@ -2,17 +2,24 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   ATTACK_DISPLAY_PRESENTATION_DECISIONS,
+  createAttackPresentation,
   createAttackDisplayPresentation,
   createAttackDisplayPresentationFrom,
 } from '../src/features/attack/model/AttackPresentation'
 import {
   createCalculationClient,
 } from '../src/runtime/CalculationClient'
-import { createAttackRunner } from '../src/features/attack/model/AttackRunner'
+import {
+  createAttackRunner as createIncrementalAttackRunner,
+} from '../src/features/attack/model/AttackRunner'
 import {
   createAttackState,
   createComboDataState,
 } from '../src/features/attack/model/AttackState'
+import {
+  createAttackCalculationRecord,
+  createAttackTotalCalculationRecord,
+} from '../src/features/attack/model/AttackCalculationRecord'
 import {
   ATTACK_DISPLAY_MODES,
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
@@ -159,6 +166,64 @@ function createBatch(scoreAction, scoreReaction = scoreAction) {
 const plan = { operation: 'attack', warnings: [] }
 const attackData = {
   combos: [{ id: 0, name: 'コンボ1' }],
+}
+
+function createAttackRunner({
+  state,
+  calculationClient,
+  createBasePresentation = (batchResult, rangePlans) =>
+    createAttackPresentation(batchResult, rangePlans),
+  ...options
+}) {
+  return createIncrementalAttackRunner({
+    state,
+    ...options,
+    executeCalculation: async ({
+      entries,
+      calculationOptions,
+      signal,
+      onRangePlan,
+    }) => {
+      const rangePlans = []
+      const batchResult = await calculationClient.calculateAttackBatch(
+        entries,
+        {
+          ...calculationOptions,
+          signal,
+          onRangePlan: (rangePlan) => {
+            rangePlans.push(rangePlan)
+            onRangePlan?.(rangePlan)
+          },
+        }
+      )
+      const plans = entries.map((_, index) =>
+        rangePlans[index] ?? { warnings: [] }
+      )
+      const records = entries.map((entry, index) => ({
+        id: entry.id,
+        record: createAttackCalculationRecord(
+          entry.params,
+          batchResult.combos[index],
+          plans[index]
+        ),
+      }))
+      const totalCalculation = createAttackTotalCalculationRecord(
+        records,
+        {
+          totalDamage: batchResult.totalDamage,
+          totalDamageStatistics: batchResult.totalDamageStatistics,
+        }
+      )
+      return {
+        entries,
+        records,
+        rangePlans: plans,
+        totalCalculation,
+        batchResult,
+      }
+    },
+    createBasePresentation,
+  })
 }
 
 describe('Attack canonical score display adapter', () => {
@@ -317,20 +382,7 @@ describe('Attack canonical score display adapter', () => {
       max: 1025,
       mode: ATTACK_DISPLAY_MODES.PMF,
     }
-    const createSource = (currentState) => ({
-      combos: currentState.combos.map((combo) => ({
-        id: combo.id,
-        score: combo.data.score,
-        scoreStatistics: combo.data.scoreStatistics,
-        scoreBatchSummary: combo.data.scoreBatchSummary,
-        scorePresentation: combo.data.scorePresentation,
-        damagePresentation:
-          combo.data.damagePresentation,
-        rangePlan: combo.data.rangePlan,
-      })),
-      totalDamagePresentation:
-        currentState.totalDamagePresentation,
-    })
+    const createSource = (currentState) => currentState.basePresentation
     const runner = createAttackRunner({
       state,
       calculationClient: client,
@@ -358,7 +410,7 @@ describe('Attack canonical score display adapter', () => {
       scoreDisplayRequest: initialScoreRequest,
       rangePolicy: { calculationMax: 1022 },
     })).resolves.toBe(true)
-    expect(state.scoreDisplayPresentation.status).toBe('ready')
+    expect(state.displayPresentation.score.status).toBe('ready')
 
     await expect(runner.refreshPresentation({
       displayRequest: damageRequest,
@@ -371,8 +423,8 @@ describe('Attack canonical score display adapter', () => {
       { calculationMax: 1022, scorePropagation: 'full-tail' },
       { calculationMax: 1025, scorePropagation: 'full-tail' },
     ])
-    expect(state.scoreDisplayPresentation.status).toBe('ready')
-    expect(state.scoreDisplayPresentation.displayRequest)
+    expect(state.displayPresentation.score.status).toBe('ready')
+    expect(state.displayPresentation.score.displayRequest)
       .toEqual(expandedScoreRequest)
   })
 
@@ -846,19 +898,7 @@ describe('Attack canonical score display adapter', () => {
     }
     const damageRequest = { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF }
     const scoreRequest = { min: 0, max: 4, mode: ATTACK_DISPLAY_MODES.PMF }
-    const source = (currentState) => ({
-      combos: currentState.combos.map((combo) => ({
-        id: combo.id,
-        score: combo.data.score,
-        scoreStatistics: combo.data.scoreStatistics,
-        scoreBatchSummary: combo.data.scoreBatchSummary,
-        scorePresentation: combo.data.scorePresentation,
-        damagePresentation: combo.data.damagePresentation,
-        rangePlan: combo.data.rangePlan,
-      })),
-      totalDamagePresentation:
-        currentState.totalDamagePresentation,
-    })
+    const source = (currentState) => currentState.basePresentation
     const calculationClient = {
       calculateAttackBatch: vi.fn(async (_entries, options) => {
         options.onRangePlan(plan)
@@ -885,7 +925,7 @@ describe('Attack canonical score display adapter', () => {
     })
 
     await expect(runner.run({ displayRequest: damageRequest })).resolves.toBe(true)
-    expect(state.scoreDisplayPresentation.status).toBe('not-ready')
+    expect(state.displayPresentation.score.status).toBe('not-ready')
     expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
 
     expect(runner.refreshPresentation({
@@ -894,7 +934,7 @@ describe('Attack canonical score display adapter', () => {
     expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
     expect(state.displayPresentation.status).toBe('ready')
     expect(getScoreStatisticsForCombo(
-      state.scoreDisplayPresentation,
+      state.displayPresentation.score,
       0
     )).toBeNull()
     runner.dispose()

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createAttackRunner } from '../src/features/attack/model/AttackRunner'
 import {
+  createAttackRunner as createIncrementalAttackRunner,
+} from '../src/features/attack/model/AttackRunner'
+import {
+  createAttackPresentation,
   createAttackDisplayPresentation,
   createAttackDisplayPresentationFrom,
 } from '../src/features/attack/model/AttackPresentation'
@@ -16,6 +19,10 @@ import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
 import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import {
+  createAttackCalculationRecord,
+  createAttackTotalCalculationRecord,
+} from '../src/features/attack/model/AttackCalculationRecord'
 
 function createEnvelope(values, max = values.length - 1) {
   return {
@@ -166,19 +173,70 @@ function createScoreExpansion(actionValues, reactionValues = actionValues) {
 }
 
 function createSource(state) {
-  return {
-    combos: state.combos.map((combo) => ({
-      id: combo.id,
-      score: combo.data.score,
-      scoreStatistics: combo.data.scoreStatistics,
-      scoreBatchSummary: combo.data.scoreBatchSummary,
-      scorePresentation: combo.data.scorePresentation,
-      damagePresentation:
-        combo.data.damagePresentation,
-      rangePlan: combo.data.rangePlan,
-    })),
-    totalDamagePresentation: state.totalDamagePresentation,
-  }
+  return state.basePresentation
+}
+
+/**
+ * Adapt the test fixture's batch client to the production incremental runner.
+ * The adapter is test-only; production code receives executeCalculation from
+ * useAttack and no longer falls back to calculateAttackBatch.
+ */
+function createAttackRunner({
+  state,
+  calculationClient,
+  createBasePresentation = (batchResult, rangePlans) =>
+    createAttackPresentation(batchResult, rangePlans),
+  ...options
+}) {
+  return createIncrementalAttackRunner({
+    state,
+    ...options,
+    executeCalculation: async ({
+      entries,
+      calculationOptions,
+      signal,
+      onRangePlan,
+    }) => {
+      const rangePlans = []
+      const batchResult = await calculationClient.calculateAttackBatch(
+        entries,
+        {
+          ...calculationOptions,
+          signal,
+          onRangePlan: (plan) => {
+            rangePlans.push(plan)
+            onRangePlan?.(plan)
+          },
+        }
+      )
+      const plans = entries.map((_, index) =>
+        rangePlans[index] ?? { warnings: [] }
+      )
+      const records = entries.map((entry, index) => ({
+        id: entry.id,
+        record: createAttackCalculationRecord(
+          entry.params,
+          batchResult.combos[index],
+          plans[index]
+        ),
+      }))
+      const totalCalculation = createAttackTotalCalculationRecord(
+        records,
+        {
+          totalDamage: batchResult.totalDamage,
+          totalDamageStatistics: batchResult.totalDamageStatistics,
+        }
+      )
+      return {
+        entries,
+        records,
+        rangePlans: plans,
+        totalCalculation,
+        batchResult,
+      }
+    },
+    createBasePresentation,
+  })
 }
 
 function createDeferred() {
@@ -302,7 +360,7 @@ describe('Attack canonical display integration', () => {
       scoreDisplayRequest: initialScoreRequest,
       scoreOnly: true,
     })).toBe(true)
-    expect(state.scoreDisplayPresentation.status).toBe('ready')
+    expect(state.displayPresentation.score.status).toBe('ready')
     expect(calculationClient.calculateAttackBatch)
       .toHaveBeenCalledOnce()
 
@@ -315,9 +373,9 @@ describe('Attack canonical display integration', () => {
       },
       scoreOnly: true,
     })).toBe(true)
-    expect(state.scoreDisplayPresentation.status).toBe('ready')
+    expect(state.displayPresentation.score.status).toBe('ready')
     expect(Array.from(
-      state.scoreDisplayPresentation.combos[0].action.series.values
+      state.displayPresentation.score.combos[0].action.series.values
     )).toEqual([0, 0])
     expect(calculationClient.calculateAttackBatch)
       .toHaveBeenCalledOnce()
@@ -400,12 +458,13 @@ describe('Attack canonical display integration', () => {
     const [, options] = calculationClient.calculateAttackBatch
       .mock.calls[1]
     expect(options.rangePolicy).toEqual({ calculationMax: 1200 })
-    expect(state.scoreDisplayPresentation.status).toBe('ready')
-    expect(state.scoreDisplayPresentation.displayRequest)
+    expect(state.displayPresentation.score.status).toBe('ready')
+    expect(state.displayPresentation.score.displayRequest)
       .toEqual(expandedScoreRequest)
     expect(state.displayPresentation.displayRequest)
       .toEqual(damageRequest)
-    expect(state.totalDamage).toBe(expandedBatch.totalDamage)
+    expect(state.totalCalculation.result.totalDamage)
+      .toBe(expandedBatch.totalDamage)
   })
 
   it('clears only public score while a deferred score expansion is running', async () => {
@@ -481,22 +540,21 @@ describe('Attack canonical display integration', () => {
     })
 
     expect(state.displayPresentation.score).toBeNull()
-    expect(state.scoreDisplayPresentation).toBeNull()
     expect(state.scoreDisplayFeedback.status).toBe('loading')
     expect(state.displayPresentation.combos)
       .toBe(previousDamageCombos)
     expect(state.displayPresentation.total)
       .toBe(previousDamageTotal)
-    expect(state.totalDamageReady).toBe(true)
-    expect(state.combos[0].data.score).not.toBeNull()
+    expect(state.totalCalculation).not.toBeNull()
+    expect(state.combos[0].data.calculation?.result.score).not.toBeNull()
 
     deferredExpansion.resolve(expandedBatch)
     await expect(recalculation).resolves.toBe(true)
 
-    expect(state.scoreDisplayPresentation.status).toBe('ready')
-    expect(state.scoreDisplayPresentation.displayRequest)
+    expect(state.displayPresentation.score.status).toBe('ready')
+    expect(state.displayPresentation.score.displayRequest)
       .toEqual(expandedScoreRequest)
-    expect(state.scoreDisplayPresentation.combos[0]
+    expect(state.displayPresentation.score.combos[0]
       .action.series.values)
       .toEqual(new Float64Array([0.2, 0.3, 0.5]))
     expect(calculationCount).toBe(2)
@@ -577,7 +635,7 @@ describe('Attack canonical display integration', () => {
         },
       })
 
-      expect(state.scoreDisplayPresentation).toBeNull()
+      expect(state.displayPresentation?.score ?? null).toBeNull()
       expect(state.scoreDisplayFeedback.status).toBe('loading')
       if (failureKind === 'abort') {
         externalController.abort()
@@ -587,7 +645,7 @@ describe('Attack canonical display integration', () => {
       }
 
       await expect(recalculation).resolves.toBe(false)
-      expect(state.scoreDisplayPresentation).toBeNull()
+      expect(state.displayPresentation?.score ?? null).toBeNull()
       expect(state.displayPresentation?.score ?? null).toBeNull()
       expect(state.scoreDisplayFeedback.status)
         .not.toBe('loading')
@@ -664,8 +722,8 @@ describe('Attack canonical display integration', () => {
       .toHaveBeenCalledOnce()
     expect(state.displayPresentation.combos[0].display)
       .toBe(previousDamage)
-    expect(state.scoreDisplayPresentation).toBeNull()
-    expect(state.totalDamageReady).toBe(true)
+    expect(state.displayPresentation?.score ?? null).toBeNull()
+    expect(state.totalCalculation).not.toBeNull()
   })
 
   it('continues the damage refresh when score is resource-rejected', async () => {
@@ -775,7 +833,7 @@ describe('Attack canonical display integration', () => {
     expect(state.displayPresentation.displayRequest)
       .toEqual(expandedDamageRequest)
     expect(state.displayPresentation.score).toBeNull()
-    expect(state.totalDamage).toBe(expandedDamage)
+    expect(state.totalCalculation.result.totalDamage).toBe(expandedDamage)
   })
 
   it('keeps rapid score expansions latest-wins', async () => {
@@ -871,10 +929,10 @@ describe('Attack canonical display integration', () => {
     await expect(latest).resolves.toBe(true)
     expect(calculationCount).toBe(3)
     expect(signals[1].aborted).toBe(true)
-    expect(state.scoreDisplayPresentation.displayRequest)
+    expect(state.displayPresentation.score.displayRequest)
       .toEqual(latestScoreRequest)
     expect(Array.from(
-      state.scoreDisplayPresentation.combos[0].action.series.values
+      state.displayPresentation.score.combos[0].action.series.values
     )).toEqual([0.1, 0.2, 0.3, 0.4])
   })
 
@@ -970,7 +1028,7 @@ describe('Attack canonical display integration', () => {
     await expect(scoreRecalculation).resolves.toBe(false)
     await expect(latestCalculation).resolves.toBe(true)
     expect(signals[1].aborted).toBe(true)
-    expect(state.scoreDisplayPresentation.displayRequest)
+    expect(state.displayPresentation.score.displayRequest)
       .toEqual(expandedScoreRequest)
     expect(state.combos[0].data.params.action.score.dice).toBe(2)
 
@@ -990,7 +1048,7 @@ describe('Attack canonical display integration', () => {
 
     await expect(invalidatedRecalculation).resolves.toBe(false)
     expect(signals[3].aborted).toBe(true)
-    expect(state.scoreDisplayPresentation).toBeNull()
+    expect(state.displayPresentation?.score ?? null).toBeNull()
   })
 
   it('recalculates once when coverage is insufficient inside finite support', async () => {
@@ -1131,7 +1189,7 @@ describe('Attack canonical display integration', () => {
     expect(recalculationOptions.signal.aborted).toBe(true)
     expect(createPresentation).toHaveBeenCalledOnce()
     expect(state.displayPresentation).toBeNull()
-    expect(state.totalDamageReady).toBe(false)
+    expect(state.totalCalculation).not.toBeNull()
   })
 
   it('rejects a display resource plan without calling the calculation client', async () => {
@@ -1185,7 +1243,7 @@ describe('Attack canonical display integration', () => {
     expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
     expect(onDisplayRejected).toHaveBeenCalledOnce()
     expect(state.displayPresentation).toBeNull()
-    expect(state.totalDamageReady).toBe(false)
+    expect(state.totalCalculation).not.toBeNull()
   })
 
   it('keeps rapid display changes latest-wins', async () => {
@@ -1298,7 +1356,7 @@ describe('Attack canonical display integration', () => {
         displayRequest,
         scoreDisplayRequest,
       })).resolves.toBe(true)
-      expect(state.scoreDisplayPresentation).not.toBeNull()
+      expect(state.displayPresentation?.score).not.toBeNull()
 
       const deferredCalculation = runner.run({
         displayRequest,
@@ -1311,11 +1369,11 @@ describe('Attack canonical display integration', () => {
       deferredBatch.resolve(createScoreBatch())
 
       await expect(deferredCalculation).resolves.toBe(true)
-      expect(state.totalDamageReady).toBe(true)
+      expect(state.totalCalculation).not.toBeNull()
       expect(state.displayPresentation).not.toBeNull()
       expect(state.displayPresentation.total).toBeDefined()
       expect(state.displayPresentation.score).toBeNull()
-      expect(state.scoreDisplayPresentation).toBeNull()
+      expect(state.displayPresentation?.score ?? null).toBeNull()
       expect(presentations.at(-1).metadata.scoreDisplaySuppressed).toBe(true)
       expect(state.scoreDisplayFeedback.status).toBe(
         failureKind === 'error' ? 'error' : 'rejected'

@@ -187,14 +187,6 @@ export function createAttackState() {
   return {
     totalCalculation: null,
     basePresentation: null,
-    // Deprecated mirrors are retained only for callers that still exercise
-    // the pre-R17 runner contract. Production incremental state reads the
-    // owned records above.
-    totalDamage: null,
-    totalDamageStatistics: null,
-    totalDamagePresentation: null,
-    totalDamageReady: false,
-    scoreDisplayPresentation: null,
     displayPresentation: null,
     generation: 0,
     feedback: createCalculationFeedbackState(),
@@ -206,22 +198,7 @@ export function createAttackState() {
 function clearResults(state) {
   state.totalCalculation = null
   state.basePresentation = null
-  state.scoreDisplayPresentation = null
   state.displayPresentation = null
-
-  // Keep compatibility fields out of the normal state shape. If a legacy
-  // test double attached them dynamically, clear them without making them
-  // part of the production record contract.
-  for (const property of [
-    'totalDamage',
-    'totalDamageStatistics',
-    'totalDamagePresentation',
-    'totalDamageReady',
-  ]) {
-    if (hasOwn(state, property)) {
-      state[property] = property === 'totalDamageReady' ? false : null
-    }
-  }
 
   if (state.displayFeedback) {
     markCalculationAborted(state.displayFeedback)
@@ -239,21 +216,6 @@ function clearResults(state) {
     }
     const data = ensureComboData(combo.data)
     data.calculation = null
-    for (const property of [
-      'score',
-      'scoreStatistics',
-      'scorePresentation',
-      'scoreReady',
-      'damage',
-      'damageStatistics',
-      'damagePresentation',
-      'rangePlan',
-      'resultReady',
-    ]) {
-      data[property] = property === 'scoreReady' || property === 'resultReady'
-        ? false
-        : null
-    }
   }
 }
 
@@ -364,23 +326,6 @@ export function invalidateAttackComboCalculation(state, id) {
   }
   const data = ensureComboData(combo.data)
   data.calculation = null
-  for (const property of [
-    'score',
-    'scoreStatistics',
-    'scorePresentation',
-    'scoreReady',
-    'damage',
-    'damageStatistics',
-    'damagePresentation',
-    'rangePlan',
-    'resultReady',
-  ]) {
-    if (hasOwn(data, property)) {
-      data[property] = property === 'scoreReady' || property === 'resultReady'
-        ? false
-        : null
-    }
-  }
   return true
 }
 
@@ -391,25 +336,12 @@ export function invalidateAttackTotalCalculation(state) {
   state.totalCalculation = null
   state.basePresentation = null
   state.displayPresentation = null
-  state.scoreDisplayPresentation = null
-  for (const property of [
-    'totalDamage',
-    'totalDamageStatistics',
-    'totalDamagePresentation',
-    'totalDamageReady',
-  ]) {
-    if (hasOwn(state, property)) {
-      state[property] = property === 'totalDamageReady' ? false : null
-    }
-  }
   return true
 }
 
 export function isAttackCalculationReady(state) {
-  return (
-    state?.totalCalculation !== null
+  return state?.totalCalculation !== null
     && state?.totalCalculation !== undefined
-  ) || state?.totalDamageReady === true
 }
 
 function hasIncrementalExecutionShape(execution, combos) {
@@ -458,38 +390,6 @@ function hasIncrementalExecutionShape(execution, combos) {
 }
 
 /**
- * Atomically publish an incremental execution and its presentation. This
- * combined helper remains for compatibility callers; production incremental
- * execution uses the calculation and presentation helpers below.
- */
-export function commitAttackExecution(
-  state,
-  generation,
-  execution,
-  basePresentation,
-  displayPresentation,
-) {
-  if (generation !== state.generation
-    || !Array.isArray(state.combos)
-    || !hasIncrementalExecutionShape(execution, state.combos)) {
-    return false
-  }
-  const records = state.combos.map((combo, index) => ({
-    data: ensureComboData(combo.data),
-    record: execution.records[index].record,
-  }))
-
-  for (const { data, record } of records) {
-    data.calculation = record
-  }
-  state.totalCalculation = execution.totalCalculation
-  state.basePresentation = basePresentation ?? null
-  state.displayPresentation = displayPresentation ?? null
-  state.scoreDisplayPresentation = displayPresentation?.score ?? null
-  return true
-}
-
-/**
  * Atomically publish only the calculation part of an incremental execution.
  * Presentation generation is deliberately a separate commit so a presenter
  * failure cannot discard otherwise valid combo and total records.
@@ -520,182 +420,6 @@ export function commitAttackCalculationExecution(
   return true
 }
 
-function hasBatchResultShape(batchResult, presentation, combos) {
-  if (!isRecord(batchResult) || !isRecord(presentation)) {
-    return false
-  }
-  if (
-    !Array.isArray(batchResult.combos)
-    || !Array.isArray(presentation.combos)
-    || batchResult.combos.length !== combos.length
-    || presentation.combos.length !== combos.length
-  ) {
-    return false
-  }
-  const isDisplayPresentation = hasOwn(presentation, 'total')
-    && hasOwn(presentation, 'displayRequest')
-
-  if (isDisplayPresentation) {
-    if (
-      !hasOwn(batchResult, 'totalDamage')
-      || !hasOwn(batchResult, 'totalDamageStatistics')
-      || !isRecord(presentation.total)
-    ) {
-      return false
-    }
-    for (let index = 0; index < combos.length; index += 1) {
-      const stateCombo = combos[index]
-      const batchCombo = batchResult.combos[index]
-      const presentedCombo = presentation.combos[index]
-      if (
-        !isRecord(stateCombo)
-        || !isRecord(stateCombo.data)
-        || !isRecord(batchCombo)
-        || !isRecord(presentedCombo)
-        || !hasOwn(batchCombo, 'id')
-        || !hasOwn(batchCombo, 'damage')
-        || !hasOwn(batchCombo, 'damageStatistics')
-        || !hasOwn(presentedCombo, 'id')
-        || !hasOwn(presentedCombo, 'display')
-        || !hasOwn(presentedCombo, 'plan')
-        || !sameId(batchCombo.id, stateCombo.id)
-        || !sameId(presentedCombo.id, stateCombo.id)
-      ) {
-        return false
-      }
-    }
-    return hasOwn(presentation.total, 'display')
-      && hasOwn(presentation.total, 'plan')
-  }
-
-  if (
-    !hasOwn(batchResult, 'totalDamage')
-    || !hasOwn(batchResult, 'totalDamageStatistics')
-    || !hasOwn(presentation, 'totalDamage')
-    || !hasOwn(presentation, 'totalDamageStatistics')
-    || !hasOwn(presentation, 'totalDamagePresentation')
-  ) {
-    return false
-  }
-
-  for (let index = 0; index < combos.length; index += 1) {
-    const stateCombo = combos[index]
-    const batchCombo = batchResult.combos[index]
-    const presentedCombo = presentation.combos[index]
-    if (
-      !isRecord(stateCombo)
-      || !isRecord(stateCombo.data)
-      || !isRecord(batchCombo)
-      || !isRecord(presentedCombo)
-    ) {
-      return false
-    }
-    if (
-      !hasOwn(batchCombo, 'id')
-      || !hasOwn(batchCombo, 'damage')
-      || !hasOwn(batchCombo, 'damageStatistics')
-      || !hasOwn(presentedCombo, 'id')
-      || !hasOwn(presentedCombo, 'damagePresentation')
-      || !hasOwn(presentedCombo, 'rangePlan')
-      || !sameId(batchCombo.id, stateCombo.id)
-      || !sameId(presentedCombo.id, stateCombo.id)
-    ) {
-      return false
-    }
-  }
-  return true
-}
-
-/**
- * Atomically publish one completed batch and its presentation payload.
- * Validation happens before any combo or total field is written.
- */
-export function commitAttackResult(
-  state,
-  generation,
-  batchResult,
-  presentation
-) {
-  if (generation !== state.generation) {
-    return false
-  }
-  if (!Array.isArray(state.combos)) {
-    return false
-  }
-  if (!hasBatchResultShape(batchResult, presentation, state.combos)) {
-    return false
-  }
-
-  const isDisplayPresentation = hasOwn(presentation, 'total')
-    && hasOwn(presentation, 'displayRequest')
-
-  const comboValues = state.combos.map((combo, index) => {
-    const data = requireRecord(combo.data, `combos[${index}].data`)
-    const batchCombo = batchResult.combos[index]
-    const presentedCombo = presentation.combos[index]
-    return {
-      data,
-      score: hasOwn(presentedCombo, 'score')
-        ? presentedCombo.score
-        : null,
-      scoreStatistics: hasOwn(presentedCombo, 'scoreStatistics')
-        ? presentedCombo.scoreStatistics
-        : null,
-      scorePresentation: hasOwn(
-        presentedCombo,
-        'scorePresentation'
-      )
-        ? presentedCombo.scorePresentation
-        : null,
-      damage: batchCombo.damage,
-      damageStatistics: batchCombo.damageStatistics,
-      damagePresentation: isDisplayPresentation
-        ? presentedCombo.display
-        : presentedCombo.damagePresentation,
-      rangePlan: isDisplayPresentation
-        ? presentedCombo.rangePlan ?? presentedCombo.plan
-        : presentedCombo.rangePlan,
-    }
-  })
-
-  for (const {
-    data,
-    score,
-    scoreStatistics,
-    scorePresentation,
-    damage,
-    damageStatistics,
-    damagePresentation,
-    rangePlan,
-  } of comboValues) {
-    ensureComboData(data)
-    data.score = score
-    data.scoreStatistics = scoreStatistics
-    data.scorePresentation = scorePresentation
-    data.scoreReady = score !== null
-      && score !== undefined
-    data.damage = damage
-    data.damageStatistics = damageStatistics
-    data.damagePresentation = damagePresentation
-    data.rangePlan = rangePlan
-    data.resultReady = true
-  }
-
-  state.totalDamage = batchResult.totalDamage
-  state.totalDamageStatistics = batchResult.totalDamageStatistics
-  state.totalDamagePresentation = isDisplayPresentation
-    ? presentation.total.display
-    : presentation.totalDamagePresentation
-  state.scoreDisplayPresentation = isDisplayPresentation
-    ? presentation.score ?? null
-    : null
-  state.displayPresentation = isDisplayPresentation
-    ? presentation
-    : null
-  state.totalDamageReady = true
-  return true
-}
-
 function hasDisplayPresentationShape(presentation, combos) {
   if (
     !isRecord(presentation)
@@ -722,31 +446,6 @@ function hasDisplayPresentationShape(presentation, combos) {
 }
 
 /**
- * Publish a new chart/summary presentation for an already committed
- * calculation result. No result fields are copied or recalculated.
- */
-export function commitAttackDisplayPresentation(
-  state,
-  generation,
-  presentation
-) {
-  if (
-    generation !== state.generation
-    || (
-      !isAttackCalculationReady(state)
-      && state.totalDamageReady !== true
-    )
-    || !Array.isArray(state.combos)
-    || !hasDisplayPresentationShape(presentation, state.combos)
-  ) {
-    return false
-  }
-  state.displayPresentation = presentation
-  state.scoreDisplayPresentation = presentation.score ?? null
-  return true
-}
-
-/**
  * Atomically publish base and display presentations for an already committed
  * incremental calculation. Calculation records are never touched here.
  */
@@ -766,6 +465,5 @@ export function commitAttackPresentation(
   }
   state.basePresentation = basePresentation ?? null
   state.displayPresentation = displayPresentation
-  state.scoreDisplayPresentation = displayPresentation.score ?? null
   return true
 }

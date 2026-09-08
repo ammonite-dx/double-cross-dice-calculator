@@ -1,25 +1,25 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
+  areAttackEntriesEqual,
   clearAttackState,
   commitAttackCalculationExecution,
-  commitAttackExecution,
   commitAttackPresentation,
-  commitAttackResult,
   createAttackState,
   createComboDataState,
+  ensureComboData,
+  getAttackCalculationRecords,
   invalidateAttackComboCalculation,
   invalidateAttackTotalCalculation,
+  isAttackCalculationReady,
+  isAttackInputCurrent,
   snapshotAttackEntries,
+  snapshotAttackParams,
 } from '../src/features/attack/model/AttackState'
 import {
   createAttackCalculationRecord,
   createAttackTotalCalculationRecord,
 } from '../src/features/attack/model/AttackCalculationRecord'
-import { createAttackRunner } from '../src/features/attack/model/AttackRunner'
-
-const legacyScore = { value: 'legacy score' }
-const legacyDamage = { value: 'legacy damage' }
 
 function params(seed = 0) {
   return {
@@ -64,244 +64,154 @@ function createState(combos = [combo('first', 0), combo('second', 1)]) {
   }
 }
 
-function createBatch(ids, suffix = 'result') {
-  return {
-    combos: ids.map((id, index) => ({
-      id,
-      score: { value: `score-${suffix}-${index}` },
-      scoreStatistics: { value: `score-summary-${suffix}-${index}` },
-      damage: { value: `damage-${suffix}-${index}` },
-      damageStatistics: { value: `damage-summary-${suffix}-${index}` },
-    })),
-    totalDamage: { value: `total-${suffix}` },
-    totalDamageStatistics: { value: `total-summary-${suffix}` },
+function createExecution(ids = ['first', 'second']) {
+  const results = ids.map((id, index) => ({
+    score: { value: `score-${index}` },
+    scoreStatistics: { value: `score-summary-${index}` },
+    damage: { value: `damage-${index}` },
+    damageStatistics: { value: `damage-summary-${index}` },
+  }))
+  const records = ids.map((id, index) => ({
+    id,
+    record: createAttackCalculationRecord(
+      params(index),
+      results[index],
+      { id: `${id}-plan`, warnings: [] }
+    ),
+  }))
+  const totalResult = {
+    totalDamage: { value: 'total' },
+    totalDamageStatistics: { value: 'total-summary' },
   }
-}
-
-function createPresentation(batch, plans) {
   return {
-    combos: batch.combos.map((entry, index) => ({
-      id: entry.id,
-      damagePresentation: {
-        value: `presentation-${index}`,
-      },
-      rangePlan: plans[index],
-    })),
-    totalDamage: batch.totalDamage,
-    totalDamageStatistics: batch.totalDamageStatistics,
-    totalDamagePresentation: {
-      value: 'total presentation',
+    records,
+    rangePlans: records.map(({ record }) => record.rangePlan),
+    totalCalculation: createAttackTotalCalculationRecord(
+      records,
+      totalResult
+    ),
+    batchResult: {
+      combos: records.map(({ id, record }) => ({ id, ...record.result })),
+      ...totalResult,
     },
   }
 }
 
-function createDisplayPresentation(batch) {
+function createDisplayPresentation(ids = ['first', 'second']) {
   return {
     displayRequest: { min: 0, max: 10, mode: 'pmf' },
-    combos: batch.combos.map(({ id }) => ({
-      id,
-      display: {},
-      plan: {},
-    })),
-    total: {
-      display: {},
-      plan: {},
-    },
+    combos: ids.map((id) => ({ id, display: {}, plan: {} })),
+    total: { display: {}, plan: {} },
     score: null,
   }
 }
 
-function createDeferred() {
-  let resolve
-  let reject
-  const promise = new Promise((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise
-    reject = rejectPromise
-  })
-  return { promise, resolve, reject }
-}
-
 describe('AttackState', () => {
-  it('snapshots params and prevents nested input aliases', () => {
-    const sourceParams = params()
-    const entries = snapshotAttackEntries([{
-      id: 'one',
-      data: { params: sourceParams },
-    }])
+  it('keeps only the current calculation and presentation ownership fields', () => {
+    const state = createAttackState()
 
-    sourceParams.action.score.dice = 99
-    sourceParams.action.damage.value = 999
-    sourceParams.reaction.mode = 'changed'
-
-    expect(entries).toEqual([{
-      id: 'one',
-      params: expect.objectContaining({
-        action: expect.objectContaining({
-          score: expect.objectContaining({ dice: 1 }),
-          damage: expect.objectContaining({ value: 2 }),
-        }),
-        reaction: expect.objectContaining({ mode: 'normal' }),
-      }),
-    }])
-    expect(entries[0].params).not.toBe(sourceParams)
-    expect(entries[0].params.action.score).not.toBe(sourceParams.action.score)
-  })
-
-  it('keeps combo order and ids for add/remove/reorder snapshots', () => {
-    const state = createState([combo('a'), combo('b'), combo('c')])
-    state.combos.splice(1, 1)
-    state.combos.push(combo('copy', 4))
-    state.combos.reverse()
-
-    expect(snapshotAttackEntries(state.combos).map((entry) => entry.id))
-      .toEqual(['copy', 'c', 'a'])
-  })
-
-  it('commits owned combo and total records atomically', () => {
-    const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const first = createAttackCalculationRecord(
-      params(0),
-      batch.combos[0],
-      { id: 'first-plan' }
-    )
-    const second = createAttackCalculationRecord(
-      params(1),
-      batch.combos[1],
-      { id: 'second-plan' }
-    )
-    const total = createAttackTotalCalculationRecord(
-      [{ id: 'first', record: first }, { id: 'second', record: second }],
-      {
-        totalDamage: batch.totalDamage,
-        totalDamageStatistics: batch.totalDamageStatistics,
-      }
-    )
-    const execution = {
-      records: [
-        { id: 'first', record: first },
-        { id: 'second', record: second },
-      ],
-      rangePlans: [first.rangePlan, second.rangePlan],
-      totalCalculation: total,
-      batchResult: batch,
+    expect(Object.keys(state)).toEqual([
+      'totalCalculation',
+      'basePresentation',
+      'displayPresentation',
+      'generation',
+      'feedback',
+      'scoreDisplayFeedback',
+      'displayFeedback',
+    ])
+    for (const mirror of [
+      'totalDamage',
+      'totalDamageStatistics',
+      'totalDamagePresentation',
+      'totalDamageReady',
+      'scoreDisplayPresentation',
+    ]) {
+      expect(state).not.toHaveProperty(mirror)
     }
+    expect(createComboDataState()).toEqual({ calculation: null })
+  })
 
-    expect(commitAttackExecution(
-      state,
-      state.generation,
-      execution,
-      { kind: 'base' },
-      { kind: 'display' },
+  it('adds only the calculation field when normalizing combo data', () => {
+    const data = { label: 'owned by the input form' }
+
+    expect(ensureComboData(data)).toBe(data)
+    expect(data).toEqual({
+      label: 'owned by the input form',
+      calculation: null,
+    })
+  })
+
+  it('snapshots calculation inputs without retaining nested aliases', () => {
+    const source = params()
+    const snapshot = snapshotAttackParams(source)
+
+    source.action.score.dice = 99
+    source.action.damage.value = 999
+    source.reaction.mode = 'changed'
+
+    expect(snapshot).toEqual(params())
+    expect(snapshot).not.toBe(source)
+    expect(snapshot.action.score).not.toBe(source.action.score)
+    expect(snapshot.action.damage).not.toBe(source.action.damage)
+    expect(snapshot.reaction).not.toBe(source.reaction)
+  })
+
+  it('snapshots combo order and calculation inputs', () => {
+    const combos = [combo('a'), combo('b'), combo('c')]
+    const entries = snapshotAttackEntries(combos)
+
+    combos.reverse()
+    combos[0].data.params.action.score.dice = 99
+
+    expect(entries.map(({ id }) => id)).toEqual(['a', 'b', 'c'])
+    expect(entries[0].params.action.score.dice).toBe(1)
+    expect(areAttackEntriesEqual(
+      entries,
+      snapshotAttackEntries([combo('a'), combo('b'), combo('c')])
     )).toBe(true)
-    expect(state.combos[0].data.calculation).toBe(first)
-    expect(state.combos[1].data.calculation).toBe(second)
-    expect(state.totalCalculation).toBe(total)
-    expect(state.basePresentation).toEqual({ kind: 'base' })
+    expect(isAttackInputCurrent(combos, entries)).toBe(false)
   })
 
-  it('commits calculation records independently of presentation', () => {
+  it('commits a complete incremental calculation atomically', () => {
     const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const first = createAttackCalculationRecord(
-      params(0),
-      batch.combos[0],
-      { id: 'first-plan' }
-    )
-    const second = createAttackCalculationRecord(
-      params(1),
-      batch.combos[1],
-      { id: 'second-plan' }
-    )
-    const total = createAttackTotalCalculationRecord(
-      [{ id: 'first', record: first }, { id: 'second', record: second }],
-      {
-        totalDamage: batch.totalDamage,
-        totalDamageStatistics: batch.totalDamageStatistics,
-      }
-    )
-    const execution = {
-      records: [
-        { id: 'first', record: first },
-        { id: 'second', record: second },
-      ],
-      rangePlans: [first.rangePlan, second.rangePlan],
-      totalCalculation: total,
-      batchResult: batch,
-    }
+    const execution = createExecution()
 
     expect(commitAttackCalculationExecution(
       state,
       state.generation,
-      execution,
+      execution
     )).toBe(true)
-    expect(state.combos[0].data.calculation).toBe(first)
-    expect(state.combos[1].data.calculation).toBe(second)
-    expect(state.totalCalculation).toBe(total)
+    expect(getAttackCalculationRecords(state.combos).map(({ id }) => id))
+      .toEqual(['first', 'second'])
+    expect(state.combos[0].data.calculation).toBe(execution.records[0].record)
+    expect(state.combos[1].data.calculation).toBe(execution.records[1].record)
+    expect(state.totalCalculation).toBe(execution.totalCalculation)
     expect(state.basePresentation).toBeNull()
     expect(state.displayPresentation).toBeNull()
+    expect(isAttackCalculationReady(state)).toBe(true)
   })
 
-  it('rejects invalid calculation executions before writing any record', () => {
-    const createExecution = () => {
-      const state = createState()
-      const batch = createBatch(['first', 'second'])
-      const first = createAttackCalculationRecord(
-        params(0),
-        batch.combos[0],
-        { id: 'first-plan' }
-      )
-      const second = createAttackCalculationRecord(
-        params(1),
-        batch.combos[1],
-        { id: 'second-plan' }
-      )
-      const total = createAttackTotalCalculationRecord(
-        [{ id: 'first', record: first }, { id: 'second', record: second }],
-        {
-          totalDamage: batch.totalDamage,
-          totalDamageStatistics: batch.totalDamageStatistics,
-        }
-      )
-      return {
-        state,
-        execution: {
-          records: [
-            { id: 'first', record: first },
-            { id: 'second', record: second },
-          ],
-          rangePlans: [first.rangePlan, second.rangePlan],
-          totalCalculation: total,
-          batchResult: batch,
-        },
-      }
-    }
-
+  it('rejects stale or malformed executions before writing records', () => {
     const cases = [
       {
-        name: 'generation',
-        mutate: ({ state }) => {
-          state.generation += 1
-        },
+        name: 'stale generation',
+        mutate: ({ state }) => { state.generation += 1 },
       },
       {
-        name: 'id',
+        name: 'wrong combo id',
+        mutate: ({ execution }) => { execution.records[0].id = 'wrong' },
+      },
+      {
+        name: 'missing total result',
         mutate: ({ execution }) => {
-          execution.records[0].id = 'wrong-id'
+          execution.totalCalculation = {
+            ...execution.totalCalculation,
+            result: null,
+          }
         },
       },
       {
-        name: 'input',
-        mutate: ({ execution }) => {
-          execution.records[0].record = createAttackCalculationRecord(
-            params(9),
-            execution.batchResult.combos[0],
-            { id: 'replacement-plan' }
-          )
-        },
-      },
-      {
-        name: 'source reference',
+        name: 'wrong source record',
         mutate: ({ execution }) => {
           execution.totalCalculation = {
             ...execution.totalCalculation,
@@ -315,542 +225,94 @@ describe('AttackState', () => {
     ]
 
     for (const testCase of cases) {
-      const fixture = createExecution()
-      testCase.mutate(fixture)
+      const state = createState()
+      const execution = createExecution()
+      testCase.mutate({ state, execution })
+
       expect(commitAttackCalculationExecution(
-        fixture.state,
+        state,
         0,
-        fixture.execution,
+        execution
       ), testCase.name).toBe(false)
-      expect(fixture.state.combos.every(({ data }) => data.calculation === null))
+      expect(state.combos.every(({ data }) => data.calculation === null))
         .toBe(true)
-      expect(fixture.state.totalCalculation).toBeNull()
+      expect(state.totalCalculation).toBeNull()
     }
   })
 
-  it('commits presentation without replacing calculation records', () => {
+  it('commits display presentation without replacing calculation records', () => {
     const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const first = createAttackCalculationRecord(params(0), batch.combos[0], {})
-    const second = createAttackCalculationRecord(params(1), batch.combos[1], {})
-    const total = createAttackTotalCalculationRecord(
-      [{ id: 'first', record: first }, { id: 'second', record: second }],
-      {
-        totalDamage: batch.totalDamage,
-        totalDamageStatistics: batch.totalDamageStatistics,
-      }
-    )
-    state.combos[0].data.calculation = first
-    state.combos[1].data.calculation = second
-    state.totalCalculation = total
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, state.generation, execution)
     const base = { kind: 'base' }
-    const display = createDisplayPresentation(batch)
+    const display = createDisplayPresentation()
 
     expect(commitAttackPresentation(
       state,
       state.generation,
       base,
-      display,
+      display
     )).toBe(true)
-    expect(state.combos[0].data.calculation).toBe(first)
-    expect(state.combos[1].data.calculation).toBe(second)
-    expect(state.totalCalculation).toBe(total)
+    expect(state.combos[0].data.calculation).toBe(execution.records[0].record)
+    expect(state.totalCalculation).toBe(execution.totalCalculation)
     expect(state.basePresentation).toBe(base)
     expect(state.displayPresentation).toBe(display)
+    expect(state).not.toHaveProperty('scoreDisplayPresentation')
   })
 
-  it('rejects an invalid presentation without changing calculation state', () => {
+  it('rejects a mismatched presentation without changing calculation state', () => {
     const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const first = createAttackCalculationRecord(params(0), batch.combos[0], {})
-    const second = createAttackCalculationRecord(params(1), batch.combos[1], {})
-    const total = createAttackTotalCalculationRecord(
-      [{ id: 'first', record: first }, { id: 'second', record: second }],
-      {
-        totalDamage: batch.totalDamage,
-        totalDamageStatistics: batch.totalDamageStatistics,
-      }
-    )
-    state.combos[0].data.calculation = first
-    state.combos[1].data.calculation = second
-    state.totalCalculation = total
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, state.generation, execution)
     const previousBase = { kind: 'previous-base' }
-    const previousDisplay = { kind: 'previous-display' }
+    const previousDisplay = createDisplayPresentation()
     state.basePresentation = previousBase
     state.displayPresentation = previousDisplay
-    const invalidDisplay = createDisplayPresentation(batch)
-    invalidDisplay.combos[1].id = 'wrong-id'
+    const invalidDisplay = createDisplayPresentation()
+    invalidDisplay.combos[1].id = 'wrong'
 
     expect(commitAttackPresentation(
       state,
       state.generation,
       { kind: 'new-base' },
-      invalidDisplay,
+      invalidDisplay
     )).toBe(false)
-    expect(state.combos[0].data.calculation).toBe(first)
-    expect(state.combos[1].data.calculation).toBe(second)
-    expect(state.totalCalculation).toBe(total)
+    expect(state.totalCalculation).toBe(execution.totalCalculation)
     expect(state.basePresentation).toBe(previousBase)
     expect(state.displayPresentation).toBe(previousDisplay)
   })
 
-  it('invalidates one combo without discarding unaffected records', () => {
+  it('invalidates one combo and then the aggregate without touching other records', () => {
     const state = createState()
-    const first = createAttackCalculationRecord(params(0), { value: 'first' }, {})
-    const second = createAttackCalculationRecord(params(1), { value: 'second' }, {})
-    state.combos[0].data.calculation = first
-    state.combos[1].data.calculation = second
-    state.totalCalculation = { sources: [], result: {} }
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, state.generation, execution)
+    const unaffected = state.combos[1].data.calculation
 
     expect(invalidateAttackComboCalculation(state, 'first')).toBe(true)
     expect(state.combos[0].data.calculation).toBeNull()
-    expect(state.combos[1].data.calculation).toBe(second)
+    expect(state.combos[1].data.calculation).toBe(unaffected)
     expect(invalidateAttackTotalCalculation(state)).toBe(true)
     expect(state.totalCalculation).toBeNull()
-    expect(state.combos[1].data.calculation).toBe(second)
+    expect(state.basePresentation).toBeNull()
+    expect(state.displayPresentation).toBeNull()
+    expect(state.combos[1].data.calculation).toBe(unaffected)
+    expect(isAttackCalculationReady(state)).toBe(false)
   })
 
-  it('rejects an execution whose record input does not match current params', () => {
+  it('clears all calculation and presentation state while preserving input combos', () => {
     const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const first = createAttackCalculationRecord(
-      params(9),
-      batch.combos[0],
-      { id: 'first-plan' }
-    )
-    const second = createAttackCalculationRecord(
-      params(1),
-      batch.combos[1],
-      { id: 'second-plan' }
-    )
-    const total = createAttackTotalCalculationRecord(
-      [{ id: 'first', record: first }, { id: 'second', record: second }],
-      {
-        totalDamage: batch.totalDamage,
-        totalDamageStatistics: batch.totalDamageStatistics,
-      }
-    )
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, state.generation, execution)
+    state.basePresentation = { kind: 'base' }
+    state.displayPresentation = createDisplayPresentation()
+    const generation = state.generation
 
-    expect(commitAttackExecution(
-      state,
-      state.generation,
-      {
-        records: [
-          { id: 'first', record: first },
-          { id: 'second', record: second },
-        ],
-        rangePlans: [first.rangePlan, second.rangePlan],
-        totalCalculation: total,
-        batchResult: batch,
-      },
-      {},
-      {},
-    )).toBe(false)
+    expect(clearAttackState(state)).toBe(generation + 1)
+    expect(state.generation).toBe(generation + 1)
+    expect(state.totalCalculation).toBeNull()
+    expect(state.basePresentation).toBeNull()
+    expect(state.displayPresentation).toBeNull()
     expect(state.combos.every(({ data }) => data.calculation === null))
       .toBe(true)
-  })
-
-  it('commits complete batch and presentation payloads atomically', () => {
-    const state = createState()
-    const generation = state.generation
-    const batch = createBatch(['first', 'second'])
-    const plans = [{ id: 'first-plan' }, { id: 'second-plan' }]
-    const presentation = createPresentation(batch, plans)
-
-    expect(commitAttackResult(
-      state,
-      generation,
-      batch,
-      presentation
-    )).toBe(true)
-    expect(state.combos.map(({ data }) => data.resultReady))
-      .toEqual([true, true])
-    expect(state.combos[0].data.rangePlan).toBe(plans[0])
-    expect(state.combos[1].data.damage).toBe(
-      batch.combos[1].damage
-    )
-    expect(state.totalDamageReady).toBe(true)
-    expect(state.totalDamage).toBe(batch.totalDamage)
-    expect(state.totalDamageStatistics).toBe(batch.totalDamageStatistics)
-    expect(state.combos[0].data.damage).toBe(batch.combos[0].damage)
-  })
-
-  it('rejects a stale generation without exposing partial combo state', () => {
-    const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const presentation = createPresentation(batch, [{}, {}])
-    const generation = state.generation
-
-    clearAttackState(state)
-
-    expect(commitAttackResult(
-      state,
-      generation,
-      batch,
-      presentation
-    )).toBe(false)
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.combos.every(({ data }) => !data.resultReady))
-      .toBe(true)
-  })
-
-  it('rejects a mismatched presentation before writing any combo', () => {
-    const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const presentation = createPresentation(batch, [{}, {}])
-    presentation.combos[1].id = 'wrong-id'
-
-    expect(commitAttackResult(
-      state,
-      state.generation,
-      batch,
-      presentation
-    )).toBe(false)
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.combos.every(({ data }) => !data.resultReady))
-      .toBe(true)
-  })
-})
-
-describe('createAttackRunner', () => {
-  it('runs the canonical API by default', async () => {
-    const state = createState()
-    const batch = createBatch(['first', 'second'])
-    const calculationClient = {
-      calculateAttackBatch: vi.fn().mockResolvedValue(batch),
-    }
-    const runner = createAttackRunner({
-      state,
-      calculationClient,
-      createPresentation: vi.fn(createPresentation),
-    })
-
-    await expect(runner.run()).resolves.toBe(true)
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
-  })
-
-  it('takes one ordered batch, collects plans, presents once, and commits once', async () => {
-    const state = createState()
-    const firstPlan = { id: 'plan-first' }
-    const secondPlan = { id: 'plan-second' }
-    const batch = createBatch(['first', 'second'])
-    const createPresentationSpy = vi.fn(createPresentation)
-    const calculationClient = {
-      calculateAttackBatch: vi.fn(async (entries, options) => {
-        expect(entries.map((entry) => entry.id)).toEqual(['first', 'second'])
-        expect(entries[0].params.action.score.dice).toBe(1)
-        expect(entries[1].params.action.score.dice).toBe(2)
-        options.onRangePlan(firstPlan)
-        options.onRangePlan(secondPlan)
-        return batch
-      }),
-    }
-    const runner = createAttackRunner({
-      state,
-      calculationClient,
-      createPresentation: createPresentationSpy,
-    })
-
-    await expect(runner.run()).resolves.toBe(true)
-
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
-    expect(createPresentationSpy).toHaveBeenCalledOnce()
-    expect(createPresentationSpy).toHaveBeenCalledWith(
-      batch,
-      [firstPlan, secondPlan]
-    )
-    expect(state.totalDamageReady).toBe(true)
-    expect(state.combos.map(({ data }) => data.rangePlan))
-      .toEqual([firstPlan, secondPlan])
-  })
-
-  it('does not commit an old deferred result after input changes before the next run', async () => {
-    const state = createState()
-    const deferred = createDeferred()
-    const presentation = vi.fn(createPresentation)
-    let requestedEntries
-    const calculationClient = {
-      calculateAttackBatch: vi.fn((entries) => {
-        requestedEntries = entries
-        return deferred.promise
-      }),
-    }
-    const runner = createAttackRunner({
-      state,
-      calculationClient,
-      createPresentation: presentation,
-    })
-
-    const request = runner.run()
-    state.combos[0].data.params.action.score.dice = 99
-    deferred.resolve(createBatch(['first', 'second'], 'old'))
-    await request
-
-    expect(requestedEntries[0].params.action.score.dice).toBe(1)
-    expect(presentation).not.toHaveBeenCalled()
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.combos.every(({ data }) => !data.resultReady))
-      .toBe(true)
-  })
-
-  it('snapshots queued entries and calculation options at submit time', async () => {
-    const state = createState()
-    const first = createDeferred()
-    const calls = []
-    let callCount = 0
-    const submittedOnRangePlan = vi.fn()
-    const mutatedOnRangePlan = vi.fn()
-    const queuedOptions = {
-      rangePolicy: {
-        limits: { maxDisplayPoints: 64 },
-      },
-      requestMetadata: {
-        label: 'submitted',
-      },
-      onRangePlan: submittedOnRangePlan,
-    }
-    const calculationClient = {
-      calculateAttackBatch: vi.fn((entries, options) => {
-        calls.push({ entries, options })
-        callCount += 1
-        if (callCount === 2) {
-          options.onRangePlan({ id: 'latest-plan' })
-        }
-        return callCount === 1
-          ? first.promise
-          : Promise.resolve(createBatch(['first', 'second'], 'latest'))
-      }),
-    }
-    const runner = createAttackRunner({
-      state,
-      calculationClient,
-      createPresentation: vi.fn(createPresentation),
-    })
-
-    const firstRequest = runner.run()
-    const latestRequest = runner.run(queuedOptions)
-
-    state.combos[0].data.params.action.score.dice = 99
-    state.combos.splice(1, 1)
-    queuedOptions.rangePolicy.limits.maxDisplayPoints = 8
-    queuedOptions.requestMetadata.label = 'mutated after submit'
-    queuedOptions.onRangePlan = mutatedOnRangePlan
-
-    first.resolve(createBatch(['first', 'second'], 'old'))
-    await Promise.all([firstRequest, latestRequest])
-
-    expect(calls).toHaveLength(2)
-    expect(calls[1].entries.map((entry) => entry.id))
-      .toEqual(['first', 'second'])
-    expect(calls[1].entries[0].params.action.score.dice).toBe(1)
-    expect(calls[1].options.rangePolicy).toEqual({
-      limits: { maxDisplayPoints: 64 },
-    })
-    expect(calls[1].options.requestMetadata).toEqual({ label: 'submitted' })
-    expect(calls[1].options.signal).toBeInstanceOf(AbortSignal)
-    expect(calls[1].options.onRangePlan).toBeTypeOf('function')
-    expect(submittedOnRangePlan).toHaveBeenCalledWith({ id: 'latest-plan' })
-    expect(mutatedOnRangePlan).not.toHaveBeenCalled()
-    expect(state.totalDamageReady).toBe(false)
-  })
-
-  it('aborts and suppresses stale results during rapid changes', async () => {
-    const state = createState()
-    const first = createDeferred()
-    const secondBatch = createBatch(['first', 'second'], 'second')
-    const signals = []
-    let callCount = 0
-    const createPresentationSpy = vi.fn(createPresentation)
-    const calculationClient = {
-      calculateAttackBatch: vi.fn((_entries, options) => {
-        signals.push(options.signal)
-        callCount += 1
-        if (callCount === 1) {
-          return first.promise
-        }
-        options.onRangePlan({ id: 'second-first-plan' })
-        options.onRangePlan({ id: 'second-second-plan' })
-        return Promise.resolve(secondBatch)
-      }),
-    }
-    const runner = createAttackRunner({
-      state,
-      calculationClient,
-      createPresentation: createPresentationSpy,
-    })
-
-    const firstRequest = runner.run()
-    state.combos[0].data.params.action.score.dice = 7
-    const secondRequest = runner.run()
-    first.resolve(createBatch(['first', 'second'], 'first'))
-    await Promise.all([firstRequest, secondRequest])
-
-    expect(signals[0].aborted).toBe(true)
-    expect(createPresentationSpy).toHaveBeenCalledOnce()
-    expect(state.combos[0].data.damage.value).toBe('damage-second-0')
-  })
-
-  it('clears canonical state and ignores a late result after invalidation', async () => {
-    const state = createState()
-    const deferred = createDeferred()
-    const presentation = vi.fn(createPresentation)
-    let signal
-    const runner = createAttackRunner({
-      state,
-      calculationClient: {
-        calculateAttackBatch: vi.fn((_entries, options) => {
-          signal = options.signal
-          return deferred.promise
-        }),
-      },
-      createPresentation: presentation,
-    })
-
-    const request = runner.run()
-    runner.invalidate()
-    clearAttackState(state)
-    deferred.resolve(createBatch(['first', 'second']))
-    await request
-
-    expect(signal.aborted).toBe(true)
-    expect(presentation).not.toHaveBeenCalled()
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.feedback.status).toBe('idle')
-    expect(state.combos.every(({ data }) => !data.resultReady))
-      .toBe(true)
-  })
-
-  it('exposes dispose for unmount lifecycle cancellation', async () => {
-    const state = createState()
-    const deferred = createDeferred()
-    const presentation = vi.fn(createPresentation)
-    const runner = createAttackRunner({
-      state,
-      calculationClient: {
-        calculateAttackBatch: vi.fn(() => deferred.promise),
-      },
-      createPresentation: presentation,
-    })
-
-    const request = runner.run()
-    runner.dispose()
-    deferred.resolve(createBatch(['first', 'second'], 'disposed'))
-
-    await expect(request).resolves.toBe(false)
-    expect(presentation).not.toHaveBeenCalled()
-    await expect(runner.run()).resolves.toBe(false)
-  })
-
-  it('clears result fields on range reject and generic errors', async () => {
-    const rangeError = Object.assign(new Error('range rejected'), {
-      name: 'CalculationRangeError',
-      plan: { accepted: false, warnings: [{ code: 'reject' }] },
-    })
-    const state = createState([combo('first')])
-    state.totalDamage = { value: 'old total' }
-    state.totalDamageStatistics = { value: 'old total summary' }
-    state.totalDamageReady = true
-    state.combos[0].data.score = legacyScore
-    state.combos[0].data.damage = legacyDamage
-    state.combos[0].data.resultReady = true
-    const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
-        options.onRangePlan(rangeError.plan)
-        throw rangeError
-      }),
-    }
-    const runner = createAttackRunner({ state, calculationClient })
-
-    await runner.run()
-
-    expect(state.feedback.status).toBe('rejected')
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.totalDamage).toBeNull()
-    expect(state.totalDamageStatistics).toBeNull()
-    expect(state.combos[0].data.score).toBeNull()
-    expect(state.combos[0].data.damage).toBeNull()
-    expect(state.combos[0].data.resultReady).toBe(false)
-
-    const genericError = new Error('canonical failed')
-    calculationClient.calculateAttackBatch.mockRejectedValueOnce(
-      genericError
-    )
-    await runner.run()
-
-    expect(state.feedback.status).toBe('error')
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.totalDamage).toBeNull()
-    expect(state.totalDamageStatistics).toBeNull()
-    expect(state.combos[0].data.resultReady).toBe(false)
-
-    const resourceError = Object.assign(new Error('resource rejected'), {
-      name: 'ResourceGuardError',
-    })
-    calculationClient.calculateAttackBatch.mockRejectedValueOnce(
-      resourceError
-    )
-    await runner.run()
-
-    expect(state.feedback.status).toBe('error')
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.totalDamage).toBeNull()
-    expect(state.totalDamageStatistics).toBeNull()
-    expect(state.combos[0].data.resultReady).toBe(false)
-  })
-
-  it('clears presentation failures and retries successfully on the same runner', async () => {
-    const state = createState([combo('first')])
-    const batch = createBatch(['first'])
-    const presentationError = new Error('presentation failed')
-    const onError = vi.fn()
-    const createPresentationSpy = vi
-      .fn()
-      .mockImplementationOnce(() => {
-        throw presentationError
-      })
-      .mockImplementationOnce(createPresentation)
-    const calculationClient = {
-      calculateAttackBatch: vi.fn().mockResolvedValue(batch),
-    }
-    const runner = createAttackRunner({
-      state,
-      calculationClient,
-      createPresentation: createPresentationSpy,
-      onError,
-    })
-
-    await expect(runner.run()).resolves.toBe(false)
-    expect(onError).toHaveBeenCalledWith(presentationError)
-    expect(state.feedback.status).toBe('error')
-    expect(state.totalDamageReady).toBe(false)
-    expect(state.combos[0].data.resultReady).toBe(false)
-
-    await expect(runner.run()).resolves.toBe(true)
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledTimes(2)
-    expect(state.feedback.status).toBe('ready')
-    expect(state.totalDamageReady).toBe(true)
-    expect(state.combos[0].data.resultReady).toBe(true)
-  })
-
-  it('commits the canonical zero identity for an empty combo list', async () => {
-    const state = createState([])
-    const batch = createBatch([])
-    const calculationClient = {
-      calculateAttackBatch: vi.fn(async (entries, options) => {
-        expect(entries).toEqual([])
-        expect(options.onRangePlan).toBeTypeOf('function')
-        return batch
-      }),
-    }
-    const runner = createAttackRunner({
-      state,
-      calculationClient,
-      createPresentation: vi.fn(createPresentation),
-    })
-
-    await expect(runner.run()).resolves.toBe(true)
-
-    expect(state.totalDamageReady).toBe(true)
-    expect(state.combos).toEqual([])
   })
 })
