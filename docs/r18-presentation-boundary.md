@@ -40,3 +40,18 @@ R18では、R16で確立した確率結果・統計値の契約と、R17で整�
 ## 完了条件
 
 production pathから汎用reflection／deep cloneの責務を外し、上記の数値・範囲・資源ガードと表示の所有権を維持する。R18固有のテスト、`npm run verify:release`、必要なbenchmark、protected-area監査、Markdown lint、`git diff --check`が成功し、段階ごとの変更を独立したcommitとして記録する。
+
+## 実装結果
+
+R18の実装は、次のコミットに分割して完了した。
+
+- `1563247`: trust boundaryと実装範囲を設計メモとして記録した。
+- `07b766c`: `DistributionPresenter`からowned resultへの汎用reflection、任意JSONの再帰clone、deep freeze、重複する統計値検証を削除した。確率、support、overflow、projection、表示範囲、配列長の検証と、表示用確率配列のコピーは維持した。
+- `3e7810f`: `AttackPresentation`の汎用reflection／binary clone／deep cloneを削除した。計算結果と統計値は所有権を再利用し、combo ID、順序、range plan数、数値・資源ガードを維持した。
+- `e687996`: Attack stateのpre-R17 mirrorを削除した。`totalCalculation`、combo内の`calculation`、`basePresentation`、`displayPresentation`を正本とし、`scoreDisplayPresentation`は`displayPresentation.score`から導出する形にした。runnerはincremental executorを必須とし、CalculationClientのbatch API自体は比較・benchmark用途のため残した。
+- `0874630`: `ChartSeriesAdapter`のdescriptor／prototype検査を削減し、canonical displayを信頼する境界へ整理した。確率、範囲、overflow、allocation、resourceの安全性は維持した。
+- `10a41fd`: presenter、attack presentation、chart adapterの所有権と数値安全性を固定する信頼境界テストを追加した。
+
+実装後のVitestは83 files / 907 tests、TypeScript typecheck、ESLint、`git diff --check`が成功した。full-tail Attack benchmarkは全ケースで`error=-`（エラーなし）となり、結果digestは`336820751.76328`で開始時と一致した。protected area（`public`、`generator`、`tooling`、`reference-data`、`schemas`、`experiments`）への変更はない。
+
+R18では、入力、Worker、reference asset、`DistributionResult`生成、ResourcePlan、表示要求を検証する責務を残し、計算コアが生成したowned resultをpresentation層で敵対的オブジェクトとして再検査しない方針を実装へ反映した。`DisplayRangePlanner`の数値・資源ポリシーや、legacy batch API、UIの見た目は変更していない。release gateとMarkdown lintを含む最終検証結果は、実装完了後のHEADに対して実行して記録する。

@@ -41,7 +41,7 @@ R15完了後の実装順序は、二つの独立レビューを統合して次�
 
 1. 完了: R16 — Certified Result / Precision Contract
 2. 完了: R17 — Result Ownership / Incremental Execution
-3. R18 — Presentation Boundary Simplification
+3. 完了（R18 Presentation Boundary Simplification、2026-09-08）: `DistributionPresenter`、`AttackPresentation`、`AttackRunner`、`AttackState`、`ChartSeriesAdapter`からowned internal resultへの汎用reflection／任意グラフcloneを削減し、計算結果・統計値・表示状態の所有権を整理した。確率、support、overflow、projection、表示範囲、配列長、allocation、resourceの安全性は維持し、`scoreDisplayPresentation`は`displayPresentation.score`から導出する。R18固有の信頼境界テストを含むVitest 83 files / 907 tests、typecheck、lint、full-tail Attack benchmark（全ケースエラーなし）が成功した。詳細は[`r18-presentation-boundary.md`](./r18-presentation-boundary.md)を参照する。CalculationClientのlegacy batch API、DisplayRangePlanner、Worker／API／MCP化、UI redesignは後続課題として維持する。
 4. R19 — Worker Architecture Decision
 5. R20 — Graph-first UI / Rendering Redesign
 6. R21 — Compatibility / Verification / Repository Cleanup
