@@ -2,7 +2,10 @@
 
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
-    import { getCheckChartData, getCheckChartOptions } from './ChartSetter';
+    import {
+        createCheckChartProjectionData,
+        getCheckChartOptions,
+    } from './ChartSetter';
 
     const props = defineProps({
         difficulty: {
@@ -17,7 +20,7 @@
     const data = computed(() => props.presentation?.status === 'ready'
         ? props.presentation.chart
         : null);
-    const project = (maxRenderedPoints) => getCheckChartData(
+    const project = (maxRenderedPoints) => createCheckChartProjectionData(
         props.presentation,
         { maxRenderedPoints },
     );

@@ -29,7 +29,7 @@ function getProjectionData(source, mode, maxRenderedPoints, label, color) {
     return data === null ? null : data;
 }
 
-export function getCheckChartData(
+export function createCheckChartProjectionData(
     presentation,
     { maxRenderedPoints = 512 } = {},
 ) {
