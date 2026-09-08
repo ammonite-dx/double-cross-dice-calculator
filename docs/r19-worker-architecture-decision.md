@@ -4,7 +4,7 @@
 
 R19では現行のhybrid構成を維持する。候補Bの汎用Workerは実験として成立し、全10ケースで候補Aと同じ結果を返したが、現行構成で再現可能な阻害が確認できず、warm計算時間とsupersessionのキュー待ちを増やすため、production経路へ移行しない。
 
-この判断はWorkerを使わないという意味ではない。混合ダメージロールを常駐Workerで実行する現在の境界を維持し、別のoperationをWorkerへ移す判断は、再現可能なmain-thread blockingが確認された時点で再評価する。
+この判断はWorkerを使わないという意味ではない。混合ダメージロールを常駐Workerで実行する現在の境界を維持し、別のoperationをWorkerへ移す判断は、再現可能なmain-thread blockingが確認された時点で再評価する。なお、初回測定のAttack warm値は、cacheを持つproduction hybridとcacheを持たないgeneralized prototypeの比較であり、Worker境界だけの差として解釈しない。
 
 ## 対象と比較方法
 
@@ -79,7 +79,7 @@ rapid supersessionでは、候補Aのcaller Abortは1.4ms、直後の最新要�
 
 現行hybridで、受理可能な代表ケースに50ms以上のLong Taskは反復測定で現れなかった。CPU 4xでもheartbeat遅延の最大値は17.1msで、R19のblocking判定を満たさない。候補Bはmain threadの遅延を小さくできるが、`kazanari>0`のwarm計算は現行より約3〜18倍長く、単一Workerのrapid supersessionでは最新要求を約14ms待たせる。ResourceGuardの所有権をWorkerへ移す設計も別途必要になる。
 
-したがって、複雑性とキュー待ちを増やしてまで全operationをWorkerへ移す利益は現時点で不足している。R19の決定は`KEEP CURRENT HYBRID`とし、production source、ResourceGuard ownership、既存RuntimeDamageRollClientの契約は変更しない。
+したがって、複雑性とキュー待ちを増やしてまで全operationをWorkerへ移す利益は現時点で不足している。ここで比較した`kazanari>0`のwarm latency差はcache asymmetryを含む観測値であり、Worker境界そのものの遅延とは断定しない。R19の決定は`KEEP CURRENT HYBRID`とし、production source、ResourceGuard ownership、既存RuntimeDamageRollClientの契約は変更しない。ただし、cache効果とWorker境界効果を分離するfollow-upを完了するまで、この結論を最終closureとは扱わない。
 
 ## 採用しなかった案
 
@@ -98,3 +98,17 @@ rapid supersessionでは、候補Aのcaller Abortは1.4ms、直後の最新要�
 - generalizedまたはpartial Workerで、supersession queueとResourceGuard ownershipを明確に解決できる実装案が得られる。
 
 R19の実験ファイルは将来の再測定用に残す。production移行が必要になった場合は、別タスクR19Bでprotocol、ResourceGuard、latest-wins、Worker failureを改めて設計してから実装する。
+
+## Cache-neutral follow-up（測定前プロトコル）
+
+初回測定では、hybrid側の`RuntimeDamageRollClient`にLRU cacheがあり、generalized Worker側は`generateMixedDamageDistribution`をcacheなしで実行していた。また、supersessionで同一Attack入力を再利用したため、cache hitとpending dedupの影響も分離できていなかった。このfollow-upでは、初回の正しさ・Long Task観測は有効なものとして残し、Attack latencyの帰属と同一入力supersessionの解釈だけを補正する。
+
+補正前の判定基準を次のように固定する。50msはLong Task APIで一般に用いられるblocking境界としてarchitecture上の明確なsignalに使い、16.7msは60Hzの1 frameに相当する参考値とする。KEEP条件は、current production hybridにWorker拡張を正当化する再現可能なblockingがなく、補正後のcache-miss測定でもgeneralized Workerによる明確なUX改善が確認できないことである。補正後に再現可能なblockingとWorkerによる明確な改善がそろった場合だけ、PARTIALまたはGENERALIZEDを別タスクR19Bで検討する。
+
+測定モードは、productionの反復入力を表す`steady-state`と、Damage Roll cacheの効果を除外する`damage-roll-cache-miss`を分ける。steady-stateの値は実ユーザーの再実行時の挙動として残すが、Worker境界だけの比較には使わない。cache-missモードでは、実験専用に生成したhybrid clientのDamage Roll cacheを各timed sampleの直前にclearし、clear処理自体は計測区間へ含めない。generalized Workerには新しいproduction同等cacheを実装しない。
+
+「cold」という名称は、warmup後の最初の計測を意味していたため`firstMeasured`へ改める。Worker constructorからreadyまでの起動時間は、計算の`firstMeasured`とは別のstartup metricとして扱う。各operationではcache-missのp50／p95／max、Worker内計算時間、structured clone往復差、payload、heartbeat、Long Taskを記録する。
+
+supersessionはcacheとpending dedupを混ぜないよう、各シナリオをfresh clientから開始し、cacheをclearしたうえで異なる入力を使う。最低限、重い`Attack A → caller Abort → 異なるAttack B`と、`重いAttack A → caller Abort → Check B`をhybridとgeneralized Workerで比較し、caller Abort、stale underlying settlement、latest queue delay、latest計算時間、latest総遅延、Long Task、heartbeatを分離して記録する。補正測定が終わるまで、初回の同一入力supersession値をarchitecture結論の根拠にしない。
+
+このfollow-up protocolは補正測定より先にコミットする。測定後に結果を追記し、cache asymmetry、metric名称、supersessionの補正、R19の最終判断をこの文書とADRへ反映する。
