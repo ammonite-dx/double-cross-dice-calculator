@@ -1,22 +1,26 @@
-import { calculationClient } from '../../src/runtime/CalculationClient.js'
 import {
   createWorkerCalculationClient,
 } from './worker-client.js'
+import { createHybridBenchmarkClient } from './hybrid-client.js'
 import {
+  R19_SUPERSESSION_SCENARIOS,
   R19_FIXTURES,
-  SUPERSESSION_FIXTURE,
 } from './fixtures.js'
 import {
   createResultDigest,
   estimateValueBytes,
 } from './result-digest.js'
 
-const REPORT_SCHEMA_VERSION = 1
+const REPORT_SCHEMA_VERSION = 2
 const DEFAULT_ITERATIONS = 3
 const DEFAULT_WARMUP_ITERATIONS = 1
 const MAX_ITERATIONS = 20
 const MAX_WARMUP_ITERATIONS = 10
 const FRAME_BUDGET_MS = 16.7
+const MEASUREMENT_MODES = Object.freeze([
+  Object.freeze({ id: 'steady-state', key: 'steadyState' }),
+  Object.freeze({ id: 'damage-roll-cache-miss', key: 'damageRollCacheMiss' }),
+])
 
 const statusElement = document.querySelector('#status')
 const resultElement = document.querySelector('#result')
@@ -262,10 +266,18 @@ async function measureFixture({
   iterations,
   warmupIterations,
   heartbeat,
+  measurementMode,
+  beforeTimedSample,
 }) {
   const call = (options = {}) => topology === 'generalized-worker'
     ? callWorker(client, fixture, options)
     : callMain(client, fixture, options)
+  const runTimedSample = async () => {
+    // Cache control is intentionally outside timedCall so cache eviction does
+    // not become part of the measured end-to-end latency.
+    beforeTimedSample?.()
+    return timedCall(topology, call)
+  }
   // PerformanceObserver delivery is asynchronous. Drain any entries from the
   // previous fixture before taking the per-fixture mark.
   await flushLongTaskObserver()
@@ -306,21 +318,21 @@ async function measureFixture({
   }
 
   const memoryBefore = readMemory()
-  const cold = await timedCall(topology, call)
+  const firstMeasured = await runTimedSample()
   const warmSamples = []
   const workerSamples = []
   const errors = [...warmupErrors]
-  if (cold.error !== null) {
-    errors.push(cold.error)
+  if (firstMeasured.error !== null) {
+    errors.push(firstMeasured.error)
   }
-  if (cold.error === null) {
-    const coldTransport = getTransport(topology, cold.response)
-    recordTransport(cold.response)
-    if (coldTransport?.workerTiming?.computeMs !== undefined) {
-      workerSamples.push(coldTransport.workerTiming.computeMs)
+  if (firstMeasured.error === null) {
+    const firstTransport = getTransport(topology, firstMeasured.response)
+    recordTransport(firstMeasured.response)
+    if (firstTransport?.workerTiming?.computeMs !== undefined) {
+      workerSamples.push(firstTransport.workerTiming.computeMs)
     }
     for (let index = 0; index < iterations; index += 1) {
-      const sample = await timedCall(topology, call)
+      const sample = await runTimedSample()
       if (sample.error !== null) {
         errors.push(sample.error)
         break
@@ -338,15 +350,16 @@ async function measureFixture({
   const memoryAfter = readMemory()
   const mainThread = heartbeat.summarize(heartbeatMark)
   const taskEntries = longTaskEntries.slice(longTaskMark)
-  const result = cold.result
+  const result = firstMeasured.result
   return {
     id: fixture.id,
     label: fixture.label,
     operation: fixture.operation,
     topology,
-    cold: {
-      elapsedMs: round(cold.elapsedMs),
-      status: cold.error === null ? 'success' : 'error',
+    measurementMode,
+    firstMeasured: {
+      elapsedMs: round(firstMeasured.elapsedMs),
+      status: firstMeasured.error === null ? 'success' : 'error',
     },
     warm: summarizeSamples(warmSamples),
     workerCompute: summarizeSamples(workerSamples),
@@ -401,28 +414,37 @@ async function measureCandidate({
   fixtures,
   options,
   heartbeat,
+  measurementMode,
 }) {
   heartbeat.start()
-  const measurements = []
-  for (const fixture of fixtures) {
-    measurements.push(await measureFixture({
-      topology,
-      client,
-      fixture,
-      iterations: options.iterations,
-      warmupIterations: options.warmupIterations,
-      heartbeat,
-    }))
+  try {
+    const measurements = []
+    for (const fixture of fixtures) {
+      measurements.push(await measureFixture({
+        topology,
+        client,
+        fixture,
+        iterations: options.iterations,
+        warmupIterations: options.warmupIterations,
+        heartbeat,
+        measurementMode,
+        beforeTimedSample: measurementMode === 'damage-roll-cache-miss'
+          && topology === 'hybrid'
+          ? () => client.clearDamageRollCache()
+          : null,
+      }))
+    }
+    return measurements
+  } finally {
+    heartbeat.stop()
   }
-  heartbeat.stop()
-  return measurements
 }
 
 function attachUnderlyingObserver(topology, startedState) {
   return (settlement) => {
     if (topology === 'hybrid') {
       if (settlement && typeof settlement.then === 'function') {
-        Promise.resolve(settlement).then(
+        startedState.underlyingPromise = Promise.resolve(settlement).then(
           () => { startedState.underlyingSettledAt = performance.now() },
           () => { startedState.underlyingSettledAt = performance.now() }
         )
@@ -433,7 +455,14 @@ function attachUnderlyingObserver(topology, startedState) {
   }
 }
 
-async function measureSupersession({ topology, client, fixture, heartbeat }) {
+async function measureSupersession({
+  topology,
+  client,
+  staleFixture,
+  latestFixture,
+  heartbeat,
+  measurementMode,
+}) {
   await flushLongTaskObserver()
   const heartbeatMark = heartbeat.mark()
   const longTaskMark = longTaskEntries.length
@@ -442,11 +471,11 @@ async function measureSupersession({ topology, client, fixture, heartbeat }) {
     callerSettledAt: null,
   }
   const controller = new AbortController()
-  const call = (options = {}) => topology === 'generalized-worker'
+  const call = (fixture, options = {}) => topology === 'generalized-worker'
     ? callWorker(client, fixture, options)
     : callMain(client, fixture, options)
   const startedAt = performance.now()
-  const stalePromise = call({
+  const stalePromise = call(staleFixture, {
     signal: controller.signal,
     onUnderlyingSettled: attachUnderlyingObserver(topology, state),
   }).then(
@@ -460,12 +489,39 @@ async function measureSupersession({ topology, client, fixture, heartbeat }) {
     }
   )
 
-  await Promise.resolve()
+  if (
+    topology === 'hybrid'
+    && typeof client.waitUntilDamageRollStart === 'function'
+  ) {
+    await Promise.race([
+      client.waitUntilDamageRollStart(),
+      new Promise((resolve) => setTimeout(resolve, 5_000)),
+    ])
+  } else {
+    await Promise.resolve()
+  }
   const abortAt = performance.now()
   controller.abort()
   const latestStartedAt = performance.now()
-  const latest = await timedCall(topology, () => call())
+  const latest = await timedCall(
+    topology,
+    () => call(latestFixture)
+  )
+  const latestCompletedAt = performance.now()
   const stale = await stalePromise
+  // The caller promise is deliberately aborted early, but the hybrid
+  // RuntimeDamageRollClient still owns an underlying Worker promise. Wait for
+  // that promise before the fresh scenario client is disposed so settlement
+  // latency is measured rather than truncated by Worker termination.
+  if (
+    topology === 'hybrid'
+    && client.damageRollStarted === true
+    && typeof client.waitUntilDamageRollSettled === 'function'
+  ) {
+    state.underlyingSettledAt = await client.waitUntilDamageRollSettled()
+  } else {
+    await state.underlyingPromise
+  }
   await flushLongTaskObserver()
   const latestTransport = getTransport(topology, latest.response)
   const latestComputeMs = latestTransport?.workerTiming?.computeMs ?? null
@@ -474,9 +530,12 @@ async function measureSupersession({ topology, client, fixture, heartbeat }) {
 
   return {
     topology,
-    staleOperation: fixture.id,
-    latestOperation: fixture.id,
+    measurementMode,
+    staleOperation: staleFixture.id,
+    latestOperation: latestFixture.id,
     staleStatus: stale.error === null ? 'fulfilled-before-abort' : 'caller-aborted',
+    staleUnderlyingStarted: topology !== 'hybrid'
+      || client.damageRollStarted === true,
     callerAbortMs: state.callerSettledAt === null
       ? null
       : round(state.callerSettledAt - abortAt),
@@ -484,7 +543,7 @@ async function measureSupersession({ topology, client, fixture, heartbeat }) {
       ? null
       : round(Math.max(0, latest.elapsedMs - latestComputeMs)),
     latestTotalLatencyMs: round(latest.elapsedMs),
-    latestFromAbortMs: round(performance.now() - abortAt),
+    latestFromAbortMs: round(latestCompletedAt - abortAt),
     underlyingStaleCompletionMs: state.underlyingSettledAt === null
       ? null
       : round(state.underlyingSettledAt - abortAt),
@@ -523,102 +582,182 @@ function setStatus(message) {
   statusElement.textContent = message
 }
 
-async function runBenchmark() {
-  const options = getMeasurementOptions()
-  const heartbeat = createHeartbeat()
-  const longTaskSupported = installLongTaskObserver()
-  const hybridMeasurements = await measureCandidate({
-    topology: 'hybrid',
-    client: calculationClient,
-    fixtures: R19_FIXTURES,
-    options,
-    heartbeat,
-  })
-
-  setStatus('Measuring generalized Worker…')
+async function measureMode({ mode, options, heartbeat }) {
+  const hybridClient = createHybridBenchmarkClient()
   const generalizedClient = createWorkerCalculationClient()
-  const generalizedWorkerStartup = await measureWorkerStartup(generalizedClient)
-  const generalizedMeasurements = await measureCandidate({
-    topology: 'generalized-worker',
-    client: generalizedClient,
-    fixtures: R19_FIXTURES,
-    options,
-    heartbeat,
-  })
-
-  setStatus('Measuring rapid supersession…')
-  heartbeat.start()
-  const supersession = [
-    await measureSupersession({
+  try {
+    const hybridMeasurements = await measureCandidate({
       topology: 'hybrid',
-      client: calculationClient,
-      fixture: SUPERSESSION_FIXTURE,
+      client: hybridClient,
+      fixtures: R19_FIXTURES,
+      options,
       heartbeat,
-    }),
-    await measureSupersession({
+      measurementMode: mode.id,
+    })
+
+    const generalizedWorkerStartup = await measureWorkerStartup(generalizedClient)
+    const generalizedMeasurements = await measureCandidate({
       topology: 'generalized-worker',
       client: generalizedClient,
-      fixture: SUPERSESSION_FIXTURE,
+      fixtures: R19_FIXTURES,
+      options,
       heartbeat,
-    }),
-  ]
-  heartbeat.stop()
-  generalizedClient.dispose()
-  longTaskObserver?.disconnect()
+      measurementMode: mode.id,
+    })
 
-  const parity = compareMeasurements(
-    hybridMeasurements,
-    generalizedMeasurements
-  )
-  const allErrors = [
-    ...hybridMeasurements,
-    ...generalizedMeasurements,
-  ].flatMap((measurement) => measurement.errors)
-  const latestErrors = supersession.flatMap(({
+    return {
+      hybrid: hybridMeasurements,
+      generalizedWorker: generalizedMeasurements,
+      workerStartup: {
+        hybrid: {
+          status: 'not-measured',
+          note: 'Current hybrid owns a separate production RuntimeDamageRollWorker; R19 does not instrument its constructor.',
+        },
+        generalizedWorker: generalizedWorkerStartup,
+      },
+      parity: compareMeasurements(
+        hybridMeasurements,
+        generalizedMeasurements
+      ),
+    }
+  } finally {
+    generalizedClient.dispose()
+    hybridClient.dispose()
+  }
+}
+
+async function measureSupersessionScenario({ scenario, heartbeat }) {
+  const measurements = []
+  for (const topology of ['hybrid', 'generalized-worker']) {
+    const client = topology === 'hybrid'
+      ? createHybridBenchmarkClient()
+      : createWorkerCalculationClient()
+    try {
+      if (topology === 'generalized-worker') {
+        // Startup is intentionally outside the supersession interval.
+        await client.waitUntilReady()
+      } else {
+        client.clearDamageRollCache()
+      }
+      measurements.push(await measureSupersession({
+        topology,
+        client,
+        staleFixture: scenario.stale,
+        latestFixture: scenario.latest,
+        heartbeat,
+        measurementMode: 'damage-roll-cache-miss',
+      }))
+    } finally {
+      client.dispose()
+    }
+  }
+  return {
+    id: scenario.id,
+    staleOperation: scenario.stale.id,
+    latestOperation: scenario.latest.id,
+    measurements,
+  }
+}
+
+function collectMeasurementErrors(modeReports) {
+  return Object.values(modeReports).flatMap(({ hybrid, generalizedWorker }) => [
+    ...hybrid,
+    ...generalizedWorker,
+  ]).flatMap((measurement) => measurement.errors)
+}
+
+function collectStartupErrors(modeReports) {
+  return Object.values(modeReports).map(
+    ({ workerStartup }) => workerStartup.generalizedWorker
+  ).filter(({ status }) => status !== 'ready')
+}
+
+function collectSupersessionErrors(supersession) {
+  return supersession.flatMap(({ measurements }) => measurements.flatMap(({
     staleCallerError,
     staleStatus,
+    staleUnderlyingStarted,
     latestError,
   }) => [
     // Abort is the expected caller-visible result for the deliberately
     // superseded request. Only an unexpected stale settlement is an error.
     staleStatus === 'caller-aborted' ? null : staleCallerError,
+    staleUnderlyingStarted ? null : 'stale underlying work did not start',
     latestError,
-  ]).filter((error) => error !== null)
-  const report = {
-    schemaVersion: REPORT_SCHEMA_VERSION,
-    status: allErrors.length === 0 && latestErrors.length === 0 && parity.every(
-      ({ equal }) => equal
-    ) ? 'passed' : 'error',
-    environment: {
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      hardwareConcurrency: navigator.hardwareConcurrency ?? null,
-      longTaskSupported,
-      frameBudgetMs: FRAME_BUDGET_MS,
-    },
-    options,
-    candidates: [
-      { id: 'hybrid', description: 'main thread calculation + RuntimeDamageRollWorker' },
-      { id: 'generalized-worker', description: 'one persistent Worker for all four operations' },
-    ],
-    measurements: {
-      hybrid: hybridMeasurements,
-      generalizedWorker: generalizedMeasurements,
-    },
-    workerStartup: {
-      hybrid: {
-        status: 'not-measured',
-        note: 'Current hybrid owns a separate production RuntimeDamageRollWorker; R19 does not instrument its constructor.'
+  ])).filter((error) => error !== null)
+}
+
+async function runBenchmark() {
+  const options = getMeasurementOptions()
+  const heartbeat = createHeartbeat()
+  const longTaskSupported = installLongTaskObserver()
+  try {
+    const modeReports = {}
+    for (const mode of MEASUREMENT_MODES) {
+      setStatus(`Measuring ${mode.id}…`)
+      modeReports[mode.key] = await measureMode({
+        mode,
+        options,
+        heartbeat,
+      })
+    }
+
+    setStatus('Measuring corrected supersession…')
+    const supersession = []
+    for (const scenario of R19_SUPERSESSION_SCENARIOS) {
+      supersession.push(await measureSupersessionScenario({
+        scenario,
+        heartbeat,
+      }))
+    }
+
+    const allErrors = collectMeasurementErrors(modeReports)
+    const startupErrors = collectStartupErrors(modeReports)
+    const supersessionErrors = collectSupersessionErrors(supersession)
+    const parity = Object.fromEntries(
+      MEASUREMENT_MODES.map(({ key }) => [key, modeReports[key].parity])
+    )
+    const report = {
+      schemaVersion: REPORT_SCHEMA_VERSION,
+      status: allErrors.length === 0
+        && startupErrors.length === 0
+        && supersessionErrors.length === 0
+        && Object.values(parity).flat().every(({ equal }) => equal)
+        ? 'passed'
+        : 'error',
+      environment: {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        hardwareConcurrency: navigator.hardwareConcurrency ?? null,
+        longTaskSupported,
+        frameBudgetMs: FRAME_BUDGET_MS,
       },
-      generalizedWorker: generalizedWorkerStartup,
-    },
-    parity,
-    supersession,
+      options,
+      measurementModes: MEASUREMENT_MODES.map(({ id }) => id),
+      candidates: [
+        { id: 'hybrid', description: 'main thread calculation + RuntimeDamageRollWorker' },
+        { id: 'generalized-worker', description: 'one persistent Worker for all four operations' },
+      ],
+      measurements: Object.fromEntries(
+        MEASUREMENT_MODES.map(({ key }) => [key, {
+          hybrid: modeReports[key].hybrid,
+          generalizedWorker: modeReports[key].generalizedWorker,
+        }])
+      ),
+      workerStartup: Object.fromEntries(
+        MEASUREMENT_MODES.map(({ key }) => [key, modeReports[key].workerStartup])
+      ),
+      parity,
+      supersession,
+    }
+    window.__r19WorkerArchitectureResult = report
+    window.__r19WorkerArchitectureError = null
+    resultElement.textContent = JSON.stringify(report, null, 2)
+    setStatus(`Benchmark ${report.status}`)
+  } finally {
+    heartbeat.stop()
+    longTaskObserver?.disconnect()
   }
-  window.__r19WorkerArchitectureResult = report
-  window.__r19WorkerArchitectureError = null
-  resultElement.textContent = JSON.stringify(report, null, 2)
-  setStatus(`Benchmark ${report.status}`)
 }
 
 runBenchmark().catch((error) => {

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -8,9 +10,11 @@ import {
 } from '../experiments/r19-worker-architecture/worker-client.js'
 import {
   CHECK_FIXTURES,
+  R19_SUPERSESSION_SCENARIOS,
   R19_FIXTURE_IDS,
   R19_FIXTURES,
 } from '../experiments/r19-worker-architecture/fixtures.js'
+import { createHybridBenchmarkClient } from '../experiments/r19-worker-architecture/hybrid-client.js'
 import {
   createResultDigest,
   estimateValueBytes,
@@ -216,6 +220,46 @@ describe('R19 generalized Worker protocol', () => {
     expect(new Set(R19_FIXTURES.map(({ operation }) => operation))).toEqual(
       new Set(['check', 'attack', 'totalDamage', 'backtrack'])
     )
+  })
+
+  it('keeps supersession scenarios distinct and cache-neutral by construction', () => {
+    expect(R19_SUPERSESSION_SCENARIOS).toHaveLength(2)
+    const [attackToAttack, attackToCheck] = R19_SUPERSESSION_SCENARIOS
+    expect(attackToAttack.stale.id).not.toBe(attackToAttack.latest.id)
+    expect(attackToAttack.stale.params).not.toEqual(attackToAttack.latest.params)
+    expect(attackToAttack.latest.operation).toBe('attack')
+    expect(attackToCheck.stale.operation).toBe('attack')
+    expect(attackToCheck.latest.operation).toBe('check')
+    expect(attackToAttack.stale.params.action.damage.kazanari).toBeGreaterThan(0)
+    expect(attackToAttack.latest.params.action.damage.kazanari).toBeGreaterThan(0)
+  })
+
+  it('wraps a fresh hybrid client with cache clear and disposal controls', () => {
+    const damageRollClient = {
+      calculate: vi.fn(),
+      clearCache: vi.fn(),
+      dispose: vi.fn(),
+    }
+    const client = createHybridBenchmarkClient({
+      createDamageRollClient: () => damageRollClient,
+    })
+
+    client.clearDamageRollCache()
+    client.dispose()
+
+    expect(damageRollClient.clearCache).toHaveBeenCalledOnce()
+    expect(damageRollClient.dispose).toHaveBeenCalledOnce()
+    expect(typeof client.calculateAttack).toBe('function')
+  })
+
+  it('uses firstMeasured instead of the misleading cold metric', () => {
+    const source = readFileSync(
+      new URL('../experiments/r19-worker-architecture/benchmark.js', import.meta.url),
+      'utf8'
+    )
+    expect(source).toContain('firstMeasured')
+    expect(source).toContain("'damage-roll-cache-miss'")
+    expect(source).not.toContain('cold: {')
   })
 
   it('reports transport callback settlement for stale requests', async () => {

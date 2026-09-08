@@ -331,7 +331,7 @@ async function run(options) {
       ? passed === engines.length ? 'passed' : 'partial'
       : unavailable === engines.length ? 'unavailable' : 'error'
     console.log(JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 2,
       benchmark: 'r19-worker-architecture',
       status,
       requested: {

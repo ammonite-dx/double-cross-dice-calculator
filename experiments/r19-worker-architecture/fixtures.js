@@ -202,4 +202,51 @@ export const R19_FIXTURE_IDS = Object.freeze(
   R19_FIXTURES.map(({ id }) => id)
 )
 
-export const SUPERSESSION_FIXTURE = ATTACK_FIXTURES[1]
+export const SUPERSESSION_ATTACK_STALE_FIXTURE = Object.freeze({
+  id: 'supersession-attack-stale',
+  operation: 'attack',
+  label: 'supersession stale heavy Attack',
+  params: attack({
+    actionScore: score({ dice: 20, critical: 5, skill: 2 }),
+    reactionScore: score({ dice: 16, critical: 7, skill: 1 }),
+    attackDice: 10,
+    attackValue: 15,
+    kazanari: 9,
+    defenceDice: 6,
+    defenceValue: 4,
+  }),
+})
+
+export const SUPERSESSION_ATTACK_LATEST_FIXTURE = Object.freeze({
+  id: 'supersession-attack-latest',
+  operation: 'attack',
+  label: 'supersession latest distinct Attack',
+  params: attack({
+    actionScore: score({ dice: 21, critical: 5, skill: 2 }),
+    reactionScore: score({ dice: 16, critical: 7, skill: 1 }),
+    attackDice: 11,
+    attackValue: 15,
+    kazanari: 8,
+    defenceDice: 6,
+    defenceValue: 4,
+  }),
+})
+
+export const SUPERSESSION_CHECK_LATEST_FIXTURE = CHECK_FIXTURES[0]
+
+export const R19_SUPERSESSION_SCENARIOS = Object.freeze([
+  Object.freeze({
+    id: 'attack-to-attack',
+    stale: SUPERSESSION_ATTACK_STALE_FIXTURE,
+    latest: SUPERSESSION_ATTACK_LATEST_FIXTURE,
+  }),
+  Object.freeze({
+    id: 'attack-to-check',
+    stale: SUPERSESSION_ATTACK_STALE_FIXTURE,
+    latest: SUPERSESSION_CHECK_LATEST_FIXTURE,
+  }),
+])
+
+// Kept as an alias for the initial R19 benchmark's fixture name. New
+// supersession measurements must use the explicit scenario fixtures above.
+export const SUPERSESSION_FIXTURE = SUPERSESSION_ATTACK_STALE_FIXTURE
