@@ -41,6 +41,29 @@ function createPlan(display, min, max, policy) {
   })
 }
 
+function createExactOverflowDisplay() {
+  const result = createDistributionResult({
+    values: [0.4, 0.2],
+    offset: 0,
+    support: { kind: 'infinite' },
+    overflow: {
+      kind: 'exact',
+      lowerBound: 10,
+      probability: 0.4,
+      errorBound: 0,
+    },
+  })
+  return presentDistribution(
+    { result, metadata: { modeledDistribution: true } },
+    {
+      summary: {
+        mass: { kind: 'exact', value: 1 },
+        expectedValue: { kind: 'lower-bound', value: 0 },
+      },
+    }
+  )
+}
+
 describe('ProbabilityChartProjection', () => {
   it('aggregates PMF bins without dropping probability mass', () => {
     const display = createDisplay({
@@ -120,6 +143,32 @@ describe('ProbabilityChartProjection', () => {
       .toBeLessThanOrEqual(projection.samples[1].probability)
     expect(materializeProbabilityChartProjection(projection).chartType)
       .toBe('line')
+  })
+
+  it('includes exact overflow in upper-tail values when its lower bound is outside the window', () => {
+    const display = createExactOverflowDisplay()
+    const basePlan = createPlan(display, 0, 3)
+    const plan = {
+      ...basePlan,
+      decision: 'reuse',
+      coverage: {
+        ...basePlan.coverage,
+        missingSegments: [],
+      },
+    }
+    const projection = createProbabilityChartProjection(display, plan, {
+      mode: 'upper-tail',
+      maxRenderedPoints: 4,
+    })
+
+    expect(projection.status).toBe('ready')
+    expect(projection.samples.map(({ probability }) => probability))
+      .toEqual([
+        expect.closeTo(1, 15),
+        expect.closeTo(0.6, 15),
+        expect.closeTo(0.4, 15),
+        expect.closeTo(0.4, 15),
+      ])
   })
 
   it('projects finite-support known-zero windows without scanning them', () => {

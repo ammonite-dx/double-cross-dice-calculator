@@ -239,7 +239,7 @@ function getNotReadyReason(plan) {
   return null
 }
 
-function assertProjectable(display, plan, mode) {
+function assertProjectable(display, plan) {
   const notReadyReason = getNotReadyReason(plan)
   if (notReadyReason !== null) {
     return { status: 'not-ready', reason: notReadyReason }
@@ -257,7 +257,7 @@ function assertProjectable(display, plan, mode) {
   }
   const overflow = display.overflow
   if (potentialOverflow(overflow)) {
-    if (overflow.kind === 'upper-bound' || mode === PROBABILITY_CHART_PROJECTION_MODES.UPPER_TAIL) {
+    if (overflow.kind === 'upper-bound') {
       return { status: 'not-projectable', reason: 'upper-bound-overflow' }
     }
     if (overflow.lowerBound <= plan.displayWindow.max) {
@@ -326,21 +326,20 @@ function tailAt(display, threshold) {
   if (display.support.kind === 'finite' && threshold > display.support.max) {
     return 0
   }
-  let tail
-  if (display.offset === 0) {
-    tail = 1 - (threshold <= 0 ? 0 : sumRange(display, 0, threshold - 1))
-  } else {
-    tail = display.explicitMax !== null && threshold <= display.explicitMax
-      ? sumRange(display, Math.max(threshold, display.offset), display.explicitMax)
-      : 0
-  }
   const overflow = display.overflow
-  if (
-    overflow?.kind === 'exact'
-    && potentialOverflow(overflow)
-    && threshold <= overflow.lowerBound
-  ) {
-    tail += overflow.probability
+  const explicitTail = display.explicitMax !== null && threshold <= display.explicitMax
+    ? sumRange(display, Math.max(threshold, display.offset), display.explicitMax)
+    : 0
+  let tail = explicitTail
+  if (overflow?.kind === 'exact' && potentialOverflow(overflow)) {
+    // An exact overflow is already the unrepresented mass. It contributes to
+    // every threshold at or below its lower bound, but must not be added a
+    // second time to the complement of an explicit prefix.
+    if (threshold <= overflow.lowerBound) {
+      tail += overflow.probability
+    }
+  } else if (overflow === null && display.offset === 0 && threshold <= 0) {
+    tail = 1
   }
   if (tail < 0 && tail > -1e-12) {
     return 0
@@ -390,7 +389,6 @@ export function createProbabilityChartProjection(
   const projectability = assertProjectable(
     normalizedDisplay,
     normalizedPlan.plan,
-    mode
   )
   if (projectability !== null) {
     return makeNotReadyProjection(
