@@ -70,3 +70,21 @@ CheckとAttackの既存graph-first順序を維持し、チャートには意味�
 6. 既存dense系列をoracleとしてブラウザ測定し、点数、projection時間、Chart.js更新、Long Task、heartbeatを比較する。
 
 R20の成功条件は、広い論理範囲でも描画点数が予算を超えず、PMFの質量保存とupper-tailの単調性を守り、受理済みUI操作で再現性のある50ms以上のLong Taskを増やさないことである。「何倍速いか」は受入条件にしない。R19で確定したRuntimeDamageRollWorkerとResourceGuardの所有権は変更しない。
+
+## ブラウザ測定結果
+
+測定は`npm run benchmark:r20:chart-rendering`で実行し、Chrome 152のheadless desktop条件（hardwareConcurrency 16、deviceMemory 32、viewport 1280×720）で、各ケースを1回warm-up後に3回測定した。CPU 4x条件はrunnerへ`--cpu-4x`を渡して別途測定した。実験は本番計算を呼び出さず、均一分布の表示データを使ってChart.jsの描画負荷だけを比較する。
+
+| 論理座標数 | dense Chart中央値 [ms] | 投影 Chart中央値 [ms] | 投影点数 |
+| ---: | ---: | ---: | ---: |
+| 100 | 2.3 | 2.2 | 100 |
+| 1,000 | 4.9 | 2.9 | 512 |
+| 4,096 | 17.4 | 3.0 | 512 |
+| 16,384 | 63.8 | 3.0 | 512 |
+| 20,000 | 75.6 | 3.0 | 512 |
+
+通常条件では16,384点と20,000点のdense描画がそれぞれ64ms、86msまで伸び、Long Taskも観測された。一方、投影後のChart.js更新は全ケースで中央値3ms前後だった。CPU 4xではdense描画が16,384点で330ms、20,000点で398msまで伸びたのに対し、投影後は16〜20msだった。投影は論理範囲を削らず、PMFのbin質量を保存したまま描画点数だけを512点へ抑えている。
+
+この測定から、`0..20000`を無条件に受け入れる入力・計算policyへ変更することは保留する。ただし、表示だけを投影する範囲ではdense系列に由来する50ms以上のLong Taskを避けられるため、現在の`DisplayRangePlanner`の計算・scan資源制限は維持し、Chart.js側の固定1024点制限は設けない方針とする。低速実機での再測定や計算範囲の拡張が必要になった場合は、同じrunnerへケースとCPU条件を追加する。
+
+再現用のページ、runner、測定条件は[`experiments/r20-chart-rendering/`](../experiments/r20-chart-rendering/)に置く。測定結果は環境依存のため、release gateの固定閾値ではなく、resource policyを見直す際の判断資料として扱う。
