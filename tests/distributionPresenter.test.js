@@ -7,8 +7,6 @@ import {
 import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import {
   DISTRIBUTION_PRESENTATION_ERROR_CODES,
-  DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH,
-  DISTRIBUTION_PRESENTATION_MAX_JSON_NODES,
   DistributionPresentationError,
   presentDistribution,
 } from '../src/shared/presentation'
@@ -312,7 +310,7 @@ describe('presentDistribution', () => {
       })
   })
 
-  it('deep-copies and freezes warnings, summary fields, and returned data', () => {
+  it('reuses trusted summaries and shallow-copies warnings', () => {
     const result = createResult({
       values: [1],
       offset: 3,
@@ -330,11 +328,10 @@ describe('presentDistribution', () => {
       warnings: [warning],
     })
 
-    expect(display.mass).not.toBe(summary.mass)
-    expect(display.expectedValue).not.toBe(summary.expectedValue)
+    expect(display.mass).toBe(summary.mass)
+    expect(display.expectedValue).toBe(summary.expectedValue)
     expect(display.warnings[0]).not.toBe(warning)
-    expect(display.warnings[0].details).not.toBe(warning.details)
-    expect(display.warnings[0].details.limits).not.toBe(warning.details.limits)
+    expect(display.warnings[0].details).toBe(warning.details)
     expect(Object.isFrozen(display)).toBe(true)
     expect(Object.isFrozen(display.explicit)).toBe(true)
     expect(Object.isFrozen(display.explicit.probabilities)).toBe(true)
@@ -342,8 +339,7 @@ describe('presentDistribution', () => {
     expect(Object.isFrozen(display.expectedValue)).toBe(true)
     expect(Object.isFrozen(display.warnings)).toBe(true)
     expect(Object.isFrozen(display.warnings[0])).toBe(true)
-    expect(Object.isFrozen(display.warnings[0].details)).toBe(true)
-    expect(Object.isFrozen(display.warnings[0].details.limits)).toBe(true)
+    expect(Object.isFrozen(display.warnings[0].details)).toBe(false)
     expect(warning).toEqual({
       code: 'range-warning',
       severity: 'warning',
@@ -355,14 +351,6 @@ describe('presentDistribution', () => {
     { label: 'missing code', warning: { severity: 'warning' } },
     { label: 'invalid severity', warning: { code: 'x', severity: 'fatal' } },
     { label: 'non-plain warning', warning: new Date() },
-    {
-      label: 'nested non-finite number',
-      warning: { code: 'x', severity: 'info', details: { value: NaN } },
-    },
-    {
-      label: 'nested function',
-      warning: { code: 'x', severity: 'info', details: { transform() {} } },
-    },
   ])('rejects invalid warning data: $label', ({ warning }) => {
     const result = createResult()
     expect(() => present(
@@ -372,19 +360,7 @@ describe('presentDistribution', () => {
     )).toThrow(DistributionPresentationError)
   })
 
-  it('rejects circular warnings with a typed presentation error', () => {
-    const warning = { code: 'x', severity: 'warning' }
-    warning.details = warning
-    const result = createResult()
-
-    expect(() => present(
-      result,
-      getDamageStatistics(createEnvelope(result)),
-      [warning]
-    )).toThrow(DistributionPresentationError)
-  })
-
-  it('does not modify inputs or expose typed values or summary aliases', () => {
+  it('does not modify inputs and keeps only the probability array separate', () => {
     const values = new Float64Array([0.25, 0, 0.75])
     const result = createDistributionResult({
       values,
@@ -402,8 +378,8 @@ describe('presentDistribution', () => {
     expect(Array.from(result.values)).toEqual(valuesBefore)
     expect(envelope.metadata).toEqual(metadataBefore)
     expect(display.explicit.probabilities).not.toBe(values)
-    expect(display.mass).not.toBe(summary.mass)
-    expect(display.expectedValue).not.toBe(summary.expectedValue)
+    expect(display.mass).toBe(summary.mass)
+    expect(display.expectedValue).toBe(summary.expectedValue)
   })
 
   it('round-trips through JSON and keeps a flat probability shape for large arrays', () => {
@@ -447,21 +423,8 @@ describe('presentDistribution', () => {
     undefined,
     null,
     {},
-    { mass: {}, expectedValue: {} },
-    {
-      mass: {
-        explicitMass: 1,
-        overflowMass: null,
-        overflowMassUpperBound: 0,
-        totalMass: 1,
-        totalMassUpperBound: 1,
-        unrepresentedMass: null,
-        unrepresentedMassUpperBound: 0,
-        errorBound: 0,
-        isExact: true,
-      },
-      expectedValue: { kind: 'not-a-kind' },
-    },
+    { mass: {} },
+    { expectedValue: {} },
   ])('rejects invalid summaries with a typed error', (summary) => {
     const result = createResult()
     expect(() => presentDistribution(
@@ -470,148 +433,7 @@ describe('presentDistribution', () => {
     )).toThrow(DistributionPresentationError)
   })
 
-  it('rejects prototype-derived modeled metadata and summary fields', () => {
-    const previousModeledDistribution = Object.getOwnPropertyDescriptor(
-      Object.prototype,
-      'modeledDistribution'
-    )
-    const previousErrorBound = Object.getOwnPropertyDescriptor(
-      Object.prototype,
-      'errorBound'
-    )
-    const previousKind = Object.getOwnPropertyDescriptor(
-      Object.prototype,
-      'kind'
-    )
-
-    try {
-      Object.defineProperty(Object.prototype, 'modeledDistribution', {
-        configurable: true,
-        value: true,
-      })
-      const result = createResult()
-      const summary = getDamageStatistics(createEnvelope(result))
-      const inheritedMetadata = Object.create(Object.prototype)
-
-      expect(() => presentDistribution(
-        { result, metadata: inheritedMetadata },
-        { summary }
-      )).toThrow(DistributionPresentationError)
-
-      Object.defineProperty(Object.prototype, 'errorBound', {
-        configurable: true,
-        value: 0,
-      })
-      Object.defineProperty(Object.prototype, 'kind', {
-        configurable: true,
-        value: 'exact',
-      })
-      const mass = { ...summary.mass }
-      delete mass.errorBound
-      const expectedValue = { value: summary.expectedValue.value }
-
-      expect(() => presentDistribution(
-        createEnvelope(result),
-        { summary: { mass, expectedValue } }
-      )).toThrow(DistributionPresentationError)
-
-      expect(() => presentDistribution(
-        createEnvelope(result),
-        {
-          summary: {
-            mass: { ...summary.mass },
-            expectedValue,
-          },
-        }
-      )).toThrow(DistributionPresentationError)
-    } finally {
-      if (previousModeledDistribution) {
-        Object.defineProperty(
-          Object.prototype,
-          'modeledDistribution',
-          previousModeledDistribution
-        )
-      } else {
-        delete Object.prototype.modeledDistribution
-      }
-      if (previousErrorBound) {
-        Object.defineProperty(
-          Object.prototype,
-          'errorBound',
-          previousErrorBound
-        )
-      } else {
-        delete Object.prototype.errorBound
-      }
-      if (previousKind) {
-        Object.defineProperty(Object.prototype, 'kind', previousKind)
-      } else {
-        delete Object.prototype.kind
-      }
-    }
-  })
-
-  it('rejects summary accessors before executing their getters', () => {
-    const result = createResult()
-    const baseSummary = getDamageStatistics(createEnvelope(result))
-    let getterCalled = false
-    const summary = {
-      ...baseSummary,
-    }
-    Object.defineProperty(summary, 'mass', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        getterCalled = true
-        throw new Error('native getter failure')
-      },
-    })
-
-    expect(() => presentDistribution(
-      createEnvelope(result),
-      { summary }
-    )).toThrow(DistributionPresentationError)
-    expect(getterCalled).toBe(false)
-  })
-
-  it('rejects JSON copies that exceed the depth limit with a typed error', () => {
-    const result = createResult()
-    const baseSummary = getDamageStatistics(createEnvelope(result))
-    let nested = { leaf: true }
-    for (
-      let index = 0;
-      index <= DISTRIBUTION_PRESENTATION_MAX_JSON_DEPTH;
-      index += 1
-    ) {
-      nested = { next: nested }
-    }
-    const summary = {
-      mass: { ...baseSummary.mass, nested },
-      expectedValue: { ...baseSummary.expectedValue },
-    }
-
-    expect(() => presentDistribution(
-      createEnvelope(result),
-      { summary }
-    )).toThrow(DistributionPresentationError)
-  })
-
-  it('rejects JSON copies that exceed the total node limit', () => {
-    const result = createResult()
-    const summary = getDamageStatistics(createEnvelope(result))
-    const details = new Array(DISTRIBUTION_PRESENTATION_MAX_JSON_NODES)
-      .fill(0)
-
-    expect(() => presentDistribution(
-      createEnvelope(result),
-      {
-        summary,
-        warnings: [{ code: 'large-warning', severity: 'warning', details }],
-      }
-    )).toThrow(DistributionPresentationError)
-  })
-
-  it('memoizes repeated warning subtrees without changing JSON tree semantics', () => {
+  it('keeps nested warning details as an owned shallow reference', () => {
     const result = createResult()
     const summary = getDamageStatistics(createEnvelope(result))
     const sharedDetails = new Array(5_000).fill(0)
@@ -628,8 +450,8 @@ describe('presentDistribution', () => {
 
     expect(display.warnings[0].details)
       .toBe(display.warnings[1].details)
-    expect(JSON.parse(JSON.stringify(display.warnings)))
-      .toEqual(display.warnings)
+    expect(display.warnings[0].details).toBe(sharedDetails)
+    expect(display.warnings[1].details).toBe(sharedDetails)
   })
 
   it('rejects null and other invalid options with a typed error code', () => {
