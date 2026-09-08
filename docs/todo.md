@@ -43,11 +43,13 @@ R15完了後の実装順序は、二つの独立レビューを統合して次�
 2. 完了: R17 — Result Ownership / Incremental Execution
 3. 完了（R18 Presentation Boundary Simplification、2026-09-08）: `DistributionPresenter`、`AttackPresentation`、`AttackRunner`、`AttackState`、`ChartSeriesAdapter`からowned internal resultへの汎用reflection／任意グラフcloneを削減し、計算結果・統計値・表示状態の所有権を整理した。確率、support、overflow、projection、表示範囲、配列長、allocation、resourceの安全性は維持し、`scoreDisplayPresentation`は`displayPresentation.score`から導出する。R18固有の信頼境界テストを含むVitest 83 files / 907 tests、typecheck、lint、full-tail Attack benchmark（全ケースエラーなし）が成功した。詳細は[`r18-presentation-boundary.md`](./r18-presentation-boundary.md)を参照する。CalculationClientのlegacy batch API、DisplayRangePlanner、Worker／API／MCP化、UI redesignは後続課題として維持する。
 4. 完了（R19 Worker Architecture Decision、2026-09-08）: 初回のcache-enabled hybrid対uncached generalized比較に含まれていた非対称を、fresh hybrid client、Damage Roll cache-missモード、firstMeasuredへのmetric名称修正、異なる入力による`Attack → Attack`／`Attack → Check` supersessionで補正した。Chrome通常条件とCDP CPU 4xで10フィクスチャのparity、Worker起動、structured clone往復差、Long Task、heartbeat、caller Abortとunderlying settlement、queue delayを再計測し、50ms以上の再現可能なblockingは確認しなかった。補正後も決定は`KEEP CURRENT HYBRID`とし、production計算、ResourceGuard ownership、既存RuntimeDamageRollWorkerは変更しない。詳細は[`r19-worker-architecture-decision.md`](./r19-worker-architecture-decision.md)と[`adr/0003-browser-worker-execution-boundary.md`](./adr/0003-browser-worker-execution-boundary.md)を参照する。Firefox／WebKitは環境上利用できず、追加インストールはしていない。次はR20 Graph-first UI / Rendering Redesignとし、Worker移行はblockingが再現した場合のR19Bとして扱う。
-5. R20 — Graph-first UI / Rendering Redesign
+5. R20 — Conservative Graph Review
 6. R21 — Compatibility / Verification / Repository Cleanup
 7. Optional — Measured Numerical Optimization
 
 R20でもグラフ先行の現行方針を維持し、サマリーをグラフより前へ移動する提案は採用しない。API／MCPは今回の更新範囲外のdeferred goalとして扱う。
+
+R20の先行実験で導入したユーザー-visibleな描画変更は`829a628`で撤回した。現行UIを正本として、tooltipの意味分離と画面を変えないaccessible nameだけを確定候補とし、binning、sampling、viewport依存の描画、PMF／Backtrackのグラフ形式変更、表示設定の折り畳みは実測と別のプロダクト判断へ送る。詳細は[`r20-conservative-graph-review.md`](./r20-conservative-graph-review.md)を参照する。
 
 ### R7 closure follow-up（2026-09-03）
 
