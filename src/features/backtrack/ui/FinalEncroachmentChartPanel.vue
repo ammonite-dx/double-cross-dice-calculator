@@ -1,7 +1,6 @@
 <script setup>
 
     import FinalEncroachmentChart from './FinalEncroachmentChart.vue';
-    import FinalEncroachmentProbabilityTable from './FinalEncroachmentProbabilityTable.vue';
     import { mdiChartLine } from '@mdi/js'
 
     const props = defineProps({
@@ -24,22 +23,10 @@
         <v-container class="pa-0">
             <v-card-text class="text-md-body-1 text-caption">
                 <v-row class="ma-0">
-                    <v-col v-if="props.dlois=='不死者・悪夢'" md="4" cols="12" class="px-1 py-2">
-                        <FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="undead"/>
-                        <FinalEncroachmentProbabilityTable :finalEncroachment="props.finalEncroachment" mode="undead"/>
-                    </v-col>
-                    <v-col v-else md="4" cols="12" class="px-1 py-2">
-                        <FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="single"/>
-                        <FinalEncroachmentProbabilityTable :finalEncroachment="props.finalEncroachment" mode="single"/>
-                    </v-col>
-                    <v-col md="4" cols="12" class="pa-1 py-2">
-                        <FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="double"/>
-                        <FinalEncroachmentProbabilityTable :finalEncroachment="props.finalEncroachment" mode="double"/>
-                    </v-col>
-                    <v-col md="4" cols="12" class="pa-1 py-2">
-                        <FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="second"/>
-                        <FinalEncroachmentProbabilityTable :finalEncroachment="props.finalEncroachment" mode="second"/>
-                    </v-col>
+                    <v-col v-if="props.dlois=='不死者・悪夢'" md="4" cols="6" class="px-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="undead"/></v-col>
+                    <v-col v-else md="4" cols="6" class="px-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="single"/></v-col>
+                    <v-col md="4" cols="6" class="pa-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="double"/></v-col>
+                    <v-col md="4" cols="6" class="pa-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="second"/></v-col>
                 </v-row>
             </v-card-text>
         </v-container>

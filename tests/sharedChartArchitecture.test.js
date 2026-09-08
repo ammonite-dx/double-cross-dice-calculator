@@ -13,7 +13,6 @@ describe('shared probability chart architecture', () => {
     expect(readdirSync(chartDirectory).sort()).toEqual([
       'ProbabilityLineChart.vue',
       'ProbabilityLineChartConfig.js',
-      'ProbabilityRenderBudget.js',
     ])
     expect(readdirSync(chartDirectory)).not.toContain('index.js')
   })
@@ -52,14 +51,12 @@ describe('shared probability chart architecture', () => {
     }
   })
 
-  it('keeps the Backtrack bar chart outside the shared line runtime', () => {
+  it('keeps the Backtrack Doughnut chart outside the shared line runtime', () => {
     const backtrackChart = source(
       'src/features/backtrack/ui/FinalEncroachmentChart.vue',
     )
-    expect(backtrackChart).toContain('Bar')
+    expect(backtrackChart).toContain('Doughnut')
     expect(backtrackChart).toContain('Chart.register')
-    expect(backtrackChart).not.toContain('Doughnut')
-    expect(backtrackChart).not.toContain('chartjs-plugin-datalabels')
     expect(backtrackChart).not.toContain('ProbabilityLineChart')
   })
 })

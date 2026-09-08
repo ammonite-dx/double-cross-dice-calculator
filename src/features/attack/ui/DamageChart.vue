@@ -20,22 +20,11 @@
         props.presentation,
         props.combos
     ));
-    const project = (maxRenderedPoints) => getAttackDamageChartData(
-        props.presentation,
-        props.combos,
-        { maxRenderedPoints },
-    );
-    const options = computed(() => getAttackDamageChartOptions({
-        mode: props.presentation?.mode,
-    }));
+    const options = computed(() => getAttackDamageChartOptions());
 
 </script>
 
 <template>
-    <ProbabilityLineChart
-        :data="data"
-        :options="options"
-        :project="project"
-        accessibleName="コンボ別 ダメージ確率分布"
-    />
+    <ProbabilityLineChart :data="data" :options="options" />
 </template>
+

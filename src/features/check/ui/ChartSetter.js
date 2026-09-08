@@ -1,75 +1,5 @@
 import { getChartColor } from '@/shared/theme/ChartPalette';
-import {
-    createProbabilityBarChartOptions,
-    createProbabilityLineChartOptions,
-    createProbabilityUpperTailChartOptions,
-} from '@/shared/chart/ProbabilityLineChartConfig';
-import {
-    CHECK_PRESENTATION_PROJECTION_SOURCE,
-} from '../model/CheckPresentation';
-import {
-    createProbabilityChartProjection,
-    materializeProbabilityChartProjection,
-} from '@/shared/presentation';
-
-function getProjectionData(source, mode, maxRenderedPoints, label, color) {
-    if (!source?.display || !source?.plan) {
-        return null;
-    }
-    const projection = createProbabilityChartProjection(
-        source.display,
-        source.plan,
-        { mode, maxRenderedPoints },
-    );
-    const data = materializeProbabilityChartProjection(projection, {
-        label,
-        backgroundColor: color,
-        borderColor: color,
-    });
-    return data === null ? null : data;
-}
-
-export function createCheckChartProjectionData(
-    presentation,
-    { maxRenderedPoints = 512 } = {},
-) {
-    if (presentation?.status !== 'ready') {
-        return null;
-    }
-    const source = presentation[CHECK_PRESENTATION_PROJECTION_SOURCE];
-    if (!source?.action) {
-        return presentation.chart;
-    }
-    const mode = presentation.mode;
-    const action = getProjectionData(
-        source.action,
-        mode,
-        maxRenderedPoints,
-        'アクション側',
-        getChartColor(0),
-    );
-    if (action === null) {
-        return null;
-    }
-    if (!presentation.opposed || !source.reaction) {
-        return action;
-    }
-    const reaction = getProjectionData(
-        source.reaction,
-        mode,
-        maxRenderedPoints,
-        'リアクション側',
-        getChartColor(1),
-    );
-    if (reaction === null) {
-        return null;
-    }
-    return {
-        chartType: action.chartType,
-        projection: action.projection,
-        datasets: [action.datasets[0], reaction.datasets[0]],
-    };
-}
+import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 
 export function getCheckChartOptions (dfclty) {
 
@@ -134,12 +64,7 @@ export function getCheckChartOptions (dfclty) {
 
     let annotations = {};
     if (dfclty.opposed) {
-        const optionsFactory = dfclty.mode === 'pmf'
-            ? createProbabilityBarChartOptions
-            : dfclty.mode === 'upper-tail'
-                ? createProbabilityUpperTailChartOptions
-                : createProbabilityLineChartOptions;
-        return optionsFactory({
+        return createProbabilityLineChartOptions({
             xAxisTitle: '達成値',
             tooltipTitlePrefix: '達成値',
             annotations,
@@ -164,12 +89,7 @@ export function getCheckChartOptions (dfclty) {
                 },
             },
         };
-        const optionsFactory = dfclty.mode === 'pmf'
-            ? createProbabilityBarChartOptions
-            : dfclty.mode === 'upper-tail'
-                ? createProbabilityUpperTailChartOptions
-                : createProbabilityLineChartOptions;
-        return optionsFactory({
+        return createProbabilityLineChartOptions({
             xAxisTitle: '達成値',
             tooltipTitlePrefix: '達成値',
             annotations,

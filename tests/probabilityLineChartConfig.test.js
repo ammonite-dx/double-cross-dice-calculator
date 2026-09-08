@@ -7,11 +7,7 @@ import {
   getAttackDamageChartOptions,
   getAttackScoreChartOptions,
 } from '../src/features/attack/ui/ChartSetter'
-import {
-  createProbabilityBarChartOptions,
-  createProbabilityUpperTailChartOptions,
-  getProbabilityLineChartStyle,
-} from '../src/shared/chart/ProbabilityLineChartConfig'
+import { getProbabilityLineChartStyle } from '../src/shared/chart/ProbabilityLineChartConfig'
 import {
   toChartPercentage,
   toChartPercentages,
@@ -95,35 +91,5 @@ describe('probability line chart behavior baseline', () => {
     const output = toChartPercentages(input)
     expect(output).toEqual([12.3, 12.4])
     expect(output).not.toBe(input)
-  })
-
-  it('describes PMF bars by their exact value interval', () => {
-    const options = createProbabilityBarChartOptions({
-      xAxisTitle: '達成値',
-      tooltipTitlePrefix: '達成値',
-    })
-
-    expect(options.scales.x.type).toBe('linear')
-    expect(options.animation).toBe(false)
-    expect(options.plugins.tooltip.callbacks.title([{
-      raw: { min: 120, max: 123 },
-      label: 120,
-    }])).toBe('達成値120〜123')
-  })
-
-  it('describes upper-tail samples as stepped threshold probabilities', () => {
-    const options = createProbabilityUpperTailChartOptions({
-      xAxisTitle: '達成値',
-      tooltipTitlePrefix: '達成値',
-    })
-
-    expect(options.scales.x.type).toBe('linear')
-    expect(options.animation).toBe(false)
-    expect(options.elements.line.stepped).toBe(true)
-    expect(options.elements.point.radius).toBe(0)
-    expect(options.plugins.tooltip.callbacks.title([{
-      raw: { threshold: 120 },
-      label: 120,
-    }])).toBe('達成値120以上')
   })
 })

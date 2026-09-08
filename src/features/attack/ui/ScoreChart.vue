@@ -20,22 +20,11 @@
         props.presentation,
         props.combos
     ));
-    const project = (maxRenderedPoints) => getAttackScoreChartData(
-        props.presentation,
-        props.combos,
-        { maxRenderedPoints },
-    );
-    const options = computed(() => getAttackScoreChartOptions({
-        mode: props.presentation?.mode,
-    }));
+    const options = computed(() => getAttackScoreChartOptions());
 
 </script>
 
 <template>
-    <ProbabilityLineChart
-        :data="data"
-        :options="options"
-        :project="project"
-        accessibleName="コンボ別 達成値確率分布"
-    />
+    <ProbabilityLineChart :data="data" :options="options" />
 </template>
+

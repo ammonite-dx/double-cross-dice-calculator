@@ -11,8 +11,6 @@ import {
 } from '../src/features/backtrack/model/BacktrackPresentation'
 import {
   getFinalEncroachmentChartData,
-  getFinalEncroachmentChartOptions,
-  getFinalEncroachmentTableRows,
 } from '../src/features/backtrack/ui/ChartSetter'
 const RESULT_KEYS = ['single', 'double', 'second']
 
@@ -264,35 +262,6 @@ describe('backtrack canonical presentation adapter', () => {
     ])
     expect(chart.datasets[0].data)
       .toBe(presentation.finalEncroachment.single)
-  })
-
-  it('shares category values with the accessible probability table', () => {
-    const finalEncroachment = {
-      single: [12.3, 23.4, 34.5, 20, 9.8],
-      double: [45.6, 54.4],
-      second: [1.2, 98.8],
-    }
-    expect(getFinalEncroachmentTableRows(finalEncroachment, 'single'))
-      .toEqual([
-        { label: '100%〜', probability: 12.3 },
-        { label: '71〜99%', probability: 23.4 },
-        { label: '51〜70%', probability: 34.5 },
-        { label: '31〜50%', probability: 20 },
-        { label: '0〜30%', probability: 9.8 },
-      ])
-    expect(getFinalEncroachmentTableRows(finalEncroachment, 'double'))
-      .toEqual([
-        { label: '失敗', probability: 45.6 },
-        { label: '成功', probability: 54.4 },
-      ])
-  })
-
-  it('uses readable horizontal bars without tiny data labels', () => {
-    const options = getFinalEncroachmentChartOptions('single', false)
-
-    expect(options.indexAxis).toBe('y')
-    expect(options.scales.x).toMatchObject({ min: 0, max: 100 })
-    expect(options.plugins).not.toHaveProperty('datalabels')
   })
 
   it('rejects missing result keys as a typed presentation error', () => {

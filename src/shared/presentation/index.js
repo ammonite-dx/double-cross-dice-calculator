@@ -44,12 +44,3 @@ export {
   toChartPercentage,
   toChartPercentages,
 } from './ChartPercentages'
-export {
-  PROBABILITY_CHART_PROJECTION_ERROR_CODES,
-  PROBABILITY_CHART_PROJECTION_MODES,
-  PROBABILITY_CHART_PROJECTION_VERSION,
-  createProbabilityChartProjection,
-  isProbabilityChartProjection,
-  isProbabilityChartProjectionError,
-  materializeProbabilityChartProjection,
-} from './ProbabilityChartProjection'
