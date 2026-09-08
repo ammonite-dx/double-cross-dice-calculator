@@ -48,7 +48,7 @@
 </script>
 
 <template>
-    <div role="img" :aria-label="props.accessibleName">
-        <Line v-if="props.data !== null" :data="props.data" :options="props.options" :style="style" />
+    <div>
+        <Line v-if="props.data !== null" :data="props.data" :options="props.options" :style="style" :aria-label="props.accessibleName" />
     </div>
 </template>

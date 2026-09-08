@@ -27,7 +27,7 @@
 </script>
 
 <template>
-    <div class="ma-0" role="img" :aria-label="accessibleName">
-        <Doughnut :data="data" :options="options" :style="style" />
+    <div class="ma-0">
+        <Doughnut :data="data" :options="options" :style="style" :aria-label="accessibleName" />
     </div>
 </template>

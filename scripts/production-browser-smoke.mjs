@@ -357,6 +357,33 @@ async function waitForCanvasCommit(page, previousState) {
   )
 }
 
+async function assertAccessibleChartNames(page, caseId, expectedNames) {
+  const chartRoles = page.locator('[role="img"][aria-label]')
+  assertCondition(
+    caseId,
+    await chartRoles.count() === expectedNames.length,
+    `expected ${expectedNames.length} named chart elements`,
+  )
+  const actualNames = await chartRoles.evaluateAll((elements) => (
+    elements.map((element) => element.getAttribute('aria-label'))
+  ))
+  for (const name of expectedNames) {
+    if (!actualNames.includes(name)) {
+      throw new Error(
+        `[${caseId}] missing accessible chart name: ${name} (actual: ${actualNames.join(', ')})`
+      )
+    }
+  }
+  const nestedRoles = await chartRoles.evaluateAll((elements) => (
+    elements.filter((element) => element.querySelector('[role="img"]')).length
+  ))
+  assertCondition(
+    caseId,
+    nestedRoles === 0,
+    'chart wrappers contain a duplicate descendant img role',
+  )
+}
+
 async function fillBoundaryInput(
   page,
   record,
@@ -420,6 +447,9 @@ async function runCheck(browser, baseUrl) {
     await navigateTo(page, record, baseUrl, '/check')
     const canvases = await waitForCanvases(page, 1)
     await settlePage(page)
+    await assertAccessibleChartNames(page, 'check accessible chart name', [
+      '一般判定 達成値確率分布',
+    ])
     assertNoPrecomputedRequests('check', record)
     assertNoBrowserErrors('check', record)
 
@@ -695,6 +725,10 @@ async function runAttack(browser, baseUrl) {
     await navigateTo(page, record, baseUrl, '/attack')
     const initialCanvases = await waitForCanvases(page, 2, { exact: true })
     await settlePage(page)
+    await assertAccessibleChartNames(page, 'attack accessible chart names', [
+      '攻撃判定 達成値確率分布',
+      '攻撃判定 ダメージ確率分布',
+    ])
     assertNoPrecomputedRequests('attack-initial', record)
     assertNoBrowserErrors('attack-initial', record)
 
@@ -1010,6 +1044,11 @@ async function runBacktrack(browser, baseUrl) {
     await navigateTo(page, record, baseUrl, '/backtrack')
     const canvases = await waitForCanvases(page, 3, { exact: true })
     await settlePage(page)
+    await assertAccessibleChartNames(page, 'backtrack accessible chart names', [
+      '最終侵蝕率分布 一倍振り',
+      '最終侵蝕率分布 二倍振り',
+      '最終侵蝕率分布 二倍振りと追加振り',
+    ])
     assertNoPrecomputedRequests('backtrack', record)
     assertNoBrowserErrors('backtrack', record)
     // Keep both high-dice changes across visible chart buckets so each input

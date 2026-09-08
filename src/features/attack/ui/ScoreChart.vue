@@ -30,6 +30,6 @@
     <ProbabilityLineChart
         :data="data"
         :options="options"
-        accessibleName="コンボ別 達成値確率分布"
+        accessibleName="攻撃判定 達成値確率分布"
     />
 </template>
