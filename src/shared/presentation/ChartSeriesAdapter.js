@@ -42,15 +42,9 @@ function hasOwn(object, property) {
 }
 
 function isPlainRecord(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
-  }
-  try {
-    const prototype = Object.getPrototypeOf(value)
-    return prototype === Object.prototype || prototype === null
-  } catch {
-    return false
-  }
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
 }
 
 function freezeDetails(details) {
@@ -98,24 +92,7 @@ function getOwnDataProperty(value, property, code, path) {
     )
   }
 
-  let descriptor
-  try {
-    descriptor = Object.getOwnPropertyDescriptor(value, property)
-  } catch {
-    fail(
-      code,
-      `${path}.${property} could not be inspected safely`,
-      { path: `${path}.${property}`, property }
-    )
-  }
-  if (!descriptor || !hasOwn(descriptor, 'value')) {
-    fail(
-      code,
-      `${path}.${property} must be an own data property`,
-      { path: `${path}.${property}`, property }
-    )
-  }
-  return descriptor.value
+  return value[property]
 }
 
 function requirePlainRecord(value, code, path, message) {
@@ -935,25 +912,7 @@ function assertPlanMatchesDisplay(plan, display) {
 }
 
 function readProbability(probabilities, index, path) {
-  const property = String(index)
-  let descriptor
-  try {
-    descriptor = Object.getOwnPropertyDescriptor(probabilities, property)
-  } catch {
-    fail(
-      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
-      `${path}[${index}] could not be inspected safely`,
-      { path: `${path}[${index}]` }
-    )
-  }
-  if (!descriptor || !hasOwn(descriptor, 'value')) {
-    fail(
-      CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
-      `${path}[${index}] must be an own data property`,
-      { path: `${path}[${index}]` }
-    )
-  }
-  const value = descriptor.value
+  const value = probabilities[index]
   if (!Number.isFinite(value) || value < 0 || value > 1) {
     fail(
       CHART_SERIES_ERROR_CODES.INVALID_DISPLAY,
