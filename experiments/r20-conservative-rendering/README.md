@@ -1,6 +1,6 @@
 # R20 conservative rendering experiment
 
-R20の保守的な描画レビューで使う、現行のLine chart専用ベンチマークです。productionの確率計算や表示投影は呼び出さず、Chart.jsの現行設定に近いLine、アニメーション、点マーカーをブラウザで測定します。
+R20の保守的な描画レビューで使う、現行のLine chart専用ベンチマークです。productionの確率計算や表示投影は呼び出さず、共有の`createProbabilityLineChartOptions`が作るLine、tooltip、アニメーション、点マーカーをブラウザで測定します。
 
 ## 測定対象
 

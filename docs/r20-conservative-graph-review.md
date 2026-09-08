@@ -46,7 +46,16 @@ Backtrackは3つのDoughnut chartと既存の配置、色、ラベルの意味�
 
 Backtrackの6pxラベルについても、Doughnutを維持した小規模variantだけを実験する。390×844と1280×900で重なり、切り詰め、可読性、カード高さ、3チャートのバランスを比較し、見た目が複雑になる場合は現状を維持する。
 
+## 測定結果（2026-09-09）
+
+Windows上のHeadless Chrome 152.0.0.0（`hardwareConcurrency=16`、`deviceMemory=32`、`devicePixelRatio=1`）で測定した。benchmarkは`createProbabilityLineChartOptions`を利用したLine、productionと同じtooltip設定、アニメーション、現行markerを基準にし、marker半径だけを`radius-2`、`radius-1`、`radius-0`へ変更するvariantを比較した。
+
+全ケースの短縮測定では、5点数（100、1,000、4,096、16,384、20,000）、3系列数（1、2、4）、4 marker variant、2 viewportを組み合わせた120サンプルを実行した。通常条件はページ／コンソールエラー0、最大Long Task 893 ms、heartbeat最大遅延950.133 msだった。CPU 4倍条件もページ／コンソールエラー0で完走し、最大Long Task 3,799 ms、heartbeat最大遅延3,983.333 msだった。短縮測定のアニメーション観測窓は100 msなので、完了コールバックが観測されなかったことは失敗を意味しない。
+
+アニメーション完了まで観測する代表測定では、100、4,096、16,384、20,000点の1系列／4系列と`baseline`／`radius-1`を2 viewportで比較した。初回描画は32サンプル中30、更新は31サンプル中31で完了し、ページ／コンソールエラーは0だった。16,384点以上の4系列ではLong Taskとフレーム遅延が目立ったが、`radius-1`を含むmarker variantに一貫した改善はなく、測定順序やviewportによって増減した。
+
+以上から、productionのmarker半径は変更せず、`radius-0`も採用しない。高密度Line描画に実害が生じうることは記録するが、今回の結果だけでbinning、sampling、viewport依存の描画、表示範囲上限の変更は行わない。BacktrackのDoughnutとラベルもこの作業単位では変更せず、改善案の比較が必要になった場合は別の実験として扱う。
+
 ## 検証と完了条件
 
-tooltipとaccessible nameの単体・ブラウザ回帰を追加し、graph-firstのDOM順序、既存のDoughnut、既存の入力操作を確認する。R20の完了条件は、確定した最小変更が既存の数値・表示契約を壊さず、測定結果と採否判断がこの文書へ記録されていることである。wide-rangeの新しい描画方式や入力範囲の拡張は、R20完了後の別判断とする。
-
+tooltipとaccessible nameの単体・ブラウザ回帰を追加し、graph-firstのDOM順序、既存のDoughnut、既存の入力操作を確認する。R20の完了条件は、確定した最小変更が既存の数値・表示契約を壊さず、測定結果と採否判断がこの文書へ記録されていることである。今回の測定では高密度描画の負荷を確認したが、marker、表示範囲、グラフ形式の変更は採用しない。wide-rangeの新しい描画方式や入力範囲の拡張は、R20完了後の別判断とする。
