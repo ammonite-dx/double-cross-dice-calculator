@@ -75,6 +75,26 @@ describe('probability line chart behavior baseline', () => {
       .toBe('ダメージ20')
   })
 
+  it('clarifies upper-tail tooltip semantics without changing the line chart', () => {
+    const checkOptions = getCheckChartOptions({
+      opposed: true,
+      target: 17,
+      mode: 'upper-tail',
+    })
+    const scoreOptions = getAttackScoreChartOptions({ mode: 'upper-tail' })
+    const damageOptions = getAttackDamageChartOptions({ mode: 'upper-tail' })
+
+    expect(checkOptions.plugins.tooltip.callbacks.title([{ label: 20 }]))
+      .toBe('達成値20以上')
+    expect(scoreOptions.plugins.tooltip.callbacks.title([{ label: 20 }]))
+      .toBe('達成値20以上')
+    expect(damageOptions.plugins.tooltip.callbacks.title([{ label: 20 }]))
+      .toBe('ダメージ20以上')
+    expect(checkOptions).not.toHaveProperty('animation', false)
+    expect(scoreOptions).not.toHaveProperty('animation', false)
+    expect(damageOptions).not.toHaveProperty('animation', false)
+  })
+
   it('keeps the responsive chart styles at both breakpoints', () => {
     expect(getProbabilityLineChartStyle(true))
       .toEqual({ height: '400px', position: 'relative' })

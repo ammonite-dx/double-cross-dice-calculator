@@ -20,11 +20,16 @@
         props.presentation,
         props.combos
     ));
-    const options = computed(() => getAttackScoreChartOptions());
+    const options = computed(() => getAttackScoreChartOptions({
+        mode: props.presentation?.mode,
+    }));
 
 </script>
 
 <template>
-    <ProbabilityLineChart :data="data" :options="options" />
+    <ProbabilityLineChart
+        :data="data"
+        :options="options"
+        accessibleName="コンボ別 達成値確率分布"
+    />
 </template>
-

@@ -67,6 +67,7 @@ export function getCheckChartOptions (dfclty) {
         return createProbabilityLineChartOptions({
             xAxisTitle: '達成値',
             tooltipTitlePrefix: '達成値',
+            distributionMode: dfclty.mode,
             annotations,
         });
     } else {
@@ -92,6 +93,7 @@ export function getCheckChartOptions (dfclty) {
         return createProbabilityLineChartOptions({
             xAxisTitle: '達成値',
             tooltipTitlePrefix: '達成値',
+            distributionMode: dfclty.mode,
             annotations,
         });
     }

@@ -36,6 +36,10 @@
             type: Object,
             required: true,
         },
+        accessibleName: {
+            type: String,
+            default: '確率分布チャート',
+        },
     })
 
     const { mdAndUp } = useDisplay()
@@ -44,7 +48,7 @@
 </script>
 
 <template>
-    <div>
+    <div role="img" :aria-label="props.accessibleName">
         <Line v-if="props.data !== null" :data="props.data" :options="props.options" :style="style" />
     </div>
 </template>

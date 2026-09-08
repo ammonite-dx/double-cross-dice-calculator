@@ -7,13 +7,16 @@ export function createProbabilityLineChartOptions ({
     xAxisTitle,
     tooltipTitlePrefix,
     annotations,
+    distributionMode = 'pmf',
 } = {}) {
+    const isUpperTail = distributionMode === 'upper-tail'
     const plugins = {
         tooltip: {
             mode: 'index',
             callbacks: {
                 title: (tooltipItem) => {
-                    return tooltipTitlePrefix + tooltipItem[0].label
+                    const title = tooltipTitlePrefix + tooltipItem[0].label
+                    return isUpperTail ? title + '以上' : title
                 },
                 label: (tooltipItem) => {
                     return tooltipItem.dataset.label + ': '

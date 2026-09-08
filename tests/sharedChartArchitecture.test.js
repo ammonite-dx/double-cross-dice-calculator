@@ -35,6 +35,8 @@ describe('shared probability chart architecture', () => {
     expect(sharedRuntime).toContain('Chart.register')
     expect(sharedRuntime).toContain('useDisplay')
     expect(sharedRuntime).toContain("from 'vue-chartjs'")
+    expect(sharedRuntime).toContain('accessibleName')
+    expect(sharedRuntime).toContain('role="img"')
 
     for (const path of [
       'src/features/check/ui/ScoreChart.vue',
@@ -51,12 +53,23 @@ describe('shared probability chart architecture', () => {
     }
   })
 
+  it('labels feature charts without changing the visible chart structure', () => {
+    expect(source('src/features/check/ui/ScoreChart.vue'))
+      .toContain('一般判定 達成値確率分布')
+    expect(source('src/features/attack/ui/ScoreChart.vue'))
+      .toContain('コンボ別 達成値確率分布')
+    expect(source('src/features/attack/ui/DamageChart.vue'))
+      .toContain('コンボ別 ダメージ確率分布')
+  })
+
   it('keeps the Backtrack Doughnut chart outside the shared line runtime', () => {
     const backtrackChart = source(
       'src/features/backtrack/ui/FinalEncroachmentChart.vue',
     )
     expect(backtrackChart).toContain('Doughnut')
     expect(backtrackChart).toContain('Chart.register')
+    expect(backtrackChart).toContain('role="img"')
+    expect(backtrackChart).toContain('aria-label')
     expect(backtrackChart).not.toContain('ProbabilityLineChart')
   })
 })

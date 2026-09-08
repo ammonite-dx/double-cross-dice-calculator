@@ -54,7 +54,7 @@ export function getAttackScoreChartData (presentation, combos) {
     };
 }
 
-export function getAttackScoreChartOptions () {
+export function getAttackScoreChartOptions ({ mode } = {}) {
 
     /*
     概要:
@@ -67,6 +67,7 @@ export function getAttackScoreChartOptions () {
     return createProbabilityLineChartOptions({
         xAxisTitle: '達成値',
         tooltipTitlePrefix: '達成値',
+        distributionMode: mode,
     });
 
 }
@@ -132,7 +133,7 @@ export function getAttackDamageChartData (presentation, combos) {
     };
 }
 
-export function getAttackDamageChartOptions () {
+export function getAttackDamageChartOptions ({ mode } = {}) {
 
     /*
     概要:
@@ -145,6 +146,7 @@ export function getAttackDamageChartOptions () {
     return createProbabilityLineChartOptions({
         xAxisTitle: 'ダメージ',
         tooltipTitlePrefix: 'ダメージ',
+        distributionMode: mode,
     });
 
 }
