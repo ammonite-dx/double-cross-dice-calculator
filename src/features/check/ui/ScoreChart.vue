@@ -2,7 +2,7 @@
 
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
-    import { getCheckChartOptions } from './ChartSetter';
+    import { getCheckChartData, getCheckChartOptions } from './ChartSetter';
 
     const props = defineProps({
         difficulty: {
@@ -17,10 +17,22 @@
     const data = computed(() => props.presentation?.status === 'ready'
         ? props.presentation.chart
         : null);
-    const options = computed(() => getCheckChartOptions(props.difficulty));
+    const project = (maxRenderedPoints) => getCheckChartData(
+        props.presentation,
+        { maxRenderedPoints },
+    );
+    const options = computed(() => getCheckChartOptions({
+        ...props.difficulty,
+        mode: props.presentation?.mode,
+    }));
 
 </script>
 
 <template>
-    <ProbabilityLineChart :data="data" :options="options" />
+    <ProbabilityLineChart
+        :data="data"
+        :options="options"
+        :project="project"
+        accessibleName="一般判定 達成値確率分布"
+    />
 </template>

@@ -25,6 +25,13 @@ export const CHECK_PRESENTATION_MODES = Object.freeze({
   UPPER_TAIL: CHART_SERIES_MODES.UPPER_TAIL,
 })
 
+// Presentation consumers can opt into direct chart projection without
+// expanding the stable public result shape. The symbol is intentionally
+// non-enumerable on each result and is not part of the calculation contract.
+export const CHECK_PRESENTATION_PROJECTION_SOURCE = Symbol.for(
+  'dcdc.check.presentation.projection'
+)
+
 // `status` remains the low-level ready/not-ready compatibility state used by
 // the existing chart boundary. `decision` is the Check-specific interpretation
 // consumed by the view: exact score overflow can be recalculated, while an
@@ -487,6 +494,18 @@ export function createCheckPresentation(
     if (reactionState !== null) {
       result.reaction = reactionState
     }
+    Object.defineProperty(result, CHECK_PRESENTATION_PROJECTION_SOURCE, {
+      value: Object.freeze({
+        action: Object.freeze({ display: action.display, plan: action.plan }),
+        ...(reaction === null ? {} : {
+          reaction: Object.freeze({
+            display: reaction.display,
+            plan: reaction.plan,
+          }),
+        }),
+      }),
+      enumerable: false,
+    })
     return Object.freeze(result)
   } catch (error) {
     if (isKnownTypedError(error)) {
