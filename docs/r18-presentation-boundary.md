@@ -54,4 +54,6 @@ R18の実装は、次のコミットに分割して完了した。
 
 実装後のVitestは83 files / 907 tests、TypeScript typecheck、ESLint、`git diff --check`が成功した。full-tail Attack benchmarkは全ケースで`error=-`（エラーなし）となり、結果digestは`336820751.76328`で開始時と一致した。protected area（`public`、`generator`、`tooling`、`reference-data`、`schemas`、`experiments`）への変更はない。
 
-R18では、入力、Worker、reference asset、`DistributionResult`生成、ResourcePlan、表示要求を検証する責務を残し、計算コアが生成したowned resultをpresentation層で敵対的オブジェクトとして再検査しない方針を実装へ反映した。`DisplayRangePlanner`の数値・資源ポリシーや、legacy batch API、UIの見た目は変更していない。release gateとMarkdown lintを含む最終検証結果は、実装完了後のHEADに対して実行して記録する。
+R18では、入力、Worker、reference asset、`DistributionResult`生成、ResourcePlan、表示要求を検証する責務を残し、計算コアが生成したowned resultをpresentation層で敵対的オブジェクトとして再検査しない方針を実装へ反映した。`DisplayRangePlanner`の数値・資源ポリシーや、legacy batch API、UIの見た目は変更していない。
+
+実装コミット列のHEAD `4261206` に対して`npm run verify:release`を実行し、data 32 assets、Vitest 83 files / 907 tests、generator 18件、simulation 13件、Ruff、typecheck、runtime DX 20,000ケース、ESLint、Markdown lint 43 files / 0 issues、build 420 modules、production browser smoke、`git diff --check`がすべて成功した。検証後の作業ツリーはcleanであり、protected areaへの差分も0件だった。docs-onlyの本記録コミットは、これらの実装・検証結果を追記するものである。
