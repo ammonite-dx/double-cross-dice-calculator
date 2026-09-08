@@ -1,3 +1,35 @@
+function getFinalEncroachmentCategories (finalEncroachment, mode) {
+    if (mode === 'single') {
+        return {
+            labels: ['100%〜', '71〜99%', '51〜70%', '31〜50%', '0〜30%'],
+            values: finalEncroachment.single,
+            backgroundColor: ['#EC1D2C', '#FE6F2F', '#F9A829', '#FAD23C', '#5EBB68'],
+        }
+    }
+    if (mode === 'undead') {
+        return {
+            labels: ['120%～', '100〜119%', '71〜99%', '51〜70%', '31〜50%', '0〜30%'],
+            values: finalEncroachment.single,
+            backgroundColor: ['#EC1D2C', '#ED551B', '#FE6F2F', '#F9A829', '#FAD23C', '#5EBB68'],
+        }
+    }
+    if (mode === 'double') {
+        return {
+            labels: ['失敗', '成功'],
+            values: finalEncroachment.double,
+            backgroundColor: ['#EC1D2C', '#5EBB68'],
+        }
+    }
+    if (mode === 'second') {
+        return {
+            labels: ['失敗', '成功'],
+            values: finalEncroachment.second,
+            backgroundColor: ['#EC1D2C', '#5EBB68'],
+        }
+    }
+    return null
+}
+
 export function getFinalEncroachmentChartData (finalEncroachment, mode) {
 
     /*
@@ -20,27 +52,37 @@ export function getFinalEncroachmentChartData (finalEncroachment, mode) {
         }
     */
 
-    var labels;
-    var datasets;
-    if (mode=='single') {
-        labels = ["100%〜","71〜99%","51〜70%","31〜50%","0〜30%"];
-        datasets = [{data:finalEncroachment.single, backgroundColor:['#EC1D2C','#FE6F2F','#F9A829','#FAD23C','#5EBB68']}];
-    } else if (mode=='undead') {
-        labels = ["120%～","100〜119%","71〜99%","51〜70%","31〜50%","0〜30%"];
-        datasets = [{data:finalEncroachment.single, backgroundColor:['#EC1D2C','#ED551B','#FE6F2F','#F9A829','#FAD23C','#5EBB68']}];
-    } else if (mode=='double') {
-        labels = ["失敗","成功"];
-        datasets = [{data:finalEncroachment.double, backgroundColor:['#EC1D2C','#5EBB68']}];
-    } else if (mode=='second') {
-        labels = ["失敗","成功"];
-        datasets = [{data:finalEncroachment.second, backgroundColor:['#EC1D2C','#5EBB68']}];
+    const categories = getFinalEncroachmentCategories(finalEncroachment, mode)
+    if (categories === null) {
+        return { labels: [], datasets: [] }
     }
-    const data = {labels:labels, datasets:datasets}
-    return data;
+    return {
+        labels: categories.labels,
+        datasets: [{
+            data: categories.values,
+            backgroundColor: categories.backgroundColor,
+        }],
+    }
 
 }
 
-export function getFinalEncroachmentChartOptions (mode,smAndUp) {
+/**
+ * Return the same category values as the chart in a table-friendly shape.
+ * Values are percentages, matching the historical Backtrack presentation.
+ */
+export function getFinalEncroachmentTableRows (finalEncroachment, mode) {
+    const categories = getFinalEncroachmentCategories(finalEncroachment, mode)
+    if (categories === null) {
+        return []
+    }
+    return categories.labels.map((label, index) => ({
+        label,
+        probability: categories.values[index] ?? 0,
+    }))
+
+}
+
+export function getFinalEncroachmentChartOptions (mode) {
 
     /*
     概要:
@@ -71,6 +113,8 @@ export function getFinalEncroachmentChartOptions (mode,smAndUp) {
         switch (mode) {
             case 'single':
                 return '一倍振り';
+            case 'undead':
+                return '一倍振り（屍人・悪夢）';
             case 'double':
                 return '二倍振り';
             case 'second':
@@ -92,35 +136,22 @@ export function getFinalEncroachmentChartOptions (mode,smAndUp) {
             label: (tooltipItem) => {return tooltipItem.label+': '+tooltipItem.formattedValue+'%'}
         }
     };
-    const datalabelsTitleFontSize = () => {
-        if (smAndUp) {
-            return 12;
-        } else {
-            return 6;
-        }
-    };
-    const datalabels = {
-        color: "white",
-        labels: {
-            title: {
-                font: {
-                    size: datalabelsTitleFontSize(),
-                    weight: 'bold',
-                }
-            }
+    return {
+        responsive,
+        maintainAspectRatio,
+        indexAxis: 'y',
+        scales: {
+            x: {
+                min: 0,
+                max: 100,
+                title: { display: true, text: '確率 [%]' },
+            },
+            y: {
+                title: { display: true, text: titleText() },
+            },
         },
-        textAlign: 'center',
-        formatter: (value, context) => {
-            const label = context.chart.data.labels[context.dataIndex];
-            if(value>=10){
-                return `${label}\n${value}%`;
-            }else{
-                return '';
-            }
-        }
-    }
-    const plugins = {title:title, legend:legend, tooltip:tooltip, datalabels:datalabels};
-    return {responsive:responsive, maintainAspectRatio:maintainAspectRatio, plugins:plugins};
+        plugins: { title, legend, tooltip },
+    };
 
 }
 
