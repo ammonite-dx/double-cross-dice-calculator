@@ -59,3 +59,11 @@ Windows上のHeadless Chrome 152.0.0.0（`hardwareConcurrency=16`、`deviceMemor
 ## 検証と完了条件
 
 tooltipとaccessible nameの単体・ブラウザ回帰を追加し、graph-firstのDOM順序、既存のDoughnut、既存の入力操作を確認する。R20の完了条件は、確定した最小変更が既存の数値・表示契約を壊さず、測定結果と採否判断がこの文書へ記録されていることである。今回の測定では高密度描画の負荷を確認したが、marker、表示範囲、グラフ形式の変更は採用しない。wide-rangeの新しい描画方式や入力範囲の拡張は、R20完了後の別判断とする。
+
+## R20の判定
+
+R20は`CLOSED / GREEN`とする。PMFとupper-tailのtooltip意味分離、画面を変えないaccessible name、重複する`img`ロールの修正を採用し、PMFのBar化、upper-tailの階段線化、binning、sampling、viewport依存の描画、marker変更、表示範囲上限変更、Backtrackのグラフ形式変更、Backtrack確率表、アニメーション無効化は採用しない。Backtrack Doughnutのラベル可読性は、ユーザーが実画面を確認するR23へ送る。
+
+高密度Lineの負荷は実測で確認したが、marker半径だけを変える保守的な案に一貫した改善はなかった。そのため、R20ではproductionの描画方式と表示範囲を変更しない。ユーザーに見える解決策が必要になった場合は、R23で直接判断する。
+
+実装・検証の主な記録は、tooltipとチャート設定の`32504b4`、accessible nameの`678143e`、保守的な描画測定の`d80d8a0`、測定結果と採否判断の`4ce421e`にある。R20のclosureではproduction sourceを追加変更せず、この文書とTODOの状態だけを更新する。
