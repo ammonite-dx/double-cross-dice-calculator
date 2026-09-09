@@ -21,10 +21,26 @@ node experiments/r23-ui-review/playwright-runner.mjs --scenarios=backtrack-mobil
 
 `--help`で引数を確認できる。
 
+## Reference parity metrics
+
+現行production buildと公開版のvisual driftを、意味のあるDOMアンカーのgeometryとcomputed styleで比較する場合は、次を実行する。先に`npm run build`を実行する。
+
+```powershell
+npm run review:r23:parity
+```
+
+既定のreferenceは公開サイト`https://double-cross-dice-calculator.pages.dev`である。公開版を取得できない場合は、`origin/main`のpinned SHA `461ab898e2c62583c1ae504470c3ceb169d2d363`を一時的なreferenceとして使用し、その選択をレビュー文書へ記録する。別のURLや対象scenarioを指定することもできる。
+
+```powershell
+node experiments/r23-ui-review/parity-runner.mjs --reference-url=https://example.test --scenarios=check-mobile-ordinary,attack-mobile-single
+```
+
+`output/metrics/current.json`、`reference.json`、`delta.json`、`parity-report.json`と比較画像が生成される。数値差分は補正候補を検討するための診断情報であり、自動的な合否判定やpixel-perfectなgolden testではない。
+
 ## Scenario
 
 - Check: ordinaryとupper-tailをdesktop/mobileで取得する。
-- Attack: single comboと、2 comboへ追加した状態をdesktop/mobileで取得する。
+- Attack: single comboと、異なる入力値を設定した2 comboの状態をdesktop/mobileで取得する。
 - Backtrack: 通常状態をdesktop/mobileで取得し、mobileでは《屍人》を選択した状態も取得する。
 
 各scenarioは`scenarios.js`で入力、route、viewport、canvas数、出力ファイル名を固定する。scenario定義は`tests/r23UiReviewHarness.test.js`で重複と形式を検証する。

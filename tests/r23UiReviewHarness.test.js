@@ -5,6 +5,10 @@ import {
   VIEWPORTS,
   validateScenarioDefinitions,
 } from '../experiments/r23-ui-review/scenarios.js'
+import {
+  STYLE_METRIC_SCENARIOS,
+  createMetricDelta,
+} from '../experiments/r23-ui-review/style-metrics.js'
 
 describe('R23 UI review scenario definitions', () => {
   it('has no definition errors', () => {
@@ -46,5 +50,60 @@ describe('R23 UI review scenario definitions', () => {
       '10-backtrack-mobile.png',
       '11-backtrack-mobile-livingdead.png',
     ])
+  })
+
+  it('uses a distinct accepted input for the second combo', () => {
+    for (const scenarioId of [
+      'attack-desktop-multi-combo',
+      'attack-mobile-multi-combo',
+    ]) {
+      const scenario = SCENARIOS.find(({ id }) => id === scenarioId)
+      expect(scenario.steps).toEqual(expect.arrayContaining([
+        { type: 'fill', label: 'ダイス数', index: 2, value: 4 },
+        { type: 'fill', label: 'クリティカル値', index: 2, value: 8 },
+        { type: 'fill', label: '技能値', index: 2, value: 3 },
+        { type: 'fill', label: '攻撃力', index: 1, value: 2 },
+        { type: 'fill', target: 'attack-damage-value', comboIndex: 1, value: 4 },
+      ]))
+    }
+  })
+
+  it('keeps style metric scenarios semantic and within the baseline matrix', () => {
+    expect(STYLE_METRIC_SCENARIOS).toEqual([
+      expect.objectContaining({
+        id: 'check-desktop-ordinary',
+        route: '/check',
+        viewport: 'desktop',
+        page: 'check',
+      }),
+      expect.objectContaining({
+        id: 'check-mobile-ordinary',
+        route: '/check',
+        viewport: 'mobile',
+        page: 'check',
+      }),
+      expect.objectContaining({
+        id: 'attack-desktop-single',
+        route: '/attack',
+        viewport: 'desktop',
+        page: 'attack',
+      }),
+      expect.objectContaining({
+        id: 'attack-mobile-single',
+        route: '/attack',
+        viewport: 'mobile',
+        page: 'attack',
+      }),
+    ])
+  })
+
+  it('computes diagnostic deltas without treating differences as failures', () => {
+    expect(createMetricDelta(
+      { box: { x: 10, width: 100 }, text: 'same' },
+      { box: { x: 12.25, width: 100 }, text: 'changed' },
+    )).toEqual({
+      box: { x: 2.25, width: 0 },
+      text: { reference: 'same', current: 'changed' },
+    })
   })
 })

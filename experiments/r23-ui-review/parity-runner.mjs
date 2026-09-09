@@ -1,17 +1,25 @@
 import { spawn } from 'node:child_process'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { access, mkdir, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { chromium } from 'playwright'
 
-import { SCENARIOS, VIEWPORTS, validateScenarioDefinitions } from './scenarios.js'
+import { SCENARIOS, VIEWPORTS } from './scenarios.js'
+import {
+  STYLE_METRICS_SCHEMA_VERSION,
+  STYLE_METRIC_SCENARIOS,
+  collectStyleMetrics,
+  createMetricDelta,
+} from './style-metrics.js'
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const VITE_BIN = fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url))
 const OUTPUT_DIRECTORY = fileURLToPath(new URL('./output/', import.meta.url))
 const HOST = '127.0.0.1'
+const DEFAULT_REFERENCE_URL = 'https://double-cross-dice-calculator.pages.dev'
+const REFERENCE_MAIN_SHA = '461ab898e2c62583c1ae504470c3ceb169d2d363'
 const PREVIEW_TIMEOUT_MS = 30_000
 const PAGE_TIMEOUT_MS = 60_000
 const STABLE_SAMPLE_INTERVAL_MS = 100
@@ -19,11 +27,6 @@ const REQUIRED_STABLE_SAMPLES = 2
 
 function formatError(error) {
   return String(error?.stack ?? error)
-}
-
-function appendOutput(current, chunk) {
-  const next = `${current}${chunk}`
-  return next.length > 20_000 ? next.slice(-20_000) : next
 }
 
 function delay(milliseconds) {
@@ -36,7 +39,9 @@ function getFreePort() {
     server.once('error', reject)
     server.listen(0, HOST, () => {
       const address = server.address()
-      const port = typeof address === 'object' && address !== null ? address.port : null
+      const port = typeof address === 'object' && address !== null
+        ? address.port
+        : null
       server.close((error) => {
         if (error) {
           reject(error)
@@ -75,6 +80,7 @@ async function stopPreviewServer(server) {
 }
 
 async function startPreviewServer() {
+  await access(join(ROOT, 'dist', 'index.html'))
   const port = await getFreePort()
   const child = spawn(
     process.execPath,
@@ -85,20 +91,22 @@ async function startPreviewServer() {
   let spawnError = null
   child.stdout.setEncoding('utf8')
   child.stderr.setEncoding('utf8')
-  child.stdout.on('data', (chunk) => { output = appendOutput(output, chunk) })
-  child.stderr.on('data', (chunk) => { output = appendOutput(output, chunk) })
+  child.stdout.on('data', (chunk) => { output = `${output}${chunk}`.slice(-20_000) })
+  child.stderr.on('data', (chunk) => { output = `${output}${chunk}`.slice(-20_000) })
   child.on('error', (error) => { spawnError = error })
   const baseUrl = `http://${HOST}:${port}`
   const startedAt = Date.now()
-  let lastReadinessError = 'not attempted'
   const server = { child, baseUrl, port }
+  let lastReadinessError = 'not attempted'
   try {
     while (Date.now() - startedAt < PREVIEW_TIMEOUT_MS) {
       if (spawnError) {
         throw spawnError
       }
       if (child.exitCode !== null || child.signalCode !== null) {
-        throw new Error(`preview exited before readiness (code=${child.exitCode}, signal=${child.signalCode})`)
+        throw new Error(
+          `preview exited before readiness (code=${child.exitCode}, signal=${child.signalCode})`
+        )
       }
       try {
         const response = await fetch(`${baseUrl}/`, {
@@ -182,14 +190,11 @@ async function waitForCanvases(page, expectedCount) {
     expectedCount,
     { timeout: PAGE_TIMEOUT_MS },
   )
-  const canvases = page.locator('canvas')
-  for (let index = 0; index < expectedCount; index += 1) {
-    await canvases.nth(index).waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MS })
-  }
 }
 
 async function getCanvasImages(page) {
-  return page.evaluate(() => [...document.querySelectorAll('canvas')].map((canvas) => canvas.toDataURL()))
+  return page.evaluate(() => [...document.querySelectorAll('canvas')]
+    .map((canvas) => canvas.toDataURL()))
 }
 
 async function waitForStableCharts(page) {
@@ -251,24 +256,17 @@ async function executeStep(page, step) {
   throw new Error(`unsupported R23 scenario step: ${step.type}`)
 }
 
-function formatScenarioError(scenario, error, diagnostics) {
-  return new Error([
-    `[${scenario.id}] ${formatError(error)}`,
-    `console warnings/errors: ${JSON.stringify(diagnostics.consoleMessages)}`,
-    `page errors: ${JSON.stringify(diagnostics.pageErrors)}`,
-    `request failures: ${JSON.stringify(diagnostics.requestFailures)}`,
-    `HTTP errors: ${JSON.stringify(diagnostics.httpErrors)}`,
-  ].join('\n'), { cause: error })
+function hasDiagnostics(diagnostics) {
+  return Object.values(diagnostics).some((entries) => entries.length > 0)
 }
 
-async function runScenario(browser, baseUrl, scenario) {
+async function capturePage(browser, baseUrl, scenario, screenshotPath) {
   const context = await browser.newContext({ viewport: VIEWPORTS[scenario.viewport] })
   const page = await context.newPage()
   const diagnostics = createDiagnostics(page, baseUrl)
-  const screenshotPath = join(OUTPUT_DIRECTORY, scenario.screenshot)
   const startedAt = performance.now()
   try {
-    const response = await page.goto(`${baseUrl}${scenario.route}`, {
+    const response = await page.goto(`${baseUrl.replace(/\/$/, '')}${scenario.route}`, {
       waitUntil: 'domcontentloaded',
       timeout: PAGE_TIMEOUT_MS,
     })
@@ -281,54 +279,84 @@ async function runScenario(browser, baseUrl, scenario) {
     }
     await waitForCanvases(page, scenario.expectedCanvases)
     await waitForStableCharts(page)
+    const metrics = await collectStyleMetrics(page, { page: scenario.page })
     await page.screenshot({ path: screenshotPath, fullPage: true })
-    if (
-      diagnostics.consoleMessages.length > 0
-      || diagnostics.pageErrors.length > 0
-      || diagnostics.requestFailures.length > 0
-      || diagnostics.httpErrors.length > 0
-    ) {
+    if (hasDiagnostics(diagnostics)) {
       throw new Error('browser diagnostics reported an error')
     }
     return {
       id: scenario.id,
       status: 'captured',
-      screenshot: scenario.screenshot,
-      canvases: scenario.expectedCanvases,
+      metrics,
       elapsedMs: Number((performance.now() - startedAt).toFixed(1)),
       diagnostics,
     }
   } catch (error) {
     await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {})
-    throw formatScenarioError(scenario, error, diagnostics)
+    return {
+      id: scenario.id,
+      status: 'failed',
+      error: formatError(error),
+      elapsedMs: Number((performance.now() - startedAt).toFixed(1)),
+      diagnostics,
+    }
   } finally {
     await context.close().catch(() => {})
   }
 }
 
 function parseArgs(args = process.argv.slice(2)) {
-  const selected = args.find((argument) => argument.startsWith('--scenarios='))
-  const unknown = args.filter((argument) => argument !== '--help' && argument !== '-h' && argument !== selected)
-  if (unknown.length > 0) {
-    throw new Error(`unknown argument: ${unknown[0]}`)
+  const options = {
+    referenceUrl: DEFAULT_REFERENCE_URL,
+    scenarioIds: null,
+    help: false,
   }
-  if (args.includes('--help') || args.includes('-h')) {
-    return { help: true, scenarioIds: null }
+  for (const argument of args) {
+    if (argument === '--help' || argument === '-h') {
+      options.help = true
+      continue
+    }
+    const reference = argument.match(/^--reference-url=(.*)$/)
+    if (reference) {
+      options.referenceUrl = reference[1]
+      continue
+    }
+    const scenarios = argument.match(/^--scenarios=(.*)$/)
+    if (scenarios) {
+      options.scenarioIds = scenarios[1].split(',').map((id) => id.trim()).filter(Boolean)
+      continue
+    }
+    throw new Error(`unknown argument: ${argument}`)
   }
-  if (!selected) {
-    return { help: false, scenarioIds: null }
-  }
-  const value = selected.slice('--scenarios='.length)
-  const scenarioIds = value.split(',').map((id) => id.trim()).filter(Boolean)
-  if (scenarioIds.length === 0) {
+  if (options.scenarioIds?.length === 0) {
     throw new Error('--scenarios must contain at least one scenario id')
   }
-  return { help: false, scenarioIds }
+  return options
 }
 
 function printHelp() {
-  console.log('Usage: node experiments/r23-ui-review/playwright-runner.mjs [--scenarios=id,id]')
-  console.log('Captures the current production UI at the R23 desktop/mobile baseline viewports.')
+  console.log([
+    'Usage: node experiments/r23-ui-review/parity-runner.mjs [options]',
+    '',
+    `  --reference-url URL  Reference site (default: ${DEFAULT_REFERENCE_URL})`,
+    '  --scenarios=id,id    Limit the diagnostic metric scenarios',
+    '  --help              Show this message',
+    '',
+    `If the public site is unavailable, use origin/main at ${REFERENCE_MAIN_SHA}`,
+    'as the pinned reference and record that choice in the R23 review document.',
+  ].join('\n'))
+}
+
+function selectScenarios(scenarioIds) {
+  if (scenarioIds === null) {
+    return STYLE_METRIC_SCENARIOS
+  }
+  const known = new Set(STYLE_METRIC_SCENARIOS.map(({ id }) => id))
+  const unknown = scenarioIds.filter((id) => !known.has(id))
+  if (unknown.length > 0) {
+    throw new Error(`unknown R23 metric scenario id: ${unknown.join(', ')}`)
+  }
+  return STYLE_METRIC_SCENARIOS.filter(({ id }) => scenarioIds.includes(id))
 }
 
 const options = parseArgs()
@@ -337,48 +365,103 @@ if (options.help) {
   process.exit(0)
 }
 
-const definitionErrors = validateScenarioDefinitions()
-if (definitionErrors.length > 0) {
-  throw new Error(definitionErrors.join('\n'))
-}
+const metricScenarios = selectScenarios(options.scenarioIds)
+const scenariosById = new Map(SCENARIOS.map((scenario) => [scenario.id, scenario]))
+const selectedScenarios = metricScenarios.map((metricScenario) => ({
+  ...scenariosById.get(metricScenario.id),
+  page: metricScenario.page,
+}))
+await mkdir(join(OUTPUT_DIRECTORY, 'reference'), { recursive: true })
+await mkdir(join(OUTPUT_DIRECTORY, 'current'), { recursive: true })
+await mkdir(join(OUTPUT_DIRECTORY, 'metrics'), { recursive: true })
 
-const selectedScenarios = options.scenarioIds === null
-  ? SCENARIOS
-  : SCENARIOS.filter((scenario) => options.scenarioIds.includes(scenario.id))
-if (selectedScenarios.length !== (options.scenarioIds?.length ?? selectedScenarios.length)) {
-  const known = new Set(SCENARIOS.map((scenario) => scenario.id))
-  const missing = options.scenarioIds.filter((id) => !known.has(id))
-  throw new Error(`unknown R23 scenario id: ${missing.join(', ')}`)
-}
-
-await mkdir(OUTPUT_DIRECTORY, { recursive: true })
 let server = null
 let browser = null
-const results = []
+const currentResults = []
+const referenceResults = []
 try {
   server = await startPreviewServer()
   browser = await launchChromium()
   for (const scenario of selectedScenarios) {
-    try {
-      results.push(await runScenario(browser, server.baseUrl, scenario))
-    } catch (error) {
-      results.push({ id: scenario.id, status: 'failed', error: formatError(error) })
-    }
+    const currentResult = await capturePage(
+      browser,
+      server.baseUrl,
+      scenario,
+      join(OUTPUT_DIRECTORY, 'current', `${scenario.id}.png`),
+    )
+    const referenceResult = await capturePage(
+      browser,
+      options.referenceUrl,
+      scenario,
+      join(OUTPUT_DIRECTORY, 'reference', `${scenario.id}.png`),
+    )
+    currentResults.push(currentResult)
+    referenceResults.push(referenceResult)
   }
 } finally {
   await browser?.close().catch(() => {})
   await stopPreviewServer(server)
 }
 
-const report = {
-  schemaVersion: 1,
+const current = {
+  schemaVersion: STYLE_METRICS_SCHEMA_VERSION,
   generatedAt: new Date().toISOString(),
-  viewports: VIEWPORTS,
-  scenarioCount: selectedScenarios.length,
-  results,
+  source: { kind: 'current-production-build', baseUrl: server?.baseUrl ?? null },
+  scenarios: Object.fromEntries(currentResults.map((result) => [result.id, result.metrics ?? null])),
 }
-await writeFile(join(OUTPUT_DIRECTORY, 'report.json'), `${JSON.stringify(report, null, 2)}\n`)
+const reference = {
+  schemaVersion: STYLE_METRICS_SCHEMA_VERSION,
+  generatedAt: new Date().toISOString(),
+  source: {
+    kind: options.referenceUrl === DEFAULT_REFERENCE_URL ? 'public-site' : 'custom-url',
+    baseUrl: options.referenceUrl,
+    fallbackMainSha: REFERENCE_MAIN_SHA,
+  },
+  scenarios: Object.fromEntries(referenceResults.map((result) => [result.id, result.metrics ?? null])),
+}
+const delta = {
+  schemaVersion: STYLE_METRICS_SCHEMA_VERSION,
+  generatedAt: new Date().toISOString(),
+  scenarios: Object.fromEntries(selectedScenarios.map((scenario) => [
+    scenario.id,
+    createMetricDelta(
+      reference.scenarios[scenario.id],
+      current.scenarios[scenario.id],
+    ),
+  ])),
+}
+const report = {
+  schemaVersion: STYLE_METRICS_SCHEMA_VERSION,
+  generatedAt: new Date().toISOString(),
+  reference: reference.source,
+  scenarioCount: selectedScenarios.length,
+  results: selectedScenarios.map((scenario, index) => ({
+    id: scenario.id,
+    current: currentResults[index],
+    reference: referenceResults[index],
+    metricDifferenceRecorded: currentResults[index].status === 'captured'
+      && referenceResults[index].status === 'captured',
+  })),
+  note: 'Metric differences are diagnostic only; no automatic parity pass/fail is applied.',
+}
+await writeFile(
+  join(OUTPUT_DIRECTORY, 'metrics', 'current.json'),
+  `${JSON.stringify(current, null, 2)}\n`,
+)
+await writeFile(
+  join(OUTPUT_DIRECTORY, 'metrics', 'reference.json'),
+  `${JSON.stringify(reference, null, 2)}\n`,
+)
+await writeFile(
+  join(OUTPUT_DIRECTORY, 'metrics', 'delta.json'),
+  `${JSON.stringify(delta, null, 2)}\n`,
+)
+await writeFile(
+  join(OUTPUT_DIRECTORY, 'metrics', 'parity-report.json'),
+  `${JSON.stringify(report, null, 2)}\n`,
+)
 console.log(JSON.stringify(report, null, 2))
-if (results.some((result) => result.status !== 'captured')) {
+if (report.results.some((result) => result.current.status !== 'captured'
+  || result.reference.status !== 'captured')) {
   process.exitCode = 1
 }

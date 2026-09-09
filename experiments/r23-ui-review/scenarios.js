@@ -79,6 +79,11 @@ export const SCENARIOS = Object.freeze([
     expectedCanvases: 2,
     steps: Object.freeze([
       Object.freeze({ type: 'click', role: 'button', name: 'コンボを追加' }),
+      Object.freeze({ type: 'fill', label: 'ダイス数', index: 2, value: 4 }),
+      Object.freeze({ type: 'fill', label: 'クリティカル値', index: 2, value: 8 }),
+      Object.freeze({ type: 'fill', label: '技能値', index: 2, value: 3 }),
+      Object.freeze({ type: 'fill', label: '攻撃力', index: 1, value: 2 }),
+      Object.freeze({ type: 'fill', target: 'attack-damage-value', comboIndex: 1, value: 4 }),
     ]),
   }),
   Object.freeze({
@@ -90,6 +95,11 @@ export const SCENARIOS = Object.freeze([
     expectedCanvases: 2,
     steps: Object.freeze([
       Object.freeze({ type: 'click', role: 'button', name: 'コンボを追加' }),
+      Object.freeze({ type: 'fill', label: 'ダイス数', index: 2, value: 4 }),
+      Object.freeze({ type: 'fill', label: 'クリティカル値', index: 2, value: 8 }),
+      Object.freeze({ type: 'fill', label: '技能値', index: 2, value: 3 }),
+      Object.freeze({ type: 'fill', label: '攻撃力', index: 1, value: 2 }),
+      Object.freeze({ type: 'fill', target: 'attack-damage-value', comboIndex: 1, value: 4 }),
     ]),
   }),
   Object.freeze({
@@ -163,6 +173,17 @@ export function validateScenarioDefinitions(
     }
     if (!Array.isArray(scenario.steps)) {
       errors.push(`steps must be an array for ${scenario.id}`)
+    }
+    for (const step of scenario.steps ?? []) {
+      if (step.type === 'fill' && step.target !== 'attack-damage-value') {
+        if (typeof step.label !== 'string' || !Number.isInteger(step.index)) {
+          errors.push(`label fill step is incomplete for ${scenario.id}`)
+        }
+      }
+      if (step.type === 'fill' && step.target === 'attack-damage-value'
+        && !Number.isInteger(step.comboIndex)) {
+        errors.push(`damage value fill step is incomplete for ${scenario.id}`)
+      }
     }
   }
   return errors
