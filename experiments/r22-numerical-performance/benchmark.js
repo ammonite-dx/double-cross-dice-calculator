@@ -228,6 +228,10 @@ async function timedInvoke(operation) {
   }
 }
 
+function yieldToEventLoop() {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 async function measureFixture({
   fixture,
   modules,
@@ -293,9 +297,11 @@ async function measureFixture({
       errors.push(formatError(sample.error))
       break
     }
+    await yieldToEventLoop()
   }
 
   const first = await runSample()
+  await yieldToEventLoop()
   let result = null
   if (first.sample.error !== null) {
     errors.push(formatError(first.sample.error))
@@ -316,6 +322,7 @@ async function measureFixture({
       syncSpans.push(collectSyncSpan(records) ?? 0)
       traceRecords.push(...records)
       result = sample.result
+      await yieldToEventLoop()
     }
   }
 
