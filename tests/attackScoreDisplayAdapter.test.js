@@ -472,12 +472,17 @@ describe('Attack canonical score display adapter', () => {
       .toBeNull()
   })
 
-  it('does not pointify non-exact score summaries', () => {
+  it('does not pointify uncertain score summaries', () => {
     expect(formatSummaryExpectedValue({
       kind: 'bounded',
       lowerBound: 1,
       upperBound: 2,
     })).toBe(SUMMARY_UNAVAILABLE)
+    expect(formatSummaryExpectedValue({
+      kind: 'bounded',
+      lowerBound: 1.011,
+      upperBound: 1.012,
+    })).toBe(1)
     expect(formatSummaryExpectedValue({
       kind: 'lower-bound',
       lowerBound: 1,

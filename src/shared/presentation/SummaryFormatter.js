@@ -34,26 +34,25 @@ function getStableBoundedDisplayValue(value, scale = 1) {
 }
 
 /**
- * Preserve the legacy one-decimal summary appearance without converting a
- * bounded or lower-bound expected value into a point estimate.
+ * Format a certified expected value at the summary's one-decimal precision.
+ * A bounded value is displayed only when both certified bounds round to the
+ * same number; a lower-bound value never becomes a misleading point estimate.
  */
-export function formatSummaryExpectedValue(expectedValue) {
-  if (!isExactFiniteExpectedValue(expectedValue)) {
-    return SUMMARY_UNAVAILABLE
-  }
-  const rounded = Math.round(expectedValue.value * 10) / 10
-  return Number.isFinite(rounded)
-    ? rounded
-    : SUMMARY_UNAVAILABLE
-}
-
-export function formatScoreStatisticsExpectedValue(expectedValue) {
+export function formatCertifiedExpectedValue(expectedValue) {
   if (isExactFiniteExpectedValue(expectedValue)) {
     return roundScoreValue(expectedValue.value)
       ?? SUMMARY_UNAVAILABLE
   }
   return getStableBoundedDisplayValue(expectedValue)
     ?? SUMMARY_UNAVAILABLE
+}
+
+export function formatSummaryExpectedValue(expectedValue) {
+  return formatCertifiedExpectedValue(expectedValue)
+}
+
+export function formatScoreStatisticsExpectedValue(expectedValue) {
+  return formatCertifiedExpectedValue(expectedValue)
 }
 
 export function formatCertifiedProbabilityPercent(successProbability) {

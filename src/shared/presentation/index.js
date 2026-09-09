@@ -35,6 +35,7 @@ export {
 } from './ChartSeriesAdapter'
 export {
   SUMMARY_UNAVAILABLE,
+  formatCertifiedExpectedValue,
   formatSummaryExpectedValue,
   formatScoreStatisticsExpectedValue,
   formatCertifiedProbabilityPercent,

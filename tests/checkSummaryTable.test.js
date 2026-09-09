@@ -8,6 +8,7 @@ import {
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   SUMMARY_UNAVAILABLE,
+  formatCertifiedExpectedValue,
   formatScoreStatisticsExpectedValue,
   formatCertifiedProbabilityPercent,
   formatCertifiedProbabilityPercentDisplay,
@@ -75,6 +76,21 @@ describe('Check canonical summary formatter', () => {
       { kind: 'unavailable' },
       SUMMARY_UNAVAILABLE,
     ],
+    [
+      'non-finite exact value',
+      { kind: 'exact', value: Number.NaN },
+      SUMMARY_UNAVAILABLE,
+    ],
+    [
+      'non-finite bounded value',
+      { kind: 'bounded', lowerBound: 1, upperBound: Number.POSITIVE_INFINITY },
+      SUMMARY_UNAVAILABLE,
+    ],
+    [
+      'reversed bounded value',
+      { kind: 'bounded', lowerBound: 2, upperBound: 1 },
+      SUMMARY_UNAVAILABLE,
+    ],
   ])('formats %s expected values without pointifying uncertainty', (
     _label,
     expectedValue,
@@ -82,6 +98,17 @@ describe('Check canonical summary formatter', () => {
   ) => {
     expect(formatScoreStatisticsExpectedValue(expectedValue))
       .toBe(formatted)
+  })
+
+  it('uses one shared formatter for score and damage summaries', () => {
+    const expectedValue = {
+      kind: 'bounded',
+      lowerBound: 6.011,
+      upperBound: 6.012,
+    }
+    expect(formatCertifiedExpectedValue(expectedValue)).toBe(6)
+    expect(formatScoreStatisticsExpectedValue(expectedValue))
+      .toBe(formatCertifiedExpectedValue(expectedValue))
   })
 
   it('formats opposed and non-opposed success rates with a suffix only when numeric', () => {

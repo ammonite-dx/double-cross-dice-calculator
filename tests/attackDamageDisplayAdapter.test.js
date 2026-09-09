@@ -114,7 +114,7 @@ describe('Attack canonical damage display adapters', () => {
     )).toBeNull()
   })
 
-  it('does not pointify bounded or lower-bound canonical summaries', () => {
+  it('displays only exact or stably rounded canonical summaries', () => {
     expect(formatSummaryExpectedValue({
       kind: 'exact',
       value: 1.26,
@@ -124,6 +124,11 @@ describe('Attack canonical damage display adapters', () => {
       lowerBound: 1,
       upperBound: 2,
     })).toBe(SUMMARY_UNAVAILABLE)
+    expect(formatSummaryExpectedValue({
+      kind: 'bounded',
+      lowerBound: 1.011,
+      upperBound: 1.012,
+    })).toBe(1)
     expect(formatSummaryExpectedValue({
       kind: 'lower-bound',
       lowerBound: 1,
