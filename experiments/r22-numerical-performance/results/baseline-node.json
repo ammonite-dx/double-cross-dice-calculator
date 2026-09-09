@@ -1,0 +1,4785 @@
+{
+  "benchmark": "r22-numerical-performance",
+  "schemaVersion": 1,
+  "startSha": "4dc9552",
+  "generatedAt": "2026-09-09T13:19:39.310Z",
+  "environment": {
+    "os": "win32 10.0.26200",
+    "arch": "x64",
+    "cpu": "AMD Ryzen 7 9700X 8-Core Processor",
+    "cpuCount": 16,
+    "node": "v22.23.2",
+    "hardwareConcurrency": 16,
+    "deviceMemory": null,
+    "cpuThrottle": null,
+    "timestamp": "2026-09-09T13:19:39.312Z"
+  },
+  "options": {
+    "iterations": 10,
+    "warmupIterations": 2
+  },
+  "stressSelection": {
+    "shihai": [
+      {
+        "params": {
+          "dice": 99,
+          "critical": 2,
+          "skill": 0,
+          "yousei": 0,
+          "shihai": 19
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 75,
+          "critical": 2,
+          "skill": 0,
+          "yousei": 0,
+          "shihai": 15
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 50,
+          "critical": 2,
+          "skill": 0,
+          "yousei": 0,
+          "shihai": 10
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 36,
+          "critical": 5,
+          "skill": 0,
+          "yousei": 0,
+          "shihai": 9
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 24,
+          "critical": 5,
+          "skill": 0,
+          "yousei": 0,
+          "shihai": 5
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 12,
+          "critical": 8,
+          "skill": 0,
+          "yousei": 0,
+          "shihai": 3
+        },
+        "accepted": true,
+        "error": null
+      }
+    ],
+    "yousei": [
+      {
+        "params": {
+          "dice": 99,
+          "critical": 2,
+          "skill": 0,
+          "yousei": 9,
+          "shihai": 0
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 75,
+          "critical": 2,
+          "skill": 0,
+          "yousei": 7,
+          "shihai": 0
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 50,
+          "critical": 2,
+          "skill": 0,
+          "yousei": 5,
+          "shihai": 0
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 24,
+          "critical": 5,
+          "skill": 0,
+          "yousei": 3,
+          "shihai": 0
+        },
+        "accepted": true,
+        "error": null
+      },
+      {
+        "params": {
+          "dice": 8,
+          "critical": 8,
+          "skill": 0,
+          "yousei": 2,
+          "shihai": 0
+        },
+        "accepted": true,
+        "error": null
+      }
+    ]
+  },
+  "criteria": {
+    "normalP95Ms": 16.7,
+    "cpu4xP95Ms": 50,
+    "longTaskMs": 50,
+    "repeatRuns": 3,
+    "repeatRequired": 2,
+    "nodeDiagnosticOnly": true
+  },
+  "status": "measured",
+  "mode": "node-diagnostic",
+  "fixtures": [
+    {
+      "id": "dx-ordinary",
+      "operation": "dx",
+      "label": "ordinary DX"
+    },
+    {
+      "id": "dx-low-critical",
+      "operation": "dx",
+      "label": "low-critical DX"
+    },
+    {
+      "id": "dx-shihai-stress",
+      "operation": "dx",
+      "label": "selected 《絶対支配》 stress DX"
+    },
+    {
+      "id": "dx-yousei-stress",
+      "operation": "dx",
+      "label": "selected 《妖精の手》 stress DX"
+    },
+    {
+      "id": "d10-3",
+      "operation": "d10",
+      "label": "3D10"
+    },
+    {
+      "id": "d10-12",
+      "operation": "d10",
+      "label": "12D10"
+    },
+    {
+      "id": "d10-99",
+      "operation": "d10",
+      "label": "99D10"
+    },
+    {
+      "id": "d10-197",
+      "operation": "d10",
+      "label": "197D10"
+    },
+    {
+      "id": "d10-272",
+      "operation": "d10",
+      "label": "272D10"
+    },
+    {
+      "id": "fft-1024",
+      "operation": "fft",
+      "label": "FFT convolution length 1024"
+    },
+    {
+      "id": "fft-4096",
+      "operation": "fft",
+      "label": "FFT convolution length 4096"
+    },
+    {
+      "id": "fft-16384",
+      "operation": "fft",
+      "label": "FFT convolution length 16384"
+    },
+    {
+      "id": "check-ordinary",
+      "operation": "check",
+      "label": "ordinary Check"
+    },
+    {
+      "id": "check-tail-heavy",
+      "operation": "check",
+      "label": "tail-heavy Check"
+    },
+    {
+      "id": "check-yousei",
+      "operation": "check",
+      "label": "Check with 妖精の手"
+    },
+    {
+      "id": "attack-ordinary",
+      "operation": "attack",
+      "label": "ordinary Attack"
+    },
+    {
+      "id": "attack-kazanari",
+      "operation": "attack",
+      "label": "Attack with 風鳴りの爪"
+    },
+    {
+      "id": "attack-fixed-evasion",
+      "operation": "attack",
+      "label": "Attack with fixed evasion"
+    },
+    {
+      "id": "attack-large-accepted",
+      "operation": "attack",
+      "label": "large accepted Attack"
+    },
+    {
+      "id": "backtrack-ordinary",
+      "operation": "backtrack",
+      "label": "ordinary Backtrack"
+    },
+    {
+      "id": "backtrack-livingdead",
+      "operation": "backtrack",
+      "label": "Backtrack with 屍人"
+    },
+    {
+      "id": "backtrack-high-input",
+      "operation": "backtrack",
+      "label": "high-input Backtrack regression case"
+    },
+    {
+      "id": "score-statistics",
+      "operation": "statistics",
+      "label": "Score statistics"
+    },
+    {
+      "id": "range-planning",
+      "operation": "range",
+      "label": "range planning"
+    },
+    {
+      "id": "total-damage-2",
+      "operation": "totalDamage",
+      "label": "Total Damage from 2 production envelopes"
+    },
+    {
+      "id": "total-damage-4",
+      "operation": "totalDamage",
+      "label": "Total Damage from 4 production envelopes"
+    },
+    {
+      "id": "total-damage-8",
+      "operation": "totalDamage",
+      "label": "Total Damage from 8 production envelopes"
+    }
+  ],
+  "modes": {
+    "steadyState": [
+      {
+        "id": "dx-ordinary",
+        "label": "ordinary DX",
+        "operation": "dx",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 7147,
+            "timeMs": 0.007147,
+            "float64Bytes": 49040,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 174,
+              "modeledMax": 1019
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.31,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.256,
+            "medianMs": 0.257,
+            "p95Ms": 0.287,
+            "maxMs": 0.287,
+            "totalMs": 2.633
+          }
+        },
+        "digest": "fnv1a32-7f9273f6-bytes-8168-leaves-1021",
+        "outputBytes": 8168,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.254,
+            "medianMs": 0.258,
+            "p95Ms": 0.307,
+            "maxMs": 0.307,
+            "totalMs": 3.456,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "dx-low-critical",
+        "label": "low-critical DX",
+        "operation": "dx",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 4096,
+            "timeMs": 0.004096,
+            "float64Bytes": 49136,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1024,
+              "fftLength": 0,
+              "cutoff": 412,
+              "modeledMax": 1022
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.169,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.167,
+            "medianMs": 0.168,
+            "p95Ms": 0.182,
+            "maxMs": 0.182,
+            "totalMs": 1.707
+          }
+        },
+        "digest": "fnv1a32-9d8ff82b-bytes-8192-leaves-1024",
+        "outputBytes": 8192,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.166,
+            "medianMs": 0.167,
+            "p95Ms": 0.177,
+            "maxMs": 0.177,
+            "totalMs": 2.188,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "dx-shihai-stress",
+        "label": "selected 《絶対支配》 stress DX",
+        "operation": "dx",
+        "kind": "shihai-stress",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 7842680,
+            "timeMs": 7.84268,
+            "float64Bytes": 1850504,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 2203,
+              "fftLength": 0,
+              "cutoff": 2201,
+              "modeledMax": 2201
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 4.837,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 4.215,
+            "medianMs": 4.873,
+            "p95Ms": 7.519,
+            "maxMs": 7.519,
+            "totalMs": 51.055
+          }
+        },
+        "digest": "fnv1a32-03e8eaf5-bytes-17624-leaves-2203",
+        "outputBytes": 17624,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 4.209,
+            "medianMs": 4.973,
+            "p95Ms": 7.51,
+            "maxMs": 7.51,
+            "totalMs": 68.375,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "dx-yousei-stress",
+        "label": "selected 《妖精の手》 stress DX",
+        "operation": "dx",
+        "kind": "yousei-stress",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 34893,
+            "timeMs": 0.008013,
+            "float64Bytes": 246128,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 4173,
+              "fftLength": 1024,
+              "cutoff": 4171,
+              "modeledMax": 4171
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.444,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.228,
+            "medianMs": 0.234,
+            "p95Ms": 0.277,
+            "maxMs": 0.277,
+            "totalMs": 2.42
+          }
+        },
+        "digest": "fnv1a32-0a0870c7-bytes-33384-leaves-4173",
+        "outputBytes": 33384,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.227,
+            "medianMs": 0.24,
+            "p95Ms": 0.847,
+            "maxMs": 0.847,
+            "totalMs": 4.125,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-3",
+        "label": "3D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.01,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.008,
+            "medianMs": 0.01,
+            "p95Ms": 0.06,
+            "maxMs": 0.06,
+            "totalMs": 0.162
+          }
+        },
+        "digest": "fnv1a32-37f8806e-bytes-248-leaves-31",
+        "outputBytes": 248,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.008,
+            "medianMs": 0.011,
+            "p95Ms": 0.059,
+            "maxMs": 0.059,
+            "totalMs": 0.227,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-12",
+        "label": "12D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.103,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.081,
+            "medianMs": 0.095,
+            "p95Ms": 0.25,
+            "maxMs": 0.25,
+            "totalMs": 1.252
+          }
+        },
+        "digest": "fnv1a32-16529f1e-bytes-968-leaves-121",
+        "outputBytes": 968,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.08,
+            "medianMs": 0.122,
+            "p95Ms": 0.558,
+            "maxMs": 0.558,
+            "totalMs": 2.151,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-99",
+        "label": "99D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.321,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.343,
+            "medianMs": 0.421,
+            "p95Ms": 0.497,
+            "maxMs": 0.497,
+            "totalMs": 4.201
+          }
+        },
+        "digest": "fnv1a32-ab80b9dc-bytes-7928-leaves-991",
+        "outputBytes": 7928,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.32,
+            "medianMs": 0.417,
+            "p95Ms": 5.467,
+            "maxMs": 5.467,
+            "totalMs": 10.312,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-197",
+        "label": "197D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 1.613,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 1.632,
+            "medianMs": 1.951,
+            "p95Ms": 2.093,
+            "maxMs": 2.093,
+            "totalMs": 19.605
+          }
+        },
+        "digest": "fnv1a32-43991d29-bytes-15768-leaves-1971",
+        "outputBytes": 15768,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 1.61,
+            "medianMs": 1.949,
+            "p95Ms": 5.359,
+            "maxMs": 5.359,
+            "totalMs": 28.295,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-272",
+        "label": "272D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 3.702,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 3.534,
+            "medianMs": 3.85,
+            "p95Ms": 6.014,
+            "maxMs": 6.014,
+            "totalMs": 42.046
+          }
+        },
+        "digest": "fnv1a32-20146e69-bytes-21768-leaves-2721",
+        "outputBytes": 21768,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 3.527,
+            "medianMs": 3.848,
+            "p95Ms": 6.006,
+            "maxMs": 6.006,
+            "totalMs": 53.471,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "fft-1024",
+        "label": "FFT convolution length 1024",
+        "operation": "fft",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.037,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.036,
+            "medianMs": 0.037,
+            "p95Ms": 0.063,
+            "maxMs": 0.063,
+            "totalMs": 0.424
+          }
+        },
+        "digest": "fnv1a32-7475a1ba-bytes-8184-leaves-1023",
+        "outputBytes": 8184,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "convolveDistributions",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.035,
+            "medianMs": 0.036,
+            "p95Ms": 0.058,
+            "maxMs": 0.058,
+            "totalMs": 0.523,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "fft-4096",
+        "label": "FFT convolution length 4096",
+        "operation": "fft",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.192,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.184,
+            "medianMs": 0.191,
+            "p95Ms": 0.489,
+            "maxMs": 0.489,
+            "totalMs": 2.215
+          }
+        },
+        "digest": "fnv1a32-2f771ab7-bytes-32760-leaves-4095",
+        "outputBytes": 32760,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "convolveDistributions",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.182,
+            "medianMs": 0.191,
+            "p95Ms": 0.486,
+            "maxMs": 0.486,
+            "totalMs": 2.786,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "fft-16384",
+        "label": "FFT convolution length 16384",
+        "operation": "fft",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.972,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.748,
+            "medianMs": 0.776,
+            "p95Ms": 1.036,
+            "maxMs": 1.036,
+            "totalMs": 8.298
+          }
+        },
+        "digest": "fnv1a32-896dd5cd-bytes-131064-leaves-16383",
+        "outputBytes": 131064,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "convolveDistributions",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.745,
+            "medianMs": 0.846,
+            "p95Ms": 1.034,
+            "maxMs": 1.034,
+            "totalMs": 10.95,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "check-ordinary",
+        "label": "ordinary Check",
+        "operation": "check",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 15331,
+            "timeMs": 0.015331,
+            "float64Bytes": 98144,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 177,
+              "modeledMax": 1019
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 134,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.998,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.73,
+            "medianMs": 0.826,
+            "p95Ms": 0.965,
+            "maxMs": 0.965,
+            "totalMs": 8.394
+          }
+        },
+        "digest": "fnv1a32-75630eb2-bytes-16368-leaves-2114",
+        "outputBytes": 19112,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.292,
+            "medianMs": 0.333,
+            "p95Ms": 0.727,
+            "maxMs": 0.743,
+            "totalMs": 9.759,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.086,
+            "medianMs": 0.097,
+            "p95Ms": 0.158,
+            "maxMs": 0.158,
+            "totalMs": 1.444,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 2,
+            "minMs": 0.266,
+            "medianMs": 0.266,
+            "p95Ms": 0.281,
+            "maxMs": 0.281,
+            "totalMs": 0.547,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.023,
+            "medianMs": 0.031,
+            "p95Ms": 0.043,
+            "maxMs": 0.043,
+            "totalMs": 0.422,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "check-tail-heavy",
+        "label": "tail-heavy Check",
+        "operation": "check",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 9216,
+            "timeMs": 0.009216,
+            "float64Bytes": 98272,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1024,
+              "fftLength": 0,
+              "cutoff": 424,
+              "modeledMax": 1022
+            },
+            {
+              "workingLength": 1024,
+              "fftLength": 0,
+              "cutoff": 312,
+              "modeledMax": 1022
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.57,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.513,
+            "medianMs": 0.537,
+            "p95Ms": 1.058,
+            "maxMs": 1.058,
+            "totalMs": 5.961
+          }
+        },
+        "digest": "fnv1a32-d3939f50-bytes-16368-leaves-2114",
+        "outputBytes": 19112,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.203,
+            "medianMs": 0.236,
+            "p95Ms": 0.425,
+            "maxMs": 0.445,
+            "totalMs": 6.268,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.048,
+            "medianMs": 0.067,
+            "p95Ms": 0.547,
+            "maxMs": 0.547,
+            "totalMs": 1.337,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 2,
+            "minMs": 0.206,
+            "medianMs": 0.206,
+            "p95Ms": 0.208,
+            "maxMs": 0.208,
+            "totalMs": 0.414,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.018,
+            "medianMs": 0.023,
+            "p95Ms": 0.047,
+            "maxMs": 0.047,
+            "totalMs": 0.324,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "check-yousei",
+        "label": "Check with 妖精の手",
+        "operation": "check",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 21482,
+            "timeMs": 0.016106,
+            "float64Bytes": 109584,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1022,
+              "fftLength": 256,
+              "cutoff": 236,
+              "modeledMax": 1020
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 132,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.493,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.443,
+            "medianMs": 0.459,
+            "p95Ms": 0.512,
+            "maxMs": 0.512,
+            "totalMs": 4.755
+          }
+        },
+        "digest": "fnv1a32-ab38752c-bytes-16368-leaves-2101",
+        "outputBytes": 18582,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.023,
+            "medianMs": 0.106,
+            "p95Ms": 0.35,
+            "maxMs": 0.602,
+            "totalMs": 4.898,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.075,
+            "medianMs": 0.077,
+            "p95Ms": 0.098,
+            "maxMs": 0.098,
+            "totalMs": 1.034,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.023,
+            "medianMs": 0.033,
+            "p95Ms": 0.198,
+            "maxMs": 0.198,
+            "totalMs": 0.716,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 2,
+            "minMs": 0.066,
+            "medianMs": 0.066,
+            "p95Ms": 0.281,
+            "maxMs": 0.281,
+            "totalMs": 0.347,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-ordinary",
+        "label": "ordinary Attack",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 192632,
+            "timeMs": 0.462647,
+            "float64Bytes": 189072,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 177,
+              "modeledMax": 1019
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 134,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": {
+            "workingLength": 1044,
+            "fftLength": 2048,
+            "defenceFftLength": 2048,
+            "rawSupportMax": 1060,
+            "maxDamageDice": 106
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 1.756,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 1.237,
+            "medianMs": 1.41,
+            "p95Ms": 1.565,
+            "maxMs": 1.565,
+            "totalMs": 14.43
+          }
+        },
+        "digest": "fnv1a32-0fcf249b-bytes-24712-leaves-3210",
+        "outputBytes": 29502,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 0.43,
+            "medianMs": 0.708,
+            "p95Ms": 1.496,
+            "maxMs": 1.496,
+            "totalMs": 9.717,
+            "errors": 0
+          },
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.298,
+            "medianMs": 0.32,
+            "p95Ms": 0.357,
+            "maxMs": 0.361,
+            "totalMs": 8.395,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.269,
+            "medianMs": 0.314,
+            "p95Ms": 0.943,
+            "maxMs": 0.943,
+            "totalMs": 5.01,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.059,
+            "medianMs": 0.063,
+            "p95Ms": 0.07,
+            "maxMs": 0.07,
+            "totalMs": 0.828,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.031,
+            "medianMs": 0.052,
+            "p95Ms": 0.124,
+            "maxMs": 0.124,
+            "totalMs": 0.762,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.012,
+            "medianMs": 0.016,
+            "p95Ms": 0.039,
+            "maxMs": 0.039,
+            "totalMs": 0.231,
+            "errors": 0
+          },
+          {
+            "name": "getD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.002,
+            "medianMs": 0.003,
+            "p95Ms": 0.016,
+            "maxMs": 0.016,
+            "totalMs": 0.061,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-kazanari",
+        "label": "Attack with 風鳴りの爪",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 4160867.5301357475,
+            "timeMs": 16.34177812054299,
+            "float64Bytes": 189776,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1019,
+              "fftLength": 0,
+              "cutoff": 242,
+              "modeledMax": 1017
+            },
+            {
+              "workingLength": 1022,
+              "fftLength": 0,
+              "cutoff": 182,
+              "modeledMax": 1020
+            }
+          ],
+          "damage": {
+            "workingLength": 1064,
+            "fftLength": 2048,
+            "defenceFftLength": 2048,
+            "rawSupportMax": 1110,
+            "maxDamageDice": 111
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 12.964,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 12.988,
+            "medianMs": 13.064,
+            "p95Ms": 13.741,
+            "maxMs": 13.741,
+            "totalMs": 131.45
+          }
+        },
+        "digest": "fnv1a32-7fc1bb4a-bytes-24872-leaves-3230",
+        "outputBytes": 29662,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 12.224,
+            "medianMs": 12.321,
+            "p95Ms": 12.966,
+            "maxMs": 12.966,
+            "totalMs": 160.748,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 12.058,
+            "medianMs": 12.122,
+            "p95Ms": 12.251,
+            "maxMs": 12.251,
+            "totalMs": 157.839,
+            "errors": 0
+          },
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.269,
+            "medianMs": 0.295,
+            "p95Ms": 0.503,
+            "maxMs": 0.554,
+            "totalMs": 7.993,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.061,
+            "medianMs": 0.064,
+            "p95Ms": 0.074,
+            "maxMs": 0.074,
+            "totalMs": 0.846,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.02,
+            "medianMs": 0.061,
+            "p95Ms": 0.073,
+            "maxMs": 0.073,
+            "totalMs": 0.725,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 2,
+            "minMs": 0.232,
+            "medianMs": 0.232,
+            "p95Ms": 0.257,
+            "maxMs": 0.257,
+            "totalMs": 0.489,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.012,
+            "medianMs": 0.013,
+            "p95Ms": 0.014,
+            "maxMs": 0.014,
+            "totalMs": 0.173,
+            "errors": 0
+          },
+          {
+            "name": "getD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.002,
+            "medianMs": 0.004,
+            "p95Ms": 0.022,
+            "maxMs": 0.022,
+            "totalMs": 0.075,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-fixed-evasion",
+        "label": "Attack with fixed evasion",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 2452191.0624417965,
+            "timeMs": 9.757134249767187,
+            "float64Bytes": 122208,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1020,
+              "fftLength": 0,
+              "cutoff": 182,
+              "modeledMax": 1018
+            },
+            {
+              "workingLength": 1007,
+              "fftLength": 0,
+              "cutoff": 0,
+              "modeledMax": 1005
+            }
+          ],
+          "damage": {
+            "workingLength": 1024,
+            "fftLength": 2048,
+            "defenceFftLength": 0,
+            "rawSupportMax": 1080,
+            "maxDamageDice": 108
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 6.09,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 5.954,
+            "medianMs": 6.031,
+            "p95Ms": 6.395,
+            "maxMs": 6.395,
+            "totalMs": 60.727
+          }
+        },
+        "digest": "fnv1a32-21f8c188-bytes-16376-leaves-2151",
+        "outputBytes": 20584,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 5.497,
+            "medianMs": 5.564,
+            "p95Ms": 6.051,
+            "maxMs": 6.051,
+            "totalMs": 72.822,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 5.398,
+            "medianMs": 5.437,
+            "p95Ms": 5.849,
+            "maxMs": 5.849,
+            "totalMs": 71.086,
+            "errors": 0
+          },
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.002,
+            "medianMs": 0.14,
+            "p95Ms": 0.361,
+            "maxMs": 0.595,
+            "totalMs": 4.835,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.037,
+            "medianMs": 0.059,
+            "p95Ms": 0.471,
+            "maxMs": 0.471,
+            "totalMs": 1.265,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.021,
+            "medianMs": 0.044,
+            "p95Ms": 0.057,
+            "maxMs": 0.057,
+            "totalMs": 0.532,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 1,
+            "minMs": 0.262,
+            "medianMs": 0.262,
+            "p95Ms": 0.262,
+            "maxMs": 0.262,
+            "totalMs": 0.262,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.011,
+            "medianMs": 0.012,
+            "p95Ms": 0.014,
+            "maxMs": 0.014,
+            "totalMs": 0.157,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-large-accepted",
+        "label": "large accepted Attack",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 3392679.013368236,
+            "timeMs": 13.278150053472944,
+            "float64Bytes": 190704,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1022,
+              "fftLength": 0,
+              "cutoff": 441,
+              "modeledMax": 1020
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 243,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": {
+            "workingLength": 1084,
+            "fftLength": 2048,
+            "defenceFftLength": 2048,
+            "rawSupportMax": 1150,
+            "maxDamageDice": 115
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 9.314,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 9.035,
+            "medianMs": 9.072,
+            "p95Ms": 9.727,
+            "maxMs": 9.727,
+            "totalMs": 91.418
+          }
+        },
+        "digest": "fnv1a32-d809e2ca-bytes-25032-leaves-3250",
+        "outputBytes": 29822,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 8.403,
+            "medianMs": 8.434,
+            "p95Ms": 8.682,
+            "maxMs": 8.682,
+            "totalMs": 110.105,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 8.232,
+            "medianMs": 8.261,
+            "p95Ms": 8.511,
+            "maxMs": 8.511,
+            "totalMs": 107.852,
+            "errors": 0
+          },
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.214,
+            "medianMs": 0.263,
+            "p95Ms": 0.507,
+            "maxMs": 0.686,
+            "totalMs": 7.307,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.057,
+            "medianMs": 0.06,
+            "p95Ms": 0.096,
+            "maxMs": 0.096,
+            "totalMs": 0.812,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.021,
+            "medianMs": 0.051,
+            "p95Ms": 0.066,
+            "maxMs": 0.066,
+            "totalMs": 0.637,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 2,
+            "minMs": 0.179,
+            "medianMs": 0.179,
+            "p95Ms": 0.227,
+            "maxMs": 0.227,
+            "totalMs": 0.406,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.012,
+            "medianMs": 0.013,
+            "p95Ms": 0.014,
+            "maxMs": 0.014,
+            "totalMs": 0.169,
+            "errors": 0
+          },
+          {
+            "name": "getD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.003,
+            "medianMs": 0.004,
+            "p95Ms": 0.018,
+            "maxMs": 0.018,
+            "totalMs": 0.064,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "backtrack-ordinary",
+        "label": "ordinary Backtrack",
+        "operation": "backtrack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "backtrack",
+          "warnings": [],
+          "estimates": {
+            "operations": 6723,
+            "timeMs": 0.006723,
+            "float64Bytes": 5184,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [],
+          "damage": null,
+          "backtrack": {
+            "workingLength": 81,
+            "rawSupportMax": 80,
+            "distributionMode": "on-demand"
+          }
+        },
+        "timing": {
+          "firstMeasuredMs": 0.061,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.023,
+            "medianMs": 0.047,
+            "p95Ms": 0.116,
+            "maxMs": 0.116,
+            "totalMs": 0.59
+          }
+        },
+        "digest": "fnv1a32-acd542ea-bytes-1536-leaves-204",
+        "outputBytes": 1938,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateFinalEncroachment",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.015,
+            "medianMs": 0.028,
+            "p95Ms": 0.477,
+            "maxMs": 0.477,
+            "totalMs": 0.949,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.004,
+            "medianMs": 0.015,
+            "p95Ms": 0.047,
+            "maxMs": 0.047,
+            "totalMs": 0.23,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "backtrack-livingdead",
+        "label": "Backtrack with 屍人",
+        "operation": "backtrack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "backtrack",
+          "warnings": [],
+          "estimates": {
+            "operations": 900426,
+            "timeMs": 0.900426,
+            "float64Bytes": 63168,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [],
+          "damage": null,
+          "backtrack": {
+            "workingLength": 282,
+            "rawSupportMax": 281,
+            "distributionMode": "on-demand"
+          }
+        },
+        "timing": {
+          "firstMeasuredMs": 4.175,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.709,
+            "medianMs": 0.774,
+            "p95Ms": 3.495,
+            "maxMs": 3.495,
+            "totalMs": 10.614
+          }
+        },
+        "digest": "fnv1a32-c64d8725-bytes-5640-leaves-717",
+        "outputBytes": 6042,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateFinalEncroachment",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.692,
+            "medianMs": 0.768,
+            "p95Ms": 4.259,
+            "maxMs": 4.259,
+            "totalMs": 22.426,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.004,
+            "medianMs": 0.008,
+            "p95Ms": 0.025,
+            "maxMs": 0.025,
+            "totalMs": 0.141,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "backtrack-high-input",
+        "label": "high-input Backtrack regression case",
+        "operation": "backtrack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "backtrack",
+          "warnings": [],
+          "estimates": {
+            "operations": 1304163,
+            "timeMs": 1.304163,
+            "float64Bytes": 73024,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [],
+          "damage": null,
+          "backtrack": {
+            "workingLength": 1141,
+            "rawSupportMax": 1140,
+            "distributionMode": "on-demand"
+          }
+        },
+        "timing": {
+          "firstMeasuredMs": 0.74,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.628,
+            "medianMs": 0.725,
+            "p95Ms": 1.177,
+            "maxMs": 1.177,
+            "totalMs": 7.891
+          }
+        },
+        "digest": "fnv1a32-821a0fd8-bytes-24000-leaves-3012",
+        "outputBytes": 24402,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateFinalEncroachment",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.617,
+            "medianMs": 0.733,
+            "p95Ms": 1.153,
+            "maxMs": 1.153,
+            "totalMs": 10.079,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.005,
+            "medianMs": 0.006,
+            "p95Ms": 0.019,
+            "maxMs": 0.019,
+            "totalMs": 0.111,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "score-statistics",
+        "label": "Score statistics",
+        "operation": "statistics",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.064,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.063,
+            "medianMs": 0.069,
+            "p95Ms": 0.082,
+            "maxMs": 0.082,
+            "totalMs": 0.695
+          }
+        },
+        "digest": "fnv1a32-b4fdb143-bytes-0-leaves-16",
+        "outputBytes": 616,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.062,
+            "medianMs": 0.068,
+            "p95Ms": 0.091,
+            "maxMs": 0.091,
+            "totalMs": 0.898,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "range-planning",
+        "label": "range planning",
+        "operation": "range",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 15331,
+            "timeMs": 0.015331,
+            "float64Bytes": 98144,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 177,
+              "modeledMax": 1019
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 134,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.017,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.016,
+            "medianMs": 0.017,
+            "p95Ms": 0.026,
+            "maxMs": 0.026,
+            "totalMs": 0.191
+          }
+        },
+        "digest": "fnv1a32-79e967ea-bytes-0-leaves-102",
+        "outputBytes": 2840,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.016,
+            "medianMs": 0.017,
+            "p95Ms": 0.024,
+            "maxMs": 0.024,
+            "totalMs": 0.235,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "total-damage-2",
+        "label": "Total Damage from 2 production envelopes",
+        "operation": "totalDamage",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.705,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.282,
+            "medianMs": 0.366,
+            "p95Ms": 0.679,
+            "maxMs": 0.679,
+            "totalMs": 4.15
+          }
+        },
+        "digest": "fnv1a32-82c0185d-bytes-16840-leaves-2156",
+        "outputBytes": 19446,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "sumDamage",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.19,
+            "medianMs": 0.247,
+            "p95Ms": 0.895,
+            "maxMs": 0.895,
+            "totalMs": 4.477,
+            "errors": 0
+          },
+          {
+            "name": "planDamageAggregation",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.036,
+            "medianMs": 0.075,
+            "p95Ms": 0.874,
+            "maxMs": 0.874,
+            "totalMs": 1.917,
+            "errors": 0
+          },
+          {
+            "name": "getTotalDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.018,
+            "medianMs": 0.022,
+            "p95Ms": 0.087,
+            "maxMs": 0.087,
+            "totalMs": 0.369,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "total-damage-4",
+        "label": "Total Damage from 4 production envelopes",
+        "operation": "totalDamage",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.982,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.997,
+            "medianMs": 1.04,
+            "p95Ms": 1.675,
+            "maxMs": 1.675,
+            "totalMs": 11.524
+          }
+        },
+        "digest": "fnv1a32-d3a85eec-bytes-33672-leaves-4280",
+        "outputBytes": 37222,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "sumDamage",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.737,
+            "medianMs": 0.856,
+            "p95Ms": 1.26,
+            "maxMs": 1.26,
+            "totalMs": 11.477,
+            "errors": 0
+          },
+          {
+            "name": "planDamageAggregation",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.064,
+            "medianMs": 0.069,
+            "p95Ms": 0.093,
+            "maxMs": 0.093,
+            "totalMs": 0.953,
+            "errors": 0
+          },
+          {
+            "name": "getTotalDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.034,
+            "medianMs": 0.036,
+            "p95Ms": 0.037,
+            "maxMs": 0.037,
+            "totalMs": 0.463,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "total-damage-8",
+        "label": "Total Damage from 8 production envelopes",
+        "operation": "totalDamage",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 3.372,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 3.385,
+            "medianMs": 3.488,
+            "p95Ms": 4.131,
+            "maxMs": 4.131,
+            "totalMs": 35.65
+          }
+        },
+        "digest": "fnv1a32-a7ec7f42-bytes-67336-leaves-8528",
+        "outputBytes": 72774,
+        "status": "measured",
+        "mode": "steady-state",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "sumDamage",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 2.995,
+            "medianMs": 3.096,
+            "p95Ms": 3.433,
+            "maxMs": 3.433,
+            "totalMs": 40.575,
+            "errors": 0
+          },
+          {
+            "name": "planDamageAggregation",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.122,
+            "medianMs": 0.134,
+            "p95Ms": 0.162,
+            "maxMs": 0.162,
+            "totalMs": 1.763,
+            "errors": 0
+          },
+          {
+            "name": "getTotalDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.069,
+            "medianMs": 0.072,
+            "p95Ms": 0.075,
+            "maxMs": 0.075,
+            "totalMs": 0.928,
+            "errors": 0
+          }
+        ]
+      }
+    ],
+    "cacheMiss": [
+      {
+        "id": "dx-ordinary",
+        "label": "ordinary DX",
+        "operation": "dx",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 7147,
+            "timeMs": 0.007147,
+            "float64Bytes": 49040,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 174,
+              "modeledMax": 1019
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.257,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.255,
+            "medianMs": 0.256,
+            "p95Ms": 0.268,
+            "maxMs": 0.268,
+            "totalMs": 2.573
+          }
+        },
+        "digest": "fnv1a32-7f9273f6-bytes-8168-leaves-1021",
+        "outputBytes": 8168,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.254,
+            "medianMs": 0.255,
+            "p95Ms": 0.304,
+            "maxMs": 0.304,
+            "totalMs": 3.382,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "dx-low-critical",
+        "label": "low-critical DX",
+        "operation": "dx",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 4096,
+            "timeMs": 0.004096,
+            "float64Bytes": 49136,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1024,
+              "fftLength": 0,
+              "cutoff": 412,
+              "modeledMax": 1022
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.167,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.167,
+            "medianMs": 0.167,
+            "p95Ms": 0.188,
+            "maxMs": 0.188,
+            "totalMs": 1.696
+          }
+        },
+        "digest": "fnv1a32-9d8ff82b-bytes-8192-leaves-1024",
+        "outputBytes": 8192,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.166,
+            "medianMs": 0.167,
+            "p95Ms": 0.187,
+            "maxMs": 0.187,
+            "totalMs": 2.188,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "dx-shihai-stress",
+        "label": "selected 《絶対支配》 stress DX",
+        "operation": "dx",
+        "kind": "shihai-stress",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 7842680,
+            "timeMs": 7.84268,
+            "float64Bytes": 1850504,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 2203,
+              "fftLength": 0,
+              "cutoff": 2201,
+              "modeledMax": 2201
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 4.207,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 4.224,
+            "medianMs": 4.384,
+            "p95Ms": 6.216,
+            "maxMs": 6.216,
+            "totalMs": 45.556
+          }
+        },
+        "digest": "fnv1a32-03e8eaf5-bytes-17624-leaves-2203",
+        "outputBytes": 17624,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 4.205,
+            "medianMs": 4.377,
+            "p95Ms": 6.207,
+            "maxMs": 6.207,
+            "totalMs": 58.443,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "dx-yousei-stress",
+        "label": "selected 《妖精の手》 stress DX",
+        "operation": "dx",
+        "kind": "yousei-stress",
+        "plan": {
+          "accepted": true,
+          "operation": "score",
+          "warnings": [],
+          "estimates": {
+            "operations": 34893,
+            "timeMs": 0.008013,
+            "float64Bytes": 246128,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 4173,
+              "fftLength": 1024,
+              "cutoff": 4171,
+              "modeledMax": 4171
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.199,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.177,
+            "medianMs": 0.192,
+            "p95Ms": 0.234,
+            "maxMs": 0.234,
+            "totalMs": 1.944
+          }
+        },
+        "digest": "fnv1a32-0a0870c7-bytes-33384-leaves-4173",
+        "outputBytes": 33384,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.176,
+            "medianMs": 0.191,
+            "p95Ms": 0.233,
+            "maxMs": 0.233,
+            "totalMs": 2.521,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-3",
+        "label": "3D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.003,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.003,
+            "medianMs": 0.003,
+            "p95Ms": 0.004,
+            "maxMs": 0.004,
+            "totalMs": 0.031
+          }
+        },
+        "digest": "fnv1a32-37f8806e-bytes-248-leaves-31",
+        "outputBytes": 248,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.002,
+            "medianMs": 0.002,
+            "p95Ms": 0.007,
+            "maxMs": 0.007,
+            "totalMs": 0.036,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-12",
+        "label": "12D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.013,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.009,
+            "medianMs": 0.01,
+            "p95Ms": 0.011,
+            "maxMs": 0.011,
+            "totalMs": 0.099
+          }
+        },
+        "digest": "fnv1a32-16529f1e-bytes-968-leaves-121",
+        "outputBytes": 968,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.009,
+            "medianMs": 0.009,
+            "p95Ms": 0.013,
+            "maxMs": 0.013,
+            "totalMs": 0.13,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-99",
+        "label": "99D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.594,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.506,
+            "medianMs": 0.533,
+            "p95Ms": 1.722,
+            "maxMs": 1.722,
+            "totalMs": 7.088
+          }
+        },
+        "digest": "fnv1a32-ab80b9dc-bytes-7928-leaves-991",
+        "outputBytes": 7928,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.395,
+            "medianMs": 0.53,
+            "p95Ms": 1.715,
+            "maxMs": 1.715,
+            "totalMs": 8.521,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-197",
+        "label": "197D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 2.087,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 1.423,
+            "medianMs": 1.918,
+            "p95Ms": 2.305,
+            "maxMs": 2.305,
+            "totalMs": 19.45
+          }
+        },
+        "digest": "fnv1a32-43991d29-bytes-15768-leaves-1971",
+        "outputBytes": 15768,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 1.421,
+            "medianMs": 1.924,
+            "p95Ms": 2.303,
+            "maxMs": 2.303,
+            "totalMs": 25.574,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "d10-272",
+        "label": "272D10",
+        "operation": "d10",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 3.646,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 3.426,
+            "medianMs": 3.766,
+            "p95Ms": 5.883,
+            "maxMs": 5.883,
+            "totalMs": 40.894
+          }
+        },
+        "digest": "fnv1a32-20146e69-bytes-21768-leaves-2721",
+        "outputBytes": 21768,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 3.424,
+            "medianMs": 3.764,
+            "p95Ms": 5.877,
+            "maxMs": 5.877,
+            "totalMs": 52.071,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "fft-1024",
+        "label": "FFT convolution length 1024",
+        "operation": "fft",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.036,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.036,
+            "medianMs": 0.036,
+            "p95Ms": 0.056,
+            "maxMs": 0.056,
+            "totalMs": 0.387
+          }
+        },
+        "digest": "fnv1a32-7475a1ba-bytes-8184-leaves-1023",
+        "outputBytes": 8184,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "convolveDistributions",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.035,
+            "medianMs": 0.036,
+            "p95Ms": 0.055,
+            "maxMs": 0.055,
+            "totalMs": 0.495,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "fft-4096",
+        "label": "FFT convolution length 4096",
+        "operation": "fft",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.201,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.195,
+            "medianMs": 0.207,
+            "p95Ms": 0.367,
+            "maxMs": 0.367,
+            "totalMs": 2.245
+          }
+        },
+        "digest": "fnv1a32-2f771ab7-bytes-32760-leaves-4095",
+        "outputBytes": 32760,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "convolveDistributions",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.194,
+            "medianMs": 0.203,
+            "p95Ms": 0.364,
+            "maxMs": 0.364,
+            "totalMs": 2.831,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "fft-16384",
+        "label": "FFT convolution length 16384",
+        "operation": "fft",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.983,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.762,
+            "medianMs": 0.79,
+            "p95Ms": 0.886,
+            "maxMs": 0.886,
+            "totalMs": 8.044
+          }
+        },
+        "digest": "fnv1a32-896dd5cd-bytes-131064-leaves-16383",
+        "outputBytes": 131064,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "convolveDistributions",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.76,
+            "medianMs": 0.811,
+            "p95Ms": 0.982,
+            "maxMs": 0.982,
+            "totalMs": 10.695,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "check-ordinary",
+        "label": "ordinary Check",
+        "operation": "check",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 15331,
+            "timeMs": 0.015331,
+            "float64Bytes": 98144,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 177,
+              "modeledMax": 1019
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 134,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 1.27,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 1.229,
+            "medianMs": 1.262,
+            "p95Ms": 1.316,
+            "maxMs": 1.316,
+            "totalMs": 12.673
+          }
+        },
+        "digest": "fnv1a32-75630eb2-bytes-16368-leaves-2114",
+        "outputBytes": 19112,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.547,
+            "medianMs": 0.595,
+            "p95Ms": 0.614,
+            "maxMs": 0.615,
+            "totalMs": 15.106,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.254,
+            "medianMs": 0.27,
+            "p95Ms": 0.284,
+            "maxMs": 0.3,
+            "totalMs": 7.01,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.059,
+            "medianMs": 0.086,
+            "p95Ms": 0.281,
+            "maxMs": 0.281,
+            "totalMs": 1.316,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.019,
+            "medianMs": 0.023,
+            "p95Ms": 0.047,
+            "maxMs": 0.047,
+            "totalMs": 0.344,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "check-tail-heavy",
+        "label": "tail-heavy Check",
+        "operation": "check",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 9216,
+            "timeMs": 0.009216,
+            "float64Bytes": 98272,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1024,
+              "fftLength": 0,
+              "cutoff": 424,
+              "modeledMax": 1022
+            },
+            {
+              "workingLength": 1024,
+              "fftLength": 0,
+              "cutoff": 312,
+              "modeledMax": 1022
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.875,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.875,
+            "medianMs": 0.883,
+            "p95Ms": 1.171,
+            "maxMs": 1.171,
+            "totalMs": 9.18
+          }
+        },
+        "digest": "fnv1a32-d3939f50-bytes-16368-leaves-2114",
+        "outputBytes": 19112,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.368,
+            "medianMs": 0.434,
+            "p95Ms": 0.528,
+            "maxMs": 0.533,
+            "totalMs": 10.782,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.166,
+            "medianMs": 0.199,
+            "p95Ms": 0.209,
+            "maxMs": 0.271,
+            "totalMs": 4.895,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.048,
+            "medianMs": 0.049,
+            "p95Ms": 0.054,
+            "maxMs": 0.054,
+            "totalMs": 0.652,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.015,
+            "medianMs": 0.018,
+            "p95Ms": 0.035,
+            "maxMs": 0.035,
+            "totalMs": 0.27,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "check-yousei",
+        "label": "Check with 妖精の手",
+        "operation": "check",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 21482,
+            "timeMs": 0.016106,
+            "float64Bytes": 109584,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1022,
+              "fftLength": 256,
+              "cutoff": 236,
+              "modeledMax": 1020
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 132,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.759,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.755,
+            "medianMs": 0.762,
+            "p95Ms": 0.773,
+            "maxMs": 0.773,
+            "totalMs": 7.624
+          }
+        },
+        "digest": "fnv1a32-ab38752c-bytes-16368-leaves-2101",
+        "outputBytes": 18582,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.059,
+            "medianMs": 0.077,
+            "p95Ms": 0.606,
+            "maxMs": 0.61,
+            "totalMs": 8.625,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.035,
+            "medianMs": 0.044,
+            "p95Ms": 0.285,
+            "maxMs": 0.292,
+            "totalMs": 4.131,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.07,
+            "medianMs": 0.072,
+            "p95Ms": 0.075,
+            "maxMs": 0.075,
+            "totalMs": 0.934,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.022,
+            "medianMs": 0.023,
+            "p95Ms": 0.031,
+            "maxMs": 0.031,
+            "totalMs": 0.311,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-ordinary",
+        "label": "ordinary Attack",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 192632,
+            "timeMs": 0.462647,
+            "float64Bytes": 189072,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 177,
+              "modeledMax": 1019
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 134,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": {
+            "workingLength": 1044,
+            "fftLength": 2048,
+            "defenceFftLength": 2048,
+            "rawSupportMax": 1060,
+            "maxDamageDice": 106
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 1.753,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 1.673,
+            "medianMs": 1.688,
+            "p95Ms": 2.024,
+            "maxMs": 2.024,
+            "totalMs": 17.439
+          }
+        },
+        "digest": "fnv1a32-0fcf249b-bytes-24712-leaves-3210",
+        "outputBytes": 29502,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.551,
+            "medianMs": 0.566,
+            "p95Ms": 0.603,
+            "maxMs": 0.615,
+            "totalMs": 15.052,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.255,
+            "medianMs": 0.263,
+            "p95Ms": 0.283,
+            "maxMs": 0.284,
+            "totalMs": 6.978,
+            "errors": 0
+          },
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 0.403,
+            "medianMs": 0.417,
+            "p95Ms": 0.57,
+            "maxMs": 0.57,
+            "totalMs": 5.848,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.266,
+            "medianMs": 0.267,
+            "p95Ms": 0.28,
+            "maxMs": 0.28,
+            "totalMs": 3.493,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.061,
+            "medianMs": 0.064,
+            "p95Ms": 0.41,
+            "maxMs": 0.41,
+            "totalMs": 1.532,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.02,
+            "medianMs": 0.031,
+            "p95Ms": 0.047,
+            "maxMs": 0.047,
+            "totalMs": 0.427,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.011,
+            "medianMs": 0.012,
+            "p95Ms": 0.015,
+            "maxMs": 0.015,
+            "totalMs": 0.162,
+            "errors": 0
+          },
+          {
+            "name": "getD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.003,
+            "medianMs": 0.004,
+            "p95Ms": 0.009,
+            "maxMs": 0.009,
+            "totalMs": 0.06,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-kazanari",
+        "label": "Attack with 風鳴りの爪",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 4160867.5301357475,
+            "timeMs": 16.34177812054299,
+            "float64Bytes": 189776,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1019,
+              "fftLength": 0,
+              "cutoff": 242,
+              "modeledMax": 1017
+            },
+            {
+              "workingLength": 1022,
+              "fftLength": 0,
+              "cutoff": 182,
+              "modeledMax": 1020
+            }
+          ],
+          "damage": {
+            "workingLength": 1064,
+            "fftLength": 2048,
+            "defenceFftLength": 2048,
+            "rawSupportMax": 1110,
+            "maxDamageDice": 111
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 13.508,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 13.538,
+            "medianMs": 13.592,
+            "p95Ms": 18.192,
+            "maxMs": 18.192,
+            "totalMs": 146.428
+          }
+        },
+        "digest": "fnv1a32-7fc1bb4a-bytes-24872-leaves-3230",
+        "outputBytes": 29662,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 12.185,
+            "medianMs": 12.319,
+            "p95Ms": 16.246,
+            "maxMs": 16.246,
+            "totalMs": 169.316,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 12.037,
+            "medianMs": 12.148,
+            "p95Ms": 15.958,
+            "maxMs": 15.958,
+            "totalMs": 166.758,
+            "errors": 0
+          },
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.501,
+            "medianMs": 0.553,
+            "p95Ms": 0.859,
+            "maxMs": 0.993,
+            "totalMs": 15.166,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.227,
+            "medianMs": 0.256,
+            "p95Ms": 0.373,
+            "maxMs": 0.387,
+            "totalMs": 6.728,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.062,
+            "medianMs": 0.068,
+            "p95Ms": 0.102,
+            "maxMs": 0.102,
+            "totalMs": 0.918,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.019,
+            "medianMs": 0.062,
+            "p95Ms": 0.122,
+            "maxMs": 0.122,
+            "totalMs": 0.831,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.012,
+            "medianMs": 0.014,
+            "p95Ms": 0.021,
+            "maxMs": 0.021,
+            "totalMs": 0.189,
+            "errors": 0
+          },
+          {
+            "name": "getD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.007,
+            "medianMs": 0.01,
+            "p95Ms": 0.027,
+            "maxMs": 0.027,
+            "totalMs": 0.168,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-fixed-evasion",
+        "label": "Attack with fixed evasion",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 2452191.0624417965,
+            "timeMs": 9.757134249767187,
+            "float64Bytes": 122208,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1020,
+              "fftLength": 0,
+              "cutoff": 182,
+              "modeledMax": 1018
+            },
+            {
+              "workingLength": 1007,
+              "fftLength": 0,
+              "cutoff": 0,
+              "modeledMax": 1005
+            }
+          ],
+          "damage": {
+            "workingLength": 1024,
+            "fftLength": 2048,
+            "defenceFftLength": 0,
+            "rawSupportMax": 1080,
+            "maxDamageDice": 108
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 6.098,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 6.098,
+            "medianMs": 6.142,
+            "p95Ms": 6.824,
+            "maxMs": 6.824,
+            "totalMs": 62.174
+          }
+        },
+        "digest": "fnv1a32-21f8c188-bytes-16376-leaves-2151",
+        "outputBytes": 20584,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 5.442,
+            "medianMs": 5.476,
+            "p95Ms": 6.135,
+            "maxMs": 6.135,
+            "totalMs": 71.852,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 5.377,
+            "medianMs": 5.424,
+            "p95Ms": 5.57,
+            "maxMs": 5.57,
+            "totalMs": 70.658,
+            "errors": 0
+          },
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.002,
+            "medianMs": 0.011,
+            "p95Ms": 0.592,
+            "maxMs": 0.608,
+            "totalMs": 7.456,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.258,
+            "medianMs": 0.26,
+            "p95Ms": 0.273,
+            "maxMs": 0.273,
+            "totalMs": 3.401,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.034,
+            "medianMs": 0.039,
+            "p95Ms": 0.044,
+            "maxMs": 0.044,
+            "totalMs": 0.5,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.018,
+            "medianMs": 0.028,
+            "p95Ms": 0.05,
+            "maxMs": 0.05,
+            "totalMs": 0.42,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.01,
+            "medianMs": 0.011,
+            "p95Ms": 0.012,
+            "maxMs": 0.012,
+            "totalMs": 0.146,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "attack-large-accepted",
+        "label": "large accepted Attack",
+        "operation": "attack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "attack",
+          "warnings": [],
+          "estimates": {
+            "operations": 3392679.013368236,
+            "timeMs": 13.278150053472944,
+            "float64Bytes": 190704,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1022,
+              "fftLength": 0,
+              "cutoff": 441,
+              "modeledMax": 1020
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 243,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": {
+            "workingLength": 1084,
+            "fftLength": 2048,
+            "defenceFftLength": 2048,
+            "rawSupportMax": 1150,
+            "maxDamageDice": 115
+          },
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 9.465,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 9.388,
+            "medianMs": 9.447,
+            "p95Ms": 9.506,
+            "maxMs": 9.506,
+            "totalMs": 94.475
+          }
+        },
+        "digest": "fnv1a32-d809e2ca-bytes-25032-leaves-3250",
+        "outputBytes": 29822,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateDamageOnDemand",
+            "kind": "async",
+            "sampleCount": 13,
+            "minMs": 8.387,
+            "medianMs": 8.419,
+            "p95Ms": 8.654,
+            "maxMs": 8.654,
+            "totalMs": 109.653,
+            "errors": 0
+          },
+          {
+            "name": "getDamageRollDistribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 8.216,
+            "medianMs": 8.253,
+            "p95Ms": 8.348,
+            "maxMs": 8.348,
+            "totalMs": 107.353,
+            "errors": 0
+          },
+          {
+            "name": "calculateScore",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.383,
+            "medianMs": 0.414,
+            "p95Ms": 0.519,
+            "maxMs": 0.544,
+            "totalMs": 11.599,
+            "errors": 0
+          },
+          {
+            "name": "calculateDxDistribution",
+            "kind": "sync",
+            "sampleCount": 26,
+            "minMs": 0.17,
+            "medianMs": 0.177,
+            "p95Ms": 0.231,
+            "maxMs": 0.254,
+            "totalMs": 5.204,
+            "errors": 0
+          },
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.056,
+            "medianMs": 0.059,
+            "p95Ms": 0.097,
+            "maxMs": 0.097,
+            "totalMs": 0.801,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.02,
+            "medianMs": 0.049,
+            "p95Ms": 0.089,
+            "maxMs": 0.089,
+            "totalMs": 0.667,
+            "errors": 0
+          },
+          {
+            "name": "getDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.012,
+            "medianMs": 0.013,
+            "p95Ms": 0.024,
+            "maxMs": 0.024,
+            "totalMs": 0.184,
+            "errors": 0
+          },
+          {
+            "name": "getD10Distribution",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.008,
+            "medianMs": 0.011,
+            "p95Ms": 0.02,
+            "maxMs": 0.02,
+            "totalMs": 0.146,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "backtrack-ordinary",
+        "label": "ordinary Backtrack",
+        "operation": "backtrack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "backtrack",
+          "warnings": [],
+          "estimates": {
+            "operations": 6723,
+            "timeMs": 0.006723,
+            "float64Bytes": 5184,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [],
+          "damage": null,
+          "backtrack": {
+            "workingLength": 81,
+            "rawSupportMax": 80,
+            "distributionMode": "on-demand"
+          }
+        },
+        "timing": {
+          "firstMeasuredMs": 0.019,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.019,
+            "medianMs": 0.021,
+            "p95Ms": 0.062,
+            "maxMs": 0.062,
+            "totalMs": 0.251
+          }
+        },
+        "digest": "fnv1a32-acd542ea-bytes-1536-leaves-204",
+        "outputBytes": 1938,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateFinalEncroachment",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.012,
+            "medianMs": 0.014,
+            "p95Ms": 0.049,
+            "maxMs": 0.049,
+            "totalMs": 0.244,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.004,
+            "medianMs": 0.004,
+            "p95Ms": 0.007,
+            "maxMs": 0.007,
+            "totalMs": 0.056,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "backtrack-livingdead",
+        "label": "Backtrack with 屍人",
+        "operation": "backtrack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "backtrack",
+          "warnings": [],
+          "estimates": {
+            "operations": 900426,
+            "timeMs": 0.900426,
+            "float64Bytes": 63168,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [],
+          "damage": null,
+          "backtrack": {
+            "workingLength": 282,
+            "rawSupportMax": 281,
+            "distributionMode": "on-demand"
+          }
+        },
+        "timing": {
+          "firstMeasuredMs": 0.694,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.703,
+            "medianMs": 0.733,
+            "p95Ms": 0.76,
+            "maxMs": 0.76,
+            "totalMs": 7.334
+          }
+        },
+        "digest": "fnv1a32-c64d8725-bytes-5640-leaves-717",
+        "outputBytes": 6042,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateFinalEncroachment",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.657,
+            "medianMs": 0.722,
+            "p95Ms": 0.749,
+            "maxMs": 0.749,
+            "totalMs": 9.236,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.005,
+            "medianMs": 0.006,
+            "p95Ms": 0.007,
+            "maxMs": 0.007,
+            "totalMs": 0.074,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "backtrack-high-input",
+        "label": "high-input Backtrack regression case",
+        "operation": "backtrack",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "backtrack",
+          "warnings": [],
+          "estimates": {
+            "operations": 1304163,
+            "timeMs": 1.304163,
+            "float64Bytes": 73024,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [],
+          "damage": null,
+          "backtrack": {
+            "workingLength": 1141,
+            "rawSupportMax": 1140,
+            "distributionMode": "on-demand"
+          }
+        },
+        "timing": {
+          "firstMeasuredMs": 0.767,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.508,
+            "medianMs": 0.732,
+            "p95Ms": 0.928,
+            "maxMs": 0.928,
+            "totalMs": 7.18
+          }
+        },
+        "digest": "fnv1a32-821a0fd8-bytes-24000-leaves-3012",
+        "outputBytes": 24402,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "calculateFinalEncroachment",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.497,
+            "medianMs": 0.719,
+            "p95Ms": 0.899,
+            "maxMs": 0.899,
+            "totalMs": 8.995,
+            "errors": 0
+          },
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.004,
+            "medianMs": 0.007,
+            "p95Ms": 0.046,
+            "maxMs": 0.046,
+            "totalMs": 0.149,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "score-statistics",
+        "label": "Score statistics",
+        "operation": "statistics",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 0.066,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.064,
+            "medianMs": 0.07,
+            "p95Ms": 0.138,
+            "maxMs": 0.138,
+            "totalMs": 0.816
+          }
+        },
+        "digest": "fnv1a32-b4fdb143-bytes-0-leaves-16",
+        "outputBytes": 616,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "getScoreStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.064,
+            "medianMs": 0.069,
+            "p95Ms": 0.137,
+            "maxMs": 0.137,
+            "totalMs": 1.028,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "range-planning",
+        "label": "range planning",
+        "operation": "range",
+        "kind": "accepted",
+        "plan": {
+          "accepted": true,
+          "operation": "check",
+          "warnings": [],
+          "estimates": {
+            "operations": 15331,
+            "timeMs": 0.015331,
+            "float64Bytes": 98144,
+            "persistentBytes": null,
+            "peakResourceBytes": null
+          },
+          "scores": [
+            {
+              "workingLength": 1021,
+              "fftLength": 0,
+              "cutoff": 177,
+              "modeledMax": 1019
+            },
+            {
+              "workingLength": 1023,
+              "fftLength": 0,
+              "cutoff": 134,
+              "modeledMax": 1021
+            }
+          ],
+          "damage": null,
+          "backtrack": null
+        },
+        "timing": {
+          "firstMeasuredMs": 0.017,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.016,
+            "medianMs": 0.017,
+            "p95Ms": 0.021,
+            "maxMs": 0.021,
+            "totalMs": 0.172
+          }
+        },
+        "digest": "fnv1a32-79e967ea-bytes-0-leaves-102",
+        "outputBytes": 2840,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "planCalculationRanges",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.016,
+            "medianMs": 0.016,
+            "p95Ms": 0.021,
+            "maxMs": 0.021,
+            "totalMs": 0.217,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "total-damage-2",
+        "label": "Total Damage from 2 production envelopes",
+        "operation": "totalDamage",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 1.055,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.264,
+            "medianMs": 0.277,
+            "p95Ms": 0.324,
+            "maxMs": 0.324,
+            "totalMs": 2.877
+          }
+        },
+        "digest": "fnv1a32-82c0185d-bytes-16840-leaves-2156",
+        "outputBytes": 19446,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "sumDamage",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.178,
+            "medianMs": 0.188,
+            "p95Ms": 0.567,
+            "maxMs": 0.567,
+            "totalMs": 2.882,
+            "errors": 0
+          },
+          {
+            "name": "planDamageAggregation",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.032,
+            "medianMs": 0.037,
+            "p95Ms": 0.418,
+            "maxMs": 0.418,
+            "totalMs": 0.912,
+            "errors": 0
+          },
+          {
+            "name": "getTotalDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.017,
+            "medianMs": 0.018,
+            "p95Ms": 0.022,
+            "maxMs": 0.022,
+            "totalMs": 0.241,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "total-damage-4",
+        "label": "Total Damage from 4 production envelopes",
+        "operation": "totalDamage",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 1.005,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 0.89,
+            "medianMs": 0.918,
+            "p95Ms": 1.039,
+            "maxMs": 1.039,
+            "totalMs": 9.547
+          }
+        },
+        "digest": "fnv1a32-d3a85eec-bytes-33672-leaves-4280",
+        "outputBytes": 37222,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "sumDamage",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.719,
+            "medianMs": 0.82,
+            "p95Ms": 0.845,
+            "maxMs": 0.845,
+            "totalMs": 10.29,
+            "errors": 0
+          },
+          {
+            "name": "planDamageAggregation",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.059,
+            "medianMs": 0.062,
+            "p95Ms": 0.089,
+            "maxMs": 0.089,
+            "totalMs": 0.87,
+            "errors": 0
+          },
+          {
+            "name": "getTotalDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.033,
+            "medianMs": 0.034,
+            "p95Ms": 0.038,
+            "maxMs": 0.038,
+            "totalMs": 0.448,
+            "errors": 0
+          }
+        ]
+      },
+      {
+        "id": "total-damage-8",
+        "label": "Total Damage from 8 production envelopes",
+        "operation": "totalDamage",
+        "kind": "accepted",
+        "plan": null,
+        "timing": {
+          "firstMeasuredMs": 3.378,
+          "warm": {
+            "sampleCount": 10,
+            "minMs": 3.277,
+            "medianMs": 3.417,
+            "p95Ms": 4.149,
+            "maxMs": 4.149,
+            "totalMs": 35.452
+          }
+        },
+        "digest": "fnv1a32-a7ec7f42-bytes-67336-leaves-8528",
+        "outputBytes": 72774,
+        "status": "measured",
+        "mode": "cache-miss",
+        "errors": [],
+        "mainThread": null,
+        "longTasks": {
+          "supported": false,
+          "count": null,
+          "maxDurationMs": null
+        },
+        "trace": [
+          {
+            "name": "sumDamage",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 2.926,
+            "medianMs": 3.078,
+            "p95Ms": 3.443,
+            "maxMs": 3.443,
+            "totalMs": 40.78,
+            "errors": 0
+          },
+          {
+            "name": "planDamageAggregation",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.119,
+            "medianMs": 0.13,
+            "p95Ms": 0.138,
+            "maxMs": 0.138,
+            "totalMs": 1.661,
+            "errors": 0
+          },
+          {
+            "name": "getTotalDamageStatistics",
+            "kind": "sync",
+            "sampleCount": 13,
+            "minMs": 0.068,
+            "medianMs": 0.07,
+            "p95Ms": 0.072,
+            "maxMs": 0.072,
+            "totalMs": 0.908,
+            "errors": 0
+          }
+        ]
+      }
+    ]
+  },
+  "plannerEstimateComparison": [
+    {
+      "id": "dx-ordinary",
+      "accepted": true,
+      "estimatedTimeMs": 0.007147,
+      "actualFirstMeasuredMs": 0.31,
+      "actualSteadyP95Ms": 0.287
+    },
+    {
+      "id": "dx-low-critical",
+      "accepted": true,
+      "estimatedTimeMs": 0.004096,
+      "actualFirstMeasuredMs": 0.169,
+      "actualSteadyP95Ms": 0.182
+    },
+    {
+      "id": "dx-shihai-stress",
+      "accepted": true,
+      "estimatedTimeMs": 7.84268,
+      "actualFirstMeasuredMs": 4.837,
+      "actualSteadyP95Ms": 7.519
+    },
+    {
+      "id": "dx-yousei-stress",
+      "accepted": true,
+      "estimatedTimeMs": 0.008013,
+      "actualFirstMeasuredMs": 0.444,
+      "actualSteadyP95Ms": 0.277
+    },
+    {
+      "id": "d10-3",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.01,
+      "actualSteadyP95Ms": 0.06
+    },
+    {
+      "id": "d10-12",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.103,
+      "actualSteadyP95Ms": 0.25
+    },
+    {
+      "id": "d10-99",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.321,
+      "actualSteadyP95Ms": 0.497
+    },
+    {
+      "id": "d10-197",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 1.613,
+      "actualSteadyP95Ms": 2.093
+    },
+    {
+      "id": "d10-272",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 3.702,
+      "actualSteadyP95Ms": 6.014
+    },
+    {
+      "id": "fft-1024",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.037,
+      "actualSteadyP95Ms": 0.063
+    },
+    {
+      "id": "fft-4096",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.192,
+      "actualSteadyP95Ms": 0.489
+    },
+    {
+      "id": "fft-16384",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.972,
+      "actualSteadyP95Ms": 1.036
+    },
+    {
+      "id": "check-ordinary",
+      "accepted": true,
+      "estimatedTimeMs": 0.015331,
+      "actualFirstMeasuredMs": 0.998,
+      "actualSteadyP95Ms": 0.965
+    },
+    {
+      "id": "check-tail-heavy",
+      "accepted": true,
+      "estimatedTimeMs": 0.009216,
+      "actualFirstMeasuredMs": 0.57,
+      "actualSteadyP95Ms": 1.058
+    },
+    {
+      "id": "check-yousei",
+      "accepted": true,
+      "estimatedTimeMs": 0.016106,
+      "actualFirstMeasuredMs": 0.493,
+      "actualSteadyP95Ms": 0.512
+    },
+    {
+      "id": "attack-ordinary",
+      "accepted": true,
+      "estimatedTimeMs": 0.462647,
+      "actualFirstMeasuredMs": 1.756,
+      "actualSteadyP95Ms": 1.565
+    },
+    {
+      "id": "attack-kazanari",
+      "accepted": true,
+      "estimatedTimeMs": 16.34177812054299,
+      "actualFirstMeasuredMs": 12.964,
+      "actualSteadyP95Ms": 13.741
+    },
+    {
+      "id": "attack-fixed-evasion",
+      "accepted": true,
+      "estimatedTimeMs": 9.757134249767187,
+      "actualFirstMeasuredMs": 6.09,
+      "actualSteadyP95Ms": 6.395
+    },
+    {
+      "id": "attack-large-accepted",
+      "accepted": true,
+      "estimatedTimeMs": 13.278150053472944,
+      "actualFirstMeasuredMs": 9.314,
+      "actualSteadyP95Ms": 9.727
+    },
+    {
+      "id": "backtrack-ordinary",
+      "accepted": true,
+      "estimatedTimeMs": 0.006723,
+      "actualFirstMeasuredMs": 0.061,
+      "actualSteadyP95Ms": 0.116
+    },
+    {
+      "id": "backtrack-livingdead",
+      "accepted": true,
+      "estimatedTimeMs": 0.900426,
+      "actualFirstMeasuredMs": 4.175,
+      "actualSteadyP95Ms": 3.495
+    },
+    {
+      "id": "backtrack-high-input",
+      "accepted": true,
+      "estimatedTimeMs": 1.304163,
+      "actualFirstMeasuredMs": 0.74,
+      "actualSteadyP95Ms": 1.177
+    },
+    {
+      "id": "score-statistics",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.064,
+      "actualSteadyP95Ms": 0.082
+    },
+    {
+      "id": "range-planning",
+      "accepted": true,
+      "estimatedTimeMs": 0.015331,
+      "actualFirstMeasuredMs": 0.017,
+      "actualSteadyP95Ms": 0.026
+    },
+    {
+      "id": "total-damage-2",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.705,
+      "actualSteadyP95Ms": 0.679
+    },
+    {
+      "id": "total-damage-4",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 0.982,
+      "actualSteadyP95Ms": 1.675
+    },
+    {
+      "id": "total-damage-8",
+      "accepted": true,
+      "estimatedTimeMs": null,
+      "actualFirstMeasuredMs": 3.372,
+      "actualSteadyP95Ms": 4.131
+    }
+  ],
+  "traceParity": [
+    {
+      "id": "dx-ordinary",
+      "expectedDigest": "fnv1a32-7f9273f6-bytes-8168-leaves-1021",
+      "observedDigest": "fnv1a32-7f9273f6-bytes-8168-leaves-1021",
+      "equal": true
+    },
+    {
+      "id": "dx-low-critical",
+      "expectedDigest": "fnv1a32-9d8ff82b-bytes-8192-leaves-1024",
+      "observedDigest": "fnv1a32-9d8ff82b-bytes-8192-leaves-1024",
+      "equal": true
+    },
+    {
+      "id": "dx-shihai-stress",
+      "expectedDigest": "fnv1a32-03e8eaf5-bytes-17624-leaves-2203",
+      "observedDigest": "fnv1a32-03e8eaf5-bytes-17624-leaves-2203",
+      "equal": true
+    },
+    {
+      "id": "dx-yousei-stress",
+      "expectedDigest": "fnv1a32-0a0870c7-bytes-33384-leaves-4173",
+      "observedDigest": "fnv1a32-0a0870c7-bytes-33384-leaves-4173",
+      "equal": true
+    },
+    {
+      "id": "d10-3",
+      "expectedDigest": "fnv1a32-37f8806e-bytes-248-leaves-31",
+      "observedDigest": "fnv1a32-37f8806e-bytes-248-leaves-31",
+      "equal": true
+    },
+    {
+      "id": "d10-12",
+      "expectedDigest": "fnv1a32-16529f1e-bytes-968-leaves-121",
+      "observedDigest": "fnv1a32-16529f1e-bytes-968-leaves-121",
+      "equal": true
+    },
+    {
+      "id": "d10-99",
+      "expectedDigest": "fnv1a32-ab80b9dc-bytes-7928-leaves-991",
+      "observedDigest": "fnv1a32-ab80b9dc-bytes-7928-leaves-991",
+      "equal": true
+    },
+    {
+      "id": "d10-197",
+      "expectedDigest": "fnv1a32-43991d29-bytes-15768-leaves-1971",
+      "observedDigest": "fnv1a32-43991d29-bytes-15768-leaves-1971",
+      "equal": true
+    },
+    {
+      "id": "d10-272",
+      "expectedDigest": "fnv1a32-20146e69-bytes-21768-leaves-2721",
+      "observedDigest": "fnv1a32-20146e69-bytes-21768-leaves-2721",
+      "equal": true
+    },
+    {
+      "id": "fft-1024",
+      "expectedDigest": "fnv1a32-7475a1ba-bytes-8184-leaves-1023",
+      "observedDigest": "fnv1a32-7475a1ba-bytes-8184-leaves-1023",
+      "equal": true
+    },
+    {
+      "id": "fft-4096",
+      "expectedDigest": "fnv1a32-2f771ab7-bytes-32760-leaves-4095",
+      "observedDigest": "fnv1a32-2f771ab7-bytes-32760-leaves-4095",
+      "equal": true
+    },
+    {
+      "id": "fft-16384",
+      "expectedDigest": "fnv1a32-896dd5cd-bytes-131064-leaves-16383",
+      "observedDigest": "fnv1a32-896dd5cd-bytes-131064-leaves-16383",
+      "equal": true
+    },
+    {
+      "id": "check-ordinary",
+      "expectedDigest": "fnv1a32-75630eb2-bytes-16368-leaves-2114",
+      "observedDigest": "fnv1a32-75630eb2-bytes-16368-leaves-2114",
+      "equal": true
+    },
+    {
+      "id": "check-tail-heavy",
+      "expectedDigest": "fnv1a32-d3939f50-bytes-16368-leaves-2114",
+      "observedDigest": "fnv1a32-d3939f50-bytes-16368-leaves-2114",
+      "equal": true
+    },
+    {
+      "id": "check-yousei",
+      "expectedDigest": "fnv1a32-ab38752c-bytes-16368-leaves-2101",
+      "observedDigest": "fnv1a32-ab38752c-bytes-16368-leaves-2101",
+      "equal": true
+    },
+    {
+      "id": "attack-ordinary",
+      "expectedDigest": "fnv1a32-0fcf249b-bytes-24712-leaves-3210",
+      "observedDigest": "fnv1a32-0fcf249b-bytes-24712-leaves-3210",
+      "equal": true
+    },
+    {
+      "id": "attack-kazanari",
+      "expectedDigest": "fnv1a32-7fc1bb4a-bytes-24872-leaves-3230",
+      "observedDigest": "fnv1a32-7fc1bb4a-bytes-24872-leaves-3230",
+      "equal": true
+    },
+    {
+      "id": "attack-fixed-evasion",
+      "expectedDigest": "fnv1a32-21f8c188-bytes-16376-leaves-2151",
+      "observedDigest": "fnv1a32-21f8c188-bytes-16376-leaves-2151",
+      "equal": true
+    },
+    {
+      "id": "attack-large-accepted",
+      "expectedDigest": "fnv1a32-d809e2ca-bytes-25032-leaves-3250",
+      "observedDigest": "fnv1a32-d809e2ca-bytes-25032-leaves-3250",
+      "equal": true
+    },
+    {
+      "id": "backtrack-ordinary",
+      "expectedDigest": "fnv1a32-acd542ea-bytes-1536-leaves-204",
+      "observedDigest": "fnv1a32-acd542ea-bytes-1536-leaves-204",
+      "equal": true
+    },
+    {
+      "id": "backtrack-livingdead",
+      "expectedDigest": "fnv1a32-c64d8725-bytes-5640-leaves-717",
+      "observedDigest": "fnv1a32-c64d8725-bytes-5640-leaves-717",
+      "equal": true
+    },
+    {
+      "id": "backtrack-high-input",
+      "expectedDigest": "fnv1a32-821a0fd8-bytes-24000-leaves-3012",
+      "observedDigest": "fnv1a32-821a0fd8-bytes-24000-leaves-3012",
+      "equal": true
+    },
+    {
+      "id": "score-statistics",
+      "expectedDigest": "fnv1a32-b4fdb143-bytes-0-leaves-16",
+      "observedDigest": "fnv1a32-b4fdb143-bytes-0-leaves-16",
+      "equal": true
+    },
+    {
+      "id": "range-planning",
+      "expectedDigest": "fnv1a32-79e967ea-bytes-0-leaves-102",
+      "observedDigest": "fnv1a32-79e967ea-bytes-0-leaves-102",
+      "equal": true
+    },
+    {
+      "id": "total-damage-2",
+      "expectedDigest": "fnv1a32-82c0185d-bytes-16840-leaves-2156",
+      "observedDigest": "fnv1a32-82c0185d-bytes-16840-leaves-2156",
+      "equal": true
+    },
+    {
+      "id": "total-damage-4",
+      "expectedDigest": "fnv1a32-d3a85eec-bytes-33672-leaves-4280",
+      "observedDigest": "fnv1a32-d3a85eec-bytes-33672-leaves-4280",
+      "equal": true
+    },
+    {
+      "id": "total-damage-8",
+      "expectedDigest": "fnv1a32-a7ec7f42-bytes-67336-leaves-8528",
+      "observedDigest": "fnv1a32-a7ec7f42-bytes-67336-leaves-8528",
+      "equal": true
+    }
+  ],
+  "triggerEvaluation": {
+    "potentialTriggers": [],
+    "repeatableTriggers": [],
+    "note": "Node measurements localize hotspots only; browser evidence is required for production decisions."
+  },
+  "candidateRanking": [
+    {
+      "name": "getDamageRollDistribution",
+      "sampleCount": 8,
+      "minMs": 0.269,
+      "medianMs": 5.468,
+      "p95Ms": 12.828,
+      "maxMs": 12.828,
+      "totalMs": 53.081
+    },
+    {
+      "name": "calculateDxDistribution",
+      "sampleCount": 21,
+      "minMs": 0.159,
+      "medianMs": 0.259,
+      "p95Ms": 4.496,
+      "maxMs": 5.26,
+      "totalMs": 14.098
+    },
+    {
+      "name": "calculateD10Distribution",
+      "sampleCount": 10,
+      "minMs": 0.003,
+      "medianMs": 0.655,
+      "p95Ms": 4.113,
+      "maxMs": 4.113,
+      "totalMs": 13.907
+    },
+    {
+      "name": "sumDamage",
+      "sampleCount": 6,
+      "minMs": 0.222,
+      "medianMs": 0.792,
+      "p95Ms": 3.137,
+      "maxMs": 3.137,
+      "totalMs": 8.499
+    },
+    {
+      "name": "calculateScore",
+      "sampleCount": 14,
+      "minMs": 0.186,
+      "medianMs": 0.323,
+      "p95Ms": 0.583,
+      "maxMs": 0.583,
+      "totalMs": 5.125
+    },
+    {
+      "name": "calculateFinalEncroachment",
+      "sampleCount": 6,
+      "minMs": 0.019,
+      "medianMs": 0.692,
+      "p95Ms": 1.725,
+      "maxMs": 1.725,
+      "totalMs": 3.995
+    },
+    {
+      "name": "convolveDistributions",
+      "sampleCount": 6,
+      "minMs": 0.038,
+      "medianMs": 0.214,
+      "p95Ms": 0.842,
+      "maxMs": 0.842,
+      "totalMs": 2.175
+    },
+    {
+      "name": "getScoreStatistics",
+      "sampleCount": 16,
+      "minMs": 0.024,
+      "medianMs": 0.065,
+      "p95Ms": 0.118,
+      "maxMs": 0.118,
+      "totalMs": 1.17
+    },
+    {
+      "name": "planCalculationRanges",
+      "sampleCount": 22,
+      "minMs": 0.004,
+      "medianMs": 0.026,
+      "p95Ms": 0.072,
+      "maxMs": 0.08,
+      "totalMs": 0.734
+    },
+    {
+      "name": "planDamageAggregation",
+      "sampleCount": 6,
+      "minMs": 0.067,
+      "medianMs": 0.073,
+      "p95Ms": 0.147,
+      "maxMs": 0.147,
+      "totalMs": 0.621
+    },
+    {
+      "name": "getTotalDamageStatistics",
+      "sampleCount": 6,
+      "minMs": 0.019,
+      "medianMs": 0.034,
+      "p95Ms": 0.071,
+      "maxMs": 0.071,
+      "totalMs": 0.258
+    },
+    {
+      "name": "getDamageStatistics",
+      "sampleCount": 8,
+      "minMs": 0.011,
+      "medianMs": 0.013,
+      "p95Ms": 0.018,
+      "maxMs": 0.018,
+      "totalMs": 0.109
+    },
+    {
+      "name": "getD10Distribution",
+      "sampleCount": 6,
+      "minMs": 0.005,
+      "medianMs": 0.005,
+      "p95Ms": 0.013,
+      "maxMs": 0.013,
+      "totalMs": 0.044
+    }
+  ],
+  "decision": "pending-browser-evidence",
+  "resultDigest": "fnv1a32-303467d0-bytes-0-leaves-108"
+}
