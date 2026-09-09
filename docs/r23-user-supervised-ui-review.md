@@ -142,7 +142,7 @@ UI-01のBacktrack 6px datalabelは`CONFIRMED READABILITY CONCERN`だが、UI-04�
 | UI-04C | mobile typography | CONFIRMED BY PRODUCT OWNER | 代表的なpanel、field、button、summaryのcomputed style | AWAITING PRODUCT-OWNER VISUAL REVIEW |
 | UI-06 | Backtrack「その他減少量」 | CONFIRMED RESPONSIVE DEFECT | parity後に12-column化またはstackを比較 | AWAITING PRODUCT-OWNER VISUAL REVIEW |
 | UI-07 | short-page footer | CONFIRMED EXISTING LAYOUT DEFECT | flex shell prototype。fixed/absolute footerは禁止 | AWAITING PRODUCT-OWNER VISUAL REVIEW |
-| UI-08 | Damage期待値 | PRODUCT DECISION | stable boundedだけproduction採用。広い近似はaudit後に判断 | IMPLEMENTED / AUDIT PENDING |
+| UI-08 | Damage期待値 | PRODUCT DECISION | stable boundedだけproduction採用。広い近似はaudit後に判断 | ADOPTED / IMPLEMENTED; broader approximation pending |
 
 ### Productionへ入れてよい変更
 
@@ -157,3 +157,59 @@ reference、current、prototypeは同じroute、入力、viewport、scroll位置
 Backtrackの6px、8px、9px比較はthrowaway worktreeまたは一時patchで行い、active branchへprototype sourceをcommitしない。visual parity、footer、responsive layoutについても同じ扱いとする。
 
 R23-Aの終了状態は`IN REVIEW`であり、production visual parity changesは`NOT YET ADOPTED`、product-owner visual reviewは`REQUIRED`である。UI-08のstable bounded表示だけは`ADOPTED / IMPLEMENTED`とし、より広い近似表示は`AUDITED / AWAITING PRODUCT DECISION`で停止する。
+
+## R23-A 実施結果（2026-09-09）
+
+### 作業単位
+
+R23-Aの実装・計測は、次の単位に分けて完了した。productionへ入ったのは、DamageとTotal Damageの表示formatterを共通化し、有限なbounded区間の丸め結果が一致する場合だけ値を表示する変更と、その回帰テストだけである。計算core、tail certificate、overflow、resource policy、Worker、公開asset、UIの見た目は変更していない。
+
+| Commit | 内容 |
+| --- | --- |
+| `d001bc7` | product ownerの観察とR23-Aの判断を記録 |
+| `aa7fa7d` | 公開版・現行版のparity診断、semantic metrics、multi-combo入力を追加 |
+| `fbf323e` | stable boundedなDamage期待値を表示できる共通formatterと回帰テストを追加 |
+| `48c374d` | Damage期待値の不確かさを測るexperiment-only監査を追加 |
+| `6f10a14` | visual parity、responsive layout、footer、Backtrack labelのexperiment-only prototypeを追加 |
+
+### 公開版とのparity診断
+
+`npm run review:r23:parity`を、公開サイト`https://double-cross-dice-calculator.pages.dev`をreferenceとして実行した。公開サイトが利用できない場合の再現用referenceは`origin/main`の`461ab898e2c62583c1ae504470c3ceb169d2d363`である。診断はpixel-perfectな合否判定ではなく、semantic locatorで取得したcurrent/reference/deltaの記録である。
+
+代表scenario `check-desktop-ordinary`では、headerのline-heightがcurrent `22.8px`、reference `20px`だった。最小値・最大値fieldの高さはcurrent `32px`、reference `40px`で、入力paddingはcurrentが上 `8px`・下 `0px`、referenceが上 `14px`・下 `2px`だった。表示モードfieldは両方`40px`だが、labelとvalueの縦位置には差があった。高度な設定の文字は両方12pxで、line-heightはcurrent `20.004px`、reference `20px`だった。これらはUI-04A〜Cの補正候補を定量化する材料であり、production採用の判断ではない。
+
+### multi-combo captureの補正
+
+series比較のため、combo 2にはcombo 1と異なる入力を設定した。固定した入力はscoreがdice `4`、critical `8`、skill `3`、damageがdice `2`、fixed `4`である。desktop/mobileの補正scenarioはそれぞれ2 canvasを描画し、console、page error、request failure、HTTP errorはいずれも0件だった。これでcombo 1とcombo 2のcurveを比較できるが、採用判断はproduct ownerの視覚レビューに委ねる。
+
+### experiment-only prototypeの計測
+
+visual parity prototypeは、referenceのfield高さ・padding・header line-heightへ寄せるCSSをrunnerから注入した。Backtrackの「その他減少量」には次の2案を作成した。baselineのmobile outer groupは約`151px`、wide案はouter `302px`・nested row `294px`、stack案はouter・nested・groupを`302px`へ広げた。両案とも機械的なclipping指標はfalseになったが、ラベルの折り返しや周辺の視覚的な自然さは画面確認が必要である。
+
+footer prototypeは`v-main`を縦方向flexにし、route contentを伸縮する通常flowの要素、footerを固定しない通常flowの要素として扱った。fixed/absolute positioningやoverlayは使っていない。実在する全routeはviewportより長かったため、計測ではfooterがviewport下端に到達するshort-pageケースまでは証明できず、long-pageで通常flowが維持されることだけを確認した。short-page用の合成fixtureを追加していないため、UI-07は未決定のままとする。
+
+BacktrackのDoughnut labelは6px、8px、9pxを比較した。8pxと9pxはrunnerがbuild済みJavaScriptへ一時的にパッチを適用したvariantであり、sourceやproduction CSSには変更がない。visual parity、responsive layout、footer、labelのいずれも、prototypeの作成・計測だけではproduction採用を意味しない。
+
+### Damage期待値の精度監査
+
+`npm run audit:r23:damage-precision`で、表示量子`Q = 0.1`の監査を行った。13件のaccepted fixtureを調べ、`exact`が1件、`lower-bound`が12件、bounded区間は0件、丸め境界をまたぐ区間も0件だった。`halfWidth <= 0.005`、`0.010`、`0.020`の件数はいずれも1件で、いずれもexact recordである。lower-bound recordには中点を付けず、heuristicなpoint estimateも追加していない。
+
+したがって、現在のproduction契約である「exact、またはfinite bounded区間の丸め上下界が一致する場合だけ小数1桁で表示し、それ以外は`—`」は維持する。より広い近似表示を導入する閾値や代表値は、この監査だけでは決めず、別のproduct decisionへ送る。
+
+### R23-Aの最終状態
+
+| 対象 | 状態 |
+| --- | --- |
+| UI-04A〜C（visual parity） | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-06（その他減少量のresponsive layout） | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-07（short-page footer） | AWAITING PRODUCT-OWNER VISUAL REVIEW; short-page proof pending |
+| UI-01（Backtrack 6/8/9px label） | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-05（異なる入力のmulti-combo） | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-08（stable bounded Damage期待値） | ADOPTED / IMPLEMENTED |
+| UI-08の広い近似表示 | AUDITED / AWAITING PRODUCT DECISION |
+
+R23は`IN REVIEW`のままとする。production visual parity changesは`NOT YET ADOPTED`であり、次に必要なのはproduct ownerによる比較画像・計測結果・prototype画面の直接レビューである。レビュー承認なしにUI-04A〜C、UI-06、UI-07、UI-01、UI-05を本番へ接続しない。
+
+### 実施時の検証
+
+最終状態では`npm test`が87 files・945 tests、`npm run lint`、`npm run lint:markdown`（55 files・0 issues）、`npm run build`（420 modules）、`git diff --check`が成功した。multi-combo、visual parity、Backtrackのwide/stack、footer、6/8/9px labelのprototype runnerも各scenarioで診断エラー0件だった。prototypeの出力画像とJSONはgitignored directoryに保存し、productionのrelease gateやCIの自動合否判定には接続していない。
