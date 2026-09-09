@@ -1,0 +1,37 @@
+/*
+ * R23 experiment-only visual parity candidate.
+ * This stylesheet is injected by prototype-runner.mjs and is never loaded by
+ * the production application.
+ */
+
+body.r23-visual-parity .v-text-field .v-field__input {
+  height: 40px;
+  min-height: 40px;
+  padding-top: 14px;
+  padding-bottom: 2px;
+}
+
+body.r23-visual-parity .v-row:has(> .v-col .v-checkbox-btn) > .v-col {
+  line-height: 20px;
+}
+
+body.r23-visual-parity .v-row:has(> .v-col .v-checkbox-btn) .v-checkbox-btn {
+  flex: 0 0 28px;
+}
+
+body.r23-visual-parity .v-row:has(> .v-col .v-checkbox-btn) .v-input {
+  width: 28px;
+  min-width: 28px;
+}
+
+@media (max-width: 959.98px) {
+  body.r23-visual-parity .v-text-field .v-field__input {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  body.r23-visual-parity .v-select .v-field__input {
+    font-size: 12px;
+    line-height: 18px;
+  }
+}

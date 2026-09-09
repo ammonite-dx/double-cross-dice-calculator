@@ -1,0 +1,14 @@
+/* R23 experiment-only responsive candidate A: widen the nested field group. */
+
+@media (max-width: 959.98px) {
+  body.r23-backtrack-wide .v-main .v-col-md-3.v-col-6:has(.v-row) {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+  }
+
+  body.r23-backtrack-wide .v-main .v-col-md-3.v-col-6:has(.v-row) > .v-row {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}

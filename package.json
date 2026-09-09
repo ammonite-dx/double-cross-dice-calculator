@@ -31,6 +31,7 @@
     "benchmark:r22:numerical:node": "node experiments/r22-numerical-performance/node-benchmark.mjs",
   "review:r23:ui": "node experiments/r23-ui-review/playwright-runner.mjs",
   "review:r23:parity": "node experiments/r23-ui-review/parity-runner.mjs",
+  "review:r23:prototype": "node experiments/r23-ui-review/prototype-runner.mjs",
   "audit:r23:damage-precision": "node experiments/r23-damage-summary-precision/audit.mjs",
     "smoke:production": "npm run build && npm run smoke:production:built",
     "smoke:production:built": "node scripts/production-browser-smoke.mjs",

@@ -1,0 +1,15 @@
+/* R23 experiment-only footer candidate: normal-flow flex shell, never fixed. */
+
+body.r23-footer-flex .v-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body.r23-footer-flex .v-main > :not(.v-footer) {
+  flex: 1 0 auto;
+}
+
+body.r23-footer-flex .v-main > .v-footer {
+  flex: 0 0 auto;
+}
