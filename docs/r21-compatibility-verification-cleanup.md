@@ -112,11 +112,33 @@ READMEとCONTRIBUTINGにはbatch APIを外部サポートAPIとして説明す�
 
 architecture testは、禁止依存、production asset request 0、Worker境界、計算・presentation分離、feature ownership、protected areaを守るassertionを残す。特定helper名やsource文字列だけを存在させるassertionは、同じobservable contractを別のbehavior testで守れるかを確認してから弱める。テスト数を維持することではなく、意味のある契約coverageを維持することを基準にする。
 
+### R21-4監査結果（2026-09-09）
+
+現行のarchitecture testを確認した結果、`runtimePresentationArchitecture.test.js`と`dataResponsibilitiesArchitecture.test.js`のpath・依存方向assertionは、現在の`src/runtime`、`src/shared/presentation`、`src/core/probability`、`src/shared/theme`のownerと一致している。`sharedChartArchitecture.test.js`はChart.jsの所有箇所、accessible name、Backtrack Doughnutの種類を検査し、`sharedValidationArchitecture.test.js`は共有入力規則の単一ownerを検査している。これらは実装名の固定ではなく、R8〜R20で合意した境界を守るため、現時点では維持する。
+
+`namingArchitecture.test.js`のretired identifier検査と、`attackFeatureArchitecture.test.js`・`attackContract.test.js`のfeatureからbatchを呼ばない検査は、migration-only surfaceの再流入を検知する意味がある。release、production dependency、browser smokeのcontractも、CIと現行公開経路を守るために必要である。今回の監査では、代替behavior testなしに削除できるsource-string assertionを特定できなかったため、R21-4でtest変更は行わない。将来内部名を変更する場合は、assertionが守るsemantic boundaryを先にbehavior testへ移す。
+
 ## Experimentとreference assetの扱い
 
 R19とR20のexperimentは直近のarchitecture・product decisionの証拠であり、現時点では保持する。旧experimentを削除する場合も、判断がADR・live docsへ転記済みで、release gate・current baseline・production oracle・必須docs参照のすべてがないことを確認する。raw `results.json`などのartifactは、文書に必要な結果が転記され、再現性を失わない場合だけ削除候補とする。
 
 `public/data/schema-v2/**`、`schemas/**`、`generator/**`、`tooling/reference-data/**`は、reference・再生成・比較の責務を持つprotected areaである。reference assetであることだけを理由に削除しない。公開済みURLのretirementやschema変更は、外部互換性を含む別のrelease decisionへ送る。
+
+### R21-5監査結果（2026-09-09）
+
+`experiments/r19-worker-architecture/`と`experiments/r20-conservative-rendering/`は、直近のWorker・描画判断を再現するためのdecision evidenceであり、対応するVitest contractとpackage commandがあるため保持する。`experiments/phase2h-browser/`もcanonical Attackとfull-tail resourceの現行benchmarkを提供し、Playwright runnerのcontract testとpackage commandから参照されるため保持する。
+
+`experiments/runtime-dr/`は`verify-runtime-dr-experiment.mjs`、`benchmark-runtime-dr-experiment.mjs`、runtime damageのtestから参照され、reference・optimized実装の数値比較に使われるため保持する。`experiments/dynamic-distribution-ranges/`はproduction importを持たないが、planner、decision、benchmark、resultsが入力範囲・working range・`published-bucket`と`full-tail`の設計履歴を構成するため、現時点ではCとして保持する。
+
+`experiments/runtime-dx/`はproduction import、package script、release gateから参照されず、`scripts/verify-runtime-dx.mjs`へ検証が移行済みである。ただしREADMEに記録されたブラウザ測定値は、Worker採否の歴史的証拠として再利用できる。R21-5では削除せず、測定結果をlive docsへ移したうえで、再現性を失わないかを確認してからD候補の最終判断を行う。
+
+### R21-6・R21-7監査結果（2026-09-09）
+
+READMEは、静的SPA、ブラウザ内計算、schema-v2の位置づけ、`verify:release`、full-tail benchmark、generatorとreference-dataの役割を説明しており、現行の`docs/architecture.md`および`CONTRIBUTING.md`と整合している。`docs/architecture.md`はproduction runtimeが公開schema-v2 assetを計算時に取得せず、schema-v2をgenerator照合と独立検証用に保持すること、`published-bucket`と`full-tail`の役割、DX・D10・DR Worker・Backtrackの実行境界、API・MCPをdeferred goalとする方針を記録している。
+
+R2〜R19のrefactoring documentには、当時のpathやmigration用語を含むhistorical recordがある。これらを現行説明へ機械置換すると過去の判断と現在の実装の対応関係を失うため、R21では書き換えない。live documentationに現行と矛盾する記述は確認できず、R21-7のREADME・architecture docs変更は不要と判断する。
+
+reference assetの公開URL、schema、generator出力は変更しない。READMEやarchitecture docsへ将来のAPI・MCP・Cloudflare Worker実装を先取りして追加せず、R24のrelease auditまで現在の静的SPA方針を正本とする。
 
 ## 次の作業単位
 
