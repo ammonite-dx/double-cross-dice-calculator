@@ -93,7 +93,7 @@ environmentにはOS、CPU、Node、Chrome、`hardwareConcurrency`、取得可能
 
 Node.js `v22.23.2`、Windows x64、16 logical CPUsの環境で、Node診断、Chrome通常、Chrome CPU 4xを実行した。ブラウザは各条件を3 full runs、各fixtureをwarmup 2回と計測11回（初回計測を含む）で測定し、各サンプルの間にイベントループ境界を置いた。これにより、連続したmicrotaskの実行時間を1回のユーザー操作のLong Taskへ誤って合算しないようにした。
 
-27個の受入fixtureすべてがproduction plannerで受理され、steady-stateとcache-missの結果digestは全fixtureで一致した。FirefoxとWebKitは今回の既定測定には含めず、追加インストールも行っていない。
+RangePlannerによる判定対象fixtureはすべてproduction policyで受理され、D10・FFT・statistics・Total Damageを含む全27 fixtureが正常に測定された。steady-stateとcache-missの結果digestは全fixtureで一致した。FirefoxとWebKitは今回の既定測定には含めず、追加インストールも行っていない。
 
 | 条件 | 同期main-thread span p95の最大 | wall p95の最大 | Long Task | Worker起動時間 | trigger |
 | --- | ---: | ---: | ---: | ---: | --- |
