@@ -112,3 +112,48 @@ review-only runnerの実行方法とscenario一覧は[`experiments/r23-ui-review
 - 現行のanimation、control placement、display-range操作を維持したいか。
 
 product ownerが候補を選んだ後に、個別prototypeの実装単位を作る。R23の準備完了時点でprototypeは未着手、production UI変更は0件である。
+
+## R23-A — 観察の正式記録と次のレビュー範囲
+
+R23-Aでは、baseline captureをproduct ownerが確認した結果を、候補ごとの作業へ分解する。現行公開版との比較には、実際の公開サイトを第一候補とし、再現が必要な場合は`origin/main`の`461ab898e2c62583c1ae504470c3ceb169d2d363`をpinned referenceとして扱う。依存パッケージを巻き戻したり、reference側のpackage-lockを編集したりしない。
+
+### Product ownerが確認した候補
+
+既存のUI-04は、次の3項目へ分解して追跡する。いずれも`CONFIRMED BY PRODUCT OWNER / REFERENCE PARITY REQUIRED`である。
+
+- UI-04A: Vuetify visual parity — 「高度な設定」の配置
+- UI-04B: Vuetify visual parity — 表示モードfieldのvertical alignment
+- UI-04C: Vuetify visual parity — mobile typography
+
+追加の候補は次のとおりである。
+
+- UI-06: Backtrack mobile 「その他減少量」label clipping（`CONFIRMED RESPONSIVE DEFECT`）
+- UI-07: short-page footer placement（`CONFIRMED EXISTING LAYOUT DEFECT`）。これは現行公開版にも存在する既存不具合であり、migration regressionとは扱わない。
+- UI-08: Damage expected-value summary precision。certified boundsを小数1桁へ丸めて同じ値になる場合だけ、値を表示してよい。丸め結果が異なる場合のrepresentative value表示は、uncertaintyを測定してから別途判断する。
+
+UI-01のBacktrack 6px datalabelは`CONFIRMED READABILITY CONCERN`だが、UI-04、UI-06、UI-07より優先度を下げる。6px、8px、9pxを比較するが、Doughnutの形式、chart size、cutout、colors、threshold、3-chart構造、layoutは変えない。UI-05の既存multi-combo screenshotは、combo 2を追加しただけで入力が同一であり、series比較の証拠として不足しているため、`CAPTURE NEEDS CORRECTION`とする。
+
+### R23-Aのreview matrix
+
+| ID | 対象 | 分類 | 参照・候補 | Status |
+| --- | --- | --- | --- | --- |
+| UI-04A | 「高度な設定」 | CONFIRMED BY PRODUCT OWNER | current/referenceのheader、checkbox、text geometry | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-04B | 表示モードfield | CONFIRMED BY PRODUCT OWNER | label、value、underline、field height | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-04C | mobile typography | CONFIRMED BY PRODUCT OWNER | 代表的なpanel、field、button、summaryのcomputed style | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-06 | Backtrack「その他減少量」 | CONFIRMED RESPONSIVE DEFECT | parity後に12-column化またはstackを比較 | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-07 | short-page footer | CONFIRMED EXISTING LAYOUT DEFECT | flex shell prototype。fixed/absolute footerは禁止 | AWAITING PRODUCT-OWNER VISUAL REVIEW |
+| UI-08 | Damage期待値 | PRODUCT DECISION | stable boundedだけproduction採用。広い近似はaudit後に判断 | IMPLEMENTED / AUDIT PENDING |
+
+### Productionへ入れてよい変更
+
+R23-Aでproductionへ入れてよいのは、UI-08のpresentation formattingだけである。exact値、またはfiniteなbounded値のlower boundとupper boundを小数1桁へ丸めた結果が一致する場合に限り、その値を表示する。lower-bound、丸め結果が一致しないbounded値、NaN、Infinityは従来どおり`—`とする。この変更ではcalculation core、tail certificate、overflow、precision toleranceを変更しない。
+
+UI-04A、UI-04B、UI-04C、UI-06、UI-07、UI-01、UI-05の見た目は、比較画像とgeometry/style metricsを作成するだけで、product ownerの直接レビューまでproductionへ採用しない。
+
+### R23-Aの実験出力
+
+reference、current、prototypeは同じroute、入力、viewport、scroll位置、animation完了状態で比較する。style metricsはsemantic locatorを優先し、reference/current/deltaをJSONへ保存する。pixel-perfect snapshot testやCIの自動pass/fail判定にはしない。出力は`experiments/r23-ui-review/output/`以下のgitignored directoryへ保存し、大量のbinaryをcommitしない。
+
+Backtrackの6px、8px、9px比較はthrowaway worktreeまたは一時patchで行い、active branchへprototype sourceをcommitしない。visual parity、footer、responsive layoutについても同じ扱いとする。
+
+R23-Aの終了状態は`IN REVIEW`であり、production visual parity changesは`NOT YET ADOPTED`、product-owner visual reviewは`REQUIRED`である。UI-08のstable bounded表示だけは`ADOPTED / IMPLEMENTED`とし、より広い近似表示は`AUDITED / AWAITING PRODUCT DECISION`で停止する。
