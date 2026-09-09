@@ -22,7 +22,10 @@ import {
 import { createResultDigest } from '../experiments/r22-numerical-performance/result-digest.js'
 import { createTraceRecorder } from '../experiments/r22-numerical-performance/trace-dependencies.js'
 import { parseArgs } from '../experiments/r22-numerical-performance/node-benchmark.mjs'
-import { parseArgs as parseBrowserArgs } from '../experiments/r22-numerical-performance/playwright-runner.mjs'
+import {
+  parseArgs as parseBrowserArgs,
+  repeatableTriggers,
+} from '../experiments/r22-numerical-performance/playwright-runner.mjs'
 
 const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8')
@@ -157,6 +160,23 @@ describe('R22 numerical performance experiment contract', () => {
     expect(() => parseBrowserArgs(['--engines', 'unknown'])).toThrow(
       'unknown engine: unknown'
     )
+  })
+
+  it('counts a trigger once per full browser run across measurement modes', () => {
+    const trigger = {
+      id: 'dx-shihai-stress',
+      reason: 'long-task',
+      thresholdMs: 50,
+      observedMs: 100,
+    }
+    expect(repeatableTriggers([
+      { run: 1, report: { triggerEvaluation: { potentialTriggers: [trigger, trigger] } } },
+      { run: 2, report: { triggerEvaluation: { potentialTriggers: [trigger] } } },
+    ])).toEqual([{
+      ...trigger,
+      key: 'dx-shihai-stress:long-task',
+      runs: [1, 2],
+    }])
   })
 
   it('can construct a complete fixture set from prepared production envelopes', () => {

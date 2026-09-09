@@ -362,22 +362,26 @@ async function runSingle(server, engineId, options, runIndex) {
   }
 }
 
-function repeatableTriggers(runs) {
+export function repeatableTriggers(runs) {
   const byKey = new Map()
   for (const run of runs) {
     for (const trigger of run.report?.triggerEvaluation?.potentialTriggers ?? []) {
       const key = `${trigger.id}:${trigger.reason}`
-      const entry = byKey.get(key) ?? { ...trigger, key, runs: [] }
-      entry.runs.push(run.run)
+      const entry = byKey.get(key) ?? {
+        ...trigger,
+        key,
+        runSet: new Set(),
+      }
+      entry.runSet.add(run.run)
       byKey.set(key, entry)
     }
   }
   return Array.from(byKey.values())
-    .filter(({ runs: observedRuns }) => observedRuns.length >= 2)
-    .map(({ key, runs: observedRuns, ...trigger }) => ({
+    .filter(({ runSet }) => runSet.size >= 2)
+    .map(({ key, runSet, ...trigger }) => ({
       ...trigger,
       key,
-      runs: observedRuns,
+      runs: Array.from(runSet).sort((left, right) => left - right),
     }))
 }
 
