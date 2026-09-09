@@ -17,7 +17,7 @@ R20のdocs-only closure後のR21開始点は`15d3b2d0cd88c93c41d64b1c286e95f6135
 
 ## 分類方法
 
-候補は次の4分類で扱う。分類は現時点の暫定判断であり、削除を許可するものではない。
+候補は次の4分類で扱う。以下の分類と判断はR21監査の最終結果であり、D分類の削除を許可するものではない。
 
 - **A: production-required** — 現行feature、runtime、公開計算clientが必要とするもの
 - **B: release-verification-required** — release gate、architecture test、browser smoke、数値回帰に必要とするもの
@@ -39,30 +39,31 @@ git grep -n "<filename>"
 
 ## 現行インベントリ
 
-| 対象 | owner | production import / consumer | 検証・実験consumer | 暫定分類 | 次の判断 |
+| 対象 | owner | production import / consumer | 検証・実験consumer | 最終分類 | R21判断 |
 | --- | --- | --- | --- | --- | --- |
-| `src/runtime/AttackBatchInput.js` | runtime request boundary | `CalculationClient.js`がimportする。`useAttack`はincremental APIを使い、直接batchを呼ばない | `attackBatchClient.test.js`、integration test、phase2h browser benchmark | B | 検証・reference boundaryとして保持する |
-| `src/runtime/CalculationClient.js` | calculation runtime facade | Check、Attack、Backtrackのproduction client。batch methodも同じfacadeに残る | runtime contract、integration、browser smoke | A / B | facade全体を維持し、batch-only削除は別判断にする |
-| `src/runtime/CalculationClientTypes.ts` | TypeScript client contract | production clientの型。`calculateAttackBatch`を含む | typecheckとclient tests | A / B | 現行runtime facadeと検証境界の型を維持する |
-| `tests/attackBatchClient.test.js` | batch compatibility test | production featureからは直接呼ばれない | Vitest、batch入力snapshot・total・Abort・resource契約 | B | batch APIの検証境界として保持する |
-| `tests/attackFeatureArchitecture.test.js`、`attackContract.test.js` | Attack boundary tests | production featureのincremental ownershipを検査する | Vitest、batch依存をfeatureから排除する回帰 | B | 内部helper名ではなくfeatureのobservable contractを守る |
-| `tests/productionDependencyContract.test.js`、`runtimePresentationArchitecture.test.js`、`dataResponsibilitiesArchitecture.test.js`、`namingArchitecture.test.js` | architecture and dependency tests | production境界を検査する | Vitest、source import・命名・asset requestの回帰 | B | semantic boundaryを残し、実装文字列だけを固定するassertionを監査する |
-| `tests/releaseVerificationContract.test.js` | release gate contract | CIと`verify:release`の関係を検査する | Vitest、package script・workflow・README・差分検査 | B | release commandの役割を維持し、重複だけを整理する |
-| `src/calculation/planning/RangePolicy.js`、`ScoreRangePlanner.js`、`DamageCalculator.js` | calculation core | production Attackは`full-tail`を選択する | range、damage、runtime rule、comparison test | A | `published-bucket`を機械削除せず、意味を下記の互換監査で確定する |
-| `published-bucket` | explicit compatibility semantic | production defaultではなく、比較・互換計画で明示指定する | range planner、damage on-demand、integration、reference fixture | B / C | 公開assetと比較結果に必要かを確認し、必要なら境界をdocsとtestで固定する |
-| `full-tail` | current production semantic | production AttackのScoreからDamageへの伝播に使用する | full-tail benchmark、range・runtime・rule tests | A / B | `published-bucket`へ置換せず、現行意味論を維持する |
-| `experiments/r19-worker-architecture/` | architecture decision evidence | production importなし | Workerとhybrid clientの比較測定 | C | R19の判断根拠として保持する |
-| `experiments/r20-conservative-rendering/` | rendering decision evidence | production importなし | Line chart負荷とmarker variantの測定 | C | R20の採否判断として保持する |
-| `experiments/phase2h-browser/` | browser benchmark | production importなし | canonical Attack、full-tail resource、Playwright測定 | C / B候補 | 現行benchmark baselineと再現性の必要性を確認する |
-| `experiments/dynamic-distribution-ranges/` | historical planner record | production importなし | planner test、results、Phase 2の設計履歴 | C | 設計判断と測定の履歴として保持する |
-| `experiments/runtime-dr/`、`experiments/runtime-dx/` | historical runtime experiments | production importなし | 旧最適化・ブラウザ調査。DX検証は別のrelease scriptへ移行済み | C | 数値比較とWorker採否の歴史的証拠として保持する |
-| `scripts/verify-runtime-dx.mjs` | runtime verification | `verify:release`から実行する | runtime DX 20,000ケースの数値検証 | B | historical experimentと混同せず維持する |
-| `scripts/benchmark-full-tail-attack.mjs` | current resource benchmark | production importなし | `benchmark:full-tail-attack`、full-tail resource回帰 | B / C | 現行resource判断のbaselineかどうかを確認する |
-| `public/data/schema-v2/revision-1/**` | public reference asset | canonical runtimeはD10をon-demand生成し、静的asset requestはproduction smokeで0を確認する | data verification、generator、manifest、reference comparison | B / C | 公開URLを削除せず、外部互換性を別decisionに送る |
-| `schemas/**` | schema contract | production bundleの計算経路ではない | generatorとdata validator | B / C | schema-v2の再生成・検証契約を維持する |
-| `generator/**` | regeneration tool | production bundleには含めない | `data:check`、generator test、simulation、Ruff | B / C | Python generatorを正本として保持し、環境依存だけを整理する |
-| `tooling/reference-data/**` | reference repository and validator | production bundleには含めない | schema、reference ingestion、asset contract | B / C | public assetとreference comparisonの責務を維持する |
-| `package.json`のrelease・benchmark scripts | project tooling | `verify:release`はCIと開発者手順から利用する | release verification、benchmark contract | B | experimentを削除する場合だけ孤立scriptを同時整理する |
+| `src/runtime/AttackBatchInput.js` | runtime request boundary | `CalculationClient.js`がimportする。`useAttack`はincremental APIを使い、直接batchを呼ばない | `attackBatchClient.test.js`、integration test、phase2h browser benchmark | B | KEEP — verification/reference boundary |
+| `src/runtime/CalculationClient.js` | calculation runtime facade | Check、Attack、Backtrackのproduction client。batch methodも同じfacadeに残る | runtime contract、integration、browser smoke | A / B | KEEP — production facade; batch-only removal requires separate consumer migration |
+| `src/runtime/CalculationClientTypes.ts` | TypeScript client contract | production clientの型。`calculateAttackBatch`を含む | typecheckとclient tests | A / B | KEEP — current runtime facade contract |
+| `tests/attackBatchClient.test.js` | batch compatibility test | production featureからは直接呼ばれない | Vitest、batch入力snapshot・total・Abort・resource契約 | B | KEEP — batch verification boundary |
+| `tests/attackFeatureArchitecture.test.js`、`attackContract.test.js` | Attack boundary tests | production featureのincremental ownershipを検査する | Vitest、batch依存をfeatureから排除する回帰 | B | KEEP — current semantic/dependency boundary |
+| `tests/productionDependencyContract.test.js`、`runtimePresentationArchitecture.test.js`、`dataResponsibilitiesArchitecture.test.js`、`namingArchitecture.test.js` | architecture and dependency tests | production境界を検査する | Vitest、source import・命名・asset requestの回帰 | B | KEEP — current semantic/dependency boundary |
+| `tests/releaseVerificationContract.test.js` | release gate contract | CIと`verify:release`の関係を検査する | Vitest、package script・workflow・README・差分検査 | B | KEEP — canonical release-gate contract |
+| `src/calculation/planning/RangePolicy.js`、`ScoreRangePlanner.js`、`DamageCalculator.js` | calculation core | production Attackは`full-tail`を選択する | range、damage、runtime rule、comparison test | A | KEEP — current calculation policy and propagation owner |
+| `published-bucket` | explicit compatibility semantic | production defaultではなく、比較・互換計画で明示指定する | range planner、damage on-demand、integration、reference fixture | B / C | KEEP — explicit compatibility boundary |
+| `full-tail` | current production semantic | production AttackのScoreからDamageへの伝播に使用する | full-tail benchmark、range・runtime・rule tests | A / B | KEEP — canonical production Attack propagation semantic |
+| `experiments/r19-worker-architecture/` | architecture decision evidence | production importなし | Workerとhybrid clientの比較測定 | C | KEEP — current Worker architecture decision evidence |
+| `experiments/r20-conservative-rendering/` | rendering decision evidence | production importなし | Line chart負荷とmarker variantの測定 | C | KEEP — current rendering/product decision evidence |
+| `experiments/phase2h-browser/` | browser benchmark | production importなし | canonical Attack、full-tail resource、Playwright測定 | B / C | KEEP — current benchmark / verification surface |
+| `experiments/dynamic-distribution-ranges/` | historical planner record | production importなし | planner test、results、Phase 2の設計履歴 | C | KEEP — planner / working-range / published-bucket vs full-tail design history |
+| `experiments/runtime-dr/` | runtime damage verification experiment | production importなし | runtime damage test、reference・optimized比較、benchmark・verification script | B / C | KEEP — active numerical verification/reference surface |
+| `experiments/runtime-dx/` | runtime DX browser experiment | production importなし | READMEに記録したWorker採否の測定 | C | KEEP — historical decision evidence; canonical verification has migrated elsewhere |
+| `scripts/verify-runtime-dx.mjs` | runtime verification | `verify:release`から実行する | runtime DX 20,000ケースの数値検証 | B | KEEP — canonical release verification |
+| `scripts/benchmark-full-tail-attack.mjs` | current resource benchmark | production importなし | `benchmark:full-tail-attack`、full-tail resource回帰 | B / C | KEEP — current full-tail resource/regression baseline |
+| `public/data/schema-v2/revision-1/**` | public reference asset | canonical runtimeはD10をon-demand生成し、静的asset requestはproduction smokeで0を確認する | data verification、generator、manifest、reference comparison | B / C | KEEP — public reference/regeneration compatibility; URL retirement requires separate release decision |
+| `schemas/**` | schema contract | production bundleの計算経路ではない | generatorとdata validator | B / C | KEEP — schema/reference verification contract |
+| `generator/**` | regeneration tool | production bundleには含めない | `data:check`、generator test、simulation、Ruff | B / C | KEEP — canonical reference-data regeneration/verification tool |
+| `tooling/reference-data/**` | reference repository and validator | production bundleには含めない | schema、reference ingestion、asset contract | B / C | KEEP — reference ingestion / validation owner |
+| `package.json`のrelease・benchmark scripts | project tooling | `verify:release`はCIと開発者手順から利用する | release verification、benchmark contract | B | KEEP — active release / benchmark tooling |
 
 ## Attack batch surfaceの現状
 
@@ -130,7 +131,7 @@ R19とR20のexperimentは直近のarchitecture・product decisionの証拠であ
 
 `experiments/runtime-dr/`は`verify-runtime-dr-experiment.mjs`、`benchmark-runtime-dr-experiment.mjs`、runtime damageのtestから参照され、reference・optimized実装の数値比較に使われるため保持する。`experiments/dynamic-distribution-ranges/`はproduction importを持たないが、planner、decision、benchmark、resultsが入力範囲・working range・`published-bucket`と`full-tail`の設計履歴を構成するため、現時点ではCとして保持する。
 
-`experiments/runtime-dx/`はproduction import、package script、release gateから参照されず、`scripts/verify-runtime-dx.mjs`へ検証が移行済みである。ただしREADMEに記録されたブラウザ測定値は、Worker採否の歴史的証拠として再利用できる。R21-5では削除せず、測定結果をlive docsへ移したうえで、再現性を失わないかを確認してからD候補の最終判断を行う。
+`experiments/runtime-dx/`はproduction import、package script、release gateから参照されず、canonical verificationは`scripts/verify-runtime-dx.mjs`へ移行済みである。READMEに記録されたブラウザ測定値はWorker採否の歴史的証拠として保持するため、R21の最終判断は`KEEP — historical decision evidence`とする。将来削除する場合は、歴史的証拠の移管と再現性の再監査を含む独立作業で扱う。
 
 ### R21-6・R21-7監査結果（2026-09-09）
 
@@ -140,15 +141,17 @@ R2〜R19のrefactoring documentには、当時のpathやmigration用語を含む
 
 reference assetの公開URL、schema、generator出力は変更しない。READMEやarchitecture docsへ将来のAPI・MCP・Cloudflare Worker実装を先取りして追加せず、R24のrelease auditまで現在の静的SPA方針を正本とする。
 
-## 次の作業単位
+## R21で実施した監査
 
-1. R21-2: `AttackBatchInput`、`calculateAttackBatch`、batch-only typeとtestのconsumerを再検索し、保持または削除候補の根拠を確定する。
-2. R21-3: `published-bucket`のcompatibility boundaryをdocsとarchitecture testで固定するか、production runtimeから局所化する。
-3. R21-4: architecture testをsemantic boundaryとhistorical implementation detailに分け、不要なsource-string assertionだけを整理する。
-4. R21-5: experiment、benchmark、package scriptの依存を分類し、削除可能なraw artifactと孤立commandを確認する。
-5. R21-6: reference asset、generator、schema、README、architecture docsの責務と説明を最終整合させる。
+- R21-1 inventory — COMPLETE
+- R21-2 Attack batch — KEEP
+- R21-3 published-bucket — KEEP
+- R21-4 architecture tests — KEEP
+- R21-5 experiments — KEEP
+- R21-6 reference assets — KEEP
+- R21-7 live docs — CURRENT
 
-各作業単位の前後で、UI凍結対象に差分がないこと、`npm run verify:release`または変更範囲に応じた検証が成功すること、`git diff --check`が成功することを確認する。
+各監査ではUI凍結対象に差分を作らず、consumer、公開互換性、再現性、release gateへの影響を確認した。
 
 ## R21の判定
 
