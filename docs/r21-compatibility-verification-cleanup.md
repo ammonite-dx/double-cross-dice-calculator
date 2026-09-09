@@ -98,6 +98,14 @@ READMEとCONTRIBUTINGにはbatch APIを外部サポートAPIとして説明す�
 
 監査が終わるまで、public asset、generator、reference fixture、`full-tail`の意味は変更しない。
 
+### R21-3監査結果（2026-09-09）
+
+`src/calculation/planning/RangePolicy.js`の`DEFAULT_POLICY`は、直接plannerを使う既存比較との互換性のため`published-bucket`を既定値として保持する。一方、`src/runtime/CalculationClient.js`のAttack経路は、range policyが未指定または`scorePropagation`を含まない場合に`full-tail`を明示し、productionのScoreからDamageへの尾部伝播を維持する。呼び出し側が`scorePropagation: 'published-bucket'`を明示すれば、比較・互換用の計画を再現できる。
+
+`published-bucket`のconsumerは`RangePolicy`、`ScoreRangePlanner`、`DamageCalculator`、CalculationClient integration、range・damage・runtime rule tests、dynamic-distribution-rangesのplannerと結果記録である。READMEも、インデックス1023への集約が計算結果や最終表示の上限ではなく、互換比較だけの形式であることを説明している。`full-tail`はproduction Attack、full-tail resource benchmark、runtimeとbrowser回帰で使用される。
+
+以上から、R21-3の判定は`KEEP — explicit compatibility boundary`とする。`published-bucket`を`full-tail`へ機械置換したり、`DEFAULT_POLICY`から削除したりすると、旧形式との比較、reference fixture、既存のplanner契約を同時に変更してしまう。R21では両semanticの役割を文書とテストで固定し、public asset・generator・比較fixtureの形式を変更しない。
+
 ## 検証資産とarchitecture test
 
 `verify:release`は、Node、data、Vitest、generator、simulation、Ruff、typecheck、runtime DX、ESLint、Markdown lint、build、production smoke、差分検査を順序付きで実行する。このrelease gateと`verify-runtime-dx`は、historical experimentではなく現行の検証資産として保持する。
