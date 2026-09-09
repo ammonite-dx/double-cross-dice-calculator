@@ -77,6 +77,14 @@ batch surfaceを削除できると判断するには、少なくとも次をす�
 
 条件を満たさない間は`KEEP — <specific reason>`としてこの文書へ追記し、source削除を行わない。
 
+### R21-2監査結果（2026-09-09）
+
+`git grep`で確認したproduction source上のbatch importは`src/runtime/CalculationClient.js`から`AttackBatchInput.js`へのものだけである。`useAttack`と`AttackIncrementalExecution`は`calculateAttack`と`calculateTotalDamage`を使い、`calculateAttackBatch`を呼ばない。したがって、batchは現行Attack featureの計算経路ではないが、CalculationClientの公開runtime facadeには残っている。
+
+batchのtest consumerは`tests/attackBatchClient.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js`、`tests/attackRuntimeWorkerContract.test.js`、`tests/attackScoreDisplayAdapter.test.js`、`tests/attackDisplayIntegration.test.js`などである。`tests/attackFeatureArchitecture.test.js`と`tests/attackContract.test.js`は、production featureがbatchへ依存しないことを回帰として検査する。experiment側では`experiments/phase2h-browser/`が、productionの公開batch境界を測定対象として明示している。
+
+READMEとCONTRIBUTINGにはbatch APIを外部サポートAPIとして説明する記述はない。しかし、現行のrelease・benchmark・architecture回帰はbatch入力snapshot、Worker provider、total aggregationの境界を通じて検証されている。よって、R21-2の判定は`KEEP — verification/reference boundary`とする。`AttackBatchInput`、batch method、batch-only type、batch専用testを削除するには、これらの検証をincremental経路または別の最小helperへ移し、公開runtime facadeからの参照を0にする独立作業が必要である。R21-2ではその移行と削除を行わない。
+
 ## `published-bucket`と`full-tail`の互換監査
 
 `published-bucket`は旧1024 bucketを表す互換semanticで、`full-tail`はproduction Attackの尾部をDamageへ伝播する現行semanticである。両者は確率分布の近似精度とDamage rangeの意味が異なるため、名称だけを置換してはならない。
