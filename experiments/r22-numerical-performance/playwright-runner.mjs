@@ -312,6 +312,11 @@ async function runSingle(server, engineId, options, runIndex) {
         rate: engine.cpuThrottlingRate,
       })
     }
+    if (process.env.R22_START_SHA) {
+      await page.addInitScript((sha) => {
+        window.__r22StartSha = sha
+      }, process.env.R22_START_SHA)
+    }
 
     const query = new URLSearchParams()
     if (options.iterations !== null) {

@@ -422,7 +422,7 @@ function buildMetadata(options, stressSelection, workerStartupMs) {
   return {
     benchmark: 'r22-numerical-performance',
     schemaVersion: 1,
-    startSha: null,
+    startSha: window.__r22StartSha ?? null,
     generatedAt: new Date().toISOString(),
     environment: {
       userAgent: navigator.userAgent,
