@@ -116,4 +116,3 @@ function estimateValueBytesInternal(value, seen) {
 export function estimateValueBytes(value) {
   return estimateValueBytesInternal(value, new WeakSet())
 }
-

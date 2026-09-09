@@ -139,4 +139,3 @@ export function rankSyncHotspots(records) {
   }))
     .sort((left, right) => right.totalMs - left.totalMs)
 }
-
