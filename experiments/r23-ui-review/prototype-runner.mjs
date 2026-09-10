@@ -11,6 +11,7 @@ import {
   validateBundleReplacementStats,
 } from './bundle-replacement.mjs'
 import { validateDomPreparationResult } from './prototype-contracts.mjs'
+import { BACKTRACK_LABEL_STRESS_FIXTURES } from './backtrack-label-stress-fixtures.js'
 import { SCENARIOS, VIEWPORTS, validateScenarioDefinitions } from './scenarios.js'
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
@@ -22,6 +23,42 @@ const PREVIEW_TIMEOUT_MS = 30_000
 const PAGE_TIMEOUT_MS = 60_000
 const STABLE_SAMPLE_INTERVAL_MS = 100
 const REQUIRED_STABLE_SAMPLES = 2
+
+const BACKTRACK_NUMBER_FIELD_INDEX = Object.freeze({
+  encroachment: 0,
+  lois: 1,
+  elois: 2,
+  dice: 3,
+  value: 4,
+})
+
+const BACKTRACK_LABEL_STRESS_SCENARIOS = Object.freeze(
+  Object.values(BACKTRACK_LABEL_STRESS_FIXTURES).map((fixture) => Object.freeze({
+    id: fixture.id,
+    route: '/backtrack',
+    viewport: 'mobile',
+    screenshot: `${fixture.id}.png`,
+    initialCanvases: 3,
+    expectedCanvases: 3,
+    steps: Object.freeze([
+      ...Object.entries(fixture.params)
+        .filter(([field]) => Object.hasOwn(BACKTRACK_NUMBER_FIELD_INDEX, field))
+        .map(([field, value]) => Object.freeze({
+          type: 'fill',
+          target: 'backtrack-param',
+          field,
+          value,
+        })),
+      ...(fixture.params.dlois === 'なし'
+        ? []
+        : [Object.freeze({
+            type: 'select',
+            label: 'バックトラックに影響するDロイス',
+            option: fixture.params.dlois,
+          })]),
+    ]),
+  })),
+)
 
 const FOOTER_SCENARIOS = Object.freeze([
   Object.freeze({
@@ -153,6 +190,24 @@ const VARIANTS = Object.freeze({
       SCENARIOS.find(({ id }) => id === 'backtrack-mobile-livingdead'),
     ]),
     bundleReplacement: Object.freeze({ from: 't?12:6', to: 't?12:9' }),
+  }),
+  'backtrack-label-8-stress': Object.freeze({
+    bodyClass: 'r23-backtrack-label-8',
+    scenarios: BACKTRACK_LABEL_STRESS_SCENARIOS,
+    bundleReplacement: Object.freeze({ from: 't?12:6', to: 't?12:8' }),
+  }),
+  'backtrack-label-9-stress': Object.freeze({
+    bodyClass: 'r23-backtrack-label-9',
+    scenarios: BACKTRACK_LABEL_STRESS_SCENARIOS,
+    bundleReplacement: Object.freeze({ from: 't?12:6', to: 't?12:9' }),
+  }),
+  'backtrack-label-9-adaptive-stress': Object.freeze({
+    bodyClass: 'r23-backtrack-label-9-adaptive',
+    scenarios: BACKTRACK_LABEL_STRESS_SCENARIOS,
+    bundleReplacement: Object.freeze({
+      from: 't?12:6,weight:`bold`}}},textAlign:`center`,formatter:',
+      to: 't?12:9,weight:`bold`}}},textAlign:`center`,anchor:(e)=>{let t=e.dataset.data[e.dataIndex];return t>=10&&t<15?`end`:`center`},align:(e)=>{let t=e.dataset.data[e.dataIndex];return t>=10&&t<15?`start`:`center`},offset:(e)=>{let t=e.dataset.data[e.dataIndex];return t>=10&&t<15?2:0},formatter:',
+    }),
   }),
   'advanced-setting-parity': Object.freeze({
     bodyClass: 'r23-advanced-setting-parity',
@@ -474,6 +529,12 @@ async function executeStep(page, step) {
       const damageDice = page.getByLabel('攻撃力').nth(step.comboIndex)
       const group = damageDice.locator('xpath=ancestor::div[contains(@class,"v-row")][1]')
       input = group.locator('input[type="number"]').nth(1)
+    } else if (step.target === 'backtrack-param') {
+      const index = BACKTRACK_NUMBER_FIELD_INDEX[step.field]
+      if (index === undefined) {
+        throw new Error(`unknown backtrack parameter field: ${step.field}`)
+      }
+      input = page.locator('.v-form').first().locator('input[type="number"]').nth(index)
     } else {
       input = page.getByLabel(step.label).nth(step.index)
     }
@@ -638,7 +699,13 @@ async function collectPrototypeMetrics(page) {
     const textElements = (text) => [...document.querySelectorAll('body *')]
       .filter((element) => visible(element) && element.textContent?.trim() === text)
       .sort((left, right) => left.children.length - right.children.length)
-    const otherLabel = textElements('その他減少量')[0] ?? null
+    const otherLabels = textElements('その他減少量')
+    const otherLabel = otherLabels.find((element) => (
+      !element.classList.contains('r23-compound-label-text')
+    )) ?? null
+    const compoundVisualLabel = otherLabels.find((element) => (
+      element.classList.contains('r23-compound-label-text')
+    )) ?? null
     const otherField = otherLabel?.closest('.v-field, .v-input') ?? null
     const otherGroup = otherField?.closest('.v-col') ?? null
     const otherOuterGroup = otherGroup?.parentElement?.parentElement ?? null
@@ -660,6 +727,7 @@ async function collectPrototypeMetrics(page) {
       viewport,
       otherReduction: {
         label: rect(otherLabel),
+        visualLabel: rect(compoundVisualLabel),
         field: rect(otherField),
         group: rect(otherGroup),
         nestedRow: rect(otherGroup?.parentElement),
