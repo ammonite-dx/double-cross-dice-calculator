@@ -26,6 +26,23 @@ function attack({
 
 export const DAMAGE_PRECISION_FIXTURES = Object.freeze([
   Object.freeze({
+    id: 'public-v3-1-default',
+    label: 'public v3.1 default attack',
+    category: 'public-reference',
+    reference: Object.freeze({
+      expectedDamageExpectation: 3.1,
+      source: 'public reference screenshot',
+    }),
+    params: attack({
+      actionScore: score({ dice: 1, critical: 10 }),
+      reactionScore: score({ dice: 1, critical: 10 }),
+      attackDice: 0,
+      attackValue: 0,
+      defenceDice: 0,
+      defenceValue: 0,
+    }),
+  }),
+  Object.freeze({
     id: 'ordinary-attack',
     label: 'ordinary attack',
     category: 'ordinary',
