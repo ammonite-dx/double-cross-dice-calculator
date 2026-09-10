@@ -54,3 +54,51 @@ runnerはcanvasが可視になり、描画フレームが安定するまで待�
 ## 判断の範囲
 
 このcaptureの成功は、UI変更の承認を意味しない。product ownerがbaselineを確認し、候補ごとに`ADOPT`、`REVISE`、`REJECT`を決めた後で、個別prototypeとproduction実装へ進む。R23準備段階ではproduction UI、計算、Worker、公開assetを変更しない。
+
+## Visual prototypes
+
+prototypeはproduction CSSやchart sourceを変更せず、build済み`dist/`へ一時的なCSSまたはJavaScript patchを注入して比較画像を作る。実行前に次を行う。
+
+```powershell
+npm run build
+```
+
+全variantを実行するコマンドは次のとおりである。
+
+```powershell
+npm run review:r23:prototype -- --variant=visual-parity
+npm run review:r23:prototype -- --variant=backtrack-other-reduction-wide
+npm run review:r23:prototype -- --variant=backtrack-other-reduction-stack
+npm run review:r23:prototype -- --variant=footer-flex
+npm run review:r23:prototype -- --variant=backtrack-label-6
+npm run review:r23:prototype -- --variant=backtrack-label-8
+npm run review:r23:prototype -- --variant=backtrack-label-9
+```
+
+npmの引数転送を使わずに実行する場合は、次の形式を使う。
+
+```powershell
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-label-8
+```
+
+scenarioを絞る場合は、variantとカンマ区切りのscenario IDを指定する。
+
+```powershell
+node experiments/r23-ui-review/prototype-runner.mjs `
+  --variant=backtrack-label-8 `
+  --scenarios=backtrack-mobile
+```
+
+variantの目的は次のとおりである。
+
+| Variant | 目的 |
+| --- | --- |
+| `visual-parity` | currentを公開版referenceのfield geometry・header alignmentへ寄せる候補 |
+| `backtrack-other-reduction-wide` | mobileの「その他減少量」outer groupを全幅へ広げる候補 |
+| `backtrack-other-reduction-stack` | mobileでnested fieldsを縦積みする候補 |
+| `footer-flex` | fixedではないnormal-flowのfooter shellを試す候補 |
+| `backtrack-label-6` / `8` / `9` | mobile Doughnutのdatalabel fontを比較する候補 |
+
+8pxと9pxのlabel variantだけは、build済みJavaScript内の対象文字列をexperiment-onlyで置換する。targetの出現回数がscenarioごとにちょうど1回でない場合、runnerは失敗する。6pxはproduction buildそのものなのでbundle replacementは行わない。production source、公開asset、計算結果にはこのpatchを接続しない。
+
+画像と`report.json`は`experiments/r23-ui-review/output/prototypes/<variant>/`へ出力される。このdirectoryはgitignoredである。captureの成功はproduction採用を意味せず、比較後にproduct ownerが`ADOPT`、`REVISE`、`REJECT`を決める。

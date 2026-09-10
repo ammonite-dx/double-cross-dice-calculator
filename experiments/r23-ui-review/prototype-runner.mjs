@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url'
 
 import { chromium } from 'playwright'
 
+import {
+  applyBundleReplacement,
+  validateBundleReplacementStats,
+} from './bundle-replacement.mjs'
 import { SCENARIOS, VIEWPORTS, validateScenarioDefinitions } from './scenarios.js'
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
@@ -492,6 +496,8 @@ async function preparePage(page, variant) {
         ...variant.bundleReplacement,
         responseCount: 0,
         replacementCount: 0,
+        matchedResponseCount: 0,
+        matchedResponseUrls: [],
       }
   if (variant.bundleReplacement === null || variant.bundleReplacement === undefined) {
     return patchStats
@@ -500,15 +506,21 @@ async function preparePage(page, variant) {
   await page.route('**/*.js', async (route) => {
     const response = await route.fetch()
     const body = await response.text()
+    const replacement = applyBundleReplacement(body, { from, to })
     patchStats.responseCount += 1
-    patchStats.replacementCount += body.split(from).length - 1
-    const patched = body.replaceAll(from, to)
-    await route.fulfill({ response, body: patched })
+    patchStats.replacementCount += replacement.replacementCount
+    if (replacement.replacementCount > 0) {
+      patchStats.matchedResponseCount += 1
+      if (patchStats.matchedResponseUrls.length < 4) {
+        patchStats.matchedResponseUrls.push(new URL(route.request().url()).pathname)
+      }
+    }
+    await route.fulfill({ response, body: replacement.source })
   })
   return patchStats
 }
 
-async function runScenario(browser, baseUrl, scenario, variant, variantOutputDirectory) {
+async function runScenario(browser, baseUrl, scenario, variant, variantId, variantOutputDirectory) {
   const context = await browser.newContext({ viewport: VIEWPORTS[scenario.viewport] })
   const page = await context.newPage()
   const diagnostics = createDiagnostics(page, baseUrl)
@@ -528,6 +540,10 @@ async function runScenario(browser, baseUrl, scenario, variant, variantOutputDir
       await page.addStyleTag({ path: join(VARIANT_DIRECTORY, variant.stylesheet) })
     }
     await waitForCanvases(page, scenario.initialCanvases)
+    validateBundleReplacementStats(patchStats, {
+      variantId,
+      scenarioId: scenario.id,
+    })
     for (const step of scenario.steps) {
       await executeStep(page, step)
     }
@@ -626,7 +642,14 @@ try {
   browser = await launchChromium()
   for (const scenario of selectedScenarios) {
     try {
-      results.push(await runScenario(browser, server.baseUrl, scenario, variant, variantOutputDirectory))
+      results.push(await runScenario(
+        browser,
+        server.baseUrl,
+        scenario,
+        variant,
+        options.variantId,
+        variantOutputDirectory,
+      ))
     } catch (error) {
       results.push({ id: scenario.id, status: 'failed', error: formatError(error) })
     }
