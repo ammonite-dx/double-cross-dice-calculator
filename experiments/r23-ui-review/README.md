@@ -67,9 +67,15 @@ npm run build
 
 ```powershell
 npm run review:r23:prototype -- --variant=visual-parity
+npm run review:r23:prototype -- --variant=advanced-setting-parity
+npm run review:r23:prototype -- --variant=setting-form-parity
+npm run review:r23:prototype -- --variant=scoped-visual-parity
 npm run review:r23:prototype -- --variant=backtrack-other-reduction-wide
 npm run review:r23:prototype -- --variant=backtrack-other-reduction-stack
+npm run review:r23:prototype -- --variant=backtrack-other-reduction-compound-label
 npm run review:r23:prototype -- --variant=footer-flex
+npm run review:r23:prototype -- --variant=footer-short-baseline
+npm run review:r23:prototype -- --variant=footer-short-flex
 npm run review:r23:prototype -- --variant=backtrack-label-6
 npm run review:r23:prototype -- --variant=backtrack-label-8
 npm run review:r23:prototype -- --variant=backtrack-label-9
@@ -93,12 +99,23 @@ variantの目的は次のとおりである。
 
 | Variant | 目的 |
 | --- | --- |
-| `visual-parity` | currentを公開版referenceのfield geometry・header alignmentへ寄せる候補 |
+| `visual-parity` | 過剰に広いselectorを使った旧案。比較証拠として残すが、production実装には使わない |
+| `advanced-setting-parity` | semantic markerを付けた「高度な設定」controlだけを公開版referenceへ寄せる候補 |
+| `setting-form-parity` | semantic markerを付けたSettingFormの最小値・最大値・表示モードだけを寄せる候補 |
+| `scoped-visual-parity` | 上記2つだけを同時に適用する候補 |
 | `backtrack-other-reduction-wide` | mobileの「その他減少量」outer groupを全幅へ広げる候補 |
 | `backtrack-other-reduction-stack` | mobileでnested fieldsを縦積みする候補 |
-| `footer-flex` | fixedではないnormal-flowのfooter shellを試す候補 |
+| `backtrack-other-reduction-compound-label` | mobileの2入力をcompound labelでまとめる候補。列幅と行高は維持する |
+| `footer-flex` | 既存routeでfixedではないnormal-flowのfooter shellを試す候補 |
+| `footer-short-baseline` / `footer-short-flex` | 同一のsynthetic short-pageでbaselineとnormal-flow flexを比較する候補 |
 | `backtrack-label-6` / `8` / `9` | mobile Doughnutのdatalabel fontを比較する候補 |
 
 8pxと9pxのlabel variantだけは、build済みJavaScript内の対象文字列をexperiment-onlyで置換する。targetの出現回数がscenarioごとにちょうど1回でない場合、runnerは失敗する。6pxはproduction buildそのものなのでbundle replacementは行わない。production source、公開asset、計算結果にはこのpatchを接続しない。
+
+form prototypeはproduction markupを変更しない。runnerがexact textから「高度な設定」のcontrol（Check 1件、Attack 2件）と、最小値・最大値・表示モードを含むSettingForm row（Check 1件、Attack 2件）へsemantic markerを付け、対象件数が異なる場合はfail-closedで停止する。`visual-parity`はこの安全性を満たさない旧案として、REJECTEDの比較証拠に限って使用する。
+
+`backtrack-other-reduction-compound-label`は、既存のmobile outer `cols=6`とnested `6 / 6`を維持したまま、2つのinputに「その他減少量（ダイス）」「その他減少量（固定値）」のaccessible nameを付け、compound wrapperの視覚labelを追加する。wide/stack案のように列幅や行高は変更しない。
+
+`footer-short-baseline`と`footer-short-flex`は、Check routeの内容をreview-onlyで空にして短いページを作る。同じDOM短縮条件でbaselineではfooterがviewport上端直後に残り、flex案ではfooterが通常flowのままviewport下端へ寄ることをgeometryへ記録する。実routeのlong-page regressionは既存`footer-flex`で確認する。
 
 画像と`report.json`は`experiments/r23-ui-review/output/prototypes/<variant>/`へ出力される。このdirectoryはgitignoredである。captureの成功はproduction採用を意味せず、比較後にproduct ownerが`ADOPT`、`REVISE`、`REJECT`を決める。

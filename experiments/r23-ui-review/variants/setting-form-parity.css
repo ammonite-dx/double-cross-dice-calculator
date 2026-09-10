@@ -1,0 +1,20 @@
+/* R23-B experiment-only: restore reference field geometry inside marked
+ * SettingForm rows without changing unrelated text fields or switches. */
+
+body.r23-setting-form-parity .r23-setting-form-parity > .v-col .v-text-field .v-field__input {
+  height: 40px;
+  min-height: 40px;
+  padding-top: 14px;
+  padding-bottom: 2px;
+}
+
+body.r23-setting-form-parity .r23-setting-form-parity > .v-col .v-select .v-field__input {
+  height: 40px;
+  min-height: 40px;
+  padding-top: 14px;
+  padding-bottom: 2px;
+}
+
+body.r23-setting-form-parity .r23-setting-form-parity > .v-col .v-field {
+  min-height: 40px;
+}

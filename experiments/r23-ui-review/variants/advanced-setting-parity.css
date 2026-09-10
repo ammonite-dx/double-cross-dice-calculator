@@ -1,0 +1,19 @@
+/* R23-B experiment-only: scope the reference-oriented header alignment to the
+ * actual "高度な設定" controls marked by prototype-runner.mjs. */
+
+body.r23-advanced-setting-parity .r23-advanced-setting-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 20px;
+}
+
+body.r23-advanced-setting-parity .r23-advanced-setting-control .v-checkbox-btn {
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+}
+
+body.r23-advanced-setting-parity .r23-advanced-setting-control .v-selection-control {
+  min-height: 28px;
+}

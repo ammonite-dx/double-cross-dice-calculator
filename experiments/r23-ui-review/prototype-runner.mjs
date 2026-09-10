@@ -10,6 +10,7 @@ import {
   applyBundleReplacement,
   validateBundleReplacementStats,
 } from './bundle-replacement.mjs'
+import { validateDomPreparationResult } from './prototype-contracts.mjs'
 import { SCENARIOS, VIEWPORTS, validateScenarioDefinitions } from './scenarios.js'
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
@@ -100,7 +101,7 @@ const FOOTER_SCENARIOS = Object.freeze([
 const VARIANTS = Object.freeze({
   'visual-parity': Object.freeze({
     bodyClass: 'r23-visual-parity',
-    stylesheet: 'visual-parity.css',
+    stylesheets: Object.freeze(['visual-parity.css']),
     scenarios: Object.freeze([
       SCENARIOS.find(({ id }) => id === 'check-desktop-ordinary'),
       SCENARIOS.find(({ id }) => id === 'check-mobile-ordinary'),
@@ -110,7 +111,7 @@ const VARIANTS = Object.freeze({
   }),
   'backtrack-other-reduction-wide': Object.freeze({
     bodyClass: 'r23-backtrack-wide',
-    stylesheet: 'backtrack-other-reduction-wide.css',
+    stylesheets: Object.freeze(['backtrack-other-reduction-wide.css']),
     scenarios: Object.freeze([
       SCENARIOS.find(({ id }) => id === 'backtrack-mobile'),
       SCENARIOS.find(({ id }) => id === 'backtrack-mobile-livingdead'),
@@ -118,7 +119,7 @@ const VARIANTS = Object.freeze({
   }),
   'backtrack-other-reduction-stack': Object.freeze({
     bodyClass: 'r23-backtrack-stack',
-    stylesheet: 'backtrack-other-reduction-stack.css',
+    stylesheets: Object.freeze(['backtrack-other-reduction-stack.css']),
     scenarios: Object.freeze([
       SCENARIOS.find(({ id }) => id === 'backtrack-mobile'),
       SCENARIOS.find(({ id }) => id === 'backtrack-mobile-livingdead'),
@@ -126,7 +127,7 @@ const VARIANTS = Object.freeze({
   }),
   'footer-flex': Object.freeze({
     bodyClass: 'r23-footer-flex',
-    stylesheet: 'footer-flex.css',
+    stylesheets: Object.freeze(['footer-flex.css']),
     scenarios: FOOTER_SCENARIOS,
   }),
   'backtrack-label-6': Object.freeze({
@@ -152,6 +153,101 @@ const VARIANTS = Object.freeze({
       SCENARIOS.find(({ id }) => id === 'backtrack-mobile-livingdead'),
     ]),
     bundleReplacement: Object.freeze({ from: 't?12:6', to: 't?12:9' }),
+  }),
+  'advanced-setting-parity': Object.freeze({
+    bodyClass: 'r23-advanced-setting-parity',
+    stylesheets: Object.freeze(['advanced-setting-parity.css']),
+    domPreparation: Object.freeze({ advancedExpected: 1 }),
+    scenarios: Object.freeze([
+      SCENARIOS.find(({ id }) => id === 'check-desktop-ordinary'),
+      SCENARIOS.find(({ id }) => id === 'check-mobile-ordinary'),
+    ]),
+  }),
+  'setting-form-parity': Object.freeze({
+    bodyClass: 'r23-setting-form-parity',
+    stylesheets: Object.freeze(['setting-form-parity.css']),
+    domPreparation: Object.freeze({
+      settingExpectedByRoute: Object.freeze({ '/check': 1, '/attack': 2 }),
+    }),
+    scenarios: Object.freeze([
+      SCENARIOS.find(({ id }) => id === 'check-desktop-ordinary'),
+      SCENARIOS.find(({ id }) => id === 'check-mobile-ordinary'),
+    ]),
+  }),
+  'scoped-visual-parity': Object.freeze({
+    bodyClass: 'r23-scoped-visual-parity',
+    stylesheets: Object.freeze([
+      'advanced-setting-parity.css',
+      'setting-form-parity.css',
+    ]),
+    domPreparation: Object.freeze({
+      advancedExpectedByRoute: Object.freeze({ '/check': 1, '/attack': 2 }),
+      settingExpectedByRoute: Object.freeze({ '/check': 1, '/attack': 2 }),
+    }),
+    scenarios: Object.freeze([
+      SCENARIOS.find(({ id }) => id === 'check-desktop-ordinary'),
+      SCENARIOS.find(({ id }) => id === 'check-mobile-ordinary'),
+      SCENARIOS.find(({ id }) => id === 'attack-desktop-single'),
+      SCENARIOS.find(({ id }) => id === 'attack-mobile-single'),
+    ]),
+  }),
+  'backtrack-other-reduction-compound-label': Object.freeze({
+    bodyClass: 'r23-backtrack-compound-label',
+    stylesheets: Object.freeze(['backtrack-other-reduction-compound-label.css']),
+    domPreparation: Object.freeze({ compoundExpected: 1 }),
+    scenarios: Object.freeze([
+      SCENARIOS.find(({ id }) => id === 'backtrack-mobile'),
+      SCENARIOS.find(({ id }) => id === 'backtrack-mobile-livingdead'),
+    ]),
+  }),
+  'footer-short-baseline': Object.freeze({
+    bodyClass: 'r23-footer-short-baseline',
+    domPreparation: Object.freeze({ shortPage: true }),
+    scenarios: Object.freeze([
+      Object.freeze({
+        id: 'footer-short-baseline-check-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'check-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([]),
+      }),
+      Object.freeze({
+        id: 'footer-short-baseline-drawer-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'drawer-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([{ type: 'click-selector', selector: '.v-app-bar-nav-icon' }]),
+      }),
+    ]),
+  }),
+  'footer-short-flex': Object.freeze({
+    bodyClass: 'r23-footer-flex',
+    stylesheets: Object.freeze(['footer-flex.css']),
+    domPreparation: Object.freeze({ shortPage: true }),
+    scenarios: Object.freeze([
+      Object.freeze({
+        id: 'footer-short-flex-check-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'check-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([]),
+      }),
+      Object.freeze({
+        id: 'footer-short-flex-drawer-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'drawer-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([{ type: 'click-selector', selector: '.v-app-bar-nav-icon' }]),
+      }),
+    ]),
   }),
 })
 
@@ -345,6 +441,18 @@ async function executeStep(page, step) {
     const target = page.locator(step.selector).first()
     await target.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MS })
     await target.click()
+    if (step.selector === '.v-app-bar-nav-icon') {
+      await page.locator('.v-navigation-drawer--active').first().waitFor({
+        state: 'visible',
+        timeout: PAGE_TIMEOUT_MS,
+      })
+      await page.waitForFunction(() => {
+        const drawer = document.querySelector('.v-navigation-drawer--active')
+        if (!drawer) return false
+        const box = drawer.getBoundingClientRect()
+        return box.left >= -1 && box.right > 0 && box.bottom > 0
+      }, undefined, { timeout: PAGE_TIMEOUT_MS })
+    }
     return
   }
   if (step.type === 'select') {
@@ -380,13 +488,134 @@ async function executeStep(page, step) {
   throw new Error(`unsupported prototype scenario step: ${step.type}`)
 }
 
+async function prepareVariantDom(page, preparation = {}) {
+  if (preparation === null || preparation === undefined) {
+    return null
+  }
+  return page.evaluate((config) => {
+    const exactTextNodes = (text) => [...document.querySelectorAll('body *')]
+      .filter((element) => [...element.childNodes].some((node) => (
+        node.nodeType === Node.TEXT_NODE && node.textContent.trim() === text
+      )))
+    const exactLabels = (text) => [...document.querySelectorAll('.v-label')]
+      .filter((element) => element.textContent.trim() === text)
+    const fail = (message) => {
+      throw new Error(`R23 prototype DOM preparation failed: ${message}`)
+    }
+
+    const advancedControls = exactTextNodes('高度な設定')
+      .filter((element) => element.querySelector('.v-checkbox-btn'))
+    if (config.advancedExpected !== undefined) {
+      if (advancedControls.length !== config.advancedExpected) {
+        fail(`高度な設定 marker count expected ${config.advancedExpected}, got ${advancedControls.length}`)
+      }
+      advancedControls.forEach((element) => {
+        element.classList.add('r23-advanced-setting-control')
+        element.closest('.v-row')?.classList.add('r23-advanced-setting-row')
+      })
+    }
+
+    const settingRows = [...document.querySelectorAll('.v-row')].filter((row) => {
+      const labels = [...row.querySelectorAll('.v-label')]
+        .map((label) => label.textContent.trim())
+      return labels.length === 6
+        && row.children.length === 3
+        && ['最小値', '最大値', '表示モード'].every((text) => labels.includes(text))
+    })
+    if (config.settingExpected !== undefined) {
+      if (settingRows.length !== config.settingExpected) {
+        fail(`SettingForm group count expected ${config.settingExpected}, got ${settingRows.length}`)
+      }
+      settingRows.forEach((row) => row.classList.add('r23-setting-form-parity'))
+    }
+
+    const compoundRows = [...new Set(exactLabels('その他減少量')
+      .map((label) => label.closest('.v-row'))
+      .filter((row) => row !== null)
+      .filter((row) => row.querySelectorAll(':scope > .v-col').length === 2))]
+    if (config.compoundExpected !== undefined) {
+      if (compoundRows.length !== config.compoundExpected) {
+        fail(`compound label group count expected ${config.compoundExpected}, got ${compoundRows.length}`)
+      }
+      compoundRows.forEach((row) => {
+        row.classList.add('r23-compound-label-row')
+        const outer = row.parentElement
+        if (!outer) {
+          fail('compound label row has no outer group')
+        }
+        outer.classList.add('r23-compound-label')
+        if (!outer.querySelector('.r23-compound-label-text')) {
+          const visualLabel = document.createElement('div')
+          visualLabel.className = 'r23-compound-label-text'
+          visualLabel.setAttribute('aria-hidden', 'true')
+          visualLabel.textContent = 'その他減少量'
+          outer.insertBefore(visualLabel, row)
+        }
+        const inputs = [...row.querySelectorAll('input[type="number"]')]
+        if (inputs.length !== 2) {
+          fail(`compound label input count expected 2, got ${inputs.length}`)
+        }
+        inputs[0].removeAttribute('aria-labelledby')
+        inputs[0].setAttribute('aria-label', 'その他減少量（ダイス）')
+        inputs[1].removeAttribute('aria-labelledby')
+        inputs[1].setAttribute('aria-label', 'その他減少量（固定値）')
+        row.querySelectorAll('.v-field-label').forEach((label) => {
+          label.classList.add('r23-compound-original-label')
+        })
+      })
+    }
+
+    if (config.shortPage) {
+      const main = document.querySelector('.v-main')
+      const content = [...(main?.children ?? [])]
+        .filter((child) => !child.classList.contains('v-footer'))
+      if (content.length === 0) {
+        fail('short-page preparation could not find route content')
+      }
+      content.forEach((element) => {
+        element.classList.add('r23-short-page-content')
+        element.replaceChildren()
+      })
+    }
+
+    return {
+      advancedCount: advancedControls.length,
+      settingGroupCount: settingRows.length,
+      compoundGroupCount: compoundRows.length,
+      shortPageContentCount: config.shortPage ? document.querySelectorAll('.r23-short-page-content').length : 0,
+    }
+  }, preparation)
+}
+
+function resolveDomPreparation(preparation, scenario) {
+  if (preparation === undefined) {
+    return undefined
+  }
+  const resolved = { ...preparation }
+  for (const key of ['advancedExpected', 'settingExpected', 'compoundExpected']) {
+    const byRoute = preparation[`${key}ByRoute`]
+    if (byRoute !== undefined) {
+      resolved[key] = byRoute[scenario.route]
+    }
+    delete resolved[`${key}ByRoute`]
+  }
+  return resolved
+}
+
 async function collectPrototypeMetrics(page) {
   return page.evaluate(() => {
     const visible = (element) => {
       if (!element) return false
       const style = getComputedStyle(element)
       const rect = element.getBoundingClientRect()
-      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+      return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && rect.width > 0
+        && rect.height > 0
+        && rect.right > 0
+        && rect.bottom > 0
+        && rect.left < window.innerWidth
+        && rect.top < window.innerHeight
     }
     const rect = (element) => {
       if (!element) return null
@@ -417,6 +646,16 @@ async function collectPrototypeMetrics(page) {
     const viewport = { width: window.innerWidth, height: window.innerHeight }
     const footerBox = rect(footer)
     const footerBottomGap = footerBox === null ? null : viewport.height - footerBox.bottom
+    const visibleDrawers = [...document.querySelectorAll('.v-navigation-drawer')]
+      .filter(visible)
+    const drawer = visibleDrawers[0] ?? null
+    const drawerBox = rect(drawer)
+    const drawerPoint = drawerBox === null
+      ? null
+      : document.elementFromPoint(
+          drawerBox.x + drawerBox.width / 2,
+          drawerBox.top + drawerBox.height / 2,
+        )
     return {
       viewport,
       otherReduction: {
@@ -454,6 +693,13 @@ async function collectPrototypeMetrics(page) {
         atViewportBottom: footerBottomGap !== null && Math.abs(footerBottomGap) <= 1,
         position: footer ? getComputedStyle(footer).position : null,
       },
+      drawer: {
+        visibleCount: visibleDrawers.length,
+        box: drawerBox,
+        position: drawer ? getComputedStyle(drawer).position : null,
+        zIndex: drawer ? getComputedStyle(drawer).zIndex : null,
+        centerElementIsDrawer: drawerPoint?.closest('.v-navigation-drawer') === drawer,
+      },
       main: (() => {
         const main = document.querySelector('.v-main')
         if (!main) return null
@@ -477,6 +723,27 @@ async function collectPrototypeMetrics(page) {
       canvases: [...document.querySelectorAll('canvas')].map(rect),
     }
   })
+}
+
+function validateFooterPrototypeMetrics(metrics, variantId) {
+  const footer = metrics?.footer
+  if (!footer || footer.box === null) {
+    throw new Error(`${variantId}: footer geometry is missing`)
+  }
+  if (variantId === 'footer-short-baseline' && !(footer.box.bottom < metrics.viewport.height)) {
+    throw new Error(`${variantId}: synthetic baseline did not reproduce footer gap`)
+  }
+  if (variantId === 'footer-short-flex') {
+    if (!Number.isFinite(footer.bottomGap) || Math.abs(footer.bottomGap) > 2) {
+      throw new Error(`${variantId}: footer is not aligned to viewport bottom (gap=${footer.bottomGap})`)
+    }
+    if (footer.position === 'fixed' || footer.position === 'absolute') {
+      throw new Error(`${variantId}: footer must remain in normal flow`)
+    }
+  }
+  if (metrics.drawer?.visibleCount > 0 && !metrics.drawer.centerElementIsDrawer) {
+    throw new Error(`${variantId}: drawer does not stack above its center point`)
+  }
 }
 
 function formatScenarioError(scenario, error, diagnostics) {
@@ -526,6 +793,10 @@ async function runScenario(browser, baseUrl, scenario, variant, variantId, varia
   const diagnostics = createDiagnostics(page, baseUrl)
   const screenshotPath = join(variantOutputDirectory, scenario.screenshot)
   const startedAt = performance.now()
+  const domPreparationConfig = resolveDomPreparation(
+    variant.domPreparation,
+    scenario,
+  )
   try {
     const patchStats = await preparePage(page, variant)
     const response = await page.goto(`${baseUrl}${scenario.route}`, {
@@ -536,20 +807,34 @@ async function runScenario(browser, baseUrl, scenario, variant, variantId, varia
       throw new Error(`navigation failed (status=${response?.status() ?? 'none'})`)
     }
     await page.evaluate((className) => document.body.classList.add(className), variant.bodyClass)
-    if (variant.stylesheet) {
-      await page.addStyleTag({ path: join(VARIANT_DIRECTORY, variant.stylesheet) })
+    const stylesheets = variant.stylesheets
+      ?? (variant.stylesheet === undefined ? [] : [variant.stylesheet])
+    for (const stylesheet of stylesheets) {
+      await page.addStyleTag({ path: join(VARIANT_DIRECTORY, stylesheet) })
     }
     await waitForCanvases(page, scenario.initialCanvases)
     validateBundleReplacementStats(patchStats, {
       variantId,
       scenarioId: scenario.id,
     })
+    const domPreparation = domPreparationConfig === undefined
+      ? null
+      : validateDomPreparationResult(
+          await prepareVariantDom(page, domPreparationConfig),
+          domPreparationConfig,
+          `${variantId} / ${scenario.id}`,
+        )
     for (const step of scenario.steps) {
       await executeStep(page, step)
     }
-    await waitForCanvases(page, scenario.expectedCanvases)
+    if (!domPreparationConfig?.shortPage) {
+      await waitForCanvases(page, scenario.expectedCanvases)
     await waitForStableCharts(page)
+    }
     const metrics = await collectPrototypeMetrics(page)
+    if (variantId.startsWith('footer-')) {
+      validateFooterPrototypeMetrics(metrics, variantId)
+    }
     await page.screenshot({ path: screenshotPath, fullPage: true })
     if (
       diagnostics.consoleMessages.length > 0
@@ -564,6 +849,7 @@ async function runScenario(browser, baseUrl, scenario, variant, variantId, varia
       status: 'captured',
       screenshot: screenshotPath,
       metrics,
+      domPreparation,
       bundleReplacement: patchStats,
       elapsedMs: Number((performance.now() - startedAt).toFixed(1)),
       diagnostics,

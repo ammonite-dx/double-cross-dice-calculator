@@ -1,0 +1,27 @@
+/* R23-B experiment-only: present the two Backtrack "その他減少量" inputs as
+ * one labelled compound control while preserving the baseline 6/6 columns. */
+
+@media (max-width: 959.98px) {
+  body.r23-compound-label .r23-compound-label {
+    position: relative;
+  }
+
+  body.r23-compound-label .r23-compound-label-text {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    z-index: 1;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 12px;
+    line-height: 20px;
+    pointer-events: none;
+  }
+
+  body.r23-compound-label .r23-compound-label-row {
+    padding-top: 12px;
+  }
+
+  body.r23-compound-label .r23-compound-original-label {
+    visibility: hidden;
+  }
+}
