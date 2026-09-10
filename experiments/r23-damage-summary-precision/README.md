@@ -17,3 +17,5 @@ JSONレポートは`output/report.json`に保存される。このディレク�
 各結果について、`kind`、区間の`lower`・`upper`・`width`・`halfWidth`、小数1桁に丸めた上下界、`stableRoundedDisplay`を記録する。bounded区間の中点は診断用に保存するが、最尤値や表示値とは解釈しない。既存モデルがexactなpoint estimateを返す場合だけ`pointEstimate`へ記録し、bounded/lower-boundに対するヒューリスティックな推定値は作らない。
 
 閾値を決める前に、`halfWidth <= 0.005`、`0.010`、`0.020`の件数と、丸め境界をまたぐbounded区間の件数を集計する。これは候補を比較するための監査であり、閾値の自動決定ではない。
+
+レポートの`allFiniteIntervalThresholdCounts`はexactを含む有限区間全体の診断値である。追加近似の検討には、`kind`が`bounded`で、既存の丸め表示が不安定で、`halfWidth`が指定threshold以下のrecordだけを対象とする。該当IDは`additionalApproximationCandidates`、件数は`additionalApproximationCandidateCounts`へthresholdごとに出力する。exact、lower-bound、既存ルールで表示できるstable boundedは追加候補へ含めない。

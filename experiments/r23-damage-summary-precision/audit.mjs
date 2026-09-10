@@ -6,10 +6,10 @@ import {
   COMBO_TOTAL_FIXTURE_IDS,
   DAMAGE_PRECISION_FIXTURES,
 } from './fixtures.js'
+import { summarizeRecords } from './summary.mjs'
 
 const OUTPUT_DIRECTORY = fileURLToPath(new URL('./output/', import.meta.url))
 const DISPLAY_QUANTUM = 0.1
-const HALF_WIDTH_THRESHOLDS = Object.freeze([0.005, 0.01, 0.02])
 
 async function loadRuntimeModules() {
   const entryPoint = fileURLToPath(new URL('./runtime-entry.mjs', import.meta.url))
@@ -133,43 +133,6 @@ async function auditTotals(client) {
     })
   }
   return records
-}
-
-function summarizeRecords(records) {
-  const bounded = records.filter(({ expectedValue }) =>
-    expectedValue.kind === 'bounded'
-  )
-  const roundedBoundCrossings = bounded.filter(({ expectedValue }) =>
-    !expectedValue.stableRoundedDisplay
-  ).length
-  const countByThreshold = Object.fromEntries(
-    HALF_WIDTH_THRESHOLDS.map((threshold) => [
-      `halfWidth<=${threshold.toFixed(3)}`,
-      records.filter(({ expectedValue }) =>
-        expectedValue.halfWidth !== null
-        && expectedValue.halfWidth <= threshold
-      ).length,
-    ])
-  )
-  return {
-    recordCount: records.length,
-    kindCounts: Object.fromEntries(
-      [...new Set(records.map(({ expectedValue }) => expectedValue.kind))]
-        .map((kind) => [
-          kind,
-          records.filter(({ expectedValue }) => expectedValue.kind === kind).length,
-        ])
-    ),
-    boundedCount: bounded.length,
-    roundedBoundCrossings,
-    halfWidthThresholdCounts: countByThreshold,
-    lowerBoundHasNoMidpoint: records
-      .filter(({ expectedValue }) => expectedValue.kind === 'lower-bound')
-      .every(({ expectedValue }) => expectedValue.diagnosticMidpoint === null),
-    heuristicPointEstimatesAdded: records.some(({ expectedValue }) =>
-      expectedValue.pointEstimateSource === 'heuristic'
-    ),
-  }
 }
 
 const modules = await loadRuntimeModules()
