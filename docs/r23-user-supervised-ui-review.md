@@ -156,7 +156,7 @@ reference、current、prototypeは同じroute、入力、viewport、scroll位置
 
 Backtrackの6px、8px、9px比較はthrowaway worktreeまたは一時patchで行い、active branchへprototype sourceをcommitしない。visual parity、footer、responsive layoutについても同じ扱いとする。
 
-R23-Aの終了状態は`IN REVIEW`であり、production visual parity changesは`NOT YET ADOPTED`、product-owner visual reviewは`REQUIRED`である。UI-08のstable bounded表示だけは`ADOPTED / IMPLEMENTED`とし、より広い近似表示は`AUDITED / AWAITING PRODUCT DECISION`で停止する。
+R23-Aの終了状態は`IN REVIEW`であり、production visual parity changesは`NOT YET ADOPTED`、product-owner visual reviewは`REQUIRED`である。UI-08のstable bounded表示だけは`ADOPTED / IMPLEMENTED`とし、より広い近似表示は`AUDITED / INSUFFICIENT BOUNDED EVIDENCE / DEFERRED`で停止する。
 
 ## R23-A 実施結果（2026-09-09）
 
@@ -171,6 +171,8 @@ R23-Aの実装・計測は、次の単位に分けて完了した。production�
 | `fbf323e` | stable boundedなDamage期待値を表示できる共通formatterと回帰テストを追加 |
 | `48c374d` | Damage期待値の不確かさを測るexperiment-only監査を追加 |
 | `6f10a14` | visual parity、responsive layout、footer、Backtrack labelのexperiment-only prototypeを追加 |
+| `f17d3d2` | prototype bundle置換のfail-closed契約、単体テスト、再現手順を追加 |
+| `f2601b4` | Damage精度監査の追加近似候補集計とsynthetic testを追加 |
 
 ### 公開版とのparity診断
 
@@ -188,13 +190,13 @@ visual parity prototypeは、referenceのfield高さ・padding・header line-hei
 
 footer prototypeは`v-main`を縦方向flexにし、route contentを伸縮する通常flowの要素、footerを固定しない通常flowの要素として扱った。fixed/absolute positioningやoverlayは使っていない。実在する全routeはviewportより長かったため、計測ではfooterがviewport下端に到達するshort-pageケースまでは証明できず、long-pageで通常flowが維持されることだけを確認した。short-page用の合成fixtureを追加していないため、UI-07は未決定のままとする。
 
-BacktrackのDoughnut labelは6px、8px、9pxを比較した。8pxと9pxはrunnerがbuild済みJavaScriptへ一時的にパッチを適用したvariantであり、sourceやproduction CSSには変更がない。visual parity、responsive layout、footer、labelのいずれも、prototypeの作成・計測だけではproduction採用を意味しない。
+BacktrackのDoughnut labelは6px、8px、9pxを比較した。6pxはpatchなしのbaselineで、8pxと9pxはrunnerがbuild済みJavaScriptへ一時的にパッチを適用したvariantである。8pxと9pxはそれぞれ`backtrack-mobile`と`backtrack-mobile-livingdead`の2 scenarioすべてで`replacementCount = 1`、`responseCount = 8`、`matchedResponseCount = 1`となり、browser diagnosticsも0件だった。sourceやproduction CSSには変更がない。visual parity、responsive layout、footer、labelのいずれも、prototypeの作成・計測だけではproduction採用を意味しない。
 
 ### Damage期待値の精度監査
 
-`npm run audit:r23:damage-precision`で、表示量子`Q = 0.1`の監査を行った。13件のaccepted fixtureを調べ、`exact`が1件、`lower-bound`が12件、bounded区間は0件、丸め境界をまたぐ区間も0件だった。`halfWidth <= 0.005`、`0.010`、`0.020`の件数はいずれも1件で、いずれもexact recordである。lower-bound recordには中点を付けず、heuristicなpoint estimateも追加していない。
+`npm run audit:r23:damage-precision`で、表示量子`Q = 0.1`の監査を行った。13件のaccepted fixtureを調べ、`exact`が1件、`lower-bound`が12件、bounded区間は0件、丸め境界をまたぐ区間も0件だった。旧`halfWidthThresholdCounts`に相当する`allFiniteIntervalThresholdCounts`は、halfWidthが0のexact recordを含むため、`0.005`、`0.010`、`0.020`のいずれも1件となる。追加近似候補は`kind = bounded`かつ既存の丸め表示が不安定なrecordだけに限定し、`additionalApproximationCandidateCounts`は各thresholdで0件、候補IDもすべて空配列だった。lower-bound recordには中点を付けず、heuristicなpoint estimateも追加していない。
 
-したがって、現在のproduction契約である「exact、またはfinite bounded区間の丸め上下界が一致する場合だけ小数1桁で表示し、それ以外は`—`」は維持する。より広い近似表示を導入する閾値や代表値は、この監査だけでは決めず、別のproduct decisionへ送る。
+したがって、現在のproduction契約である「exact、またはfinite bounded区間の丸め上下界が一致する場合だけ小数1桁で表示し、それ以外は`—`」は維持する。今回のfixtureには追加近似を評価できるbounded-but-unstable recordがなく、より広い近似表示の要否を否定する根拠もないため、結論は`AUDITED / INSUFFICIENT BOUNDED EVIDENCE / DEFERRED`とする。
 
 ### R23-Aの最終状態
 
@@ -206,7 +208,7 @@ BacktrackのDoughnut labelは6px、8px、9pxを比較した。8pxと9pxはrunner
 | UI-01（Backtrack 6/8/9px label） | AWAITING PRODUCT-OWNER VISUAL REVIEW |
 | UI-05（異なる入力のmulti-combo） | AWAITING PRODUCT-OWNER VISUAL REVIEW |
 | UI-08（stable bounded Damage期待値） | ADOPTED / IMPLEMENTED |
-| UI-08の広い近似表示 | AUDITED / AWAITING PRODUCT DECISION |
+| UI-08の広い近似表示 | AUDITED / INSUFFICIENT BOUNDED EVIDENCE / DEFERRED |
 
 R23は`IN REVIEW`のままとする。production visual parity changesは`NOT YET ADOPTED`であり、次に必要なのはproduct ownerによる比較画像・計測結果・prototype画面の直接レビューである。レビュー承認なしにUI-04A〜C、UI-06、UI-07、UI-01、UI-05を本番へ接続しない。
 
