@@ -215,3 +215,30 @@ R23は`IN REVIEW`のままとする。production visual parity changesは`NOT YE
 ### 実施時の検証
 
 最終状態では`npm test`が87 files・945 tests、`npm run lint`、`npm run lint:markdown`（55 files・0 issues）、`npm run build`（420 modules）、`git diff --check`が成功した。multi-combo、visual parity、Backtrackのwide/stack、footer、6/8/9px labelのprototype runnerも各scenarioで診断エラー0件だった。prototypeの出力画像とJSONはgitignored directoryに保存し、productionのrelease gateやCIの自動合否判定には接続していない。
+
+## R23-B — Product owner decisions and scoped follow-up (2026-09-10)
+
+R23-Aの画像レビューを受け、次の判断を確定した。ここでいう採用は、比較対象とする目標または調査方針の採用であり、production UIへの接続を意味しない。
+
+| ID | Product decision | R23-B follow-up |
+| --- | --- | --- |
+| UI-04A | 公開版の「高度な設定」配置を目標として採用し、実装は局所化して作り直す | `advanced-setting-parity` と `scoped-visual-parity` をprototype化 |
+| UI-04B | 公開版のSettingForm alignmentを目標として採用し、対象fieldだけを作り直す | `setting-form-parity` と `scoped-visual-parity` をprototype化 |
+| UI-04C | typographyの単独変更は保留する | UI-04A/B適用後の画面を再評価 |
+| UI-05 | desktop/mobileとも現状のmulti-combo表示を受け入れる | production変更なし |
+| UI-06 | wide/stack案は不採用 | compound-labelをprototype化 |
+| UI-01 | 6pxは不採用、8pxは安全側候補、9px centerは要修正 | 10%近傍fixtureと9px adaptive-outwardを比較 |
+| UI-07 | short-pageの問題を合成fixtureで検証する | baselineとflex shellを同条件で比較 |
+| UI-08 | stable bounded表示は実装済みのまま維持する | 通常Damageのlower-bound原因と有限上界を技術調査 |
+
+旧`visual-parity` prototypeは、過剰に広いselectorが無関係なfieldやswitchへ影響した不採用案として残す。READMEと各reportでは`REJECTED — do not use as production implementation`と明記する。R23-Bのform prototypeはproduction markupを変更せず、Playwright側のsemantic markerとvariant限定CSSだけで対象を絞る。Checkでは「高度な設定」markerを1件、Attackでは2件、SettingForm groupをCheckで1件、Attackで2件検出できなければcaptureを失敗させる。
+
+Backtrackのcompound-label prototypeはmobileの外側`cols=6`と内側`6 / 6`を維持し、2つの入力を一つの視覚的なlabelでまとめる。各入力のaccessible nameはprototypeでも区別できるようにする。wide/stack案のような列幅や行高の変更は行わない。
+
+Backtrack datalabelのstress fixtureは、表示閾値`10%`以上のsliceから`10%`に最も近いものを決定的に選ぶ。ordinaryと《屍人》の双方を探索し、8px center、9px center、9px adaptive-outwardを比較する。adaptive対象は最初は`10% <= slice < 15%`に固定し、leader line、外部legend、rotation、productionのChartSetter変更は行わない。
+
+footerは実routeを短縮するreview-only操作でsynthetic short-pageを作り、同じ短縮条件のbaselineとnormal-flow flex variantを比較する。footerのfixed/absolute化は候補に含めない。short-pageでviewport下端に揃い、long-pageとdrawer stackingを壊さないことを計測する。
+
+Damage期待値の技術調査ではproduction formatterを変更しない。まず`kazanari = 0`、防御ダイス0、非負固定値、`shihai = 0`、`yousei = 0`の通常caseに限定し、Scoreのtail certificateからDamageの有限上界を導けるかを調べる。導出できない場合も`insufficient certificate`として記録し、heuristicな点推定は追加しない。公開版3.1相当で現行結果が`lower-bound / —`になるfixtureを必須とする。
+
+R23-B終了時もR23は`IN REVIEW`とし、production `src/**`、`public/**`、`schemas/**`、`generator/**`、`tooling/reference-data/**`、依存バージョンは変更しない。prototypeの成功はproduct ownerの視覚承認を代替せず、次の段階で個別のproduction採用を判断する。
