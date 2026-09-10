@@ -51,6 +51,8 @@ npm test
 
 Attackのfull-tail計算に関する参考ベンチマークは`npm run benchmark:full-tail-attack`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 
+Damage期待値のtail attribution調査は`npm run audit:r23:damage-tail`で実行できます。公開版3.1相当のfixture、Score・Damageのtail certificate、明示first moment、有限上界候補の解釈は[`docs/r23-damage-expectation-investigation.md`](./docs/r23-damage-expectation-investigation.md)を参照してください。この調査はproductionの計算・表示経路を変更しません。
+
 確率計算を変更する場合は、少なくとも次の不変条件を保つ必要があります。
 
 - 確率分布の各要素が許容誤差を超えて負にならない

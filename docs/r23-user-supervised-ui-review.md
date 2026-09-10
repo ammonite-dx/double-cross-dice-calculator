@@ -242,3 +242,13 @@ footerは実routeを短縮するreview-only操作でsynthetic short-pageを作�
 Damage期待値の技術調査ではproduction formatterを変更しない。まず`kazanari = 0`、防御ダイス0、非負固定値、`shihai = 0`、`yousei = 0`の通常caseに限定し、Scoreのtail certificateからDamageの有限上界を導けるかを調べる。導出できない場合も`insufficient certificate`として記録し、heuristicな点推定は追加しない。公開版3.1相当で現行結果が`lower-bound / —`になるfixtureを必須とする。
 
 R23-B終了時もR23は`IN REVIEW`とし、production `src/**`、`public/**`、`schemas/**`、`generator/**`、`tooling/reference-data/**`、依存バージョンは変更しない。prototypeの成功はproduct ownerの視覚承認を代替せず、次の段階で個別のproduction採用を判断する。
+
+## R23-B 実施結果（2026-09-11）
+
+`2eee499`でDamage期待値のtail attribution調査を実装した。公開版3.1相当の`public-v3-1-default` fixtureを追加し、ScoreとDamageの明示first moment、support、overflow、tail certificate、Score期待値certificate、Damageのprojection uncertaintyを同じJSONレポートへ集約した。productionの`src/**`、`public/**`、`schemas/**`、`generator/**`、Worker、表示formatterは変更していない。
+
+safe slice（`kazanari = 0`、防御ダイス0、非負固定値差、`shihai = 0`、`yousei = 0`、action Score期待値certificateあり）では、`floor(score / 10) <= score / 10`と10面ダイスの期待値5.5を使った有限上界候補を構成できた。ただし公開版fixtureの候補区間は`[3.080808080565, 8.806116748611]`であり、小数1桁表示の3.1を安全に確定できる幅ではない。reaction tailとの結合を粗く1で包むため、これはproduction certificateではなくR23-Cで狭い区間とmetadata契約を設計するための研究結果である。
+
+safe slice外の8 fixtureは、利用可能な証明書だけでは有限上界を導出できず、レポートの`candidateBound.status`を`insufficient-certificate`とした。下限や区間の中点を一点の期待値へ変換する処理は追加していない。実行方法と全フィールドは[`r23-damage-expectation-investigation.md`](./r23-damage-expectation-investigation.md)に記載する。
+
+R23-BのNodeテスト（92 files・964 tests）、ESLint、Markdown lint（56 files・0 issues）、production build（420 modules）、tail attribution report検査は成功した。R23は引き続き`IN REVIEW`であり、production UIの視覚採用判断は未実施である。
