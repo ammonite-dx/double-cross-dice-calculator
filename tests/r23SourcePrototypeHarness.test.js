@@ -83,20 +83,36 @@ describe('R23 source prototype replacement harness', () => {
   })
 
   it('keeps the UI-06 style block at the SFC top level', async () => {
-    const variant = getSourcePrototypeVariant('backtrack-compound-label-source')
+    for (const variantId of [
+      'backtrack-compound-label-source',
+      'backtrack-compound-label-aligned-source',
+    ]) {
+      const variant = getSourcePrototypeVariant(variantId)
+      const { transformed } = await readPrototypeSources(process.cwd(), variant)
+      const candidate = transformed[0].source.toString('utf8')
+      const templateOpenIndex = candidate.indexOf('<template>')
+      const templateCloseIndex = candidate.lastIndexOf('</template>')
+      const styleOpenIndex = candidate.indexOf('<style scoped>')
+      const styleCloseIndex = candidate.indexOf('</style>', styleOpenIndex)
+
+      expect(templateOpenIndex).toBeGreaterThanOrEqual(0)
+      expect(templateCloseIndex).toBeGreaterThan(templateOpenIndex)
+      expect(styleOpenIndex).toBeGreaterThan(templateCloseIndex)
+      expect(styleCloseIndex).toBeGreaterThan(styleOpenIndex)
+      expect(candidate.slice(templateOpenIndex, templateCloseIndex))
+        .not.toContain('<style scoped>')
+    }
+  })
+
+  it('keeps the aligned UI-06 revision limited to utility typography and label offset', async () => {
+    const variant = getSourcePrototypeVariant('backtrack-compound-label-aligned-source')
     const { transformed } = await readPrototypeSources(process.cwd(), variant)
     const candidate = transformed[0].source.toString('utf8')
-    const templateOpenIndex = candidate.indexOf('<template>')
-    const templateCloseIndex = candidate.lastIndexOf('</template>')
-    const styleOpenIndex = candidate.indexOf('<style scoped>')
-    const styleCloseIndex = candidate.indexOf('</style>', styleOpenIndex)
 
-    expect(templateOpenIndex).toBeGreaterThanOrEqual(0)
-    expect(templateCloseIndex).toBeGreaterThan(templateOpenIndex)
-    expect(styleOpenIndex).toBeGreaterThan(templateCloseIndex)
-    expect(styleCloseIndex).toBeGreaterThan(styleOpenIndex)
-    expect(candidate.slice(templateOpenIndex, templateCloseIndex))
-      .not.toContain('<style scoped>')
+    expect(candidate).toContain('text-caption text-medium-emphasis')
+    expect(candidate).toContain('inset-block-start: 4px;')
+    expect(candidate).not.toContain('font-size: 0.75rem;')
+    expect(candidate).not.toContain('line-height: 1.333;')
   })
 
   it('restores production source when build fails', async () => {

@@ -394,26 +394,52 @@ async function collectCompoundMetrics(page) {
       }
       return null
     }
-    const anchor = group ?? originalLabel
-    const outerColumn = closestVuetifyColumn(anchor)
-    const innerRow = group?.querySelector(':scope > .v-row')
-      ?? originalLabel?.closest('.v-field')?.parentElement?.parentElement?.querySelector(':scope > .v-row')
-      ?? null
+    const innerColumn = closestVuetifyColumn(originalLabel)
+    const baselineInnerRow = innerColumn?.parentElement ?? null
+    const baselineOuterColumn = closestVuetifyColumn(baselineInnerRow?.parentElement)
+    const outerColumn = group
+      ? closestVuetifyColumn(group)
+      : baselineOuterColumn
+    const innerRow = group?.querySelector(':scope > .v-row') ?? baselineInnerRow
     const outerRow = outerColumn?.parentElement ?? null
-    const fields = [...(group ?? outerColumn ?? document).querySelectorAll('.v-input')]
-      .filter((field) => closestVuetifyColumn(field) !== null && (closestVuetifyColumn(field) === outerColumn || group?.contains(field)))
+    const fields = [...(innerRow ?? group ?? document).querySelectorAll('.v-input')]
+      .filter((field) => group ? group.contains(field) : innerRow?.contains(field))
       .slice(0, 2)
     const eLabel = [...document.querySelectorAll('label')]
       .find((label) => label.textContent.trim() === 'Eロイス数')
     const eField = eLabel?.closest('.v-input') ?? null
+    const visualLabelBox = rect(visualLabel)
+    const neighborLabelBox = rect(eLabel)
+    const centerY = (box) => box ? box.y + box.height / 2 : null
+    const computedTextStyle = (element) => {
+      if (!element) return null
+      const style = getComputedStyle(element)
+      return {
+        fontSize: style.fontSize,
+        lineHeight: style.lineHeight,
+        color: style.color,
+        opacity: style.opacity,
+        letterSpacing: style.letterSpacing,
+      }
+    }
     return {
       group: rect(group),
-      visualLabel: rect(visualLabel),
+      visualLabel: visualLabelBox,
+      neighborEloisLabel: neighborLabelBox,
+      visualLabelStyle: computedTextStyle(visualLabel),
+      neighborEloisLabelStyle: computedTextStyle(eLabel),
+      visualLabelTopMinusNeighborLabelTop: visualLabelBox && neighborLabelBox
+        ? Number((visualLabelBox.top - neighborLabelBox.top).toFixed(2))
+        : null,
+      visualLabelCenterYMinusNeighborLabelCenterY: visualLabelBox && neighborLabelBox
+        ? Number((centerY(visualLabelBox) - centerY(neighborLabelBox)).toFixed(2))
+        : null,
       outerColumn: rect(outerColumn),
       innerRow: rect(innerRow),
       fields: fields.map(rect),
       neighborElois: rect(eField),
       firstRow: rect(outerRow),
+      firstRowContainsNeighborElois: Boolean(outerRow && eField && outerRow.contains(eField)),
       groupName: group?.getAttribute('aria-labelledby')
         ? document.getElementById(group.getAttribute('aria-labelledby'))?.textContent.trim() ?? null
         : null,
@@ -509,6 +535,17 @@ async function runScenario(browser, baseUrl, scenario, variant, phase, outputDir
       }
     } else if (variant.checks.type === 'compound-label') {
       metrics = await collectCompoundMetrics(page)
+      for (const key of ['outerColumn', 'innerRow', 'firstRow', 'neighborElois']) {
+        if (!metrics[key]) {
+          throw new Error(`compound metric is missing ${key}`)
+        }
+      }
+      if (metrics.fields.length !== 2) {
+        throw new Error(`compound field metric count mismatch (expected=2, actual=${metrics.fields.length})`)
+      }
+      if (metrics.firstRowContainsNeighborElois !== true) {
+        throw new Error('compound hierarchy does not contain Eロイス数 in the first row')
+      }
       if (phase === 'candidate') {
         await validateCompoundAccessibility(page, variant.checks.fieldNames)
         if (metrics.groupName !== variant.checks.groupName) {
@@ -612,6 +649,22 @@ function compareMetrics(variant, baselineResults, candidateResults) {
       outerColumn: compareMetricBoxes(baseline.metrics.outerColumn, candidate.metrics.outerColumn),
       innerRow: compareMetricBoxes(baseline.metrics.innerRow, candidate.metrics.innerRow),
       visualLabel: candidate.metrics.visualLabel,
+      neighborEloisLabel: candidate.metrics.neighborEloisLabel,
+      visualLabelStyle: candidate.metrics.visualLabelStyle,
+      neighborEloisLabelStyle: candidate.metrics.neighborEloisLabelStyle,
+      visualLabelTopMinusNeighborLabelTop: candidate.metrics.visualLabelTopMinusNeighborLabelTop,
+      visualLabelCenterYMinusNeighborLabelCenterY: candidate.metrics.visualLabelCenterYMinusNeighborLabelCenterY,
+      firstRowContainsNeighborElois: {
+        baseline: baseline.metrics.firstRowContainsNeighborElois,
+        candidate: candidate.metrics.firstRowContainsNeighborElois,
+      },
+      firstRowHeight: {
+        baseline: baseline.metrics.firstRow?.height ?? null,
+        candidate: candidate.metrics.firstRow?.height ?? null,
+        delta: baseline.metrics.firstRow && candidate.metrics.firstRow
+          ? Number((candidate.metrics.firstRow.height - baseline.metrics.firstRow.height).toFixed(2))
+          : null,
+      },
       firstRowHeightDelta: baseline.metrics.firstRow && candidate.metrics.firstRow
         ? Number((candidate.metrics.firstRow.height - baseline.metrics.firstRow.height).toFixed(2))
         : null,
@@ -651,7 +704,7 @@ function parseArgs(args = process.argv.slice(2)) {
 
 function printHelp() {
   console.log('Usage: node experiments/r23-ui-review/source-prototype-runner.mjs --variant=id [--scenarios=id,id]')
-  console.log('Variants: advanced-setting-inline-source, setting-form-comfortable-source, backtrack-compound-label-source')
+  console.log('Variants: advanced-setting-inline-source, setting-form-comfortable-source, backtrack-compound-label-source, backtrack-compound-label-aligned-source')
   console.log('This runner temporarily edits Vue sources, builds, restores sources before capture, and never adopts a candidate.')
 }
 

@@ -110,6 +110,25 @@ const backtrackStyleAnchorTo = `
     line-height: 1.333;
 }
 </style>`
+const backtrackAlignedReductionTo = backtrackReductionTo.replace(
+  'class="r23-other-reduction-group__label"',
+  'class="r23-other-reduction-group__label text-caption text-medium-emphasis"',
+)
+const backtrackAlignedStyleAnchorTo = `
+</template>
+
+<style scoped>
+.r23-other-reduction-group {
+    position: relative;
+}
+.r23-other-reduction-group__label {
+    position: absolute;
+    inset-block-start: 4px;
+    inset-inline-start: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+</style>`
 
 export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
   'advanced-setting-inline-source': sourcePrototype(
@@ -155,6 +174,24 @@ export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
         replacement(backtrackFormFrom, backtrackFormTo),
         replacement(backtrackReductionFrom, backtrackReductionTo),
         replacement(backtrackStyleAnchorFrom, backtrackStyleAnchorTo),
+      ]),
+    ],
+    [...BACKTRACK_SCENARIOS],
+    {
+      type: 'compound-label',
+      groupName: 'その他減少量',
+      fieldNames: Object.freeze(['その他減少量（ダイス）', 'その他減少量（固定値）']),
+    },
+  ),
+  'backtrack-compound-label-aligned-source': sourcePrototype(
+    'backtrack-compound-label-aligned-source',
+    'UI-06 revision 2。既存のcompound構造とaccessible nameを維持し、Vuetify utility classと4pxの位置調整だけで視覚labelを隣接labelへ寄せる。',
+    [
+      target('src/features/backtrack/ui/BacktrackForm.vue', [
+        replacement(backtrackImportFrom, backtrackImportTo),
+        replacement(backtrackFormFrom, backtrackFormTo),
+        replacement(backtrackReductionFrom, backtrackAlignedReductionTo),
+        replacement(backtrackStyleAnchorFrom, backtrackAlignedStyleAnchorTo),
       ]),
     ],
     [...BACKTRACK_SCENARIOS],
