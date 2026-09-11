@@ -92,7 +92,24 @@ const backtrackReductionTo = `            <v-col md="3" cols="6" class="pb-2">
                     </v-row>
                 </div>
             </v-col>`
-const backtrackStyle = `\n<style scoped>\n.r23-other-reduction-group {\n    position: relative;\n}\n.r23-other-reduction-group__label {\n    position: absolute;\n    inset-block-start: 0;\n    inset-inline-start: 0;\n    z-index: 1;\n    pointer-events: none;\n    font-size: 0.75rem;\n    line-height: 1.333;\n}\n</style>\n`
+const backtrackStyleAnchorFrom = '\n</template>\n'
+const backtrackStyleAnchorTo = `
+</template>
+
+<style scoped>
+.r23-other-reduction-group {
+    position: relative;
+}
+.r23-other-reduction-group__label {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    z-index: 1;
+    pointer-events: none;
+    font-size: 0.75rem;
+    line-height: 1.333;
+}
+</style>`
 
 export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
   'advanced-setting-inline-source': sourcePrototype(
@@ -136,7 +153,8 @@ export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
       target('src/features/backtrack/ui/BacktrackForm.vue', [
         replacement(backtrackImportFrom, backtrackImportTo),
         replacement(backtrackFormFrom, backtrackFormTo),
-        replacement(backtrackReductionFrom, `${backtrackReductionTo}${backtrackStyle}`),
+        replacement(backtrackReductionFrom, backtrackReductionTo),
+        replacement(backtrackStyleAnchorFrom, backtrackStyleAnchorTo),
       ]),
     ],
     [...BACKTRACK_SCENARIOS],

@@ -82,6 +82,23 @@ describe('R23 source prototype replacement harness', () => {
     }
   })
 
+  it('keeps the UI-06 style block at the SFC top level', async () => {
+    const variant = getSourcePrototypeVariant('backtrack-compound-label-source')
+    const { transformed } = await readPrototypeSources(process.cwd(), variant)
+    const candidate = transformed[0].source.toString('utf8')
+    const templateOpenIndex = candidate.indexOf('<template>')
+    const templateCloseIndex = candidate.lastIndexOf('</template>')
+    const styleOpenIndex = candidate.indexOf('<style scoped>')
+    const styleCloseIndex = candidate.indexOf('</style>', styleOpenIndex)
+
+    expect(templateOpenIndex).toBeGreaterThanOrEqual(0)
+    expect(templateCloseIndex).toBeGreaterThan(templateOpenIndex)
+    expect(styleOpenIndex).toBeGreaterThan(templateCloseIndex)
+    expect(styleCloseIndex).toBeGreaterThan(styleOpenIndex)
+    expect(candidate.slice(templateOpenIndex, templateCloseIndex))
+      .not.toContain('<style scoped>')
+  })
+
   it('restores production source when build fails', async () => {
     const root = join(tmpdir(), `r23-source-prototype-build-${process.pid}-${Date.now()}`)
     const path = join(root, 'fixture.vue')
