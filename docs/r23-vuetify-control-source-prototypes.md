@@ -111,13 +111,13 @@ Check/Attackのdesktopとmobileを各1画面ずつcaptureし、対象3フィー�
 - 各fieldに「その他減少量（ダイス）」「その他減少量（固定値）」というscreen-reader-only labelを付ける。
 - Vuetify内部の`.v-field__input`や`.v-field-label`のgeometryは上書きしない。
 
-視覚labelの位置だけは候補が所有するscoped styleで指定し、groupを`position: relative`、labelを上端へ配置する。既存の入力fieldの内部CSSを直接変更する方式ではない。
+視覚labelの位置だけは候補が所有するtop-levelの`<style scoped>` blockで指定し、groupを`position: relative`、labelを上端へ配置する。style blockは`<template>`の外側へ置き、既存の入力fieldの内部CSSを直接変更する方式ではない。
 
 ### 計測結果
 
 通常mobile、通常mobileでDロイス「不死者・悪夢」を選択した状態、通常desktopの3scenarioでbaselineとcandidateをcaptureした。baselineにはsemantic groupがないため、アクセシビリティ検証はcandidateだけに適用した。candidateでは全scenarioでgroupがちょうど1件、group名が「その他減少量」、spinbuttonがちょうど2件となり、2つのaccessible nameがそれぞれ期待値と一致した。browser diagnosticsは全scenarioで0件だった。
 
-candidateのouter group幅はmobile 151px、desktop 290pxであり、source上の`cols=6`／`md=3`に対応する。nested rowもmobile 151px、desktop 290pxで、2つのfieldは各71.5px／141pxの6/6配置を維持した。visual labelの高さはmobile 18px、desktop 24pxで、group追加により対象rowの高さは増加した。labelの重なり、周辺fieldとの距離、画面全体の自然さは画像によるproduct reviewで判断する。
+candidateのouter group幅はmobile 151px、desktop 290pxであり、source上の`cols=6`／`md=3`に対応する。nested rowもmobile 151px、desktop 290pxで、2つのfieldは各71.5px／141pxの6/6配置を維持した。visual labelのbounding boxはmobileで`x=199`、`y=205`、`74.41×15.98px`、desktopで`x=934`、`y=165`、`75×15.98px`だった。Eロイス数fieldはmobileで`x=48`、`y=209`、`143×32px`、desktopで`x=644`、`y=169`、`282×32px`であり、candidateの入力fieldはmobileで`y=209`、desktopで`y=169`から始まった。labelの重なり、周辺fieldとの距離、画面全体の自然さは画像によるproduct reviewで判断する。
 
 | Scenario | candidate group | spinbutton names | outer width | nested fields |
 | --- | ---: | --- | ---: | --- |
@@ -125,7 +125,9 @@ candidateのouter group幅はmobile 151px、desktop 290pxであり、source上�
 | Backtrack mobile（不死者・悪夢） | 1 | 2件、完全一致 | 151px | 71.5px + 71.5px |
 | Backtrack desktop | 1 | 2件、完全一致 | 290px | 141px + 141px |
 
-この候補は、既存のcompound labelを無理に兄弟fieldへまたがらせず、視覚上のgroupとアクセシビリティ上のgroupを同じ構造で表現する技術案である。入力名を分けたことで、ダイスと固定値を支援技術から個別に操作できることも確認できた。視覚labelの位置やrow高の増加は、product ownerが採否を判断する。
+formのfirst-row heightは、mobile ordinaryとmobile「不死者・悪夢」でbaseline `40px`、candidate `92px`、差分`+52px`だった。desktopではbaseline `40px`、candidate `52px`、差分`+12px`だった。この差分はgroup labelを追加した候補の実測値であり、行高を維持できたという主張ではない。
+
+この候補は、既存のcompound labelを無理に兄弟fieldへまたがらせず、視覚上のgroupとアクセシビリティ上のgroupを同じ構造で表現する技術案である。入力名を分けたことで、ダイスと固定値を支援技術から個別に操作できることも確認できた。top-level SFC style blockへの修正後も、候補のvisual labelとrow heightは上記の実測値となった。視覚labelの位置やrow高の増加は、product ownerが採否を判断する。
 
 ## 総合判定と次の作業
 
