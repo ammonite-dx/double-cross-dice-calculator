@@ -143,8 +143,11 @@ R23のUI-04A、UI-04B、UI-06では、post-buildのCSS patchではなく、実�
 npm run review:r23:source-prototype -- --variant=advanced-setting-inline-source
 npm run review:r23:source-prototype -- --variant=setting-form-comfortable-source
 npm run review:r23:source-prototype -- --variant=backtrack-compound-label-source
+npm run review:r23:source-prototype -- --variant=backtrack-compound-label-aligned-source
 ```
 
 `advanced-setting-inline-source`はCheck 1件、Attack 2件の「高度な設定」checkboxへ`inline`だけを追加する。`setting-form-comfortable-source`はCheck/Attackの最小値・最大値・表示モードだけを`density="comfortable"`へ変更する。`backtrack-compound-label-source`は外側`cols=6`、desktop`md=3`、内側`6 / 6`を維持し、app-owned group label、`role="group"`、2つの個別accessible nameを候補にする。
+
+`backtrack-compound-label-aligned-source`はUI-06 revision 2の候補であり、revision 1と同じsemantic structureを維持したまま、視覚labelへVuetify utility classを適用し、top-level scoped styleで位置を4pxだけ調整する。revision 1のsourceは履歴として変更しない。
 
 画像とgeometry/accessibility metricsは`experiments/r23-ui-review/output/source-prototypes/<variant>/`へ保存される。unit testはreplacement定義、出現数、復元、build失敗時の復元を検証するが、画像をgoldenにしない。技術的なcapture成功はvisual approvalやproduction採用を意味しない。候補の計測値、制約、未採用状態は[`docs/r23-vuetify-control-source-prototypes.md`](../../docs/r23-vuetify-control-source-prototypes.md)に記録する。

@@ -6,23 +6,24 @@
 
 対象は次の3件である。
 
-| ID | 対象 | 第一候補 |
-| --- | --- | --- |
-| UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する |
-| UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する |
-| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける |
+| ID | 対象 | 第一候補 | 現時点の判断 |
+| --- | --- | --- | --- |
+| UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production実装待ち） |
+| UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production実装待ち） |
+| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1は`REVISE`、revision 2を確認中 |
 
-この作業は見た目の採否を決めるものではない。候補のcapture成功はproduct ownerのvisual approvalを代替せず、3件とも`AWAITING PRODUCT OWNER`のままとする。
+この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1を`REVISE`としてrevision 2のvisual reviewを継続する。
 
 ## 再現条件
 
-対象branchは`codex/canonical-default-migration`で、source prototype開始時点は`d126cb5b94d92b49588a3608a264b104e2a7c6ca`である。ハーネスとrunnerは次のコミットで追加した。
+対象branchは`codex/canonical-default-migration`で、今回のUI-06 revision 2開始時点は`c5583008ef64298414c16c19789f0894562c299e`である。ハーネスとrunner、今回の計測更新は次のコミットで追加した。
 
 | Commit | 内容 |
 | --- | --- |
 | `9df2a68` | exact replacement、バイト列復元、fail-closed条件、unit testを含むsource prototype harness |
 | `c16ed1f` | 一時build、source復元後のPlaywright capture、3 variantのrunner |
 | `df450b7` | UI-06のベースライン／候補フェーズを分けた比較メトリクス修正 |
+| `8b14058` | UI-06 revision 2、計測階層の不整合修正、label style/位置メトリクス、hierarchy invariantの追加 |
 
 Nodeの既存buildを前提に、repository rootで次のコマンドを実行する。
 
@@ -101,33 +102,39 @@ Check/Attackのdesktopとmobileを各1画面ずつcaptureし、対象3フィー�
 
 ## UI-06 — compound labelとsemantic group
 
-### 候補source
+### revision 1 — historical candidate（`REVISE`）
 
-`src/features/backtrack/ui/BacktrackForm.vue`だけを一時変更した。外側の`<v-col md="3" cols="6">`と、内側の`<v-col cols="6">` 2列は維持している。変更は次のとおりである。
+`src/features/backtrack/ui/BacktrackForm.vue`だけを一時変更し、外側の`<v-col md="3" cols="6">`と内側の`<v-col cols="6">` 2列を維持した。Vueの`useId()`でgroup labelのIDを生成し、2入力をapp-ownedの`<div>`で囲んで`role="group"`と`:aria-labelledby`を付け、視覚label「その他減少量」と個別のscreen-reader-only labelを追加した。Vuetify内部の`.v-field__input`や`.v-field-label`は変更せず、top-levelの`<style scoped>`でgroupをrelative、labelをabsoluteにした。
 
-- Vueの`useId()`でgroup labelのIDを生成する。
-- 2入力をapp-ownedの`div`で囲み、`role="group"`と`:aria-labelledby`を付ける。
-- 視覚label「その他減少量」をgroup内のspanとして置く。
-- 各fieldに「その他減少量（ダイス）」「その他減少量（固定値）」というscreen-reader-only labelを付ける。
-- Vuetify内部の`.v-field__input`や`.v-field-label`のgeometryは上書きしない。
+revision 1はsemantic構造とaccessible nameの要件を満たし、labelのclipも解消した。一方、視覚labelが隣接するEロイス数labelより暗く、上方にずれて見えるため、product ownerの判断は`REVISE`となった。revision 1のsource variant `backtrack-compound-label-source`とcapture結果は、この判断を含む履歴として変更せずに残す。
 
-視覚labelの位置だけは候補が所有するtop-levelの`<style scoped>` blockで指定し、groupを`position: relative`、labelを上端へ配置する。style blockは`<template>`の外側へ置き、既存の入力fieldの内部CSSを直接変更する方式ではない。
+revision 1の計測で記録したfirst-row heightのmobile `baseline 40px → candidate 92px（+52px）`、desktop `baseline 40px → candidate 52px（+12px）`は、baselineでnested inner row、candidateでtop-level rowを測っており、比較階層が異なっていた。この2つの差分は行高回帰の証拠として無効であり、履歴上の誤った計測値として明示的に訂正する。行高の判断には、次のrevision 2で同じtop-level rowを計測した値を使う。
 
-### 計測結果
+### revision 2 — aligned source candidate
 
-通常mobile、通常mobileでDロイス「不死者・悪夢」を選択した状態、通常desktopの3scenarioでbaselineとcandidateをcaptureした。baselineにはsemantic groupがないため、アクセシビリティ検証はcandidateだけに適用した。candidateでは全scenarioでgroupがちょうど1件、group名が「その他減少量」、spinbuttonがちょうど2件となり、2つのaccessible nameがそれぞれ期待値と一致した。browser diagnosticsは全scenarioで0件だった。
+variant `backtrack-compound-label-aligned-source`は、revision 1のsemantic構造、外側`cols=6`／desktop`md=3`、内側`6 / 6`、2つの個別accessible nameをそのまま維持する。変更は視覚labelの見た目と位置だけに限定した。
 
-candidateのouter group幅はmobile 151px、desktop 290pxであり、source上の`cols=6`／`md=3`に対応する。nested rowもmobile 151px、desktop 290pxで、2つのfieldは各71.5px／141pxの6/6配置を維持した。visual labelのbounding boxはmobileで`x=199`、`y=205`、`74.41×15.98px`、desktopで`x=934`、`y=165`、`75×15.98px`だった。Eロイス数fieldはmobileで`x=48`、`y=209`、`143×32px`、desktopで`x=644`、`y=169`、`282×32px`であり、candidateの入力fieldはmobileで`y=209`、desktopで`y=169`から始まった。labelの重なり、周辺fieldとの距離、画面全体の自然さは画像によるproduct reviewで判断する。
+- 視覚labelへ`text-caption text-medium-emphasis`を付け、Vuetifyのutility typographyを使う。
+- top-levelの`<style scoped>`でlabelの`inset-block-start`だけを`4px`にする。
+- `font-size`、`line-height`、`.v-field__input`、内部label、row、fieldのgeometryを候補CSSで上書きしない。
 
-| Scenario | candidate group | spinbutton names | outer width | nested fields |
-| --- | ---: | --- | ---: | --- |
-| Backtrack mobile | 1 | 2件、完全一致 | 151px | 71.5px + 71.5px |
-| Backtrack mobile（不死者・悪夢） | 1 | 2件、完全一致 | 151px | 71.5px + 71.5px |
-| Backtrack desktop | 1 | 2件、完全一致 | 290px | 141px + 141px |
+candidateのsourceはbuild後、Playwright captureの前にバイト列単位で復元した。productionの`src/**`、計算、公開assetには接続していない。
 
-formのfirst-row heightは、mobile ordinaryとmobile「不死者・悪夢」でbaseline `40px`、candidate `92px`、差分`+52px`だった。desktopではbaseline `40px`、candidate `52px`、差分`+12px`だった。この差分はgroup labelを追加した候補の実測値であり、行高を維持できたという主張ではない。
+### revision 2の計測結果
 
-この候補は、既存のcompound labelを無理に兄弟fieldへまたがらせず、視覚上のgroupとアクセシビリティ上のgroupを同じ構造で表現する技術案である。入力名を分けたことで、ダイスと固定値を支援技術から個別に操作できることも確認できた。top-level SFC style blockへの修正後も、候補のvisual labelとrow heightは上記の実測値となった。視覚labelの位置やrow高の増加は、product ownerが採否を判断する。
+`backtrack-mobile`、`backtrack-mobile-livingdead`、`backtrack-desktop`の3scenarioでbaselineとcandidateを実行した。両フェーズで`outerColumn`、nested `innerRow`、top-level `firstRow`、Eロイス数fieldを取得し、`firstRowContainsNeighborElois=true`を検証した。candidateではgroupが1件、group名が「その他減少量」、spinbuttonが2件となり、2つのaccessible nameが完全一致した。browser diagnosticsは全scenarioで0件だった。
+
+| Scenario | outer column | nested fields | first-row height（baseline → candidate） | label top差 | label center差 |
+| --- | --- | --- | --- | ---: | ---: |
+| Backtrack mobile | 151px | 71.5px + 71.5px | 92px → 92px（差0px） | -8px | -10px |
+| Backtrack mobile（不死者・悪夢） | 151px | 71.5px + 71.5px | 92px → 92px（差0px） | -8px | -10px |
+| Backtrack desktop | 290px | 141px + 141px | 52px → 52px（差0px） | -8px | -10px |
+
+candidateのgroup自体はmobileで`x=199`、`width=143px`、desktopで`x=934`、`width=282px`となり、外側columnの内側4pxを反映する。視覚labelのbounding boxはmobileで`x=199`、`y=209`、`74.41×20px`、desktopで`x=934`、`y=169`、`74.41×20px`だった。隣接するEロイス数labelはmobileで`x=48`、`y=217`、`74.64×24px`、desktopで`x=644`、`y=177`、`74.64×24px`だった。
+
+candidate視覚labelのcomputed styleは`font-size: 12px`、`line-height: 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`である。隣接labelは`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`だった。utility classによる色と透明度は反映されたが、文字サイズと行高は隣接labelと異なるため、最終的な視覚一致はcapture画像で確認する。
+
+このrevision 2は、revision 1で問題になった色と上端位置を、semantic構造やfield geometryを変えずに再調整する候補である。数値上はtop-level rowの行高をbaselineと一致させ、視覚labelは隣接labelより8px上、中心で10px上にある。これをproduct ownerが確認し、`ADOPT`、追加の`REVISE`、または`REJECT`を決める。
 
 ## 総合判定と次の作業
 
@@ -135,8 +142,8 @@ formのfirst-row heightは、mobile ordinaryとmobile「不死者・悪夢」で
 
 | ID | 技術結果 | Production status |
 | --- | --- | --- |
-| UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `AWAITING PRODUCT OWNER` |
-| UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `AWAITING PRODUCT OWNER` |
-| UI-06 | group semanticsと2つの個別accessible nameを実装できた | `AWAITING PRODUCT OWNER` |
+| UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production実装待ち） |
+| UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production実装待ち） |
+| UI-06 | revision 1のgroup semanticsを維持し、revision 2でlabel style/位置を再調整した | revision 1は`REVISE`、revision 2を確認中 |
 
 product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。今回のcommitにはproduction UI、計算core、runtime、Worker、公開asset、generator、依存バージョンの変更を含めない。
