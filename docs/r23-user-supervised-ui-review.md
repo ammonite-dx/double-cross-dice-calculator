@@ -252,3 +252,11 @@ safe slice（`kazanari = 0`、防御ダイス0、非負固定値差、`shihai = 
 safe slice外の8 fixtureは、利用可能な証明書だけでは有限上界を導出できず、レポートの`candidateBound.status`を`insufficient-certificate`とした。下限や区間の中点を一点の期待値へ変換する処理は追加していない。実行方法と全フィールドは[`r23-damage-expectation-investigation.md`](./r23-damage-expectation-investigation.md)に記載する。
 
 R23-BのNodeテスト（92 files・964 tests）、ESLint、Markdown lint（56 files・0 issues）、production build（420 modules）、tail attribution report検査は成功した。R23は引き続き`IN REVIEW`であり、production UIの視覚採用判断は未実施である。
+
+## R23 Form/Layout Follow-up — source-level prototype（2026-09-11）
+
+UI-04A、UI-04B、UI-06について、post-build CSS patchではなく、実際のVue/Vuetify sourceを一時的に変更してbuildするprototypeを作成した。candidateのcapture開始前に対象sourceをバイト列単位で復元し、復元後の`src/**`に恒久差分がないことを確認している。production UI、計算core、runtime、Worker、公開asset、generator、依存バージョンは変更していない。
+
+UI-04Aは3つのformへ`v-checkbox-btn`のpublic prop `inline`だけを追加した。Check 1件、Attack 2件の対象数を検証し、desktop/mobileの4scenarioでcheckboxのcontrol幅とsibling textまでのgapが縮小し、開閉操作とbrowser diagnosticsが成功した。UI-04Bは3つのSettingFormの最小値・最大値・表示モードだけを`density="comfortable"`へ変更し、desktop/mobileの4scenarioで最小値・最大値の高さが32pxから40px、上paddingが8pxから14pxになった。UI-06はouter `cols=6`、desktop `md=3`、nested `6 / 6`を維持し、app-owned group label、`role="group"`、2つの個別accessible nameを追加した。通常mobile、通常mobileの「不死者・悪夢」、desktopの3scenarioでgroup 1件とspinbutton 2件を確認した。
+
+3候補の技術結果とJSON・画像の保存場所、制約、未採用状態は[`r23-vuetify-control-source-prototypes.md`](./r23-vuetify-control-source-prototypes.md)にまとめた。いずれもvisual approval待ちであり、productionへの採用は行っていない。

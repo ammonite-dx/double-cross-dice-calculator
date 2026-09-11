@@ -132,3 +132,19 @@ form prototypeはproduction markupを変更しない。runnerがexact textから
 `backtrack-label-8-stress`、`backtrack-label-9-stress`、`backtrack-label-9-adaptive-stress`は、fixtureの数値を実際のBacktrack formへ入力し、通常と《屍人》の両方をmobileで撮影する。8px／9pxはbuild済みJavaScriptのfont設定を一度だけ置換し、adaptive variantは同じ置換へscriptableな`anchor`、`align`、`offset`を追加する。いずれもbundle文字列の一致が1件でない場合はfail-closedになる。
 
 画像と`report.json`は`experiments/r23-ui-review/output/prototypes/<variant>/`へ出力される。このdirectoryはgitignoredである。captureの成功はproduction採用を意味せず、比較後にproduct ownerが`ADOPT`、`REVISE`、`REJECT`を決める。
+
+## Source-level form prototypes
+
+R23のUI-04A、UI-04B、UI-06では、post-buildのCSS patchではなく、実際のVue/Vuetify markupとpublic propを一時的にbuildするsource-level prototypeを使う。candidate sourceはexact replacementで適用され、candidate `dist/`のcapture開始前に元のバイト列へ復元される。復元失敗はhard failureであり、productionの`src/**`へ候補を残さない。
+
+次のvariantを個別に実行できる。
+
+```powershell
+npm run review:r23:source-prototype -- --variant=advanced-setting-inline-source
+npm run review:r23:source-prototype -- --variant=setting-form-comfortable-source
+npm run review:r23:source-prototype -- --variant=backtrack-compound-label-source
+```
+
+`advanced-setting-inline-source`はCheck 1件、Attack 2件の「高度な設定」checkboxへ`inline`だけを追加する。`setting-form-comfortable-source`はCheck/Attackの最小値・最大値・表示モードだけを`density="comfortable"`へ変更する。`backtrack-compound-label-source`は外側`cols=6`、desktop`md=3`、内側`6 / 6`を維持し、app-owned group label、`role="group"`、2つの個別accessible nameを候補にする。
+
+画像とgeometry/accessibility metricsは`experiments/r23-ui-review/output/source-prototypes/<variant>/`へ保存される。unit testはreplacement定義、出現数、復元、build失敗時の復元を検証するが、画像をgoldenにしない。技術的なcapture成功はvisual approvalやproduction採用を意味しない。候補の計測値、制約、未採用状態は[`docs/r23-vuetify-control-source-prototypes.md`](../../docs/r23-vuetify-control-source-prototypes.md)に記録する。
