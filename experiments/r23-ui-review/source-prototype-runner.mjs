@@ -384,14 +384,24 @@ async function collectCompoundMetrics(page) {
     const visualLabel = document.querySelector('.r23-other-reduction-group__label')
     const originalLabel = [...document.querySelectorAll('label')]
       .find((label) => label.textContent.trim() === 'その他減少量')
+    const closestVuetifyColumn = (element) => {
+      let current = element
+      while (current && current !== document.body) {
+        if ([...current.classList].some((name) => name === 'v-col' || name.startsWith('v-col-'))) {
+          return current
+        }
+        current = current.parentElement
+      }
+      return null
+    }
     const anchor = group ?? originalLabel
-    const outerColumn = anchor?.closest('.v-col') ?? null
+    const outerColumn = closestVuetifyColumn(anchor)
     const innerRow = group?.querySelector(':scope > .v-row')
-      ?? originalLabel?.closest('.v-field')?.closest('.v-col')?.querySelector(':scope > .v-row')
+      ?? originalLabel?.closest('.v-field')?.parentElement?.parentElement?.querySelector(':scope > .v-row')
       ?? null
     const outerRow = outerColumn?.parentElement ?? null
     const fields = [...(group ?? outerColumn ?? document).querySelectorAll('.v-input')]
-      .filter((field) => field.closest('.v-col') === outerColumn || group?.contains(field))
+      .filter((field) => closestVuetifyColumn(field) !== null && (closestVuetifyColumn(field) === outerColumn || group?.contains(field)))
       .slice(0, 2)
     const eLabel = [...document.querySelectorAll('label')]
       .find((label) => label.textContent.trim() === 'Eロイス数')
@@ -498,10 +508,12 @@ async function runScenario(browser, baseUrl, scenario, variant, phase, outputDir
         throw new Error('setting geometry metric is missing a v-input')
       }
     } else if (variant.checks.type === 'compound-label') {
-      await validateCompoundAccessibility(page, variant.checks.fieldNames)
       metrics = await collectCompoundMetrics(page)
-      if (metrics.groupName !== variant.checks.groupName) {
-        throw new Error(`compound group label mismatch (expected=${variant.checks.groupName}, actual=${metrics.groupName})`)
+      if (phase === 'candidate') {
+        await validateCompoundAccessibility(page, variant.checks.fieldNames)
+        if (metrics.groupName !== variant.checks.groupName) {
+          throw new Error(`compound group label mismatch (expected=${variant.checks.groupName}, actual=${metrics.groupName})`)
+        }
       }
     }
     await page.screenshot({ path: screenshotPath, fullPage: true })
