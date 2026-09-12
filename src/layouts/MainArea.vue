@@ -3,24 +3,26 @@
 </script>
 
 <template>
-  <v-main>
-    <router-view v-slot="{ Component }">
-      <CalculationErrorBoundary>
-        <Suspense>
-          <template #default>
-            <div>
-              <component :is="Component" />
-            </div>
-          </template>
-          <template #fallback>
-            <v-container class="pa-6 text-center">
-              <v-progress-circular indeterminate color="primary" />
-            </v-container>
-          </template>
-        </Suspense>
-      </CalculationErrorBoundary>
-    </router-view>
-    <v-footer color="secondary">
+  <v-main class="main-area">
+    <div class="main-area__content">
+      <router-view v-slot="{ Component }">
+        <CalculationErrorBoundary>
+          <Suspense>
+            <template #default>
+              <div>
+                <component :is="Component" />
+              </div>
+            </template>
+            <template #fallback>
+              <v-container class="pa-6 text-center">
+                <v-progress-circular indeterminate color="primary" />
+              </v-container>
+            </template>
+          </Suspense>
+        </CalculationErrorBoundary>
+      </router-view>
+    </div>
+    <v-footer class="main-area__footer" color="secondary">
         <v-container>
             <p class="ma-0 white--text text-caption text-center">
                 <span>本作は、「矢野俊策」「有限会社F.E.A.R.」が権利を有する『ダブルクロス The 3rd Edition』の二次創作物です。</span><span>(C)矢野俊策/F.E.A.R.</span>
@@ -31,6 +33,20 @@
 </template>
 
 <style scoped>
+    .main-area {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    .main-area__content {
+        flex: 1 0 auto;
+    }
+
+    .main-area__footer {
+        flex: 0 0 auto;
+    }
+
     span{
         display: inline-block;
     }
