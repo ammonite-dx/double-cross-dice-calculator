@@ -311,7 +311,7 @@ footerは、本番CSSを追加注入しない[`experiments/r23-ui-review/output/
 - production browser smoke: PASS、canvas・asset request・browser diagnostics・compound input accessibilityの契約を満たす
 - `git diff --check`: PASS
 
-今回のproduction変更で、`src/calculation/**`、`src/runtime/**`、generator、公開asset、依存バージョン、Worker protocolは変更していない。UI-04C、UI-05、Damage expectation、R23-C、Cloudflare Worker／API／MCPはこの統合に含めない。
+今回のproduction変更で、`src/calculation/**`、`src/runtime/**`、generator、公開asset、依存バージョン、Worker protocolは変更していない。UI-04CとUI-05はProduct Owner reviewの結果`NO CHANGE`として判断を完了しており、production変更を行っていない。Damage expectation、R23-C、Cloudflare Worker／API／MCPはこの統合に含めない。
 
 UI-01、UI-04A、UI-04B、UI-06、UI-07のproduction統合visual confirmationはproduct ownerが確認済みである。UI-08もoffset revisionのdesktop／mobile captureをproduct ownerが確認し、`ADOPT`と判断した。production source、smoke、15scenario capture、release gate、統合後のUI-08 visual confirmationが完了したため、production statusは`PASS`、R23の状態は`CLOSED / GREEN`とする。
 
@@ -321,4 +321,4 @@ Product OwnerによるR23の最終visual reviewは完了し、R23を`CLOSED / GR
 
 最終visual evidenceは、production buildでWebFontLoaderが`wf-active`、Roboto 400が利用可能、computed `font-family`が`Roboto, sans-serif`となったcorrected captureである。15/15 scenarioが`captured`、全scenarioの`fontEvidence`がPASS、console warning/error・page error・same-origin request failure・HTTP errorは0件だった。Product Ownerは`01-check-desktop-ordinary.png`、`02-check-mobile-ordinary.png`、`05-attack-desktop-single.png`、`06-attack-mobile-single.png`、`10-backtrack-mobile.png`、`11-backtrack-mobile-livingdead.png`、`14-attack-desktop-guard-compound.png`、`15-attack-mobile-guard-compound.png`を確認し、すべて`PASS`とした。残り7scenarioもtechnical captureとして15/15成功済みである。
 
-`npm run verify:release`は`GREEN`であり、production source、計算core、runtime、generator、公開asset、依存バージョン、Worker protocolはclosureで変更していない。Damage expectation／R23-C候補、UI-04C・UI-05の追加実装、experiment cleanup、shared compound component化、Cloudflare Worker／API／MCPはR23の完了対象に含めず、既存の後続課題として維持する。R23のsource prototype、capture tooling、画像・reportは監査と再現のため保持する。
+`npm run verify:release`は`GREEN`であり、production source、計算core、runtime、generator、公開asset、依存バージョン、Worker protocolはclosureで変更していない。UI-04CとUI-05は`NO CHANGE`としてR23内で判断を完了した。Damage expectation／R23-C候補、experiment cleanup、shared compound component化、Cloudflare Worker／API／MCPはR23の完了対象に含めず、既存の後続課題として維持する。R23のsource prototype、capture tooling、画像・reportは監査と再現のため保持する。
