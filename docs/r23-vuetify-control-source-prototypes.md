@@ -2,17 +2,17 @@
 
 ## 目的と範囲
 
-この文書は、R23で確認した3件のフォーム表示差について、productionへ採用する前のVue/Vuetify source-level prototypeと計測結果を記録する。候補sourceは一時的にbuildへ使用するが、通常の成功・失敗を問わず元のバイト列へ復元し、productionの`src/**`へ変更を残さない。
+この文書は、R23で確認したフォーム表示差について、productionへ採用する前のVue/Vuetify source-level prototypeと、採用後の本番統合検証結果を記録する。候補sourceは一時的にbuildへ使用するが、通常の成功・失敗を問わず元のバイト列へ復元し、productionの`src/**`へ変更を残さない。
 
 対象は次の3件である。
 
 | ID | 対象 | 第一候補 | 現時点の判断 |
 | --- | --- | --- | --- |
-| UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production実装待ち） |
-| UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production実装待ち） |
-| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT` |
+| UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production反映済み、統合visual確認待ち） |
+| UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production反映済み、統合visual確認待ち） |
+| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production反映済み、統合visual確認待ち） |
 
-この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`、revision 3を`REJECT`、revision 4を`ADOPT`とし、浮動labelを基準にした再計測結果を記録する。
+この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04A、UI-04B、UI-06 revision 4はproduct ownerが`ADOPT`と判断し、2026-09-12にproductionへ反映した。UI-06 revision 1とrevision 2は`REVISE`、revision 3は`REJECT`として履歴を保持し、revision 4は浮動labelを基準にした再計測結果と本番統合結果を記録する。
 
 ## 再現条件
 
@@ -48,6 +48,8 @@ source prototype harnessは候補ごとに対象ファイルを`Buffer`として
 候補buildが成功した場合も、失敗した場合も、capture開始前または`finally`相当の後処理で保存済みバイト列を書き戻し、読み直したバイト列との完全一致を確認する。復元自体が失敗した場合はhard failureとして扱う。
 
 candidateの画面は候補buildで生成した`dist/`を配信して取得するため、capture時のproduction sourceは既に復元済みである。これにより候補の見た目を確認しながら、未承認のVue変更をbranchへ残さない。`tests/r23SourcePrototypeHarness.test.js`では、IDとreplacement定義、unknown variant、出現数不一致、build失敗時の復元、成功時の復元を固定している。
+
+UI-04A、UI-04B、UI-06 revision 4をproductionへ採用した後は、対象sourceの現在形が候補作成前の形と異なるため、これらの履歴variantを現行sourceへ直接再適用することは想定しない。variant定義とcapture結果は監査用に保持し、契約テストでは宣言された履歴候補を合成して置換内容とrevision間の最小差分を検証する。本番sourceの見た目は、後述の統合captureで別途確認する。
 
 ## UI-04A — `inline` prop
 
@@ -166,7 +168,7 @@ visual review用のcandidate画像は、`experiments/r23-ui-review/output/source
 
 product ownerのrevision 3 decisionは`REJECT`である。mobileではvisual labelをmain labelに合わせた結果、入力値の行へ入り込んで見えるため、視覚的には採用できない。従来のrevision 2の`-8px / -10px`およびrevision 3の`0px / -2px`は、いずれもmain labelを基準にした値であり、visual alignmentの根拠としては無効である。revision 3は実験履歴として残し、その計測時点では次のoffsetを決めず、後続のfloating label校正結果からrevision 4を別途導出した。
 
-### revision 4 — floating-aligned source candidate（`AWAITING PRODUCT OWNER`）
+### revision 4 — floating-aligned source candidate（`ADOPT`）
 
 revision 4はrevision 3からではなく、校正済みのrevision 2から派生させた。revision 2の`inset-block-start: 4px`ではvisual labelとfloating labelのtop差が全scenarioで`+8px`だったため、同じ座標系で`4px - 8px = -4px`と導出し、`inset-block-start: -4px`を1候補だけ検証する。center差はlabelの高さがvisual側約20px、floating側約18pxであるため、topを一致させても約`+1px`残ると予測し、先回りした補正は行わない。
 
@@ -188,16 +190,54 @@ candidate visual labelのbounding boxはmobileで`x=199`、`y=201`、`74.41×20p
 
 visual review用のcandidate画像は、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/09-backtrack-desktop.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/10-backtrack-mobile.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/11-backtrack-mobile-livingdead.png`である。画像と`report.json`はgitignore対象であり、commitしない。
 
-revision 4は、校正済みfloating label基準から一意に導いたsource candidateであり、product ownerのdecisionは`ADOPT`である。desktop、mobile、mobile Living Deadの3scenarioでline-box top差は0px、center差は+1px、first-row差は0px、accessibilityはPASS、browser diagnosticsは0件だった。PNGの実描画でもlabelとvalueの間隔、underlineの位置・幅に問題はなく、mobileのlabel inkはEロイス数が`y=205..214`、その他減少量が`y=204..215`、両方のvalue開始が`y=222`、underlineが`y=240`で一致した。採用理由は、文字列固有のink box差を無理に補正せずline-boxをfloating labelへ合わせられたことである。production UIへの接続は次のproduction実装単位で行い、revision 5や別offsetの追加は行わない。
+revision 4は、校正済みfloating label基準から一意に導いたsource candidateであり、product ownerのdecisionは`ADOPT`である。desktop、mobile、mobile Living Deadの3scenarioでline-box top差は0px、center差は+1px、first-row差は0px、accessibilityはPASS、browser diagnosticsは0件だった。PNGの実描画でもlabelとvalueの間隔、underlineの位置・幅に問題はなく、mobileのlabel inkはEロイス数が`y=205..214`、その他減少量が`y=204..215`、両方のvalue開始が`y=222`、underlineが`y=240`で一致した。採用理由は、文字列固有のink box差を無理に補正せずline-boxをfloating labelへ合わせられたことである。`9212fc6`でproduction UIへ接続し、revision 5や別offsetの追加は行わない。
 
 ## 総合判定と次の作業
 
-対象variantはすべてbaseline/candidateのbuildとcaptureに成功し、候補build後のsource復元、unit test、`src/**`の恒久差分なしを確認した。候補は技術的な検証を通過したが、productionへの採用状態は次のとおりである。
+対象variantは採用前にbaseline/candidateのbuildとcaptureに成功し、候補build後のsource復元、unit test、`src/**`の恒久差分なしを確認した。production統合後は、現行sourceと一致しない履歴variantを直接再実行せず、統合captureとrelease gateで本番経路を検証する。productionへの採用状態は次のとおりである。
 
 | ID | 技術結果 | Production status |
 | --- | --- | --- |
-| UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production実装待ち） |
-| UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production実装待ち） |
-| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3で誤ったmain label基準を試し、revision 4でfloating label基準へ補正した | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production実装待ち） |
+| UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production反映済み、統合visual確認待ち） |
+| UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production反映済み、統合visual確認待ち） |
+| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3で誤ったmain label基準を試し、revision 4でfloating label基準へ補正した | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production反映済み、統合visual確認待ち） |
 
-product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。今回のcommitにはproduction UI、計算core、runtime、Worker、公開asset、generator、依存バージョンの変更を含めない。
+product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。production統合では、UI-01、UI-04A、UI-04B、UI-06、UI-07を個別commitへ分け、計算core、runtime、Worker、公開asset、generator、依存バージョンは変更していない。
+
+## Production integration（2026-09-12）
+
+product ownerが採用した5件を、次の順でproductionへ反映した。各UI変更は個別にrevertできる単位とし、UI-06の判断記録を先に置いた。
+
+| Commit | 内容 |
+| --- | --- |
+| `e757218` | UI-06 revision 4の`ADOPT`判断を記録 |
+| `39671ef` | Backtrack mobile Doughnut datalabelを`6px`から`8px`へ変更（desktopは`12px`を維持） |
+| `b51edc4` | Check／Attackの「高度な設定」checkboxへ`inline`を明示 |
+| `86cbc84` | Check／Attackの最小値・最大値・表示モードを`density="comfortable"`へ変更 |
+| `9212fc6` | Backtrackのcompound label revision 4（group semantics、個別accessible name、`inset-block-start: -4px`）を反映 |
+| `973bf2a` | `MainArea`をnormal-flowのcolumn flex shellへ変更し、短いページでfooterを下端へ配置 |
+
+production統合後の検証基盤の追随は、`c43cb17`（本番CSS単体の短ページfooter検証variant）、`cd41315`（short page／drawer／long Attackを含む統合footer検証）、`b39cf75`（採用後も履歴source prototypeの契約を維持）、`e189c0b`（分離後のBacktrack accessible nameをproduction smokeへ反映）で行った。
+
+### Integrated capture
+
+通常のproduction captureは[`experiments/r23-ui-review/output/report.json`](../experiments/r23-ui-review/output/report.json)へ出力した。Check（desktop／mobile／upper tail）、Attack（desktop／mobile、single／multi-combo）、Backtrack（desktop／mobile／Living Dead）の11scenarioがすべて`captured`となり、console warning/error、page error、same-origin request failure、HTTP errorは全scenarioで0件だった。画像とJSONはgitignore対象であり、commitしていない。
+
+footerは、本番CSSを追加注入しない[`experiments/r23-ui-review/output/prototypes/footer-production-integrated/report.json`](../experiments/r23-ui-review/output/prototypes/footer-production-integrated/report.json)で確認した。短いCheckページとdrawer開状態ではfooterのviewport bottom gapがともに`0px`、footerのpositionは`relative`、`.main-area`はcolumn flexだった。drawerの中心点はdrawer自身にあり、footerより前面に表示された。長いAttack mobileではfooterがcontent wrapperの直後（content bottom=`1873px`、footer top=`1873px`）に通常flowで配置され、viewport外へ続くページでも重なりはなかった。3scenarioのbrowser diagnosticsは0件だった。
+
+### Release gate
+
+`npm run verify:release`をproduction source変更後に実行し、次をすべて確認した。
+
+- `data:check`: schema-v2/revision-1の32 assets
+- Vitest: 97 files／986 tests
+- generator: 通常18件、simulation 13件、Ruff clean
+- typecheck、ESLint、Markdown lint（57 files／0 issues）
+- runtime DX: 20,000 cases、non-finite／negative 0、最大差は設定許容内
+- production build: 421 modules
+- production browser smoke: PASS、canvas・asset request・browser diagnosticsの契約を満たす
+- `git diff --check`: PASS
+
+今回のproduction変更で、`src/calculation/**`、`src/runtime/**`、generator、公開asset、依存バージョン、Worker protocolは変更していない。UI-04C、UI-05、Damage expectation、R23-C、Cloudflare Worker／API／MCPはこの統合に含めない。
+
+production実装と技術検証は完了したが、複数変更を同居させた最終visual confirmationはまだproduct ownerの確認待ちである。したがってR23の状態は`IN REVIEW`、integrated visual statusは`AWAITING PRODUCT OWNER`とする。product ownerの確認前にR23を`CLOSED`へ変更しない。
