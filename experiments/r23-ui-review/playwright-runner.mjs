@@ -213,6 +213,17 @@ async function waitForStableCharts(page) {
   throw new Error('charts did not reach a stable frame before the timeout')
 }
 
+async function stubExternalFonts(page) {
+  const fontStub = async (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/css',
+    body: '',
+  })
+  await page.route('https://fonts.googleapis.com/**', fontStub)
+  await page.route('https://fonts.gstatic.com/**', fontStub)
+  return fontStub
+}
+
 async function executeStep(page, step) {
   if (step.type === 'select') {
     const select = page.getByRole('combobox', { name: step.label })
@@ -230,7 +241,7 @@ async function executeStep(page, step) {
   if (step.type === 'fill') {
     let input
     if (step.target === 'attack-damage-value') {
-      const damageDice = page.getByLabel('攻撃力').nth(step.comboIndex)
+      const damageDice = page.getByLabel('攻撃力（ダイス）').nth(step.comboIndex)
       const group = damageDice.locator(
         'xpath=ancestor::div[contains(@class,"v-row")][1]'
       )
@@ -265,6 +276,7 @@ async function runScenario(browser, baseUrl, scenario) {
   const context = await browser.newContext({ viewport: VIEWPORTS[scenario.viewport] })
   const page = await context.newPage()
   const diagnostics = createDiagnostics(page, baseUrl)
+  const fontStub = await stubExternalFonts(page)
   const screenshotPath = join(OUTPUT_DIRECTORY, scenario.screenshot)
   const startedAt = performance.now()
   try {
@@ -302,6 +314,8 @@ async function runScenario(browser, baseUrl, scenario) {
     await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {})
     throw formatScenarioError(scenario, error, diagnostics)
   } finally {
+    await page.unroute('https://fonts.googleapis.com/**', fontStub).catch(() => {})
+    await page.unroute('https://fonts.gstatic.com/**', fontStub).catch(() => {})
     await context.close().catch(() => {})
   }
 }

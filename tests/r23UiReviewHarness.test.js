@@ -29,6 +29,10 @@ describe('R23 UI review scenario definitions', () => {
       'backtrack-desktop',
       'backtrack-mobile',
       'backtrack-mobile-livingdead',
+      'attack-desktop-evasion-compound',
+      'attack-mobile-evasion-compound',
+      'attack-desktop-guard-compound',
+      'attack-mobile-guard-compound',
     ]))
     expect(VIEWPORTS.desktop).toEqual({ width: 1280, height: 900 })
     expect(VIEWPORTS.mobile).toEqual({ width: 390, height: 844 })
@@ -49,6 +53,10 @@ describe('R23 UI review scenario definitions', () => {
       '09-backtrack-desktop.png',
       '10-backtrack-mobile.png',
       '11-backtrack-mobile-livingdead.png',
+      '12-attack-desktop-evasion-compound.png',
+      '13-attack-mobile-evasion-compound.png',
+      '14-attack-desktop-guard-compound.png',
+      '15-attack-mobile-guard-compound.png',
     ])
   })
 
@@ -62,7 +70,7 @@ describe('R23 UI review scenario definitions', () => {
         { type: 'fill', label: 'ダイス数', index: 2, value: 4 },
         { type: 'fill', label: 'クリティカル値', index: 2, value: 8 },
         { type: 'fill', label: '技能値', index: 2, value: 3 },
-        { type: 'fill', label: '攻撃力', index: 1, value: 2 },
+        { type: 'fill', label: '攻撃力（ダイス）', index: 1, value: 2 },
         { type: 'fill', target: 'attack-damage-value', comboIndex: 1, value: 4 },
       ]))
     }

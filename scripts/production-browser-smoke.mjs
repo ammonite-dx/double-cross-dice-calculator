@@ -314,6 +314,17 @@ async function settlePage(page) {
   await page.waitForTimeout(SETTLE_TIMEOUT_MILLISECONDS)
 }
 
+async function stubExternalFonts(page) {
+  const fontStub = async (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/css',
+    body: '',
+  })
+  await page.route('https://fonts.googleapis.com/**', fontStub)
+  await page.route('https://fonts.gstatic.com/**', fontStub)
+  return fontStub
+}
+
 async function captureResultState(page) {
   return page.evaluate(() => ({
     tables: [...document.querySelectorAll('table')].map((table) =>
@@ -490,6 +501,7 @@ async function runCheck(browser, baseUrl) {
   const context = await browser.newContext()
   const page = await context.newPage()
   const record = createNetworkRecorder(page, baseUrl)
+  const fontStub = await stubExternalFonts(page)
   try {
     await navigateTo(page, record, baseUrl, '/check')
     const canvases = await waitForCanvases(page, 1)
@@ -760,6 +772,8 @@ async function runCheck(browser, baseUrl) {
   } catch (error) {
     throw enrichCaseError('check', error, record)
   } finally {
+    await page.unroute('https://fonts.googleapis.com/**', fontStub).catch(() => {})
+    await page.unroute('https://fonts.gstatic.com/**', fontStub).catch(() => {})
     await context.close().catch(() => {})
   }
 }
@@ -768,6 +782,7 @@ async function runAttack(browser, baseUrl) {
   const context = await browser.newContext()
   const page = await context.newPage()
   const record = createNetworkRecorder(page, baseUrl)
+  const fontStub = await stubExternalFonts(page)
   try {
     await navigateTo(page, record, baseUrl, '/attack')
     const initialCanvases = await waitForCanvases(page, 2, { exact: true })
@@ -1127,6 +1142,8 @@ async function runAttack(browser, baseUrl) {
   } catch (error) {
     throw enrichCaseError('attack', error, record)
   } finally {
+    await page.unroute('https://fonts.googleapis.com/**', fontStub).catch(() => {})
+    await page.unroute('https://fonts.gstatic.com/**', fontStub).catch(() => {})
     await context.close().catch(() => {})
   }
 }
@@ -1135,6 +1152,7 @@ async function runBacktrack(browser, baseUrl) {
   const context = await browser.newContext()
   const page = await context.newPage()
   const record = createNetworkRecorder(page, baseUrl)
+  const fontStub = await stubExternalFonts(page)
   try {
     await navigateTo(page, record, baseUrl, '/backtrack')
     const canvases = await waitForCanvases(page, 3, { exact: true })
@@ -1181,6 +1199,8 @@ async function runBacktrack(browser, baseUrl) {
   } catch (error) {
     throw enrichCaseError('backtrack', error, record)
   } finally {
+    await page.unroute('https://fonts.googleapis.com/**', fontStub).catch(() => {})
+    await page.unroute('https://fonts.gstatic.com/**', fontStub).catch(() => {})
     await context.close().catch(() => {})
   }
 }
