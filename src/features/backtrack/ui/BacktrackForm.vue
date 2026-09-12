@@ -1,6 +1,6 @@
 <script setup>
 
-    import { ref,reactive,watch } from 'vue';
+    import { ref,reactive,useId,watch } from 'vue';
 
     const props = defineProps(['params']);
     const emit = defineEmits(['validated']);
@@ -13,6 +13,7 @@
         value: props.params.value,
         dlois: props.params.dlois,
     });
+    const otherReductionGroupId = useId();
     let validationGeneration = 0;
     const backtrackFields = [
         'encroachment',
@@ -82,10 +83,28 @@
             <v-col md="3" cols="6"><v-text-field label="残存ロイス数" type="number" min=0 max=7 v-model.number="currentParams.lois" :rules="loisRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
             <v-col md="3" cols="6"><v-text-field label="Eロイス数" type="number" min=0 v-model.number="currentParams.elois" :rules="eloisRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"></v-text-field></v-col>
             <v-col md="3" cols="6" class="pb-2">
-                <v-row dense>
-                    <v-col cols="6" class="pr-0"><v-text-field label="その他減少量" suffix="D10+" type="number" min=0 v-model.number="currentParams.dice" :rules="diceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                    <v-col cols="6" class="pl-0"><v-text-field type="number" min=0 v-model.number="currentParams.value" :rules="valueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                </v-row>
+                <div
+                    class="other-reduction-group"
+                    role="group"
+                    :aria-labelledby="otherReductionGroupId"
+                >
+                    <span
+                        :id="otherReductionGroupId"
+                        class="other-reduction-group__label text-caption text-medium-emphasis"
+                    >その他減少量</span>
+                    <v-row dense>
+                        <v-col cols="6" class="pr-0">
+                            <v-text-field label="その他減少量（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.dice" :rules="diceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                <template #label><span class="d-sr-only">その他減少量（ダイス）</span></template>
+                            </v-text-field>
+                        </v-col>
+                        <v-col cols="6" class="pl-0">
+                            <v-text-field label="その他減少量（固定値）" type="number" min=0 v-model.number="currentParams.value" :rules="valueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                <template #label><span class="d-sr-only">その他減少量（固定値）</span></template>
+                            </v-text-field>
+                        </v-col>
+                    </v-row>
+                </div>
             </v-col>
         </v-row>
         <v-row dense class="pt-2 ma-0">
@@ -93,3 +112,17 @@
         </v-row>
     </v-form>
 </template>
+
+<style scoped>
+    .other-reduction-group {
+        position: relative;
+    }
+
+    .other-reduction-group__label {
+        position: absolute;
+        inset-block-start: -4px;
+        inset-inline-start: 0;
+        z-index: 1;
+        pointer-events: none;
+    }
+</style>

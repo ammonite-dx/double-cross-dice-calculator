@@ -109,4 +109,23 @@ describe('Backtrack input flow contracts', () => {
   it('does not assign nested Backtrack props from the form', () => {
     expect(backtrackFormSource).not.toMatch(/props\.params\.[\w]+\s*=/)
   })
+
+  it('keeps the compound reduction controls accessible and aligned', () => {
+    expect(backtrackFormSource).toContain('import { ref,reactive,useId,watch } from \'vue\';')
+    expect(backtrackFormSource).toContain('const otherReductionGroupId = useId();')
+    expect(backtrackFormSource).toContain('class="other-reduction-group"')
+    expect(backtrackFormSource).toContain('role="group"')
+    expect(backtrackFormSource).toContain(':aria-labelledby="otherReductionGroupId"')
+    expect(backtrackFormSource).toContain('class="other-reduction-group__label text-caption text-medium-emphasis"')
+    expect(backtrackFormSource).toContain('label="その他減少量（ダイス）"')
+    expect(backtrackFormSource).toContain('label="その他減少量（固定値）"')
+    expect(backtrackFormSource).toContain('inset-block-start: -4px;')
+    expect(backtrackFormSource).not.toContain('font-size:')
+    expect(backtrackFormSource).not.toContain('line-height:')
+
+    const templateCloseIndex = backtrackFormSource.lastIndexOf('</template>')
+    const styleOpenIndex = backtrackFormSource.indexOf('<style scoped>')
+    expect(styleOpenIndex).toBeGreaterThan(templateCloseIndex)
+    expect(backtrackFormSource.slice(0, templateCloseIndex)).not.toContain('<style scoped>')
+  })
 })
