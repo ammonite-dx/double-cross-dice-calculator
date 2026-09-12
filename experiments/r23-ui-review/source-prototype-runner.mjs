@@ -405,13 +405,25 @@ async function collectCompoundMetrics(page) {
     const fields = [...(innerRow ?? group ?? document).querySelectorAll('.v-input')]
       .filter((field) => group ? group.contains(field) : innerRow?.contains(field))
       .slice(0, 2)
-    const eLabel = [...document.querySelectorAll('label')]
-      .find((label) => label.textContent.trim() === 'Eロイス数')
-    const eField = eLabel?.closest('.v-input') ?? null
+    const eFields = [...document.querySelectorAll('.v-input')]
+      .filter((field) => [...field.querySelectorAll('.v-field-label')]
+        .some((label) => label.textContent.trim() === 'Eロイス数'))
+    const eField = eFields[0] ?? null
+    const mainLabels = eField
+      ? [...eField.querySelectorAll('.v-field-label:not(.v-field-label--floating)')]
+        .filter((label) => label.textContent.trim() === 'Eロイス数')
+      : []
+    const floatingLabels = eField
+      ? [...eField.querySelectorAll('.v-field-label.v-field-label--floating')]
+        .filter((label) => label.textContent.trim() === 'Eロイス数')
+      : []
+    const mainLabel = mainLabels[0] ?? null
+    const floatingLabel = floatingLabels[0] ?? null
     const visualLabelBox = rect(visualLabel)
-    const neighborLabelBox = rect(eLabel)
+    const mainLabelBox = rect(mainLabel)
+    const floatingLabelBox = rect(floatingLabel)
     const centerY = (box) => box ? box.y + box.height / 2 : null
-    const computedTextStyle = (element) => {
+    const labelStyle = (element) => {
       if (!element) return null
       const style = getComputedStyle(element)
       return {
@@ -420,19 +432,40 @@ async function collectCompoundMetrics(page) {
         color: style.color,
         opacity: style.opacity,
         letterSpacing: style.letterSpacing,
+        visibility: style.visibility,
+        display: style.display,
+        transform: style.transform,
+        ariaHidden: element.getAttribute('aria-hidden'),
+        className: element.className,
       }
     }
     return {
       group: rect(group),
       visualLabel: visualLabelBox,
-      neighborEloisLabel: neighborLabelBox,
-      visualLabelStyle: computedTextStyle(visualLabel),
-      neighborEloisLabelStyle: computedTextStyle(eLabel),
-      visualLabelTopMinusNeighborLabelTop: visualLabelBox && neighborLabelBox
-        ? Number((visualLabelBox.top - neighborLabelBox.top).toFixed(2))
+      neighborEloisMainLabel: mainLabelBox,
+      neighborEloisFloatingLabel: floatingLabelBox,
+      visualLabelStyle: labelStyle(visualLabel),
+      neighborEloisMainLabelStyle: labelStyle(mainLabel),
+      neighborEloisFloatingLabelStyle: labelStyle(floatingLabel),
+      neighborEloisFieldCount: eFields.length,
+      neighborEloisMainLabelCount: mainLabels.length,
+      neighborEloisFloatingLabelCount: floatingLabels.length,
+      neighborEloisMainLabelText: mainLabel?.textContent.trim() ?? null,
+      neighborEloisFloatingLabelText: floatingLabel?.textContent.trim() ?? null,
+      neighborEloisFloatingLabelHasClass: Boolean(
+        floatingLabel?.classList.contains('v-field-label--floating'),
+      ),
+      visualLabelTopMinusNeighborFloatingLabelTop: visualLabelBox && floatingLabelBox
+        ? Number((visualLabelBox.top - floatingLabelBox.top).toFixed(2))
         : null,
-      visualLabelCenterYMinusNeighborLabelCenterY: visualLabelBox && neighborLabelBox
-        ? Number((centerY(visualLabelBox) - centerY(neighborLabelBox)).toFixed(2))
+      visualLabelCenterYMinusNeighborFloatingLabelCenterY: visualLabelBox && floatingLabelBox
+        ? Number((centerY(visualLabelBox) - centerY(floatingLabelBox)).toFixed(2))
+        : null,
+      visualLabelTopMinusNeighborMainLabelTop: visualLabelBox && mainLabelBox
+        ? Number((visualLabelBox.top - mainLabelBox.top).toFixed(2))
+        : null,
+      visualLabelCenterYMinusNeighborMainLabelCenterY: visualLabelBox && mainLabelBox
+        ? Number((centerY(visualLabelBox) - centerY(mainLabelBox)).toFixed(2))
         : null,
       outerColumn: rect(outerColumn),
       innerRow: rect(innerRow),
@@ -546,6 +579,25 @@ async function runScenario(browser, baseUrl, scenario, variant, phase, outputDir
       if (metrics.firstRowContainsNeighborElois !== true) {
         throw new Error('compound hierarchy does not contain Eロイス数 in the first row')
       }
+      if (
+        metrics.neighborEloisFieldCount !== 1
+        || metrics.neighborEloisMainLabelCount !== 1
+        || metrics.neighborEloisFloatingLabelCount !== 1
+      ) {
+        throw new Error([
+          'Eロイス label count mismatch',
+          `fields=${metrics.neighborEloisFieldCount}`,
+          `main=${metrics.neighborEloisMainLabelCount}`,
+          `floating=${metrics.neighborEloisFloatingLabelCount}`,
+        ].join(' '))
+      }
+      if (
+        metrics.neighborEloisMainLabelText !== 'Eロイス数'
+        || metrics.neighborEloisFloatingLabelText !== 'Eロイス数'
+        || metrics.neighborEloisFloatingLabelHasClass !== true
+      ) {
+        throw new Error('Eロイス label identity mismatch')
+      }
       if (phase === 'candidate') {
         await validateCompoundAccessibility(page, variant.checks.fieldNames)
         if (metrics.groupName !== variant.checks.groupName) {
@@ -649,11 +701,27 @@ function compareMetrics(variant, baselineResults, candidateResults) {
       outerColumn: compareMetricBoxes(baseline.metrics.outerColumn, candidate.metrics.outerColumn),
       innerRow: compareMetricBoxes(baseline.metrics.innerRow, candidate.metrics.innerRow),
       visualLabel: candidate.metrics.visualLabel,
-      neighborEloisLabel: candidate.metrics.neighborEloisLabel,
+      neighborEloisMainLabel: candidate.metrics.neighborEloisMainLabel,
+      neighborEloisFloatingLabel: candidate.metrics.neighborEloisFloatingLabel,
       visualLabelStyle: candidate.metrics.visualLabelStyle,
-      neighborEloisLabelStyle: candidate.metrics.neighborEloisLabelStyle,
-      visualLabelTopMinusNeighborLabelTop: candidate.metrics.visualLabelTopMinusNeighborLabelTop,
-      visualLabelCenterYMinusNeighborLabelCenterY: candidate.metrics.visualLabelCenterYMinusNeighborLabelCenterY,
+      neighborEloisMainLabelStyle: candidate.metrics.neighborEloisMainLabelStyle,
+      neighborEloisFloatingLabelStyle: candidate.metrics.neighborEloisFloatingLabelStyle,
+      visualLabelTopMinusNeighborFloatingLabelTop: candidate.metrics.visualLabelTopMinusNeighborFloatingLabelTop,
+      visualLabelCenterYMinusNeighborFloatingLabelCenterY: candidate.metrics.visualLabelCenterYMinusNeighborFloatingLabelCenterY,
+      visualLabelTopMinusNeighborMainLabelTop: candidate.metrics.visualLabelTopMinusNeighborMainLabelTop,
+      visualLabelCenterYMinusNeighborMainLabelCenterY: candidate.metrics.visualLabelCenterYMinusNeighborMainLabelCenterY,
+      neighborEloisLabelCounts: {
+        baseline: {
+          field: baseline.metrics.neighborEloisFieldCount,
+          main: baseline.metrics.neighborEloisMainLabelCount,
+          floating: baseline.metrics.neighborEloisFloatingLabelCount,
+        },
+        candidate: {
+          field: candidate.metrics.neighborEloisFieldCount,
+          main: candidate.metrics.neighborEloisMainLabelCount,
+          floating: candidate.metrics.neighborEloisFloatingLabelCount,
+        },
+      },
       firstRowContainsNeighborElois: {
         baseline: baseline.metrics.firstRowContainsNeighborElois,
         candidate: candidate.metrics.firstRowContainsNeighborElois,
