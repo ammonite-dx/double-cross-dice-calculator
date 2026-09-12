@@ -16,4 +16,22 @@ describe('production browser smoke regression coverage', () => {
     expect(smokeSource).toContain('check fixed difficulty summary')
     expect(smokeSource).toContain("/99\\.\\d%/")
   })
+
+  it('covers production compound D10 groups and their accessible names', () => {
+    expect(smokeSource).toContain('assertCompoundD10Groups')
+    expect(smokeSource).toContain('attack default dodge compound inputs')
+    expect(smokeSource).toContain('attack evasion compound inputs')
+    expect(smokeSource).toContain('attack guard compound inputs')
+    expect(smokeSource).toContain('attack multi-combo compound inputs')
+    for (const name of [
+      '攻撃力（ダイス）',
+      '攻撃力（固定値）',
+      '装甲・軽減値（ダイス）',
+      '装甲・軽減値（固定値）',
+      'ガード・装甲・軽減値（ダイス）',
+      'ガード・装甲・軽減値（固定値）',
+    ]) {
+      expect(smokeSource).toContain(name)
+    }
+  })
 })

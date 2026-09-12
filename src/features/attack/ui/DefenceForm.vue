@@ -1,6 +1,6 @@
 <script setup>
 
-    import { onUnmounted, reactive, ref, watch } from 'vue';
+    import { onUnmounted, reactive, ref, useId, watch } from 'vue';
     import {
         createDefenceInputDraftSnapshot,
         normalizeDefenceInputDraft,
@@ -14,6 +14,7 @@
     const props = defineProps(['params','comboColor','showDetails']);
     const emit = defineEmits(['validated', 'show-details']);
     const form = ref();
+    const defenceReductionGroupId = useId();
     const currentParams = reactive(createDefenceInputDraftSnapshot(props.params));
     const showDetails = ref(props.showDetails ?? false);
     const validationGate = createLatestValidationGate();
@@ -86,10 +87,28 @@
                 <v-col md="3" cols="4" class="pb-2"><v-text-field label="クリティカル値" type="number" min=2 max=11 v-model.number="currentParams.score.critical" :rules="criticalRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col md="3" cols="4" class="pb-2"><v-text-field label="技能値" type="number" v-model.number="currentParams.score.skill" :rules="skillRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col md="3" cols="12" class="pb-2">
-                    <v-row dense>
-                        <v-col cols="6" class="pr-0"><v-text-field label="装甲・軽減値" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                        <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                    </v-row>
+                    <div
+                        class="compound-d10-group"
+                        role="group"
+                        :aria-labelledby="defenceReductionGroupId"
+                    >
+                        <span
+                            :id="defenceReductionGroupId"
+                            class="compound-d10-group__label text-caption text-medium-emphasis"
+                        >装甲・軽減値</span>
+                        <v-row dense>
+                            <v-col cols="6" class="pr-0">
+                                <v-text-field label="装甲・軽減値（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">装甲・軽減値（ダイス）</span></template>
+                                </v-text-field>
+                            </v-col>
+                            <v-col cols="6" class="pl-0">
+                                <v-text-field label="装甲・軽減値（固定値）" type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">装甲・軽減値（固定値）</span></template>
+                                </v-text-field>
+                            </v-col>
+                        </v-row>
+                    </div>
                 </v-col>
             </v-row>
             <v-row v-if="currentParams.mode=='ドッジ' && showDetails" dense class="pt-2 ma-0">
@@ -100,16 +119,65 @@
                 <v-col md="4" cols="6" class="pb-2"><v-text-field label="ダイス数" type="number" min=0 v-model.number="currentParams.score.dice" :rules="diceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col md="4" cols="6" class="pb-2"><v-text-field label="技能値" type="number" v-model.number="currentParams.score.skill" :rules="skillRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col md="4" cols="12" class="pb-2">
-                    <v-row dense>
-                        <v-col cols="6" class="pr-0"><v-text-field label="装甲・軽減値" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                        <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                    </v-row>
+                    <div
+                        class="compound-d10-group"
+                        role="group"
+                        :aria-labelledby="defenceReductionGroupId"
+                    >
+                        <span
+                            :id="defenceReductionGroupId"
+                            class="compound-d10-group__label text-caption text-medium-emphasis"
+                        >装甲・軽減値</span>
+                        <v-row dense>
+                            <v-col cols="6" class="pr-0">
+                                <v-text-field label="装甲・軽減値（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">装甲・軽減値（ダイス）</span></template>
+                                </v-text-field>
+                            </v-col>
+                            <v-col cols="6" class="pl-0">
+                                <v-text-field label="装甲・軽減値（固定値）" type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">装甲・軽減値（固定値）</span></template>
+                                </v-text-field>
+                            </v-col>
+                        </v-row>
+                    </div>
                 </v-col>
             </v-row>
-            <v-row v-if="currentParams.mode=='ガード・リアクション放棄'" dense class="pt-2 ma-0">
-                <v-col cols="6" class="pr-0"><v-text-field label="ガード・装甲・軽減値" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+            <v-row v-if="currentParams.mode=='ガード・リアクション放棄'" dense class="compound-d10-group compound-d10-group--direct-row pt-2 ma-0" role="group" :aria-labelledby="defenceReductionGroupId">
+                <span
+                    :id="defenceReductionGroupId"
+                    class="compound-d10-group__label text-caption text-medium-emphasis"
+                >ガード・装甲・軽減値</span>
+                <v-col cols="6" class="pr-0">
+                    <v-text-field label="ガード・装甲・軽減値（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                        <template #label><span class="d-sr-only">ガード・装甲・軽減値（ダイス）</span></template>
+                    </v-text-field>
+                </v-col>
+                <v-col cols="6" class="pl-0">
+                    <v-text-field label="ガード・装甲・軽減値（固定値）" type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                        <template #label><span class="d-sr-only">ガード・装甲・軽減値（固定値）</span></template>
+                    </v-text-field>
+                </v-col>
             </v-row>
         </v-form>
     </v-container>
 </template>
+
+<style scoped>
+    .compound-d10-group {
+        position: relative;
+    }
+
+    .compound-d10-group__label {
+        position: absolute;
+        inset-block-start: -4px;
+        inset-inline-start: 0;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .compound-d10-group--direct-row > .compound-d10-group__label {
+        inset-block-start: 4px;
+        inset-inline-start: 4px;
+    }
+</style>

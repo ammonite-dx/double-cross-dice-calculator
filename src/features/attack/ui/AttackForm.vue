@@ -1,6 +1,6 @@
 <script setup>
 
-    import { onUnmounted, reactive, ref, watch } from 'vue';
+    import { onUnmounted, reactive, ref, useId, watch } from 'vue';
     import {
         createAttackInputSnapshot,
     } from '@/features/attack/model/AttackInputSnapshot';
@@ -13,6 +13,7 @@
     const props = defineProps(['params','comboColor','showDetails'])
     const emit = defineEmits(['validated', 'show-details'])
     const form = ref();
+    const attackPowerGroupId = useId();
     const currentParams = reactive(createAttackInputSnapshot(props.params));
     const showDetails = ref(props.showDetails ?? false);
     const validationGate = createLatestValidationGate();
@@ -87,10 +88,28 @@
                 <v-col md="3" cols="4" class="pb-2"><v-text-field label="クリティカル値" type="number" min=2 max=11 v-model.number="currentParams.score.critical" :rules="criticalRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col md="3" cols="4" class="pb-2"><v-text-field label="技能値" type="number" v-model.number="currentParams.score.skill" :rules="skillRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col md="3" cols="12" class="pb-2">
-                    <v-row dense>
-                        <v-col cols="6" class="pr-0"><v-text-field label="攻撃力" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="attackDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                        <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="attackValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
-                    </v-row>
+                    <div
+                        class="compound-d10-group"
+                        role="group"
+                        :aria-labelledby="attackPowerGroupId"
+                    >
+                        <span
+                            :id="attackPowerGroupId"
+                            class="compound-d10-group__label text-caption text-medium-emphasis"
+                        >攻撃力</span>
+                        <v-row dense>
+                            <v-col cols="6" class="pr-0">
+                                <v-text-field label="攻撃力（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="attackDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">攻撃力（ダイス）</span></template>
+                                </v-text-field>
+                            </v-col>
+                            <v-col cols="6" class="pl-0">
+                                <v-text-field label="攻撃力（固定値）" type="number" v-model.number="currentParams.damage.value" :rules="attackValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">攻撃力（固定値）</span></template>
+                                </v-text-field>
+                            </v-col>
+                        </v-row>
+                    </div>
                 </v-col>
             </v-row>
             <v-row v-if="showDetails" dense class="pt-2 ma-0">
@@ -101,3 +120,17 @@
         </v-form>
     </v-container>
 </template>
+
+<style scoped>
+    .compound-d10-group {
+        position: relative;
+    }
+
+    .compound-d10-group__label {
+        position: absolute;
+        inset-block-start: -4px;
+        inset-inline-start: 0;
+        z-index: 1;
+        pointer-events: none;
+    }
+</style>

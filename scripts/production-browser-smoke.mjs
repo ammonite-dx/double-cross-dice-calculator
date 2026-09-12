@@ -384,6 +384,53 @@ async function assertAccessibleChartNames(page, caseId, expectedNames) {
   )
 }
 
+async function assertCompoundD10Groups(page, caseId, expectedGroups) {
+  for (const { name, fieldNames, count } of expectedGroups) {
+    const groups = page.getByRole('group', { name, exact: true })
+    assertCondition(
+      caseId,
+      await groups.count() === count,
+      `expected ${count} compound groups named ${name}`,
+    )
+    const ids = await groups.evaluateAll((elements) => (
+      elements.map((element) => element.getAttribute('aria-labelledby'))
+    ))
+    assertCondition(
+      caseId,
+      ids.every((id) => typeof id === 'string' && id.length > 0)
+        && new Set(ids).size === ids.length,
+      `compound group IDs were empty or duplicated for ${name}`,
+    )
+    for (let index = 0; index < count; index += 1) {
+      const group = groups.nth(index)
+      const spinbuttons = group.getByRole('spinbutton')
+      assertCondition(
+        caseId,
+        await spinbuttons.count() === fieldNames.length,
+        `compound group ${name} did not expose ${fieldNames.length} spinbuttons`,
+      )
+      for (const fieldName of fieldNames) {
+        assertCondition(
+          caseId,
+          await group.getByRole('spinbutton', { name: fieldName, exact: true }).count() === 1,
+          `compound group ${name} did not expose ${fieldName}`,
+        )
+      }
+    }
+  }
+}
+
+async function selectAttackReactionMode(page, record, caseId, option, index = 0) {
+  const select = page.getByRole('combobox', { name: '種別' }).nth(index)
+  assertCondition(caseId, await select.count() === 1, 'reaction mode select was not found')
+  const previousState = await captureResultState(page)
+  await select.click({ force: true })
+  await page.getByText(option, { exact: true }).click()
+  await waitForCanvases(page, 2, { exact: true })
+  await waitForResultCommit(page, previousState)
+  assertNoBrowserErrors(caseId, record)
+}
+
 async function fillBoundaryInput(
   page,
   record,
@@ -731,6 +778,18 @@ async function runAttack(browser, baseUrl) {
     ])
     assertNoPrecomputedRequests('attack-initial', record)
     assertNoBrowserErrors('attack-initial', record)
+    await assertCompoundD10Groups(page, 'attack default dodge compound inputs', [
+      {
+        name: '攻撃力',
+        fieldNames: ['攻撃力（ダイス）', '攻撃力（固定値）'],
+        count: 1,
+      },
+      {
+        name: '装甲・軽減値',
+        fieldNames: ['装甲・軽減値（ダイス）', '装甲・軽減値（固定値）'],
+        count: 1,
+      },
+    ])
 
     // Verify the R7 controller wiring for both sides of the first combo
     // before exercising the high-range boundary inputs below.
@@ -742,19 +801,19 @@ async function runAttack(browser, baseUrl) {
       3,
       2,
     )
-    const reactionMode = page.getByRole('combobox', { name: '種別' })
-    assertCondition(
-      'attack reaction mode update',
-      await reactionMode.count() === 1,
-      'reaction mode select was not found',
-    )
-    const reactionModeState = await captureResultState(page)
-    await reactionMode.click({ force: true })
-    await reactionMode.press('ArrowDown')
-    await reactionMode.press('Enter')
-    await waitForCanvases(page, 2, { exact: true })
-    await waitForResultCommit(page, reactionModeState)
-    assertNoBrowserErrors('attack reaction mode update', record)
+    await selectAttackReactionMode(page, record, 'attack reaction mode update', '《イベイジョン》')
+    await assertCompoundD10Groups(page, 'attack evasion compound inputs', [
+      {
+        name: '攻撃力',
+        fieldNames: ['攻撃力（ダイス）', '攻撃力（固定値）'],
+        count: 1,
+      },
+      {
+        name: '装甲・軽減値',
+        fieldNames: ['装甲・軽減値（ダイス）', '装甲・軽減値（固定値）'],
+        count: 1,
+      },
+    ])
     await fillBoundaryInput(
       page,
       record,
@@ -782,6 +841,18 @@ async function runAttack(browser, baseUrl) {
     })
     await waitForCanvases(page, 2, { exact: true })
     await waitForResultCommit(page, addComboState)
+    await assertCompoundD10Groups(page, 'attack multi-combo compound inputs', [
+      {
+        name: '攻撃力',
+        fieldNames: ['攻撃力（ダイス）', '攻撃力（固定値）'],
+        count: 2,
+      },
+      {
+        name: '装甲・軽減値',
+        fieldNames: ['装甲・軽減値（ダイス）', '装甲・軽減値（固定値）'],
+        count: 2,
+      },
+    ])
     assertCondition(
       'attack combo add',
       await comboNameInputs.nth(1).inputValue() === 'コンボ2',
@@ -922,7 +993,7 @@ async function runAttack(browser, baseUrl) {
       page,
       record,
       'attack-d10',
-      page.getByLabel('装甲・軽減値').first(),
+      page.getByLabel('装甲・軽減値（ダイス）').first(),
       1,
       2,
     )
@@ -983,15 +1054,39 @@ async function runAttack(browser, baseUrl) {
       page,
       record,
       'attack-damage-dice=100',
-      page.getByLabel('攻撃力').first(),
+      page.getByLabel('攻撃力（ダイス）').first(),
       100,
       2,
     )
+    await selectAttackReactionMode(
+      page,
+      record,
+      'attack guard mode update',
+      'ガード・リアクション放棄',
+      0,
+    )
+    await assertCompoundD10Groups(page, 'attack guard compound inputs', [
+      {
+        name: '攻撃力',
+        fieldNames: ['攻撃力（ダイス）', '攻撃力（固定値）'],
+        count: 2,
+      },
+      {
+        name: 'ガード・装甲・軽減値',
+        fieldNames: ['ガード・装甲・軽減値（ダイス）', 'ガード・装甲・軽減値（固定値）'],
+        count: 1,
+      },
+      {
+        name: '装甲・軽減値',
+        fieldNames: ['装甲・軽減値（ダイス）', '装甲・軽減値（固定値）'],
+        count: 1,
+      },
+    ])
     await fillBoundaryInput(
       page,
       record,
       'attack-defence-dice=100',
-      page.getByLabel('装甲・軽減値').first(),
+      page.getByLabel('ガード・装甲・軽減値（ダイス）').first(),
       100,
       2,
     )
