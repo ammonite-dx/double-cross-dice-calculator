@@ -23,6 +23,11 @@ function transformArchivedTarget(variant) {
   return applyExactReplacements(source, target.replacements, target.file)
 }
 
+function transformTarget(target) {
+  const source = `<template>\n${target.replacements.map(({ from }) => from).join('\n')}`
+  return applyExactReplacements(source, target.replacements, target.file)
+}
+
 describe('R23 source prototype definitions', () => {
   it('has unique ids and valid replacement declarations', () => {
     expect(validateSourcePrototypeDefinitions()).toEqual([])
@@ -53,6 +58,50 @@ describe('R23 source prototype definitions', () => {
   it('rejects unknown variants before any source operation', () => {
     expect(() => getSourcePrototypeVariant('does-not-exist'))
       .toThrow('unknown source prototype variant: does-not-exist')
+  })
+
+  it('defines the UI-08 compound D10 source prototype and its inline scenarios', () => {
+    const variant = getSourcePrototypeVariant('attack-compound-d10-source')
+    expect(variant.scenarios).toHaveLength(8)
+    expect(variant.scenarios.slice(0, 4)).toEqual([
+      'attack-desktop-single',
+      'attack-mobile-single',
+      'attack-desktop-multi-combo',
+      'attack-mobile-multi-combo',
+    ])
+    expect(variant.scenarios.slice(4).map(({ id }) => id)).toEqual([
+      'attack-desktop-evasion-compound',
+      'attack-mobile-evasion-compound',
+      'attack-desktop-guard-compound',
+      'attack-mobile-guard-compound',
+    ])
+    const attack = transformTarget(variant.targets.find(({ file }) => file.endsWith('AttackForm.vue')))
+    const defence = transformTarget(variant.targets.find(({ file }) => file.endsWith('DefenceForm.vue')))
+
+    expect(attack).toContain('const attackPowerGroupId = useId();')
+    expect(attack).toContain('class="r23-compound-d10-group"')
+    expect(attack).toContain('攻撃力（ダイス）')
+    expect(attack).toContain('攻撃力（固定値）')
+    expect(defence).toContain('const defenceReductionGroupId = useId();')
+    expect(defence).toContain('装甲・軽減値（ダイス）')
+    expect(defence).toContain('装甲・軽減値（固定値）')
+    expect(defence).toContain('ガード・装甲・軽減値（ダイス）')
+    expect(defence).toContain('ガード・装甲・軽減値（固定値）')
+    expect(defence).toContain('r23-compound-d10-group--direct-row')
+    expect(defence.match(/role="group"/g)).toHaveLength(3)
+    expect(attack.match(/role="group"/g)).toHaveLength(1)
+
+    expect(validateSourcePrototypeDefinitions({
+      [variant.id]: { ...variant, scenarios: ['unknown-source-scenario'] },
+    })).toContain(`unknown source prototype scenario: ${variant.id} / unknown-source-scenario`)
+    expect(validateSourcePrototypeDefinitions({
+      [variant.id]: {
+        ...variant,
+        scenarios: [{ ...variant.scenarios[4], viewport: 'tablet' }],
+      },
+    })).toEqual(expect.arrayContaining([
+      expect.stringContaining(`invalid source prototype scenario: ${variant.id} / unknown viewport`),
+    ]))
   })
 })
 

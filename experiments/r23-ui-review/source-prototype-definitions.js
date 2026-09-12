@@ -1,3 +1,9 @@
+import {
+  SCENARIOS,
+  VIEWPORTS,
+  validateScenarioDefinitions,
+} from './scenarios.js'
+
 const replacement = (from, to, expectedCount = 1) => Object.freeze({
   from,
   to,
@@ -37,6 +43,78 @@ const BACKTRACK_SCENARIOS = Object.freeze([
   'backtrack-mobile-livingdead',
   'backtrack-desktop',
 ])
+
+const sourceScenario = (id, viewport, screenshot, option) => Object.freeze({
+  id,
+  route: '/attack',
+  viewport,
+  screenshot,
+  initialCanvases: 2,
+  expectedCanvases: 2,
+  steps: Object.freeze([
+    Object.freeze({
+      type: 'select',
+      label: '種別',
+      option,
+    }),
+  ]),
+})
+
+const ATTACK_COMPOUND_SCENARIOS = Object.freeze([
+  ...ATTACK_SCENARIOS,
+  'attack-desktop-multi-combo',
+  'attack-mobile-multi-combo',
+  sourceScenario(
+    'attack-desktop-evasion-compound',
+    'desktop',
+    '12-attack-desktop-evasion-compound.png',
+    '《イベイジョン》',
+  ),
+  sourceScenario(
+    'attack-mobile-evasion-compound',
+    'mobile',
+    '13-attack-mobile-evasion-compound.png',
+    '《イベイジョン》',
+  ),
+  sourceScenario(
+    'attack-desktop-guard-compound',
+    'desktop',
+    '14-attack-desktop-guard-compound.png',
+    'ガード・リアクション放棄',
+  ),
+  sourceScenario(
+    'attack-mobile-guard-compound',
+    'mobile',
+    '15-attack-mobile-guard-compound.png',
+    'ガード・リアクション放棄',
+  ),
+])
+
+const COMPOUND_D10_GROUPS = Object.freeze({
+  attack: Object.freeze({
+    name: '攻撃力',
+    fieldNames: Object.freeze(['攻撃力（ダイス）', '攻撃力（固定値）']),
+  }),
+  defence: Object.freeze({
+    name: '装甲・軽減値',
+    fieldNames: Object.freeze(['装甲・軽減値（ダイス）', '装甲・軽減値（固定値）']),
+  }),
+  guard: Object.freeze({
+    name: 'ガード・装甲・軽減値',
+    fieldNames: Object.freeze(['ガード・装甲・軽減値（ダイス）', 'ガード・装甲・軽減値（固定値）']),
+  }),
+})
+
+const COMPOUND_D10_EXPECTED_GROUPS = Object.freeze({
+  'attack-desktop-single': Object.freeze({ 攻撃力: 1, '装甲・軽減値': 1 }),
+  'attack-mobile-single': Object.freeze({ 攻撃力: 1, '装甲・軽減値': 1 }),
+  'attack-desktop-multi-combo': Object.freeze({ 攻撃力: 2, '装甲・軽減値': 2 }),
+  'attack-mobile-multi-combo': Object.freeze({ 攻撃力: 2, '装甲・軽減値': 2 }),
+  'attack-desktop-evasion-compound': Object.freeze({ 攻撃力: 1, '装甲・軽減値': 1 }),
+  'attack-mobile-evasion-compound': Object.freeze({ 攻撃力: 1, '装甲・軽減値': 1 }),
+  'attack-desktop-guard-compound': Object.freeze({ 攻撃力: 1, 'ガード・装甲・軽減値': 1 }),
+  'attack-mobile-guard-compound': Object.freeze({ 攻撃力: 1, 'ガード・装甲・軽減値': 1 }),
+})
 
 const inlineCheckboxFrom = '<v-checkbox-btn v-model="showDetails" density="compact" class="h-50" />'
 const inlineCheckboxTo = '<v-checkbox-btn v-model="showDetails" density="compact" inline class="h-50" />'
@@ -137,6 +215,119 @@ const backtrackFloatingAlignedStyleAnchorTo = backtrackAlignedStyleAnchorTo.repl
   'inset-block-start: 4px;',
   'inset-block-start: -4px;',
 )
+
+const attackCompoundImportFrom = "    import { onUnmounted, reactive, ref, watch } from 'vue';"
+const attackCompoundImportTo = "    import { onUnmounted, reactive, ref, useId, watch } from 'vue';"
+const attackCompoundFormFrom = '    const form = ref();'
+const attackCompoundFormTo = `${attackCompoundFormFrom}\n    const attackPowerGroupId = useId();`
+const attackCompoundBlockFrom = `                <v-col md="3" cols="12" class="pb-2">
+                    <v-row dense>
+                        <v-col cols="6" class="pr-0"><v-text-field label="攻撃力" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="attackDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+                        <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="attackValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+                    </v-row>
+                </v-col>`
+const attackCompoundBlockTo = `                <v-col md="3" cols="12" class="pb-2">
+                    <div
+                        class="r23-compound-d10-group"
+                        role="group"
+                        :aria-labelledby="attackPowerGroupId"
+                    >
+                        <span
+                            :id="attackPowerGroupId"
+                            class="r23-compound-d10-group__label text-caption text-medium-emphasis"
+                        >攻撃力</span>
+                        <v-row dense>
+                            <v-col cols="6" class="pr-0">
+                                <v-text-field label="攻撃力（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="attackDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">攻撃力（ダイス）</span></template>
+                                </v-text-field>
+                            </v-col>
+                            <v-col cols="6" class="pl-0">
+                                <v-text-field label="攻撃力（固定値）" type="number" v-model.number="currentParams.damage.value" :rules="attackValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">攻撃力（固定値）</span></template>
+                                </v-text-field>
+                            </v-col>
+                        </v-row>
+                    </div>
+                </v-col>`
+
+const defenceCompoundImportFrom = "    import { onUnmounted, reactive, ref, watch } from 'vue';"
+const defenceCompoundImportTo = "    import { onUnmounted, reactive, ref, useId, watch } from 'vue';"
+const defenceCompoundFormFrom = '    const form = ref();'
+const defenceCompoundFormTo = `${defenceCompoundFormFrom}\n    const defenceReductionGroupId = useId();`
+const defenceDodgeBlockFrom = `                <v-col md="3" cols="12" class="pb-2">
+                    <v-row dense>
+                        <v-col cols="6" class="pr-0"><v-text-field label="装甲・軽減値" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+                        <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+                    </v-row>
+                </v-col>`
+const defenceDodgeBlockTo = `                <v-col md="3" cols="12" class="pb-2">
+                    <div
+                        class="r23-compound-d10-group"
+                        role="group"
+                        :aria-labelledby="defenceReductionGroupId"
+                    >
+                        <span
+                            :id="defenceReductionGroupId"
+                            class="r23-compound-d10-group__label text-caption text-medium-emphasis"
+                        >装甲・軽減値</span>
+                        <v-row dense>
+                            <v-col cols="6" class="pr-0">
+                                <v-text-field label="装甲・軽減値（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">装甲・軽減値（ダイス）</span></template>
+                                </v-text-field>
+                            </v-col>
+                            <v-col cols="6" class="pl-0">
+                                <v-text-field label="装甲・軽減値（固定値）" type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                                    <template #label><span class="d-sr-only">装甲・軽減値（固定値）</span></template>
+                                </v-text-field>
+                            </v-col>
+                        </v-row>
+                    </div>
+                </v-col>`
+const defenceEvasionBlockFrom = `                <v-col md="4" cols="12" class="pb-2">
+                    <v-row dense>
+                        <v-col cols="6" class="pr-0"><v-text-field label="装甲・軽減値" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+                        <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+                    </v-row>
+                </v-col>`
+const defenceEvasionBlockTo = defenceDodgeBlockTo.replace('md="3"', 'md="4"')
+const defenceGuardBlockFrom = `            <v-row v-if="currentParams.mode=='ガード・リアクション放棄'" dense class="pt-2 ma-0">
+                <v-col cols="6" class="pr-0"><v-text-field label="ガード・装甲・軽減値" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+                <v-col cols="6" class="pl-0"><v-text-field type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
+            </v-row>`
+const defenceGuardBlockTo = `            <v-row v-if="currentParams.mode=='ガード・リアクション放棄'" dense class="r23-compound-d10-group r23-compound-d10-group--direct-row pt-2 ma-0" role="group" :aria-labelledby="defenceReductionGroupId">
+                <span
+                    :id="defenceReductionGroupId"
+                    class="r23-compound-d10-group__label text-caption text-medium-emphasis"
+                >ガード・装甲・軽減値</span>
+                <v-col cols="6" class="pr-0">
+                    <v-text-field label="ガード・装甲・軽減値（ダイス）" suffix="D10+" type="number" min=0 v-model.number="currentParams.damage.dice" :rules="defenceDiceRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                        <template #label><span class="d-sr-only">ガード・装甲・軽減値（ダイス）</span></template>
+                    </v-text-field>
+                </v-col>
+                <v-col cols="6" class="pl-0">
+                    <v-text-field label="ガード・装甲・軽減値（固定値）" type="number" v-model.number="currentParams.damage.value" :rules="defenceValueRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption">
+                        <template #label><span class="d-sr-only">ガード・装甲・軽減値（固定値）</span></template>
+                    </v-text-field>
+                </v-col>
+            </v-row>`
+const compoundStyleAnchorFrom = '\n</template>\n'
+const compoundStyleAnchorTo = `
+</template>
+
+<style scoped>
+.r23-compound-d10-group {
+    position: relative;
+}
+.r23-compound-d10-group__label {
+    position: absolute;
+    inset-block-start: -4px;
+    inset-inline-start: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+</style>`
 
 export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
   'advanced-setting-inline-source': sourcePrototype(
@@ -245,6 +436,32 @@ export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
       fieldNames: Object.freeze(['その他減少量（ダイス）', 'その他減少量（固定値）']),
     },
   ),
+  'attack-compound-d10-source': sourcePrototype(
+    'attack-compound-d10-source',
+    'Attack / DefenceのD10+固定値compound inputを、Backtrack UI-06と同じshared label + individual accessible nameへ変更し、既存visual geometryを維持できるか検証する。',
+    [
+      target('src/features/attack/ui/AttackForm.vue', [
+        replacement(attackCompoundImportFrom, attackCompoundImportTo),
+        replacement(attackCompoundFormFrom, attackCompoundFormTo),
+        replacement(attackCompoundBlockFrom, attackCompoundBlockTo),
+        replacement(compoundStyleAnchorFrom, compoundStyleAnchorTo),
+      ]),
+      target('src/features/attack/ui/DefenceForm.vue', [
+        replacement(defenceCompoundImportFrom, defenceCompoundImportTo),
+        replacement(defenceCompoundFormFrom, defenceCompoundFormTo),
+        replacement(defenceDodgeBlockFrom, defenceDodgeBlockTo),
+        replacement(defenceEvasionBlockFrom, defenceEvasionBlockTo),
+        replacement(defenceGuardBlockFrom, defenceGuardBlockTo),
+        replacement(compoundStyleAnchorFrom, compoundStyleAnchorTo),
+      ]),
+    ],
+    [...ATTACK_COMPOUND_SCENARIOS],
+    {
+      type: 'compound-d10-consistency',
+      groups: COMPOUND_D10_GROUPS,
+      expectedGroupsByScenario: COMPOUND_D10_EXPECTED_GROUPS,
+    },
+  ),
 })
 
 export function listSourcePrototypeVariants() {
@@ -293,6 +510,25 @@ export function validateSourcePrototypeDefinitions(
         }
         if (!Number.isInteger(candidate.expectedCount) || candidate.expectedCount < 1) {
           errors.push(`invalid replacement count: ${variant.id} / ${targetDefinition.file}`)
+        }
+      }
+    }
+    if (!Array.isArray(variant.scenarios) || variant.scenarios.length === 0) {
+      errors.push(`source prototype has no scenarios: ${variant.id}`)
+    } else {
+      const resolvedScenarios = []
+      const knownScenarios = new Map(SCENARIOS.map((scenario) => [scenario.id, scenario]))
+      for (const entry of variant.scenarios) {
+        const scenario = typeof entry === 'string' ? knownScenarios.get(entry) : entry
+        if (!scenario) {
+          errors.push(`unknown source prototype scenario: ${variant.id} / ${String(entry)}`)
+          continue
+        }
+        resolvedScenarios.push(scenario)
+      }
+      if (resolvedScenarios.length === variant.scenarios.length) {
+        for (const scenarioError of validateScenarioDefinitions(resolvedScenarios, VIEWPORTS)) {
+          errors.push(`invalid source prototype scenario: ${variant.id} / ${scenarioError}`)
         }
       }
     }

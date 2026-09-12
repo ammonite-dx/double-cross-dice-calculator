@@ -212,7 +212,7 @@ async function waitForStableCharts(page) {
   throw new Error('charts did not reach a stable frame before the timeout')
 }
 
-async function executeStep(page, step) {
+async function executeStep(page, step, variant, phase) {
   if (step.type === 'select') {
     const select = page.getByRole('combobox', { name: step.label })
     await select.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MS })
@@ -220,8 +220,31 @@ async function executeStep(page, step) {
     await page.getByText(step.option, { exact: true }).click()
     return
   }
+  if (step.type === 'click') {
+    const button = page.getByRole(step.role, { name: step.name, exact: true })
+    await button.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MS })
+    await button.click()
+    return
+  }
   if (step.type === 'fill') {
-    const input = page.getByLabel(step.label).nth(step.index)
+    let input
+    if (step.target === 'attack-damage-value') {
+      const diceLabel = phase === 'candidate' && variant.checks.type === 'compound-d10-consistency'
+        ? '攻撃力（ダイス）'
+        : '攻撃力'
+      const damageDice = page.getByLabel(diceLabel).nth(step.comboIndex)
+      const group = damageDice.locator(
+        'xpath=ancestor::div[contains(@class,"v-row")][1]'
+      )
+      input = group.locator('input[type="number"]').nth(1)
+    } else {
+      const label = phase === 'candidate'
+        && variant.checks.type === 'compound-d10-consistency'
+        && step.label === '攻撃力'
+        ? '攻撃力（ダイス）'
+        : step.label
+      input = page.getByLabel(label).nth(step.index)
+    }
     await input.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MS })
     await input.fill(String(step.value))
     const actualValue = await input.inputValue()
@@ -480,6 +503,214 @@ async function collectCompoundMetrics(page) {
   })
 }
 
+async function collectCompoundD10Metrics(page, checks) {
+  const groupSpecs = Object.values(checks.groups)
+  return page.evaluate((specs) => {
+    const rect = (element) => {
+      if (!element) return null
+      const box = element.getBoundingClientRect()
+      return {
+        x: Number(box.x.toFixed(2)),
+        y: Number(box.y.toFixed(2)),
+        width: Number(box.width.toFixed(2)),
+        height: Number(box.height.toFixed(2)),
+        top: Number(box.top.toFixed(2)),
+        right: Number(box.right.toFixed(2)),
+        bottom: Number(box.bottom.toFixed(2)),
+      }
+    }
+    const visible = (element) => {
+      if (!element) return false
+      const style = getComputedStyle(element)
+      const box = element.getBoundingClientRect()
+      return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && box.width > 0
+        && box.height > 0
+    }
+    const closestVuetifyColumn = (element) => {
+      let current = element
+      while (current && current !== document.body) {
+        if ([...current.classList].some((name) => name === 'v-col' || name.startsWith('v-col-'))) {
+          return current
+        }
+        current = current.parentElement
+      }
+      return null
+    }
+    const isRow = (element) => Boolean(
+      element && [...element.classList].some((name) => name === 'v-row' || name.startsWith('v-row-')),
+    )
+    const accessibleName = (input) => {
+      if (!input) return null
+      const ariaLabel = input.getAttribute('aria-label')?.trim()
+      if (ariaLabel) return ariaLabel
+      const labelledBy = input.getAttribute('aria-labelledby')
+      if (labelledBy) {
+        const value = labelledBy.split(/\s+/)
+          .map((id) => document.getElementById(id)?.textContent.trim() ?? '')
+          .filter(Boolean)
+          .join(' ')
+        if (value) return value
+      }
+      const labels = [...document.querySelectorAll('label')]
+        .filter((label) => label.htmlFor === input.id)
+        .map((label) => label.textContent.trim())
+        .filter(Boolean)
+      return labels.length > 0 ? labels.join(' ') : null
+    }
+    const labelStyle = (element) => {
+      if (!element) return null
+      const style = getComputedStyle(element)
+      return {
+        fontSize: style.fontSize,
+        lineHeight: style.lineHeight,
+        color: style.color,
+        opacity: style.opacity,
+        letterSpacing: style.letterSpacing,
+        visibility: style.visibility,
+        display: style.display,
+        transform: style.transform,
+      }
+    }
+    const fieldMetric = (field) => {
+      const input = field?.querySelector('input[type="number"]') ?? null
+      const underline = field?.querySelector('.v-field__underlay, .v-field__outline') ?? null
+      return {
+        field: rect(field),
+        input: rect(input),
+        underline: rect(underline),
+        accessibleName: accessibleName(input),
+      }
+    }
+    const rowFields = (row) => [...(row?.querySelectorAll('.v-input') ?? [])].slice(0, 2)
+    const baselineEntry = (label) => {
+      const firstField = label.closest('.v-input')
+      const firstColumn = closestVuetifyColumn(firstField)
+      const nestedRow = firstColumn?.parentElement
+      const row = isRow(nestedRow) ? nestedRow : firstField?.closest('.v-row')
+      const fields = rowFields(row)
+      return {
+        group: rect(row),
+        row: rect(row),
+        label: rect(label),
+        labelStyle: labelStyle(label),
+        fields: fields.map(fieldMetric),
+        groupId: null,
+        groupName: label.textContent.trim(),
+      }
+    }
+    const candidateEntry = (group) => {
+      const labelledBy = group.getAttribute('aria-labelledby')
+      const label = labelledBy ? document.getElementById(labelledBy) : null
+      const row = isRow(group) ? group : group.querySelector(':scope > .v-row')
+      const fields = rowFields(row ?? group)
+      return {
+        group: rect(group),
+        row: rect(row),
+        label: rect(label),
+        labelStyle: labelStyle(label),
+        fields: fields.map(fieldMetric),
+        groupId: labelledBy,
+        groupName: label?.textContent.trim() ?? null,
+      }
+    }
+    const result = {}
+    for (const spec of specs) {
+      const baselineLabels = [...document.querySelectorAll('.v-field-label.v-field-label--floating')]
+        .filter((label) => label.textContent.trim() === spec.name && visible(label))
+      const candidateGroups = [...document.querySelectorAll('[role="group"][aria-labelledby]')]
+        .filter((group) => {
+          const id = group.getAttribute('aria-labelledby')
+          const label = id ? document.getElementById(id) : null
+          return label?.textContent.trim() === spec.name && visible(group)
+        })
+      result[spec.name] = {
+        baseline: baselineLabels.map(baselineEntry),
+        candidate: candidateGroups.map(candidateEntry),
+      }
+    }
+    const groupIds = [...document.querySelectorAll('[role="group"][aria-labelledby]')]
+      .map((group) => group.getAttribute('aria-labelledby'))
+      .filter(Boolean)
+    const groupIdCounts = new Map()
+    for (const id of groupIds) {
+      groupIdCounts.set(id, (groupIdCounts.get(id) ?? 0) + 1)
+    }
+    return {
+      groups: result,
+      allGroupIds: groupIds,
+      duplicateGroupIds: [...groupIdCounts.entries()]
+        .filter(([, count]) => count > 1)
+        .map(([id]) => id),
+    }
+  }, groupSpecs)
+}
+
+async function validateCompoundD10Metrics(page, metrics, checks, scenario, phase) {
+  const expectedGroups = checks.expectedGroupsByScenario[scenario.id]
+  if (!expectedGroups) {
+    throw new Error(`compound D10 expected groups are missing for ${scenario.id}`)
+  }
+  for (const [groupName, expectedCount] of Object.entries(expectedGroups)) {
+    const groupMetrics = metrics.groups[groupName]
+    if (!groupMetrics) {
+      throw new Error(`compound D10 metrics are missing ${groupName}`)
+    }
+    const entries = groupMetrics[phase]
+    if (entries.length !== expectedCount) {
+      throw new Error([
+        `compound D10 group count mismatch for ${groupName}`,
+        `expected=${expectedCount}`,
+        `actual=${entries.length}`,
+      ].join(' '))
+    }
+    for (const entry of entries) {
+      if (!entry.group || !entry.row || !entry.label || entry.fields.length !== 2) {
+        throw new Error(`compound D10 structural metric is incomplete for ${groupName}`)
+      }
+      if (entry.fields.some((field) => !field.field || !field.input || !field.underline)) {
+        throw new Error(`compound D10 field metric is incomplete for ${groupName}`)
+      }
+      if (phase === 'candidate') {
+        const spec = Object.values(checks.groups).find(({ name }) => name === groupName)
+        if (entry.fields.some((field, index) => field.accessibleName !== spec.fieldNames[index])) {
+          throw new Error(`compound D10 accessible name mismatch for ${groupName}`)
+        }
+      }
+    }
+  }
+  if (phase !== 'candidate') {
+    return
+  }
+  if (metrics.allGroupIds.some((id) => !id) || metrics.duplicateGroupIds.length > 0) {
+    throw new Error(`compound D10 group IDs are not unique: ${JSON.stringify(metrics.duplicateGroupIds)}`)
+  }
+  for (const groupName of Object.keys(expectedGroups)) {
+    const group = page.getByRole('group', { name: groupName, exact: true })
+    const groupCount = await group.count()
+    if (groupCount !== expectedGroups[groupName]) {
+      throw new Error([
+        `compound D10 accessible group count mismatch for ${groupName}`,
+        `expected=${expectedGroups[groupName]}`,
+        `actual=${groupCount}`,
+      ].join(' '))
+    }
+    const spec = Object.values(checks.groups).find(({ name }) => name === groupName)
+    for (const fieldName of spec.fieldNames) {
+      const field = page.getByRole('spinbutton', { name: fieldName, exact: true })
+      const fieldCount = await field.count()
+      if (fieldCount !== expectedGroups[groupName]) {
+        throw new Error([
+          `compound D10 accessible field count mismatch for ${fieldName}`,
+          `expected=${expectedGroups[groupName]}`,
+          `actual=${fieldCount}`,
+        ].join(' '))
+      }
+    }
+  }
+}
+
 async function validateAdvancedInteraction(page, expectedCount) {
   const advancedColumns = page.locator('[data-r23-advanced-marker]')
   const actualCount = await advancedColumns.count()
@@ -545,7 +776,7 @@ async function runScenario(browser, baseUrl, scenario, variant, phase, outputDir
     }
     await waitForCanvases(page, scenario.initialCanvases)
     for (const step of scenario.steps) {
-      await executeStep(page, step)
+      await executeStep(page, step, variant, phase)
     }
     await waitForCanvases(page, scenario.expectedCanvases)
     await waitForStableCharts(page)
@@ -604,6 +835,9 @@ async function runScenario(browser, baseUrl, scenario, variant, phase, outputDir
           throw new Error(`compound group label mismatch (expected=${variant.checks.groupName}, actual=${metrics.groupName})`)
         }
       }
+    } else if (variant.checks.type === 'compound-d10-consistency') {
+      metrics = await collectCompoundD10Metrics(page, variant.checks)
+      await validateCompoundD10Metrics(page, metrics, variant.checks, scenario, phase)
     }
     await page.screenshot({ path: screenshotPath, fullPage: true })
     if (
@@ -668,6 +902,72 @@ function compareMetricBoxes(baseline, candidate) {
   return result
 }
 
+function compareCompoundD10Entries(baseline, candidate) {
+  if (!baseline || !candidate) {
+    return null
+  }
+  return {
+    group: compareMetricBoxes(baseline.group, candidate.group),
+    row: compareMetricBoxes(baseline.row, candidate.row),
+    label: compareMetricBoxes(baseline.label, candidate.label),
+    fields: candidate.fields.map((field, index) => ({
+      field: compareMetricBoxes(baseline.fields[index]?.field, field.field),
+      input: compareMetricBoxes(baseline.fields[index]?.input, field.input),
+      underline: compareMetricBoxes(baseline.fields[index]?.underline, field.underline),
+      accessibleName: field.accessibleName,
+    })),
+  }
+}
+
+function validateCompoundD10Comparison(variant, baselineResults, candidateResults) {
+  const baselineById = new Map(baselineResults.map((result) => [result.id, result]))
+  const errors = []
+  for (const candidate of candidateResults) {
+    const baseline = baselineById.get(candidate.id)
+    if (baseline?.status !== 'captured' || candidate.status !== 'captured') {
+      errors.push(`scenario did not capture successfully: ${candidate.id}`)
+      continue
+    }
+    const expectedGroups = variant.checks.expectedGroupsByScenario[candidate.id]
+    for (const [groupName, expectedCount] of Object.entries(expectedGroups ?? {})) {
+      const baselineEntries = baseline.metrics.groups[groupName]?.baseline ?? []
+      const candidateEntries = candidate.metrics.groups[groupName]?.candidate ?? []
+      if (baselineEntries.length !== expectedCount || candidateEntries.length !== expectedCount) {
+        errors.push(`comparison group count mismatch: ${candidate.id} / ${groupName}`)
+        continue
+      }
+      for (let index = 0; index < expectedCount; index += 1) {
+        const baselineEntry = baselineEntries[index]
+        const candidateEntry = candidateEntries[index]
+        const fieldDeltas = candidateEntry.fields.map((field, fieldIndex) => ({
+          field: compareMetricBoxes(baselineEntry.fields[fieldIndex]?.field, field.field),
+          input: compareMetricBoxes(baselineEntry.fields[fieldIndex]?.input, field.input),
+          underline: compareMetricBoxes(baselineEntry.fields[fieldIndex]?.underline, field.underline),
+        }))
+        const rowDelta = compareMetricBoxes(baselineEntry.row, candidateEntry.row)
+        for (const [fieldIndex, delta] of fieldDeltas.entries()) {
+          if (
+            !delta.field
+            || Math.abs(delta.field.width ?? 0) > 1
+            || Math.abs(delta.field.height ?? 0) > 1
+            || Math.abs(delta.field.x ?? 0) > 1
+            || Math.abs(delta.field.y ?? 0) > 1
+            || !delta.underline
+            || Math.abs(delta.underline.y ?? 0) > 1
+            || Math.abs(delta.underline.width ?? 0) > 1
+          ) {
+            errors.push(`compound D10 field geometry changed: ${candidate.id} / ${groupName} / ${fieldIndex}`)
+          }
+        }
+        if (!rowDelta || Math.abs(rowDelta.height ?? 0) > 1) {
+          errors.push(`compound D10 row height changed: ${candidate.id} / ${groupName}`)
+        }
+      }
+    }
+  }
+  return errors
+}
+
 function compareMetrics(variant, baselineResults, candidateResults) {
   const baselineById = new Map(baselineResults.map((result) => [result.id, result]))
   return candidateResults.map((candidate) => {
@@ -694,6 +994,19 @@ function compareMetrics(variant, baselineResults, candidateResults) {
           fieldInput: compareMetricBoxes(baseline.metrics.fields[name]?.fieldInput, field.fieldInput),
           underline: compareMetricBoxes(baseline.metrics.fields[name]?.underline, field.underline),
         }])),
+      }
+    }
+    if (variant.checks.type === 'compound-d10-consistency') {
+      const expectedGroups = variant.checks.expectedGroupsByScenario[candidate.id] ?? {}
+      return {
+        id: candidate.id,
+        groups: Object.fromEntries(Object.keys(expectedGroups).map((groupName) => {
+          const baselineEntries = baseline.metrics.groups[groupName]?.baseline ?? []
+          const candidateEntries = candidate.metrics.groups[groupName]?.candidate ?? []
+          return [groupName, candidateEntries.map((entry, index) => (
+            compareCompoundD10Entries(baselineEntries[index], entry)
+          ))]
+        })),
       }
     }
     return {
@@ -772,7 +1085,7 @@ function parseArgs(args = process.argv.slice(2)) {
 
 function printHelp() {
   console.log('Usage: node experiments/r23-ui-review/source-prototype-runner.mjs --variant=id [--scenarios=id,id]')
-  console.log('Variants: advanced-setting-inline-source, setting-form-comfortable-source, backtrack-compound-label-source, backtrack-compound-label-aligned-source, backtrack-compound-label-positioned-source, backtrack-compound-label-floating-aligned-source')
+  console.log('Variants: advanced-setting-inline-source, setting-form-comfortable-source, backtrack-compound-label-source, backtrack-compound-label-aligned-source, backtrack-compound-label-positioned-source, backtrack-compound-label-floating-aligned-source, attack-compound-d10-source')
   console.log('This runner temporarily edits Vue sources, builds, restores sources before capture, and never adopts a candidate.')
 }
 
@@ -815,14 +1128,25 @@ if (scenarioDefinitionErrors.length > 0) {
 
 const variant = getSourcePrototypeVariant(options.variantId)
 const knownScenarios = new Map(SCENARIOS.map((scenario) => [scenario.id, scenario]))
+const variantScenarios = variant.scenarios.map((entry) => (
+  typeof entry === 'string' ? knownScenarios.get(entry) : entry
+))
+if (variantScenarios.some((scenario) => !scenario)) {
+  throw new Error(`unknown scenario for ${variant.id}`)
+}
+const variantScenarioDefinitionErrors = validateScenarioDefinitions(variantScenarios)
+if (variantScenarioDefinitionErrors.length > 0) {
+  throw new Error(variantScenarioDefinitionErrors.join('\n'))
+}
+const variantScenariosById = new Map(variantScenarios.map((scenario) => [scenario.id, scenario]))
 const selectedScenarios = options.scenarioIds === null
-  ? variant.scenarios.map((id) => knownScenarios.get(id))
-  : options.scenarioIds.map((id) => knownScenarios.get(id)).filter(Boolean)
+  ? variantScenarios
+  : options.scenarioIds.map((id) => variantScenariosById.get(id)).filter(Boolean)
 if (selectedScenarios.some((scenario) => !scenario)) {
   throw new Error(`unknown scenario for ${variant.id}`)
 }
 if (selectedScenarios.length !== (options.scenarioIds?.length ?? selectedScenarios.length)) {
-  const missing = options.scenarioIds.filter((id) => !knownScenarios.has(id))
+  const missing = options.scenarioIds.filter((id) => !variantScenariosById.has(id))
   throw new Error(`unknown scenario for ${variant.id}: ${missing.join(', ')}`)
 }
 
@@ -853,6 +1177,10 @@ const candidateResults = await withTemporarySourcePrototype({
   capture: async () => captureScenarios(variant, selectedScenarios, 'candidate', candidateDirectory),
 })
 
+const metricComparison = compareMetrics(variant, baselineResults, candidateResults)
+const structuralValidation = variant.checks.type === 'compound-d10-consistency'
+  ? validateCompoundD10Comparison(variant, baselineResults, candidateResults)
+  : []
 const report = {
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
@@ -864,11 +1192,15 @@ const report = {
   buildResults,
   baseline: baselineResults,
   candidate: candidateResults,
-  metricComparison: compareMetrics(variant, baselineResults, candidateResults),
+  metricComparison,
+  structuralValidation,
   note: 'Review-only source prototype. Candidate source is restored byte-for-byte before Playwright capture; visual acceptance remains with the product owner.',
 }
 await writeFile(join(variantOutputDirectory, 'report.json'), `${JSON.stringify(report, null, 2)}\n`)
 console.log(JSON.stringify(report, null, 2))
-if ([...baselineResults, ...candidateResults].some((result) => result.status !== 'captured')) {
+if (
+  [...baselineResults, ...candidateResults].some((result) => result.status !== 'captured')
+  || structuralValidation.length > 0
+) {
   process.exitCode = 1
 }
