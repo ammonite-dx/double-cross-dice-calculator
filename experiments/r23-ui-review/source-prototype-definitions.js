@@ -133,6 +133,10 @@ const backtrackPositionedStyleAnchorTo = backtrackAlignedStyleAnchorTo.replace(
   'inset-block-start: 4px;',
   'inset-block-start: 12px;',
 )
+const backtrackFloatingAlignedStyleAnchorTo = backtrackAlignedStyleAnchorTo.replace(
+  'inset-block-start: 4px;',
+  'inset-block-start: -4px;',
+)
 
 export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
   'advanced-setting-inline-source': sourcePrototype(
@@ -214,6 +218,24 @@ export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
         replacement(backtrackFormFrom, backtrackFormTo),
         replacement(backtrackReductionFrom, backtrackAlignedReductionTo),
         replacement(backtrackStyleAnchorFrom, backtrackPositionedStyleAnchorTo),
+      ]),
+    ],
+    [...BACKTRACK_SCENARIOS],
+    {
+      type: 'compound-label',
+      groupName: 'その他減少量',
+      fieldNames: Object.freeze(['その他減少量（ダイス）', 'その他減少量（固定値）']),
+    },
+  ),
+  'backtrack-compound-label-floating-aligned-source': sourcePrototype(
+    'backtrack-compound-label-floating-aligned-source',
+    'UI-06 revision 4。revision 2のsemantic structure、accessible name、Vuetify utility typographyを維持し、校正済みfloating label計測に基づいて視覚labelのblock-startだけを4pxから-4pxへ変更する。',
+    [
+      target('src/features/backtrack/ui/BacktrackForm.vue', [
+        replacement(backtrackImportFrom, backtrackImportTo),
+        replacement(backtrackFormFrom, backtrackFormTo),
+        replacement(backtrackReductionFrom, backtrackAlignedReductionTo),
+        replacement(backtrackStyleAnchorFrom, backtrackFloatingAlignedStyleAnchorTo),
       ]),
     ],
     [...BACKTRACK_SCENARIOS],
