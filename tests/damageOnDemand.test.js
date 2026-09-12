@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
+import {
+  calculateDamageOnDemand,
+  getDamageStatistics,
+} from '../src/calculation/DamageCalculator'
+import { calculateDxDistribution } from '../src/calculation/DxCalculator'
+import { planCalculationRanges } from '../src/calculation/RangePlanner'
+import { calculateScore } from '../src/calculation/ScoreCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 
 function scoreWithHitProbability(hitProbability) {
@@ -95,6 +101,17 @@ function deterministicDefence(value) {
   const distribution = Array(11).fill(0)
   distribution[value] = 1
   return distribution
+}
+
+function calculatePlannedScore(params, scoreRangePlan) {
+  return calculateScore(
+    params,
+    {
+      getDxDistribution: (shihai, dice, critical, options) =>
+        calculateDxDistribution({ shihai, dice, critical }, options),
+    },
+    scoreRangePlan
+  )
 }
 
 const noDefence = { dice: 0, value: 0 }
@@ -464,6 +481,68 @@ describe('canonical on-demand damage calculation', () => {
       modeledDistribution: true,
       scorePropagation: 'full-tail',
       scoreTailProbabilityUpperBound: 0,
+    })
+  })
+
+  it('keeps a production-planned finite Damage support above the published bucket explicit', async () => {
+    const scoreParams = {
+      dice: 0,
+      critical: 11,
+      shihai: 0,
+      yousei: 0,
+      skill: 0,
+    }
+    const attack = { dice: 150, value: 0, kazanari: 0 }
+    const defence = { dice: 0, value: 0 }
+    const rangePlan = planCalculationRanges({
+      operation: 'attack',
+      score: {
+        action: scoreParams,
+        reaction: scoreParams,
+      },
+      attack,
+      defence,
+    }, {
+      scorePropagation: 'full-tail',
+    })
+    const score = {
+      action: calculatePlannedScore(
+        scoreParams,
+        rangePlan.scores[0]
+      ),
+      reaction: calculatePlannedScore(
+        scoreParams,
+        rangePlan.scores[1]
+      ),
+    }
+
+    expect(rangePlan.accepted).toBe(true)
+    expect(rangePlan.damage.rawSupportMax).toBeGreaterThan(1023)
+    expect(rangePlan.damage.workingMax).toBe(
+      rangePlan.damage.rawSupportMax
+    )
+
+    const canonical = await calculateDamageOnDemand(
+      score,
+      attack,
+      defence,
+      { getDamageRollDistribution: pointProvider(0) },
+      {},
+      rangePlan
+    )
+    const statistics = getDamageStatistics(canonical)
+
+    expect(canonical.result.support).toEqual({
+      kind: 'finite',
+      max: rangePlan.damage.rawSupportMax,
+    })
+    expect(canonical.result.values).toHaveLength(
+      rangePlan.damage.rawSupportMax + 1
+    )
+    expect(canonical.result.overflow).toBeNull()
+    expect(statistics.expectedValue).toEqual({
+      kind: 'exact',
+      value: 0,
     })
   })
 

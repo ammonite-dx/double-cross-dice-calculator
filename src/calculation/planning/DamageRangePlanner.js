@@ -76,37 +76,46 @@ export function planDamage(params, display, policy, maxScoreForDamage) {
         'defence D10 generation buffer size'
       )
     : 0
-  const calculationPlusDefence = addSafe(
-    policy.calculationMax,
-    defenceMax,
-    'damage calculation range'
-  )
   const rawPlusDifference = addSafe(
     rawMax,
     fixedDifference,
     'damage working range'
   )
-  const calculationMinusDifference = subtractSafe(
-    policy.calculationMax,
-    fixedDifference,
-    'damage working range'
-  )
-  const workingMax = fixedDifference >= 0
-    ? Math.max(
-        0,
-        Math.min(rawPlusDifference, calculationPlusDefence)
-      )
-    : Math.max(
-        0,
-        Math.min(
-          rawMax,
-          addSafe(
-            calculationMinusDifference,
-            defenceMax,
-            'damage working range'
-          )
+  // full-tail carries the complete finite DR support into final damage
+  // coordinates.  published-bucket intentionally retains its historical
+  // calculationMax/defence boundary for compatibility callers.
+  const workingMax = policy.scorePropagation === 'full-tail'
+    ? fixedDifference >= 0
+      ? Math.max(0, rawPlusDifference)
+      : rawMax
+    : (() => {
+        const calculationPlusDefence = addSafe(
+          policy.calculationMax,
+          defenceMax,
+          'damage calculation range'
         )
-      )
+        const calculationMinusDifference = subtractSafe(
+          policy.calculationMax,
+          fixedDifference,
+          'damage working range'
+        )
+        return fixedDifference >= 0
+          ? Math.max(
+              0,
+              Math.min(rawPlusDifference, calculationPlusDefence)
+            )
+          : Math.max(
+              0,
+              Math.min(
+                rawMax,
+                addSafe(
+                  calculationMinusDifference,
+                  defenceMax,
+                  'damage working range'
+                )
+              )
+            )
+      })()
   const damageRollFftLength = nextPowerOfTwo(
     addSafe(rawMax, 1, 'damage FFT range')
   )

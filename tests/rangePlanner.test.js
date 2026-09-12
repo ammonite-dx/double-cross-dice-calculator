@@ -491,7 +491,7 @@ describe('production range planner', () => {
     )
   })
 
-  it('keeps the pre-defence overflow above calculationMax after defence', () => {
+  it('keeps published-bucket pre-defence overflow above calculationMax after defence', () => {
     const policy = {
       calculationMax: 200,
       display: { defaultMax: 0 },
@@ -730,20 +730,8 @@ describe('production range planner', () => {
       const fixedDifference = attack.value - defence.value
       const defenceMax = defence.dice * 10
       const workingMax = fixedDifference >= 0
-        ? Math.max(
-            0,
-            Math.min(
-              rawSupportMax + fixedDifference,
-              damage.calculationMax + defenceMax
-            )
-          )
-        : Math.max(
-            0,
-            Math.min(
-              rawSupportMax,
-              damage.calculationMax - fixedDifference + defenceMax
-            )
-          )
+        ? Math.max(0, rawSupportMax + fixedDifference)
+        : rawSupportMax
       const workingLength = workingMax + 2
       const fftLength = nextPowerOfTwo(rawSupportMax + 1)
       const defenceFftLength = defence.dice > 0
@@ -794,6 +782,96 @@ describe('production range planner', () => {
       expect(plan.estimates.defenceD10Float64Bytes).toBe(defenceD10Float64Bytes)
     }
   )
+
+  it.each([
+    {
+      label: 'zero fixed difference',
+      attack: { dice: 0, value: 0, kazanari: 0 },
+      defence: { dice: 99, value: 0 },
+      fixedDifference: 0,
+    },
+    {
+      label: 'positive fixed difference',
+      attack: { dice: 0, value: 25, kazanari: 0 },
+      defence: { dice: 99, value: 5 },
+      fixedDifference: 20,
+    },
+    {
+      label: 'negative fixed difference',
+      attack: { dice: 0, value: 5, kazanari: 0 },
+      defence: { dice: 99, value: 25 },
+      fixedDifference: -20,
+    },
+  ])(
+    'keeps complete modeled full-tail support for a $label',
+    ({ attack, defence, fixedDifference }) => {
+      const plan = planCalculationRanges(attackParams({
+        score: {
+          action: scoreParams({ dice: 99, critical: 2 }),
+          reaction: scoreParams({ dice: 1, critical: 11 }),
+        },
+        attack,
+        defence,
+      }), {
+        scorePropagation: 'full-tail',
+        limits: PERMISSIVE_LIMITS,
+      })
+
+      const { damage } = plan
+      expect(plan.accepted).toBe(true)
+      expect(damage.fixedDifference).toBe(fixedDifference)
+      expect(damage.rawSupportMax).toBe(2280)
+      expect(damage.workingMax).toBe(
+        damage.rawSupportMax + Math.max(fixedDifference, 0)
+      )
+      expect(damage.workingLength).toBe(damage.workingMax + 2)
+      expect(damage.workingMax).toBeGreaterThan(damage.calculationMax)
+    }
+  )
+
+  it('accepts a resource-safe full-tail Damage support above the published bucket', () => {
+    const plan = planCalculationRanges(attackParams({
+      score: {
+        action: scoreParams({ dice: 99, critical: 2 }),
+        reaction: scoreParams({ dice: 0, critical: 11 }),
+      },
+      attack: { dice: 0, value: 0, kazanari: 0 },
+      defence: { dice: 0, value: 0 },
+    }), {
+      scorePropagation: 'full-tail',
+    })
+
+    expect(plan.accepted).toBe(true)
+    expect(plan.damage.rawSupportMax).toBeGreaterThan(1023)
+    expect(plan.damage.workingMax).toBeGreaterThanOrEqual(
+      plan.damage.rawSupportMax
+    )
+    expect(plan.damage.workingLength).toBe(plan.damage.rawSupportMax + 2)
+  })
+
+  it('plans the 99D critical-2 full-tail range without a semantic cap', () => {
+    const plan = planCalculationRanges(attackParams({
+      score: {
+        action: scoreParams({ dice: 99, critical: 2 }),
+        reaction: scoreParams({ dice: 0, critical: 11 }),
+      },
+      attack: { dice: 0, value: 0, kazanari: 0 },
+      defence: { dice: 0, value: 0 },
+    }), {
+      scorePropagation: 'full-tail',
+    })
+
+    expect(plan.accepted).toBe(true)
+    expect(plan.scores[0].outputMax).toBe(2271)
+    expect(plan.damage.scoreValueUpperBound).toBe(2271)
+    expect(plan.damage.maxDamageDice).toBe(228)
+    expect(plan.damage.rawSupportMax).toBe(2280)
+    expect(plan.damage.workingMax).toBe(2280)
+    expect(plan.damage.workingLength).toBe(2282)
+    expect(plan.damage.workingMax).not.toBeLessThan(
+      plan.damage.rawSupportMax
+    )
+  })
 
   it.each([
     {
@@ -1014,6 +1092,7 @@ describe('production range planner', () => {
       'damage-fft-length',
       'estimated-time',
     ]))
+    expect(plan.rejectionReasons).not.toContain('calculationMax')
     expect(plan.damage.maxDamageDice).toBeGreaterThan(100_000)
     expect(plan.damage.effectiveKazanari).toBeLessThanOrEqual(
       plan.damage.maxDamageDice
