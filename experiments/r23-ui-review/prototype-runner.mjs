@@ -328,6 +328,44 @@ const VARIANTS = Object.freeze({
       }),
     ]),
   }),
+  'footer-production-integrated': Object.freeze({
+    bodyClass: 'r23-footer-production-integrated',
+    domPreparation: Object.freeze({
+      shortPageByScenario: Object.freeze({
+        'footer-production-integrated-check-desktop': true,
+        'footer-production-integrated-drawer-desktop': true,
+      }),
+    }),
+    scenarios: Object.freeze([
+      Object.freeze({
+        id: 'footer-production-integrated-check-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'check-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([]),
+      }),
+      Object.freeze({
+        id: 'footer-production-integrated-drawer-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'drawer-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([{ type: 'click-selector', selector: '.v-app-bar-nav-icon' }]),
+      }),
+      Object.freeze({
+        id: 'footer-production-integrated-attack-mobile',
+        route: '/attack',
+        viewport: 'mobile',
+        screenshot: 'attack-mobile.png',
+        initialCanvases: 2,
+        expectedCanvases: 2,
+        steps: Object.freeze([]),
+      }),
+    ]),
+  }),
 })
 
 function formatError(error) {
@@ -684,6 +722,10 @@ function resolveDomPreparation(preparation, scenario) {
     }
     delete resolved[`${key}ByRoute`]
   }
+  if (preparation.shortPageByScenario !== undefined) {
+    resolved.shortPage = preparation.shortPageByScenario[scenario.id] ?? false
+    delete resolved.shortPageByScenario
+  }
   return resolved
 }
 
@@ -817,7 +859,7 @@ async function collectPrototypeMetrics(page) {
   })
 }
 
-function validateFooterPrototypeMetrics(metrics, variantId) {
+function validateFooterPrototypeMetrics(metrics, variantId, scenarioId = '') {
   const footer = metrics?.footer
   if (!footer || footer.box === null) {
     throw new Error(`${variantId}: footer geometry is missing`)
@@ -843,6 +885,30 @@ function validateFooterPrototypeMetrics(metrics, variantId) {
     const main = metrics.main
     if (!main || main.display !== 'flex' || main.flexDirection !== 'column') {
       throw new Error(`${variantId}: production main shell is not a column flex container`)
+    }
+  }
+  if (variantId === 'footer-production-integrated') {
+    if (footer.position === 'fixed' || footer.position === 'absolute') {
+      throw new Error(`${variantId}: production footer must remain in normal flow`)
+    }
+    const main = metrics.main
+    if (!main || main.display !== 'flex' || main.flexDirection !== 'column') {
+      throw new Error(`${variantId}: production main shell is not a column flex container`)
+    }
+    const content = main.children.find((child) => (
+      typeof child.className === 'string' && child.className.includes('main-area__content')
+    ))
+    if (!content?.box) {
+      throw new Error(`${variantId}: production content shell geometry is missing`)
+    }
+    if (scenarioId.includes('-short-')) {
+      if (!Number.isFinite(footer.bottomGap) || Math.abs(footer.bottomGap) > 2) {
+        throw new Error(`${variantId}: short production footer is not aligned to viewport bottom (gap=${footer.bottomGap})`)
+      }
+      return
+    }
+    if (footer.box.top < content.box.bottom - 1 || footer.box.bottom < footer.box.top) {
+      throw new Error(`${variantId}: long production footer does not follow content in normal flow`)
     }
   }
   if (metrics.drawer?.visibleCount > 0 && !metrics.drawer.centerElementIsDrawer) {
@@ -937,7 +1003,7 @@ async function runScenario(browser, baseUrl, scenario, variant, variantId, varia
     }
     const metrics = await collectPrototypeMetrics(page)
     if (variantId.startsWith('footer-')) {
-      validateFooterPrototypeMetrics(metrics, variantId)
+      validateFooterPrototypeMetrics(metrics, variantId, scenario.id)
     }
     await page.screenshot({ path: screenshotPath, fullPage: true })
     if (
