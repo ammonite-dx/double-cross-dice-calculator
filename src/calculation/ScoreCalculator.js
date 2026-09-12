@@ -16,6 +16,7 @@ import {
 import {
   maxTailFirstMomentUpperBound,
   maxTailBound,
+  scoreTailBound,
 } from './DxTailModel'
 import {
   getScoreOutputMax,
@@ -23,6 +24,7 @@ import {
 } from './ScoreSupport'
 
 const SCORE_TAIL_CERTIFICATE_VERSION = 1
+const SCORE_TAIL_MOMENT_CERTIFICATE_VERSION = 1
 const SCORE_EXPECTATION_CERTIFICATE_VERSION = 1
 
 function validateScoreRangePlan(scoreRangePlan) {
@@ -343,6 +345,177 @@ function createScoreTailCertificate(result, scoreRangePlan) {
   })
 }
 
+function isValidScoreTailCertificate(certificate) {
+  return certificate !== null
+    && typeof certificate === 'object'
+    && certificate.version === SCORE_TAIL_CERTIFICATE_VERSION
+    && certificate.kind === 'score-tail-certificate'
+    && Number.isFinite(certificate.massLowerBound)
+    && Number.isFinite(certificate.massUpperBound)
+    && certificate.massLowerBound >= 0
+    && certificate.massUpperBound >= certificate.massLowerBound
+    && certificate.massUpperBound <= 1
+    && Number.isFinite(certificate.probabilityErrorBound)
+    && certificate.probabilityErrorBound >= 0
+}
+
+function createFiniteScoreTailMomentCertificate(modeledMax, model) {
+  return Object.freeze({
+    version: SCORE_TAIL_MOMENT_CERTIFICATE_VERSION,
+    kind: 'score-tail-moment-certificate',
+    model,
+    modeledMax,
+    massUpperBound: 0,
+    firstMomentUpperBound: 0,
+    numericalErrorBound: 0,
+  })
+}
+
+/**
+ * Bound only the part of a Score that lies above the producer's explicit
+ * working cutoff. The mass term is the boundary contribution at W+1; the
+ * first-moment helper is the residual tail-sum above that boundary. Keeping
+ * this certificate separate from the whole-score expectation certificate lets
+ * Damage propagate a tail without interpreting a generic overflow error as
+ * probability mass.
+ */
+function createScoreTailMomentCertificate(
+  params,
+  result,
+  scoreRangePlan,
+  scoreTailCertificate,
+  alreadyShifted
+) {
+  const support = getScoreSupport(params, alreadyShifted)
+  if (support.kind === 'finite') {
+    const modeledMax = Number.isSafeInteger(scoreRangePlan?.workingMax)
+      ? scoreRangePlan.workingMax
+      : support.max
+    return createFiniteScoreTailMomentCertificate(
+      modeledMax,
+      'finite-support'
+    )
+  }
+
+  // The Yousei tail has a different negative-binomial structure. Until its
+  // first-moment proof is added, retain only the existing mass certificate.
+  if (
+    alreadyShifted
+    || params.yousei !== 0
+    || scoreRangePlan === undefined
+    || scoreRangePlan === null
+  ) {
+    return null
+  }
+
+  const modeledMax = scoreRangePlan.workingMax
+  if (!Number.isSafeInteger(modeledMax) || modeledMax < 0) {
+    return null
+  }
+  if (!isValidScoreTailCertificate(scoreTailCertificate)) {
+    return null
+  }
+
+  const overflow = result.overflow
+  if (overflow === null) {
+    return null
+  }
+  const planBound = scoreRangePlan.tail?.bound
+  if (overflow.kind === 'exact' && Number.isFinite(planBound)) {
+    if (overflow.probability > planBound + DISTRIBUTION_RESULT_TOLERANCE) {
+      return null
+    }
+  }
+
+  let plannedMassUpperBound = scoreTailCertificate.massUpperBound
+  const analysisBound = scoreTailBound(modeledMax, params)
+  if (Number.isFinite(planBound)) {
+    if (planBound < 0 || planBound > 1) {
+      return null
+    }
+    plannedMassUpperBound = Math.max(plannedMassUpperBound, planBound)
+  }
+  if (Number.isFinite(analysisBound)) {
+    plannedMassUpperBound = Math.max(plannedMassUpperBound, analysisBound)
+  }
+  const massUpperBound = Math.min(1, plannedMassUpperBound)
+  if (!Number.isFinite(massUpperBound) || massUpperBound < 0) {
+    return null
+  }
+
+  const residualUpperBound = maxTailFirstMomentUpperBound(
+    modeledMax,
+    params.dice,
+    params.critical
+  )
+  const boundaryContributionUpperBound =
+    (modeledMax + 1) * massUpperBound
+  const skillContributionUpperBound = Math.max(params.skill, 0) * massUpperBound
+  const analyticUpperBound =
+    boundaryContributionUpperBound
+    + residualUpperBound
+    + skillContributionUpperBound
+  if (
+    !Number.isFinite(residualUpperBound)
+    || !Number.isFinite(boundaryContributionUpperBound)
+    || !Number.isFinite(skillContributionUpperBound)
+    || !Number.isFinite(analyticUpperBound)
+    || analyticUpperBound < 0
+  ) {
+    return null
+  }
+
+  // Each term is evaluated from a centralized tail bound, but the products
+  // and their final sum still incur floating-point error. Scale the margin by
+  // the operation's magnitude and by the modeled boundary; do not introduce
+  // an input-independent expected-value epsilon.
+  const boundaryArithmeticErrorBound =
+    Math.max(1, Math.abs(boundaryContributionUpperBound))
+      * DISTRIBUTION_RESULT_TOLERANCE
+  const residualArithmeticErrorBound =
+    Math.max(1, Math.abs(residualUpperBound))
+      * DISTRIBUTION_RESULT_TOLERANCE
+  const skillArithmeticErrorBound =
+    Math.max(1, Math.abs(skillContributionUpperBound))
+      * DISTRIBUTION_RESULT_TOLERANCE
+  const aggregationArithmeticErrorBound =
+    Math.max(1, Math.abs(analyticUpperBound))
+      * DISTRIBUTION_RESULT_TOLERANCE
+  const numericalErrorBound =
+    boundaryArithmeticErrorBound
+    + residualArithmeticErrorBound
+    + skillArithmeticErrorBound
+    + aggregationArithmeticErrorBound
+  const firstMomentUpperBound = analyticUpperBound + numericalErrorBound
+  if (
+    !Number.isFinite(numericalErrorBound)
+    || numericalErrorBound < 0
+    || !Number.isFinite(firstMomentUpperBound)
+    || firstMomentUpperBound < 0
+  ) {
+    return null
+  }
+
+  return Object.freeze({
+    version: SCORE_TAIL_MOMENT_CERTIFICATE_VERSION,
+    kind: 'score-tail-moment-certificate',
+    model: params.shihai > 0
+      ? 'dx-max-domination'
+      : 'dx-max-tail',
+    modeledMax,
+    massUpperBound,
+    firstMomentUpperBound,
+    boundaryContributionUpperBound,
+    residualUpperBound,
+    skillContributionUpperBound,
+    boundaryArithmeticErrorBound,
+    residualArithmeticErrorBound,
+    skillArithmeticErrorBound,
+    aggregationArithmeticErrorBound,
+    numericalErrorBound,
+  })
+}
+
 /**
  * Build a finite expected-value interval for the initial safe migration
  * slice: an infinite DX maximum with no Yousei/Shihai and non-negative skill.
@@ -456,6 +629,13 @@ export function calculateScore(
     result,
     scoreRangePlan
   )
+  const scoreTailMomentCertificate = createScoreTailMomentCertificate(
+    params,
+    result,
+    scoreRangePlan,
+    scoreTailCertificate,
+    alreadyShifted
+  )
   const scoreExpectationCertificate =
     createScoreExpectationCertificate(
       params,
@@ -466,6 +646,7 @@ export function calculateScore(
     modeledDistribution: true,
     automaticFailureProbability,
     scoreTailCertificate,
+    scoreTailMomentCertificate,
     ...(scoreExpectationCertificate === null
       ? {}
       : { scoreExpectationCertificate }),
