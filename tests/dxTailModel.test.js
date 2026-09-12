@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  calculateDxDistribution,
+} from '../src/calculation/DxCalculator'
+import {
   calculateYouseiTailProbability,
   findTailCutoff,
   maxTailBound,
@@ -112,6 +115,29 @@ describe('DxTailModel', () => {
     )
     expect(upperBound).toBeGreaterThanOrEqual(oracle - 1e-12)
     expect(Number.isFinite(upperBound)).toBe(true)
+  })
+
+  it.each([
+    { dice: 2, critical: 10, yousei: 1 },
+    { dice: 3, critical: 8, yousei: 2 },
+  ])('contains a finite multi-die Yousei distribution prefix: %o', ({ dice, critical, yousei }) => {
+    const cutoff = 80
+    const distribution = calculateDxDistribution(
+      { dice, critical, shihai: 0, yousei },
+      { workingLength: 4098, rounding: 'unrounded' },
+    )
+    let oracle = 0
+    for (let value = cutoff + 1; value < distribution.length - 1; value += 1) {
+      oracle += (value - (cutoff + 1)) * distribution[value]
+    }
+
+    const upperBound = youseiTailFirstMomentUpperBound(
+      cutoff,
+      dice,
+      critical,
+      yousei,
+    )
+    expect(upperBound).toBeGreaterThanOrEqual(oracle - 1e-12)
   })
 
   it('keeps a maximum-safe-integer dice count finite without allocating by dice', () => {
