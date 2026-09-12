@@ -103,6 +103,26 @@ describe('R23 source prototype definitions', () => {
       expect.stringContaining(`invalid source prototype scenario: ${variant.id} / unknown viewport`),
     ]))
   })
+
+  it('defines the UI-08 guard offset revision as a two-scenario source prototype', () => {
+    const variant = getSourcePrototypeVariant('attack-compound-d10-guard-offset-source')
+    expect(variant.scenarios.map(({ id }) => id)).toEqual([
+      'attack-desktop-guard-compound',
+      'attack-mobile-guard-compound',
+    ])
+    const defence = transformTarget(variant.targets.find(({ file }) => file.endsWith('DefenceForm.vue')))
+
+    expect(defence).toContain('inset-block-start: -4px;')
+    expect(defence).toContain('inset-inline-start: 0;')
+    expect(defence).toContain('.r23-compound-d10-group--direct-row')
+    expect(defence).toContain('inset-block-start: 4px;')
+    expect(defence).toContain('inset-inline-start: 4px;')
+    expect(defence.match(/role="group"/g)).toHaveLength(3)
+    expect(variant.checks.expectedGroupsByScenario).toEqual({
+      'attack-desktop-guard-compound': { 攻撃力: 1, 'ガード・装甲・軽減値': 1 },
+      'attack-mobile-guard-compound': { 攻撃力: 1, 'ガード・装甲・軽減値': 1 },
+    })
+  })
 })
 
 describe('R23 source prototype replacement harness', () => {

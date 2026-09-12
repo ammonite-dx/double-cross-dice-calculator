@@ -1085,7 +1085,7 @@ function parseArgs(args = process.argv.slice(2)) {
 
 function printHelp() {
   console.log('Usage: node experiments/r23-ui-review/source-prototype-runner.mjs --variant=id [--scenarios=id,id]')
-  console.log('Variants: advanced-setting-inline-source, setting-form-comfortable-source, backtrack-compound-label-source, backtrack-compound-label-aligned-source, backtrack-compound-label-positioned-source, backtrack-compound-label-floating-aligned-source, attack-compound-d10-source')
+  console.log('Variants: advanced-setting-inline-source, setting-form-comfortable-source, backtrack-compound-label-source, backtrack-compound-label-aligned-source, backtrack-compound-label-positioned-source, backtrack-compound-label-floating-aligned-source, attack-compound-d10-source, attack-compound-d10-guard-offset-source')
   console.log('This runner temporarily edits Vue sources, builds, restores sources before capture, and never adopts a candidate.')
 }
 

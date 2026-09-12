@@ -90,6 +90,12 @@ const ATTACK_COMPOUND_SCENARIOS = Object.freeze([
   ),
 ])
 
+const ATTACK_GUARD_COMPOUND_SCENARIOS = Object.freeze(
+  ATTACK_COMPOUND_SCENARIOS.filter((entry) => (
+    typeof entry !== 'string' && entry.id.includes('guard-compound')
+  )),
+)
+
 const COMPOUND_D10_GROUPS = Object.freeze({
   attack: Object.freeze({
     name: '攻撃力',
@@ -112,6 +118,11 @@ const COMPOUND_D10_EXPECTED_GROUPS = Object.freeze({
   'attack-mobile-multi-combo': Object.freeze({ 攻撃力: 2, '装甲・軽減値': 2 }),
   'attack-desktop-evasion-compound': Object.freeze({ 攻撃力: 1, '装甲・軽減値': 1 }),
   'attack-mobile-evasion-compound': Object.freeze({ 攻撃力: 1, '装甲・軽減値': 1 }),
+  'attack-desktop-guard-compound': Object.freeze({ 攻撃力: 1, 'ガード・装甲・軽減値': 1 }),
+  'attack-mobile-guard-compound': Object.freeze({ 攻撃力: 1, 'ガード・装甲・軽減値': 1 }),
+})
+
+const COMPOUND_D10_GUARD_EXPECTED_GROUPS = Object.freeze({
   'attack-desktop-guard-compound': Object.freeze({ 攻撃力: 1, 'ガード・装甲・軽減値': 1 }),
   'attack-mobile-guard-compound': Object.freeze({ 攻撃力: 1, 'ガード・装甲・軽減値': 1 }),
 })
@@ -329,6 +340,17 @@ const compoundStyleAnchorTo = `
 }
 </style>`
 
+const guardOffsetCompoundStyleAnchorTo = compoundStyleAnchorTo.replace(
+  '\n</style>',
+  `
+.r23-compound-d10-group--direct-row
+    > .r23-compound-d10-group__label {
+    inset-block-start: 4px;
+    inset-inline-start: 4px;
+}
+</style>`,
+)
+
 export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
   'advanced-setting-inline-source': sourcePrototype(
     'advanced-setting-inline-source',
@@ -460,6 +482,32 @@ export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
       type: 'compound-d10-consistency',
       groups: COMPOUND_D10_GROUPS,
       expectedGroupsByScenario: COMPOUND_D10_EXPECTED_GROUPS,
+    },
+  ),
+  'attack-compound-d10-guard-offset-source': sourcePrototype(
+    'attack-compound-d10-guard-offset-source',
+    'UI-08 guard direct-rowのshared labelだけを実測どおりに補正し、baseline floating labelへ揃えられるかをdesktop/mobileで再確認する。',
+    [
+      target('src/features/attack/ui/AttackForm.vue', [
+        replacement(attackCompoundImportFrom, attackCompoundImportTo),
+        replacement(attackCompoundFormFrom, attackCompoundFormTo),
+        replacement(attackCompoundBlockFrom, attackCompoundBlockTo),
+        replacement(compoundStyleAnchorFrom, compoundStyleAnchorTo),
+      ]),
+      target('src/features/attack/ui/DefenceForm.vue', [
+        replacement(defenceCompoundImportFrom, defenceCompoundImportTo),
+        replacement(defenceCompoundFormFrom, defenceCompoundFormTo),
+        replacement(defenceDodgeBlockFrom, defenceDodgeBlockTo),
+        replacement(defenceEvasionBlockFrom, defenceEvasionBlockTo),
+        replacement(defenceGuardBlockFrom, defenceGuardBlockTo),
+        replacement(compoundStyleAnchorFrom, guardOffsetCompoundStyleAnchorTo),
+      ]),
+    ],
+    [...ATTACK_GUARD_COMPOUND_SCENARIOS],
+    {
+      type: 'compound-d10-consistency',
+      groups: COMPOUND_D10_GROUPS,
+      expectedGroupsByScenario: COMPOUND_D10_GUARD_EXPECTED_GROUPS,
     },
   ),
 })
