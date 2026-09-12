@@ -11,7 +11,7 @@
 | UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production反映済み、統合visual確認済み） |
-| UI-08 | Attack/DefenceのD10+固定値compound input | Backtrack UI-06と同じshared label、`role="group"`、個別accessible nameを一時適用する | 初回候補はガード分岐のみ`REVISE`、offset revision完了、`AWAITING PRODUCT OWNER` |
+| UI-08 | Attack/DefenceのD10+固定値compound input | Backtrack UI-06と同じshared label、`role="group"`、個別accessible nameを本番へ適用する | `ADOPT`（production反映待ち） |
 
 この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04A、UI-04B、UI-06 revision 4はproduct ownerが`ADOPT`と判断し、2026-09-12にproductionへ反映した。UI-06 revision 1とrevision 2は`REVISE`、revision 3は`REJECT`として履歴を保持し、revision 4は浮動labelを基準にした再計測結果と本番統合結果を記録する。
 
@@ -30,6 +30,8 @@
 | `50d4738` | UI-06 revision 4、revision 2からの4pxから-4pxへの位置調整、最小差分ガード |
 | `eaedd30` | UI-08 Attack/Defence compound D10+ source prototype、8scenarioのrunner、契約テスト |
 | `dd2c573` | UI-08ガード分岐のoffset revision、desktop/mobile 2scenarioの再確認 |
+
+UI-08のoffset revisionはproduct ownerがdesktop／mobileとも`PASS`と判断し、Attack、ドッジ、《イベイジョン》、ガード・リアクション放棄のcompound inputを`ADOPT`とした。production反映では、候補で確認したgroup semantics、個別accessible name、既存field geometry、ガード専用offsetを維持する。実装と統合captureは、判断記録とは別のcommitで行う。
 
 Nodeの既存buildを前提に、repository rootで次のコマンドを実行する。
 
@@ -238,7 +240,7 @@ candidateの各groupで、指定したshared labelと個別spinbutton accessible
 
 candidate buildのcapture前に、対象2ファイルは実行前のバイト列へ完全復元した。productionの`src/**`、計算core、runtime、公開asset、production browser smoke、共有componentは変更していない。画像と`report.json`はgitignore対象であり、commitしない。
 
-UI-08はsource prototypeと技術検証を完了したが、visual labelの位置、とくにguard direct-rowのoffsetについてproduct ownerの確認を待つ。したがってUI-08のstatusは`AWAITING PRODUCT OWNER`、R23全体は`IN REVIEW`のままとする。承認前にAttack／Defenceへ恒久接続せず、`CompoundD10Field.vue`などの共通component化も行わない。
+UI-08はsource prototypeと技術検証を完了し、offset revisionのvisual reviewでproduct ownerの`ADOPT`承認を得た。production反映は後続の独立commitで行い、`CompoundD10Field.vue`などの共通component化は行わない。
 
 ### UI-08 guard offset revision（2026-09-12）
 
@@ -250,7 +252,7 @@ revision variant `attack-compound-d10-guard-offset-source`（`dd2c573`）では�
 
 revision candidateのガードlabelはbaseline floating labelとx／topが一致した。fieldのx／y／width／height、underlineのx／y／width、row heightのcandidate-baseline差はdesktop／mobileとも0pxで、structural validationも空だった。candidateのlabel幅・line-box高さによるpixel差は自動acceptance条件にせず、今回のvisual reviewで確認する診断値として保持する。
 
-candidate capture前のsource復元は成功し、productionの`src/**`、production runner、計算core、runtime、公開asset、共有componentは変更していない。画像と`report.json`はgitignore対象であり、commitしない。revisionのstatusは`AWAITING PRODUCT OWNER`、R23全体は`IN REVIEW`のままとする。
+candidate capture前のsource復元は成功し、productionの`src/**`、production runner、計算core、runtime、公開asset、共有componentは変更していない。画像と`report.json`はgitignore対象であり、commitしない。revisionはproduct ownerの`ADOPT`承認を得たが、production反映は後続の独立commitで行う。R23全体は`IN REVIEW`のままとする。
 
 ## 総合判定と次の作業
 
@@ -261,7 +263,7 @@ candidate capture前のsource復元は成功し、productionの`src/**`、produc
 | UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-06 | revision 1/2のgroup semanticsを維持し、revision 3で誤ったmain label基準を試し、revision 4でfloating label基準へ補正した | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production反映済み、統合visual確認済み） |
-| UI-08 | 初回候補でAttack／ドッジ／《イベイジョン》は`PASS`、ガードは`REVISE`。offset revisionでガードのlabel位置を再計測した | revision technical check完了、`AWAITING PRODUCT OWNER` |
+| UI-08 | 初回候補でAttack／ドッジ／《イベイジョン》は`PASS`、ガードは`REVISE`。offset revisionでガードのlabel位置を再計測した | `ADOPT`（production反映待ち） |
 
 product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。production統合では、UI-01、UI-04A、UI-04B、UI-06、UI-07を個別commitへ分け、計算core、runtime、Worker、公開asset、generator、依存バージョンは変更していない。
 
@@ -301,4 +303,4 @@ footerは、本番CSSを追加注入しない[`experiments/r23-ui-review/output/
 
 今回のproduction変更で、`src/calculation/**`、`src/runtime/**`、generator、公開asset、依存バージョン、Worker protocolは変更していない。UI-04C、UI-05、Damage expectation、R23-C、Cloudflare Worker／API／MCPはこの統合に含めない。
 
-UI-01、UI-04A、UI-04B、UI-06、UI-07のproduction統合visual confirmationはproduct ownerが確認済みである。UI-08は初回candidateのガード分岐をREVISEし、offset revisionのtechnical checkまで完了したが、revisionのvisual review待ちであるため、R23の状態は`IN REVIEW`、UI-08のstatusは`AWAITING PRODUCT OWNER`とする。UI-08の確認前にR23を`CLOSED`へ変更しない。
+UI-01、UI-04A、UI-04B、UI-06、UI-07のproduction統合visual confirmationはproduct ownerが確認済みである。UI-08もoffset revisionのdesktop／mobile captureをproduct ownerが確認し、`ADOPT`と判断した。production反映と統合captureは後続commitで行うため、R23の状態は`IN REVIEW`のままとする。
