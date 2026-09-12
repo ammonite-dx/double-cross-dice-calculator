@@ -7,7 +7,9 @@ import {
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import { calculateScore } from '../src/calculation/ScoreCalculator'
+import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
+import { formatCertifiedExpectedValue } from '../src/shared/presentation/SummaryFormatter'
 
 function scoreEnvelope(entries, options = {}) {
   const maxValue = Math.max(...entries.map(([value]) => value))
@@ -178,6 +180,32 @@ describe('Damage expected-value certificate', () => {
       .toBeLessThanOrEqual(statistics.expectedValue.upperBound)
     expect(statistics.expectedValue.upperBound - statistics.expectedValue.lowerBound)
       .toBeLessThan(0.05)
+  })
+
+  it('formats the public default bounded certificate as 3.1', async () => {
+    const actionScore = {
+      dice: 1,
+      critical: 10,
+      shihai: 0,
+      yousei: 0,
+      skill: 0,
+    }
+    const context = createFullTailContext({
+      actionScore,
+      reactionScore: { ...actionScore },
+    })
+    const damage = await calculateDamageOnDemand(
+      context.score,
+      context.attack,
+      context.defence,
+      { getDamageRollDistribution: generateMixedDamageDistribution },
+      {},
+      context.rangePlan
+    )
+    const expectedValue = getDamageStatistics(damage).expectedValue
+
+    expect(expectedValue.kind).toBe('bounded')
+    expect(formatCertifiedExpectedValue(expectedValue)).toBe(3.1)
   })
 
   it('uses reaction tail mass without requiring a reaction moment certificate', async () => {
