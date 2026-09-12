@@ -86,6 +86,7 @@ describe('R23 source prototype replacement harness', () => {
     for (const variantId of [
       'backtrack-compound-label-source',
       'backtrack-compound-label-aligned-source',
+      'backtrack-compound-label-positioned-source',
     ]) {
       const variant = getSourcePrototypeVariant(variantId)
       const { transformed } = await readPrototypeSources(process.cwd(), variant)
@@ -113,6 +114,24 @@ describe('R23 source prototype replacement harness', () => {
     expect(candidate).toContain('inset-block-start: 4px;')
     expect(candidate).not.toContain('font-size: 0.75rem;')
     expect(candidate).not.toContain('line-height: 1.333;')
+  })
+
+  it('keeps the positioned UI-06 revision limited to the block-start offset', async () => {
+    const revision2 = getSourcePrototypeVariant('backtrack-compound-label-aligned-source')
+    const revision3 = getSourcePrototypeVariant('backtrack-compound-label-positioned-source')
+    const revision2Sources = await readPrototypeSources(process.cwd(), revision2)
+    const revision3Sources = await readPrototypeSources(process.cwd(), revision3)
+    const revision2Source = revision2Sources.transformed[0].source.toString('utf8')
+    const revision3Source = revision3Sources.transformed[0].source.toString('utf8')
+
+    expect(revision3Source).toContain('text-caption text-medium-emphasis')
+    expect(revision3Source).toContain('inset-block-start: 12px;')
+    expect(revision3Source).not.toContain('font-size: 0.75rem;')
+    expect(revision3Source).not.toContain('line-height: 1.333;')
+    expect(revision2Source.replace(
+      'inset-block-start: 4px;',
+      'inset-block-start: 12px;',
+    )).toBe(revision3Source)
   })
 
   it('restores production source when build fails', async () => {

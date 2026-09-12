@@ -129,6 +129,10 @@ const backtrackAlignedStyleAnchorTo = `
     pointer-events: none;
 }
 </style>`
+const backtrackPositionedStyleAnchorTo = backtrackAlignedStyleAnchorTo.replace(
+  'inset-block-start: 4px;',
+  'inset-block-start: 12px;',
+)
 
 export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
   'advanced-setting-inline-source': sourcePrototype(
@@ -192,6 +196,24 @@ export const SOURCE_PROTOTYPE_VARIANTS = Object.freeze({
         replacement(backtrackFormFrom, backtrackFormTo),
         replacement(backtrackReductionFrom, backtrackAlignedReductionTo),
         replacement(backtrackStyleAnchorFrom, backtrackAlignedStyleAnchorTo),
+      ]),
+    ],
+    [...BACKTRACK_SCENARIOS],
+    {
+      type: 'compound-label',
+      groupName: 'その他減少量',
+      fieldNames: Object.freeze(['その他減少量（ダイス）', 'その他減少量（固定値）']),
+    },
+  ),
+  'backtrack-compound-label-positioned-source': sourcePrototype(
+    'backtrack-compound-label-positioned-source',
+    'UI-06 revision 3。revision 2のsemantic structure、accessible name、Vuetify utility typographyを維持し、視覚labelのblock-startだけを4pxから12pxへ変更する。',
+    [
+      target('src/features/backtrack/ui/BacktrackForm.vue', [
+        replacement(backtrackImportFrom, backtrackImportTo),
+        replacement(backtrackFormFrom, backtrackFormTo),
+        replacement(backtrackReductionFrom, backtrackAlignedReductionTo),
+        replacement(backtrackStyleAnchorFrom, backtrackPositionedStyleAnchorTo),
       ]),
     ],
     [...BACKTRACK_SCENARIOS],
