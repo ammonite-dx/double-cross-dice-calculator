@@ -83,7 +83,7 @@
 <template>
     <v-row class="ma-0 px-1 py-0" :style="{backgroundColor:backgroundColor}" style="color:white">
         <v-col md="8" cols="6" class="pa-0 d-flex align-center">{{ sideText }}</v-col>
-        <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="showDetails" density="compact" class="h-50" />高度な設定</v-col>
+        <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="showDetails" density="compact" inline class="h-50" />高度な設定</v-col>
     </v-row>
     <v-form ref="form" class="pa-1">
         <v-row dense class="pt-2 ma-0">
