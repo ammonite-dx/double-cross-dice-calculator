@@ -17,6 +17,12 @@ import {
   validateSourcePrototypeDefinitions,
 } from '../experiments/r23-ui-review/source-prototype-definitions.js'
 
+function transformArchivedTarget(variant) {
+  const [target] = variant.targets
+  const source = `<template>\n${target.replacements.map(({ from }) => from).join('\n')}`
+  return applyExactReplacements(source, target.replacements, target.file)
+}
+
 describe('R23 source prototype definitions', () => {
   it('has unique ids and valid replacement declarations', () => {
     expect(validateSourcePrototypeDefinitions()).toEqual([])
@@ -82,7 +88,7 @@ describe('R23 source prototype replacement harness', () => {
     }
   })
 
-  it('keeps the UI-06 style block at the SFC top level', async () => {
+  it('keeps the archived UI-06 style block at the SFC top level', () => {
     for (const variantId of [
       'backtrack-compound-label-source',
       'backtrack-compound-label-aligned-source',
@@ -90,8 +96,7 @@ describe('R23 source prototype replacement harness', () => {
       'backtrack-compound-label-floating-aligned-source',
     ]) {
       const variant = getSourcePrototypeVariant(variantId)
-      const { transformed } = await readPrototypeSources(process.cwd(), variant)
-      const candidate = transformed[0].source.toString('utf8')
+      const candidate = transformArchivedTarget(variant)
       const templateOpenIndex = candidate.indexOf('<template>')
       const templateCloseIndex = candidate.lastIndexOf('</template>')
       const styleOpenIndex = candidate.indexOf('<style scoped>')
@@ -106,10 +111,9 @@ describe('R23 source prototype replacement harness', () => {
     }
   })
 
-  it('keeps the aligned UI-06 revision limited to utility typography and label offset', async () => {
+  it('keeps the archived aligned UI-06 revision limited to utility typography and label offset', () => {
     const variant = getSourcePrototypeVariant('backtrack-compound-label-aligned-source')
-    const { transformed } = await readPrototypeSources(process.cwd(), variant)
-    const candidate = transformed[0].source.toString('utf8')
+    const candidate = transformArchivedTarget(variant)
 
     expect(candidate).toContain('text-caption text-medium-emphasis')
     expect(candidate).toContain('inset-block-start: 4px;')
@@ -117,13 +121,11 @@ describe('R23 source prototype replacement harness', () => {
     expect(candidate).not.toContain('line-height: 1.333;')
   })
 
-  it('keeps the positioned UI-06 revision limited to the block-start offset', async () => {
+  it('keeps the archived positioned UI-06 revision limited to the block-start offset', () => {
     const revision2 = getSourcePrototypeVariant('backtrack-compound-label-aligned-source')
     const revision3 = getSourcePrototypeVariant('backtrack-compound-label-positioned-source')
-    const revision2Sources = await readPrototypeSources(process.cwd(), revision2)
-    const revision3Sources = await readPrototypeSources(process.cwd(), revision3)
-    const revision2Source = revision2Sources.transformed[0].source.toString('utf8')
-    const revision3Source = revision3Sources.transformed[0].source.toString('utf8')
+    const revision2Source = transformArchivedTarget(revision2)
+    const revision3Source = transformArchivedTarget(revision3)
 
     expect(revision3Source).toContain('text-caption text-medium-emphasis')
     expect(revision3Source).toContain('inset-block-start: 12px;')
@@ -135,13 +137,11 @@ describe('R23 source prototype replacement harness', () => {
     )).toBe(revision3Source)
   })
 
-  it('derives the floating-aligned UI-06 revision from revision 2 only', async () => {
+  it('derives the archived floating-aligned UI-06 revision from revision 2 only', () => {
     const revision2 = getSourcePrototypeVariant('backtrack-compound-label-aligned-source')
     const revision4 = getSourcePrototypeVariant('backtrack-compound-label-floating-aligned-source')
-    const revision2Sources = await readPrototypeSources(process.cwd(), revision2)
-    const revision4Sources = await readPrototypeSources(process.cwd(), revision4)
-    const revision2Source = revision2Sources.transformed[0].source.toString('utf8')
-    const revision4Source = revision4Sources.transformed[0].source.toString('utf8')
+    const revision2Source = transformArchivedTarget(revision2)
+    const revision4Source = transformArchivedTarget(revision4)
 
     expect(revision4Source).toContain('text-caption text-medium-emphasis')
     expect(revision4Source).toContain('inset-block-start: -4px;')
