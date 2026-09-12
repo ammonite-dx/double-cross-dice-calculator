@@ -73,9 +73,9 @@
 <template>
     <v-form ref="form">
         <v-row dense class="pt-2 ma-0">
-            <v-col cols="6" class="pb-2"><v-text-field label="最小値" type="number" min="0" v-model.number="currentRequest.min" :rules="minRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
-            <v-col cols="6" class="pb-2"><v-text-field label="最大値" type="number" min="0" v-model.number="currentRequest.max" :rules="maxRule" variant="underlined" hide-details="auto" density="compact"/></v-col>
-            <v-col cols="12" class="pb-2"><v-select label="表示モード" v-model="currentRequest.mode" :items="modeItem" variant="underlined" hide-details="auto" density="compact"/></v-col>
+            <v-col cols="6" class="pb-2"><v-text-field label="最小値" type="number" min="0" v-model.number="currentRequest.min" :rules="minRule" variant="underlined" hide-details="auto" density="comfortable"/></v-col>
+            <v-col cols="6" class="pb-2"><v-text-field label="最大値" type="number" min="0" v-model.number="currentRequest.max" :rules="maxRule" variant="underlined" hide-details="auto" density="comfortable"/></v-col>
+            <v-col cols="12" class="pb-2"><v-select label="表示モード" v-model="currentRequest.mode" :items="modeItem" variant="underlined" hide-details="auto" density="comfortable"/></v-col>
         </v-row>
     </v-form>
 </template>
