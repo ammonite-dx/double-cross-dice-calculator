@@ -1073,7 +1073,7 @@ async function runBacktrack(browser, baseUrl) {
       page,
       record,
       'backtrack-dice=100',
-      page.getByLabel('その他減少量'),
+      page.getByLabel('その他減少量（ダイス）'),
       100,
       3,
     )
