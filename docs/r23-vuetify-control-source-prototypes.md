@@ -10,13 +10,13 @@
 | --- | --- | --- | --- |
 | UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production実装待ち） |
 | UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production実装待ち） |
-| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3を確認中 |
+| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT` |
 
-この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`としてrevision 3のvisual reviewを継続する。
+この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`、revision 3を`REJECT`としたうえで、浮動labelを基準にした再計測結果を記録する。
 
 ## 再現条件
 
-対象branchは`codex/canonical-default-migration`で、今回のUI-06 revision 3開始時点は`2ca984bd593c3e6cc4cee8ad8227a7eb27ebf096`である。ハーネスとrunner、revision 2の計測更新、revision 3のsource candidateは次のコミットで追加した。
+対象branchは`codex/canonical-default-migration`で、今回のUI-06 floating-label再計測開始時点は`75cc68aaaaee09bddc74d6f63708ed22ad0e9f3d`である。ハーネスとrunner、revision 2の計測更新、revision 3のsource candidate、浮動label基準の再計測は次のコミットで追加した。
 
 | Commit | 内容 |
 | --- | --- |
@@ -25,6 +25,7 @@
 | `df450b7` | UI-06のベースライン／候補フェーズを分けた比較メトリクス修正 |
 | `8b14058` | UI-06 revision 2、計測階層の不整合修正、label style/位置メトリクス、hierarchy invariantの追加 |
 | `bc27c44` | UI-06 revision 3、4pxから12pxへの位置調整、revision 2との差分限定テスト |
+| `d1be033` | UI-06のmain label／floating labelを分離した計測とfail-closed guard |
 
 Nodeの既存buildを前提に、repository rootで次のコマンドを実行する。
 
@@ -125,21 +126,23 @@ candidateのsourceはbuild後、Playwright captureの前にバイト列単位で
 
 ### revision 2の計測結果
 
-`backtrack-mobile`、`backtrack-mobile-livingdead`、`backtrack-desktop`の3scenarioでbaselineとcandidateを実行した。両フェーズで`outerColumn`、nested `innerRow`、top-level `firstRow`、Eロイス数fieldを取得し、`firstRowContainsNeighborElois=true`を検証した。candidateではgroupが1件、group名が「その他減少量」、spinbuttonが2件となり、2つのaccessible nameが完全一致した。browser diagnosticsは全scenarioで0件だった。
+`backtrack-mobile`、`backtrack-mobile-livingdead`、`backtrack-desktop`の3scenarioでbaselineとcandidateを実行した。両フェーズで`outerColumn`、nested `innerRow`、top-level `firstRow`、Eロイス数fieldを取得し、`firstRowContainsNeighborElois=true`を検証した。candidateではgroupが1件、group名が「その他減少量」、spinbuttonが2件となり、2つのaccessible nameが完全一致した。今回のrunnerはEロイス数field内の可視main labelとfloating labelを分けて取得し、両者の件数とテキスト、floating classをfail closedで検証した。browser diagnosticsは全scenarioで0件だった。
 
-| Scenario | outer column | nested fields | first-row height（baseline → candidate） | label top差 | label center差 |
-| --- | --- | --- | --- | ---: | ---: |
-| Backtrack mobile | 151px | 71.5px + 71.5px | 92px → 92px（差0px） | -8px | -10px |
-| Backtrack mobile（不死者・悪夢） | 151px | 71.5px + 71.5px | 92px → 92px（差0px） | -8px | -10px |
-| Backtrack desktop | 290px | 141px + 141px | 52px → 52px（差0px） | -8px | -10px |
+旧runnerはdocument全体からテキストが「Eロイス数」と一致する最初の`<label>`を選んでいたため、対象field内の可視floating labelではなく、`visibility: hidden`のmain labelを比較対象にしていた。旧レポートのlabel top差`-8px`、center差`-10px`はこのselector bugによる値である。視覚labelの位置を評価する基準としては不適切なので、これらの旧値は`INVALID FOR VISUAL ALIGNMENT`と明記し、今回のfloating label基準の値へ置き換える。
 
-candidateのgroup自体はmobileで`x=199`、`width=143px`、desktopで`x=934`、`width=282px`となり、外側columnの内側4pxを反映する。視覚labelのbounding boxはmobileで`x=199`、`y=209`、`74.41×20px`、desktopで`x=934`、`y=169`、`74.41×20px`だった。隣接するEロイス数labelはmobileで`x=48`、`y=217`、`74.64×24px`、desktopで`x=644`、`y=177`、`74.64×24px`だった。
+| Scenario | outer column | nested fields | first-row height（baseline → candidate） | custom top − floating top | custom center − floating center | custom top − main top | custom center − main center |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| Backtrack mobile | 151px | 71.5px + 71.5px | 92px → 92px（差0px） | +8px | +9px | -8px | -10px |
+| Backtrack mobile（不死者・悪夢） | 151px | 71.5px + 71.5px | 92px → 92px（差0px） | +8px | +9px | -8px | -10px |
+| Backtrack desktop | 290px | 141px + 141px | 52px → 52px（差0px） | +8px | +9px | -8px | -10px |
 
-candidate視覚labelのcomputed styleは`font-size: 12px`、`line-height: 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`である。隣接labelは`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`だった。utility classによる色と透明度は反映されたが、文字サイズと行高は隣接labelと異なるため、最終的な視覚一致はcapture画像で確認する。
+candidateのgroup自体はmobileで`x=199`、`width=143px`、desktopで`x=934`、`width=282px`となり、外側columnの内側4pxを反映する。visual labelのbounding boxはmobileで`x=199`、`y=209`、`74.41×20px`、desktopで`x=934`、`y=169`、`74.41×20px`だった。Eロイス数fieldのfloating labelはmobileで`x=48`、`y=201`、`55.98×18px`、desktopで`x=644`、`y=161`、`55.98×18px`であり、main labelはmobileで`x=48`、`y=217`、`74.64×24px`、desktopで`x=644`、`y=177`、`74.64×24px`だった。
 
-revision 2のproduct-owner decisionは`REVISE`である。semantic compound-group structure、accessible names、outer `cols=6`、inner `6 / 6`、`text-caption`、`text-medium-emphasis`、field geometryは維持する。colorとemphasisは`PASS`、typographyは現状で許容とし、visual labelのvertical positionだけを`REVISE`とした。revision 2の視覚labelは隣接labelより上端で8px、中心で10px上にあったため、次のrevision 3でもutility classとtypographyを維持し、位置だけを変更する。
+candidate visual labelのcomputed styleは`font-size: 12px`、`line-height: 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`である。floating labelは`12px / 18px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.1125px`、`transform: matrix(1, 0, 0, 1, 0, -16)`であり、main labelは`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`、`visibility: hidden`、`aria-hidden=true`だった。utility classによるvisual labelの色と透明度は反映されたが、文字サイズと行高はfloating labelと異なるため、最終的な視覚一致はcapture画像で確認する。
 
-### revision 3 — positioned source candidate
+revision 2のproduct-owner decisionは`REVISE`である。semantic compound-group structure、accessible names、outer `cols=6`、inner `6 / 6`、`text-caption`、`text-medium-emphasis`、field geometryは維持する。colorとemphasisは`PASS`、typographyは現状で許容とし、visual labelのvertical positionだけを`REVISE`とした。なお、視覚labelをmain labelへ合わせることを意味する旧`-8px / -10px`ではなく、floating labelとの差`+8px / +9px`を視覚位置の診断値として採用する。
+
+### revision 3 — positioned source candidate（`REJECT`）
 
 variant `backtrack-compound-label-positioned-source`は、revision 2のsemantic structure、accessible name、`text-caption text-medium-emphasis`、outer `cols=6`／desktop`md=3`、inner `6 / 6`、top-level scoped styleをそのまま再利用する。source上の変更は、visual labelの`inset-block-start: 4px;`を`inset-block-start: 12px;`へ置き換えることだけである。`font-size`、`line-height`、`color`、`opacity`、`letter-spacing`、field・row・columnのgeometry、内部Vuetify selectorは変更していない。
 
@@ -147,19 +150,19 @@ revision 2とrevision 3の変換済み`BacktrackForm.vue`は、上記の`inset-b
 
 ### revision 3の計測結果
 
-`backtrack-mobile`、`backtrack-mobile-livingdead`、`backtrack-desktop`の3scenarioでbaselineとcandidateを実行した。両フェーズで`firstRowContainsNeighborElois=true`、`outerColumn`、nested `innerRow`、`firstRow`、Eロイス数fieldを検証し、candidateではgroup名と2つのspinbutton accessible nameも完全一致した。browser diagnosticsは全scenarioで0件だった。
+`backtrack-mobile`、`backtrack-mobile-livingdead`、`backtrack-desktop`の3scenarioでbaselineとcandidateを実行した。両フェーズで`firstRowContainsNeighborElois=true`、`outerColumn`、nested `innerRow`、`firstRow`、Eロイス数fieldを検証し、candidateではgroup名と2つのspinbutton accessible nameも完全一致した。今回のrunnerはEロイス数field内の可視main labelとfloating labelを分けて取得し、両者の件数とテキスト、floating classをfail closedで検証した。browser diagnosticsは全scenarioで0件だった。
 
-| Scenario | first-row height（baseline → candidate） | label top差 | label center差 | accessibility |
-| --- | --- | ---: | ---: | --- |
-| Backtrack mobile | 92px → 92px（差0px） | 0px | -2px | PASS |
-| Backtrack mobile（不死者・悪夢） | 92px → 92px（差0px） | 0px | -2px | PASS |
-| Backtrack desktop | 52px → 52px（差0px） | 0px | -2px | PASS |
+| Scenario | first-row height（baseline → candidate） | custom top − floating top | custom center − floating center | custom top − main top | custom center − main center | accessibility |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| Backtrack mobile | 92px → 92px（差0px） | +16px | +17px | 0px | -2px | PASS |
+| Backtrack mobile（不死者・悪夢） | 92px → 92px（差0px） | +16px | +17px | 0px | -2px | PASS |
+| Backtrack desktop | 52px → 52px（差0px） | +16px | +17px | 0px | -2px | PASS |
 
-revision 3のvisual label bounding boxはmobileで`x=199`、`y=217`、`74.41×20px`、desktopで`x=934`、`y=177`、`74.41×20px`であり、隣接するEロイス数labelと上端が一致した。computed styleはrevision 2から変更なく、`font-size: 12px`、`line-height: 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`である。隣接labelも`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`のままである。
+revision 3のvisual label bounding boxはmobileで`x=199`、`y=217`、`74.41×20px`、desktopで`x=934`、`y=177`、`74.41×20px`である。Eロイス数fieldのfloating labelはmobileで`x=48`、`y=201`、`55.98×18px`、desktopで`x=644`、`y=161`、`55.98×18px`であり、main labelはmobileで`x=48`、`y=217`、`74.64×24px`、desktopで`x=644`、`y=177`、`74.64×24px`だった。したがって、main labelとの差`0px / -2px`は一致して見えるが、floating labelとの差`+16px / +17px`が実際の可視labelとの位置関係を表す。computed styleはrevision 2から変更なく、visual labelは`font-size: 12px`、`line-height: 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`である。floating labelは`12px / 18px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.1125px`、`transform: matrix(1, 0, 0, 1, 0, -16)`であり、main labelは`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`、`visibility: hidden`、`aria-hidden=true`だった。
 
 visual review用のcandidate画像は、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/09-backtrack-desktop.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/10-backtrack-mobile.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/11-backtrack-mobile-livingdead.png`である。画像と`report.json`はgitignore対象であり、commitしない。
 
-このrevision 3は、revision 2で唯一`REVISE`だったvertical positionを、他の仕様へ影響させずに調整する候補である。visual acceptanceと`ADOPT`／追加の`REVISE`／`REJECT`の判断はproduct ownerが行う。
+product ownerのrevision 3 decisionは`REJECT`である。mobileではvisual labelをmain labelに合わせた結果、入力値の行へ入り込んで見えるため、視覚的には採用できない。従来のrevision 2の`-8px / -10px`およびrevision 3の`0px / -2px`は、いずれもmain labelを基準にした値であり、visual alignmentの根拠としては無効である。revision 3は実験履歴として残し、次のoffsetやrevision 4は今回決めない。
 
 ## 総合判定と次の作業
 
@@ -169,6 +172,6 @@ visual review用のcandidate画像は、`experiments/r23-ui-review/output/source
 | --- | --- | --- |
 | UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production実装待ち） |
 | UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production実装待ち） |
-| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3でlabel positionだけを再調整した | revision 1/2は`REVISE`、revision 3を確認中 |
+| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3でlabel positionだけを再調整した | revision 1/2は`REVISE`、revision 3は`REJECT` |
 
 product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。今回のcommitにはproduction UI、計算core、runtime、Worker、公開asset、generator、依存バージョンの変更を含めない。
