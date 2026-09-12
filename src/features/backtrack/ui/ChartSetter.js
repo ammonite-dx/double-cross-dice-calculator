@@ -96,7 +96,7 @@ export function getFinalEncroachmentChartOptions (mode,smAndUp) {
         if (smAndUp) {
             return 12;
         } else {
-            return 6;
+            return 8;
         }
     };
     const datalabels = {
