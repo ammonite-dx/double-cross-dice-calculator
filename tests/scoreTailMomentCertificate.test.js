@@ -30,7 +30,14 @@ function calculateScoreAtCutoff(params, workingMax) {
   const plan = {
     workingLength: workingMax + 2,
     workingMax,
-    tail: { bound: scoreTailBound(workingMax, params) },
+    tail: {
+      bound: scoreTailBound(workingMax, params),
+      model: params.yousei > 0
+        ? 'exact-yousei'
+        : params.shihai > 0
+          ? 'conservative-max-bound'
+          : 'exact-max',
+    },
   }
   const envelope = calculateScore(
     params,
@@ -61,6 +68,34 @@ function approximateTailFirstMoment(params, cutoff, workingLength = 8194) {
     firstMoment += Math.max(0, value + params.skill) * distribution[value]
   }
   return firstMoment
+}
+
+function approximateOneDieYouseiTail(params, cutoff, maxSum = 10000) {
+  const criticalProbability = (11 - params.critical) / 10
+  const successCount = params.yousei + 1
+  let pmf = (1 - criticalProbability) ** successCount
+  let residual = 0
+  let tailMass = 0
+
+  for (let sum = 0; sum < maxSum; sum += 1) {
+    for (let remainder = 1; remainder < params.critical; remainder += 1) {
+      const value = 10 * (params.yousei + sum) + remainder
+      const tail = value > cutoff
+      if (tail) {
+        tailMass += pmf / (params.critical - 1)
+        residual +=
+          pmf * Math.max(0, value - (cutoff + 1)) /
+          (params.critical - 1)
+      }
+    }
+    const ratio = criticalProbability * (sum + successCount) / (sum + 1)
+    pmf *= ratio
+    if (sum > cutoff && pmf < 1e-16) {
+      break
+    }
+  }
+
+  return { residual, tailMass }
 }
 
 describe('Score tail first-moment certificate', () => {
@@ -189,18 +224,55 @@ describe('Score tail first-moment certificate', () => {
     }))
   })
 
-  it('does not claim a first moment for a non-finite Yousei tail', () => {
+  it.each([
+    { critical: 10, yousei: 1 },
+    { critical: 8, yousei: 1 },
+    { critical: 5, yousei: 3 },
+  ])('certifies a non-finite Yousei tail for critical=$critical and uses the dedicated model', ({ critical, yousei }) => {
     const { envelope } = calculatePlannedScore({
       dice: 3,
-      critical: 8,
+      critical,
       shihai: 0,
-      yousei: 1,
+      yousei,
       skill: 0,
     })
+    const certificate = envelope.metadata.scoreTailMomentCertificate
 
     expect(envelope.result.support).toEqual({ kind: 'infinite' })
     expect(envelope.metadata.scoreTailCertificate).not.toBeNull()
-    expect(envelope.metadata.scoreTailMomentCertificate).toBeNull()
+    expect(certificate).toEqual(expect.objectContaining({
+      kind: 'score-tail-moment-certificate',
+      model: 'dx-yousei-tail',
+      firstMomentUpperBound: expect.any(Number),
+      residualUpperBound: expect.any(Number),
+      tailEvaluationErrorBound: expect.any(Number),
+    }))
+    expect(certificate.firstMomentUpperBound)
+      .toBeGreaterThanOrEqual(certificate.residualUpperBound)
+  })
+
+  it.each([
+    { critical: 10, yousei: 1, skill: 4 },
+    { critical: 8, yousei: 2, skill: 0 },
+    { critical: 5, yousei: 3, skill: -3 },
+  ])('contains a one-die Yousei tail oracle for critical=$critical, yousei=$yousei, skill=$skill', ({ critical, yousei, skill }) => {
+    const params = {
+      dice: 1,
+      critical,
+      shihai: 0,
+      yousei,
+      skill,
+    }
+    const cutoff = 80
+    const { envelope } = calculateScoreAtCutoff(params, cutoff)
+    const certificate = envelope.metadata.scoreTailMomentCertificate
+    const oracle = approximateOneDieYouseiTail(params, cutoff)
+    const shiftedOracle = oracle.residual + Math.max(skill, 0) * oracle.tailMass
+
+    expect(certificate).not.toBeNull()
+    expect(certificate.model).toBe('dx-yousei-tail')
+    expect(certificate.firstMomentUpperBound)
+      .toBeGreaterThanOrEqual(shiftedOracle - 1e-10)
   })
 
   it('does not decrease the upper bound when positive skill grows', () => {

@@ -563,8 +563,18 @@ describe('Damage expected-value certificate', () => {
       actionScore: { dice: 1, critical: 10, shihai: 0, yousei: 0, skill: 0 },
       reactionScore: { dice: 1, critical: 10, shihai: 0, yousei: 1, skill: 0 },
     })
+    const scoreWithoutReactionMoment = {
+      ...context.score,
+      reaction: {
+        ...context.score.reaction,
+        metadata: {
+          ...context.score.reaction.metadata,
+          scoreTailMomentCertificate: null,
+        },
+      },
+    }
     const damage = await calculateDamageOnDemand(
-      context.score,
+      scoreWithoutReactionMoment,
       context.attack,
       context.defence,
       { getDamageRollDistribution: pointDamageProvider(5) },
@@ -573,11 +583,11 @@ describe('Damage expected-value certificate', () => {
     )
 
     expect(context.score.reaction.metadata.scoreTailMomentCertificate)
-      .toBeNull()
+      .not.toBeNull()
     expect(damage.metadata.damageExpectationCertificate).not.toBeNull()
   })
 
-  it('fails closed when the action Yousei moment is unavailable', async () => {
+  it('certifies an action Yousei tail with the dedicated score moment', async () => {
     const context = createFullTailContext({
       actionScore: { dice: 1, critical: 10, shihai: 0, yousei: 1, skill: 0 },
       reactionScore: { dice: 1, critical: 10, shihai: 0, yousei: 0, skill: 0 },
@@ -592,10 +602,10 @@ describe('Damage expected-value certificate', () => {
     )
 
     expect(context.score.action.metadata.scoreTailMomentCertificate)
-      .toBeNull()
-    expect(damage.metadata.damageExpectationCertificate).toBeNull()
+      .not.toBeNull()
+    expect(damage.metadata.damageExpectationCertificate).not.toBeNull()
     expect(getDamageStatistics(damage).expectedValue.kind)
-      .toBe('lower-bound')
+      .toBe('bounded')
   })
 
   it('falls back to the generic lower bound for an invalid dedicated certificate', () => {

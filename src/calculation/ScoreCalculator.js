@@ -17,6 +17,7 @@ import {
   maxTailFirstMomentUpperBound,
   maxTailBound,
   scoreTailBound,
+  youseiTailFirstMomentUpperBound,
 } from './DxTailModel'
 import {
   getScoreOutputMax,
@@ -397,11 +398,8 @@ function createScoreTailMomentCertificate(
     )
   }
 
-  // The Yousei tail has a different negative-binomial structure. Until its
-  // first-moment proof is added, retain only the existing mass certificate.
   if (
     alreadyShifted
-    || params.yousei !== 0
     || scoreRangePlan === undefined
     || scoreRangePlan === null
   ) {
@@ -416,8 +414,20 @@ function createScoreTailMomentCertificate(
     return null
   }
 
+  const hasExactYouseiTail =
+    params.yousei > 0
+    && params.shihai === 0
+    && params.critical <= 10
+    && scoreRangePlan.tail?.model === 'exact-yousei'
+  if (params.yousei > 0 && !hasExactYouseiTail) {
+    return null
+  }
+
   const overflow = result.overflow
   if (overflow === null) {
+    return null
+  }
+  if (hasExactYouseiTail && overflow.kind !== 'exact') {
     return null
   }
   const planBound = scoreRangePlan.tail?.bound
@@ -443,11 +453,18 @@ function createScoreTailMomentCertificate(
     return null
   }
 
-  const residualUpperBound = maxTailFirstMomentUpperBound(
-    modeledMax,
-    params.dice,
-    params.critical
-  )
+  const residualUpperBound = hasExactYouseiTail
+    ? youseiTailFirstMomentUpperBound(
+        modeledMax,
+        params.dice,
+        params.critical,
+        params.yousei,
+      )
+    : maxTailFirstMomentUpperBound(
+        modeledMax,
+        params.dice,
+        params.critical
+      )
   const boundaryContributionUpperBound =
     (modeledMax + 1) * massUpperBound
   const skillContributionUpperBound = Math.max(params.skill, 0) * massUpperBound
@@ -481,11 +498,16 @@ function createScoreTailMomentCertificate(
   const aggregationArithmeticErrorBound =
     Math.max(1, Math.abs(analyticUpperBound))
       * DISTRIBUTION_RESULT_TOLERANCE
+  const tailEvaluationErrorBound = hasExactYouseiTail
+    ? Math.max(1, Math.abs(modeledMax + 1))
+      * DISTRIBUTION_RESULT_TOLERANCE
+    : 0
   const numericalErrorBound =
     boundaryArithmeticErrorBound
     + residualArithmeticErrorBound
     + skillArithmeticErrorBound
     + aggregationArithmeticErrorBound
+    + tailEvaluationErrorBound
   const firstMomentUpperBound = analyticUpperBound + numericalErrorBound
   if (
     !Number.isFinite(numericalErrorBound)
@@ -499,9 +521,11 @@ function createScoreTailMomentCertificate(
   return Object.freeze({
     version: SCORE_TAIL_MOMENT_CERTIFICATE_VERSION,
     kind: 'score-tail-moment-certificate',
-    model: params.shihai > 0
-      ? 'dx-max-domination'
-      : 'dx-max-tail',
+    model: hasExactYouseiTail
+      ? 'dx-yousei-tail'
+      : params.shihai > 0
+        ? 'dx-max-domination'
+        : 'dx-max-tail',
     modeledMax,
     massUpperBound,
     firstMomentUpperBound,
@@ -512,6 +536,7 @@ function createScoreTailMomentCertificate(
     residualArithmeticErrorBound,
     skillArithmeticErrorBound,
     aggregationArithmeticErrorBound,
+    tailEvaluationErrorBound,
     numericalErrorBound,
   })
 }
