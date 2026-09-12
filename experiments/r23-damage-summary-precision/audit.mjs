@@ -39,6 +39,10 @@ function roundDisplay(value) {
   return Object.is(rounded, -0) ? 0 : round(rounded, 1)
 }
 
+function finiteOrNull(value) {
+  return Number.isFinite(value) ? round(value) : null
+}
+
 function createAuditClient({
   calculateDamageOnDemand,
   calculateDxDistribution,
@@ -94,6 +98,56 @@ function summarizeExpectedValue(expectedValue) {
   }
 }
 
+function summarizeScoreTail(scoreEnvelope) {
+  const metadata = scoreEnvelope?.metadata ?? {}
+  const massCertificate = metadata.scoreTailCertificate
+  const momentCertificate = metadata.scoreTailMomentCertificate
+  return {
+    massUpperBound: finiteOrNull(massCertificate?.massUpperBound),
+    massLowerBound: finiteOrNull(massCertificate?.massLowerBound),
+    momentUpperBound: finiteOrNull(momentCertificate?.firstMomentUpperBound),
+    momentNumericalErrorBound: finiteOrNull(
+      momentCertificate?.numericalErrorBound
+    ),
+    momentCertificateStatus: momentCertificate === null
+      || typeof momentCertificate !== 'object'
+      ? 'unavailable'
+      : 'available',
+  }
+}
+
+function summarizeDamageExpectationCertificate(damage) {
+  const certificate = damage?.metadata?.damageExpectationCertificate
+  if (certificate === null || typeof certificate !== 'object') {
+    return {
+      status: 'unavailable',
+      lowerBound: null,
+      upperBound: null,
+      width: null,
+      actionTailContributionUpperBound: null,
+      reactionTailContributionUpperBound: null,
+      numericalErrorBound: null,
+    }
+  }
+  const lowerBound = certificate.lowerBound
+  const upperBound = certificate.upperBound
+  return {
+    status: 'available',
+    lowerBound: finiteOrNull(lowerBound),
+    upperBound: finiteOrNull(upperBound),
+    width: Number.isFinite(lowerBound) && Number.isFinite(upperBound)
+      ? finiteOrNull(upperBound - lowerBound)
+      : null,
+    actionTailContributionUpperBound: finiteOrNull(
+      certificate.actionTailContributionUpperBound
+    ),
+    reactionTailContributionUpperBound: finiteOrNull(
+      certificate.reactionTailContributionUpperBound
+    ),
+    numericalErrorBound: finiteOrNull(certificate.numericalErrorBound),
+  }
+}
+
 async function auditEnvelope(client, fixture, source) {
   const result = await client.calculateAttack(fixture.params)
   return {
@@ -101,6 +155,12 @@ async function auditEnvelope(client, fixture, source) {
     label: fixture.label,
     category: fixture.category,
     source,
+    scoreTail: {
+      action: summarizeScoreTail(result.score.action),
+      reaction: summarizeScoreTail(result.score.reaction),
+    },
+    damageExpectationCertificate:
+      summarizeDamageExpectationCertificate(result.damage),
     expectedValue: summarizeExpectedValue(
       result.damageStatistics.expectedValue
     ),
@@ -129,6 +189,9 @@ async function auditTotals(client) {
       label: `total damage from ${count} combos`,
       category: `total-${count}`,
       source: 'total',
+      damageExpectationCertificate: {
+        status: 'not-applicable',
+      },
       expectedValue: summarizeExpectedValue(total.totalDamageStatistics.expectedValue),
     })
   }

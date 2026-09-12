@@ -18,7 +18,7 @@ tail由来の期待値不確かさを調べるには、次を実行する。
 node experiments/r23-damage-summary-precision/tail-attribution.mjs
 ```
 
-こちらは`output/tail-attribution.json`へ、公開版3.1相当のfixtureを含むScore・Damageの明示first moment、support、overflow、tail certificate、Score期待値certificate、Damageのprojection uncertaintyを保存する。
+こちらは`output/tail-attribution.json`へ、公開版3.1相当のfixtureを含むScore・Damageの明示first moment、support、overflow、tail certificate、Score期待値certificate、Score tail first-moment certificate、Damage expectation certificate、Damageのprojection uncertaintyを保存する。
 
 ## 記録する値
 
@@ -28,4 +28,4 @@ node experiments/r23-damage-summary-precision/tail-attribution.mjs
 
 レポートの`allFiniteIntervalThresholdCounts`はexactを含む有限区間全体の診断値である。追加近似の検討には、`kind`が`bounded`で、既存の丸め表示が不安定で、`halfWidth`が指定threshold以下のrecordだけを対象とする。該当IDは`additionalApproximationCandidates`、件数は`additionalApproximationCandidateCounts`へthresholdごとに出力する。exact、lower-bound、既存ルールで表示できるstable boundedは追加候補へ含めない。
 
-tail attributionの`candidateBound`は、restricted safe sliceで有限上界を導出できるかを調べる研究用の値である。`finite-candidate-only`はproductionのcertificateではなく、`insufficient-certificate`は利用可能な証明書だけでは有限上界を構成できなかったことを表す。どちらの場合も、区間の中点や下限を期待値の一点推定として表示しない。
+tail attributionの`candidateBound`は、restricted safe sliceで有限上界を導出できるかを調べる研究用の値である。`finite-candidate-only`はproductionのcertificateではなく、`insufficient-certificate`は利用可能な証明書だけでは有限上界を構成できなかったことを表す。productionの`audit:r23:damage-precision`では、R23-C1Bの`damageExpectationCertificate`が生成されたか、action／reaction tailの寄与と数値余裕がどれだけかも記録する。どの場合も、区間の中点や下限を期待値の一点推定として表示しない。

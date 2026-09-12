@@ -113,7 +113,7 @@ $$
 
 ## 4. 単発ダメージ
 
-実装は`src/calculation/DamageCalculator.js`の`calculateCanonicalDamageOnDemand`です。
+実装は`src/calculation/DamageCalculator.js`の`calculateDamageOnDemand`です。
 
 ### 4.1 命中確率とダメージダイス数
 
@@ -170,6 +170,32 @@ $a<0$の場合は固定値差を後段で適用するため$W=R$となります�
 一方、`published-bucket`は比較・互換境界として旧来の`calculationMax`と1023バケットへの投影を保持します。したがって、公開互換経路の範囲計画とproduction `full-tail`の範囲計画は別の契約です。Scoreが無限supportの場合に残るScore tail uncertaintyはこの変更では解消せず、Damageのmodeled finite supportを計画範囲内で完全に保持することだけを保証します。
 
 有限supportの合成で確率総和が浮動小数点丸めによって`1`からごく僅かにずれる場合は、`TOTAL_TOLERANCE = 1e-8`未満の残差を数値ノイズとして扱います。この残差から位置を持たないDamage overflowを人工的に作らず、許容値を超える不足だけを保守的なoverflow情報として保持します。これはScore tail uncertaintyを無視したり、意味のある確率質量を捨てたりする変更ではありません。
+
+### 4.5 Score tail first moment certificate
+
+`ScoreCalculator`は、作業上端を`W`としたScoreのoverflowについて、確率質量だけでなくfirst momentの上側評価を`metadata.scoreTailMomentCertificate`へ記録します。通常DXの未シフト値を`X`、尾部確率上限を`p`とすると、非負整数のtail-sum identityから次の評価を使います。
+
+$$
+E[X\,1_{\{X>W\}}]\le (W+1)p+R(W),
+$$
+
+ここで`R(W)`は`maxTailFirstMomentUpperBound(W, dice, critical)`が返す残りのtail-sum上限です。技能値`skill`を加えた最終Score`S = max(0, X + skill)`については、`max(skill, 0) p`を追加します。負の技能値は`max(0, X + skill) <= X`により追加項を持たず、《絶対支配》は保守的な最大値tail modelとして扱います。
+
+ダイス数0、`dice <= shihai`、`critical = 11`などfinite supportではtail massとfirst momentを0とする証明書を返します。《妖精の手》を含む無限supportでは、action側のfirst moment証明は未対応として`null`を返し、既存のtail massだけを保持します。consumerは証明書の`model`名では分岐せず、version、kind、数値範囲を検証します。
+
+### 4.6 Damage expected-value certificate
+
+`full-tail`のDamage合成で実際のDamage output overflowがなく、action／reaction双方のScore tail mass証明書と必要なaction first moment証明書が有効な場合、`DamageCalculator`は`metadata.damageExpectationCertificate`を生成します。明示配列のfirst momentを`M_explicit`、action tailの上限を`p_A`と`M_A`、reaction tailの上限を`p_R`、その下限を`L_R`、actionの明示最大値を`A_max`とします。
+
+攻撃側の追加Damage dice数を`a`、固定値差を`v`とすると、Damageの増加分は次の定数で安全に包めます。
+
+$$
+C=10(1+a)+\max(0,v).
+$$
+
+action tailの寄与は`Delta_A = M_A + C p_A`です。reaction tailは`p_R = 0`、または`A_max <= L_R`なら0とし、それ以外では`Delta_R = p_R (A_max + C)`とします。action tailとreaction tailの同時発生はaction側の寄与へすでに含まれるため、reaction側へ重ねて加算しません。actionの明示最大値が得られない状態でreaction tailがある場合も証明書を発行しません。
+
+最終的な証明書は、explicit first momentを下限、`M_explicit + Delta_A + Delta_R`と規模依存の数値余裕を上限とする`bounded`値へ変換されます。tailが両側とも0なら専用証明書を作らず、従来のgeneric summaryが返す`exact`を維持します。証明できないaction《妖精の手》、実際のDamage output overflow、壊れたmetadataでは専用証明書を`null`にしてgenericな`lower-bound`へ戻すため、`overflow.errorBound`を期待値の誤差幅として解釈することはありません。詳細な式、検証条件、後続範囲は[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)にまとめています。
 
 ## 5. 複数攻撃の合計
 

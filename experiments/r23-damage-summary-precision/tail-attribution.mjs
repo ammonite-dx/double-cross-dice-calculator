@@ -169,6 +169,9 @@ function summarizeScoreEnvelope(envelope) {
       scoreTailCertificate: summarizeCertificate(
         metadata.scoreTailCertificate,
       ),
+      scoreTailMomentCertificate: summarizeCertificate(
+        metadata.scoreTailMomentCertificate,
+      ),
       scoreExpectationCertificate: summarizeCertificate(
         metadata.scoreExpectationCertificate,
       ),
@@ -199,6 +202,12 @@ function summarizeDamageEnvelope(envelope, statistics) {
       scoreTails: copyJsonValue(metadata.scoreTails ?? []),
       scoreTailCertificates: copyJsonValue(
         metadata.scoreTailCertificates ?? [],
+      ),
+      scoreTailMomentCertificates: copyJsonValue(
+        metadata.scoreTailMomentCertificates ?? [],
+      ),
+      damageExpectationCertificate: summarizeCertificate(
+        metadata.damageExpectationCertificate,
       ),
       modeledSupport: summarizeSupport(metadata.modeledSupport),
       sourceSupport: summarizeSupport(metadata.sourceSupport),
