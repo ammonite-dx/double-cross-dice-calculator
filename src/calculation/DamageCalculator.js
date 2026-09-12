@@ -675,17 +675,28 @@ export async function calculateDamageOnDemand(
       1,
       requested.unmodeledScoreProbabilityUpperBound
     )
+    const explicitMassGap = Math.max(0, 1 - explicitMass)
+    const effectiveExplicitMassGap = explicitMassGap > TOTAL_TOLERANCE
+      ? explicitMassGap
+      : 0
     const modeledMassGap = Math.max(
       0,
-      1 - explicitMass - scoreTailProbabilityUpperBound
+      explicitMassGap - scoreTailProbabilityUpperBound
+    )
+    // A finite modeled distribution can lose a few ulps while being mixed
+    // and composed. Treat a gap within the existing total-mass tolerance as
+    // numerical noise; otherwise it would manufacture an overflow bucket
+    // without a valid positional lower bound.
+    const effectiveModeledMassGap = modeledMassGap > TOTAL_TOLERANCE
+      ? modeledMassGap
+      : 0
+    const numericalResidual = Math.max(
+      0,
+      effectiveModeledMassGap - composed.overflowProbability
     )
     const outputOverflowProbabilityUpperBound = Math.min(
       1,
-      Math.max(composed.overflowProbability, modeledMassGap)
-    )
-    const numericalResidual = Math.max(
-      0,
-      modeledMassGap - composed.overflowProbability
+      Math.max(composed.overflowProbability, effectiveModeledMassGap)
     )
     const scoreTailErrorBound = requested.scoreTailErrorBound
     // Keep the previous conservative aggregation as a floor. The explicit
@@ -696,7 +707,7 @@ export async function calculateDamageOnDemand(
       1,
       Math.max(
         scoreTailProbabilityUpperBound,
-        Math.max(0, 1 - explicitMass)
+        effectiveExplicitMassGap
       ) + composed.overflowProbability
     )
     const overflowProbabilityUpperBound = Math.min(
@@ -718,7 +729,7 @@ export async function calculateDamageOnDemand(
     const hasPositionallyUncertainScoreTail =
       scoreTailProbabilityUpperBound > 0 ||
       scoreTailErrorBound > 0 ||
-      numericalResidual > TOTAL_TOLERANCE
+      numericalResidual > 0
     const positionUnknownProbabilityUpperBound = Math.min(
       1,
       scoreTailProbabilityUpperBound +

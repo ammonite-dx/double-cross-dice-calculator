@@ -546,6 +546,35 @@ describe('canonical on-demand damage calculation', () => {
     })
   })
 
+  it('absorbs sub-tolerance finite mass gaps without creating an unpositioned overflow', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const rangePlan = createRangePlan(attack, noDefence, {
+      rawSupportMax: 20,
+      rawMax: 20,
+      workingMax: 20,
+      workingLength: 22,
+      fftLength: 32,
+      maxDamageDice: 1,
+    }, 'full-tail')
+    const canonical = await calculateDamageOnDemand(
+      scoreWithHitProbability(1),
+      attack,
+      noDefence,
+      {
+        getDamageRollDistribution: weightedRawProvider([[0, 1 - 1e-9]]),
+      },
+      {},
+      rangePlan
+    )
+
+    expect(canonical.result.support).toEqual({ kind: 'finite', max: 20 })
+    expect(canonical.result.overflow).toBeNull()
+    expect(canonical.metadata.projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 0,
+      outputOverflowLowerBound: null,
+    })
+  })
+
   it('keeps canonical score tail mass as overflow metadata instead of a point bucket', async () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const tailCertificate = {
