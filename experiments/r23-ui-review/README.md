@@ -51,7 +51,9 @@ production runnerは合計15scenarioを実行し、Attackのcompound inputでは
 
 画像と`report.json`は`experiments/r23-ui-review/output/`へ保存する。このディレクトリはgitignoredであり、screenshotはレビュー補助であって数値のoracleやCI gateではない。production build、既存test、`smoke:production`が数値と基本動作の正本である。
 
-runnerは外部フォント取得をstubしたうえで、canvasが可視になり、描画フレームが安定するまで待つ。診断としてconsole warning/error、page error、same-origin request failure、HTTP errorを記録し、いずれかがあれば失敗する。固定の長いtimeoutで計算完了を仮定せず、observableなcanvas状態を待つ。
+runnerはproductionと同じWebFontLoader／Roboto条件でcaptureするため、Google Fontsの取得をstubしない。`<html>`のWebFontLoader状態が`wf-active`になること、`document.fonts`が利用可能でreadyになること、Roboto 400が利用可能であること、`.v-application`（なければ`body`）のcomputed `font-family`にRobotoが含まれることを確認する。`wf-inactive`、Roboto未取得、またはcomputed familyの不一致はfallback fontで撮影を続行せず失敗させる。各scenarioの`report.json`には`fontEvidence`を記録するため、capture時のfont条件を後から確認できる。
+
+診断としてconsole warning/error、page error、same-origin request failure、HTTP errorを記録し、いずれかがあれば失敗する。固定の長いtimeoutで計算完了を仮定せず、observableなcanvas状態を待つ。なお、非visualな`production-browser-smoke`は外部fontに依存しないrelease contractのため、別途font stubを使用してよい。
 
 ## 判断の範囲
 

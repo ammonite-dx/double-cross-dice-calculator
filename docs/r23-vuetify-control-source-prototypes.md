@@ -282,12 +282,19 @@ product ownerが採用した6件を、次の順でproductionへ反映した。�
 | `7ca714d` | UI-08 offset revisionの`ADOPT`判断を記録 |
 | `fbd19bd` | Attack／Defenceのcompound D10入力をgroup semanticsと個別accessible nameへ統一 |
 | `6726dfc` | UI-08のproduction smoke／capture toolingを15scenarioへ拡張 |
+| `b6dad4d` | R23 visual runnerのGoogle Fonts stubを削除し、production Roboto readinessとfont evidenceを追加 |
 
 production統合後の検証基盤の追随は、`c43cb17`（本番CSS単体の短ページfooter検証variant）、`cd41315`（short page／drawer／long Attackを含む統合footer検証）、`b39cf75`（採用後も履歴source prototypeの契約を維持）、`e189c0b`（分離後のBacktrack accessible nameをproduction smokeへ反映）で行った。
 
 ### Integrated capture
 
 通常のproduction captureは[`experiments/r23-ui-review/output/report.json`](../experiments/r23-ui-review/output/report.json)へ出力した。Check（desktop／mobile／upper tail）、Attack（desktop／mobile、single／multi-combo、ドッジ／《イベイジョン》／ガード・リアクション放棄）、Backtrack（desktop／mobile／Living Dead）の15scenarioがすべて`captured`となり、console warning/error、page error、same-origin request failure、HTTP errorは全scenarioで0件だった。Attackの初期ドッジ、モード切替後の《イベイジョン》、ガード、multi-comboでは、shared group名、個別spinbutton名、`aria-labelledby` IDの一意性を検証した。画像とJSONはgitignore対象であり、commitしていない。
+
+`5cb42a0`までのcaptureはscenario実行、canvas、アクセシビリティ、same-origin診断の証拠としては有効だが、visual runnerがGoogle Fontsを空CSSへstubしていたため、productionのRoboto renderingを再現していなかった。したがって、その15枚はfinal pixel-level visual acceptance evidenceからは除外し、画像と`report.json`自体は履歴として保持する。
+
+`b6dad4d`でvisual runnerのfont stubを削除し、productionと同じWebFontLoader／Roboto条件をcapture前にfail-closedで確認するようにした。2026-09-12の再captureでは15scenarioすべてが`captured`となり、各scenarioで`webFontActive=true`、`webFontInactive=false`、`roboto400Available=true`、computed `font-family`=`Roboto, sans-serif`を確認した。console warning/error、page error、same-origin request failure、HTTP errorも全scenarioで0件だった。各結果には`fontEvidence`が含まれ、Google Fontsへ接続できない環境ではcapture全体を採用しない。
+
+product owner確認用の高シグナル画像は、[`05-attack-desktop-single.png`](../experiments/r23-ui-review/output/05-attack-desktop-single.png)、[`06-attack-mobile-single.png`](../experiments/r23-ui-review/output/06-attack-mobile-single.png)、[`14-attack-desktop-guard-compound.png`](../experiments/r23-ui-review/output/14-attack-desktop-guard-compound.png)、[`15-attack-mobile-guard-compound.png`](../experiments/r23-ui-review/output/15-attack-mobile-guard-compound.png)である。画像とJSONはgitignore対象であり、commitしていない。
 
 footerは、本番CSSを追加注入しない[`experiments/r23-ui-review/output/prototypes/footer-production-integrated/report.json`](../experiments/r23-ui-review/output/prototypes/footer-production-integrated/report.json)で確認した。短いCheckページとdrawer開状態ではfooterのviewport bottom gapがともに`0px`、footerのpositionは`relative`、`.main-area`はcolumn flexだった。drawerの中心点はdrawer自身にあり、footerより前面に表示された。長いAttack mobileではfooterがcontent wrapperの直後（content bottom=`1873px`、footer top=`1873px`）に通常flowで配置され、viewport外へ続くページでも重なりはなかった。3scenarioのbrowser diagnosticsは0件だった。
 
