@@ -606,7 +606,19 @@ Chart.js 4.5.1をローカル実装で確認した結果、`helpers.dataset.isAr
 
 期待値certificateの初期対応範囲は`shihai=0`、`yousei=0`、`skill>=0`の無限supportである。raw DX最大値を$Z$、計算済み境界を$M$とすると、非負整数値確率変数のtail-sum formulaから$E[Z]=\sum_{x=0}^{\infty}P(Z>x)$を使う。`maxTailBound(x, dice, critical)`が返す$P(Z>x)$を$x=0,\ldots,M$で補償和し、残りは`maxTailFirstMomentUpperBound()`で上から包む。このhelperは$P(\max_i Z_i>x)\leq nP(Z_1>x)$というunion boundと、1個のDXのtailが10ごとにcritical確率$q=(11-c)/10$倍になる性質を使い、10個の剰余類ごとの幾何級数として無限和を有限計算する。DPのexplicit bucketやoverflow probabilityから一次モーメントを作らないため、分布bucketの個別誤差を期待値誤差と取り違えない。
 
-通常判定ではraw score 1がファンブルとして0へ移る。`dice=n>0`では$P(Z=1)=0.1^n$なので、非負の技能値$s$を含む期待値は$E[Score]=E[Z]-0.1^n+s(1-0.1^n)$である。tail evaluatorの各項は集中管理された`DISTRIBUTION_RESULT_TOLERANCE`で外向きに広げ、$M+1$項分、ファンブル・技能値補正分、幾何級数残差の算術分を別々の数値誤差metadataとして保持する。`shihai>0`、`yousei>0`、負の`skill`を持つ無限supportではこのcertificateを作らず、内部の`lower-bound`を保持して通常UIは`—`を表示する。この非対応は期待値の保証範囲に限り、canonical分布・chart・計算失敗を意味しない。`dice<=shihai`の自動失敗や`critical=11`などfinite supportでgeneric summaryがexactになる場合は従来どおり数値表示する。将来拡張は負の`skill`（clampを含むshifted tail-sum）、`yousei`（exact-youseiのfirst-moment residual）、`shihai`（DPに対応するtail first-moment certificate）の順に検討する。
+通常判定ではraw score 1がファンブルとして0へ移る。`dice=n>0`では$P(Z=1)=0.1^n$なので、非負の技能値$s$を含む期待値は$E[Score]=E[Z]-0.1^n+s(1-0.1^n)$である。tail evaluatorの各項は集中管理された`DISTRIBUTION_RESULT_TOLERANCE`で外向きに広げ、$M+1$項分、ファンブル・技能値補正分、幾何級数残差の算術分を別々の数値誤差metadataとして保持する。`shihai>0`と負の`skill`を持つ無限supportではこのcertificateを作らず、内部の`lower-bound`を保持して通常UIは`—`を表示する。この非対応は期待値の保証範囲に限り、canonical分布・chart・計算失敗を意味しない。`dice<=shihai`の自動失敗や`critical=11`などfinite supportでgeneric summaryがexactになる場合は従来どおり数値表示する。
+
+## Phase 5-A 《妖精の手》のScore tail moment（R23-C3A）
+
+`shihai=0`かつ`yousei=y>0`のraw Scoreは、初回ロールの最大クリティカル回数$M$、追加判定の合計$S_y$、終端値$R$を使って$X=10(y+M+S_y)+R$と表せる。$M$は$n$個の幾何分布の最大値、$S_y$は$y$回成功するまでの失敗数の負の二項分布、$R$は$1,ldots,c-1$の一様分布であり、`DxTailModel.js`はこの表現を配列へ展開せずに利用する。
+
+Scoreのoverflow境界を$W$とすると、$E[X1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(W+1))_+]$である。前半は既存`scoreTailCertificate`、planner、`scoreTailBound()`の最大値を使い、後半だけを`youseiTailFirstMomentUpperBound()`で評価する。終端値$r$ごとに$t_r=\lfloor(W-r)/10\rfloor-y$と$d_r=10(y+t_r+1)+r-(W+1)$を置くと、残差は$[d_rP(T>t_r)+10U_T(t_r)]/(c-1)$の和で包める。
+
+`U_T(t)=E[(T-(t+1))_+]`は、$S_y=s$で条件分けして$\sum_{s=0}^{t}P(S_y=s)U_M(t-s)+\overline M P(S_y>t)+U_S(t)$で上界化する。$U_M$は$P(M>m)\leq\min(1,nq^{m+1})$の幾何級数、$U_S$は$\mu_yP(S_{y+1}>t)$で評価する。certificate専用の負の二項tail helperは、PMFの隣接比が1未満になった後の未加算部分を$p/(1-r)$として加え、表示用tailのように小さい残差を捨てない。
+
+`ScoreCalculator`は`tail.model === 'exact-yousei'`、`shihai=0`、`yousei>0`、`critical<=10`、exact overflowの条件を満たす場合だけ`model: 'dx-yousei-tail'`のScore tail moment certificateを生成する。`boundaryContributionUpperBound`、`residualUpperBound`、`skillContributionUpperBound`を分離して記録し、Yousei tail評価の規模比例余裕を`tailEvaluationErrorBound`へ保持する。Damage側はモデル名を見ず共通の数値フィールドだけを検証するため、action側《妖精の手》でも既存のDamage期待値certificateへ接続できる。
+
+詳細な式、境界条件、test-local oracle、stress caseは[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)に記録する。whole-Score expectation、Total Damage、resource policy、planner cutoff、UI表示はこの単位の対象外である。
 
 対決成功率は、action/reactionの明示bucketを$A_0,R_0$、tailを$A_T,R_T$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示bucket同士の$P_{00}=P(A_0>R_0)$は既存の昇順2ポインタ走査で$O(a+r)$に計算し、排他的な4組を分けて$S_{lower}=P_{00}+a_-P(R_0<L_A)$、$S_{upper}=P_{00}+a_+P(R_0)+r_+P(A_0>L_R)+a_+r_+$とする。最終区間だけを`DISTRIBUTION_RESULT_TOLERANCE`で一度外向きに広げる。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
 

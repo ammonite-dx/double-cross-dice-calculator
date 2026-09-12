@@ -2,7 +2,7 @@
 
 この実験は、Damage期待値のbounded区間を小数1桁で表示する条件を測定する。productionのformatterは、certified boundsを丸めた結果が一致する場合だけ値を表示し、区間の中点や推測値を表示値へ変換しない。
 
-監査対象には、通常攻撃、高い達成値、ダメージダイス1個・複数個、固定値差が正負の場合、防御ダイス、《風鳴りの爪》の振り直しが1個・複数個、大きめの受理ケース、2コンボ・4コンボの合計を含める。
+監査対象には、通常攻撃、action側《妖精の手》、高い達成値、ダメージダイス1個・複数個、固定値差が正負の場合、防御ダイス、《風鳴りの爪》の振り直しが1個・複数個、大きめの受理ケース、2コンボ・4コンボの合計を含める。
 
 ## 実行
 
@@ -28,4 +28,4 @@ node experiments/r23-damage-summary-precision/tail-attribution.mjs
 
 レポートの`allFiniteIntervalThresholdCounts`はexactを含む有限区間全体の診断値である。追加近似の検討には、`kind`が`bounded`で、既存の丸め表示が不安定で、`halfWidth`が指定threshold以下のrecordだけを対象とする。該当IDは`additionalApproximationCandidates`、件数は`additionalApproximationCandidateCounts`へthresholdごとに出力する。exact、lower-bound、既存ルールで表示できるstable boundedは追加候補へ含めない。
 
-tail attributionの`candidateBound`は、restricted safe sliceで有限上界を導出できるかを調べる研究用の値である。`finite-candidate-only`はproductionのcertificateではなく、`insufficient-certificate`は利用可能な証明書だけでは有限上界を構成できなかったことを表す。productionの`audit:r23:damage-precision`では、R23-C1Bの`damageExpectationCertificate`が生成されたか、action／reaction tailの寄与と数値余裕がどれだけかも記録する。どの場合も、区間の中点や下限を期待値の一点推定として表示しない。
+tail attributionの`candidateBound`は、restricted safe sliceで有限上界を導出できるかを調べる研究用の値である。`finite-candidate-only`はproductionのcertificateではなく、`insufficient-certificate`は利用可能な証明書だけでは有限上界を構成できなかったことを表す。productionの`audit:r23:damage-precision`では、R23-C1B／C3Aの`damageExpectationCertificate`が生成されたか、action／reaction tailの寄与と数値余裕がどれだけかも記録する。action側《妖精の手》は、Scoreの`dx-yousei-tail` certificateとDamage側のbounded区間を同じレコードで確認できる。どの場合も、区間の中点や下限を期待値の一点推定として表示しない。

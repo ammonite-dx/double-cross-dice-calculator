@@ -56,6 +56,19 @@ export const DAMAGE_PRECISION_FIXTURES = Object.freeze([
     }),
   }),
   Object.freeze({
+    id: 'yousei-action',
+    label: 'action score with 《妖精の手》',
+    category: 'yousei-action',
+    params: attack({
+      actionScore: score({ dice: 1, critical: 10, skill: 2, yousei: 1 }),
+      reactionScore: score({ dice: 0, critical: 11 }),
+      attackDice: 2,
+      attackValue: 5,
+      defenceDice: 0,
+      defenceValue: 0,
+    }),
+  }),
+  Object.freeze({
     id: 'higher-score',
     label: 'higher score',
     category: 'higher-score',

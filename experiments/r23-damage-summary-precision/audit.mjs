@@ -105,7 +105,16 @@ function summarizeScoreTail(scoreEnvelope) {
   return {
     massUpperBound: finiteOrNull(massCertificate?.massUpperBound),
     massLowerBound: finiteOrNull(massCertificate?.massLowerBound),
+    momentModel: typeof momentCertificate?.model === 'string'
+      ? momentCertificate.model
+      : null,
     momentUpperBound: finiteOrNull(momentCertificate?.firstMomentUpperBound),
+    momentResidualUpperBound: finiteOrNull(
+      momentCertificate?.residualUpperBound,
+    ),
+    momentTailEvaluationErrorBound: finiteOrNull(
+      momentCertificate?.tailEvaluationErrorBound,
+    ),
     momentNumericalErrorBound: finiteOrNull(
       momentCertificate?.numericalErrorBound
     ),

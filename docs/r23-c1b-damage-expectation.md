@@ -48,6 +48,8 @@ $$
 
 《妖精の手》を含む無限supportのScoreは、尾部質量の証明書を引き続き持つが、追加使用回数を含むfirst-momentの証明はこの作業単位では実装しない。そのため、action側の《妖精の手》では`scoreTailMomentCertificate`を持たず、Damageの専用期待値証明も作らない。一方、reaction側の《妖精の手》は、action側の明示最大値との大小関係だけでDamage尾部を包める場合があるため、尾部質量の証明書を利用できる。
 
+この節のaction側に関する制約は、後続のR23-C3Aで更新された。`shihai=0`、`yousei>0`、`critical<=10`の`exact-yousei`では、負の二項tailの残差を解析的に上界化する`dx-yousei-tail`証明書を生成し、Damage期待値certificateへ接続できる。R23-C1Bの当時の実装範囲と、後続で追加された証明の詳細は[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)を参照する。
+
 ### 1.5 Score metadata
 
 first-moment証明書の最低限の形は次のとおりである。
@@ -140,6 +142,6 @@ npm run audit:r23:damage-tail
 
 ## 5. 対象外と次の段階
 
-R23-C1Bでは、action側《妖精の手》のfirst-moment証明、Total Damageへの証明書伝播、表示formatterの変更、genericな期待値APIの変更、published-bucket互換の整理、resource thresholdの変更を行わない。これらは証明の前提と表示契約を別途確認したうえで、後続作業単位として扱う。
+R23-C1Bでは、action側《妖精の手》のfirst-moment証明、Total Damageへの証明書伝播、表示formatterの変更、genericな期待値APIの変更、published-bucket互換の整理、resource thresholdの変更を行わなかった。action側《妖精の手》のfirst-moment証明は後続のR23-C3Aで追加したが、Total Damage、generic API、formatter、published-bucket互換、resource thresholdは引き続き後続作業単位で扱う。
 
 証明書がないことは計算失敗を意味しない。ScoreやDamageの分布、成功率、チャートは従来どおり利用でき、期待値だけが安全な下限または非表示になる。証明できる範囲をmetadataで明示し、consumerが不確かな値を一点の期待値として誤表示しないことが、この作業単位の主目的である。

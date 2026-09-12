@@ -73,6 +73,7 @@ export interface ScoreTailMomentCertificate {
   readonly boundaryContributionUpperBound?: number
   readonly residualUpperBound?: number
   readonly skillContributionUpperBound?: number
+  readonly tailEvaluationErrorBound?: number
 }
 
 export interface ScoreMetadata extends ModeledDistributionMetadata {
