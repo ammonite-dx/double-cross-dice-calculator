@@ -9,6 +9,7 @@ import {
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
 } from './RuntimeDamageRollLimits'
+import { createBoundedCertifiedValue } from '../domain/CertifiedValue'
 import {
   createDistributionResult,
   getCertifiedExpectedValue,
@@ -18,6 +19,7 @@ import {
 
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
+const DAMAGE_EXPECTATION_CERTIFICATE_VERSION = 1
 
 function getRuntimeD10Distribution(dice, size, runtimeOptions = {}) {
   return calculateD10Distribution(dice, {
@@ -357,7 +359,28 @@ function sumDistributionFrom(distribution, lowerBound) {
 }
 
 function sumProbabilities(values) {
-  return values.reduce((total, probability) => total + probability, 0)
+  let total = 0
+  let compensation = 0
+  for (const probability of values) {
+    const corrected = probability - compensation
+    const next = total + corrected
+    compensation = (next - total) - corrected
+    total = next
+  }
+  return total
+}
+
+function sumExplicitFirstMoment(values, offset = 0) {
+  let total = 0
+  let compensation = 0
+  for (let index = 0; index < values.length; index += 1) {
+    const term = (offset + index) * values[index]
+    const corrected = term - compensation
+    const next = total + corrected
+    compensation = (next - total) - corrected
+    total = next
+  }
+  return total
 }
 
 function validateScoreEnvelope(envelope, label) {
@@ -404,7 +427,209 @@ function validateScoreEnvelope(envelope, label) {
     certificate: certificate === null || typeof certificate !== 'object'
       ? null
       : Object.freeze({ ...certificate }),
+    momentCertificate:
+      envelope.metadata?.scoreTailMomentCertificate === null
+      || typeof envelope.metadata?.scoreTailMomentCertificate !== 'object'
+        ? null
+        : Object.freeze({ ...envelope.metadata.scoreTailMomentCertificate }),
   }
+}
+
+function isValidScoreTailMassCertificate(certificate) {
+  return certificate !== null
+    && typeof certificate === 'object'
+    && certificate.version === 1
+    && certificate.kind === 'score-tail-certificate'
+    && Number.isFinite(certificate.massLowerBound)
+    && Number.isFinite(certificate.massUpperBound)
+    && certificate.massLowerBound >= 0
+    && certificate.massUpperBound >= certificate.massLowerBound
+    && certificate.massUpperBound <= 1
+    && Number.isFinite(certificate.probabilityErrorBound)
+    && certificate.probabilityErrorBound >= 0
+    && (
+      certificate.massUpperBound === 0
+      || Number.isFinite(certificate.lowerBound)
+    )
+}
+
+function isValidScoreTailMomentCertificate(certificate) {
+  return certificate !== null
+    && typeof certificate === 'object'
+    && certificate.version === 1
+    && certificate.kind === 'score-tail-moment-certificate'
+    && typeof certificate.model === 'string'
+    && Number.isSafeInteger(certificate.modeledMax)
+    && certificate.modeledMax >= 0
+    && Number.isFinite(certificate.massUpperBound)
+    && certificate.massUpperBound >= 0
+    && certificate.massUpperBound <= 1
+    && Number.isFinite(certificate.firstMomentUpperBound)
+    && certificate.firstMomentUpperBound >= 0
+    && Number.isFinite(certificate.numericalErrorBound)
+    && certificate.numericalErrorBound >= 0
+}
+
+function getScoreExplicitMax(score) {
+  return score.result.values.length === 0
+    ? null
+    : score.result.offset + score.result.values.length - 1
+}
+
+function getDamageExpectationCertificate(
+  composed,
+  values,
+  explicitMax,
+  requested,
+  attack,
+  defence
+) {
+  // A dedicated tail-only certificate describes the full-tail production
+  // result. Any actual modeled Damage output overflow needs its own positional
+  // treatment and therefore fails closed here.
+  if (composed.overflowProbability !== 0) {
+    return null
+  }
+
+  const [actionMassCertificate, reactionMassCertificate] =
+    requested.scoreTailCertificates ?? []
+  if (
+    !isValidScoreTailMassCertificate(actionMassCertificate)
+    || !isValidScoreTailMassCertificate(reactionMassCertificate)
+  ) {
+    return null
+  }
+
+  const [actionMomentCertificate] =
+    requested.scoreTailMomentCertificates ?? []
+  const actionTailMass = actionMassCertificate.massUpperBound
+  const reactionTailMass = reactionMassCertificate.massUpperBound
+
+  let actionTailContributionUpperBound = 0
+  if (actionTailMass > 0) {
+    if (!isValidScoreTailMomentCertificate(actionMomentCertificate)) {
+      return null
+    }
+    if (actionMomentCertificate.massUpperBound < actionTailMass) {
+      return null
+    }
+  } else if (
+    isValidScoreTailMomentCertificate(actionMomentCertificate)
+    && actionMomentCertificate.firstMomentUpperBound !== 0
+  ) {
+    return null
+  }
+
+  const maxDamageConstant =
+    10 * (1 + attack.dice)
+    + Math.max(0, attack.value - defence.value)
+  if (!Number.isFinite(maxDamageConstant) || maxDamageConstant < 0) {
+    return null
+  }
+
+  if (actionTailMass > 0) {
+    const actionMomentMass = Math.max(
+      actionTailMass,
+      actionMomentCertificate.massUpperBound
+    )
+    actionTailContributionUpperBound =
+      actionMomentCertificate.firstMomentUpperBound
+      + maxDamageConstant * actionMomentMass
+  }
+
+  const actionExplicitMax = requested.actionExplicitMax
+  let reactionTailContributionUpperBound = 0
+  if (reactionTailMass > 0 && actionExplicitMax === null) {
+    // Without an explicit action maximum there is no safe way to decide
+    // whether a reaction tail can win. Treat the missing positional bound as
+    // unsupported instead of silently assigning a zero contribution.
+    return null
+  }
+  if (reactionTailMass > 0) {
+    const reactionTailLowerBound = reactionMassCertificate.lowerBound
+    const cannotWin = Number.isFinite(reactionTailLowerBound)
+      && actionExplicitMax <= reactionTailLowerBound
+    if (!cannotWin) {
+      reactionTailContributionUpperBound =
+        reactionTailMass * (
+          Math.max(0, actionExplicitMax) + maxDamageConstant
+        )
+    }
+  }
+
+  if (
+    !Number.isFinite(actionTailContributionUpperBound)
+    || !Number.isFinite(reactionTailContributionUpperBound)
+    || actionTailContributionUpperBound < 0
+    || reactionTailContributionUpperBound < 0
+    || (actionTailMass === 0 && reactionTailContributionUpperBound === 0
+      && reactionTailMass === 0)
+  ) {
+    // Keep finite no-tail results on the generic exact path. A bounded
+    // certificate is only needed when some score tail is actually present.
+    return null
+  }
+
+  const explicitFirstMoment = sumExplicitFirstMoment(values)
+  if (!Number.isFinite(explicitFirstMoment) || explicitFirstMoment < 0) {
+    return null
+  }
+
+  // The explicit prefix is produced by the validated full-tail composition.
+  // Use the existing total-mass tolerance as a scale-aware bound for its
+  // summation and for the final propagation arithmetic. This is a producer
+  // contract, not a fixed expected-value epsilon.
+  const explicitScale = Math.max(
+    1,
+    explicitMax === null ? 0 : explicitMax + 1,
+    Math.abs(explicitFirstMoment)
+  )
+  const explicitMomentErrorBound = TOTAL_TOLERANCE * explicitScale
+  const contributionScale = Math.max(
+    1,
+    Math.abs(explicitFirstMoment),
+    Math.abs(actionTailContributionUpperBound),
+    Math.abs(reactionTailContributionUpperBound)
+  )
+  const propagationArithmeticErrorBound = TOTAL_TOLERANCE * contributionScale
+  const numericalErrorBound =
+    explicitMomentErrorBound + propagationArithmeticErrorBound
+  const lowerBound = Math.max(
+    0,
+    explicitFirstMoment - numericalErrorBound
+  )
+  const upperBound =
+    explicitFirstMoment
+    + actionTailContributionUpperBound
+    + reactionTailContributionUpperBound
+    + numericalErrorBound
+
+  if (
+    !Number.isFinite(numericalErrorBound)
+    || numericalErrorBound < 0
+    || !Number.isFinite(lowerBound)
+    || !Number.isFinite(upperBound)
+    || lowerBound < 0
+    || upperBound < lowerBound
+  ) {
+    return null
+  }
+
+  return Object.freeze({
+    version: DAMAGE_EXPECTATION_CERTIFICATE_VERSION,
+    kind: 'damage-expectation-certificate',
+    lowerBound,
+    upperBound,
+    explicitFirstMoment,
+    actionTailContributionUpperBound,
+    reactionTailContributionUpperBound,
+    numericalErrorBound,
+    explicitMomentErrorBound,
+    propagationArithmeticErrorBound,
+    actionTailMassUpperBound: actionTailMass,
+    reactionTailMassUpperBound: reactionTailMass,
+    maxDamageConstant,
+  })
 }
 
 function getReactionExplicitBelowLookup(reaction) {
@@ -492,6 +717,8 @@ async function requestDamageRollDistribution(
       request.unmodeledScoreProbabilityUpperBound ?? 0,
     scoreTailErrorBound: request.scoreTailErrorBound ?? 0,
     scoreTailCertificates: request.scoreTailCertificates ?? [],
+    scoreTailMomentCertificates: request.scoreTailMomentCertificates ?? [],
+    actionExplicitMax: request.actionExplicitMax ?? null,
     sourceSupport: request.sourceSupport ?? Object.freeze({ kind: 'infinite' }),
   }
 }
@@ -590,6 +817,11 @@ export function createDamageRollRequest(
       action.certificate,
       reaction.certificate,
     ]),
+    scoreTailMomentCertificates: Object.freeze([
+      action.momentCertificate,
+      reaction.momentCertificate,
+    ]),
+    actionExplicitMax: getScoreExplicitMax(action),
     sourceSupport: getScoreSourceSupport(action, reaction),
   }
 }
@@ -739,6 +971,14 @@ export async function calculateDamageOnDemand(
     const outputOverflowLowerBound = composed.overflowProbability > 0
       ? getFinalOverflowLowerBound(composed.plan, attack, defence)
       : null
+    const damageExpectationCertificate = getDamageExpectationCertificate(
+      composed,
+      values,
+      explicitMax < 0 ? null : explicitMax,
+      requested,
+      attack,
+      defence
+    )
     const outputSupport = hasUnmodeledTail || sourceSupport.kind === 'infinite'
       ? Object.freeze({ kind: 'infinite' })
       : modeledSupport
@@ -767,8 +1007,10 @@ export async function calculateDamageOnDemand(
       scorePropagation: 'full-tail',
       scoreTails: plan.scoreTails,
       scoreTailCertificates: requested.scoreTailCertificates,
+      scoreTailMomentCertificates: requested.scoreTailMomentCertificates,
       scoreTailProbabilityUpperBound,
       scoreTailErrorBound,
+      damageExpectationCertificate,
       projectionUncertainty: Object.freeze({
         positionUnknownProbabilityUpperBound,
         outputOverflowLowerBound: outputOverflowLowerBound !== null
@@ -830,6 +1072,7 @@ export async function calculateDamageOnDemand(
     modeledDistribution: true,
     scorePropagation: 'published-bucket',
     scoreTails: plan.scoreTails,
+    damageExpectationCertificate: null,
     modeledSupport,
     sourceSupport,
   })
@@ -852,6 +1095,35 @@ function isDamageEnvelope(value) {
     && value.metadata.modeledDistribution === true
 }
 
+function getCertifiedDamageExpectation(certificate) {
+  if (
+    certificate === null
+    || typeof certificate !== 'object'
+    || certificate.version !== DAMAGE_EXPECTATION_CERTIFICATE_VERSION
+    || certificate.kind !== 'damage-expectation-certificate'
+    || !Number.isFinite(certificate.lowerBound)
+    || !Number.isFinite(certificate.upperBound)
+    || certificate.lowerBound < 0
+    || certificate.upperBound < certificate.lowerBound
+    || !Number.isFinite(certificate.numericalErrorBound)
+    || certificate.numericalErrorBound < 0
+  ) {
+    return null
+  }
+
+  try {
+    return createBoundedCertifiedValue(
+      certificate.lowerBound,
+      certificate.upperBound
+    )
+  } catch {
+    // Metadata is an optional producer contract. Malformed or stale
+    // certificates must never prevent the generic result summary from being
+    // used.
+    return null
+  }
+}
+
 /**
  * Summarize a damage envelope without converting it to legacy
  * buckets or copying its values buffer.
@@ -863,7 +1135,11 @@ export function getDamageStatistics(damage) {
     )
   }
 
-  const expectedValue = getCertifiedExpectedValue(damage.result)
+  const expectedValue =
+    getCertifiedDamageExpectation(
+      damage.metadata.damageExpectationCertificate
+    )
+    ?? getCertifiedExpectedValue(damage.result)
   const mass = getProbabilityMassSummary(damage.result)
   return Object.freeze({ expectedValue, mass })
 }

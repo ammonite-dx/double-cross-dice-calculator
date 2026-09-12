@@ -62,9 +62,23 @@ export interface ScoreExpectationCertificate {
   readonly numericalErrorBound: number
 }
 
+export interface ScoreTailMomentCertificate {
+  readonly version: number
+  readonly kind: 'score-tail-moment-certificate'
+  readonly model: string
+  readonly modeledMax: number
+  readonly massUpperBound: number
+  readonly firstMomentUpperBound: number
+  readonly numericalErrorBound: number
+  readonly boundaryContributionUpperBound?: number
+  readonly residualUpperBound?: number
+  readonly skillContributionUpperBound?: number
+}
+
 export interface ScoreMetadata extends ModeledDistributionMetadata {
   readonly automaticFailureProbability: number
   readonly scoreTailCertificate: ScoreTailCertificate | null
+  readonly scoreTailMomentCertificate: ScoreTailMomentCertificate | null
   readonly scoreExpectationCertificate?: ScoreExpectationCertificate
 }
 
@@ -72,8 +86,6 @@ export interface ScoreEnvelope {
   readonly result: DistributionResult
   readonly metadata: ScoreMetadata
 }
-
-export type DamageEnvelope = DistributionEnvelope
 
 export interface ProbabilityMassSummary {
   readonly explicitMass: number
@@ -106,6 +118,26 @@ export interface ScorePair {
 export interface DamageStatistics {
   readonly expectedValue: CertifiedValue
   readonly mass: ProbabilityMassSummary
+}
+
+export interface DamageExpectationCertificate {
+  readonly version: number
+  readonly kind: 'damage-expectation-certificate'
+  readonly lowerBound: number
+  readonly upperBound: number
+  readonly explicitFirstMoment?: number
+  readonly actionTailContributionUpperBound?: number
+  readonly reactionTailContributionUpperBound?: number
+  readonly numericalErrorBound: number
+}
+
+export interface DamageMetadata extends ModeledDistributionMetadata {
+  readonly damageExpectationCertificate: DamageExpectationCertificate | null
+}
+
+export interface DamageEnvelope {
+  readonly result: DistributionResult
+  readonly metadata: DamageMetadata
 }
 
 export interface AttackCalculationResult {
