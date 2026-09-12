@@ -11,7 +11,7 @@
 | UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production反映済み、統合visual確認済み） |
-| UI-08 | Attack/DefenceのD10+固定値compound input | Backtrack UI-06と同じshared label、`role="group"`、個別accessible nameを本番へ適用する | `ADOPT`（production反映済み、統合visual確認待ち） |
+| UI-08 | Attack/DefenceのD10+固定値compound input | Backtrack UI-06と同じshared label、`role="group"`、個別accessible nameを本番へ適用する | `ADOPT`（production反映済み、統合visual確認済み） |
 
 この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04A、UI-04B、UI-06 revision 4はproduct ownerが`ADOPT`と判断し、2026-09-12にproductionへ反映した。UI-06 revision 1とrevision 2は`REVISE`、revision 3は`REJECT`として履歴を保持し、revision 4は浮動labelを基準にした再計測結果と本番統合結果を記録する。
 
@@ -263,7 +263,7 @@ candidate capture前のsource復元は成功し、productionの`src/**`、produc
 | UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production反映済み、統合visual確認済み） |
 | UI-06 | revision 1/2のgroup semanticsを維持し、revision 3で誤ったmain label基準を試し、revision 4でfloating label基準へ補正した | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production反映済み、統合visual確認済み） |
-| UI-08 | 初回候補でAttack／ドッジ／《イベイジョン》は`PASS`、ガードは`REVISE`。offset revisionでガードのlabel位置を再計測した | `ADOPT`（production反映済み、統合visual確認待ち） |
+| UI-08 | 初回候補でAttack／ドッジ／《イベイジョン》は`PASS`、ガードは`REVISE`。offset revisionでガードのlabel位置を再計測した | `ADOPT`（production反映済み、統合visual確認済み） |
 
 product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。production統合では、UI-01、UI-04A、UI-04B、UI-06、UI-07、UI-08を個別commitへ分け、計算core、runtime、Worker、公開asset、generator、依存バージョンは変更していない。
 
@@ -313,4 +313,12 @@ footerは、本番CSSを追加注入しない[`experiments/r23-ui-review/output/
 
 今回のproduction変更で、`src/calculation/**`、`src/runtime/**`、generator、公開asset、依存バージョン、Worker protocolは変更していない。UI-04C、UI-05、Damage expectation、R23-C、Cloudflare Worker／API／MCPはこの統合に含めない。
 
-UI-01、UI-04A、UI-04B、UI-06、UI-07のproduction統合visual confirmationはproduct ownerが確認済みである。UI-08もoffset revisionのdesktop／mobile captureをproduct ownerが確認し、`ADOPT`と判断した。production source、smoke、15scenario capture、release gateは完了したが、統合後のUI-08 visual confirmationは未実施であるため、production statusは`AWAITING PRODUCT OWNER`、R23の状態は`IN REVIEW`のままとする。
+UI-01、UI-04A、UI-04B、UI-06、UI-07のproduction統合visual confirmationはproduct ownerが確認済みである。UI-08もoffset revisionのdesktop／mobile captureをproduct ownerが確認し、`ADOPT`と判断した。production source、smoke、15scenario capture、release gate、統合後のUI-08 visual confirmationが完了したため、production statusは`PASS`、R23の状態は`CLOSED / GREEN`とする。
+
+## R23 closure（2026-09-12）
+
+Product OwnerによるR23の最終visual reviewは完了し、R23を`CLOSED / GREEN`とした。最終判断は、UI-01（Backtrack datalabel 8px）`ADOPT / PASS`、UI-04A（高度な設定のinline）`ADOPT / PASS`、UI-04B（SettingForm alignment）`ADOPT / PASS`、UI-04C（mobile typography）`NO CHANGE`、UI-05（multi-combo）`NO CHANGE`、UI-06（Backtrack compound label revision 4）`ADOPT / PASS`、UI-07（footer flex shell）`ADOPT / PASS`、UI-08（Attack／Defence compound D10 input）`ADOPT / PASS`である。
+
+最終visual evidenceは、production buildでWebFontLoaderが`wf-active`、Roboto 400が利用可能、computed `font-family`が`Roboto, sans-serif`となったcorrected captureである。15/15 scenarioが`captured`、全scenarioの`fontEvidence`がPASS、console warning/error・page error・same-origin request failure・HTTP errorは0件だった。Product Ownerは`01-check-desktop-ordinary.png`、`02-check-mobile-ordinary.png`、`05-attack-desktop-single.png`、`06-attack-mobile-single.png`、`10-backtrack-mobile.png`、`11-backtrack-mobile-livingdead.png`、`14-attack-desktop-guard-compound.png`、`15-attack-mobile-guard-compound.png`を確認し、すべて`PASS`とした。残り7scenarioもtechnical captureとして15/15成功済みである。
+
+`npm run verify:release`は`GREEN`であり、production source、計算core、runtime、generator、公開asset、依存バージョン、Worker protocolはclosureで変更していない。Damage expectation／R23-C候補、UI-04C・UI-05の追加実装、experiment cleanup、shared compound component化、Cloudflare Worker／API／MCPはR23の完了対象に含めず、既存の後続課題として維持する。R23のsource prototype、capture tooling、画像・reportは監査と再現のため保持する。
