@@ -10,13 +10,13 @@
 | --- | --- | --- | --- |
 | UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production実装待ち） |
 | UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production実装待ち） |
-| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1は`REVISE`、revision 2を確認中 |
+| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3を確認中 |
 
-この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1を`REVISE`としてrevision 2のvisual reviewを継続する。
+この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`としてrevision 3のvisual reviewを継続する。
 
 ## 再現条件
 
-対象branchは`codex/canonical-default-migration`で、今回のUI-06 revision 2開始時点は`c5583008ef64298414c16c19789f0894562c299e`である。ハーネスとrunner、今回の計測更新は次のコミットで追加した。
+対象branchは`codex/canonical-default-migration`で、今回のUI-06 revision 3開始時点は`2ca984bd593c3e6cc4cee8ad8227a7eb27ebf096`である。ハーネスとrunner、revision 2の計測更新、revision 3のsource candidateは次のコミットで追加した。
 
 | Commit | 内容 |
 | --- | --- |
@@ -24,6 +24,7 @@
 | `c16ed1f` | 一時build、source復元後のPlaywright capture、3 variantのrunner |
 | `df450b7` | UI-06のベースライン／候補フェーズを分けた比較メトリクス修正 |
 | `8b14058` | UI-06 revision 2、計測階層の不整合修正、label style/位置メトリクス、hierarchy invariantの追加 |
+| `bc27c44` | UI-06 revision 3、4pxから12pxへの位置調整、revision 2との差分限定テスト |
 
 Nodeの既存buildを前提に、repository rootで次のコマンドを実行する。
 
@@ -31,6 +32,8 @@ Nodeの既存buildを前提に、repository rootで次のコマンドを実行�
 npm run review:r23:source-prototype -- --variant=advanced-setting-inline-source
 npm run review:r23:source-prototype -- --variant=setting-form-comfortable-source
 npm run review:r23:source-prototype -- --variant=backtrack-compound-label-source
+npm run review:r23:source-prototype -- --variant=backtrack-compound-label-aligned-source
+npm run review:r23:source-prototype -- --variant=backtrack-compound-label-positioned-source
 ```
 
 `--scenarios=id,id`で対象scenarioを絞れる。runnerはbaseline build/captureを行った後、候補sourceをexact replacementで一時適用してbuildし、candidate `dist/`をcaptureする前にsourceを復元する。画像とJSONは`experiments/r23-ui-review/output/source-prototypes/<variant>/`へ保存される。このディレクトリはgitignoredである。
@@ -134,16 +137,38 @@ candidateのgroup自体はmobileで`x=199`、`width=143px`、desktopで`x=934`�
 
 candidate視覚labelのcomputed styleは`font-size: 12px`、`line-height: 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`である。隣接labelは`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`だった。utility classによる色と透明度は反映されたが、文字サイズと行高は隣接labelと異なるため、最終的な視覚一致はcapture画像で確認する。
 
-このrevision 2は、revision 1で問題になった色と上端位置を、semantic構造やfield geometryを変えずに再調整する候補である。数値上はtop-level rowの行高をbaselineと一致させ、視覚labelは隣接labelより8px上、中心で10px上にある。これをproduct ownerが確認し、`ADOPT`、追加の`REVISE`、または`REJECT`を決める。
+revision 2のproduct-owner decisionは`REVISE`である。semantic compound-group structure、accessible names、outer `cols=6`、inner `6 / 6`、`text-caption`、`text-medium-emphasis`、field geometryは維持する。colorとemphasisは`PASS`、typographyは現状で許容とし、visual labelのvertical positionだけを`REVISE`とした。revision 2の視覚labelは隣接labelより上端で8px、中心で10px上にあったため、次のrevision 3でもutility classとtypographyを維持し、位置だけを変更する。
+
+### revision 3 — positioned source candidate
+
+variant `backtrack-compound-label-positioned-source`は、revision 2のsemantic structure、accessible name、`text-caption text-medium-emphasis`、outer `cols=6`／desktop`md=3`、inner `6 / 6`、top-level scoped styleをそのまま再利用する。source上の変更は、visual labelの`inset-block-start: 4px;`を`inset-block-start: 12px;`へ置き換えることだけである。`font-size`、`line-height`、`color`、`opacity`、`letter-spacing`、field・row・columnのgeometry、内部Vuetify selectorは変更していない。
+
+revision 2とrevision 3の変換済み`BacktrackForm.vue`は、上記の`inset-block-start`文字列を置き換えた場合にbyte-levelで一致することをunit testで固定した。candidate build後、Playwright captureの前にproduction sourceを元のバイト列へ復元し、productionの`src/**`、計算、公開assetには接続していない。
+
+### revision 3の計測結果
+
+`backtrack-mobile`、`backtrack-mobile-livingdead`、`backtrack-desktop`の3scenarioでbaselineとcandidateを実行した。両フェーズで`firstRowContainsNeighborElois=true`、`outerColumn`、nested `innerRow`、`firstRow`、Eロイス数fieldを検証し、candidateではgroup名と2つのspinbutton accessible nameも完全一致した。browser diagnosticsは全scenarioで0件だった。
+
+| Scenario | first-row height（baseline → candidate） | label top差 | label center差 | accessibility |
+| --- | --- | ---: | ---: | --- |
+| Backtrack mobile | 92px → 92px（差0px） | 0px | -2px | PASS |
+| Backtrack mobile（不死者・悪夢） | 92px → 92px（差0px） | 0px | -2px | PASS |
+| Backtrack desktop | 52px → 52px（差0px） | 0px | -2px | PASS |
+
+revision 3のvisual label bounding boxはmobileで`x=199`、`y=217`、`74.41×20px`、desktopで`x=934`、`y=177`、`74.41×20px`であり、隣接するEロイス数labelと上端が一致した。computed styleはrevision 2から変更なく、`font-size: 12px`、`line-height: 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`である。隣接labelも`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`のままである。
+
+visual review用のcandidate画像は、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/09-backtrack-desktop.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/10-backtrack-mobile.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/11-backtrack-mobile-livingdead.png`である。画像と`report.json`はgitignore対象であり、commitしない。
+
+このrevision 3は、revision 2で唯一`REVISE`だったvertical positionを、他の仕様へ影響させずに調整する候補である。visual acceptanceと`ADOPT`／追加の`REVISE`／`REJECT`の判断はproduct ownerが行う。
 
 ## 総合判定と次の作業
 
-3 variantはすべてbaseline/candidateのbuildとcaptureに成功し、候補build後のsource復元、unit test、`src/**`の恒久差分なしを確認した。候補は技術的な検証を通過したが、productionへの採用状態は次のとおりである。
+対象variantはすべてbaseline/candidateのbuildとcaptureに成功し、候補build後のsource復元、unit test、`src/**`の恒久差分なしを確認した。候補は技術的な検証を通過したが、productionへの採用状態は次のとおりである。
 
 | ID | 技術結果 | Production status |
 | --- | --- | --- |
 | UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production実装待ち） |
 | UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production実装待ち） |
-| UI-06 | revision 1のgroup semanticsを維持し、revision 2でlabel style/位置を再調整した | revision 1は`REVISE`、revision 2を確認中 |
+| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3でlabel positionだけを再調整した | revision 1/2は`REVISE`、revision 3を確認中 |
 
 product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。今回のcommitにはproduction UI、計算core、runtime、Worker、公開asset、generator、依存バージョンの変更を含めない。
