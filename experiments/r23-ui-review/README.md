@@ -139,7 +139,7 @@ form prototypeはproduction markupを変更しない。runnerがexact textから
 
 ## Source-level form prototypes
 
-R23のUI-04A、UI-04B、UI-06では、post-buildのCSS patchではなく、実際のVue/Vuetify markupとpublic propを一時的にbuildするsource-level prototypeを使う。candidate sourceはexact replacementで適用され、candidate `dist/`のcapture開始前に元のバイト列へ復元される。復元失敗はhard failureであり、productionの`src/**`へ候補を残さない。
+R23のUI-04A、UI-04B、UI-06、UI-08では、post-buildのCSS patchではなく、実際のVue/Vuetify markupとpublic propを一時的にbuildするsource-level prototypeを使う。candidate sourceはexact replacementで適用され、candidate `dist/`のcapture開始前に元のバイト列へ復元される。復元失敗はhard failureであり、productionの`src/**`へ候補を残さない。
 
 次のvariantを個別に実行できる。
 
@@ -150,6 +150,7 @@ npm run review:r23:source-prototype -- --variant=backtrack-compound-label-source
 npm run review:r23:source-prototype -- --variant=backtrack-compound-label-aligned-source
 npm run review:r23:source-prototype -- --variant=backtrack-compound-label-positioned-source
 npm run review:r23:source-prototype -- --variant=attack-compound-d10-source
+npm run review:r23:source-prototype -- --variant=attack-compound-d10-guard-offset-source
 ```
 
 `advanced-setting-inline-source`はCheck 1件、Attack 2件の「高度な設定」checkboxへ`inline`だけを追加する。`setting-form-comfortable-source`はCheck/Attackの最小値・最大値・表示モードだけを`density="comfortable"`へ変更する。`backtrack-compound-label-source`は外側`cols=6`、desktop`md=3`、内側`6 / 6`を維持し、app-owned group label、`role="group"`、2つの個別accessible nameを候補にする。
@@ -159,5 +160,7 @@ npm run review:r23:source-prototype -- --variant=attack-compound-d10-source
 `backtrack-compound-label-positioned-source`はUI-06 revision 3の候補であり、revision 2の構造、utility class、field geometryを維持したまま、視覚labelの`inset-block-start`だけを12pxへ変更する。
 
 `attack-compound-d10-source`はAttackFormの「攻撃力」とDefenceFormの3分岐にあるD10+固定値入力を対象とする。Attack desktop/mobileのsingle・multi-comboと、source prototype専用の《イベイジョン》・ガード分岐を含む8scenarioで、shared label、個別accessible name、入力操作、`useId()`の一意性、フィールドのgeometryを確認する。候補はproductionへ接続せず、capture前にsourceを復元する。
+
+`attack-compound-d10-guard-offset-source`はUI-08の初回候補でREVISEとなったガード・リアクション放棄分岐だけを再確認するrevisionである。共通labelの構造と全フィールドgeometryを維持し、direct-rowのlabelへ`inset-inline-start: 4px`と`inset-block-start: 4px`を追加する。desktop/mobileの2scenarioだけをcaptureし、初回候補でPASSだった他の6scenarioは再実行しない。候補はproductionへ接続せず、capture前にsourceを復元する。
 
 画像とgeometry/accessibility metricsは`experiments/r23-ui-review/output/source-prototypes/<variant>/`へ保存される。unit testはreplacement定義、出現数、復元、build失敗時の復元を検証するが、画像をgoldenにしない。技術的なcapture成功はvisual approvalやproduction採用を意味しない。候補の計測値、制約、未採用状態は[`docs/r23-vuetify-control-source-prototypes.md`](../../docs/r23-vuetify-control-source-prototypes.md)に記録する。
