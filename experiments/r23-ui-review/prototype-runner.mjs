@@ -304,6 +304,30 @@ const VARIANTS = Object.freeze({
       }),
     ]),
   }),
+  'footer-short-production': Object.freeze({
+    bodyClass: 'r23-footer-production',
+    domPreparation: Object.freeze({ shortPage: true }),
+    scenarios: Object.freeze([
+      Object.freeze({
+        id: 'footer-short-production-check-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'check-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([]),
+      }),
+      Object.freeze({
+        id: 'footer-short-production-drawer-desktop',
+        route: '/check',
+        viewport: 'desktop',
+        screenshot: 'drawer-desktop.png',
+        initialCanvases: 1,
+        expectedCanvases: 1,
+        steps: Object.freeze([{ type: 'click-selector', selector: '.v-app-bar-nav-icon' }]),
+      }),
+    ]),
+  }),
 })
 
 function formatError(error) {
@@ -807,6 +831,18 @@ function validateFooterPrototypeMetrics(metrics, variantId) {
     }
     if (footer.position === 'fixed' || footer.position === 'absolute') {
       throw new Error(`${variantId}: footer must remain in normal flow`)
+    }
+  }
+  if (variantId === 'footer-short-production') {
+    if (!Number.isFinite(footer.bottomGap) || Math.abs(footer.bottomGap) > 2) {
+      throw new Error(`${variantId}: production footer is not aligned to viewport bottom (gap=${footer.bottomGap})`)
+    }
+    if (footer.position === 'fixed' || footer.position === 'absolute') {
+      throw new Error(`${variantId}: production footer must remain in normal flow`)
+    }
+    const main = metrics.main
+    if (!main || main.display !== 'flex' || main.flexDirection !== 'column') {
+      throw new Error(`${variantId}: production main shell is not a column flex container`)
     }
   }
   if (metrics.drawer?.visibleCount > 0 && !metrics.drawer.centerElementIsDrawer) {

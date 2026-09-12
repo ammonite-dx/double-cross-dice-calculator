@@ -76,6 +76,7 @@ npm run review:r23:prototype -- --variant=backtrack-other-reduction-compound-lab
 npm run review:r23:prototype -- --variant=footer-flex
 npm run review:r23:prototype -- --variant=footer-short-baseline
 npm run review:r23:prototype -- --variant=footer-short-flex
+npm run review:r23:prototype -- --variant=footer-short-production
 npm run review:r23:prototype -- --variant=backtrack-label-6
 npm run review:r23:prototype -- --variant=backtrack-label-8
 npm run review:r23:prototype -- --variant=backtrack-label-9
@@ -117,6 +118,7 @@ variantの目的は次のとおりである。
 | `backtrack-other-reduction-compound-label` | mobileの2入力をcompound labelでまとめる候補。列幅と行高は維持する |
 | `footer-flex` | 既存routeでfixedではないnormal-flowのfooter shellを試す候補 |
 | `footer-short-baseline` / `footer-short-flex` | 同一のsynthetic short-pageでbaselineとnormal-flow flexを比較する候補 |
+| `footer-short-production` | production sourceのnormal-flow flex shellを、footer CSSをinjectせずsynthetic short-pageで検証する |
 | `backtrack-label-6` / `8` / `9` | mobile Doughnutのdatalabel fontを比較する候補 |
 | `backtrack-label-8-stress` / `backtrack-label-9-stress` | 通常・《屍人》の約10%表示sliceでfont sizeを比較する候補 |
 | `backtrack-label-9-adaptive-stress` | 同じstress fixtureで10%以上15%未満のsliceだけanchor/align/offsetを外周側へ寄せる候補 |
@@ -128,6 +130,8 @@ form prototypeはproduction markupを変更しない。runnerがexact textから
 `backtrack-other-reduction-compound-label`は、既存のmobile outer `cols=6`とnested `6 / 6`を維持したまま、2つのinputに「その他減少量（ダイス）」「その他減少量（固定値）」のaccessible nameを付け、compound wrapperの視覚labelを追加する。wide/stack案のように列幅や行高は変更しない。
 
 `footer-short-baseline`と`footer-short-flex`は、Check routeの内容をreview-onlyで空にして短いページを作る。同じDOM短縮条件でbaselineではfooterがviewport上端直後に残り、flex案ではfooterが通常flowのままviewport下端へ寄ることをgeometryへ記録する。実routeのlong-page regressionは既存`footer-flex`で確認する。
+
+`footer-short-production`も同じDOM短縮条件を使うが、候補用のfooter CSSをinjectしない。production buildが提供する`.main-area`のcolumn flex、通常flow footer、viewport下端整列、drawerの前面関係を検証する。
 
 `backtrack-label-8-stress`、`backtrack-label-9-stress`、`backtrack-label-9-adaptive-stress`は、fixtureの数値を実際のBacktrack formへ入力し、通常と《屍人》の両方をmobileで撮影する。8px／9pxはbuild済みJavaScriptのfont設定を一度だけ置換し、adaptive variantは同じ置換へscriptableな`anchor`、`align`、`offset`を追加する。いずれもbundle文字列の一致が1件でない場合はfail-closedになる。
 
