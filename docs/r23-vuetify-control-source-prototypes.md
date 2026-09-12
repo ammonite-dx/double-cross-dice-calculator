@@ -10,13 +10,13 @@
 | --- | --- | --- | --- |
 | UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production実装待ち） |
 | UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production実装待ち） |
-| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT` |
+| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は確認待ち |
 
-この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`、revision 3を`REJECT`としたうえで、浮動labelを基準にした再計測結果を記録する。
+この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`、revision 3を`REJECT`、revision 4をproduct owner確認待ちとし、浮動labelを基準にした再計測結果を記録する。
 
 ## 再現条件
 
-対象branchは`codex/canonical-default-migration`で、今回のUI-06 floating-label再計測開始時点は`75cc68aaaaee09bddc74d6f63708ed22ad0e9f3d`である。ハーネスとrunner、revision 2の計測更新、revision 3のsource candidate、浮動label基準の再計測は次のコミットで追加した。
+対象branchは`codex/canonical-default-migration`で、今回のUI-06 revision 4開始時点は`cf1b2763e934404b09028102e71be4feb2c23cc5`である。ハーネスとrunner、revision 2の計測更新、revision 3のsource candidate、浮動label基準の再計測、revision 4のsource candidateは次のコミットで追加した。
 
 | Commit | 内容 |
 | --- | --- |
@@ -26,6 +26,7 @@
 | `8b14058` | UI-06 revision 2、計測階層の不整合修正、label style/位置メトリクス、hierarchy invariantの追加 |
 | `bc27c44` | UI-06 revision 3、4pxから12pxへの位置調整、revision 2との差分限定テスト |
 | `d1be033` | UI-06のmain label／floating labelを分離した計測とfail-closed guard |
+| `50d4738` | UI-06 revision 4、revision 2からの4pxから-4pxへの位置調整、最小差分ガード |
 
 Nodeの既存buildを前提に、repository rootで次のコマンドを実行する。
 
@@ -35,6 +36,7 @@ npm run review:r23:source-prototype -- --variant=setting-form-comfortable-source
 npm run review:r23:source-prototype -- --variant=backtrack-compound-label-source
 npm run review:r23:source-prototype -- --variant=backtrack-compound-label-aligned-source
 npm run review:r23:source-prototype -- --variant=backtrack-compound-label-positioned-source
+npm run review:r23:source-prototype -- --variant=backtrack-compound-label-floating-aligned-source
 ```
 
 `--scenarios=id,id`で対象scenarioを絞れる。runnerはbaseline build/captureを行った後、候補sourceをexact replacementで一時適用してbuildし、candidate `dist/`をcaptureする前にsourceを復元する。画像とJSONは`experiments/r23-ui-review/output/source-prototypes/<variant>/`へ保存される。このディレクトリはgitignoredである。
@@ -162,7 +164,31 @@ revision 3のvisual label bounding boxはmobileで`x=199`、`y=217`、`74.41×20
 
 visual review用のcandidate画像は、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/09-backtrack-desktop.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/10-backtrack-mobile.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-positioned-source/candidate/11-backtrack-mobile-livingdead.png`である。画像と`report.json`はgitignore対象であり、commitしない。
 
-product ownerのrevision 3 decisionは`REJECT`である。mobileではvisual labelをmain labelに合わせた結果、入力値の行へ入り込んで見えるため、視覚的には採用できない。従来のrevision 2の`-8px / -10px`およびrevision 3の`0px / -2px`は、いずれもmain labelを基準にした値であり、visual alignmentの根拠としては無効である。revision 3は実験履歴として残し、次のoffsetやrevision 4は今回決めない。
+product ownerのrevision 3 decisionは`REJECT`である。mobileではvisual labelをmain labelに合わせた結果、入力値の行へ入り込んで見えるため、視覚的には採用できない。従来のrevision 2の`-8px / -10px`およびrevision 3の`0px / -2px`は、いずれもmain labelを基準にした値であり、visual alignmentの根拠としては無効である。revision 3は実験履歴として残し、その計測時点では次のoffsetを決めず、後続のfloating label校正結果からrevision 4を別途導出した。
+
+### revision 4 — floating-aligned source candidate（`AWAITING PRODUCT OWNER`）
+
+revision 4はrevision 3からではなく、校正済みのrevision 2から派生させた。revision 2の`inset-block-start: 4px`ではvisual labelとfloating labelのtop差が全scenarioで`+8px`だったため、同じ座標系で`4px - 8px = -4px`と導出し、`inset-block-start: -4px`を1候補だけ検証する。center差はlabelの高さがvisual側約20px、floating側約18pxであるため、topを一致させても約`+1px`残ると予測し、先回りした補正は行わない。
+
+variant `backtrack-compound-label-floating-aligned-source`は、revision 2のsemantic structure、`role="group"`、accessible names、Vuetify utility typography、outer `cols=6`／desktop`md=3`、inner `6 / 6`、top-level scoped styleを完全に維持する。source上の恒久的な変更はなく、実験時の置換は`inset-block-start: 4px;`から`inset-block-start: -4px;`だけである。`font-size`、`line-height`、`color`、`opacity`、`letter-spacing`、transform、field・row・column geometry、内部Vuetify selectorは変更していない。
+
+revision 2とrevision 4の変換済み`BacktrackForm.vue`は、revision 2のsourceで上記の1箇所だけを置換した結果がrevision 4とbyte-levelで一致することをunit testで固定した。SFCのtop-level style invariantとutility typography invariantもrevision 4へ適用し、candidate build後のPlaywright capture前にproduction sourceを元のバイト列へ復元した。
+
+### revision 4の計測結果
+
+`backtrack-mobile`、`backtrack-mobile-livingdead`、`backtrack-desktop`の3scenarioでbaselineとcandidateを実行した。field、main label、floating labelは各1件で、両labelのテキストは「Eロイス数」、floating classも一致した。`firstRowContainsNeighborElois=true`、group名、2つのspinbutton accessible nameを検証し、browser diagnosticsは全scenarioで0件だった。
+
+| Scenario | first-row height（baseline → candidate） | custom top − floating top | custom center − floating center | custom top − main top | custom center − main center | accessibility |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| Backtrack mobile | 92px → 92px（差0px） | 0px | +1px | -16px | -18px | PASS |
+| Backtrack mobile（不死者・悪夢） | 92px → 92px（差0px） | 0px | +1px | -16px | -18px | PASS |
+| Backtrack desktop | 52px → 52px（差0px） | 0px | +1px | -16px | -18px | PASS |
+
+candidate visual labelのbounding boxはmobileで`x=199`、`y=201`、`74.41×20px`、desktopで`x=934`、`y=161`、`74.41×20px`であり、floating labelのtopと一致した。main labelはmobileで`y=217`、desktopで`y=177`なので、main labelとの差は診断用にのみ記録する。visual labelのcomputed styleはrevision 2と同じ`12px / 20.004px`、`color: rgba(0, 0, 0, 0.6)`、`opacity: 1`、`letter-spacing: 0.4px`であり、floating labelは`12px / 18px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.1125px`、`transform: matrix(1, 0, 0, 1, 0, -16)`、main labelは`16px / 24px`、`color: rgba(0, 0, 0, 0.87)`、`opacity: 0.6`、`letter-spacing: 0.15px`、`visibility: hidden`、`aria-hidden=true`で、いずれもrevision 2から変わっていない。
+
+visual review用のcandidate画像は、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/09-backtrack-desktop.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/10-backtrack-mobile.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/11-backtrack-mobile-livingdead.png`である。画像と`report.json`はgitignore対象であり、commitしない。
+
+revision 4は、校正済みfloating label基準から一意に導いたsource candidateであり、現時点のproduct statusは`AWAITING PRODUCT OWNER`である。visual reviewで`ADOPT`／`REVISE`／`REJECT`を決めるまで、production UIへの接続、revision 5、別offsetの追加は行わない。
 
 ## 総合判定と次の作業
 
@@ -172,6 +198,6 @@ product ownerのrevision 3 decisionは`REJECT`である。mobileではvisual lab
 | --- | --- | --- |
 | UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production実装待ち） |
 | UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production実装待ち） |
-| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3でlabel positionだけを再調整した | revision 1/2は`REVISE`、revision 3は`REJECT` |
+| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3で誤ったmain label基準を試し、revision 4でfloating label基準へ補正した | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`AWAITING PRODUCT OWNER` |
 
 product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。今回のcommitにはproduction UI、計算core、runtime、Worker、公開asset、generator、依存バージョンの変更を含めない。
