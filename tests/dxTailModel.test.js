@@ -9,6 +9,7 @@ import {
   oneDieCumulative,
   oneDieTail,
   scoreTailBound,
+  youseiTailFirstMomentUpperBound,
 } from '../src/calculation/DxTailModel'
 
 describe('DxTailModel', () => {
@@ -74,5 +75,55 @@ describe('DxTailModel', () => {
     )
     expect(Number.isFinite(firstMoment)).toBe(true)
     expect(firstMoment).toBeGreaterThanOrEqual(0)
+  })
+
+  it.each([
+    { critical: 10, yousei: 1 },
+    { critical: 10, yousei: 3 },
+    { critical: 8, yousei: 1 },
+    { critical: 8, yousei: 3 },
+    { critical: 5, yousei: 2 },
+  ])('bounds the one-die Yousei residual against a local oracle: %o', ({ critical, yousei }) => {
+    const cutoff = 80
+    const dice = 1
+    const criticalProbability = (11 - critical) / 10
+    const successCount = yousei + 1
+    let pmf = (1 - criticalProbability) ** successCount
+    let oracle = 0
+
+    for (let sum = 0; sum < 10000; sum += 1) {
+      for (let remainder = 1; remainder < critical; remainder += 1) {
+        const value = 10 * (yousei + sum) + remainder
+        oracle +=
+          pmf * Math.max(0, value - (cutoff + 1)) / (critical - 1)
+      }
+      const ratio = criticalProbability * (sum + successCount) / (sum + 1)
+      pmf *= ratio
+      if (sum > cutoff && pmf < 1e-16) {
+        break
+      }
+    }
+
+    const upperBound = youseiTailFirstMomentUpperBound(
+      cutoff,
+      dice,
+      critical,
+      yousei,
+    )
+    expect(upperBound).toBeGreaterThanOrEqual(oracle - 1e-12)
+    expect(Number.isFinite(upperBound)).toBe(true)
+  })
+
+  it('keeps a maximum-safe-integer dice count finite without allocating by dice', () => {
+    const upperBound = youseiTailFirstMomentUpperBound(
+      12000,
+      Number.MAX_SAFE_INTEGER,
+      10,
+      1000,
+    )
+
+    expect(Number.isFinite(upperBound)).toBe(true)
+    expect(upperBound).toBeGreaterThanOrEqual(0)
+    expect(upperBound).toBeLessThan(1)
   })
 })

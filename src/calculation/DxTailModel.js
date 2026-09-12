@@ -129,11 +129,13 @@ export function maxTailBound(value, dice, critical) {
 }
 
 /**
- * Upper-bound the first-moment contribution strictly above an integer cutoff
- * for the maximum of `dice` independent DX rolls.
+ * Upper-bound the residual tail-sum strictly beyond an integer cutoff for the
+ * maximum of `dice` independent DX rolls.
  *
- * The union bound is grouped by residue modulo ten, so the infinite
- * geometric tail is evaluated without allocating an unbounded array.
+ * The boundary contribution `(cutoff + 1) * P(X > cutoff)` is accounted for
+ * by the caller. This helper only bounds `E[(X - (cutoff + 1))_+]`.
+ * Grouping the union bound by residue modulo ten lets us evaluate the
+ * infinite geometric tail without allocating an unbounded array.
  */
 export function maxTailFirstMomentUpperBound(cutoff, dice, critical) {
   nonNegativeInteger(cutoff, 'cutoff')
@@ -390,6 +392,302 @@ export function negativeBinomialPmf(sum, yousei, criticalProbability) {
     yousei * Math.log1p(-criticalProbability) +
     sum * Math.log(criticalProbability)
   return Math.exp(logPmf)
+}
+
+/**
+ * Conservative upper bound for `P(S_y > threshold)`, where `S_y` is the
+ * number of failures before `y` successes in a Bernoulli process whose
+ * failure probability is `criticalProbability`.
+ *
+ * The ordinary Yousei tail evaluator intentionally stops once the remaining
+ * PMF is numerically insignificant. That is suitable for a displayed
+ * probability, but it would be an under-estimate when used as a certificate.
+ * This variant adds the unvisited geometric remainder after the PMF ratio has
+ * become less than one. For a threshold below the negative-binomial mode,
+ * returning one is the safe (and inexpensive) bound.
+ */
+function negativeBinomialTailUpperBound(
+  threshold,
+  yousei,
+  criticalProbability,
+) {
+  if (threshold < 0) {
+    return 1
+  }
+  if (yousei === 0 || criticalProbability === 0) {
+    return 0
+  }
+  if (
+    !Number.isSafeInteger(threshold)
+    || !Number.isSafeInteger(yousei)
+  ) {
+    return 1
+  }
+
+  const mode = Math.floor(
+    (yousei - 1) * criticalProbability / (1 - criticalProbability)
+  )
+  if (threshold < mode) {
+    return 1
+  }
+
+  let sum = threshold + 1
+  if (!Number.isSafeInteger(sum)) {
+    return 1
+  }
+  let logPmf =
+    logGamma(sum + yousei) -
+    logGamma(yousei) -
+    logGamma(sum + 1) +
+    yousei * Math.log1p(-criticalProbability) +
+    sum * Math.log(criticalProbability)
+  let result = 0
+  let terms = 0
+  const logMinimum = Math.log(Number.MIN_VALUE)
+
+  while (true) {
+    if (Number.isNaN(logPmf) || logPmf === Infinity) {
+      return 1
+    }
+    const pmf = Math.exp(logPmf)
+    // If a positive PMF underflows, one ulp is still a safe representable
+    // upper bound for the omitted term and keeps the certificate outward.
+    const safePmf = pmf > 0 ? pmf : Number.MIN_VALUE
+    result += safePmf
+    if (!Number.isFinite(result)) {
+      return 1
+    }
+
+    const ratio = criticalProbability * (sum + yousei) / (sum + 1)
+    if (!Number.isFinite(ratio) || ratio < 0 || ratio >= 1) {
+      // The ratio is monotone decreasing in `sum`. A non-decreasing ratio
+      // means that the requested threshold was not in the geometric tail;
+      // one is a conservative fallback.
+      return 1
+    }
+
+    const nextLogPmf = logPmf + Math.log(ratio)
+    const nextPmf = Math.exp(nextLogPmf)
+    if (
+      nextPmf === 0
+      || nextPmf <= Number.EPSILON * Math.max(result, Number.MIN_VALUE)
+      || nextLogPmf < logMinimum
+    ) {
+      const safeNextPmf = nextPmf > 0 ? nextPmf : Number.MIN_VALUE
+      const remainder = safeNextPmf / (1 - ratio)
+      const roundingMargin = Number.EPSILON * Math.max(1, result + remainder)
+      return clampProbability(result + remainder + roundingMargin)
+    }
+
+    terms += 1
+    if (terms > 1_000_000) {
+      return 1
+    }
+    logPmf = nextLogPmf
+    sum += 1
+  }
+}
+
+function maxCriticalCountMeanUpperBound(dice, criticalProbability) {
+  if (dice === 0 || criticalProbability === 0) {
+    return 0
+  }
+
+  // P(M > m) <= min(1, dice * q^(m + 1)). Find the first m where the
+  // geometric union bound drops below one, then sum its remaining tail.
+  let boundary = 0
+  let tailUpperBound = dice * criticalProbability
+  while (tailUpperBound > 1) {
+    boundary += 1
+    tailUpperBound *= criticalProbability
+    if (!Number.isSafeInteger(boundary) || !Number.isFinite(tailUpperBound)) {
+      throw new RangeError('DX maximum critical-count bound is not finite')
+    }
+  }
+
+  const result = boundary + tailUpperBound / (1 - criticalProbability)
+  if (!Number.isFinite(result) || result < 0) {
+    throw new RangeError('DX maximum critical-count bound is not finite')
+  }
+  return result
+}
+
+function maxCriticalCountResidualUpperBound(
+  cutoff,
+  dice,
+  criticalProbability,
+  meanUpperBound,
+) {
+  if (dice === 0) {
+    return 0
+  }
+  const exponent = cutoff + 2
+  if (!Number.isSafeInteger(exponent)) {
+    return meanUpperBound
+  }
+  const power = criticalProbability ** exponent
+  const safePower = power > 0 ? power : Number.MIN_VALUE
+  const geometricUpperBound =
+    dice * safePower / (1 - criticalProbability)
+  return Math.min(meanUpperBound, geometricUpperBound)
+}
+
+function maxPlusNegativeBinomialResidualUpperBound(
+  threshold,
+  dice,
+  yousei,
+  criticalProbability,
+) {
+  const maximumMeanUpperBound = maxCriticalCountMeanUpperBound(
+    dice,
+    criticalProbability,
+  )
+  const addedMean = yousei * criticalProbability / (1 - criticalProbability)
+  const totalMeanUpperBound = maximumMeanUpperBound + addedMean
+  if (!Number.isFinite(totalMeanUpperBound)) {
+    throw new RangeError('Yousei tail first-moment bound is not finite')
+  }
+  if (threshold < 0) {
+    return totalMeanUpperBound - (threshold + 1)
+  }
+  if (yousei === 0) {
+    return maxCriticalCountResidualUpperBound(
+      threshold,
+      dice,
+      criticalProbability,
+      maximumMeanUpperBound,
+    )
+  }
+
+  const mode = Math.floor(
+    (yousei - 1) * criticalProbability / (1 - criticalProbability)
+  )
+  if (threshold < mode) {
+    return totalMeanUpperBound
+  }
+
+  let convolutionUpperBound = 0
+  let pmfMass = 0
+  const addPmfTerm = (sum, pmf) => {
+    if (!Number.isFinite(pmf) || pmf < 0) {
+      return false
+    }
+    pmfMass += pmf
+    convolutionUpperBound += pmf * maxCriticalCountResidualUpperBound(
+      threshold - sum,
+      dice,
+      criticalProbability,
+      maximumMeanUpperBound,
+    )
+    return Number.isFinite(convolutionUpperBound)
+  }
+
+  const modePmf = negativeBinomialPmf(
+    mode,
+    yousei,
+    criticalProbability,
+  )
+  if (!Number.isFinite(modePmf) || modePmf <= 0) {
+    return totalMeanUpperBound
+  }
+
+  let pmf = modePmf
+  for (let sum = mode; sum >= 0; sum -= 1) {
+    if (!addPmfTerm(sum, pmf)) {
+      return totalMeanUpperBound
+    }
+    if (sum === 0) {
+      break
+    }
+    pmf *= sum /
+      (criticalProbability * (sum + yousei - 1))
+  }
+
+  pmf = modePmf
+  for (let sum = mode + 1; sum <= threshold; sum += 1) {
+    pmf *= criticalProbability * (sum - 1 + yousei) / sum
+    if (!addPmfTerm(sum, pmf)) {
+      return totalMeanUpperBound
+    }
+  }
+
+  const sumTail = negativeBinomialTailUpperBound(
+    threshold,
+    yousei,
+    criticalProbability,
+  )
+  const nextSumTail = negativeBinomialTailUpperBound(
+    threshold,
+    yousei + 1,
+    criticalProbability,
+  )
+  const missingMass = Math.max(0, 1 - Math.min(1, pmfMass))
+  const result =
+    convolutionUpperBound
+    + maximumMeanUpperBound * sumTail
+    + addedMean * nextSumTail
+    + maximumMeanUpperBound * missingMass
+  if (!Number.isFinite(result) || result < 0) {
+    return totalMeanUpperBound
+  }
+  const roundingMargin = Number.EPSILON * Math.max(1, result)
+  return Math.min(totalMeanUpperBound, result + roundingMargin)
+}
+
+/**
+ * Upper-bound the residual first-moment contribution of a Yousei-adjusted
+ * score above an integer cutoff.
+ *
+ * For `shihai = 0`, the raw score has the form
+ * `X = 10 * (yousei + M + S_y) + R`, where `M` is the maximum critical count,
+ * `S_y` is a negative-binomial sum of added critical counts, and `R` is
+ * uniform on `1..critical-1`. The boundary term at `cutoff + 1` is left to
+ * the caller, exactly as it is for `maxTailFirstMomentUpperBound`.
+ */
+export function youseiTailFirstMomentUpperBound(
+  cutoff,
+  dice,
+  critical,
+  yousei,
+) {
+  nonNegativeInteger(cutoff, 'cutoff')
+  nonNegativeInteger(dice, 'dice')
+  assertCriticalValue(critical)
+  nonNegativeInteger(yousei, 'yousei')
+  if (dice === 0 || yousei === 0 || critical === 11) {
+    return yousei === 0
+      ? maxTailFirstMomentUpperBound(cutoff, dice, critical)
+      : 0
+  }
+
+  const criticalProbability = (11 - critical) / 10
+  let result = 0
+  for (let remainder = 1; remainder < critical; remainder += 1) {
+    const threshold = Math.floor((cutoff - remainder) / 10) - yousei
+    const distance =
+      10 * (yousei + threshold + 1)
+      + remainder
+      - (cutoff + 1)
+    const tailProbability = maxPlusNegativeBinomialTail(
+      threshold,
+      dice,
+      yousei,
+      criticalProbability,
+    )
+    const residual = maxPlusNegativeBinomialResidualUpperBound(
+      threshold,
+      dice,
+      yousei,
+      criticalProbability,
+    )
+    result += distance * tailProbability + 10 * residual
+  }
+
+  result /= critical - 1
+  if (!Number.isFinite(result) || result < 0) {
+    throw new RangeError('Yousei tail first-moment bound is not finite')
+  }
+  return result
 }
 
 // For shihai>0, the maximum-of-all-dice tail is deliberately conservative.
