@@ -40,8 +40,10 @@ node experiments/r23-ui-review/parity-runner.mjs --reference-url=https://example
 ## Scenario
 
 - Check: ordinaryとupper-tailをdesktop/mobileで取得する。
-- Attack: single comboと、異なる入力値を設定した2 comboの状態をdesktop/mobileで取得する。
+- Attack: single combo、異なる入力値を設定した2 combo、ドッジ／《イベイジョン》／ガード・リアクション放棄のcompound inputをdesktop/mobileで取得する。
 - Backtrack: 通常状態をdesktop/mobileで取得し、mobileでは《屍人》を選択した状態も取得する。
+
+production runnerは合計15scenarioを実行し、Attackのcompound inputではshared group名、個別spinbutton accessible name、`aria-labelledby` IDの一意性も確認する。
 
 各scenarioは`scenarios.js`で入力、route、viewport、canvas数、出力ファイル名を固定する。scenario定義は`tests/r23UiReviewHarness.test.js`で重複と形式を検証する。
 
@@ -49,7 +51,7 @@ node experiments/r23-ui-review/parity-runner.mjs --reference-url=https://example
 
 画像と`report.json`は`experiments/r23-ui-review/output/`へ保存する。このディレクトリはgitignoredであり、screenshotはレビュー補助であって数値のoracleやCI gateではない。production build、既存test、`smoke:production`が数値と基本動作の正本である。
 
-runnerはcanvasが可視になり、描画フレームが安定するまで待つ。診断としてconsole warning/error、page error、same-origin request failure、HTTP errorを記録し、いずれかがあれば失敗する。固定の長いtimeoutで計算完了を仮定せず、observableなcanvas状態を待つ。
+runnerは外部フォント取得をstubしたうえで、canvasが可視になり、描画フレームが安定するまで待つ。診断としてconsole warning/error、page error、same-origin request failure、HTTP errorを記録し、いずれかがあれば失敗する。固定の長いtimeoutで計算完了を仮定せず、observableなcanvas状態を待つ。
 
 ## 判断の範囲
 
