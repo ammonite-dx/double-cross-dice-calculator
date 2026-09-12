@@ -10,9 +10,9 @@
 | --- | --- | --- | --- |
 | UI-04A | 「高度な設定」のcheckboxと文字列の間隔 | `v-checkbox-btn`へpublic propの`inline`を明示する | `ADOPT`（production実装待ち） |
 | UI-04B | Check/Attackの表示範囲fieldの縦方向geometry | 対象3フィールドだけを`density="comfortable"`へ変更する | `ADOPT`（production実装待ち） |
-| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は確認待ち |
+| UI-06 | Backtrackの「その他減少量」compound label | app-owned labelと`role="group"`を追加し、各入力名を分ける | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT` |
 
-この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`、revision 3を`REJECT`、revision 4をproduct owner確認待ちとし、浮動labelを基準にした再計測結果を記録する。
+この作業は候補の視覚的な妥当性を検証するものであり、capture成功だけでproduction採用とはしない。UI-04AとUI-04Bはproduct ownerが`ADOPT`と判断済みだがproduction実装は未着手で、UI-06はrevision 1とrevision 2を`REVISE`、revision 3を`REJECT`、revision 4を`ADOPT`とし、浮動labelを基準にした再計測結果を記録する。
 
 ## 再現条件
 
@@ -188,7 +188,7 @@ candidate visual labelのbounding boxはmobileで`x=199`、`y=201`、`74.41×20p
 
 visual review用のcandidate画像は、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/09-backtrack-desktop.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/10-backtrack-mobile.png`、`experiments/r23-ui-review/output/source-prototypes/backtrack-compound-label-floating-aligned-source/candidate/11-backtrack-mobile-livingdead.png`である。画像と`report.json`はgitignore対象であり、commitしない。
 
-revision 4は、校正済みfloating label基準から一意に導いたsource candidateであり、現時点のproduct statusは`AWAITING PRODUCT OWNER`である。visual reviewで`ADOPT`／`REVISE`／`REJECT`を決めるまで、production UIへの接続、revision 5、別offsetの追加は行わない。
+revision 4は、校正済みfloating label基準から一意に導いたsource candidateであり、product ownerのdecisionは`ADOPT`である。desktop、mobile、mobile Living Deadの3scenarioでline-box top差は0px、center差は+1px、first-row差は0px、accessibilityはPASS、browser diagnosticsは0件だった。PNGの実描画でもlabelとvalueの間隔、underlineの位置・幅に問題はなく、mobileのlabel inkはEロイス数が`y=205..214`、その他減少量が`y=204..215`、両方のvalue開始が`y=222`、underlineが`y=240`で一致した。採用理由は、文字列固有のink box差を無理に補正せずline-boxをfloating labelへ合わせられたことである。production UIへの接続は次のproduction実装単位で行い、revision 5や別offsetの追加は行わない。
 
 ## 総合判定と次の作業
 
@@ -198,6 +198,6 @@ revision 4は、校正済みfloating label基準から一意に導いたsource c
 | --- | --- | --- |
 | UI-04A | `inline`だけでcontrol幅とsibling gapを縮小できた | `ADOPT`（production実装待ち） |
 | UI-04B | `comfortable`でfield高さと上paddingをreferenceへ近づけられた | `ADOPT`（production実装待ち） |
-| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3で誤ったmain label基準を試し、revision 4でfloating label基準へ補正した | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`AWAITING PRODUCT OWNER` |
+| UI-06 | revision 1/2のgroup semanticsを維持し、revision 3で誤ったmain label基準を試し、revision 4でfloating label基準へ補正した | revision 1/2は`REVISE`、revision 3は`REJECT`、revision 4は`ADOPT`（production実装待ち） |
 
 product ownerが`ADOPT`を選んだ候補だけを、別のproduction実装単位として取り込む。`REVISE`の場合は不足しているvisual条件を明記して次のsource prototypeを設計し、`REJECT`の場合は候補を実験履歴として残す。今回のcommitにはproduction UI、計算core、runtime、Worker、公開asset、generator、依存バージョンの変更を含めない。
