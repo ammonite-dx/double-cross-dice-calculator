@@ -149,6 +149,28 @@ $$
 
 最後に非命中確率をダメージ0へ加え、公開分布へ集約して上側確率を作成します。
 
+### 4.4 `full-tail`でのDamage作業範囲
+
+productionのAttackは`full-tail`を選択するため、Damageの有限なmodeled supportを`calculationMax`や公開1023バケットで切り詰めません。アクション側Scoreの明示範囲の上端を$S_{\max}$、攻撃側の追加ダメージダイス数を$b$とすると、そこから生成可能な最大Damage dice数$N_{\max}$と生のDamage support上端$R$を次で求めます。
+
+$$
+N_{\max}=\left\lfloor\frac{S_{\max}}{10}\right\rfloor+1+b,\qquad R=10N_{\max}
+$$
+
+固定値差を$a=\mathrm{attack.value}-\mathrm{defence.value}$と置くと、最終Damageへ到達する前の作業上端$W$は次のとおりです。
+
+$$
+W=R+\max(a,0)
+$$
+
+$a<0$の場合は固定値差を後段で適用するため$W=R$となります。作業配列は値$0$から$W$までを明示的に保持し、`W+1`を作業範囲外のoverflow sentinelとして使うので、`workingLength = W + 2`です。Damage Roll自身のFFT長は`nextPowerOfTwo(R + 1)`、防御ダイス数を$d$とした防御畳み込みのFFT長は`nextPowerOfTwo(workingLength + 10d)`です。防御ダイスはこの畳み込み長を増やしますが、`full-tail`の$W$を`calculationMax + 10d`へ戻す理由にはなりません。
+
+この計画により、たとえば99D・クリティカル値2では$S_{\max}=2271$、$N_{\max}=228$、$R=2280$となり、固定値差が0なら`workingLength = 2282`までを明示的に扱えます。1023を超えること自体は拒否理由ではなく、配列長、FFT長、推定時間、推定メモリが`ResourcePlanner`の既存policy内に収まるかどうかで受理可否を決めます。極端な入力はsilent truncationではなく、`damage-working-length`、`damage-fft-length`、`estimated-memory`、`estimated-time`などの資源理由でrejectされます。ここで新しい意味上の上限や202D capは導入しません。
+
+一方、`published-bucket`は比較・互換境界として旧来の`calculationMax`と1023バケットへの投影を保持します。したがって、公開互換経路の範囲計画とproduction `full-tail`の範囲計画は別の契約です。Scoreが無限supportの場合に残るScore tail uncertaintyはこの変更では解消せず、Damageのmodeled finite supportを計画範囲内で完全に保持することだけを保証します。
+
+有限supportの合成で確率総和が浮動小数点丸めによって`1`からごく僅かにずれる場合は、`TOTAL_TOLERANCE = 1e-8`未満の残差を数値ノイズとして扱います。この残差から位置を持たないDamage overflowを人工的に作らず、許容値を超える不足だけを保守的なoverflow情報として保持します。これはScore tail uncertaintyを無視したり、意味のある確率質量を捨てたりする変更ではありません。
+
 ## 5. 複数攻撃の合計
 
 `calculateCanonicalTotalDamage`は、選択された各コンボのcanonicalダメージ分布を順番に畳み込みます。初期値はダメージ0に確率1を持つ点分布です。
