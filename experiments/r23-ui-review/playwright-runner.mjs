@@ -213,15 +213,43 @@ async function waitForStableCharts(page) {
   throw new Error('charts did not reach a stable frame before the timeout')
 }
 
-async function stubExternalFonts(page) {
-  const fontStub = async (route) => route.fulfill({
-    status: 200,
-    contentType: 'text/css',
-    body: '',
+async function waitForProductionFonts(page) {
+  await page.waitForFunction(
+    () => {
+      const classes = document.documentElement.classList
+      return classes.contains('wf-active') || classes.contains('wf-inactive')
+    },
+    null,
+    { timeout: PAGE_TIMEOUT_MS },
+  )
+
+  const fontEvidence = await page.evaluate(async () => {
+    if (!document.fonts) {
+      throw new Error('document.fonts is unavailable')
+    }
+    await document.fonts.ready
+    const application = document.querySelector('.v-application') ?? document.body
+    return {
+      webFontActive: document.documentElement.classList.contains('wf-active'),
+      webFontInactive: document.documentElement.classList.contains('wf-inactive'),
+      roboto400Available: document.fonts.check('400 16px Roboto'),
+      applicationFontFamily: application ? getComputedStyle(application).fontFamily : '',
+      documentElementClasses: [...document.documentElement.classList],
+    }
   })
-  await page.route('https://fonts.googleapis.com/**', fontStub)
-  await page.route('https://fonts.gstatic.com/**', fontStub)
-  return fontStub
+
+  if (!fontEvidence.webFontActive || fontEvidence.webFontInactive) {
+    throw new Error('production Roboto font did not become active')
+  }
+  if (!fontEvidence.roboto400Available) {
+    throw new Error('Roboto 400 is unavailable')
+  }
+  if (!fontEvidence.applicationFontFamily.toLowerCase().includes('roboto')) {
+    throw new Error(
+      `application computed font family does not include Roboto: ${fontEvidence.applicationFontFamily}`,
+    )
+  }
+  return fontEvidence
 }
 
 async function executeStep(page, step) {
@@ -276,7 +304,6 @@ async function runScenario(browser, baseUrl, scenario) {
   const context = await browser.newContext({ viewport: VIEWPORTS[scenario.viewport] })
   const page = await context.newPage()
   const diagnostics = createDiagnostics(page, baseUrl)
-  const fontStub = await stubExternalFonts(page)
   const screenshotPath = join(OUTPUT_DIRECTORY, scenario.screenshot)
   const startedAt = performance.now()
   try {
@@ -287,6 +314,7 @@ async function runScenario(browser, baseUrl, scenario) {
     if (!response || response.status() >= 400) {
       throw new Error(`navigation failed (status=${response?.status() ?? 'none'})`)
     }
+    const fontEvidence = await waitForProductionFonts(page)
     await waitForCanvases(page, scenario.initialCanvases)
     for (const step of scenario.steps) {
       await executeStep(page, step)
@@ -309,13 +337,12 @@ async function runScenario(browser, baseUrl, scenario) {
       canvases: scenario.expectedCanvases,
       elapsedMs: Number((performance.now() - startedAt).toFixed(1)),
       diagnostics,
+      fontEvidence,
     }
   } catch (error) {
     await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {})
     throw formatScenarioError(scenario, error, diagnostics)
   } finally {
-    await page.unroute('https://fonts.googleapis.com/**', fontStub).catch(() => {})
-    await page.unroute('https://fonts.gstatic.com/**', fontStub).catch(() => {})
     await context.close().catch(() => {})
   }
 }
