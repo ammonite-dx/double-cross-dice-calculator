@@ -1,6 +1,8 @@
 # R23 Damage期待値のtail attribution調査
 
-この文書は、R23-Bで指定したDamage期待値の技術調査を記録する。productionのformatter、計算core、Worker、公開assetは変更せず、現在のcanonical full-tail結果に含まれる証明書から有限な期待値上界を構成できるかを調べる。
+> **Historical note:** この文書はR23-C1B実装前に行った技術調査の記録であり、現在のproduction仕様を説明するものではない。調査当時はDamage期待値がlower-boundにとどまる入力があり、有限上界を構成できるかを検討していた。現在はDamage expectation certificate、semantic-onlyの数値契約、Total Damageへのcomponent区間伝播が実装済みである。現行仕様は[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)、[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)、および必要に応じて[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)を参照すること。
+
+この文書は、R23-Bで指定したDamage期待値の技術調査を記録する。productionのformatter、計算core、Worker、公開assetは変更せず、調査当時のcanonical full-tail結果に含まれる証明書から有限な期待値上界を構成できるかを調べた。
 
 ## 調査範囲
 
@@ -19,21 +21,21 @@ npm run audit:r23:damage-tail
 | 項目 | 値 |
 | --- | --- |
 | 公開版の表示 | `3.1` |
-| 現行Damage expectedValue.kind | `lower-bound` |
-| 現行Damage lower bound | `3.080808080565` |
-| 現行通常表示 | `—` |
+| 調査当時のDamage expectedValue.kind | `lower-bound` |
+| 調査当時のDamage lower bound | `3.080808080565` |
+| 調査当時の通常表示 | `—` |
 | Damage support | `infinite` |
 | Damage overflow | `upper-bound`、`lowerBound = 0` |
 | Damage overflow probability上限 | `4.44089209850063e-16` |
 | Damage error bound | `2e-8` |
 
-下限を小数1桁へ丸めると3.1になるが、現行の表示契約はlower-boundだけの値を一点の期待値として表示しない。そのため、公開版の3.1と同じ表示には、tailの未表現寄与を含む有限な上界が必要である。
+下限を小数1桁へ丸めると3.1になるが、調査当時の表示契約はlower-boundだけの値を一点の期待値として表示しなかった。そのため、公開版の3.1と同じ表示には、tailの未表現寄与を含む有限な上界が必要だった。
 
 ## Score側で利用できる証明書
 
-公開版fixtureのaction Scoreは、明示first momentが`6.011111111111`で、Score期待値certificateが`[6.011100861111112, 6.011121361111112]`を与える。Scoreのsupportは`infinite`であり、1023以上のexact overflowは確率がおよそ`8e-103`、certificateの数値error boundは`1e-8`である。reaction Scoreにも同じ形式のcertificateがある。
+公開版fixtureのaction Scoreは、明示first momentが`6.011111111111`で、調査当時のScore期待値certificateが`[6.011100861111112, 6.011121361111112]`を与えた。Scoreのsupportは`infinite`であり、1023以上のexact overflowは確率がおよそ`8e-103`、certificateの数値error boundは`1e-8`である。reaction Scoreにも同じ形式のcertificateがあった。
 
-Damage側では、Score tailの位置不明確率上限が約`2.0000000444e-8`として保持される。これはScoreのtail確率だけでなく、Score tailと数値誤差をDamage座標へ安全に配置できない不確かさを含む。したがって、genericな`getCertifiedExpectedValue`はDamage supportが無限である限り、明示first momentをlower-boundとして返す。
+調査当時のDamage側では、Score tailの位置不明確率上限が約`2.0000000444e-8`として保持された。これはScoreのtail確率だけでなく、Score tailと数値誤差をDamage座標へ安全に配置できない不確かさを含む。そのため、当時のgenericな`getCertifiedExpectedValue`はDamage supportが無限である限り、明示first momentをlower-boundとして返した。
 
 ## 有限上界の候補
 
@@ -54,7 +56,7 @@ Damage resultの明示first momentを下限、action Score期待値certificate�
 
 ## 測定結果
 
-safe sliceに該当した4件は、いずれも現行Damage expected valueが`lower-bound`であり、研究用の有限上限候補だけを構成できた。
+safe sliceに該当した4件は、いずれも調査当時のDamage expected valueが`lower-bound`であり、研究用の有限上限候補だけを構成できた。
 
 | fixture | Damage lower bound | 候補 upper bound | 区間幅 |
 | --- | ---: | ---: | ---: |
@@ -67,6 +69,6 @@ safe sliceに該当した4件は、いずれも現行Damage expected valueが`lo
 
 ## 判断と次の段階
 
-`finite-candidate-only`は、限定条件の下で有限値を推定する数式が得られたことを表す研究用ステータスであり、productionのDamage expected value certificateではない。Damage producerの公開契約へ接続するには、Score期待値だけでなく、damage-dice count、action/reactionの命中条件、tailの位置不確かさを同時に包む証明と専用metadataが必要である。
+`finite-candidate-only`は、限定条件の下で有限値を推定する数式が得られたことを表す研究用ステータスであり、当時のproductionのDamage expected value certificateではなかった。Damage producerの現行公開契約へ接続するには、Score期待値だけでなく、damage-dice count、action/reactionの命中条件、tailの位置不確かさを同時に包む証明と専用metadataが必要だった。この後続作業の結果はC1B/C3B/C3C文書に記録している。
 
-区間の中点、下限、published-bucketの診断値を一点の期待値へ変換することはしない。R23-Bではproduction変更を行わず、より狭い有限区間を導ける分割方法とcertificate契約の設計をR23-C候補として残す。
+区間の中点、下限、published-bucketの診断値を一点の期待値へ変換することはしなかった。R23-Bではproduction変更を行わず、より狭い有限区間を導ける分割方法とcertificate契約の設計をR23-C候補として残し、後続のR23-C1B/C3B/C3Cでproduction契約へ反映した。
