@@ -56,10 +56,6 @@ export interface ScoreExpectationCertificate {
   readonly lowerBound: number
   readonly upperBound: number
   readonly residualUpperBound: number
-  readonly tailEvaluationErrorBound: number
-  readonly fumbleCorrectionErrorBound: number
-  readonly residualArithmeticErrorBound: number
-  readonly numericalErrorBound: number
 }
 
 export interface ScoreTailMomentCertificate {
@@ -69,11 +65,9 @@ export interface ScoreTailMomentCertificate {
   readonly modeledMax: number
   readonly massUpperBound: number
   readonly firstMomentUpperBound: number
-  readonly numericalErrorBound: number
-  readonly boundaryContributionUpperBound?: number
-  readonly residualUpperBound?: number
-  readonly skillContributionUpperBound?: number
-  readonly tailEvaluationErrorBound?: number
+  readonly boundaryContributionUpperBound: number
+  readonly residualUpperBound: number
+  readonly skillContributionUpperBound: number
 }
 
 export interface ScoreMetadata extends ModeledDistributionMetadata {
@@ -129,7 +123,7 @@ export interface DamageExpectationCertificate {
   readonly explicitFirstMoment?: number
   readonly actionTailContributionUpperBound?: number
   readonly reactionTailContributionUpperBound?: number
-  readonly numericalErrorBound: number
+  readonly maxDamageConstant?: number
 }
 
 export interface DamageMetadata extends ModeledDistributionMetadata {

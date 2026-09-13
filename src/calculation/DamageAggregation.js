@@ -1130,7 +1130,7 @@ function createOutputResult(values, plan, overflow, singleResult, signal) {
   }
 }
 
-function createAggregateProjectionUncertainty(inspected, aggregationErrorBound) {
+function createAggregateProjectionUncertainty(inspected) {
   const descriptors = inspected
     .map((component) => component.projectionUncertainty)
   const hasDescriptor = descriptors.some((descriptor) => descriptor !== null)
@@ -1166,7 +1166,7 @@ function createAggregateProjectionUncertainty(inspected, aggregationErrorBound) 
 
   const positionUnknownProbabilityUpperBound = Math.min(
     1,
-    unionProbability(positionBounds) + aggregationErrorBound
+    unionProbability(positionBounds)
   )
   return Object.freeze({
     positionUnknownProbabilityUpperBound,
@@ -1179,8 +1179,7 @@ function createMetadata(inspected, plan, diagnostics) {
   const modeledSupport = copySupport(plan.modeledSupport)
   const sourceSupport = copySupport(plan.sourceSupport)
   const projectionUncertainty = createAggregateProjectionUncertainty(
-    inspected,
-    diagnostics.aggregationErrorBound
+    inspected
   )
   return Object.freeze({
     modeledDistribution: true,

@@ -116,7 +116,6 @@ describe('Score tail first-moment certificate', () => {
       modeledMax: plan.workingMax,
       massUpperBound: 0,
       firstMomentUpperBound: 0,
-      numericalErrorBound: 0,
     })
     expect(Object.isFrozen(certificate)).toBe(true)
   })
@@ -141,7 +140,9 @@ describe('Score tail first-moment certificate', () => {
       model,
       massUpperBound: expect.any(Number),
       firstMomentUpperBound: expect.any(Number),
-      numericalErrorBound: expect.any(Number),
+      boundaryContributionUpperBound: expect.any(Number),
+      residualUpperBound: expect.any(Number),
+      skillContributionUpperBound: expect.any(Number),
     }))
     expect(certificate.massUpperBound)
       .toBeGreaterThanOrEqual(massCertificate.massUpperBound)
@@ -245,7 +246,6 @@ describe('Score tail first-moment certificate', () => {
       model: 'dx-yousei-tail',
       firstMomentUpperBound: expect.any(Number),
       residualUpperBound: expect.any(Number),
-      tailEvaluationErrorBound: expect.any(Number),
     }))
     expect(certificate.firstMomentUpperBound)
       .toBeGreaterThanOrEqual(certificate.residualUpperBound)

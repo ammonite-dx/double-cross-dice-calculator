@@ -332,8 +332,8 @@ describe('canonical normal check score producer', () => {
     expect(plan.workingMax).toBeGreaterThan(1000)
     expect(certificate.lowerBound).toBeLessThanOrEqual(reference)
     expect(certificate.upperBound).toBeGreaterThanOrEqual(reference)
-    expect(certificate.tailEvaluationErrorBound)
-      .toBeGreaterThanOrEqual((plan.workingMax + 1) * 1e-8)
+    expect(certificate).not.toHaveProperty('tailEvaluationErrorBound')
+    expect(certificate).not.toHaveProperty('numericalErrorBound')
   })
 
   it('keeps exact tail mass and isolates expectation from DP bucket drift', () => {

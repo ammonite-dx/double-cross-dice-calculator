@@ -173,8 +173,8 @@ describe('Damage expected-value certificate', () => {
       kind: 'damage-expectation-certificate',
       actionTailContributionUpperBound: expect.any(Number),
       reactionTailContributionUpperBound: expect.any(Number),
-      numericalErrorBound: expect.any(Number),
     }))
+    expect(certificate).not.toHaveProperty('numericalErrorBound')
     expect(statistics.expectedValue.kind).toBe('bounded')
     expect(statistics.expectedValue.lowerBound)
       .toBeLessThanOrEqual(statistics.expectedValue.upperBound)

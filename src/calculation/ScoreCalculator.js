@@ -368,7 +368,6 @@ function createFiniteScoreTailMomentCertificate(modeledMax, model) {
     modeledMax,
     massUpperBound: 0,
     firstMomentUpperBound: 0,
-    numericalErrorBound: 0,
   })
 }
 
@@ -481,38 +480,12 @@ function createScoreTailMomentCertificate(
   ) {
     return null
   }
-
-  // Each term is evaluated from a centralized tail bound, but the products
-  // and their final sum still incur floating-point error. Scale the margin by
-  // the operation's magnitude and by the modeled boundary; do not introduce
-  // an input-independent expected-value epsilon.
-  const boundaryArithmeticErrorBound =
-    Math.max(1, Math.abs(boundaryContributionUpperBound))
-      * DISTRIBUTION_RESULT_TOLERANCE
-  const residualArithmeticErrorBound =
-    Math.max(1, Math.abs(residualUpperBound))
-      * DISTRIBUTION_RESULT_TOLERANCE
-  const skillArithmeticErrorBound =
-    Math.max(1, Math.abs(skillContributionUpperBound))
-      * DISTRIBUTION_RESULT_TOLERANCE
-  const aggregationArithmeticErrorBound =
-    Math.max(1, Math.abs(analyticUpperBound))
-      * DISTRIBUTION_RESULT_TOLERANCE
-  const tailEvaluationErrorBound = hasExactYouseiTail
-    ? Math.max(1, Math.abs(modeledMax + 1))
-      * DISTRIBUTION_RESULT_TOLERANCE
-    : 0
-  const numericalErrorBound =
-    boundaryArithmeticErrorBound
-    + residualArithmeticErrorBound
-    + skillArithmeticErrorBound
-    + aggregationArithmeticErrorBound
-    + tailEvaluationErrorBound
-  const firstMomentUpperBound = analyticUpperBound + numericalErrorBound
+  // The tail helpers already return producer-owned safe upper bounds. The
+  // certificate therefore carries semantic uncertainty only; Float64
+  // arithmetic diagnostics are handled by the distribution sanity gates.
+  const firstMomentUpperBound = analyticUpperBound
   if (
-    !Number.isFinite(numericalErrorBound)
-    || numericalErrorBound < 0
-    || !Number.isFinite(firstMomentUpperBound)
+    !Number.isFinite(firstMomentUpperBound)
     || firstMomentUpperBound < 0
   ) {
     return null
@@ -532,12 +505,6 @@ function createScoreTailMomentCertificate(
     boundaryContributionUpperBound,
     residualUpperBound,
     skillContributionUpperBound,
-    boundaryArithmeticErrorBound,
-    residualArithmeticErrorBound,
-    skillArithmeticErrorBound,
-    aggregationArithmeticErrorBound,
-    tailEvaluationErrorBound,
-    numericalErrorBound,
   })
 }
 
@@ -590,25 +557,8 @@ function createScoreExpectationCertificate(
     return null
   }
 
-  // This certificate is independent of the DP buckets. Each exact-max tail
-  // evaluation is widened by the centralized numeric tolerance, and the
-  // fumble/skill adjustment is widened separately. The geometric residual is
-  // an analytic upper bound and receives one additional arithmetic margin.
-  const tailEvaluationErrorBound =
-    (modeledMax + 1) * DISTRIBUTION_RESULT_TOLERANCE
-  const fumbleCorrectionErrorBound =
-    (1 + params.skill) * DISTRIBUTION_RESULT_TOLERANCE
-  const residualArithmeticErrorBound =
-    Math.max(1, residualUpperBound) * DISTRIBUTION_RESULT_TOLERANCE
-  const numericalErrorBound =
-    tailEvaluationErrorBound
-    + fumbleCorrectionErrorBound
-    + residualArithmeticErrorBound
-  const lowerBound = Math.max(
-    0,
-    lowerExpectedValue - numericalErrorBound
-  )
-  const upperBound = upperExpectedValue + numericalErrorBound
+  const lowerBound = Math.max(0, lowerExpectedValue)
+  const upperBound = upperExpectedValue
 
   return Object.freeze({
     version: SCORE_EXPECTATION_CERTIFICATE_VERSION,
@@ -618,10 +568,6 @@ function createScoreExpectationCertificate(
     lowerBound,
     upperBound,
     residualUpperBound,
-    tailEvaluationErrorBound,
-    fumbleCorrectionErrorBound,
-    residualArithmeticErrorBound,
-    numericalErrorBound,
   })
 }
 
@@ -852,10 +798,6 @@ export function calculateScoreSuccessProbabilityInterval(
     actionBuckets,
     reactionBuckets
   )
-  const probabilityMargin =
-    actionTail.massUpperBound > 0 || reactionTail.massUpperBound > 0
-      ? DISTRIBUTION_RESULT_TOLERANCE
-      : 0
   let reactionBelowActionTail = 0
   for (const bucket of reactionBuckets) {
     if (bucket.value < actionTail.lowerBound) {
@@ -879,7 +821,6 @@ export function calculateScoreSuccessProbabilityInterval(
       1,
       explicitSuccess
       + actionTail.massLowerBound * reactionBelowActionTail
-      - probabilityMargin
     )
   )
   const upperBound = Math.max(
@@ -890,7 +831,6 @@ export function calculateScoreSuccessProbabilityInterval(
       + actionTail.massUpperBound * reactionExplicitMass
       + reactionTail.massUpperBound * actionAboveReactionTail
       + actionTail.massUpperBound * reactionTail.massUpperBound
-      + probabilityMargin
     )
   )
 

@@ -466,8 +466,6 @@ function isValidScoreTailMomentCertificate(certificate) {
     && certificate.massUpperBound <= 1
     && Number.isFinite(certificate.firstMomentUpperBound)
     && certificate.firstMomentUpperBound >= 0
-    && Number.isFinite(certificate.numericalErrorBound)
-    && certificate.numericalErrorBound >= 0
 }
 
 function getScoreExplicitMax(score) {
@@ -575,39 +573,18 @@ function getDamageExpectationCertificate(
     return null
   }
 
-  // The explicit prefix is produced by the validated full-tail composition.
-  // Use the existing total-mass tolerance as a scale-aware bound for its
-  // summation and for the final propagation arithmetic. This is a producer
-  // contract, not a fixed expected-value epsilon.
-  const explicitScale = Math.max(
-    1,
-    explicitMax === null ? 0 : explicitMax + 1,
-    Math.abs(explicitFirstMoment)
-  )
-  const explicitMomentErrorBound = TOTAL_TOLERANCE * explicitScale
-  const contributionScale = Math.max(
-    1,
-    Math.abs(explicitFirstMoment),
-    Math.abs(actionTailContributionUpperBound),
-    Math.abs(reactionTailContributionUpperBound)
-  )
-  const propagationArithmeticErrorBound = TOTAL_TOLERANCE * contributionScale
-  const numericalErrorBound =
-    explicitMomentErrorBound + propagationArithmeticErrorBound
-  const lowerBound = Math.max(
-    0,
-    explicitFirstMoment - numericalErrorBound
-  )
+  // The explicit prefix and the tail contributions are validated Float64
+  // results. Their bounds are semantic (unmodelled score support) rather than
+  // an estimate of floating-point roundoff; numerical anomalies are rejected
+  // by the existing distribution sanity gates.
+  const lowerBound = explicitFirstMoment
   const upperBound =
     explicitFirstMoment
     + actionTailContributionUpperBound
     + reactionTailContributionUpperBound
-    + numericalErrorBound
 
   if (
-    !Number.isFinite(numericalErrorBound)
-    || numericalErrorBound < 0
-    || !Number.isFinite(lowerBound)
+    !Number.isFinite(lowerBound)
     || !Number.isFinite(upperBound)
     || lowerBound < 0
     || upperBound < lowerBound
@@ -623,9 +600,6 @@ function getDamageExpectationCertificate(
     explicitFirstMoment,
     actionTailContributionUpperBound,
     reactionTailContributionUpperBound,
-    numericalErrorBound,
-    explicitMomentErrorBound,
-    propagationArithmeticErrorBound,
     actionTailMassUpperBound: actionTailMass,
     reactionTailMassUpperBound: reactionTailMass,
     maxDamageConstant,
@@ -1105,8 +1079,6 @@ function getCertifiedDamageExpectation(certificate) {
     || !Number.isFinite(certificate.upperBound)
     || certificate.lowerBound < 0
     || certificate.upperBound < certificate.lowerBound
-    || !Number.isFinite(certificate.numericalErrorBound)
-    || certificate.numericalErrorBound < 0
   ) {
     return null
   }
