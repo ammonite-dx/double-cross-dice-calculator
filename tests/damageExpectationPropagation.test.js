@@ -82,15 +82,6 @@ function genericLowerBoundEnvelope() {
   })
 }
 
-function pointDamageProvider(rawValue = 0) {
-  return vi.fn(async (weights, _kazanari, options) => {
-    const total = weights.reduce((sum, weight) => sum + weight, 0)
-    const result = new Float64Array(options.distributionLength)
-    result[Math.min(rawValue, result.length - 1)] = total
-    return result
-  })
-}
-
 function calculateScoreEnvelope(params, scorePlan, fix = false) {
   return calculateScore(
     params,
