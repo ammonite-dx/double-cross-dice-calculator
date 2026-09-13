@@ -4,7 +4,7 @@
 
 R23-C1Bでは、通常のDXと《絶対支配》について、作業範囲の外側にあるScoreのfirst momentを保守的に上界化した。しかし、action側で《妖精の手》を使う場合は追加のクリティカル回数が負の二項分布になるため、当時はScore tail moment certificateを発行せず、Damageの期待値certificateもfail-closedとしていた。
 
-R23-C3Aでは、`shihai = 0`、`yousei > 0`、`critical <= 10`のexact-youseiモデルに対して、無限配列を確保せずに残差first momentを上から包む。既存のYousei分布生成、plannerのcutoff、resource policy、UI、formatter、Total Damage、`scoreExpectationCertificate`は変更しない。`shihai`と`yousei`の同時利用は従来どおり入力エラーである。
+R23-C3Aでは、`shihai = 0`、`yousei > 0`、`critical <= 10`のexact-youseiモデルに対して、無限配列を確保せずに残差first momentを上から包む。既存のYousei分布生成、plannerのcutoff、resource policy、UI、formatter、Total Damage、`scoreExpectationCertificate`の生成条件は変更しない。`shihai`と`yousei`の同時利用は従来どおり入力エラーである。証明書の数値marginを除く整理とTotal Damageへの区間伝播は後続のC3B/C3Cで行った。
 
 ## 1. Yousei Scoreの確率モデル
 
@@ -14,7 +14,7 @@ $$
 X=10(y+T)+R,\qquad T=M+S_y.
 $$
 
-$M$は$n$個の独立な幾何分布の最大値であり、$S_y$は「$y$回成功するまでに現れた失敗数」の負の二項分布である。最後の出目$R$は$1,ldots,c-1$の一様分布で、$T$とは独立である。したがって、Score tailの計算では、個々のダイスを列挙する代わりに$T$の整数値だけを扱える。
+$M$は$n$個の独立な幾何分布の最大値であり、$S_y$は「$y$回成功するまでに現れた失敗数」の負の二項分布である。最後の出目$R$は$1,\ldots,c-1$の一様分布で、$T$とは独立である。したがって、Score tailの計算では、個々のダイスを列挙する代わりに$T$の整数値だけを扱える。
 
 負の二項分布のPMFは、$s\geq0$に対して
 
@@ -29,7 +29,7 @@ $$
 Score producerが$W$までを明示し、$W$より大きい値をoverflowへ置くとする。証明書で必要なのは、overflowの確率そのものを掛ける境界項と、その境界からさらに離れた残差項を分けることである。
 
 $$
-E[X1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(W+1))_+].
+E[X\,1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(W+1))_+].
 $$
 
 前半の$P(X>W)$は既存の`scoreTailCertificate`、planner、`scoreTailBound()`から得られる上側値の最大値を使う。R23-C3Aが新たに評価するのは後半の$E[(X-(W+1))_+]$だけである。この分離により、tail probabilityの丸め差がfirst momentの上界を下回らせることを防ぐ。
@@ -86,7 +86,7 @@ $t<0$の場合は$T\geq0$を使い、$U_T(t)\leq\overline M+\mu_y-(t+1)$とす�
 
 証明書の`residualUpperBound`には前節の$E[(X-(W+1))_+]$上界を入れ、`boundaryContributionUpperBound`には$(W+1)p$、`skillContributionUpperBound`には$\max(skill,0)p$を入れる。負の技能値はtail上界を減らす項として扱わないため、正負どちらの技能値でも安全側の不等式が保たれる。
 
-`model`は`dx-yousei-tail`とするが、Damage側consumerはモデル名で分岐せず、`massUpperBound`、`firstMomentUpperBound`、`numericalErrorBound`だけを検証する。Youseiのtail評価に関する余裕として、`tailEvaluationErrorBound`へ$(W+1)$に比例する`DISTRIBUTION_RESULT_TOLERANCE`を記録し、境界・残差・技能値・最終和の算術余裕と合わせて`numericalErrorBound`へ含める。
+`model`は`dx-yousei-tail`とするが、Damage側consumerはモデル名で分岐せず、`massUpperBound`、`firstMomentUpperBound`、`boundaryContributionUpperBound`、`residualUpperBound`、`skillContributionUpperBound`というsemantic fieldを検証する。C3B後は`tailEvaluationErrorBound`や`numericalErrorBound`を証明書へ記録しない。Youseiのtail評価に必要な丸め保護はhelper内部で維持し、その結果をproducer-owned safe upper boundとして扱う。
 
 ## 5. 検証
 
@@ -94,8 +94,8 @@ $t<0$の場合は$T\geq0$を使い、$U_T(t)\leq\overline M+\mu_y-(t+1)$とす�
 
 `tests/scoreTailMomentCertificate.test.js`では、`dx-yousei-tail`のmetadata、正負の技能値、独立oracleの包含、既存の有限support・通常DX・《絶対支配》の回帰を検証する。`tests/damageExpectationCertificate.test.js`では、action側YouseiでDamage期待値certificateがboundedになることと、reaction側のmoment certificateを取り除いてもtail massだけで証明できることを確認する。
 
-fixture監査では、action側に`yousei=1`を含むケースを追加し、`audit:r23:damage-precision`と`audit:r23:damage-tail`でScore moment certificate、Damage certificate、区間幅、数値余裕を記録する。監査の中点は表示値や最尤値として扱わず、既存formatterの丸め境界が安定しているかだけを確認する。
+fixture監査では、action側に`yousei=1`を含むケースを追加し、`audit:r23:damage-precision`と`audit:r23:damage-tail`でScore moment certificate、Damage certificate、semanticな区間幅を記録する。FFTや集約の診断値は別に保持し、期待値区間の幅へ加えない。監査の中点は表示値や最尤値として扱わず、既存formatterの丸め境界が安定しているかだけを確認する。
 
 ## 6. 対象外
 
-R23-C3Aでは、`shihai + yousei`、action側のwhole-Score expectation certificate、Total Damageへの新しい証明書伝播、Damage universal constant、resource threshold、planner cutoff、既存Yousei分布生成、published-bucket互換、UI表示を変更しない。証明書が作られない入力でも、Score・Damageの分布とチャートは従来どおり利用でき、期待値だけが既存のlower-boundまたは非表示契約に従う。
+R23-C3Aでは、`shihai + yousei`、action側のwhole-Score expectation certificate、Total Damageへの新しい証明書伝播、Damage universal constant、resource threshold、planner cutoff、既存Yousei分布生成、published-bucket互換、UI表示を変更しない。C3Bで数値marginをsemantic certificateから分離し、C3CでTotal Damageへcomponent区間を伝播したが、これらはC3Aの数式と対応範囲を変更しない。証明書が作られない入力でも、Score・Damageの分布とチャートは従来どおり利用でき、期待値だけが既存のlower-boundまたは非表示契約に従う。

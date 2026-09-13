@@ -4,7 +4,7 @@
 
 R23-C0では、productionの`full-tail`経路がDamageの有限な作業範囲をアクション側Scoreから動的に計画し、古い1023バケットへ意味のある確率を切り詰めないようにした。しかしScoreには無限に続く尾部が残るため、Damageの明示配列だけから計算した期待値は、依然として安全な下限にとどまる場合がある。
 
-R23-C1Bでは、この尾部を期待値へ伝播するためのproducer専用証明書を追加した。Scoreの尾部first momentとDamageの期待値区間をmetadataへ記録し、証明できない入力では既存の`lower-bound`または`—`表示へ安全に戻る。表示形式、Total Damageの伝播、genericな`DistributionResult`の`errorBound`、resource policy、published-bucket互換はこの作業単位では変更しない。
+R23-C1Bでは、この尾部を期待値へ伝播するためのproducer専用証明書を追加した。Scoreの尾部first momentとDamageの期待値区間をmetadataへ記録し、証明できない入力では既存の`lower-bound`または`—`表示へ安全に戻る。表示形式、Total Damageの伝播、genericな`DistributionResult`の`errorBound`、resource policy、published-bucket互換はこの作業単位では変更しない。本書はC1B当時の設計記録であり、証明書の数値marginは後続のC3Bでsemantic-onlyへ整理され、Total Damageへの区間伝播はC3Cで追加された。
 
 ## 1. Score tail first moment
 
@@ -48,7 +48,7 @@ $$
 
 《妖精の手》を含む無限supportのScoreは、尾部質量の証明書を引き続き持つが、追加使用回数を含むfirst-momentの証明はこの作業単位では実装しない。そのため、action側の《妖精の手》では`scoreTailMomentCertificate`を持たず、Damageの専用期待値証明も作らない。一方、reaction側の《妖精の手》は、action側の明示最大値との大小関係だけでDamage尾部を包める場合があるため、尾部質量の証明書を利用できる。
 
-この節のaction側に関する制約は、後続のR23-C3Aで更新された。`shihai=0`、`yousei>0`、`critical<=10`の`exact-yousei`では、負の二項tailの残差を解析的に上界化する`dx-yousei-tail`証明書を生成し、Damage期待値certificateへ接続できる。R23-C1Bの当時の実装範囲と、後続で追加された証明の詳細は[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)を参照する。
+この節のaction側に関する制約は、後続のR23-C3Aで更新された。`shihai=0`、`yousei>0`、`critical<=10`の`exact-yousei`では、負の二項tailの残差を解析的に上界化する`dx-yousei-tail`証明書を生成し、Damage期待値certificateへ接続できる。さらにC3BでScoreとDamageのcertificateから数値誤差用fieldを除き、C3Cでcomponent区間をTotalへ伝播した。R23-C1Bの当時の実装範囲と、後続で追加された証明の詳細は[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)と[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)を参照する。
 
 ### 1.5 Score metadata
 
@@ -62,17 +62,19 @@ first-moment証明書の最低限の形は次のとおりである。
   modeledMax,
   massUpperBound,
   firstMomentUpperBound,
-  numericalErrorBound,
+  boundaryContributionUpperBound,
+  residualUpperBound,
+  skillContributionUpperBound,
 }
 ```
 
-producerは必要に応じて境界項、残余項、技能値項もmetadataへ保存する。`numericalErrorBound`は各演算の規模に応じたproducer側の余裕であり、期待値を一点へ丸めるための固定epsilonではない。
+producerは必要に応じて境界項、残余項、技能値項もmetadataへ保存する。現行契約ではこれらは未計算tailに由来するsemantic contributionであり、Float64演算の余裕を表す`numericalErrorBound`は持たない。tail helperが安全側に評価するための内部丸め保護は維持する。
 
 ## 2. Damage expected-value certificate
 
 ### 2.1 何を追加で証明するか
 
-Damageの明示配列から計算したfirst momentを`M_explicit`とする。Damage producerは、Score尾部を実際のDamage座標へ無理に配置せず、尾部が寄与し得る最大値を上側から評価して、`M_explicit`を下限、そこへ尾部寄与と数値余裕を足した値を上限とする。
+Damageの明示配列から計算したfirst momentを`M_explicit`とする。Damage producerは、Score尾部を実際のDamage座標へ無理に配置せず、尾部が寄与し得る最大値を上側から評価して、`M_explicit`を下限、そこへsemanticな尾部寄与を足した値を上限とする。
 
 Damageの尾部証明書は、Scoreの両側に有効な尾部質量証明書があり、`full-tail`の合成結果自体にoverflowがなく、必要なfirst-moment証明が揃う場合だけ生成する。条件を満たさない場合はmetadataを`null`にし、genericな期待値summaryへ戻す。
 
@@ -106,22 +108,22 @@ $$
 
 ### 2.4 期待値区間
 
-上記の寄与と、explicit first momentの演算余裕`ε`から、Damage期待値の証明書は次の区間を返す。
+上記の寄与から、Damage期待値の証明書は次のsemantic区間を返す。
 
 $$
 \left[
-\max(0,M_{\mathrm{explicit}}-\varepsilon),
-M_{\mathrm{explicit}}+\Delta_A+\Delta_R+\varepsilon
+M_{\mathrm{explicit}},
+M_{\mathrm{explicit}}+\Delta_A+\Delta_R
 \right].
 $$
 
-下限は明示されたDamageだけから作るため、未知の尾部を負の値として扱わない。上限には尾部の位置不確かさを含め、explicit prefixのfirst moment、tail contribution、数値余裕を別々に計算する。
+下限は明示されたDamageだけから作るため、未知の尾部を負の値として扱わない。上限には尾部の位置不確かさを含め、explicit prefixのfirst momentとtail contributionを別々に計算する。Float64の丸め誤差はこのsemantic区間へ加えず、FFT・DPのsanity gateと診断metadataで扱う。
 
 ## 3. 実装と利用側の契約
 
 Scoreの証明書は`src/calculation/ScoreCalculator.js`が生成し、`ScoreEnvelope.metadata.scoreTailMomentCertificate`へ格納する。Damageの証明書は`src/calculation/DamageCalculator.js`が`full-tail`の最終合成後に生成し、`DamageEnvelope.metadata.damageExpectationCertificate`へ格納する。型の説明は`src/calculation/DistributionResultTypes.ts`にある。
 
-`getDamageStatistics`は、検証済みの専用Damage証明書があればそれを`CertifiedValue`へ変換し、なければ従来の`getCertifiedExpectedValue`を使う。genericな`overflow.errorBound`を確率質量や期待値幅へ読み替えないため、古いmetadataや不正な証明書を受け取っても専用値を採用せず、既存経路へ戻る。
+`getDamageStatistics`は、検証済みの専用Damage証明書があればそれを`CertifiedValue`へ変換し、なければ従来の`getCertifiedExpectedValue`を使う。genericな`overflow.errorBound`を確率質量や期待値幅へ読み替えないため、古いmetadataや不正な証明書を受け取っても専用値を採用せず、既存経路へ戻る。Total側ではC3Cの共通validatorが同じ証明書を検証し、componentごとの有限区間を加算する。
 
 専用証明書は、Score尾部が存在する場合だけ意味を持つ。尾部が両側とも0なら、Damage結果を従来どおり`exact`として返すため、不要な`bounded`区間を作らない。Damageの実際の合成配列にoverflowがある場合も、尾部の寄与と位置を分離できないため証明書を発行しない。
 
@@ -138,10 +140,10 @@ npm run audit:r23:damage-precision
 npm run audit:r23:damage-tail
 ```
 
-監査レポートはgitignoredな`experiments/r23-damage-summary-precision/output/`へ保存される。`audit:r23:damage-precision`はDamage専用証明書の状態、上下界、尾部寄与、数値余裕を記録し、`audit:r23:damage-tail`はScore側のfirst moment証明書とDamage metadataを含めてtailの出所を追跡する。監査上の中点は診断用であり、表示値や最尤値として扱わない。
+監査レポートはgitignoredな`experiments/r23-damage-summary-precision/output/`へ保存される。`audit:r23:damage-precision`はDamage専用証明書の状態、上下界、尾部寄与を記録し、`audit:r23:damage-tail`はScore側のfirst moment証明書とDamage metadataを含めてtailの出所を追跡する。FFTや集約の診断値は別に記録し、期待値区間の幅へ混ぜない。監査上の中点は診断用であり、表示値や最尤値として扱わない。
 
 ## 5. 対象外と次の段階
 
-R23-C1Bでは、action側《妖精の手》のfirst-moment証明、Total Damageへの証明書伝播、表示formatterの変更、genericな期待値APIの変更、published-bucket互換の整理、resource thresholdの変更を行わなかった。action側《妖精の手》のfirst-moment証明は後続のR23-C3Aで追加したが、Total Damage、generic API、formatter、published-bucket互換、resource thresholdは引き続き後続作業単位で扱う。
+R23-C1Bでは、action側《妖精の手》のfirst-moment証明、Total Damageへの証明書伝播、表示formatterの変更、genericな期待値APIの変更、published-bucket互換の整理、resource thresholdの変更を行わなかった。action側《妖精の手》のfirst-moment証明は後続のR23-C3Aで追加され、数値marginの整理はC3B、Total Damageへのsemantic interval伝播はC3Cで完了した。generic API、formatter、published-bucket互換、resource thresholdは引き続き独立した契約として扱う。
 
 証明書がないことは計算失敗を意味しない。ScoreやDamageの分布、成功率、チャートは従来どおり利用でき、期待値だけが安全な下限または非表示になる。証明できる範囲をmetadataで明示し、consumerが不確かな値を一点の期待値として誤表示しないことが、この作業単位の主目的である。

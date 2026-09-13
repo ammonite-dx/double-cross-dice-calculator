@@ -181,7 +181,7 @@ $$
 
 ここで`R(W)`は`maxTailFirstMomentUpperBound(W, dice, critical)`が返す残りのtail-sum上限です。技能値`skill`を加えた最終Score`S = max(0, X + skill)`については、`max(skill, 0) p`を追加します。負の技能値は`max(0, X + skill) <= X`により追加項を持たず、《絶対支配》は保守的な最大値tail modelとして扱います。
 
-ダイス数0、`dice <= shihai`、`critical = 11`などfinite supportではtail massとfirst momentを0とする証明書を返します。《妖精の手》を含む無限supportでは、action側のfirst moment証明は未対応として`null`を返し、既存のtail massだけを保持します。consumerは証明書の`model`名では分岐せず、version、kind、数値範囲を検証します。
+ダイス数0、`dice <= shihai`、`critical = 11`などfinite supportではtail massとfirst momentを0とする証明書を返します。《妖精の手》を含む無限supportでも、`shihai=0`、`critical<=10`、exact-youseiという条件を満たせばaction側のfirst momentを`dx-yousei-tail`で上界化します。consumerは証明書の`model`名では分岐せず、version、kind、数値範囲を検証します。
 
 ### 4.6 Damage expected-value certificate
 
@@ -195,13 +195,15 @@ $$
 
 action tailの寄与は`Delta_A = M_A + C p_A`です。reaction tailは`p_R = 0`、または`A_max <= L_R`なら0とし、それ以外では`Delta_R = p_R (A_max + C)`とします。action tailとreaction tailの同時発生はaction側の寄与へすでに含まれるため、reaction側へ重ねて加算しません。actionの明示最大値が得られない状態でreaction tailがある場合も証明書を発行しません。
 
-最終的な証明書は、explicit first momentを下限、`M_explicit + Delta_A + Delta_R`と規模依存の数値余裕を上限とする`bounded`値へ変換されます。tailが両側とも0なら専用証明書を作らず、従来のgeneric summaryが返す`exact`を維持します。証明できないaction《妖精の手》、実際のDamage output overflow、壊れたmetadataでは専用証明書を`null`にしてgenericな`lower-bound`へ戻すため、`overflow.errorBound`を期待値の誤差幅として解釈することはありません。詳細な式、検証条件、後続範囲は[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)にまとめています。
+最終的な証明書は、explicit first momentを下限、`M_explicit + Delta_A + Delta_R`を上限とする`bounded`値へ変換されます。tailが両側とも0なら専用証明書を作らず、従来のgeneric summaryが返す`exact`を維持します。証明できない入力、実際のDamage output overflow、壊れたmetadataでは専用証明書を`null`にしてgenericな`lower-bound`へ戻すため、`overflow.errorBound`を期待値の誤差幅として解釈することはありません。数値誤差用のmarginはC3Bでcertificateから除去し、FFT・DPの診断は別metadataへ保持します。詳細な式、検証条件、後続範囲は[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)にまとめています。
 
 ## 5. 複数攻撃の合計
 
 `calculateCanonicalTotalDamage`は、選択された各コンボのcanonicalダメージ分布を順番に畳み込みます。初期値はダメージ0に確率1を持つ点分布です。
 
 各コンボの結果はすでに非命中をダメージ0として含むため、単純な畳み込みによって「どの攻撃が命中したか」を含む合計ダメージ分布になります。canonical合計は各envelopeのsupportとoverflow metadataを維持したまま必要なFFT長で計算し、published-bucketへ投影する場合だけ1023以上を最後のバケットへ集約します。
+
+Total Damageの期待値は分布のFFT結果から再計算せず、各componentの有限な期待値区間をinspection時にsnapshotして加算します。専用Damage certificateが少なくとも一つあり、全componentに有限区間がある場合だけaggregate certificateを生成し、lower-boundしかないcomponentがあれば従来のgeneric fallbackへ戻します。FFTのmass driftやaggregationの診断値はこの区間へ足しません。実装の詳細はPhase 5-Bと[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)を参照してください。
 
 ## 6. バックトラック
 
@@ -604,23 +606,31 @@ Chart.js 4.5.1をローカル実装で確認した結果、`helpers.dataset.isAr
 
 通常のDXは無限supportを持つため、有限のexplicit distributionだけから作る期待値は`lower-bound`になり、対決成功率も両側のtailが残ると`bounded`になる。`00b5b3f`では、内部の不確かさを一点値へ変換せず、最終的な小数1桁表示だけを安全に回復するScore専用certificateを追加した。`SummaryTable`は`exact`を従来どおり表示し、`bounded`ではlower boundとupper boundが同じ小数1桁へ丸まる場合だけその共通値を表示する。区間が丸め境界をまたぐ場合は`—`を維持する。
 
-期待値certificateの初期対応範囲は`shihai=0`、`yousei=0`、`skill>=0`の無限supportである。raw DX最大値を$Z$、計算済み境界を$M$とすると、非負整数値確率変数のtail-sum formulaから$E[Z]=\sum_{x=0}^{\infty}P(Z>x)$を使う。`maxTailBound(x, dice, critical)`が返す$P(Z>x)$を$x=0,\ldots,M$で補償和し、残りは`maxTailFirstMomentUpperBound()`で上から包む。このhelperは$P(\max_i Z_i>x)\leq nP(Z_1>x)$というunion boundと、1個のDXのtailが10ごとにcritical確率$q=(11-c)/10$倍になる性質を使い、10個の剰余類ごとの幾何級数として無限和を有限計算する。DPのexplicit bucketやoverflow probabilityから一次モーメントを作らないため、分布bucketの個別誤差を期待値誤差と取り違えない。
+期待値certificateの対応範囲は`shihai=0`、`yousei=0`、`skill>=0`の無限supportである。raw DX最大値を$Z$、計算済み境界を$M$とすると、非負整数値確率変数のtail-sum formulaから$E[Z]=\sum_{x=0}^{\infty}P(Z>x)$を使う。`maxTailBound(x, dice, critical)`が返す$P(Z>x)$を$x=0,\ldots,M$で補償和し、残りは`maxTailFirstMomentUpperBound()`で上から包む。このhelperは$P(\max_i Z_i>x)\leq nP(Z_1>x)$というunion boundと、1個のDXのtailが10ごとにcritical確率$q=(11-c)/10$倍になる性質を使い、10個の剰余類ごとの幾何級数として無限和を有限計算する。DPのexplicit bucketやoverflow probabilityから一次モーメントを作らないため、分布bucketの個別誤差を期待値誤差と取り違えない。
 
-通常判定ではraw score 1がファンブルとして0へ移る。`dice=n>0`では$P(Z=1)=0.1^n$なので、非負の技能値$s$を含む期待値は$E[Score]=E[Z]-0.1^n+s(1-0.1^n)$である。tail evaluatorの各項は集中管理された`DISTRIBUTION_RESULT_TOLERANCE`で外向きに広げ、$M+1$項分、ファンブル・技能値補正分、幾何級数残差の算術分を別々の数値誤差metadataとして保持する。`shihai>0`と負の`skill`を持つ無限supportではこのcertificateを作らず、内部の`lower-bound`を保持して通常UIは`—`を表示する。この非対応は期待値の保証範囲に限り、canonical分布・chart・計算失敗を意味しない。`dice<=shihai`の自動失敗や`critical=11`などfinite supportでgeneric summaryがexactになる場合は従来どおり数値表示する。
+通常判定ではraw score 1がファンブルとして0へ移る。`dice=n>0`では$P(Z=1)=0.1^n$なので、非負の技能値$s$を含む期待値は$E[Score]=E[Z]-0.1^n+s(1-0.1^n)$である。C3Bではこのsemantic intervalを数値marginで拡張せず、producerが計算したlower/upperをそのまま証明書へ格納する。`shihai>0`と負の`skill`を持つ無限supportではこのcertificateを作らず、内部の`lower-bound`を保持して通常UIは`—`を表示する。この非対応は期待値の保証範囲に限り、canonical分布・chart・計算失敗を意味しない。`dice<=shihai`の自動失敗や`critical=11`などfinite supportでgeneric summaryがexactになる場合は従来どおり数値表示する。
 
 ## Phase 5-A 《妖精の手》のScore tail moment（R23-C3A）
 
-`shihai=0`かつ`yousei=y>0`のraw Scoreは、初回ロールの最大クリティカル回数$M$、追加判定の合計$S_y$、終端値$R$を使って$X=10(y+M+S_y)+R$と表せる。$M$は$n$個の幾何分布の最大値、$S_y$は$y$回成功するまでの失敗数の負の二項分布、$R$は$1,ldots,c-1$の一様分布であり、`DxTailModel.js`はこの表現を配列へ展開せずに利用する。
+`shihai=0`かつ`yousei=y>0`のraw Scoreは、初回ロールの最大クリティカル回数$M$、追加判定の合計$S_y$、終端値$R$を使って$X=10(y+M+S_y)+R$と表せる。$M$は$n$個の幾何分布の最大値、$S_y$は$y$回成功するまでの失敗数の負の二項分布、$R$は$1,\ldots,c-1$の一様分布であり、`DxTailModel.js`はこの表現を配列へ展開せずに利用する。
 
-Scoreのoverflow境界を$W$とすると、$E[X1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(W+1))_+]$である。前半は既存`scoreTailCertificate`、planner、`scoreTailBound()`の最大値を使い、後半だけを`youseiTailFirstMomentUpperBound()`で評価する。終端値$r$ごとに$t_r=\lfloor(W-r)/10\rfloor-y$と$d_r=10(y+t_r+1)+r-(W+1)$を置くと、残差は$[d_rP(T>t_r)+10U_T(t_r)]/(c-1)$の和で包める。
+Scoreのoverflow境界を$W$とすると、$E[X\,1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(W+1))_+]$である。前半は既存`scoreTailCertificate`、planner、`scoreTailBound()`の最大値を使い、後半だけを`youseiTailFirstMomentUpperBound()`で評価する。終端値$r$ごとに$t_r=\lfloor(W-r)/10\rfloor-y$と$d_r=10(y+t_r+1)+r-(W+1)$を置くと、残差は$[d_rP(T>t_r)+10U_T(t_r)]/(c-1)$の和で包める。
 
 `U_T(t)=E[(T-(t+1))_+]`は、$S_y=s$で条件分けして$\sum_{s=0}^{t}P(S_y=s)U_M(t-s)+\overline M P(S_y>t)+U_S(t)$で上界化する。$U_M$は$P(M>m)\leq\min(1,nq^{m+1})$の幾何級数、$U_S$は$\mu_yP(S_{y+1}>t)$で評価する。certificate専用の負の二項tail helperは、PMFの隣接比が1未満になった後の未加算部分を$p/(1-r)$として加え、表示用tailのように小さい残差を捨てない。
 
-`ScoreCalculator`は`tail.model === 'exact-yousei'`、`shihai=0`、`yousei>0`、`critical<=10`、exact overflowの条件を満たす場合だけ`model: 'dx-yousei-tail'`のScore tail moment certificateを生成する。`boundaryContributionUpperBound`、`residualUpperBound`、`skillContributionUpperBound`を分離して記録し、Yousei tail評価の規模比例余裕を`tailEvaluationErrorBound`へ保持する。Damage側はモデル名を見ず共通の数値フィールドだけを検証するため、action側《妖精の手》でも既存のDamage期待値certificateへ接続できる。
+`ScoreCalculator`は`tail.model === 'exact-yousei'`、`shihai=0`、`yousei>0`、`critical<=10`、exact overflowの条件を満たす場合だけ`model: 'dx-yousei-tail'`のScore tail moment certificateを生成する。`boundaryContributionUpperBound`、`residualUpperBound`、`skillContributionUpperBound`を意味上の寄与として分離して記録する。C3B後のcertificateに数値誤差用fieldはなく、Damage側はこのsemantic contractを検証するため、action側《妖精の手》でも既存のDamage期待値certificateへ接続できる。
 
 詳細な式、境界条件、test-local oracle、stress caseは[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)に記録する。whole-Score expectation、Total Damage、resource policy、planner cutoff、UI表示はこの単位の対象外である。
 
-対決成功率は、action/reactionの明示bucketを$A_0,R_0$、tailを$A_T,R_T$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示bucket同士の$P_{00}=P(A_0>R_0)$は既存の昇順2ポインタ走査で$O(a+r)$に計算し、排他的な4組を分けて$S_{lower}=P_{00}+a_-P(R_0<L_A)$、$S_{upper}=P_{00}+a_+P(R_0)+r_+P(A_0>L_R)+a_+r_+$とする。最終区間だけを`DISTRIBUTION_RESULT_TOLERANCE`で一度外向きに広げる。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
+## Phase 5-B Total Damage expectation propagation（R23-C3C）
+
+Total Damageの期待値は、Total FFTの明示配列から再構築しない。`DamageExpectationCertificate.js`の`getFiniteDamageExpectationInterval()`が、専用Damage certificate、generic exact、generic boundedの順にcomponentの有限区間を取得し、generic lower-boundしかないcomponentは`null`として扱う。専用certificateやgeneric区間の値は、Totalのinspection時にplan-owned stateへsnapshotする。
+
+全componentについて$L_i\leq E[D_i]\leq U_i$が得られれば、独立性を仮定しなくても$\sum_iL_i\leq E[\sum_iD_i]\leq\sum_iU_i$が成り立つ。上下界は補償和で加算し、`aggregationErrorBound`、`fftMassDrift`、`sourceMassDrift`などのdiagnosticを区間へ足さない。少なくとも一つのcomponentが専用Damage certificateを持ち、全componentに有限区間がある場合だけaggregate `damageExpectationCertificate`を発行する。全componentがgeneric exactだけなら従来のgeneric exactを使い、一つでもlower-boundしかない場合は専用Total certificateを作らずgeneric fallbackへ戻す。0 componentはexact 0、1 componentはその区間をそのまま伝播する。
+
+`getTotalDamageStatistics()`は有効なaggregate certificateを最優先し、なければ従来のgeneric処理を使う。これにより、通常攻撃とaction側《妖精の手》を含む複数comboでも、componentのsemantic boundsを足した区間としてTotal期待値を表示できる。詳細なvalidator、snapshot、fail-closed条件は[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)に記録する。
+
+対決成功率は、action/reactionの明示bucketを$A_0,R_0$、tailを$A_T,R_T$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示bucket同士の$P_{00}=P(A_0>R_0)$は既存の昇順2ポインタ走査で$O(a+r)$に計算し、排他的な4組を分けて$S_{lower}=P_{00}+a_-P(R_0<L_A)$、$S_{upper}=P_{00}+a_+P(R_0)+r_+P(A_0>L_R)+a_+r_+$とする。最終区間はsemantic boundsだけから作り、固定の`DISTRIBUTION_RESULT_TOLERANCE`を再加算しない。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
 
 `errorBound`は従来契約どおり補助的な診断metadataであり、tail probabilityへ加算しない。exact overflowの正の`probability`はactual mass、upper-bound overflowの`probabilityUpperBound`はすでに安全側へ広げた上限として扱う。stored massが0でも`errorBound>0`ならpotential tailなので、独立したRangePlannerのtail boundがある場合だけ`[0,bound]`を採用し、証明がなければ成功率を安全な`0..100`へ戻す。これにより既定の両側`dice=1`、`critical=10`、`skill=0`では内部boundを保持したまま期待値`6.0`、action成功率`45.5%`、reaction成功率`54.5%`を従来形式で表示できる。
 
