@@ -98,6 +98,12 @@ export function fftOperationCount(length) {
   return 3 * length * Math.log2(length)
 }
 
+// Keep the default FFT throughput and hard time budget in the shared
+// planning layer so operation-specific planners do not duplicate production
+// cost-policy constants.
+export const DEFAULT_FFT_OPERATIONS_PER_MS = 8_000_000
+export const DEFAULT_HARD_ESTIMATED_TIME_MS = 200
+
 // Runtime damage-roll cost grows approximately with log(1 + kazanari). Keep
 // the measured coefficient in one place so every operation planner uses the
 // same estimate.

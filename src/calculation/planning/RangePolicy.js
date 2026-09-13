@@ -6,6 +6,8 @@ import {
   object,
   positiveNumber,
   probability,
+  DEFAULT_FFT_OPERATIONS_PER_MS,
+  DEFAULT_HARD_ESTIMATED_TIME_MS,
 } from './PlanningMath'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
@@ -43,7 +45,7 @@ export const DEFAULT_POLICY = {
       fftLength: 16384,
     },
     hard: {
-      estimatedTimeMs: 200,
+      estimatedTimeMs: DEFAULT_HARD_ESTIMATED_TIME_MS,
       estimatedMemoryBytes: 64 * 1024 * 1024,
       workingLength: 16384,
       fftLength: 32768,
@@ -53,7 +55,7 @@ export const DEFAULT_POLICY = {
   // has been calibrated with production measurements.
   costModel: {
     dxOperationsPerMs: 1_000_000,
-    fftOperationsPerMs: 8_000_000,
+    fftOperationsPerMs: DEFAULT_FFT_OPERATIONS_PER_MS,
     damageOperationsPerMs: 250_000,
     backtrackOperationsPerMs: 1_000_000,
   },
