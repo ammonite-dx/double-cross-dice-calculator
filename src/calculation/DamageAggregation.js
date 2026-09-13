@@ -5,8 +5,13 @@ import {
 import {
   createDistributionResult,
   DISTRIBUTION_RESULT_TOLERANCE,
+  getCertifiedExpectedValue,
   validateDistributionResult,
 } from './DistributionResult'
+import {
+  DAMAGE_EXPECTATION_CERTIFICATE_VERSION,
+  getFiniteDamageExpectationInterval,
+} from './DamageExpectationCertificate'
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const FLOAT64_BYTES = Float64Array.BYTES_PER_ELEMENT
@@ -469,6 +474,10 @@ function inspectEnvelope(envelope, index, signal) {
     index
   )
   const explicitMass = sumValues(result.values, signal)
+  const expectedValueInterval = getFiniteDamageExpectationInterval(
+    { result, metadata },
+    getCertifiedExpectedValue
+  )
 
   // A supplied modeledSupport is metadata, not a second source of truth. It
   // is nevertheless validated when present so malformed component metadata
@@ -487,6 +496,7 @@ function inspectEnvelope(envelope, index, signal) {
     overflow: result.overflow,
     sourceSupport,
     projectionUncertainty,
+    expectedValueInterval,
   }
 }
 
@@ -1066,6 +1076,54 @@ function createComponentDescriptor(component) {
   })
 }
 
+function createAggregateDamageExpectationCertificate(inspected) {
+  if (inspected.length === 0) {
+    return null
+  }
+
+  let lowerBound = 0
+  let upperBound = 0
+  let lowerCompensation = 0
+  let upperCompensation = 0
+  let hasDedicatedCertificate = false
+  for (const component of inspected) {
+    const interval = component.expectedValueInterval
+    if (interval === null) {
+      return null
+    }
+    const lowerCorrected = interval.lowerBound - lowerCompensation
+    const lowerNext = lowerBound + lowerCorrected
+    lowerCompensation = (lowerNext - lowerBound) - lowerCorrected
+    lowerBound = lowerNext
+    const upperCorrected = interval.upperBound - upperCompensation
+    const upperNext = upperBound + upperCorrected
+    upperCompensation = (upperNext - upperBound) - upperCorrected
+    upperBound = upperNext
+    if (
+      !Number.isFinite(lowerBound)
+      || !Number.isFinite(upperBound)
+    ) {
+      return null
+    }
+    hasDedicatedCertificate ||= interval.source === 'damage-certificate'
+  }
+
+  if (
+    !hasDedicatedCertificate
+    || lowerBound > upperBound
+    || lowerBound < 0
+  ) {
+    return null
+  }
+
+  return Object.freeze({
+    version: DAMAGE_EXPECTATION_CERTIFICATE_VERSION,
+    kind: 'damage-expectation-certificate',
+    lowerBound,
+    upperBound,
+  })
+}
+
 function overflowsEqual(left, right) {
   if (left === null || right === null) {
     return left === right
@@ -1181,6 +1239,8 @@ function createMetadata(inspected, plan, diagnostics) {
   const projectionUncertainty = createAggregateProjectionUncertainty(
     inspected
   )
+  const damageExpectationCertificate =
+    createAggregateDamageExpectationCertificate(inspected)
   return Object.freeze({
     modeledDistribution: true,
     aggregation: 'independent-sum',
@@ -1199,6 +1259,7 @@ function createMetadata(inspected, plan, diagnostics) {
     sourceErrorBound: plan.sourceErrorBound,
     fftMassDrift: diagnostics.fftMassDrift,
     sourceMassDrift: diagnostics.sourceMassDrift,
+    damageExpectationCertificate,
     ...(projectionUncertainty === null ? {} : { projectionUncertainty }),
   })
 }

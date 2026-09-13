@@ -3,6 +3,9 @@ import {
   createExactCertifiedValue,
   createLowerBoundCertifiedValue,
 } from '../domain/CertifiedValue'
+import {
+  getCertifiedDamageExpectation,
+} from './DamageExpectationCertificate'
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const FLOAT64_BYTES = Float64Array.BYTES_PER_ELEMENT
@@ -685,6 +688,16 @@ function validateTotalDamageEnvelope(totalDamage) {
 export function getTotalDamageStatistics(totalDamage) {
   const inspected = validateTotalDamageEnvelope(totalDamage)
   const { result, metadata } = totalDamage
+
+  const dedicatedExpectedValue = getCertifiedDamageExpectation(
+    metadata.damageExpectationCertificate
+  )
+  if (dedicatedExpectedValue !== null) {
+    return Object.freeze({
+      expectedValue: dedicatedExpectedValue,
+      mass: getProbabilityMassSummary(result),
+    })
+  }
 
   if (inspected.overflow?.kind !== 'upper-bound') {
     return Object.freeze({

@@ -9,17 +9,19 @@ import {
   RUNTIME_DAMAGE_MIN_FFT_SIZE,
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
 } from './RuntimeDamageRollLimits'
-import { createBoundedCertifiedValue } from '../domain/CertifiedValue'
 import {
   createDistributionResult,
   getCertifiedExpectedValue,
   getProbabilityMassSummary,
   validateDistributionResult,
 } from './DistributionResult'
+import {
+  DAMAGE_EXPECTATION_CERTIFICATE_VERSION,
+  getCertifiedDamageExpectation,
+} from './DamageExpectationCertificate'
 
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
-const DAMAGE_EXPECTATION_CERTIFICATE_VERSION = 1
 
 function getRuntimeD10Distribution(dice, size, runtimeOptions = {}) {
   return calculateD10Distribution(dice, {
@@ -1067,33 +1069,6 @@ function isDamageEnvelope(value) {
       'modeledDistribution'
     )
     && value.metadata.modeledDistribution === true
-}
-
-function getCertifiedDamageExpectation(certificate) {
-  if (
-    certificate === null
-    || typeof certificate !== 'object'
-    || certificate.version !== DAMAGE_EXPECTATION_CERTIFICATE_VERSION
-    || certificate.kind !== 'damage-expectation-certificate'
-    || !Number.isFinite(certificate.lowerBound)
-    || !Number.isFinite(certificate.upperBound)
-    || certificate.lowerBound < 0
-    || certificate.upperBound < certificate.lowerBound
-  ) {
-    return null
-  }
-
-  try {
-    return createBoundedCertifiedValue(
-      certificate.lowerBound,
-      certificate.upperBound
-    )
-  } catch {
-    // Metadata is an optional producer contract. Malformed or stale
-    // certificates must never prevent the generic result summary from being
-    // used.
-    return null
-  }
 }
 
 /**
