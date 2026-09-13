@@ -52,7 +52,7 @@ R15完了後の実装順序は、二つの独立レビューを統合して次�
 10. 完了（R23-C1B Score tail first moment／Damage expected-value certificate、2026-09-13）: `6d099eb`でScoreの`scoreTailMomentCertificate`を追加し、通常DXの尾部first moment、正負の技能値、《絶対支配》の保守的上界、finite supportをmetadataへ記録した。`f054ef1`で`full-tail` Damageの`damageExpectationCertificate`を追加し、action／reaction tailの寄与、tail同士の非二重計上、実際のDamage overflow時のfail-closed、専用証明書から`getDamageStatistics`へのbounded値接続を実装した。`c9935e3`で公開版相当のbounded値を既存の共有formatterで3.1へ表示する回帰を追加した。専用テストを含むVitest 101 files／1027 tests、generator 18件、simulation 13件、typecheck、ESLint、Ruff、Markdown lint、runtime DX 20,000件、build、production smoke、`git diff --check`をGREENで確認した。action側《妖精の手》のfirst-moment証明、Total Damage伝播、generic API・formatter・resource policy変更は対象外として残した。これは当時の記録であり、後続C3Bで数値marginをcertificateから除去し、C3CでTotal Damageへ区間を伝播した。詳細は[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)と[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
 11. 完了（R23-C3A 《妖精の手》Score tail first moment、2026-09-13）: `417bd17`で`DxTailModel`に負の二項tailの幾何残差を含むYousei residual first-moment上界を追加し、`1cc1db1`で`ScoreCalculator`を`exact-yousei`へ接続した。`shihai=0`、`yousei>0`、`critical<=10`のaction／reaction Scoreが`dx-yousei-tail`証明書を持ち、既存Damage期待値certificateへ伝播する。`critical=10/8/5`、正負の技能値、1個のダイスの独立oracle、reaction側momentを使わないDamage、`Number.MAX_SAFE_INTEGER`級diceのstressをテストし、UI、whole-Score expectation、Total Damage、resource policy、planner cutoff、既存Yousei分布生成は変更していない。詳細は[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)、[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)、[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
 12. 完了（R23-C3B/C3C semantic uncertainty and Total Damage propagation、2026-09-13）: `1e39b68`でScore、成功率、Damageのcertificateから数値marginを除き、検証済みFloat64結果をcanonical数値として扱うsemantic-only契約へ整理した。`b8ee50c`でDamage certificate validatorとcomponent区間snapshotを共通化し、`7387bd1`でbounded／exact／lower-boundの組合せ、mutation safety、通常攻撃とaction側《妖精の手》のTotal end-to-end、2コンボ・4コンボ監査を追加した。Totalの上下界はcomponent区間の補償和だけで作り、FFT・集約の診断値は区間へ伝播しない。`DamageExpectationCertificate.js`の専用証明書は全componentに有限区間があり、少なくとも一つの専用Damage certificateがある場合だけ発行し、lower-boundしかない場合はgeneric fallbackへ戻す。詳細は[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)を参照する。
-13. R24 — Final Release Audit / RC
+13. R24 — Final Release Audit / RC（CLOSED / GREEN）
 
 R21はUI完全凍結で、互換surface、検証資産、historical experiment、reference asset、live documentationを棚卸しする。削除はconsumerと公開互換性を確認した後に限定し、最初にinventory documentを作成する。R22は実測で明確な効果が見込める場合だけ行う任意の数値・性能レビューである。R23でユーザーに見えるUI変更を検討する場合は、直接のproduct-owner reviewを必須とする。R24は最終release auditとrelease candidate判定を扱う。API／MCPは今回の更新範囲外のdeferred goalとして扱う。
 
@@ -62,6 +62,13 @@ R21はUI完全凍結で、互換surface、検証資産、historical experiment�
 - Total Damage aggregationのFFT operation estimateを共通`fftOperationCount()`へ統一し、畳み込み1回をforward 2回＋inverse 1回の3変換として計上する。
 - Total Damage planへ`estimatedTimeMs = operations / 8,000,000`を追加し、既存production policyと同じ200ms hard limitをFFT開始前に適用した。component count、resource、values length、FFT lengthの既存閾値は緩和していない。
 - 多数のcomponentでもestimated workが小さいケースは受理し、estimated CPU workだけが大きいケースは既存のresource-limit経路で拒否することを回帰テストで固定した。Total Damage単体とCalculationClient経路のいずれもlease／FFT実行前に判定する。
+
+### R24-B Final Documentation & Release Closure（完了、2026-09-13）
+
+- 状態: `CLOSED / GREEN`、Release Candidate: `GREEN`、P0 / P1 / P2: `0 / 0 / 0`
+- READMEのDamage期待値参照先をC1B／C3B／C3Cの現行certificate文書へ変更し、R23-C1B以前の調査記録をhistorical investigationとして明示した。R24-A後のPlanningMath、architecture、runtime algorithmの責務とTotal Damage preflight説明も同期した。
+- R23 precision auditは15 fixture（`bounded` 14、`exact` 1、安定丸め14、追加近似候補0）、tail attribution auditは13 fixture（有限上界候補4、certificate不足9）で成功した。`npm run verify:release`はNode 22.23.2、32 asset、Vitest 102 files / 1054 tests、generator 18、simulation 13、typecheck、Ruff、ESLint、Markdown lint 61 files / 0 issues、runtime DX 20,000、build 424 modules、production browser smoke、`git diff --check`をGREENで確認した。最終HEAD full SHAはこのclosure commitの実装報告に記録する。
+- 詳細な監査観点、R24-Aで閉じた項目、RC blockers、deferred事項、historical分類は[`r24-final-release-audit.md`](./r24-final-release-audit.md)に記録する。低速実機の追加測定、入力上限の拡張、追加Worker化、HTTP API、MCPは今回のrelease scope外としてdeferredに残す。
 
 ### R7 closure follow-up（2026-09-03）
 
