@@ -56,6 +56,13 @@ R15完了後の実装順序は、二つの独立レビューを統合して次�
 
 R21はUI完全凍結で、互換surface、検証資産、historical experiment、reference asset、live documentationを棚卸しする。削除はconsumerと公開互換性を確認した後に限定し、最初にinventory documentを作成する。R22は実測で明確な効果が見込める場合だけ行う任意の数値・性能レビューである。R23でユーザーに見えるUI変更を検討する場合は、直接のproduct-owner reviewを必須とする。R24は最終release auditとrelease candidate判定を扱う。API／MCPは今回の更新範囲外のdeferred goalとして扱う。
 
+### R24-A Total Damage resource preflight closure（完了、2026-09-13）
+
+- 状態: done（production `d067e2a`、regression tests `d193027`）
+- Total Damage aggregationのFFT operation estimateを共通`fftOperationCount()`へ統一し、畳み込み1回をforward 2回＋inverse 1回の3変換として計上する。
+- Total Damage planへ`estimatedTimeMs = operations / 8,000,000`を追加し、既存production policyと同じ200ms hard limitをFFT開始前に適用した。component count、resource、values length、FFT lengthの既存閾値は緩和していない。
+- 多数のcomponentでもestimated workが小さいケースは受理し、estimated CPU workだけが大きいケースは既存のresource-limit経路で拒否することを回帰テストで固定した。Total Damage単体とCalculationClient経路のいずれもlease／FFT実行前に判定する。
+
 ### R7 closure follow-up（2026-09-03）
 
 `91e30da`を開始点として、R7 acceptance criteriaの残件だったcontroller wiringの直接回帰テスト、Attack固有browser acceptance、closure優先度記録を完了した。`44c1b4f`でreaction snapshot、表示reuse／recalculation／resource rejection、Score-only rejection時のDamage保持、latest-wins、dispose後stale抑止を追加し、テストで判明した凍結display requestの問題を`30febb2`で修正した。`5b4ad75`ではaction／reaction入力とcombo add／rename／duplicate／removeをproduction smokeへ追加した。最終gateはVitest 69 files／857 tests、data 32 assets、generator／simulation、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases、build、production smoke、`git diff --check`がGREENで、P0／P1／P2は0件である。詳細は[`refactoring-attack-feature.md`](./refactoring-attack-feature.md)を参照する。R7は`CLOSED / GREEN`とし、次はR8とする。
@@ -169,32 +176,12 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - 現行の計算結果、ルールテスト、数値誤差、キャンセル動作が維持される
 - APIやMCPを実装しなくても、同じ計算コアへ新しいアダプターを追加できる
 
-## 旧生成元と移行専用テストを整理する
+## 旧生成元と移行専用テストの整理（完了）
 
-- 状態: open（Phase 8-1 inventoryで依存関係と保持・分離・削除を判断済み。Phase 8-2でcleanupを実施する）
-- 優先度: 中
-- 対象:
-  - `src/data/*.json`
-  - `scripts/generate-precomputed-data.mjs`
-  - `tests/legacy/LegacyCalculator.js`
-  - 移行比較専用テスト
-
-### 問題
-
-Python生成器への移行検証のため、旧密JSON、旧JavaScript変換処理、旧計算実装との比較テストを参照用に保持しています。独立した全列挙、全生成範囲の数値監査、乱数シミュレーション、schema-v2/revision-1生成物の検証が揃ったため、公開前に重複する生成元を整理できます。
-
-### 検討事項
-
-- 移行比較テストのうち、独立テストや境界値テストで代替済みの範囲を確認する
-- `reference-data/`に旧revisionを残す期間と削除条件を決める
-- 旧ノートブックをGit管理外の参照資料として残すかを決める
-
-### 完了条件
-
-- Python生成器だけから現行配信アセットを再生成できる
-- 削除する移行テストと同等以上の境界値が独立テストで保護されている
-- `src/data/*.json`と旧JavaScript生成処理が本番、テスト、ドキュメントから参照されない
-- 削除後に生成物検証、全テスト、lint、本番ビルドが成功する
+- 状態: done（Phase 8-2G7〜G10でcleanupを完了）
+- 実施内容: 旧dense JSON、schema-v1 reference、旧JavaScript生成処理、legacy計算実装、移行比較専用テストを現行経路から撤去し、Python生成器、schema-v2/revision-1、独立oracle、simulationへ責務を移した。
+- 履歴: 削除したファイルと移行理由は[`phase8-inventory.md`](./phase8-inventory.md)およびGit履歴に残している。現行のlive TODOとして旧JSONや旧生成処理の削除を要求しない。
+- 完了確認: Python生成器から現行配信アセットを再生成でき、生成物検証、独立境界テスト、全テスト、lint、本番ビルドが成功している。
 
 ## `dx`をブラウザ内でオンデマンド生成する構成を検討する
 
