@@ -112,12 +112,6 @@ function summarizeScoreTail(scoreEnvelope) {
     momentResidualUpperBound: finiteOrNull(
       momentCertificate?.residualUpperBound,
     ),
-    momentTailEvaluationErrorBound: finiteOrNull(
-      momentCertificate?.tailEvaluationErrorBound,
-    ),
-    momentNumericalErrorBound: finiteOrNull(
-      momentCertificate?.numericalErrorBound
-    ),
     momentCertificateStatus: momentCertificate === null
       || typeof momentCertificate !== 'object'
       ? 'unavailable'
@@ -135,7 +129,6 @@ function summarizeDamageExpectationCertificate(damage) {
       width: null,
       actionTailContributionUpperBound: null,
       reactionTailContributionUpperBound: null,
-      numericalErrorBound: null,
     }
   }
   const lowerBound = certificate.lowerBound
@@ -153,7 +146,6 @@ function summarizeDamageExpectationCertificate(damage) {
     reactionTailContributionUpperBound: finiteOrNull(
       certificate.reactionTailContributionUpperBound
     ),
-    numericalErrorBound: finiteOrNull(certificate.numericalErrorBound),
   }
 }
 
@@ -198,9 +190,9 @@ async function auditTotals(client) {
       label: `total damage from ${count} combos`,
       category: `total-${count}`,
       source: 'total',
-      damageExpectationCertificate: {
-        status: 'not-applicable',
-      },
+      damageExpectationCertificate: summarizeDamageExpectationCertificate(
+        total.totalDamage
+      ),
       expectedValue: summarizeExpectedValue(total.totalDamageStatistics.expectedValue),
     })
   }

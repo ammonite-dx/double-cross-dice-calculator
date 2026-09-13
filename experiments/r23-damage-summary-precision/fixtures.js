@@ -200,6 +200,7 @@ export const DAMAGE_PRECISION_FIXTURES = Object.freeze([
 
 export const COMBO_TOTAL_FIXTURE_IDS = Object.freeze([
   'ordinary-attack',
+  'yousei-action',
   'higher-score',
   'kazanari-one',
   'large-accepted',
