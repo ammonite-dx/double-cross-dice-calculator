@@ -127,6 +127,7 @@ function summarizeDamageExpectationCertificate(damage) {
       lowerBound: null,
       upperBound: null,
       width: null,
+      explicitFirstMoment: null,
       actionTailContributionUpperBound: null,
       reactionTailContributionUpperBound: null,
     }
@@ -140,6 +141,7 @@ function summarizeDamageExpectationCertificate(damage) {
     width: Number.isFinite(lowerBound) && Number.isFinite(upperBound)
       ? finiteOrNull(upperBound - lowerBound)
       : null,
+    explicitFirstMoment: finiteOrNull(certificate.explicitFirstMoment),
     actionTailContributionUpperBound: finiteOrNull(
       certificate.actionTailContributionUpperBound
     ),

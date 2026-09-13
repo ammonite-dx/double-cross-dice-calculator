@@ -18,7 +18,7 @@ tail由来の期待値不確かさを調べるには、次を実行する。
 node experiments/r23-damage-summary-precision/tail-attribution.mjs
 ```
 
-こちらは`output/tail-attribution.json`へ、公開版3.1相当のfixtureを含むScore・Damageの明示first moment、support、overflow、tail certificate、Score期待値certificate、Score tail first-moment certificate、Damage expectation certificate、Damageのprojection uncertaintyを保存する。ScoreとDamageのcertificateは未計算tailに由来するsemantic boundsとして記録し、FFTや集約の数値診断は別のmetadataとして扱う。
+こちらは`output/tail-attribution.json`へ、公開版3.1相当のfixtureを含むScore・Damageの明示first moment、support、overflow、tail certificate、Score期待値certificate、Score tail first-moment certificate、Damage expectation certificate、Damageのprojection uncertaintyを保存する。ScoreとDamageのcertificateは未計算tailに由来するsemantic boundsとして記録し、FFTや集約の数値診断は別のmetadataとして扱う。Damage expectation certificateでは`lowerBound`、`upperBound`、`width`、`explicitFirstMoment`、action／reaction tail寄与の上界を記録し、証明書がない結果はこれらを`null`とする。
 
 ## 記録する値
 

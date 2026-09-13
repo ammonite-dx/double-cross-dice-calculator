@@ -86,7 +86,7 @@ $t<0$の場合は$T\geq0$を使い、$U_T(t)\leq\overline M+\mu_y-(t+1)$とす�
 
 証明書の`residualUpperBound`には前節の$E[(X-(W+1))_+]$上界を入れ、`boundaryContributionUpperBound`には$(W+1)p$、`skillContributionUpperBound`には$\max(skill,0)p$を入れる。負の技能値はtail上界を減らす項として扱わないため、正負どちらの技能値でも安全側の不等式が保たれる。
 
-`model`は`dx-yousei-tail`とするが、Damage側consumerはモデル名で分岐せず、`massUpperBound`、`firstMomentUpperBound`、`boundaryContributionUpperBound`、`residualUpperBound`、`skillContributionUpperBound`というsemantic fieldを検証する。C3B後は`tailEvaluationErrorBound`や`numericalErrorBound`を証明書へ記録しない。Youseiのtail評価に必要な丸め保護はhelper内部で維持し、その結果をproducer-owned safe upper boundとして扱う。
+`model`は`dx-yousei-tail`とするが、Damage側consumerはモデル名で分岐しない。安全性判断に使う主なsemantic fieldは`massUpperBound`と`firstMomentUpperBound`であり、`boundaryContributionUpperBound`、`residualUpperBound`、`skillContributionUpperBound`はproducerが上界の内訳を追跡するためのattribution／diagnosticsである。C3B後は`tailEvaluationErrorBound`や`numericalErrorBound`を証明書へ記録しない。Youseiのtail評価に必要な丸め保護はhelper内部で維持し、その結果をproducer-owned safe upper boundとして扱う。
 
 ## 5. 検証
 
