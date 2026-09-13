@@ -11,9 +11,14 @@ import {
   getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
 import {
+  DAMAGE_AGGREGATION_ERROR_CODES,
   planDamageAggregation,
   sumDamage,
 } from '../src/calculation/DamageAggregation'
+import {
+  DEFAULT_FFT_OPERATIONS_PER_MS,
+  DEFAULT_HARD_ESTIMATED_TIME_MS,
+} from '../src/calculation/planning/PlanningMath'
 
 function createEnvelope(values, options = {}) {
   return {
@@ -96,6 +101,41 @@ describe('CalculationClient canonical total damage', () => {
       signal: undefined,
       requestId: 'canonical-total-1',
       operation: 'total-damage',
+    })
+  })
+
+  it('rejects CPU-heavy total damage before lease admission or FFT execution', async () => {
+    const damages = Array.from({ length: 4096 }, () => createEnvelope([
+      0.2,
+      0.2,
+      0.2,
+      0.2,
+      0.2,
+    ]))
+    const sumDamage = vi.fn()
+    const onFftLength = vi.fn()
+    const resourceGuard = createResourceGuard()
+    const client = createCalculationClient(createDependencies({
+      resourceGuard,
+      sumDamage,
+    }))
+
+    await expect(client.calculateTotalDamage(damages, {
+      onFftLength,
+    })).rejects.toMatchObject({
+      name: 'DamageAggregationError',
+      code: DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT,
+      details: {
+        limit: DEFAULT_HARD_ESTIMATED_TIME_MS,
+        throughput: DEFAULT_FFT_OPERATIONS_PER_MS,
+      },
+    })
+    expect(sumDamage).not.toHaveBeenCalled()
+    expect(onFftLength).not.toHaveBeenCalled()
+    expect(resourceGuard.snapshot()).toMatchObject({
+      activeCount: 0,
+      queuedCount: 0,
+      reservedBytes: 0,
     })
   })
 

@@ -4,10 +4,16 @@ import {
   DAMAGE_AGGREGATION_ERROR_CODES,
   DAMAGE_AGGREGATION_MAX_COMPONENTS,
   DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
+  DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES,
   DamageAggregationError,
   planDamageAggregation,
   sumDamage,
 } from '../src/calculation/DamageAggregation'
+import {
+  DEFAULT_FFT_OPERATIONS_PER_MS,
+  DEFAULT_HARD_ESTIMATED_TIME_MS,
+  fftOperationCount,
+} from '../src/calculation/planning/PlanningMath'
 import {
   createDistributionResult,
   DISTRIBUTION_RESULT_TOLERANCE,
@@ -512,6 +518,68 @@ describe('canonical damage aggregation', () => {
       expect.closeTo(0.5, 12),
       expect.closeTo(0.375, 12),
     ])
+  })
+
+  it('uses the shared three-transform FFT cost and publishes a time estimate', () => {
+    const plan = planDamageAggregation([
+      createEnvelope({ values: [0.5, 0.5] }),
+      createEnvelope({ values: [0.25, 0.75] }),
+    ])
+    const expectedOperations = fftOperationCount(plan.steps[0].fftLength)
+
+    expect(plan.estimates.operations).toBe(expectedOperations)
+    expect(plan.estimates.timeMs).toBeGreaterThan(0)
+    expect(plan.estimates.timeMs).toBeCloseTo(
+      expectedOperations / DEFAULT_FFT_OPERATIONS_PER_MS,
+      12
+    )
+  })
+
+  it('rejects CPU-heavy but memory-light aggregation during planning', () => {
+    const damages = Array.from({ length: DAMAGE_AGGREGATION_MAX_COMPONENTS }, () =>
+      createEnvelope({
+        values: [0.2, 0.2, 0.2, 0.2, 0.2],
+        support: { kind: 'finite', max: 4 },
+        sourceSupport: { kind: 'finite', max: 4 },
+      })
+    )
+
+    const error = expectAggregationError(
+      () => planDamageAggregation(damages),
+      DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
+    )
+
+    expect(error.details).toMatchObject({
+      limit: DEFAULT_HARD_ESTIMATED_TIME_MS,
+      throughput: DEFAULT_FFT_OPERATIONS_PER_MS,
+    })
+    expect(error.details.timeMs).toBeGreaterThan(
+      DEFAULT_HARD_ESTIMATED_TIME_MS
+    )
+    expect(error.details.operations).toBeGreaterThan(0)
+    // The case remains below the independent memory, length, FFT, and
+    // component ceilings; rejection is solely the estimated CPU time.
+    expect(error.details).not.toHaveProperty('resourceBytes')
+  })
+
+  it('accepts many components when estimated work stays below the time limit', () => {
+    const damages = Array.from({ length: DAMAGE_AGGREGATION_MAX_COMPONENTS }, () =>
+      createEnvelope({
+        values: [0.5, 0.5],
+        support: { kind: 'finite', max: 1 },
+        sourceSupport: { kind: 'finite', max: 1 },
+      })
+    )
+    const plan = planDamageAggregation(damages)
+
+    expect(plan.componentCount).toBe(DAMAGE_AGGREGATION_MAX_COMPONENTS)
+    expect(plan.estimates.timeMs).toBeGreaterThan(0)
+    expect(plan.estimates.timeMs).toBeLessThan(
+      DEFAULT_HARD_ESTIMATED_TIME_MS
+    )
+    expect(plan.estimates.float64Bytes).toBeLessThan(
+      DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES
+    )
   })
 
   it('keeps planned coefficients private from later caller mutation', () => {
