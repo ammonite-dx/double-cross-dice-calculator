@@ -15,9 +15,10 @@
 - `src/calculation/planning/ScoreRangePlanner.js`: Scoreのworking range、DX tail、Yousei FFT、配列見積りを計画する
 - `src/calculation/planning/DamageRangePlanner.js`: 攻撃・防御の差分、DR support、D10防御、畳み込み範囲を計画する
 - `src/calculation/planning/BacktrackRangePlanner.js`: バックトラックの有限support、asset coverage、on-demand生成資源を計画する
-- `src/calculation/planning/PlanningMath.js`: safe integer算術、FFT長、共通の計画コスト係数を提供する
+- `src/calculation/DamageAggregation.js`: Total Damageのcomponent畳み込み、集計範囲、FFT・メモリ・時間の事前計画を提供する
+- `src/calculation/planning/PlanningMath.js`: safe integer算術、FFT長、共有する計画コスト定数を提供する
 - `src/calculation/planning/RangePolicy.js`: `DEFAULT_POLICY`、policy検証、表示windowの正規化を提供する
-- `src/calculation/planning/ResourcePlan.js`: 操作別の資源見積りとwarning／reject判定を提供する
+- `src/calculation/planning/ResourcePlan.js`: Check・Attack・Backtrackの操作別資源見積りとwarning／reject判定を提供する
 - `src/calculation/RuntimeDamageRollCalculator.js`: `kazanari`を含むDRのruntime生成とFFT境界
 - `src/core/probability/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
 - `src/core/probability/FFT.js`: 独立な確率分布の加算・減算
@@ -30,7 +31,7 @@
 
 Vueコンポーネントは入力状態と表示を管理し、`CalculationClient`だけを介して確率計算を利用します。`src/calculation/`の計算コアはVue、DOM、`fetch`、静的アセットの配置に依存せず、必要な分布は引数で渡される関数から取得します。
 
-R12では、`RangePlanner.js`を後方互換の調整役として残し、操作別の計画式を`planning/`へ分離しました。`ScoreRangePlanner`と`DxCalculator`は`DxTailModel`へ依存し、`ScoreCalculator`はplannerを参照しません。`DamageRangePlanner`と`BacktrackRangePlanner`はそれぞれの計算ドメインと`PlanningMath`だけを参照し、`ResourcePlan`が全操作の見積りと制限判定を担当します。この依存方向により、tail計算や個別操作の式をUI・runtime・他の操作plannerから独立して検証できます。
+R12では、`RangePlanner.js`を後方互換の調整役として残し、操作別の計画式を`planning/`へ分離しました。`ScoreRangePlanner`と`DxCalculator`は`DxTailModel`へ依存し、`ScoreCalculator`はplannerを参照しません。`DamageRangePlanner`と`BacktrackRangePlanner`はそれぞれの計算ドメインと`PlanningMath`だけを参照し、`ResourcePlan`はCheck・Attack・Backtrackの見積りと制限判定を担当します。Total Damageは`DamageAggregation`が独自のaggregation planを作り、component・values・FFT・メモリ・時間を計画します。このplanは共有`fftOperationCount()`とFFT throughputから推定時間を求め、200 ms hard limitをFFT開始前かつResourceGuardのlease取得前に適用します。ResourceGuardはメモリ予約を担当し、Attack batchのTotalも同じaggregation planを通ります。この依存方向により、tail計算や個別操作の式をUI・runtime・他の操作plannerから独立して検証できます。
 
 Phase 8の棚卸しでは、ファイル単位で削除を判断せず、旧`src/data`にあったmixed-use moduleをexport/symbol単位で分類します。R8でproduction probability symbolは`src/core/probability/`へ、paletteは`src/shared/theme/`へ、reference supportは`tooling/reference-data/`へ移し、`src/data`を廃止しました。published-bucket adapter、Distribution/FFTのproduction symbol、互換に必要なsymbolは保持しています。
 

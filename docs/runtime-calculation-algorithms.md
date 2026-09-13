@@ -205,6 +205,14 @@ action tailの寄与は`Delta_A = M_A + C p_A`です。reaction tailは`p_R = 0`
 
 Total Damageの期待値は分布のFFT結果から再計算せず、各componentの有限な期待値区間をinspection時にsnapshotして加算します。専用Damage certificateが少なくとも一つあり、全componentに有限区間がある場合だけaggregate certificateを生成し、lower-boundしかないcomponentがあれば従来のgeneric fallbackへ戻します。FFTのmass driftやaggregationの診断値はこの区間へ足しません。実装の詳細はPhase 5-Bと[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)を参照してください。
 
+### 5.1 Total Damageのresource preflight
+
+Total Damageは、FFTを開始する前に専用のaggregation planを作ります。処理順序は、component snapshot、aggregation plan、FFT work・メモリ・出力長の見積り、推定時間のhard-limit判定、ResourceGuardのlease取得、畳み込み、summary・certificateの生成です。
+
+畳み込み1回のFFT workは、forward FFT 2回とinverse FFT 1回、すなわち共有`fftOperationCount()`による3変換分として数えます。production defaultはFFT throughputを8,000,000 operations/ms、hard estimated timeを200 msとし、推定時間を超えるTotalはlease取得とFFT実行の前に`resource-limit`で拒否します。component数だけでは拒否せず、既存のcomponent上限内で実際のestimated workに基づいて判定します。
+
+ResourceGuardは計画済みメモリの予約とactive／queued requestの管理を担当します。時間上限の判定はaggregation planningで完了しているため、Attack batchのTotalも同じaggregation planを通過してからleaseを取得します。64 MiB capacity、1.5倍のreservation、maxActiveなど既存のResourceGuard契約は変更しません。
+
 ## 6. バックトラック
 
 実装は`src/calculation/BacktrackCalculator.js`の`calculateFinalEncroachmentCanonical`です。
@@ -384,7 +392,7 @@ Phase 7のAttack実装単位では、`Attack.vue`の初期計算、validated inp
 
 Phase 2-G adds a shared FIFO resource guard in `src/application/ResourceGuard.js` and injects the singleton through the application `CalculationClient` dependency factory. Canonical `check`, `attack`, `backtrack`, and total-damage aggregation run their range/aggregation preflight first, then reserve before asset loading or calculation, and release the lease from one `finally` path. A preflight hard reject therefore does not reserve anything.
 
-The initial policy is a 64 MiB reservation capacity, at most 4 active requests, and at most 32 queued requests. Admission uses only `plan.estimates.float64Bytes`; the reservation is `ceil(float64Bytes * 1.5)`. `operations` and `timeMs` remain lease diagnostics and are not admission thresholds. Requests whose reservation exceeds capacity and requests arriving after the queue limit are typed `ResourceGuardError` rejections. Queued aborts remove the request and reject with an `AbortError`-named guard error, while an active abort leaves the reservation until the caller settles and releases its lease. Lease release is idempotent.
+The initial policy is a 64 MiB reservation capacity, at most 4 active requests, and at most 32 queued requests. ResourceGuard admission uses only `plan.estimates.float64Bytes`; the reservation is `ceil(float64Bytes * 1.5)`. `operations` and `timeMs` are lease diagnostics rather than ResourceGuard admission thresholds, while the Total Damage aggregation planner separately applies its 200 ms time hard limit before requesting a lease. Requests whose reservation exceeds capacity and requests arriving after the queue limit are typed `ResourceGuardError` rejections. Queued aborts remove the request and reject with an `AbortError`-named guard error, while an active abort leaves the reservation until the caller settles and releases its lease. Lease release is idempotent.
 
 Canonical attack total-damage aggregation uses `calculateCanonicalTotalDamage` and the same plan-lease boundary as the canonical batch. It does not add a second reservation to `RuntimeDamageRollClient`, does not retain calculation arrays in the guard, and preserves the canonical total envelope/summary contract. The published 1024 bucket, input limits, `RangePlanner` hard policy, core absolute safety limit, JSON paths, and dynamic output contract remain unchanged.
 

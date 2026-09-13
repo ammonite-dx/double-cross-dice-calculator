@@ -4,10 +4,11 @@ import {
 } from '../../domain/InputDomain'
 
 /**
- * Shared arithmetic and validation helpers for calculation-range planning.
+ * Shared arithmetic, FFT cost estimates, and production cost-policy constants
+ * for calculation-range planning.
  *
- * These helpers deliberately contain no operation-specific formulas or
- * resource policy. Keeping overflow checks here gives each planner the same
+ * These helpers deliberately contain no operation-specific formulas. Keeping
+ * overflow checks and shared cost assumptions here gives each planner the same
  * safe-integer behavior without making the RangePlanner façade a dependency.
  */
 
