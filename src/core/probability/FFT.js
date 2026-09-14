@@ -42,6 +42,32 @@ function throwIfAborted(signal) {
   }
 }
 
+// FFT round-off can leave a tiny negative coefficient even when both input
+// distributions are non-negative.  Treat only that bounded numerical noise
+// as cleanup; a larger negative is a failed calculation and must not be
+// silently converted into probability mass.
+export const FFT_COEFFICIENT_CLEANUP_TOLERANCE = 1e-12
+
+export function sanitizeFftCoefficients(values) {
+  for (let index = 0; index < values.length; index += 1) {
+    const coefficient = values[index]
+    if (!Number.isFinite(coefficient)) {
+      throw new RangeError(
+        `FFT convolution produced a non-finite coefficient at index ${index}`
+      )
+    }
+    if (coefficient < -FFT_COEFFICIENT_CLEANUP_TOLERANCE) {
+      throw new RangeError(
+        `FFT convolution produced a materially negative coefficient at index ${index}`
+      )
+    }
+    if (coefficient < 0) {
+      values[index] = 0
+    }
+  }
+  return values
+}
+
 function transform(real, imaginary, inverse = false, signal) {
   const size = real.length
   throwIfAborted(signal)
@@ -161,7 +187,7 @@ export function convolveDistributions(distribution1, distribution2, options = {}
 
   transform(firstReal, firstImaginary, true, normalizedOptions.signal)
   throwIfAborted(normalizedOptions.signal)
-  return firstReal.slice(0, resultLength)
+  return sanitizeFftCoefficients(firstReal.slice(0, resultLength))
 }
 
 export function sumDistribution(distribution1, distribution2, options = {}) {
@@ -178,10 +204,10 @@ export function sumDistribution(distribution1, distribution2, options = {}) {
   const result = Array(size).fill(0)
 
   for (let value = 0; value < size - 1; value += 1) {
-    result[value] = Math.max(0, convolved[value])
+    result[value] = convolved[value]
   }
   for (let value = size - 1; value < convolved.length; value += 1) {
-    result[size - 1] += Math.max(0, convolved[value])
+    result[size - 1] += convolved[value]
   }
 
   return result
@@ -203,13 +229,10 @@ export function subDistribution(distribution1, distribution2, options = {}) {
   const result = Array(size).fill(0)
 
   for (let index = 0; index < distribution2.length; index += 1) {
-    result[0] += Math.max(0, convolved[index])
+    result[0] += convolved[index]
   }
   for (let value = 1; value < size; value += 1) {
-    result[value] = Math.max(
-      0,
-      convolved[distribution2.length - 1 + value],
-    )
+    result[value] = convolved[distribution2.length - 1 + value]
   }
 
   return result

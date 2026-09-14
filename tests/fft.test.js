@@ -75,7 +75,7 @@ describe('FFT distribution operations', () => {
     })).toThrow('fftLength')
   })
 
-  it('subtracts unequal-length distributions and clamps negative values', () => {
+  it('subtracts unequal-length distributions and cleans tiny negative noise', () => {
     const first = pointMass(5, 4)
     const second = pointMass(3, 2)
 
@@ -88,6 +88,14 @@ describe('FFT distribution operations', () => {
     expect(clamped.slice(1).every((value) => Math.abs(value) < 1e-12)).toBe(
       true
     )
+  })
+
+  it('cleans a tiny negative FFT coefficient without hiding a material one', () => {
+    expect(sumDistribution([-1e-15, 0], [1, 0])[0]).toBe(0)
+    expect(() => sumDistribution([-1e-6, 0], [1, 0]))
+      .toThrow('materially negative')
+    expect(() => subDistribution([-1e-6, 0], [1]))
+      .toThrow('materially negative')
   })
 
   it('uses the exact explicit FFT length for unequal subtraction', () => {
