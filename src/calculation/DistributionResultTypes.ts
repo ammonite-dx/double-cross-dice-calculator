@@ -58,17 +58,33 @@ export interface ScoreExpectationCertificate {
   readonly residualUpperBound: number
 }
 
-export interface ScoreTailMomentCertificate {
+interface ScoreTailMomentCertificateBase {
   readonly version: number
   readonly kind: 'score-tail-moment-certificate'
-  readonly model: string
   readonly modeledMax: number
   readonly massUpperBound: number
   readonly firstMomentUpperBound: number
+}
+
+export interface FiniteSupportScoreTailMomentCertificate
+  extends ScoreTailMomentCertificateBase {
+  readonly model: 'finite-support'
+}
+
+export interface AnalyticScoreTailMomentCertificate
+  extends ScoreTailMomentCertificateBase {
+  readonly model:
+    | 'dx-max-tail'
+    | 'dx-max-domination'
+    | 'dx-yousei-tail'
   readonly boundaryContributionUpperBound: number
   readonly residualUpperBound: number
   readonly skillContributionUpperBound: number
 }
+
+export type ScoreTailMomentCertificate =
+  | FiniteSupportScoreTailMomentCertificate
+  | AnalyticScoreTailMomentCertificate
 
 export interface ScoreMetadata extends ModeledDistributionMetadata {
   readonly forcedFailureProbability: number
