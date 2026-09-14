@@ -53,7 +53,104 @@ function expectDistributionsClose(actual, expected, tolerance) {
   expect(maxDifference).toBeLessThanOrEqual(tolerance)
 }
 
+function directKazanariDistribution(dice, kazanari) {
+  const distribution = new Float64Array(10 * dice + 1)
+  if (dice === 0) {
+    distribution[0] = 1
+    return distribution
+  }
+
+  const firstRoll = new Array(dice).fill(1)
+  const visitRerolls = (rerollIndices, rerollIndex) => {
+    if (rerollIndex === rerollIndices.length) {
+      const total = firstRoll.reduce((sum, value) => sum + value, 0)
+      distribution[total] += 10 ** -(dice + rerollIndices.length)
+      return
+    }
+
+    const dieIndex = rerollIndices[rerollIndex]
+    const original = firstRoll[dieIndex]
+    for (let face = 1; face <= 10; face += 1) {
+      firstRoll[dieIndex] = face
+      visitRerolls(rerollIndices, rerollIndex + 1)
+    }
+    firstRoll[dieIndex] = original
+  }
+
+  const visitFirstRoll = (index) => {
+    if (index === dice) {
+      const rerollIndices = firstRoll
+        .map((face, dieIndex) => ({ face, dieIndex }))
+        .filter(({ face }) => face <= 5)
+        .sort((left, right) => left.face - right.face)
+        .slice(0, kazanari)
+        .map(({ dieIndex }) => dieIndex)
+      visitRerolls(rerollIndices, 0)
+      return
+    }
+
+    for (let face = 1; face <= 10; face += 1) {
+      firstRoll[index] = face
+      visitFirstRoll(index + 1)
+    }
+  }
+
+  visitFirstRoll(0)
+  return distribution
+}
+
+function directMixedDamageOracle(weights, kazanari) {
+  const distribution = new Float64Array(10 * (weights.length - 1) + 1)
+  for (let dice = 0; dice < weights.length; dice += 1) {
+    const weight = weights[dice]
+    if (weight === 0) {
+      continue
+    }
+    const single = directKazanariDistribution(dice, kazanari)
+    for (let value = 0; value < single.length; value += 1) {
+      distribution[value] += weight * single[value]
+    }
+  }
+  return distribution
+}
+
 describe('production runtime damage roll calculator', () => {
+  it.each([
+    ['one die', [0, 1], 0],
+    ['two dice', [0, 0, 1], 0],
+    ['mixture of zero, one, and two dice', [0.2, 0.3, 0.5], 0],
+    ['one die with one reroll', [0, 1], 1],
+    ['two dice with one reroll', [0, 0, 1], 1],
+    ['two dice with two rerolls', [0, 0, 1], 2],
+    ['three dice with two rerolls', [0, 0, 0, 1], 2],
+  ])(
+    'matches the direct rule oracle for %s',
+    (_label, weights, kazanari) => {
+      const actual = generateMixedDamageDistribution(
+        weights,
+        kazanari,
+        { fftLength: 64, distributionLength: 10 * (weights.length - 1) + 1 }
+      )
+      const expected = directMixedDamageOracle(weights, kazanari)
+
+      expectDistributionsClose(actual, expected, NUMERICAL_TOLERANCE)
+    }
+  )
+
+  it('preserves non-unit mass against the direct rule oracle', () => {
+    const weights = [0.1, 0.2, 0.3]
+    const actual = generateMixedDamageDistribution(
+      weights,
+      2,
+      { fftLength: 64, distributionLength: 21 }
+    )
+    const expected = directMixedDamageOracle(weights, 2)
+
+    expectDistributionsClose(actual, expected, NUMERICAL_TOLERANCE)
+    expect(actual.reduce((sum, probability) => sum + probability, 0))
+      .toBeCloseTo(0.6, 12)
+  })
+
   it.each([
     [0, 0],
     [0, 202],
