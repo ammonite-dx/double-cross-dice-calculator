@@ -163,8 +163,8 @@ function summarizeScoreEnvelope(envelope) {
   return {
     result: summarizeDistributionResult(envelope.result),
     metadata: {
-      automaticFailureProbability: finiteOrNull(
-        metadata.automaticFailureProbability,
+      forcedFailureProbability: finiteOrNull(
+        metadata.forcedFailureProbability,
       ),
       scoreTailCertificate: summarizeCertificate(
         metadata.scoreTailCertificate,

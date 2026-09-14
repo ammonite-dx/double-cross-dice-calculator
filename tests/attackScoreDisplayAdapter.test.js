@@ -83,7 +83,7 @@ function createEnvelope(values, supportMax = values.length - 1) {
     metadata: {
       modeledDistribution: true,
       sourceSupport: { kind: 'finite', max: supportMax },
-      automaticFailureProbability: 0,
+      forcedFailureProbability: 0,
     },
   }
 }

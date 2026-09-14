@@ -65,7 +65,7 @@ function createClientDependencies(overrides = {}) {
     }),
     metadata: {
       modeledDistribution: true,
-      automaticFailureProbability: 0,
+      forcedFailureProbability: 0,
       sourceSupport: { kind: 'finite', max: 0 },
     },
   }

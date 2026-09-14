@@ -38,13 +38,13 @@ function createScoreEnvelope({
   offset = 0,
   support = { kind: 'finite', max: 0 },
   overflow = null,
-  automaticFailureProbability = 0,
+  forcedFailureProbability = 0,
 } = {}) {
   return Object.freeze({
     result: createDistributionResult({ values, offset, support, overflow }),
     metadata: Object.freeze({
       modeledDistribution: true,
-      automaticFailureProbability,
+      forcedFailureProbability,
     }),
   })
 }
@@ -142,7 +142,7 @@ describe('canonical normal check score producer', () => {
       max: fixedScore,
     })
     expect(envelope.result.overflow).toBeNull()
-    expect(envelope.metadata.automaticFailureProbability).toBe(0)
+    expect(envelope.metadata.forcedFailureProbability).toBe(0)
     expect(envelope.metadata.modeledDistribution).toBe(true)
   })
 
@@ -178,7 +178,7 @@ describe('canonical normal check score producer', () => {
     })
     expect(validateDistributionResult(result)).toBe(true)
     expect(envelope.metadata.modeledDistribution).toBe(true)
-    expect(envelope.metadata.automaticFailureProbability).toBeCloseTo(0.3, 12)
+    expect(envelope.metadata.forcedFailureProbability).toBeCloseTo(0.3, 12)
     expect(Object.isFrozen(envelope)).toBe(true)
     expect(Object.isFrozen(envelope.metadata)).toBe(true)
   })
@@ -615,7 +615,7 @@ describe('CalculationClient canonical normal check API', () => {
         probability: 0.6,
         errorBound: 0,
       },
-      automaticFailureProbability: 0.25,
+      forcedFailureProbability: 0.25,
     })
     const Summary = createScoreStatistics()
     const dependencies = createClientDependencies({

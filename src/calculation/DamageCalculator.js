@@ -19,6 +19,9 @@ import {
   DAMAGE_EXPECTATION_CERTIFICATE_VERSION,
   getCertifiedDamageExpectation,
 } from './DamageExpectationCertificate'
+import {
+  getScoreOutcomePartition,
+} from './ScoreCalculator'
 
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
@@ -399,6 +402,14 @@ function validateScoreEnvelope(envelope, label) {
   }
 
   validateDistributionResult(envelope.result)
+  const outcome = getScoreOutcomePartition(envelope, {
+    allowUncertifiedTail: true,
+  })
+  if (outcome === null) {
+    throw new RangeError(
+      `${label} has invalid forced-failure metadata`
+    )
+  }
   const { result } = envelope
   let explicitMass = 0
   for (const probability of result.values) {
@@ -421,6 +432,7 @@ function validateScoreEnvelope(envelope, label) {
 
   return {
     envelope,
+    outcome,
     result,
     explicitMass,
     overflowMassUpperBound,
@@ -608,21 +620,19 @@ function getDamageExpectationCertificate(
   })
 }
 
-function getReactionExplicitBelowLookup(reaction) {
-  const prefix = new Float64Array(reaction.result.values.length + 1)
-  for (let index = 0; index < reaction.result.values.length; index += 1) {
-    prefix[index + 1] = prefix[index] + reaction.result.values[index]
-  }
+function getReactionRegularBelowLookup(reactionOutcome) {
+  let index = 0
+  let regularBelow = 0
 
   return (scoreValue) => {
-    if (scoreValue <= reaction.result.offset) {
-      return 0
+    while (
+      index < reactionOutcome.regularBuckets.length
+      && reactionOutcome.regularBuckets[index].value < scoreValue
+    ) {
+      regularBelow += reactionOutcome.regularBuckets[index].probability
+      index += 1
     }
-    const explicitMax = reaction.result.offset + reaction.result.values.length
-    if (scoreValue >= explicitMax) {
-      return prefix[prefix.length - 1]
-    }
-    return prefix[scoreValue - reaction.result.offset]
+    return regularBelow
   }
 }
 
@@ -715,7 +725,9 @@ export function createDamageRollRequest(
     score?.reaction,
     'score.reaction'
   )
-  const reactionExplicitBelow = getReactionExplicitBelowLookup(reaction)
+  const reactionExplicitBelow = getReactionRegularBelowLookup(
+    reaction.outcome
+  )
   const maxDamageDice = damageRangePlan?.maxDamageDice
     ?? (
       Math.floor(
@@ -737,17 +749,23 @@ export function createDamageRollRequest(
   let failureProbability = 0
   let hitProbability = 0
 
-  for (let index = 0; index < action.result.values.length; index += 1) {
-    const actionProbability = action.result.values[index]
+  const reactionRegularMass = reaction.outcome.regularExplicitMass
+  const reactionExplicitMass =
+    reactionRegularMass + reaction.outcome.forcedFailureProbability
+
+  for (const actionBucket of action.outcome.regularBuckets) {
+    const actionProbability = actionBucket.probability
     if (actionProbability === 0) {
       continue
     }
 
-    const scoreValue = action.result.offset + index
-    const reactionBelow = reactionExplicitBelow(scoreValue)
+    const scoreValue = actionBucket.value
+    const reactionBelow =
+      reaction.outcome.forcedFailureProbability
+      + reactionExplicitBelow(scoreValue)
     const reactionFailure = Math.max(
       0,
-      reaction.explicitMass - reactionBelow
+      reactionExplicitMass - reactionBelow
     )
     failureProbability += actionProbability * reactionFailure
 
@@ -767,7 +785,15 @@ export function createDamageRollRequest(
     hitProbability += hit
   }
 
-  const explicitPairMass = action.explicitMass * reaction.explicitMass
+  // A forced action failure loses to every reaction outcome.  It is retained
+  // in the failure component rather than being sent to the damage-roll
+  // provider, whose weights describe hit mass only.
+  const actionForcedMass = action.outcome.forcedFailureProbability
+  failureProbability += actionForcedMass * reactionExplicitMass
+
+  const actionExplicitMass =
+    action.outcome.regularExplicitMass + actionForcedMass
+  const explicitPairMass = actionExplicitMass * reactionExplicitMass
   const independentTailPairUpperBound =
     action.overflowMassUpperBound +
     reaction.overflowMassUpperBound -

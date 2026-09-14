@@ -112,7 +112,7 @@ function calculateScoreWorking(
     // same point mass with an offset of `fixedScore`.
     return {
       workingDistribution: [1],
-      automaticFailureProbability: 0,
+      forcedFailureProbability: 0,
       alreadyShifted: true,
       fixedScore,
       plan,
@@ -161,7 +161,7 @@ function calculateScoreWorking(
     validateProbabilityDistribution(diceResult, 'DX distribution')
   }
 
-  const automaticFailureProbability =
+  const forcedFailureProbability =
     (diceResult[0] ?? 0) + (diceResult[1] ?? 0)
   if (diceResult.length > 0) {
     diceResult[0] = 0
@@ -172,7 +172,7 @@ function calculateScoreWorking(
 
   return {
     workingDistribution: diceResult,
-    automaticFailureProbability,
+    forcedFailureProbability,
     alreadyShifted: false,
     plan,
   }
@@ -181,7 +181,7 @@ function calculateScoreWorking(
 function createScoreResult(
   params,
   workingDistribution,
-  automaticFailureProbability,
+  forcedFailureProbability,
   scoreRangePlan,
   alreadyShifted = false,
   fixedScore = null
@@ -225,7 +225,7 @@ function createScoreResult(
     }
   }
 
-  values[0] += automaticFailureProbability
+  values[0] += forcedFailureProbability
 
   const tailProbability = workingDistribution[overflowIndex] ?? 0
   if (
@@ -579,7 +579,7 @@ export function calculateScore(
 ) {
   const {
     workingDistribution,
-    automaticFailureProbability,
+    forcedFailureProbability,
     alreadyShifted,
     fixedScore,
   } = calculateScoreWorking(
@@ -591,7 +591,7 @@ export function calculateScore(
   const result = createScoreResult(
     params,
     workingDistribution,
-    automaticFailureProbability,
+    forcedFailureProbability,
     scoreRangePlan,
     alreadyShifted,
     fixedScore
@@ -615,7 +615,7 @@ export function calculateScore(
     )
   const metadata = Object.freeze({
     modeledDistribution: true,
-    automaticFailureProbability,
+    forcedFailureProbability,
     scoreTailCertificate,
     scoreTailMomentCertificate,
     ...(scoreExpectationCertificate === null
@@ -745,6 +745,102 @@ function getScorePartition(envelope) {
 }
 
 /**
+ * Split the displayed score-zero bucket into the two rule-level outcomes it
+ * represents.  Fumbles and zero-dice automatic failures are forced failures;
+ * an ordinary result that is shifted or clamped to zero remains a regular
+ * score.  The regular bucket list is sparse and shares all non-zero bucket
+ * objects with the displayed partition, so this does not create another
+ * dense probability distribution.
+ */
+export function getScoreOutcomePartition(
+  envelope,
+  { allowUncertifiedTail = false } = {}
+) {
+  let partition = getScorePartition(envelope)
+  if (partition === null && allowUncertifiedTail) {
+    const inspected = getScoreBuckets(envelope)
+    if (inspected === null) {
+      return null
+    }
+    const overflow = inspected.result.overflow
+    partition = {
+      buckets: inspected.buckets,
+      tail: overflow === null
+        ? {
+            massLowerBound: 0,
+            massUpperBound: 0,
+            lowerBound: null,
+            probabilityErrorBound: 0,
+          }
+        : {
+            massLowerBound: overflow.kind === 'exact'
+              ? overflow.probability
+              : 0,
+            massUpperBound: overflow.kind === 'exact'
+              ? overflow.probability
+              : overflow.probabilityUpperBound,
+            lowerBound: overflow.lowerBound,
+            probabilityErrorBound: overflow.errorBound,
+          },
+    }
+  }
+  if (partition === null) {
+    return null
+  }
+
+  const forcedFailureProbability = envelope.metadata
+    ?.forcedFailureProbability ?? 0
+  if (
+    !Number.isFinite(forcedFailureProbability)
+    || forcedFailureProbability < 0
+    || forcedFailureProbability > 1
+  ) {
+    return null
+  }
+
+  const displayedZeroProbability = partition.buckets
+    .find(({ value }) => value === 0)
+    ?.probability ?? 0
+  if (
+    forcedFailureProbability
+      > displayedZeroProbability + DISTRIBUTION_RESULT_TOLERANCE
+  ) {
+    return null
+  }
+
+  const regularZeroProbability = Math.max(
+    0,
+    displayedZeroProbability - forcedFailureProbability
+  )
+  const regularBuckets = []
+  for (const bucket of partition.buckets) {
+    if (bucket.value === 0) {
+      if (regularZeroProbability > 0) {
+        regularBuckets.push({
+          value: 0,
+          probability: regularZeroProbability,
+        })
+      }
+      continue
+    }
+    regularBuckets.push(bucket)
+  }
+  let regularExplicitMass = 0
+  for (const bucket of regularBuckets) {
+    regularExplicitMass += bucket.probability
+  }
+
+  return Object.freeze({
+    buckets: partition.buckets,
+    regularBuckets,
+    regularZeroProbability,
+    regularExplicitMass,
+    forcedFailureProbability,
+    tail: partition.tail,
+  })
+}
+
+/**
  * Calculate P(action > reaction) for ascending, sparse score buckets.
  * `onReactionVisit` is intentionally optional and exists for structural tests
  * of the linear two-pointer walk; production callers do not allocate stats.
@@ -784,20 +880,21 @@ export function calculateScoreSuccessProbabilityInterval(
   action,
   reaction
 ) {
-  const actionPartition = getScorePartition(action)
-  const reactionPartition = getScorePartition(reaction)
+  const actionPartition = getScoreOutcomePartition(action)
+  const reactionPartition = getScoreOutcomePartition(reaction)
   if (actionPartition === null || reactionPartition === null) {
     return null
   }
 
-  const actionBuckets = actionPartition.buckets
-  const reactionBuckets = reactionPartition.buckets
+  const actionBuckets = actionPartition.regularBuckets
+  const reactionBuckets = reactionPartition.regularBuckets
   const actionTail = actionPartition.tail
   const reactionTail = reactionPartition.tail
   const explicitSuccess = calculateScoreSuccessProbability(
     actionBuckets,
     reactionBuckets
-  )
+  ) + actionPartition.regularExplicitMass
+    * reactionPartition.forcedFailureProbability
   let reactionBelowActionTail = 0
   for (const bucket of reactionBuckets) {
     if (bucket.value < actionTail.lowerBound) {
@@ -820,7 +917,10 @@ export function calculateScoreSuccessProbabilityInterval(
     Math.min(
       1,
       explicitSuccess
-      + actionTail.massLowerBound * reactionBelowActionTail
+      + actionTail.massLowerBound * (
+        reactionPartition.forcedFailureProbability
+        + reactionBelowActionTail
+      )
     )
   )
   const upperBound = Math.max(
@@ -828,9 +928,12 @@ export function calculateScoreSuccessProbabilityInterval(
     Math.min(
       1,
       explicitSuccess
-      + actionTail.massUpperBound * reactionExplicitMass
+      + actionTail.massUpperBound * (
+        reactionPartition.forcedFailureProbability
+        + reactionExplicitMass
+        + reactionTail.massUpperBound
+      )
       + reactionTail.massUpperBound * actionAboveReactionTail
-      + actionTail.massUpperBound * reactionTail.massUpperBound
     )
   )
 
@@ -838,9 +941,28 @@ export function calculateScoreSuccessProbabilityInterval(
 }
 
 function getScoreSuccessProbability(action, reaction) {
-  const actionBuckets = getExactScoreBuckets(action)
-  const reactionBuckets = getExactScoreBuckets(reaction)
-  if (actionBuckets === null || reactionBuckets === null) {
+  const actionPartition = getScoreOutcomePartition(action)
+  const reactionPartition = getScoreOutcomePartition(reaction)
+  if (actionPartition === null || reactionPartition === null) {
+    return {
+      action: createScoreProbability('bounded', {
+        lowerBound: 0,
+        upperBound: 1,
+      }),
+      reaction: createScoreProbability('bounded', {
+        lowerBound: 0,
+        upperBound: 1,
+      }),
+    }
+  }
+
+  const actionBuckets = actionPartition.regularBuckets
+  const reactionBuckets = reactionPartition.regularBuckets
+  const actionHasTail = actionPartition.tail.massUpperBound > 0
+    || actionPartition.tail.probabilityErrorBound > 0
+  const reactionHasTail = reactionPartition.tail.massUpperBound > 0
+    || reactionPartition.tail.probabilityErrorBound > 0
+  if (actionHasTail || reactionHasTail) {
     const interval = calculateScoreSuccessProbabilityInterval(
       action,
       reaction
@@ -869,7 +991,8 @@ function getScoreSuccessProbability(action, reaction) {
   const actionSuccessProbability = calculateScoreSuccessProbability(
     actionBuckets,
     reactionBuckets
-  )
+  ) + actionPartition.regularExplicitMass
+    * reactionPartition.forcedFailureProbability
 
   return {
     action: createScoreProbability('exact', {
@@ -900,7 +1023,7 @@ function getScoreExpectedValueStatistic(envelope) {
 }
 
 function getFixedDifficultySuccessProbability(envelope, target) {
-  const partition = getScorePartition(envelope)
+  const partition = getScoreOutcomePartition(envelope)
   if (partition === null) {
     return createScoreProbability('bounded', {
       lowerBound: 0,
@@ -908,12 +1031,9 @@ function getFixedDifficultySuccessProbability(envelope, target) {
     })
   }
 
-  const explicitSuccess = partition.buckets
+  const explicitSuccess = partition.regularBuckets
     .filter(({ value }) => value >= target)
     .reduce((sum, bucket) => sum + bucket.probability, 0)
-    - (target === 0
-      ? (envelope.metadata?.automaticFailureProbability ?? 0)
-      : 0)
   const tail = partition.tail
   const tailLowerBound = Number.isFinite(tail.lowerBound)
     && target <= tail.lowerBound
@@ -981,15 +1101,15 @@ export function getScoreStatistics(
     action: Object.freeze({
       expectedValue: actionExpectedValue,
       successProbability: rates.action,
-      automaticFailureProbability: createExactProbability(
-        score.action.metadata?.automaticFailureProbability ?? 0
+      forcedFailureProbability: createExactProbability(
+        score.action.metadata?.forcedFailureProbability ?? 0
       ),
     }),
     reaction: Object.freeze({
       expectedValue: reactionExpectedValue,
       successProbability: rates.reaction,
-      automaticFailureProbability: createExactProbability(
-        score.reaction.metadata?.automaticFailureProbability ?? 0
+      forcedFailureProbability: createExactProbability(
+        score.reaction.metadata?.forcedFailureProbability ?? 0
       ),
     }),
   })

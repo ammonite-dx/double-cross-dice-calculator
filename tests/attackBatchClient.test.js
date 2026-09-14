@@ -67,7 +67,7 @@ function ScoreEnvelope(
     }),
     metadata: Object.freeze({
       modeledDistribution: true,
-      automaticFailureProbability: 0,
+      forcedFailureProbability: 0,
     }),
   })
 }

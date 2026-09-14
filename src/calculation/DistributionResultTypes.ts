@@ -71,7 +71,7 @@ export interface ScoreTailMomentCertificate {
 }
 
 export interface ScoreMetadata extends ModeledDistributionMetadata {
-  readonly automaticFailureProbability: number
+  readonly forcedFailureProbability: number
   readonly scoreTailCertificate: ScoreTailCertificate | null
   readonly scoreTailMomentCertificate: ScoreTailMomentCertificate | null
   readonly scoreExpectationCertificate?: ScoreExpectationCertificate
@@ -97,7 +97,7 @@ export interface ProbabilityMassSummary {
 export interface ScoreStatisticsLane {
   readonly expectedValue: CertifiedValue
   readonly successProbability: CertifiedProbability
-  readonly automaticFailureProbability: CertifiedProbability
+  readonly forcedFailureProbability: CertifiedProbability
 }
 
 export interface ScoreStatistics {

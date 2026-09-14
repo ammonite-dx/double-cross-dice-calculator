@@ -41,7 +41,7 @@ function sparseDistribution(entries) {
   return { offset: first, values }
 }
 
-function ScoreEnvelope(entries, automaticFailureProbability = 0) {
+function ScoreEnvelope(entries, forcedFailureProbability = 0) {
   const maxValue = Math.max(...entries.map(([value]) => value))
   const values = new Float64Array(maxValue + 1)
   for (const [value, probability] of entries) {
@@ -57,7 +57,7 @@ function ScoreEnvelope(entries, automaticFailureProbability = 0) {
     }),
     metadata: {
       modeledDistribution: true,
-      automaticFailureProbability,
+      forcedFailureProbability,
     },
   }
 }
@@ -302,7 +302,7 @@ describe('runtime score rules', () => {
 
     expect(result.result.values[0]).toBe(0.5)
     expect(result.result.values[7]).toBe(0.5)
-    expect(result.metadata.automaticFailureProbability).toBe(0.5)
+    expect(result.metadata.forcedFailureProbability).toBe(0.5)
   })
 
   it('retains a non-fumble score clamped to zero as a successful result', () => {
@@ -319,7 +319,7 @@ describe('runtime score rules', () => {
     )
 
     expect(result.result.values[0]).toBe(1)
-    expect(result.metadata.automaticFailureProbability).toBe(0)
+    expect(result.metadata.forcedFailureProbability).toBe(0)
     expect(summary.action.successProbability).toEqual({ kind: 'exact', value: 1 })
   })
 
@@ -342,7 +342,7 @@ describe('runtime score rules', () => {
 
     expect(result.result.values[0]).toBe(0.5)
     expect(result.result.values[2]).toBe(0.5)
-    expect(result.metadata.automaticFailureProbability).toBe(0.5)
+    expect(result.metadata.forcedFailureProbability).toBe(0.5)
     expect(summary.action.successProbability).toEqual({ kind: 'exact', value: 0.5 })
   })
 
@@ -357,7 +357,7 @@ describe('runtime score rules', () => {
     )
 
     expect(result.result.values[0]).toBe(1)
-    expect(result.metadata.automaticFailureProbability).toBe(1)
+    expect(result.metadata.forcedFailureProbability).toBe(1)
   })
 
   it('consumes one complete DX distribution when yousei is present', () => {

@@ -280,7 +280,7 @@ describe('CalculationClient integration', () => {
         support: { kind: 'finite', max: value },
         overflow: null,
       }),
-      metadata: { modeledDistribution: true, automaticFailureProbability: 0 },
+      metadata: { modeledDistribution: true, forcedFailureProbability: 0 },
     })
     const planCalculationRanges = vi.fn((_params, policy) => {
       observedPolicies.push(policy)

@@ -388,7 +388,7 @@ describe('production runtime damage roll Worker client', () => {
         support: { kind: 'finite', max: 0 },
         overflow: null,
       }),
-      metadata: { automaticFailureProbability: 0, modeledDistribution: true },
+      metadata: { forcedFailureProbability: 0, modeledDistribution: true },
     }
     const plan = {
       accepted: true,

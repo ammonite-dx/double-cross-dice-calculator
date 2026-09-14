@@ -21,7 +21,7 @@ function createScoreEnvelope({
     }),
     metadata: {
       modeledDistribution: true,
-      automaticFailureProbability: 0,
+      forcedFailureProbability: 0,
     },
   }
 }
