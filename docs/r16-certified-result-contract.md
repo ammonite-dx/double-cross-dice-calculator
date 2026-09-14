@@ -39,11 +39,11 @@ constructorは入力を検証し、返却オブジェクトを凍結する。こ
 {
   expectedValue: CertifiedValue,
   successProbability: CertifiedProbability,
-  automaticFailureProbability: CertifiedProbability
+  forcedFailureProbability: CertifiedProbability
 }
 ```
 
-`successProbability`は固定難易度なら`P(A \ge t)`、対決なら`P(A > R)`である。対決の同値はリアクション側の勝利として扱う。`automaticFailureProbability`は最初のダイスロールで自動失敗またはファンブルになる確率であり、技能値をシフトした後の達成値0の確率や、対決に負ける確率とは別の量である。
+`successProbability`は固定難易度なら`P(A \ge t)`、対決ならルール上の強制失敗を分離した比較で決まる。`forcedFailureProbability`は最初のダイスロールで自動失敗またはファンブルになる確率であり、技能値をシフトした後の達成値0の確率や、対決に負ける確率とは別の量である。表示上は強制失敗と通常の達成値0を同じ0バケットへ集約するが、固定難易度・対決の成否判定では両者を区別する。
 
 通常のDXは無限supportを持つため、作業範囲の外側を含む成功確率は、tail certificateで評価できる範囲を`bounded`として返す。`critical=11`、ダイス0個、または《絶対支配》の対象ダイス数以下の判定のようにsupport全体を列挙できる場合は、producerが`exact`を選ぶ。
 

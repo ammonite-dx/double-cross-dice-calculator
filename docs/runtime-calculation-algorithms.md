@@ -55,7 +55,7 @@ $$
 
 ### 2.1 固定値判定
 
-固定値モードではダイスを使わず、非負化した技能値の位置に確率1を置きます。値はsafe integer domainの範囲で扱い、歴史的な1023バケットへ切り詰めません。canonical結果では大きな固定値を疎な一点分布（`offset`と長さ1の`values`）で表すため、値に比例した配列を確保しません。ダイスによる自動失敗やファンブルはないため、metadataの`automaticFailureProbability`は0です。
+固定値モードではダイスを使わず、非負化した技能値の位置に確率1を置きます。値はsafe integer domainの範囲で扱い、歴史的な1023バケットへ切り詰めません。canonical結果では大きな固定値を疎な一点分布（`offset`と長さ1の`values`）で表すため、値に比例した配列を確保しません。ダイスによる自動失敗やファンブルはないため、metadataの`forcedFailureProbability`は0です。
 
 ### 2.2 実行時判定分布の生成
 
@@ -71,9 +71,9 @@ $$
 
 ### 2.4 ファンブルと技能値
 
-事前計算分布のインデックス0と1を`automaticFailureProbability`として取り出してから、両方を0にします。残りの通常結果だけへ技能値をシフト加算し、取り出した失敗確率をインデックス0へ戻します。
+事前計算分布のインデックス0と1を`forcedFailureProbability`として取り出してから、両方を0にします。残りの通常結果だけへ技能値をシフト加算し、取り出した失敗確率をインデックス0へ戻します。
 
-この順序により、技能値が正でも自動失敗やファンブルへ技能値を加えません。一方、通常結果へ負の技能値を加えて0になった確率は結果分布のインデックス0へ入りますが、ルール上の自動失敗やファンブルではないため`automaticFailureProbability`には含めません。
+この順序により、技能値が正でも自動失敗やファンブルへ技能値を加えません。一方、通常結果へ負の技能値を加えて0になった確率は結果分布のインデックス0へ入りますが、ルール上の自動失敗やファンブルではないため`forcedFailureProbability`には含めません。
 
 canonical経路では固定長へ集約せず、要求された表示windowの境界で必要な投影だけを行います。上側確率もcanonicalのoffsetとsupportを保ったまま作成し、published-bucket互換が明示的に要求された場合だけ1024要素へ投影します。
 
@@ -93,23 +93,23 @@ canonical経路では固定長へ集約せず、要求された表示windowの�
 
 実装は`src/calculation/ScoreCalculator.js`の`getScoreStatistics`です。返却する確率は分数であり、百分率への丸めは表示層で行います。
 
-固定難易度$t$に対する成功確率は原則として$P(A\ge t)$です。ただし$t=0$では、分布のインデックス0に通常結果と自動失敗・ファンブルが共存するため、上側確率から`automaticFailureProbability`だけを除きます。
+固定難易度$t$に対する成功確率は、強制失敗を除いた通常結果について$P(A\ge t)$です。したがって$t=0$でも、表示分布のインデックス0から`forcedFailureProbability`だけを除き、通常の達成値0は成功として数えます。
 
 $$
 P(\text{成功})=
 \begin{cases}
-P(A\ge0)-P(\text{自動失敗またはファンブル}) & t=0,\\
+P(A\ge0)-P(\text{強制失敗}) & t=0,\\
 P(A\ge t) & t>0.
 \end{cases}
 $$
 
-対決ではアクション側がリアクション側を上回った場合だけ成功します。アクション側を$A$、リアクション側を$R$とすると、アクション側の成功確率は次のとおりです。
+対決では、まず強制失敗を通常結果から分けます。アクション側を$A$、リアクション側を$R$、通常結果を添字$r$、強制失敗確率を$f_A,f_R$とすると、アクション側の成功確率は「通常アクションが強制失敗リアクションに勝つ場合」と「通常結果同士で上回る場合」の和です。
 
 $$
-P(A>R)=\sum_a P(A=a)P(R<a)
+P(\text{action win})=f_R P(A^r)+P(A^r>R^r)
 $$
 
-`upperTailProbability[a]`は$P(R\ge a)$なので、実装は$P(R<a)=1-P(R\ge a)$を使用します。同値はリアクション側の勝利です。
+表示用の0バケットは$P(A=0)=f_A+P(A^r=0)$のように強制失敗と通常の0を合算したままです。`upperTailProbability[a]`は通常結果の比較部分に使い、同値はリアクション側の勝利とします。強制失敗するアクションは常に負け、強制失敗するリアクションには通常アクションが勝つため、単純な表示値の大小比較だけではこの規則を表せません。
 
 ## 4. 単発ダメージ
 
@@ -341,6 +341,8 @@ DRの有限supportは、`weights[dice]`が非ゼロとなる最大のdamage dice
 
 `subDistribution`は第1配列長`L1`と有限supportの第2配列長`L2`を別々に受け、`A*reverse(B)`の係数`c[k]`から`result[0]=sum(c[0..L2-1])`、`result[v]=c[L2-1+v]`を構成する。線形畳み込み必要長`L1+L2-1`以上の最小の2冪を実使用FFT長とし、既存の`sumDistribution`と同長`subDistribution`の既定値・公開挙動は維持する。明示FFT長はこの値への厳密一致とし、`onFftLength`で実使用値を検証できる。
 
+逆FFTの係数は`sanitizeFftCoefficients()`で共通に検査する。非有限値、または`FFT_COEFFICIENT_CLEANUP_TOLERANCE = 1e-12`より小さい負値は`RangeError`として計算を停止し、`[-1e-12,0)`の負値だけを丸めノイズとして0へ補正する。従来の`Math.max(0, coefficient)`だけの処理では、入力やFFTの異常を確率0へ隠してしまうためである。全体質量の許容差`1e-8`とは別の係数単位の閾値であり、重大な負値を正常な分布として公開しない。
+
 第2-AはRangePlanner、実験planner、FFTとそのテストおよび契約文書までを完了した。第2-BではこのplanをDamageCalculatorとCalculationClientへ接続し、runtime optionsとdamage planを分離した明示契約を導入した。
 
 ## 14. Damage dynamic range 第2-B（完了）
@@ -451,6 +453,8 @@ supportはmodeled resultとmetadataのsourceSupportを別々に加算する。�
 damageは非負domainのため、output overflow lowerBoundはpotential tail massを持つcomponentのlowerBound最小値とする。probability上は0でもsource errorBoundを持つinert overflowはoutput overflowのerrorBoundとmetadataへ残し、tail lowerBoundを明示一点値へ変換する根拠にはしない。`aggregationErrorBound`はsource errorBoundの合計とconvolution mass drift（exact pathではsource explicit massとunion targetへのnormalization driftを含む）を保守的に伝える。
 
 FFT逆変換後の係数は既存runtimeと整合する`1e-12`までの微小負値だけを0へclampし、material negative、非有限値、FFT convolution mass driftが`1e-8`を超える値、またはcanonical validatorが許容できない最終massはcanonical aggregationのtyped numerical-failureとする。source normalization drift（source explicit massとunion target、またはsource unionと最終explicit massの差）は失敗条件ではなく、`sourceMassDrift`と`aggregationErrorBound`へ記録する。exact outputはsource unionを`metadata.sourceOverflowProbability`へ診断値として保持するが、output probabilityは最終explicit massから`1 - explicitMass`で決める。空の明示valuesが許容誤差内で残る場合も空のままとし、source unionを一点massとして補充しない。これは浮動小数点補正を数学的な追加確率として主張しないための判断である。upper-bound pathはraw explicit massを保持し、上界のcoverageへ不足分を加える。
+
+Runtime Damageの`generateMixedDamageDistribution()`については、最適化された周波数領域実装だけでなく、テスト側の独立オラクルでも小規模ケースを検証する。オラクルは最初のロールを全列挙し、5以下の出目から小さい順に`kazanari`個を選び、選んだダイスを一度だけ再ロールして合計を集計する。本番のFFT、polynomial、derivative、実験用helperは参照しないため、同じ実装を二重に検算する循環を避けられる。対象は0〜3個のダメージダイス、0〜2回の振り直し、0/1/2個の混合と合計質量0.6の非単位weightであり、許容誤差は`1e-10`である。
 
 values length、offset/supportの加算、linear convolution length、FFT length、推定buffer bytesは配列確保前に検証する。既定absolute limitはvaluesとFFT lengthが`1 << 20`、component countが`1 << 12`、resource bytesが512 MiBであり、component、inspected、steps、descriptors、metadata、outputのpersistent estimateに各FFT peakを加えた値をguardする。optionsは`maxValuesLength`、`maxFftLength`、`maxResourceBytes`、`maxComponents`、`signal`、`onFftLength`だけを受け付け、各上限を下げることだけを許可する。`signal`は入力検証前、畳み込み前後、FFTの各stage境界、mass補正前後で確認し、標準AbortError名のtyped abortを返す。`onFftLength`は実使用FFT長をcomponent間の各畳み込みで通知する。
 
@@ -638,7 +642,7 @@ Total Damageの期待値は、Total FFTの明示配列から再構築しない�
 
 `getTotalDamageStatistics()`は有効なaggregate certificateを最優先し、なければ従来のgeneric処理を使う。これにより、通常攻撃とaction側《妖精の手》を含む複数comboでも、componentのsemantic boundsを足した区間としてTotal期待値を表示できる。詳細なvalidator、snapshot、fail-closed条件は[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)に記録する。
 
-対決成功率は、action/reactionの明示bucketを$A_0,R_0$、tailを$A_T,R_T$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示bucket同士の$P_{00}=P(A_0>R_0)$は既存の昇順2ポインタ走査で$O(a+r)$に計算し、排他的な4組を分けて$S_{lower}=P_{00}+a_-P(R_0<L_A)$、$S_{upper}=P_{00}+a_+P(R_0)+r_+P(A_0>L_R)+a_+r_+$とする。最終区間はsemantic boundsだけから作り、固定の`DISTRIBUTION_RESULT_TOLERANCE`を再加算しない。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
+対決成功率は、action/reactionの通常明示bucketを$A_0^r,R_0^r$、tailを$A_T^r,R_T^r$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示部分の$S_0=P(A_0^r>R_0^r)+f_RP(A_0^r)$は既存の昇順2ポインタ走査と強制失敗項で計算し、排他的なtail組を分けて$S_{lower}=S_0+a_-(f_R+P(R_0^r<L_A))$、$S_{upper}=S_0+a_+(f_R+P(R_0^r)+r_+)+r_+P(A_0^r>L_R)$とする。最終区間はsemantic boundsだけから作り、固定の`DISTRIBUTION_RESULT_TOLERANCE`を再加算しない。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
 
 `errorBound`は従来契約どおり補助的な診断metadataであり、tail probabilityへ加算しない。exact overflowの正の`probability`はactual mass、upper-bound overflowの`probabilityUpperBound`はすでに安全側へ広げた上限として扱う。stored massが0でも`errorBound>0`ならpotential tailなので、独立したRangePlannerのtail boundがある場合だけ`[0,bound]`を採用し、証明がなければ成功率を安全な`0..100`へ戻す。これにより既定の両側`dice=1`、`critical=10`、`skill=0`では内部boundを保持したまま期待値`6.0`、action成功率`45.5%`、reaction成功率`54.5%`を従来形式で表示できる。
 

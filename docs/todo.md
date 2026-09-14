@@ -63,12 +63,22 @@ R21はUI完全凍結で、互換surface、検証資産、historical experiment�
 - Total Damage planへ`estimatedTimeMs = operations / 8,000,000`を追加し、既存production policyと同じ200ms hard limitをFFT開始前に適用した。component count、resource、values length、FFT lengthの既存閾値は緩和していない。
 - 多数のcomponentでもestimated workが小さいケースは受理し、estimated CPU workだけが大きいケースは既存のresource-limit経路で拒否することを回帰テストで固定した。Total Damage単体とCalculationClient経路のいずれもlease／FFT実行前に判定する。
 
-### R24-B Final Documentation & Release Closure（完了、2026-09-13）
+### R24-B Final Documentation & Release Closure（完了、2026-09-13、初回closure）
 
 - 状態: `CLOSED / GREEN`、Release Candidate: `GREEN`、P0 / P1 / P2: `0 / 0 / 0`
 - READMEのDamage期待値参照先をC1B／C3B／C3Cの現行certificate文書へ変更し、R23-C1B以前の調査記録をhistorical investigationとして明示した。R24-A後のPlanningMath、architecture、runtime algorithmの責務とTotal Damage preflight説明も同期した。
 - R23 precision auditは15 fixture（`bounded` 14、`exact` 1、安定丸め14、追加近似候補0）、tail attribution auditは13 fixture（有限上界候補4、certificate不足9）で成功した。`npm run verify:release`はNode 22.23.2、32 asset、Vitest 102 files / 1054 tests、generator 18、simulation 13、typecheck、Ruff、ESLint、Markdown lint 61 files / 0 issues、runtime DX 20,000、build 424 modules、production browser smoke、`git diff --check`をGREENで確認した。最終HEAD full SHAはこのclosure commitの実装報告に記録する。
 - 詳細な監査観点、R24-Aで閉じた項目、RC blockers、deferred事項、historical分類は[`r24-final-release-audit.md`](./r24-final-release-audit.md)に記録する。低速実機の追加測定、入力上限の拡張、追加Worker化、HTTP API、MCPは今回のrelease scope外としてdeferredに残す。
+
+### R24 Follow-up C1〜C4（完了、2026-09-14）
+
+- 状態: `CLOSED / GREEN`、Release Candidate: `GREEN`、P0 / P1 / P2: `0 / 0 / 0`
+- C1（`374f43a`）: Score metadata／statisticsの名称を`forcedFailureProbability`へ統一し、表示上の0から強制失敗と通常の達成値0を分離する`getScoreOutcomePartition()`を追加した。固定難易度0、Check対決、Attack命中を同じ意味論へ接続し、表示用の`result.values[0]`と既存チャート形式は維持した。強制失敗するアクションは勝たず、強制失敗するリアクションには通常アクションが勝ち、通常同士の同値はリアクション勝利とする。
+- C2（`032bae1`）: `ScoreTailMomentCertificate`をfinite-supportと解析tailの判別unionへ分割し、実行時の有限証明書へ解析専用フィールドを要求しない型契約を追加した。`satisfies`とモデル絞り込みのTypeScriptコンパイルフィクスチャを含む。
+- C3（`3497d40`）: FFT後処理をfail-closed化し、非有限係数または`1e-12`を超える負係数を拒否し、それ以内の負の丸めノイズだけを0へ補正した。既存のFFT、Damage集約、runtime計算回帰を維持した。
+- C4（`01e2842`）: 本番最適化と独立したRuntime Damage総当たりオラクルをテストへ追加し、ダメージダイス0〜3、《風鳴りの爪》0〜2、混合weight、非単位質量0.6を`1e-10`以内で照合した。既存のschema-v2 asset比較は残している。
+- C1〜C4後のVitestは103 files / 1071 tests、typecheck、ESLint、Markdown lint（62 files / 0 issues）、`git diff --check`がGREENだった。2026-09-14のfresh release gateではgenerator 18件、simulation 13件、runtime DX 20,000ケース、build 424 modules、production browser smoke、R23の2監査を含む全項目がGREENになった。最終HEAD full SHAとコミット後のclean treeはFollow-up後のclosure commitの実装報告に記録する。
+- 詳細な監査観点、修正前に判明したP0、各commit、RC blockers、deferred事項は[`r24-final-release-audit.md`](./r24-final-release-audit.md)に記録する。低速実機の追加測定、入力上限の拡張、追加Worker化、HTTP API、MCPは今回のrelease scope外としてdeferredに残す。
 
 ### R7 closure follow-up（2026-09-03）
 
