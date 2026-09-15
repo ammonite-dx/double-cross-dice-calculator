@@ -368,6 +368,10 @@ function createRuntimeDxProvider(calculateDistribution) {
   }
 }
 
+/**
+ * @param {Object} [dependencies]
+ * @returns {import('./CalculationClientTypes').CalculationClient}
+ */
 export function createCalculationClient(
   dependencies = defaultDependencies
 ) {

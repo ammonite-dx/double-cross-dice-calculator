@@ -54,6 +54,9 @@ export const DAMAGE_AGGREGATION_LIMITS = Object.freeze({
   maxComponents: DAMAGE_AGGREGATION_MAX_COMPONENTS,
 })
 
+/** @typedef {import('./DamageAggregationTypes').TotalDamageCalculationOptions} TotalDamageCalculationOptions */
+/** @typedef {import('./DamageAggregationTypes').DamageAggregationPlan} DamageAggregationPlan */
+
 export const DAMAGE_AGGREGATION_ERROR_CODES = Object.freeze({
   INVALID_ENVELOPE: 'invalid-envelope',
   INVALID_OPTIONS: 'invalid-options',
@@ -1502,6 +1505,11 @@ export function validateDamageAggregationOptions(options = {}) {
  * convolution buffers. The returned plan is an immutable, opaque contract;
  * pass it back to sumDamage to execute the exact planned work.
  */
+/**
+ * @param {readonly import('./DistributionResultTypes').DistributionEnvelope[]} Damages
+ * @param {TotalDamageCalculationOptions} [options]
+ * @returns {DamageAggregationPlan}
+ */
 export function planDamageAggregation(
   Damages,
   options = {}
@@ -1691,6 +1699,12 @@ function executeDamagePlan(planRecord, normalizedOptions) {
  * Execute a damage sum. When `options.plan` (or the optional third
  * argument) is supplied, no envelope validation or resource planning is
  * repeated: the approved immutable plan is executed directly.
+ */
+/**
+ * @param {readonly import('./DistributionResultTypes').DistributionEnvelope[]} Damages
+ * @param {TotalDamageCalculationOptions & { plan?: DamageAggregationPlan }} [options]
+ * @param {DamageAggregationPlan} [explicitPlan]
+ * @returns {import('./DistributionResultTypes').DistributionEnvelope}
  */
 export function sumDamage(
   Damages,

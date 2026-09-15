@@ -22,6 +22,10 @@ import {
 
 export { DEFAULT_POLICY }
 
+/** @typedef {import('./planning/RangePlannerTypes').RangePlannerParams} RangePlannerParams */
+/** @typedef {import('./planning/RangePlannerTypes').RangePolicyInput} RangePolicyInput */
+/** @typedef {import('./planning/RangePlannerTypes').CalculationRangePlan} CalculationRangePlan */
+
 /**
  * The façade coordinates operation-specific planners and combines their
  * resource estimates. It does not contain DX, damage, or backtrack formulas.
@@ -92,6 +96,11 @@ function makeOverflowInfo(plan) {
  *
  * This function only returns a plan. It does not allocate calculator arrays,
  * invoke a calculator, alter UI limits, or select a production data path.
+ */
+/**
+ * @param {RangePlannerParams} params
+ * @param {RangePolicyInput} [policy]
+ * @returns {CalculationRangePlan}
  */
 export function planCalculationRanges(params, policy = {}) {
   const effectivePolicy = mergePolicy(policy)
