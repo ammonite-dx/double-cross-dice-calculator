@@ -322,9 +322,9 @@ export function createCalculationRequestCoordinator({
     cleanupItem(item)
 
     if (!current) {
-      // Superseded work is allowed to finish, but it cannot publish anything.
-      // Abort after completion to release listeners without asking the
-      // underlying calculation to stop while it is still running.
+      // Superseded work is signalled to abort when the newer request arrives.
+      // If an executor ignores cancellation, its eventual completion still
+      // cannot publish anything.
       item.controller?.abort()
       settle(item, false)
       startQueuedIfNeeded()
@@ -396,6 +396,11 @@ export function createCalculationRequestCoordinator({
     try {
       snapshot = snapshotRequest(request)
     } catch (error) {
+      // The failed request still owns the newest revision. Stop the stale
+      // active work and discard any older queued item before publishing the
+      // snapshot error, so neither can run after this failure.
+      active?.controller?.abort()
+      cancelQueuedItem(queued)
       publishState(
         isResourceRejected(error)
           ? CALCULATION_REQUEST_STATUS.RESOURCE_REJECTED

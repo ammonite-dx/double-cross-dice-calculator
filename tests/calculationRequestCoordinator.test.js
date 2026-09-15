@@ -146,6 +146,7 @@ describe('CalculationRequestCoordinator', () => {
     async (_label, createSnapshotError, expectedStatus) => {
       const first = createDeferred()
       let snapshotCalls = 0
+      let activeSignal
       const coordinator = createCalculationRequestCoordinator({
         snapshotRequest: (request) => {
           snapshotCalls += 1
@@ -154,7 +155,10 @@ describe('CalculationRequestCoordinator', () => {
           }
           return request
         },
-        execute: () => first.promise,
+        execute: (_request, context) => {
+          activeSignal = context.signal
+          return first.promise
+        },
       })
 
       const activeRequest = coordinator.run({ id: 'active' })
@@ -162,9 +166,63 @@ describe('CalculationRequestCoordinator', () => {
 
       await expect(failedLatestRequest).resolves.toBe(false)
       expect(coordinator.snapshot().status).toBe(expectedStatus)
+      expect(activeSignal.aborted).toBe(true)
 
       first.resolve({ id: 'stale result' })
       await expect(activeRequest).resolves.toBe(false)
+      expect(coordinator.snapshot().status).toBe(expectedStatus)
+    }
+  )
+
+  it.each([
+    [
+      'error',
+      () => new Error('latest snapshot failed'),
+      CALCULATION_REQUEST_STATUS.ERROR,
+    ],
+    [
+      'resource rejection',
+      () => Object.assign(
+        new Error('latest snapshot resource rejected'),
+        { name: 'ResourceGuardError' }
+      ),
+      CALCULATION_REQUEST_STATUS.RESOURCE_REJECTED,
+    ],
+  ])(
+    'cancels stale active and queued work after a latest snapshot %s',
+    async (_label, createSnapshotError, expectedStatus) => {
+      const first = createDeferred()
+      let snapshotCalls = 0
+      let executeCalls = 0
+      let activeSignal
+      const coordinator = createCalculationRequestCoordinator({
+        snapshotRequest: (request) => {
+          snapshotCalls += 1
+          if (snapshotCalls === 3) {
+            throw createSnapshotError()
+          }
+          return request
+        },
+        execute: (_request, context) => {
+          executeCalls += 1
+          activeSignal = context.signal
+          return first.promise
+        },
+      })
+
+      const activeRequest = coordinator.run({ id: 'active' })
+      const queuedRequest = coordinator.run({ id: 'queued' })
+      const failedLatestRequest = coordinator.run({ id: 'failed-latest' })
+
+      await expect(failedLatestRequest).resolves.toBe(false)
+      expect(activeSignal.aborted).toBe(true)
+      await expect(queuedRequest).resolves.toBe(false)
+      expect(executeCalls).toBe(1)
+      expect(coordinator.snapshot().status).toBe(expectedStatus)
+
+      first.resolve({ id: 'stale result' })
+      await expect(activeRequest).resolves.toBe(false)
+      expect(executeCalls).toBe(1)
       expect(coordinator.snapshot().status).toBe(expectedStatus)
     }
   )

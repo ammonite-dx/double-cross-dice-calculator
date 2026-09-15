@@ -470,12 +470,16 @@ describe('Attack feature controller', () => {
 
   it('keeps the latest controller input result when canonical requests overlap', async () => {
     let resolveOld
+    let firstSignal
     let callCount = 0
     const oldBatch = createAttackBatch({ marker: 0 })
     const latestBatch = createAttackBatch({ marker: 1 })
     const client = {
       calculateAttack: vi.fn((_params, options) => {
         callCount += 1
+        if (callCount === 1) {
+          firstSignal = options.signal
+        }
         options.onRangePlan?.({
           id: `plan-${callCount}`,
           operation: 'attack',
@@ -506,6 +510,8 @@ describe('Attack feature controller', () => {
       side: 'action',
       snapshot: createActionSnapshot(3),
     })
+    expect(firstSignal.aborted).toBe(true)
+    expect(callCount).toBe(1)
     resolveOld(oldBatch)
     await vi.waitFor(() => expect(callCount).toBe(2))
     await waitForReady(controller)
