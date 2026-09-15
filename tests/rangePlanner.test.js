@@ -468,6 +468,7 @@ describe('production range planner', () => {
     const policy = {
       calculationMax: 200,
       display: { defaultMax: 0 },
+      scorePropagation: 'published-bucket',
     }
     const positive = planCalculationRanges(attackParams({
       attack: { dice: 0, value: 5, kazanari: 0 },
@@ -495,6 +496,7 @@ describe('production range planner', () => {
     const policy = {
       calculationMax: 200,
       display: { defaultMax: 0 },
+      scorePropagation: 'published-bucket',
     }
     const cases = [
       {
@@ -572,6 +574,7 @@ describe('production range planner', () => {
     }), {
       calculationMax: 214,
       display: { defaultMax: 0 },
+      scorePropagation: 'published-bucket',
     }).damage
     expect(exactPowerOfTwo.workingMax).toBe(234)
     expect(exactPowerOfTwo.workingLength).toBe(236)
@@ -660,7 +663,7 @@ describe('production range planner', () => {
     expect(fasterFft.estimates.dxTimeMs).toBe(slowerFft.estimates.dxTimeMs)
   })
 
-  it('keeps published-bucket as the default and exposes full-tail as a plan-only option', () => {
+  it('uses full-tail by default while preserving explicit published-bucket compatibility', () => {
     const params = attackParams({
       score: {
         action: scoreParams({ dice: 200, critical: 2, skill: 500 }),
@@ -669,10 +672,12 @@ describe('production range planner', () => {
       attack: { dice: 150, value: 500, kazanari: 0 },
       defence: { dice: 99, value: -500 },
     })
-    const published = planCalculationRanges(params)
-    const fullTail = planCalculationRanges(params, {
-      scorePropagation: 'full-tail',
+    const fullTail = planCalculationRanges(params)
+    const published = planCalculationRanges(params, {
+      scorePropagation: 'published-bucket',
     })
+
+    expect(DEFAULT_POLICY.scorePropagation).toBe('full-tail')
 
     expect(published.damage.scoreValueMode).toBe('published-bucket')
     expect(fullTail.damage.scoreValueMode).toBe('full-tail')
@@ -935,13 +940,13 @@ describe('production range planner', () => {
         ...shared,
         reaction: scoreParams({ dice: 1, critical: 2 }),
       },
-    }))
+    }), { scorePropagation: 'published-bucket' })
     const largerReaction = planCalculationRanges(attackParams({
       score: {
         ...shared,
         reaction: scoreParams({ dice: 99, critical: 2 }),
       },
-    }))
+    }), { scorePropagation: 'published-bucket' })
 
     expect(base.damage.scoreValueMode).toBe('published-bucket')
     expect(largerReaction.damage.scoreValueMode).toBe('published-bucket')
@@ -1159,6 +1164,7 @@ describe('production range planner', () => {
     const published = planCalculationRanges(params, {
       calculationMax: 0,
       display: { defaultMax: 0 },
+      scorePropagation: 'published-bucket',
     })
     const fullTail = planCalculationRanges(params, {
       calculationMax: 0,

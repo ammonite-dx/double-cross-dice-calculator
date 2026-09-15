@@ -19,12 +19,11 @@ function getPublishedScoreUpperBound(calculationMax) {
 }
 
 /**
- * The default keeps the current published-bucket contract and display range.
- * Resource thresholds are provisional policy inputs, not UI input limits.
+ * The default propagates the complete canonical score tail. Resource
+ * thresholds are provisional policy inputs, not UI input limits.
  */
 export const DEFAULT_POLICY = {
-  // Preserve the current public-score-to-damage contract.
-  scorePropagation: 'published-bucket',
+  scorePropagation: 'full-tail',
   calculationMax: LEGACY_CALCULATION_MAX,
   errorBudget: {
     total: DEFAULT_ERROR_BUDGET,

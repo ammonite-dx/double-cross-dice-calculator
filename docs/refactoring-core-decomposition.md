@@ -29,7 +29,7 @@ R12では、数値仕様、tail error budget、resource threshold、公開結果
 | 資源見積り・warning／reject | `RangePlanner.js`内の集約処理 | `planning/ResourcePlan.js` |
 | 公開入口 | 巨大な実装ファイル | `RangePlanner.js`の薄いorchestration facade |
 
-`RangePlanner.js`は公開入口として維持し、operationの振り分け、各plannerの結果の合成、overflow情報の作成だけを担当する。既存の`planCalculationRanges`と`DEFAULT_POLICY`は同じmoduleから利用でき、既存の計画結果shapeも維持する。`nextPowerOfTwo`は既存consumerのため互換exportを残したが、新しい計画コードとテストは`PlanningMath.js`を直接参照する。
+`RangePlanner.js`は公開入口として維持し、operationの振り分け、各plannerの結果の合成、overflow情報の作成だけを担当する。既存の`planCalculationRanges`と`DEFAULT_POLICY`は同じmoduleから利用でき、既存の計画結果shapeも維持する。FFT用の`nextPowerOfTwo`は`PlanningMath.js`から直接参照する。
 
 ## 3. 依存方向
 
