@@ -450,6 +450,32 @@ describe('production runtime damage roll Worker client', () => {
     await expect(next).resolves.toEqual(distributionAt(4))
   })
 
+  it('keeps the resident Worker after a job-level calculation error', async () => {
+    const { client, workers } = createHarness()
+    const failed = client.calculate([1], 4)
+    const queued = client.calculate([0, 1], 4)
+    const worker = workers[0]
+    const failedId = worker.messages[0].message.id
+
+    expect(worker.messages).toHaveLength(1)
+    worker.emit('message', {
+      data: {
+        id: failedId,
+        error: { name: 'RangeError', message: 'invalid calculation' },
+      },
+    })
+
+    await expect(failed).rejects.toMatchObject({
+      name: 'RangeError',
+      message: 'invalid calculation',
+    })
+    expect(worker.terminate).not.toHaveBeenCalled()
+    expect(worker.messages).toHaveLength(2)
+    worker.respond(1, distributionAt(2))
+    await expect(queued).resolves.toEqual(distributionAt(2))
+    expect(workers).toHaveLength(1)
+  })
+
   it('rejects a Worker result with a material negative probability', async () => {
     const { client, workers } = createHarness()
     const request = client.calculate([1], 3)
@@ -506,6 +532,22 @@ describe('production runtime damage roll Worker client', () => {
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
     expect(worker.terminate).toHaveBeenCalledOnce()
     await expect(client.calculate([1], 0)).rejects.toThrow('disposed')
+  })
+
+  it('rejects active and queued jobs together when disposed', async () => {
+    const { client, workers } = createHarness()
+    const active = client.calculate([1], 0)
+    const queued = client.calculate([0, 1], 0)
+    const worker = workers[0]
+
+    expect(worker.messages).toHaveLength(1)
+    client.dispose()
+
+    await expect(active).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(queued).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminate).toHaveBeenCalledOnce()
+    expect(worker.messages).toHaveLength(1)
+    expect(workers).toHaveLength(1)
   })
 
   it('releases the CalculationClient lease after an aborted Worker request is preempted', async () => {
