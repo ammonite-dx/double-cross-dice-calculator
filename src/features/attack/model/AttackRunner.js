@@ -19,35 +19,16 @@ import {
   recordCalculationError,
 } from '../../../runtime/CalculationFeedback'
 
-/** @template TBasePresentation */
-/** @template TDisplayPresentation */
-/** @typedef {import('../../../calculation/planning/RangePlannerTypes').CalculationRangePlan} CalculationRangePlan */
-
-/**
- * @template TBasePresentation
- * @template TDisplayPresentation
- * @param {{
- *   state: object,
- *   executeCalculation: (request: object) => Promise<object>,
- *   createBasePresentation?: (batchResult: unknown, rangePlans?: ReadonlyArray<CalculationRangePlan>) => TBasePresentation,
- *   createPresentation?: (batchResult: unknown, rangePlans?: ReadonlyArray<CalculationRangePlan>, request?: object, scoreRequest?: object) => TDisplayPresentation,
- *   createDisplayPresentation?: (options: object) => TDisplayPresentation,
- *   onPresentation?: (presentation: TDisplayPresentation, metadata?: object) => void,
- *   onDisplayRejected?: (presentation: TDisplayPresentation|null) => void,
- *   onError?: (error: unknown) => void,
- * }} options
- * @returns {{
- *   run: (options?: object) => Promise<boolean>,
- *   invalidate: () => void,
- *   invalidateScoreDisplay: () => void,
- *   refreshPresentation: (options?: object) => boolean,
- *   dispose: () => void,
- * }}
- */
+/** @typedef {import('./AttackRunnerTypes').AttackRunnerOptions} AttackRunnerOptions */
+/** @typedef {import('./AttackRunnerTypes').AttackRunner} AttackRunner */
 
 /**
  * Connect the attack batch client to a latest-request runner.
  * The runner is UI-independent and owns the current calculation lane.
+ *
+ * @template {import('./AttackRunnerTypes').AttackRunnerPresentation} [TPresentation=import('./AttackRunnerTypes').AttackRunnerPresentation]
+ * @param {import('./AttackRunnerTypes').AttackRunnerOptions<TPresentation>} options
+ * @returns {import('./AttackRunnerTypes').AttackRunner<TPresentation>}
  */
 export function createAttackRunner({
   state,

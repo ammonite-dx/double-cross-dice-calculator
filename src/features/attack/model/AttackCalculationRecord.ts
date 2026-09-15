@@ -6,11 +6,12 @@ import type {
   DamageEnvelope,
   TotalDamageResult,
 } from '../../../calculation/DistributionResultTypes'
+import type { AttackRangePlanReference } from './AttackPresentationTypes'
 
 export interface AttackCalculationRecord {
   readonly input: AttackCalculationInput
   readonly result: AttackCalculationResult
-  readonly rangePlan: unknown
+  readonly rangePlan: AttackRangePlanReference
 }
 
 export interface AttackTotalCalculationRecord {
@@ -36,7 +37,9 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   return Object.freeze(value)
 }
 
-function snapshotScore(score: Record<string, unknown>) {
+function snapshotScore(
+  score: AttackCalculationInput['action']['score'],
+): AttackCalculationInput['action']['score'] {
   return {
     dice: score.dice,
     critical: score.critical,
@@ -46,38 +49,44 @@ function snapshotScore(score: Record<string, unknown>) {
   }
 }
 
-function snapshotDamage(damage: Record<string, unknown>, kazanari: boolean) {
+function snapshotActionDamage(
+  damage: AttackCalculationInput['action']['damage'],
+): AttackCalculationInput['action']['damage'] {
   return {
     dice: damage.dice,
     value: damage.value,
-    ...(kazanari ? { kazanari: damage.kazanari } : {}),
+    kazanari: damage.kazanari,
+  }
+}
+
+function snapshotReactionDamage(
+  damage: AttackCalculationInput['reaction']['damage'],
+): AttackCalculationInput['reaction']['damage'] {
+  return {
+    dice: damage.dice,
+    value: damage.value,
   }
 }
 
 function snapshotInput(input: AttackCalculationInput): AttackCalculationInput {
-  return deepFreeze({
+  const snapshot: AttackCalculationInput = {
     action: {
-      score: snapshotScore(input.action.score as unknown as Record<string, unknown>),
-      damage: snapshotDamage(
-        input.action.damage as unknown as Record<string, unknown>,
-        true
-      ),
+      score: snapshotScore(input.action.score),
+      damage: snapshotActionDamage(input.action.damage),
     },
     reaction: {
       mode: input.reaction.mode,
-      score: snapshotScore(input.reaction.score as unknown as Record<string, unknown>),
-      damage: snapshotDamage(
-        input.reaction.damage as unknown as Record<string, unknown>,
-        false
-      ),
+      score: snapshotScore(input.reaction.score),
+      damage: snapshotReactionDamage(input.reaction.damage),
     },
-  }) as AttackCalculationInput
+  }
+  return deepFreeze(snapshot)
 }
 
 export function createAttackCalculationRecord(
   input: AttackCalculationInput,
   result: AttackCalculationResult,
-  rangePlan: unknown,
+  rangePlan: AttackRangePlanReference,
 ): AttackCalculationRecord {
   return Object.freeze({
     input: snapshotInput(input),

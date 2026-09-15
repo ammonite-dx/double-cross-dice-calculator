@@ -3,6 +3,16 @@ import {
   markCalculationAborted,
 } from '../../../runtime/CalculationFeedback'
 
+/** @typedef {import('./AttackStateTypes').AttackState} AttackState */
+/** @typedef {import('./AttackStateTypes').AttackStateSeed} AttackStateSeed */
+/** @typedef {import('./AttackComboState').AttackCombo} AttackCombo */
+/** @typedef {import('./AttackComboState').AttackComboParams} AttackComboParams */
+/** @typedef {import('./AttackIncrementalExecutionTypes').AttackCommittedRecord} AttackCommittedRecord */
+/** @typedef {import('./AttackCalculationRecord').AttackTotalCalculationRecord} AttackTotalCalculationRecord */
+/** @typedef {import('./AttackIncrementalExecutionTypes').AttackIncrementalExecution} AttackIncrementalExecution */
+/** @typedef {import('./AttackPresentationTypes').AttackPresentation} AttackPresentation */
+/** @typedef {import('./AttackPresentationTypes').AttackDisplayPresentation} AttackDisplayPresentation */
+
 const COMBO_DEFAULTS = Object.freeze({
   calculation: null,
 })
@@ -70,6 +80,9 @@ function snapshotDamageParams(damage, path, includeKazanari) {
  * Make a plain, non-aliased snapshot of the params accepted by the attack
  * attack batch API. This deliberately copies only calculation inputs, so
  * legacy result arrays and presentation state never enter the request watch.
+ *
+ * @param {AttackComboParams} params
+ * @returns {AttackComboParams}
  */
 export function snapshotAttackParams(params) {
   const source = requireRecord(params, 'params')
@@ -103,6 +116,9 @@ export function snapshotAttackParams(params) {
 /**
  * Convert the current combo order into the attack batch request shape.
  * Every nested params object is copied before the caller can mutate it.
+ *
+ * @param {ReadonlyArray<AttackCombo>} combos
+ * @returns {ReadonlyArray<import('./AttackIncrementalExecutionTypes').AttackExecutionEntry>}
  */
 export function snapshotAttackEntries(combos) {
   if (!Array.isArray(combos)) {
@@ -183,6 +199,7 @@ export function ensureComboData(data) {
   return target
 }
 
+/** @returns {AttackStateSeed} */
 export function createAttackState() {
   return {
     totalCalculation: null,
@@ -302,6 +319,9 @@ export function isAttackInputCurrent(combos, expectedEntries) {
  * Return the committed calculation records in the current combo order. The
  * returned array is a snapshot of references, so an in-flight execution can
  * never observe later input mutations.
+ *
+ * @param {ReadonlyArray<AttackCombo>} combos
+ * @returns {ReadonlyArray<AttackCommittedRecord>}
  */
 export function getAttackCalculationRecords(combos) {
   if (!Array.isArray(combos)) {
@@ -393,6 +413,11 @@ function hasIncrementalExecutionShape(execution, combos) {
  * Atomically publish only the calculation part of an incremental execution.
  * Presentation generation is deliberately a separate commit so a presenter
  * failure cannot discard otherwise valid combo and total records.
+ *
+ * @param {AttackState} state
+ * @param {number} generation
+ * @param {AttackIncrementalExecution} execution
+ * @returns {boolean}
  */
 export function commitAttackCalculationExecution(
   state,
@@ -448,6 +473,12 @@ function hasDisplayPresentationShape(presentation, combos) {
 /**
  * Atomically publish base and display presentations for an already committed
  * incremental calculation. Calculation records are never touched here.
+ *
+ * @param {AttackState} state
+ * @param {number} generation
+ * @param {AttackPresentation|null} basePresentation
+ * @param {AttackDisplayPresentation} displayPresentation
+ * @returns {boolean}
  */
 export function commitAttackPresentation(
   state,

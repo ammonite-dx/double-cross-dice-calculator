@@ -2,6 +2,11 @@ import {
   ATTACK_DISPLAY_PRESENTATION_DECISIONS,
 } from './AttackPresentation'
 
+/** @typedef {import('../../../runtime/CalculationFeedbackTypes').CalculationFeedbackState} CalculationFeedbackState */
+/** @typedef {import('../../../shared/presentation/DistributionProjectionTypes').DisplayFeedbackPlan} DisplayFeedbackPlan */
+/** @typedef {import('./AttackPresentationTypes').AttackDisplayPresentation} AttackDisplayPresentation */
+/** @typedef {import('./AttackPresentationTypes').AttackScoreDisplayPresentation} AttackScoreDisplayPresentation */
+
 const DISPLAY_FEEDBACK_CODES = Object.freeze({
   RECALCULATE: 'attack-display-recalculate',
   RESOURCE_REJECTED: 'attack-display-resource-rejected',
@@ -45,6 +50,7 @@ function getDisplayWindow(presentation, side) {
     ?? { min: 0, max: 0, pointCount: 1 }
 }
 
+/** @returns {DisplayFeedbackPlan} */
 function createRejectedPlan(presentation, sides, code) {
   const source = sides.find((side) => isRecord(side?.plan))
   const displayWindow = getDisplayWindow(presentation, source)
@@ -79,6 +85,9 @@ function createRejectedPlan(presentation, sides, code) {
 /**
  * Adapt the UI-independent Attack display decision to the existing feedback
  * state consumed by RangePlanNotice. This never creates a legacy display.
+ *
+ * @param {AttackDisplayPresentation|null} presentation
+ * @returns {CalculationFeedbackState<DisplayFeedbackPlan>}
  */
 export function createAttackDisplayFeedback(presentation) {
   if (!isRecord(presentation)) {
@@ -157,6 +166,9 @@ export function createAttackDisplayFeedback(presentation) {
  * Adapt the independent score display decision to the same
  * RangePlanNotice feedback lane. score coverage is deliberately terminal in
  * this phase: this helper never asks the calculation runner to recalculate.
+ *
+ * @param {AttackScoreDisplayPresentation|null} presentation
+ * @returns {CalculationFeedbackState<DisplayFeedbackPlan>}
  */
 export function createAttackScoreDisplayFeedback(presentation) {
   if (!isRecord(presentation)) {

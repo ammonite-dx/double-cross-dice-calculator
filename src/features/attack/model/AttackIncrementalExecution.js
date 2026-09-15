@@ -4,7 +4,11 @@ import {
   createAttackTotalCalculationRecord,
 } from './AttackCalculationRecord'
 
-/** @typedef {import('../../../calculation/planning/RangePlannerTypes').CalculationRangePlan} CalculationRangePlan */
+/** @typedef {import('./AttackIncrementalExecutionTypes').AttackExecutionEntry} AttackExecutionEntry */
+/** @typedef {import('./AttackIncrementalExecutionTypes').AttackCommittedRecord} AttackCommittedRecord */
+/** @typedef {import('./AttackIncrementalExecutionTypes').AttackExecutionPlanItem} AttackExecutionPlanItem */
+/** @typedef {import('./AttackIncrementalExecutionTypes').AttackIncrementalExecutionRequest} AttackIncrementalExecutionRequest */
+/** @typedef {import('./AttackIncrementalExecutionTypes').AttackIncrementalExecution} AttackIncrementalExecution */
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -35,9 +39,10 @@ function findCommittedRecord(committedRecords, id) {
  * This helper only compares stable ids and detached calculation inputs; it
  * deliberately ignores names, visibility, presentation, and display ranges.
  *
- * @param {unknown[]} requestedEntries
- * @param {unknown[]} committedRecords
+ * @param {ReadonlyArray<AttackExecutionEntry>} requestedEntries
+ * @param {ReadonlyArray<AttackCommittedRecord>} committedRecords
  * @param {{ forceAll?: boolean }} options
+ * @returns {ReadonlyArray<AttackExecutionPlanItem>}
  */
 export function planAttackExecution(
   requestedEntries,
@@ -122,14 +127,8 @@ function assembleBatch(records, totalResult) {
  * records. No state is mutated until the caller atomically commits the
  * returned execution object.
  *
- * @param {{
- *   entries: ReadonlyArray<Object>,
- *   committedRecords?: ReadonlyArray<Object>,
- *   calculationClient: object,
- *   options?: Record<string, unknown>,
- *   onRangePlan?: (plan: CalculationRangePlan, context?: object) => void,
- *   forceAll?: boolean,
- * }} request
+ * @param {AttackIncrementalExecutionRequest} request
+ * @returns {Promise<AttackIncrementalExecution>}
  */
 export async function executeAttackIncrementally({
   entries,

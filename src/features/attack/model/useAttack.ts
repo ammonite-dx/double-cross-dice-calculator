@@ -14,7 +14,15 @@ import type {
   AttackPresentation,
   AttackScoreDisplayBatchPresentation,
   AttackBatchResult,
+  AttackRangePlanReference,
 } from './AttackPresentationTypes'
+import type {
+  AttackExecutionEntry,
+} from './AttackIncrementalExecutionTypes'
+import type {
+  AttackRunnerCalculationRequest,
+  AttackRunnerDisplayContext,
+} from './AttackRunnerTypes'
 import type { AttackState } from './AttackStateTypes'
 import type {
   DisplayFeedbackPlan,
@@ -56,11 +64,6 @@ import {
   type AttackCombo,
 } from './AttackComboState'
 
-type AttackExecutionEntry = {
-  readonly id: number | string
-  readonly params: AttackCombo['data']['params']
-}
-
 export interface AttackUiCombo {
   id: number | string
   name: string
@@ -72,12 +75,17 @@ export interface AttackUiCombo {
   params: AttackCombo['data']['params']
 }
 
-export interface ComboSideValidation {
-  id: number | string
-  side: 'action' | 'reaction'
-  snapshot: AttackCombo['data']['params']['action']
-    | AttackCombo['data']['params']['reaction']
-}
+export type ComboSideValidation =
+  | {
+      id: number | string
+      side: 'action'
+      snapshot: AttackCombo['data']['params']['action']
+    }
+  | {
+      id: number | string
+      side: 'reaction'
+      snapshot: AttackCombo['data']['params']['reaction']
+    }
 
 export interface ComboDetailsChange {
   id: number | string
@@ -174,13 +182,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         signal,
         onRangePlan,
         forceAll,
-      }: {
-        entries: readonly AttackExecutionEntry[]
-        calculationOptions: Record<string, unknown>
-        signal?: AbortSignal
-        onRangePlan?: (plan: CalculationRangePlan) => void
-        forceAll?: boolean
-      }) => executeAttackIncrementally({
+      }: AttackRunnerCalculationRequest) => executeAttackIncrementally({
         entries,
         committedRecords: getAttackCalculationRecords(state.combos),
         calculationClient: client,
@@ -193,11 +195,11 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     }),
     createBasePresentation: (
       batchResult: AttackBatchResult,
-      rangePlans: CalculationRangePlan[] = [],
+      rangePlans: readonly AttackRangePlanReference[] = [],
     ) => createAttackPresentation(batchResult, rangePlans),
     createPresentation: (
       batchResult: AttackBatchResult,
-      rangePlans: CalculationRangePlan[] = [],
+      rangePlans: readonly AttackRangePlanReference[] = [],
       request?: DisplayRequestSnapshot,
       scoreRequest?: DisplayRequestSnapshot,
     ) => createAttackDisplayPresentation(batchResult, {
@@ -212,12 +214,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       basePresentation,
       displayRequest: request,
       scoreDisplayRequest: scoreRequest,
-    }: {
-      state: AttackState
-      basePresentation?: AttackPresentation | null
-      displayRequest?: DisplayRequestSnapshot
-      scoreDisplayRequest?: DisplayRequestSnapshot
-    }) => {
+    }: AttackRunnerDisplayContext) => {
       return createAttackDisplayPresentationFrom(
         (basePresentation ?? currentState.basePresentation)!,
         {

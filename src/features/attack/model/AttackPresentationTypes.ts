@@ -13,7 +13,7 @@ import type {
 } from '../../../calculation/DistributionResultTypes'
 import type {
   ChartJsData,
-  DisplayFeedbackPlan,
+  DisplayWarning,
   DisplayRangePlan,
   DistributionDisplay,
   DistributionProjection,
@@ -45,9 +45,13 @@ export interface AttackBatchResult {
   readonly totalDamageStatistics: DamageStatistics
 }
 
+export interface AttackRangePlanFallback {
+  readonly warnings: readonly DisplayWarning[]
+}
+
 export type AttackRangePlanReference =
   | AttackCalculationRangePlan
-  | DisplayFeedbackPlan
+  | AttackRangePlanFallback
 
 export interface AttackPresentationCombo {
   readonly id: AttackComboId

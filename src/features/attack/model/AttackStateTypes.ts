@@ -20,3 +20,4 @@ export interface AttackState {
   displayFeedback: CalculationFeedbackState<DisplayFeedbackPlan>
 }
 
+export type AttackStateSeed = Omit<AttackState, 'combos'>
