@@ -101,6 +101,11 @@ describe('createAttackDisplayPresentation', () => {
       id: 'combo-1',
       status: 'ready',
       decision: 'reuse',
+      projection: {
+        kind: 'canonical-distribution-projection',
+        status: 'ready',
+        decision: 'reuse',
+      },
       plan: { decision: 'reuse' },
       series: {
         kind: 'canonical-chart-series',

@@ -3,16 +3,11 @@ import {
   getProbabilityMassSummary,
 } from '../../../calculation/DistributionResult'
 import {
-  CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CHART_SERIES_NOT_READY_REASONS,
-  DISPLAY_PROBABILITY_TOLERANCE,
-  createChartSeries,
   materializeChartJsData,
-  planDisplayRange,
   presentDistribution,
+  projectDistribution,
 } from '../../../shared/presentation'
 import {
-  ATTACK_DISPLAY_MODES,
   createAttackDisplayRequestSnapshot,
   DEFAULT_ATTACK_DISPLAY_REQUEST,
 } from './AttackDisplayRequestSnapshot'
@@ -331,105 +326,18 @@ function normalizeAttackDisplayOptions(options) {
   }
 }
 
-function hasPotentialUpperBoundOverflow(overflow) {
-  return overflow?.kind === 'upper-bound'
-    && (overflow.errorBound > 0 || overflow.probabilityUpperBound > 0)
-}
-
-function hasTerminalUpperBoundEvidence(side) {
-  if (
-    side.plan.status === 'resource-rejected'
-    || side.plan.decision === 'known-zero'
-  ) {
-    return false
-  }
-
-  const overflow = side.plan.coverage.overflow
-  if (!hasPotentialUpperBoundOverflow(overflow)) {
-    return false
-  }
-
-  const projectionUncertainty = side.plan.coverage.projectionUncertainty
-  if (
-    projectionUncertainty !== undefined
-    && projectionUncertainty !== null
-    && projectionUncertainty.positionUnknownProbabilityUpperBound <=
-      DISPLAY_PROBABILITY_TOLERANCE
-  ) {
-    const hasOutputOverflowLowerBound =
-      Object.prototype.hasOwnProperty.call(
-        projectionUncertainty,
-        'outputOverflowLowerBound'
-      ) && projectionUncertainty.outputOverflowLowerBound !== null
-    if (!hasOutputOverflowLowerBound) {
-      return false
-    }
-    const outputOverflowLowerBound =
-      projectionUncertainty.outputOverflowLowerBound
-    if (
-      outputOverflowLowerBound === null
-      || outputOverflowLowerBound > side.plan.displayWindow.max
-    ) {
-      return side.series.mode === ATTACK_DISPLAY_MODES.UPPER_TAIL
-    }
-  }
-
-  return side.series.mode === ATTACK_DISPLAY_MODES.UPPER_TAIL
-    || overflow.lowerBound <= side.plan.displayWindow.max
-}
-
-function getAttackDisplaySideDecision(side) {
-  if (
-    side.plan.status === 'resource-rejected'
-    || side.series.reason === CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED
-  ) {
-    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RESOURCE_REJECTED
-  }
-
-  if (hasTerminalUpperBoundEvidence(side)) {
-    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
-  }
-
-  if (side.series.status === 'not-projectable') {
-    if (
-      side.series.reason
-      === CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
-    ) {
-      return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
-    }
-    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
-  }
-
-  if (side.series.status === 'not-ready') {
-    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
-  }
-
-  if (side.plan.decision === 'known-zero') {
-    return ATTACK_DISPLAY_PRESENTATION_DECISIONS.KNOWN_ZERO
-  }
-
-  return ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE
-}
-
-function getAttackDisplaySideReason(side) {
-  if (hasTerminalUpperBoundEvidence(side)) {
-    return CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW
-  }
-  return side.series.reason ?? null
-}
-
 function getAttackDisplayStatus(sides) {
-  if (sides.some(({ series }) => series.status === 'not-projectable')) {
+  if (sides.some(({ projection }) => projection.status === 'not-projectable')) {
     return 'not-projectable'
   }
-  if (sides.some(({ series }) => series.status === 'not-ready')) {
+  if (sides.some(({ projection }) => projection.status === 'not-ready')) {
     return 'not-ready'
   }
   return 'ready'
 }
 
 function getAttackDisplayDecision(sides) {
-  const decisions = sides.map(getAttackDisplaySideDecision)
+  const decisions = sides.map(({ projection }) => projection.decision)
   if (decisions.includes(
     ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   )) {
@@ -453,40 +361,79 @@ function getAttackDisplayDecision(sides) {
   return ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE
 }
 
+// Keep the Chart.js adapter shape while the feature migrates to the shared
+// projection contract. No coverage or overflow decisions are made here.
+function createChartSeriesFromProjection(projection) {
+  if (projection.status === 'ready') {
+    return {
+      kind: 'canonical-chart-series',
+      version: 1,
+      status: 'ready',
+      mode: projection.mode,
+      displayWindow: projection.displayWindow,
+      values: projection.values,
+    }
+  }
+
+  const seriesReason = projection.status === 'not-ready'
+    && projection.plan.decision === 'recalculate'
+    && projection.decision === 'not-projectable'
+    ? 'recalculate'
+    : projection.reason
+  return {
+    kind: projection.status === 'not-projectable'
+      ? 'not-projectable'
+      : 'not-ready',
+    version: 1,
+    status: projection.status,
+    mode: projection.mode,
+    reason: seriesReason,
+    displayWindow: projection.displayWindow,
+    ...(projection.status === 'not-ready'
+      ? {
+          plannerStatus: projection.plan.status,
+          decision: projection.plan.decision,
+          rejectionReasons: projection.plan.rejectionReasons,
+        }
+      : {}),
+  }
+}
+
 function createAttackDisplaySide(
   display,
   displayRequest,
   policy,
   id
 ) {
-  const plannerOptions = {
+  const projectionOptions = {
     displayWindow: {
       min: displayRequest.min,
       max: displayRequest.max,
     },
+    mode: displayRequest.mode,
   }
   if (policy !== undefined) {
-    plannerOptions.policy = policy
+    projectionOptions.policy = policy
   }
 
-  const plan = planDisplayRange(display, plannerOptions)
-  const series = createChartSeries(display, plan, {
-    mode: displayRequest.mode,
-  })
-  const chart = series.status === 'ready'
+  const projection = projectDistribution(display, projectionOptions)
+  const series = createChartSeriesFromProjection(projection)
+  const chart = projection.status === 'ready'
     ? materializeChartJsData(series)
     : null
   const side = {
     ...(id === undefined ? {} : { id }),
     display,
-    plan,
+    projection,
+    plan: projection.plan,
     series,
     chart,
-    status: series.status,
-    reason: null,
+    status: projection.status,
+    reason: projection.status === 'ready'
+      ? null
+      : projection.reason ?? null,
+    decision: projection.decision,
   }
-  side.reason = getAttackDisplaySideReason(side)
-  side.decision = getAttackDisplaySideDecision(side)
   return Object.freeze(side)
 }
 
