@@ -11,6 +11,7 @@ import type {
   CalculationRequestCoordinator,
   LatestCalculationRunner,
 } from '../../src/runtime/CalculationFeedbackTypes'
+import { createLatestCalculationRunner } from '../../src/runtime/CalculationFeedback'
 import type {
   ResourceGuard,
   ResourceReservationPlan,
@@ -66,6 +67,25 @@ void feedback
 void coordinator.run({ value: 1 })
 void runner.run({ value: 1 })
 void reservationPlan
+
+const inferredRunner = createLatestCalculationRunner({
+  feedback,
+  snapshotRequest: (request: { value: number }) => request,
+  calculate: async (request) => {
+    request.value
+    request.signal
+    // @ts-expect-error: factory callback request must not be implicitly any.
+    request.missing
+    return { result: request.value }
+  },
+  commitResult: (result) => {
+    result.result
+  },
+})
+
+void inferredRunner.run({ value: 1 })
+// @ts-expect-error: Latest runner exposes one request argument only.
+void inferredRunner.run({ value: 1 }, {})
 
 readResponse({
   id: 1,

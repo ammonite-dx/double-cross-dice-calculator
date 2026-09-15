@@ -2,28 +2,17 @@ import type {
   AttackCalculationOptions,
   CalculationClient,
   CheckCalculationOptions,
+  BacktrackCalculationOptions,
+  TotalDamageClientOptions,
 } from '../../src/runtime/CalculationClientTypes'
 import type {
-  CalculationRangePlan,
+  AttackCalculationRangePlan,
+  CheckCalculationRangePlan,
   RangePolicyInput,
 } from '../../src/calculation/planning/RangePlannerTypes'
 import type { TotalDamageCalculationOptions } from '../../src/calculation/DamageAggregationTypes'
 
 declare const client: CalculationClient
-
-function usePlan(plan: CalculationRangePlan) {
-  if (plan.operation === 'attack') {
-    plan.damage.workingMax
-    plan.backtrack
-  }
-  if (plan.operation === 'backtrack') {
-    plan.backtrack.diceCounts.single
-    plan.scores
-  }
-  if (plan.operation === 'check') {
-    plan.scores[0].tail.bound
-  }
-}
 
 const policy: RangePolicyInput = {
   scorePropagation: 'full-tail',
@@ -34,15 +23,28 @@ const policy: RangePolicyInput = {
 
 const checkOptions: CheckCalculationOptions = {
   rangePolicy: policy,
-  onRangePlan: usePlan,
+  onRangePlan: (plan: CheckCalculationRangePlan) => {
+    plan.operation satisfies 'check'
+    plan.scores[0].workingLength
+  },
 }
 
 const attackOptions: AttackCalculationOptions = {
-  displayRequest: { min: 0, max: 20, mode: 'pmf' },
-  scoreDisplayRequest: { min: 0, max: 20, mode: 'upper-tail' },
+  onRangePlan: (plan) => {
+    plan.operation satisfies 'attack'
+    plan.damage.workingMax
+  },
 }
 
-const totalDamageOptions: TotalDamageCalculationOptions = {
+const backtrackOptions: BacktrackCalculationOptions = {
+  onRangePlan: (plan) => {
+    plan.operation satisfies 'backtrack'
+    plan.backtrack.diceCounts.single
+  },
+}
+
+const totalDamageOptions: TotalDamageClientOptions = {
+  requestId: 'total-1',
   maxValuesLength: 4096,
   maxFftLength: 8192,
   maxResourceBytes: 1_000_000,
@@ -53,7 +55,33 @@ const totalDamageOptions: TotalDamageCalculationOptions = {
 void client
 void checkOptions
 void attackOptions
+void backtrackOptions
 void totalDamageOptions
+
+// A callback for one operation cannot be silently reused for another.
+const attackPlanCallback = (plan: AttackCalculationRangePlan) => {
+  plan.damage.workingLength
+}
+const invalidCheckCallback: CheckCalculationOptions = {
+  // @ts-expect-error: Check callbacks must receive a Check plan, not an Attack plan.
+  onRangePlan: attackPlanCallback,
+}
+
+// Total Damage-only limits must not leak into planned operations.
+// @ts-expect-error: Check must not accept Total Damage aggregation options.
+const invalidCheckOptions: CheckCalculationOptions = { maxComponents: 8 }
+// @ts-expect-error: Check must not accept Total Damage FFT options.
+const invalidCheckFftOptions: CheckCalculationOptions = { maxFftLength: 1024 }
+// @ts-expect-error: Attack must not accept Total Damage aggregation options.
+const invalidAttackOptions: AttackCalculationOptions = { maxResourceBytes: 1024 }
+// @ts-expect-error: Backtrack must not accept Total Damage aggregation options.
+const invalidBacktrackOptions: BacktrackCalculationOptions = { maxComponents: 8 }
+
+void invalidCheckCallback
+void invalidCheckOptions
+void invalidCheckFftOptions
+void invalidAttackOptions
+void invalidBacktrackOptions
 
 // Invalid propagation values are rejected at compile time.
 // @ts-expect-error: scorePropagation accepts only the two supported modes.

@@ -20,28 +20,40 @@ import type {
 import type {
   AttackCalculationRangePlan,
   BacktrackCalculationRangePlan,
-  CalculationRangePlan,
   CheckCalculationRangePlan,
   RangePolicyInput,
 } from '../calculation/planning/RangePlannerTypes'
 
-export interface CalculationOptions extends TotalDamageCalculationOptions {
+/** Options shared by caller-facing calculation requests. */
+export interface CalculationRequestOptions {
   readonly signal?: AbortSignal
   readonly requestId?: string | number
-  readonly rangePolicy?: RangePolicyInput
-  readonly displayRequest?: DisplayRequestSnapshot
-  readonly onRangePlan?: (plan: CalculationRangePlan) => void
-  /** Metadata is passed through the application runner and is not interpreted by the client. */
+  /** Metadata owned by an application runner and ignored by the client. */
   readonly requestMetadata?: Readonly<Record<string, unknown>>
 }
 
-export interface CheckCalculationOptions extends CalculationOptions {}
-
-export interface AttackCalculationOptions extends CalculationOptions {
-  readonly scoreDisplayRequest?: DisplayRequestSnapshot
+/** Options shared by calculations that publish a range plan. */
+export interface PlannedCalculationOptions<TPlan>
+  extends CalculationRequestOptions {
+  readonly rangePolicy?: RangePolicyInput
+  readonly onRangePlan?: (plan: TPlan) => void
 }
 
-export interface BacktrackCalculationOptions extends CalculationOptions {}
+export interface CheckCalculationOptions
+  extends PlannedCalculationOptions<CheckCalculationRangePlan> {
+  readonly displayRequest?: DisplayRequestSnapshot
+}
+
+export interface AttackCalculationOptions
+  extends PlannedCalculationOptions<AttackCalculationRangePlan> {}
+
+export interface BacktrackCalculationOptions
+  extends PlannedCalculationOptions<BacktrackCalculationRangePlan> {}
+
+/** Client-facing options for aggregation of already-calculated damage values. */
+export interface TotalDamageClientOptions
+  extends TotalDamageCalculationOptions,
+    CalculationRequestOptions {}
 
 export interface CheckCalculationResult {
   readonly score: ScorePair
@@ -73,7 +85,7 @@ export interface CalculationClient {
   ): Promise<AttackCalculationResult>
   calculateTotalDamage(
     damages: readonly DistributionEnvelope[],
-    options?: TotalDamageCalculationOptions,
+    options?: TotalDamageClientOptions,
   ): Promise<TotalDamageResult>
   calculateBacktrack(
     params: BacktrackParams,

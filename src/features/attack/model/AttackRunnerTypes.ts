@@ -49,7 +49,7 @@ export type AttackRunnerRefreshOptions = Omit<
 >
 
 export interface AttackRunnerRunOptions
-  extends Omit<AttackCalculationOptions, 'displayRequest' | 'scoreDisplayRequest'> {
+  extends Omit<AttackCalculationOptions, 'signal' | 'onRangePlan'> {
   readonly signal?: AbortSignal
   readonly onRangePlan?: (plan: CalculationRangePlan) => void
   readonly displayRequest?: DisplayRequestSnapshot | null

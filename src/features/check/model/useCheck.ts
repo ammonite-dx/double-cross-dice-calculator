@@ -38,7 +38,6 @@ import type {
 } from '../../../calculation/DistributionResultTypes'
 import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type {
-  CalculationRangePlan,
   CheckCalculationRangePlan,
 } from '../../../calculation/planning/RangePlannerTypes'
 import type {
@@ -453,7 +452,7 @@ export async function useCheck({
   const initialCalculation = await runInitialCalculation({
     feedback: rangeFeedback,
     calculate: (options: {
-      onRangePlan: (plan: CalculationRangePlan) => void
+      onRangePlan: (plan: CheckCalculationRangePlan) => void
     }) =>
       calculationClient.calculateCheck(
         initialCalculationRequest.params,

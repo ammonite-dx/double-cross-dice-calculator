@@ -8,7 +8,6 @@ import {
 } from './CalculationRequestCoordinator'
 
 /** @typedef {import('./CalculationFeedbackTypes').CalculationFeedbackState} CalculationFeedbackState */
-/** @typedef {import('./CalculationFeedbackTypes').LatestCalculationRunner} LatestCalculationRunner */
 
 const RANGE_REASON_BY_CODE = Object.freeze({
   'display-points': '表示する点数が多すぎるため、計算結果を表示できません。',
@@ -275,12 +274,11 @@ export async function runInitialCalculation({ feedback, calculate, onError }) {
  * overwritten.
  */
 /**
- * @template TRequest
+ * @template {object} TRequest
  * @template TResult
  * @template TPlan
- * @template TOptions
- * @param {Object} options
- * @returns {LatestCalculationRunner<TRequest, TResult, TPlan, TOptions>}
+ * @param {import('./CalculationFeedbackTypes').LatestCalculationRunnerOptions<TRequest, TResult, TPlan>} options
+ * @returns {import('./CalculationFeedbackTypes').LatestCalculationRunner<TRequest, TResult, TPlan>}
  */
 export function createLatestCalculationRunner({
   feedback,

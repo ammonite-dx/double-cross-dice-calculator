@@ -87,16 +87,43 @@ export interface CalculationRequestCoordinator<
   snapshot(): CalculationCoordinatorState
 }
 
+/** Caller-visible fields added to a latest-runner calculation request. */
+export interface LatestCalculationRequestOptions<
+  TPlan = CalculationRangePlan,
+> {
+  readonly signal?: AbortSignal
+  readonly onRangePlan?: (plan: TPlan) => void
+}
+
+export type LatestCalculationRunnerContext<
+  TRequest extends object,
+  TPlan = CalculationRangePlan,
+> = CalculationRunnerContext<TRequest, TPlan, TRequest>
+
+export interface LatestCalculationRunnerOptions<
+  TRequest extends object,
+  TResult,
+  TPlan = CalculationRangePlan,
+> {
+  readonly feedback: CalculationFeedbackState<TPlan>
+  readonly calculate: (
+    request: TRequest & LatestCalculationRequestOptions<TPlan>,
+  ) => TResult | Promise<TResult>
+  readonly snapshotRequest?: (request: TRequest) => TRequest
+  readonly clearResult?: () => void
+  readonly commitResult?: (result: TResult) => boolean | void
+  readonly onError?: (error: unknown) => void
+  readonly onCancelled?: (
+    context: LatestCalculationRunnerContext<TRequest, TPlan>,
+  ) => void
+}
+
 export interface LatestCalculationRunner<
-  TRequest,
+  TRequest extends object,
   TResult = unknown,
   TPlan = CalculationRangePlan,
-  TOptions = Record<string, unknown>,
 > {
-  run(
-    request?: TRequest,
-    options?: TOptions,
-  ): Promise<boolean>
+  run(request?: TRequest): Promise<boolean>
   invalidate(): void
   dispose(): void
   snapshot(): CalculationCoordinatorState
