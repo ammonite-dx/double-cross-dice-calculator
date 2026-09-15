@@ -124,3 +124,9 @@ R12では、DX tailの数式を`DxTailModel.js`へ集約し、Score、Damage、B
 R25-Dでは、Check／Attackに分散していた`planDisplayRange()`後のprojection decisionとwindow allocationを`DistributionProjection.js`へ統合した。`ChartSeriesAdapter.js`はreadyなcanonical projectionをChart.jsへ渡すmaterializerだけを保持し、旧`createChartSeries(display, plan)`と専用のnot-ready／not-projectable reasonは削除した。DisplayRangePlannerはresource preflightとcoverage計画の正本として残し、Backtrack、計算core、ResourceGuard、Worker、latest-wins、表示の丸め値は変更していない。
 
 R25-Dの詳細な契約と検証範囲は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)に記録する。
+
+## R25-E現在の型契約（2026-09-15）
+
+R25-Eでは、計画、runtime実行、表示投影、feature stateの境界をtype-only TypeScript contractへ集約し、既存JavaScript runtimeへJSDocで接続した。`RangePlannerTypes.ts`と`CalculationClientTypes.ts`はoperation別のplan、policy、warning、resource estimate、optionsを共有し、`RuntimeDamageRollClientTypes.ts`と`ResourceGuardTypes.ts`はWorker／leaseの最小surfaceを表す。`CalculationFeedbackTypes.ts`はrequest／result／planをgenericとして扱い、`DistributionProjectionTypes.ts`はready projectionだけがChart.js materializerへ渡る判別共用体を提供する。Attack runner、incremental execution、calculation record、validated side eventもfeature型へ接続した。
+
+`checkJs: false`は維持する。これは大規模JavaScript moduleの全面変換を避けつつ、consumerが辿るsemantic contractを一箇所へ集めるためである。catchした外部例外、generic metadata、未検証raw input、異種warning値の`unknown`は正当な境界として残し、計算・表示・range plan・runner optionsを`as unknown as`で迂回しない。R25-Eはruntime object shape、数値、Worker protocol、ResourceGuard、latest-wins、UIを変更していない。最終gateではVitest 103ファイル／1049テスト、generator／simulation、runtime DX、typecheck、ESLint、Markdown lint、build、production smoke、R23 precision／tail auditをGREENで確認した。詳細は[`r25-e-typed-runtime-contracts.md`](./r25-e-typed-runtime-contracts.md)を参照する。

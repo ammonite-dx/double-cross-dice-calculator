@@ -601,3 +601,13 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - 完了（`7d4af66`）: Attackのscore／damage／total各laneをshared projectionへ移行し、combo間の独立性、known-zero、overflow、resource、1023超windowを維持した。既存runner、latest-wins、Abort、incremental計算、ResourceGuard、Backtrackは変更していない。
 - 完了（本コミット）: `ChartSeriesAdapter.js`をChart.js materializerだけへ整理し、旧`createChartSeries`、専用not-ready／not-projectable reason、plan再検証を削除した。Attack／Checkのテスト、architecture test、architecture／runtime algorithmの現行説明を更新した。コミット後にR25-D targeted suiteとfull release gateを実行し、作業ツリーをcleanにする。
 - 詳細: [`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)を参照する。
+
+## R25-E Typed Runtime Contracts（完了、2026-09-15）
+
+- 完了（`bb97f04`）: RangePlanner、CalculationClient、Damage aggregationのoptions／result／plan境界をTypeScript contractへ移し、nested policy、operation別range plan、warning、resource estimate、FFT／memory／Abort optionsを具体化した。
+- 完了（`313f89e`）: Runtime Damage Roll client／Worker最小surface、ResourceGuard lease／reservation、CalculationFeedbackとlatest calculation runnerのgeneric contractを追加した。Worker protocolとAbort／queue／cache／leaseのruntime挙動は変更していない。
+- 完了（`1e2ced0`）: Distribution projectionのready／not-ready／not-projectable判別共用体、ready projection専用Chart.js materializer、Check／Attack presentationとfeature stateの型を追加し、local shadow typeと重複decision aliasを整理した。
+- 完了（`4cca1bb`）: Attack runner、incremental execution、calculation record、state、display feedbackを型へ接続し、Attack runnerのdouble castとvalidated side eventの曖昧なsnapshot unionを除去した。`side`とsnapshotを相関した判別共用体へ変更し、無効な組合せをcompile-timeで拒否するfixtureを追加した。
+- 方針: `checkJs: false`を維持し、既存JavaScript runtimeへtype-only contractとJSDocを接続する。catchした外部例外、generic metadata、未検証raw input、異種warning値の`unknown`は正当な境界として残し、semantic contractを跨ぐ`as unknown as`は追加しない。
+- 維持: 数値、表示値、Worker protocol、ResourceGuard、latest-wins、Attack incremental reuse、projection decision、Backtrack結果、入力・表示範囲、既存のresource thresholdは変更していない。詳細は[`r25-e-typed-runtime-contracts.md`](./r25-e-typed-runtime-contracts.md)を参照する。
+- 最終gate: R25-Eの全実装と文書変更を含むHEADで`npm run verify:release`を実行し、Vitest 103ファイル／1049テスト、generator 18件、simulation 13件、Ruff、typecheck、runtime DX 20,000ケース、ESLint、Markdown lint 65ファイル／0 issues、build 424 modules、production smoke、`git diff --check`を確認した。`npm run audit:r23:damage-precision`と`npm run audit:r23:damage-tail`も成功し、作業ツリーをcleanにした。
