@@ -42,6 +42,10 @@ describe('CalculationRequestCoordinator', () => {
     })
 
     const firstRequest = coordinator.run({ id: 'first' })
+    let firstSettled = false
+    firstRequest.then(() => {
+      firstSettled = true
+    })
     const replacedInput = { id: 'replaced', nested: { value: 2 } }
     const replacedRequest = coordinator.run(replacedInput)
     replacedInput.nested.value = 99
@@ -50,7 +54,8 @@ describe('CalculationRequestCoordinator', () => {
     latestInput.nested.value = 100
 
     expect(await replacedRequest).toBe(false)
-    expect(firstSignal.aborted).toBe(false)
+    expect(firstSignal.aborted).toBe(true)
+    expect(firstSettled).toBe(false)
     expect(calls.map(({ id }) => id)).toEqual(['first'])
     expect(maximumRunning).toBe(1)
     expect(coordinator.snapshot()).toMatchObject({

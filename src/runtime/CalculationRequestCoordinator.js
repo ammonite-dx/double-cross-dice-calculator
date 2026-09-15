@@ -455,6 +455,10 @@ export function createCalculationRequestCoordinator({
     }
 
     if (active !== null) {
+      // A newer request makes the running item stale immediately. Signal the
+      // cancellation now, but keep the lane occupied until its Promise
+      // settles so the latest queued request can never run concurrently.
+      active.controller?.abort()
       cancelQueuedItem(queued)
       queued = item
       publishState(CALCULATION_REQUEST_STATUS.PENDING)
