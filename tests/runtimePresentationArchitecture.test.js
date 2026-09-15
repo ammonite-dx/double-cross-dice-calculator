@@ -38,7 +38,6 @@ describe('runtime and shared presentation architecture', () => {
       'src/runtime/RuntimeDamageRollClient.js',
       'src/runtime/RuntimeDamageRollProtocol.ts',
       'src/runtime/RuntimeDamageRollWorker.js',
-      'src/shared/presentation/ChartSeriesAdapter.js',
       'src/shared/presentation/SummaryFormatter.js',
       'src/shared/presentation/ChartPercentages.js',
       'src/shared/presentation/DisplayRangePlanner.js',
@@ -96,6 +95,10 @@ describe('runtime and shared presentation architecture', () => {
     }
     expect(source('src/shared/presentation/DistributionPresenter.js'))
       .toContain("from '../../calculation/DistributionResult'")
+    expect(source('src/shared/presentation/DistributionProjection.js'))
+      .toContain('export function projectDistribution')
+    expect(source('src/shared/presentation/ChartSeriesAdapter.js'))
+      .not.toContain('createChartSeries')
   })
 
   it('aligns ESLint restrictions with runtime and shared presentation boundaries', async () => {

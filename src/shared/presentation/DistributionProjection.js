@@ -331,10 +331,17 @@ function classifyOverflow(display, plan, mode) {
   }
 
   if (overflow?.kind === 'upper-bound') {
-    // An upper-bound tail cannot supply exact cumulative values. It is
-    // therefore terminal for upper-tail mode, even when its lower bound is
-    // outside the requested PMF window.
-    if (mode === DISTRIBUTION_PROJECTION_MODES.UPPER_TAIL) {
+    // An upper-bound output tail cannot supply exact cumulative values. A
+    // score-position tail is the exception when its uncertainty is below the
+    // display tolerance and no separate output tail remains.
+    if (
+      mode === DISTRIBUTION_PROJECTION_MODES.UPPER_TAIL
+      && (
+        uncertainty === null
+        || positionUnknownExceedsTolerance
+        || hasOutputOverflowLowerBound(uncertainty)
+      )
+    ) {
       return DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW
     }
     if (positionUnknownExceedsTolerance) {

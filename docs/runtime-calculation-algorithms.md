@@ -638,6 +638,14 @@ Scoreのoverflow境界を$W$とすると、$E[X\,1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(
 
 `ScoreCalculator`は`tail.model === 'exact-yousei'`、`shihai=0`、`yousei>0`、`critical<=10`、exact overflowの条件を満たす場合だけ`model: 'dx-yousei-tail'`のScore tail moment certificateを生成する。`boundaryContributionUpperBound`、`residualUpperBound`、`skillContributionUpperBound`を意味上の寄与として分離して記録する。C3B後のcertificateに数値誤差用fieldはなく、Damage側はこのsemantic contractを検証するため、action側《妖精の手》でも既存のDamage期待値certificateへ接続できる。
 
+## R25-D 現行の表示投影パイプライン（2026-09-15）
+
+ここまでのPhase 3節には、移行時に存在した`src/presentation/CanonicalChartSeriesAdapter.js`や`createCanonicalChartSeries()`の履歴説明が含まれる。現行実装では、表示範囲の計画と確率値の生成は`src/shared/presentation/DistributionProjection.js`の`projectDistribution(display, options)`へ統合され、`src/shared/presentation/ChartSeriesAdapter.js`はreadyなprojectionをChart.js datasetへ変換するmaterializerだけを担当する。
+
+`projectDistribution()`は`planDisplayRange()`、overflow／projection uncertaintyの判定、必要なwindow-sized `Float64Array`の生成を一つの境界で実行する。resource hard reject、terminal upper-bound、再計算可能なexact overflowまたはcoverage不足、finite support外のknown-zero、reuseの順にdecisionを決め、readyでない結果には`values`を付けない。CheckとAttackはこのdecisionを集約するだけで、feature固有のoverflow判定やChart.js用のplan再検証を行わない。
+
+Chart.jsのlabels、dataset、確率パーセントへの変換は最終表示境界でのみ生成する。projection本体はlabelsやpoint objectを保持せず、materializerはreadyなprojectionのowned `Float64Array`をdatasetから参照する。R25-Dの契約、既存表示値の維持、検証対象は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)にまとめている。
+
 詳細な式、境界条件、test-local oracle、stress caseは[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)に記録する。whole-Score expectation、Total Damage、resource policy、planner cutoff、UI表示はこの単位の対象外である。
 
 ## Phase 5-B Total Damage expectation propagation（R23-C3C）

@@ -236,7 +236,7 @@ function createSideState(side) {
   return Object.freeze(state)
 }
 
-function toPercentageSeries(projection) {
+function toPercentageProjection(projection) {
   const values = new Float64Array(projection.values.length)
   for (let index = 0; index < projection.values.length; index += 1) {
     // The legacy Check chart displays probability as a percentage rounded to
@@ -246,18 +246,17 @@ function toPercentageSeries(projection) {
   }
 
   return {
-    kind: 'canonical-chart-series',
+    ...projection,
+    kind: 'canonical-distribution-projection',
     version: 1,
     status: 'ready',
-    mode: projection.mode,
-    displayWindow: projection.displayWindow,
     values,
   }
 }
 
 function materializeSideChart(side, label, color, includeLabels) {
   return materializeChartJsData(
-    toPercentageSeries(side.projection),
+    toPercentageProjection(side.projection),
     {
       includeLabels,
       label,

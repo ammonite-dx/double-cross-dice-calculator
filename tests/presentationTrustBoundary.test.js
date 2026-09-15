@@ -9,9 +9,8 @@ import {
   createAttackPresentation,
 } from '../src/features/attack/model/AttackPresentation'
 import {
-  createChartSeries,
-  planDisplayRange,
   presentDistribution,
+  projectDistribution,
 } from '../src/shared/presentation'
 
 function createEnvelope({
@@ -115,10 +114,9 @@ describe('presentation trust boundary', () => {
     const display = presentDistribution(envelope, {
       summary: getDamageStatistics(envelope),
     })
-    const plan = planDisplayRange(display, {
+    const series = projectDistribution(display, {
       displayWindow: { min: 0, max: 1 },
     })
-    const series = createChartSeries(display, plan)
 
     expect(series.status).toBe('ready')
     expect(series.values).toEqual(new Float64Array([0.25, 0.75]))

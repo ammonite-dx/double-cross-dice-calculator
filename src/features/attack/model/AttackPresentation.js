@@ -361,44 +361,6 @@ function getAttackDisplayDecision(sides) {
   return ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE
 }
 
-// Keep the Chart.js adapter shape while the feature migrates to the shared
-// projection contract. No coverage or overflow decisions are made here.
-function createChartSeriesFromProjection(projection) {
-  if (projection.status === 'ready') {
-    return {
-      kind: 'canonical-chart-series',
-      version: 1,
-      status: 'ready',
-      mode: projection.mode,
-      displayWindow: projection.displayWindow,
-      values: projection.values,
-    }
-  }
-
-  const seriesReason = projection.status === 'not-ready'
-    && projection.plan.decision === 'recalculate'
-    && projection.decision === 'not-projectable'
-    ? 'recalculate'
-    : projection.reason
-  return {
-    kind: projection.status === 'not-projectable'
-      ? 'not-projectable'
-      : 'not-ready',
-    version: 1,
-    status: projection.status,
-    mode: projection.mode,
-    reason: seriesReason,
-    displayWindow: projection.displayWindow,
-    ...(projection.status === 'not-ready'
-      ? {
-          plannerStatus: projection.plan.status,
-          decision: projection.plan.decision,
-          rejectionReasons: projection.plan.rejectionReasons,
-        }
-      : {}),
-  }
-}
-
 function createAttackDisplaySide(
   display,
   displayRequest,
@@ -417,16 +379,15 @@ function createAttackDisplaySide(
   }
 
   const projection = projectDistribution(display, projectionOptions)
-  const series = createChartSeriesFromProjection(projection)
   const chart = projection.status === 'ready'
-    ? materializeChartJsData(series)
+    ? materializeChartJsData(projection)
     : null
   const side = {
     ...(id === undefined ? {} : { id }),
     display,
     projection,
     plan: projection.plan,
-    series,
+    series: projection,
     chart,
     status: projection.status,
     reason: projection.status === 'ready'

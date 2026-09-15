@@ -15,8 +15,7 @@ import {
 import { getDamageStatistics } from '../src/calculation/DamageCalculator'
 import { sumDamage } from '../src/calculation/DamageAggregation'
 import {
-  CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CHART_SERIES_NOT_READY_REASONS,
+  DISTRIBUTION_PROJECTION_REASONS,
 } from '../src/shared/presentation'
 
 function createEnvelope({
@@ -108,7 +107,7 @@ describe('createAttackDisplayPresentation', () => {
       },
       plan: { decision: 'reuse' },
       series: {
-        kind: 'canonical-chart-series',
+        kind: 'canonical-distribution-projection',
         status: 'ready',
         displayWindow: { min: 0, max: 1, pointCount: 2 },
       },
@@ -186,7 +185,7 @@ describe('createAttackDisplayPresentation', () => {
       },
       series: {
         status: 'not-ready',
-        reason: CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
+        reason: DISTRIBUTION_PROJECTION_REASONS.RECALCULATE,
       },
       chart: null,
     })
@@ -298,7 +297,7 @@ describe('createAttackDisplayPresentation', () => {
     expect(overlap.combos[0]).toMatchObject({
       status: 'not-projectable',
       decision: 'recalculate',
-      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP,
+      reason: DISTRIBUTION_PROJECTION_REASONS.EXACT_OVERFLOW_OVERLAP,
       chart: null,
     })
     expect(overlap.combos[0].series).not.toHaveProperty('values')
@@ -328,7 +327,7 @@ describe('createAttackDisplayPresentation', () => {
     expect(presentation.combos[0]).toMatchObject({
       status: 'not-projectable',
       decision: 'not-projectable',
-      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW,
       chart: null,
     })
   })
@@ -357,11 +356,11 @@ describe('createAttackDisplayPresentation', () => {
     expect(presentation.combos[0]).toMatchObject({
       status: 'not-ready',
       decision: 'not-projectable',
-      reason: CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW,
+      reason: DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW,
       plan: { decision: 'recalculate' },
       series: {
         status: 'not-ready',
-        reason: CHART_SERIES_NOT_READY_REASONS.RECALCULATE,
+        reason: DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW,
       },
       chart: null,
     })
@@ -388,7 +387,7 @@ describe('createAttackDisplayPresentation', () => {
       plan: { status: 'resource-rejected' },
       series: {
         status: 'not-ready',
-        reason: CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED,
+        reason: DISTRIBUTION_PROJECTION_REASONS.RESOURCE_REJECTED,
       },
       chart: null,
     })

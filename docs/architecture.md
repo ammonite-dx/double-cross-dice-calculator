@@ -22,7 +22,9 @@
 - `src/calculation/RuntimeDamageRollCalculator.js`: `kazanari`を含むDRのruntime生成とFFT境界
 - `src/core/probability/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
 - `src/core/probability/FFT.js`: 独立な確率分布の加算・減算
-- `src/shared/presentation/**`: Check／Attackで共有する`DistributionResult`の表示範囲計画、chart系列、サマリー、確率表示のpure adapter
+- `src/shared/presentation/DistributionProjection.js`: Check／Attackで共有する表示window、coverage、overflowの投影判断とwindow-sized probability bufferの生成
+- `src/shared/presentation/ChartSeriesAdapter.js`: readyなprojectionをChart.js datasetへmaterializeする最終境界
+- `src/shared/presentation/**`: Check／Attackで共有する`DistributionResult`の表示範囲計画、projection、サマリー、確率表示のpure adapter
 - `src/shared/theme/ChartPalette.js`: Check／Attackで共有するチャートpalette
 - `tooling/reference-data/ReferencePrecomputedDataRepository.js`: テスト・独立比較用の公開asset取得、検証、cache
 - `tooling/reference-data/PrecomputedDataSchema.js`: 公開assetのschemaと分布検証
@@ -59,12 +61,15 @@ resident RuntimeDamageRollClient -> RuntimeDamageRollWorker
   weights + kazanari -> runtime damage-roll distribution
           |
           v
-reactive view state -> Chart.js
+presentDistribution -> projectDistribution
+  feature state aggregation -> Chart.js materializer -> reactive view state
 ```
 
 計算routeには`CalculationClient.prepare`やroute guardのpreloadを置かず、各計算runnerがvalidated snapshotを受けてlatest-winsで実行します。通常のCheckは`calculateDxDistribution`によるruntime DXだけを使います。Attackは同じruntime DXに加えて防御側のD10合計も`D10Calculator`で生成し、damage-roll distributionは常駐`RuntimeDamageRollClient`からDR Workerへ依頼します。Backtrackは完全on-demandのgeneratorを使い、公開assetを読みません。連続した入力変更では古い非同期計算結果で新しい入力結果を上書きしないようにします。
 
 `dr`の配信形式は圧縮効率を優先したダイス数ごとの疎な分布で、generatorの出力検証と独立比較の参照用に保持します。本番の`CalculationClient`は`dr`をロードせず、攻撃ごとのweightsと`kazanari`を常駐`RuntimeDamageRollClient`へ渡してWorker内でダメージロール分布を計算します。Workerの結果は計算コアが固定値、d10防御ダイス、命中失敗を合成して画面向けの結果に仕上げます。
+
+CheckとAttackの表示は、calculation resultを`presentDistribution()`でdisplay payloadへ変換した後、shared `projectDistribution()`で一度だけ表示範囲を計画・投影する。projectionは`reuse`、`known-zero`、`recalculate`、`resource-rejected`、`not-projectable`のdecisionとplanを返し、readyの場合に限りowned `Float64Array`を持つ。Check／Attackはdecisionの集約だけを担当し、overflowやprojection uncertaintyを独自に解釈しない。Chart.js固有のlabels、dataset、百分率変換はmaterializerまたはfeatureのChart.js境界で生成し、projection本体へ混ぜない。詳細は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)を参照する。
 
 Runtime Damageの要求ライフサイクルは、計算要求とWorkerジョブを分けて管理します。`RuntimeDamageRollClient`はWorkerへ送るactive jobを1件に制限し、後続jobをメインスレッドのqueueへ保持します。同一入力はsubscriberを共有しますが、各`CalculationClient`要求のResourceGuard leaseは独立しており、callerのAbort時にその要求の`finally`で解放します。共有subscriberが残る間はWorkerを継続し、最後のsubscriberが離脱したactive jobだけをWorker terminateして次のjobを新しいWorkerで開始します。旧Workerの遅延イベントはidentity guardで無視し、Worker protocolへcancel messageは追加しません。この契約の判断記録は[`ADR 0004`](./adr/0004-runtime-damage-worker-preemption.md)を参照してください。
 
@@ -113,3 +118,9 @@ feature非依存の表示変換は`src/shared/presentation/`へ移し、`Distrib
 R12では、DX tailの数式を`DxTailModel.js`へ集約し、Score、Damage、Backtrackの範囲計画と資源判定を`src/calculation/planning/`へ分離した。`RangePlanner.js`は入力operationを振り分け、計画を合成し、overflow情報を作る薄いfacadeである。`PlanningMath.js`へsafe arithmeticとFFT見積りを集約したが、working range、tail error budget、cost係数、resource threshold、DistributionResult、Worker protocolの意味は変更していない。
 
 `tests/dxTailModel.test.js`は一個のDX、最大値、負の二項分布、《妖精の手》の境界と単調性を直接検証し、`tests/corePlanningArchitecture.test.js`はfacade、計算core、planning moduleの依存方向と重複tail実装の不在を検証する。既存のRangePlanner、runtime rule、resource、browser smokeの契約は引き続きRangePlannerの公開入口から検証する。詳細な変更表とR12の検証結果は[`refactoring-core-decomposition.md`](./refactoring-core-decomposition.md)を参照する。
+
+## R25-D現在の表示投影責務（2026-09-15）
+
+R25-Dでは、Check／Attackに分散していた`planDisplayRange()`後のprojection decisionとwindow allocationを`DistributionProjection.js`へ統合した。`ChartSeriesAdapter.js`はreadyなcanonical projectionをChart.jsへ渡すmaterializerだけを保持し、旧`createChartSeries(display, plan)`と専用のnot-ready／not-projectable reasonは削除した。DisplayRangePlannerはresource preflightとcoverage計画の正本として残し、Backtrack、計算core、ResourceGuard、Worker、latest-wins、表示の丸め値は変更していない。
+
+R25-Dの詳細な契約と検証範囲は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)に記録する。

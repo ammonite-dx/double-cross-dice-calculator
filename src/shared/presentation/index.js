@@ -22,15 +22,8 @@ export {
 } from './DisplayRangePlanner'
 export {
   CHART_SERIES_ERROR_CODES,
-  CHART_SERIES_MODES,
-  CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CHART_SERIES_NOT_READY_REASONS,
-  CHART_SERIES_VERSION,
   ChartSeriesError,
-  ChartSeriesValidationError,
-  createChartSeries,
   isChartSeriesError,
-  isChartSeriesValidationError,
   materializeChartJsData,
 } from './ChartSeriesAdapter'
 export {

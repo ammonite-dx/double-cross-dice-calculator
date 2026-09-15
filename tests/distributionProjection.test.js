@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  CHART_SERIES_MODES,
-  createChartSeries,
-  planDisplayRange,
   projectDistribution,
   DISTRIBUTION_PROJECTION_DECISIONS,
   DISTRIBUTION_PROJECTION_MODES,
@@ -48,10 +45,6 @@ describe('projectDistribution', () => {
       offset: 5,
       support: { kind: 'finite', max: 7 },
     })
-    const plan = planDisplayRange(display, {
-      displayWindow: { min: 5, max: 7 },
-    })
-    const legacy = createChartSeries(display, plan)
     const canonical = project(display, { min: 5, max: 7 })
 
     expect(canonical).toMatchObject({
@@ -59,27 +52,18 @@ describe('projectDistribution', () => {
       decision: DISTRIBUTION_PROJECTION_DECISIONS.REUSE,
       mode: DISTRIBUTION_PROJECTION_MODES.PMF,
     })
-    expect(Array.from(canonical.values)).toEqual(Array.from(legacy.values))
+    expect(Array.from(canonical.values)).toEqual([0.2, 0.3, 0.5])
 
     const upperTailDisplay = makeDisplay({
       values: [0.25, 0.75],
       support: { kind: 'finite', max: 1 },
     })
-    const upperTailPlan = planDisplayRange(upperTailDisplay, {
-      displayWindow: { min: 0, max: 1 },
-    })
-    const upperTailLegacy = createChartSeries(
-      upperTailDisplay,
-      upperTailPlan,
-      { mode: CHART_SERIES_MODES.UPPER_TAIL }
-    )
     const upperTailCanonical = project(
       upperTailDisplay,
       { min: 0, max: 1 },
       { mode: DISTRIBUTION_PROJECTION_MODES.UPPER_TAIL }
     )
-    expect(Array.from(upperTailCanonical.values))
-      .toEqual(Array.from(upperTailLegacy.values))
+    expect(Array.from(upperTailCanonical.values)).toEqual([1, 0.75])
   })
 
   it('returns known-zero for a window outside finite support', () => {

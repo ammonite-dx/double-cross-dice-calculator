@@ -5,8 +5,7 @@ import {
   isDistributionResultError,
 } from '../src/calculation/DistributionResult'
 import {
-  CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CHART_SERIES_NOT_READY_REASONS,
+  DISTRIBUTION_PROJECTION_REASONS,
 } from '../src/shared/presentation'
 import {
   CHECK_PRESENTATION_ERROR_CODES,
@@ -142,7 +141,7 @@ describe('createCheckPresentation', () => {
     expect(presentation.action.decision).toBe('recalculate')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.action.reason)
-      .toBe(CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP)
+      .toBe(DISTRIBUTION_PROJECTION_REASONS.EXACT_OVERFLOW_OVERLAP)
     expect(presentation.action).not.toHaveProperty('display')
     expect(presentation.action).not.toHaveProperty('series')
     expect(presentation.chart).toBeNull()
@@ -208,7 +207,7 @@ describe('createCheckPresentation', () => {
     })
     expect(presentation.action.status).toBe('not-ready')
     expect(presentation.action.reason)
-      .toBe(CHART_SERIES_NOT_READY_REASONS.RECALCULATE)
+      .toBe(DISTRIBUTION_PROJECTION_REASONS.RECALCULATE)
     expect(presentation.reaction.status).toBe('ready')
     expect(presentation.chart).toBeNull()
   })
@@ -239,7 +238,7 @@ describe('createCheckPresentation', () => {
     expect(presentation.decision).toBe('not-projectable')
     expect(presentation.action.decision).toBe('not-projectable')
     expect(presentation.action.reason)
-      .toBe(CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)
+      .toBe(DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW)
     expect(presentation.chart).toBeNull()
   })
 
@@ -270,7 +269,7 @@ describe('createCheckPresentation', () => {
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.reaction.status).toBe('not-ready')
     expect(presentation.reaction.reason)
-      .toBe(CHART_SERIES_NOT_READY_REASONS.RECALCULATE)
+      .toBe(DISTRIBUTION_PROJECTION_REASONS.RECALCULATE)
     expect(presentation.chart).toBeNull()
   })
 
@@ -303,7 +302,7 @@ describe('createCheckPresentation', () => {
     })
     expect(presentation.action.status).toBe('not-ready')
     expect(presentation.action.reason)
-      .toBe(CHART_SERIES_NOT_READY_REASONS.RESOURCE_REJECTED)
+      .toBe(DISTRIBUTION_PROJECTION_REASONS.RESOURCE_REJECTED)
     expect(presentation.chart).toBeNull()
   })
 
@@ -334,7 +333,7 @@ describe('createCheckPresentation', () => {
     expect(presentation.decision).toBe('not-projectable')
     expect(presentation.action.status).toBe('not-projectable')
     expect(presentation.action.reason)
-      .toBe(CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW)
+      .toBe(DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW)
     expect(presentation.reaction.status).toBe('ready')
     expect(presentation.chart).toBeNull()
   })

@@ -593,3 +593,11 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - C3（`d75a4f2`）: `RuntimeDamageRollClient`から`onUnderlyingSettled`、lifecycle promise、旧job lifecycle追跡を削除し、`CalculationClient`のResourceGuard leaseをrequest単位の`finally`で解放する経路へ戻した。Runtime Damageのactive jobは最後のsubscriber離脱時だけWorkerをterminateし、共有subscriberの一部AbortではWorkerを継続する。sole Abortの即時lease解放、共有jobの独立lease、既存のqueue・cache・fatal error・late event・dispose契約をテストで固定した。
 - C4: [ADR 0004](./adr/0004-runtime-damage-worker-preemption.md)を追加し、[ADR 0003](./adr/0003-browser-worker-execution-boundary.md)へsuperseded noteを追記した。現行の[アーキテクチャ文書](./architecture.md)と[実行時計算アルゴリズム](./runtime-calculation-algorithms.md)へ、main-thread queue、subscriber ownership、Worker identity guard、Coordinator supersession、request単位leaseの契約を反映した。R19の測定・判断記録は歴史資料として変更していない。
 - C5: C1〜C4のtargeted lifecycle suite（11 files／134 tests）、full release gate、数値監査（precision／tail）、production smoke、作業ツリー検証がすべて成功した。Worker protocol、DR numerical kernel、full-tail／published compatibilityは変更していない。`onUnderlyingSettled`はproduction source／testで0件、R25-Cは`CLOSED / GREEN`とする。
+
+## R25-D Presentation Pipeline Consolidation（完了、2026-09-15）
+
+- 完了（`de819ab`）: shared `projectDistribution(display, options)`を追加し、表示windowの計画、overflow／projection uncertaintyの判定、ready時のowned `Float64Array`生成を一つのprojection contractへ統合した。PMF／upper-tail、known-zero、exact／upper-bound overflow、coverage不足、resource reject、1023超window、表示精度内の位置不確かさを専用テストで固定した。
+- 完了（`f7683ba`）: Checkのaction／reaction表示をshared projectionへ移行し、feature固有のoverflow解釈、descriptor／prototype検査、legacy chart projectionを削除した。既存の百分率変換、dataset順、再計算通知、表示値は維持した。
+- 完了（`7d4af66`）: Attackのscore／damage／total各laneをshared projectionへ移行し、combo間の独立性、known-zero、overflow、resource、1023超windowを維持した。既存runner、latest-wins、Abort、incremental計算、ResourceGuard、Backtrackは変更していない。
+- 完了（本コミット）: `ChartSeriesAdapter.js`をChart.js materializerだけへ整理し、旧`createChartSeries`、専用not-ready／not-projectable reason、plan再検証を削除した。Attack／Checkのテスト、architecture test、architecture／runtime algorithmの現行説明を更新した。コミット後にR25-D targeted suiteとfull release gateを実行し、作業ツリーをcleanにする。
+- 詳細: [`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)を参照する。
