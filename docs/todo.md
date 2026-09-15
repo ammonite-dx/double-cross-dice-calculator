@@ -588,8 +588,8 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - 検証: fresh gateでNode 22.23.2、data 32 assets、Vitest 72 files／869 tests、generator 18 passed／13 deselected、simulation 13 passed／18 deselected、Ruff、typecheck、runtime DX 20,000 cases、ESLint、Markdown lint 34 files／0 issues、build 408 modules、production browser smoke、`git diff --check`が成功した。schema-v2／D10 request、browser diagnostics、R9開始点からのpublic／generator／reference tooling差分はいずれも0件である。P0／P1／P2は0件、R9は`CLOSED / GREEN`とした。詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
 - 対象外: 計算意味論、canonical／legacy表示契約、public asset、generator、Cloudflare Workers、HTTP API、MCP、追加のブラウザWorker化。
 
-## R25-C Runtime Damage Worker preemption（C3/C4完了、C5検証中）
+## R25-C Runtime Damage Worker preemption（完了）
 
 - C3（`d75a4f2`）: `RuntimeDamageRollClient`から`onUnderlyingSettled`、lifecycle promise、旧job lifecycle追跡を削除し、`CalculationClient`のResourceGuard leaseをrequest単位の`finally`で解放する経路へ戻した。Runtime Damageのactive jobは最後のsubscriber離脱時だけWorkerをterminateし、共有subscriberの一部AbortではWorkerを継続する。sole Abortの即時lease解放、共有jobの独立lease、既存のqueue・cache・fatal error・late event・dispose契約をテストで固定した。
 - C4: [ADR 0004](./adr/0004-runtime-damage-worker-preemption.md)を追加し、[ADR 0003](./adr/0003-browser-worker-execution-boundary.md)へsuperseded noteを追記した。現行の[アーキテクチャ文書](./architecture.md)と[実行時計算アルゴリズム](./runtime-calculation-algorithms.md)へ、main-thread queue、subscriber ownership、Worker identity guard、Coordinator supersession、request単位leaseの契約を反映した。R19の測定・判断記録は歴史資料として変更していない。
-- C5: C1〜C4のtargeted lifecycle suite、full release gate、数値監査、production smoke、作業ツリー検証を実行し、結果を最終報告へ記録する。Worker protocol、DR numerical kernel、full-tail／published compatibilityは変更しない。
+- C5: C1〜C4のtargeted lifecycle suite（11 files／134 tests）、full release gate、数値監査（precision／tail）、production smoke、作業ツリー検証がすべて成功した。Worker protocol、DR numerical kernel、full-tail／published compatibilityは変更していない。`onUnderlyingSettled`はproduction source／testで0件、R25-Cは`CLOSED / GREEN`とする。
