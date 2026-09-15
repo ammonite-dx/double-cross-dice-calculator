@@ -247,21 +247,6 @@ function isPromiseLike(value) {
     && typeof value.then === 'function'
 }
 
-function releaseLeaseAfterUnderlyingWork(lease, underlyingWork) {
-  if (!Array.isArray(underlyingWork) || underlyingWork.length === 0) {
-    lease.release()
-    return
-  }
-
-  // Do not delay the caller's AbortError while a shared Worker request is
-  // still running. The reservation belongs to the underlying request and is
-  // released asynchronously once every observed request has settled.
-  Promise.allSettled(underlyingWork).then(
-    () => lease.release(),
-    () => lease.release()
-  )
-}
-
 function hasOwn(object, property) {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
@@ -475,15 +460,7 @@ export function createCalculationClient(
     const lease = isPromiseLike(leaseRequest)
       ? await leaseRequest
       : leaseRequest
-    const underlyingWork = []
-    const runtimeOptions = {
-      ...getRuntimeOptions(options),
-      onUnderlyingSettled: (promise) => {
-        if (isPromiseLike(promise)) {
-          underlyingWork.push(Promise.resolve(promise))
-        }
-      },
-    }
+    const runtimeOptions = getRuntimeOptions(options)
 
     try {
       throwIfAborted(options, 'Attack')
@@ -527,7 +504,7 @@ export function createCalculationClient(
           dependencies.getDamageStatistics(finalizedDamage),
       }
     } finally {
-      releaseLeaseAfterUnderlyingWork(lease, underlyingWork)
+      lease.release()
     }
   }
 

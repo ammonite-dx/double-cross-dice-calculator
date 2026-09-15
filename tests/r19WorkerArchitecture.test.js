@@ -262,15 +262,4 @@ describe('R19 generalized Worker protocol', () => {
     expect(source).not.toContain('cold: {')
   })
 
-  it('reports transport callback settlement for stale requests', async () => {
-    const worker = new FakeWorker()
-    const settled = vi.fn()
-    const client = createWorkerCalculationClient({
-      workerFactory: () => worker,
-    })
-    const promise = client.calculate('check', {}, { onUnderlyingSettled: settled })
-    worker.emit('message', { data: { id: 1, type: 'success', result: {} } })
-    await promise
-    expect(settled).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }))
-  })
 })

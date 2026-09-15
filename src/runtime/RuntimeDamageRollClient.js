@@ -61,18 +61,6 @@ function requestsEqual(entry, weights, kazanari, options) {
   return true
 }
 
-function notifyUnderlyingSettled(options, promise) {
-  if (typeof options?.onUnderlyingSettled !== 'function') {
-    return
-  }
-  try {
-    options.onUnderlyingSettled(promise)
-  } catch {
-    // Lifecycle observation is an internal diagnostic hook. A consumer
-    // callback must not change the calculation contract.
-  }
-}
-
 function waitWithSignal(promise, signal) {
   if (!signal) {
     return promise
@@ -150,11 +138,6 @@ export function createRuntimeDamageRollClient({
       settleSubscriber(subscriber, error, distribution)
     }
     job.subscribers.clear()
-    if (error) {
-      job.rejectLifecycle(error)
-    } else {
-      job.resolveLifecycle(distribution.slice())
-    }
   }
 
   function isCurrentWorker(token) {
@@ -413,7 +396,6 @@ export function createRuntimeDamageRollClient({
     const cached = takeCached(weights, kazanari, normalizedOptions)
     if (cached) {
       const settled = Promise.resolve(cached)
-      notifyUnderlyingSettled(options, settled)
       return waitWithSignal(settled, signal)
     }
 
@@ -423,23 +405,12 @@ export function createRuntimeDamageRollClient({
       normalizedOptions
     )
     if (existing) {
-      const request = subscribe(existing, signal)
-      notifyUnderlyingSettled(options, existing.lifecyclePromise)
-      return request
+      return subscribe(existing, signal)
     }
 
     const id = nextRequestId
     nextRequestId += 1
     const storedWeights = Float64Array.from(weights)
-    let resolveLifecycle
-    let rejectLifecycle
-    const lifecyclePromise = new Promise((resolve, reject) => {
-      resolveLifecycle = resolve
-      rejectLifecycle = reject
-    })
-    // A lifecycle observer is optional. Keep an unhandled rejection from a
-    // calculation whose caller has already aborted without observing it.
-    lifecyclePromise.catch(() => {})
     const job = {
       id,
       kazanari,
@@ -447,14 +418,10 @@ export function createRuntimeDamageRollClient({
       options: normalizedOptions,
       status: 'queued',
       subscribers: new Set(),
-      lifecyclePromise,
-      resolveLifecycle,
-      rejectLifecycle,
       settled: false,
     }
     const request = subscribe(job, signal)
     queuedJobs.push(job)
-    notifyUnderlyingSettled(options, lifecyclePromise)
     startNextJob()
     return request
   }

@@ -374,43 +374,6 @@ describe('production runtime damage roll Worker client', () => {
     await expect(queued).resolves.toEqual(distributionAt(2))
   })
 
-  it('exposes the underlying Worker lifecycle separately from caller abort', async () => {
-    const { client, workers } = createHarness()
-    const lifecycle = []
-    const request = client.calculate([1], 0, {
-      onUnderlyingSettled: (promise) => lifecycle.push(promise),
-    })
-    const worker = workers[0]
-    let settled = false
-    lifecycle[0].then(
-      () => { settled = true },
-      () => { settled = true },
-    )
-
-    await Promise.resolve()
-    expect(settled).toBe(false)
-    worker.respond(0, distributionAt(0))
-    await request
-    await lifecycle[0]
-    expect(settled).toBe(true)
-  })
-
-  it('settles the lifecycle hook when a Worker fails', async () => {
-    const { client, workers } = createHarness()
-    let lifecycle
-    const request = client.calculate([1], 0, {
-      onUnderlyingSettled: (promise) => {
-        lifecycle = promise
-        lifecycle.catch(() => {})
-      },
-    })
-
-    workers[0].emit('messageerror', { message: 'message channel failed' })
-
-    await expect(request).rejects.toThrow('message channel failed')
-    await expect(lifecycle).rejects.toThrow('message channel failed')
-  })
-
   it('evicts the least recently used cached result', async () => {
     const { client, workers } = createHarness({ cacheSize: 2 })
     expect(workers).toHaveLength(0)
@@ -550,7 +513,7 @@ describe('production runtime damage roll Worker client', () => {
     expect(workers).toHaveLength(1)
   })
 
-  it('releases the CalculationClient lease after an aborted Worker request is preempted', async () => {
+  it('releases the CalculationClient lease immediately after an aborted Worker request is preempted', async () => {
     const workers = []
     const runtimeClient = createRuntimeDamageRollClient({
       workerFactory: () => {
@@ -620,6 +583,103 @@ describe('production runtime damage roll Worker client', () => {
     controller.abort()
     await expect(request).rejects.toMatchObject({ name: 'AbortError' })
     expect(workers[0].terminate).toHaveBeenCalledOnce()
-    await vi.waitFor(() => expect(guard.snapshot().activeCount).toBe(0))
+    expect(guard.snapshot().activeCount).toBe(0)
+  })
+
+  it('keeps a shared Worker job alive while releasing only the aborted caller lease', async () => {
+    const workers = []
+    const runtimeClient = createRuntimeDamageRollClient({
+      workerFactory: () => {
+        const worker = new FakeWorker()
+        workers.push(worker)
+        return worker
+      },
+    })
+    const firstGuard = createResourceGuard({
+      capacityBytes: 1024,
+      maxActive: 1,
+      maxQueued: 0,
+      reservationMultiplier: 1,
+    })
+    const secondGuard = createResourceGuard({
+      capacityBytes: 1024,
+      maxActive: 1,
+      maxQueued: 0,
+      reservationMultiplier: 1,
+    })
+    const envelope = {
+      result: createDistributionResult({
+        values: [1],
+        offset: 0,
+        support: { kind: 'finite', max: 0 },
+        overflow: null,
+      }),
+      metadata: { forcedFailureProbability: 0, modeledDistribution: true },
+    }
+    const plan = {
+      accepted: true,
+      operation: 'attack',
+      estimates: { float64Bytes: 1, operations: 1, timeMs: 1 },
+      scores: [{}, {}],
+    }
+    const createClient = (resourceGuard) => createCalculationClient({
+      planCalculationRanges: vi.fn(() => plan),
+      resourceGuard,
+      calculateScore: vi.fn(() => envelope),
+      calculateDamageOnDemand: vi.fn(async (
+        _score,
+        _attack,
+        _defence,
+        providers,
+        runtimeOptions,
+      ) => {
+        await providers.getDamageRollDistribution([1], 0, {
+          ...runtimeOptions,
+          fftLength: 16,
+          distributionLength: 8,
+          rawSupportMax: 0,
+        })
+        return envelope
+      }),
+      getScoreStatistics: vi.fn(() => ({})),
+      getDamageStatistics: vi.fn(() => ({})),
+      getDamageRollDistribution: runtimeClient.calculate,
+    })
+    const firstClient = createClient(firstGuard)
+    const secondClient = createClient(secondGuard)
+    const params = {
+      action: {
+        score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+        damage: { dice: 0, value: 0, kazanari: 0 },
+      },
+      reaction: {
+        mode: 'ドッジ',
+        score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+        damage: { dice: 0, value: 0 },
+      },
+    }
+    const firstController = new AbortController()
+    const first = firstClient.calculateAttack(params, {
+      signal: firstController.signal,
+    })
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+
+    const second = secondClient.calculateAttack(params)
+    const worker = workers[0]
+    expect(worker.messages).toHaveLength(1)
+    expect(firstGuard.snapshot().activeCount).toBe(1)
+    expect(secondGuard.snapshot().activeCount).toBe(1)
+
+    firstController.abort()
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminate).not.toHaveBeenCalled()
+    expect(firstGuard.snapshot().activeCount).toBe(0)
+    expect(secondGuard.snapshot().activeCount).toBe(1)
+
+    worker.respond(0, distributionAt(0, 8))
+    await expect(second).resolves.toEqual(expect.objectContaining({
+      damage: envelope,
+    }))
+    expect(secondGuard.snapshot().activeCount).toBe(0)
   })
 })
