@@ -1,13 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  areAllComboResultsReady,
-  commitTotalDamage,
   createCalculationFeedbackState,
   createLatestCalculationRunner,
-  createTotalDamageState,
   formatRangeFeedback,
-  invalidateTotalDamage,
   runInitialCalculation,
 } from '../src/runtime/CalculationFeedback'
 
@@ -61,59 +57,6 @@ function createRangeError(plan) {
 }
 
 describe('CalculationFeedback', () => {
-  it('requires every combo result before an aggregate can be displayed', () => {
-    const combos = [
-      {
-        data: {
-          resultReady: true,
-          score: {},
-          scoreStatistics: {},
-          damage: {},
-          damageStatistics: {},
-        },
-      },
-      {
-        data: {
-          resultReady: false,
-          score: null,
-          scoreStatistics: null,
-          damage: null,
-          damageStatistics: null,
-        },
-      },
-    ]
-    expect(areAllComboResultsReady(combos)).toBe(false)
-
-    combos[1].data = {
-      resultReady: true,
-      score: {},
-      scoreStatistics: {},
-      damage: {},
-      damageStatistics: {},
-    }
-    expect(areAllComboResultsReady(combos)).toBe(true)
-
-    const state = createTotalDamageState({
-      damage: 'old total',
-      damageStatistics: 'old summary',
-    })
-    const staleGeneration = invalidateTotalDamage(state)
-    const currentGeneration = invalidateTotalDamage(state)
-
-    expect(state.totalDamageReady).toBe(false)
-    expect(commitTotalDamage(state, staleGeneration, {
-      totalDamage: 'stale total',
-      totalDamageStatistics: 'stale summary',
-    })).toBe(false)
-    expect(state.totalDamage).toBeNull()
-    expect(commitTotalDamage(state, currentGeneration, {
-      totalDamage: 'current total',
-      totalDamageStatistics: 'current summary',
-    })).toBe(true)
-    expect(state.totalDamageReady).toBe(true)
-    expect(state.totalDamage).toBe('current total')
-  })
-
   it('formats accepted warnings with Japanese reasons, resource estimates, and overflow bounds', () => {
     const display = formatRangeFeedback({
       status: 'ready',

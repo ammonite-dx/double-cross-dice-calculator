@@ -495,6 +495,3 @@ export function createCalculationRequestCoordinator({
     snapshot: getSnapshot,
   }
 }
-
-export const createLatestRequestCoordinator =
-  createCalculationRequestCoordinator

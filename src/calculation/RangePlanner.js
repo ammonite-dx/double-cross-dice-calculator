@@ -16,15 +16,11 @@ import {
   normalizeDisplay,
 } from './planning/RangePolicy'
 import {
-  nextPowerOfTwo,
   object,
   positiveInteger,
 } from './planning/PlanningMath'
 
 export { DEFAULT_POLICY }
-// Kept as a compatibility export for existing internal consumers; new code
-// should import shared arithmetic from PlanningMath directly.
-export { nextPowerOfTwo }
 
 /**
  * The façade coordinates operation-specific planners and combines their
