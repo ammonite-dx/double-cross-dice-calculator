@@ -3,6 +3,9 @@ import {
   DISPLAY_PROBABILITY_TOLERANCE,
 } from './DistributionPresenter'
 
+/** @typedef {import('./DistributionProjectionTypes').DisplayRangePlan} DisplayRangePlan */
+/** @typedef {import('./DistributionProjectionTypes').DisplayWindowResourcePlan} DisplayWindowResourcePlan */
+
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const FLOAT64_BYTES_PER_POINT = Float64Array.BYTES_PER_ELEMENT
 
@@ -935,7 +938,7 @@ function deepFreeze(value, seen = new WeakSet()) {
  * @param {{ min: number, max: number }} [options.displayWindow]
  * @param {Object} [options.policy]
  * @param {Object} [policyOverride] Optional third-argument policy overload.
- * @returns {Object} A frozen coverage and resource plan.
+ * @returns {DisplayRangePlan} A frozen coverage and resource plan.
  */
 export function planDisplayRange(display, options, policyOverride) {
   const normalizedDisplay = normalizeDisplay(display)
@@ -998,6 +1001,10 @@ export function planDisplayRange(display, options, policyOverride) {
  * cannot make a coverage decision. Callers should treat the returned plan as
  * a resource preflight only and use `planDisplayRange` once a
  * display is available.
+ *
+ * @param {{ min: number, max: number }} displayWindow
+ * @param {Object} [policy]
+ * @returns {DisplayWindowResourcePlan}
  */
 export function planDisplayWindowResources(displayWindow, policy) {
   const normalizedWindow = normalizeDisplayWindow(displayWindow)

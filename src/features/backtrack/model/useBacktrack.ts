@@ -4,6 +4,8 @@ import {
   createCalculationFeedbackState,
 } from '../../../runtime/CalculationFeedback'
 import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
+import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
+import type { BacktrackCalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
 import type { BacktrackParams } from '../../../domain/BacktrackRules'
 import {
   createBacktrackRunner,
@@ -11,12 +13,6 @@ import {
 import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'
-
-interface CalculationFeedbackState {
-  status: string
-  plan: unknown
-  error: unknown
-}
 
 interface BacktrackChartData {
   single: readonly number[]
@@ -28,7 +24,7 @@ interface BacktrackState {
   params: Partial<BacktrackParams>
   finalEncroachment: BacktrackChartData | null
   resultReady: boolean
-  rangeFeedback: CalculationFeedbackState
+  rangeFeedback: CalculationFeedbackState<BacktrackCalculationRangePlan>
 }
 
 const INITIAL_PARAMS: Partial<BacktrackParams> = {
@@ -52,7 +48,7 @@ export function useBacktrack({
   })
   const rangeFeedback = reactive(
     createCalculationFeedbackState()
-  ) as CalculationFeedbackState
+  ) as CalculationFeedbackState<BacktrackCalculationRangePlan>
   const state = reactive<BacktrackState>({
     params: { ...initialSnapshot.params },
     finalEncroachment: null,

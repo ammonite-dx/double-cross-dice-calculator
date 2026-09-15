@@ -4,6 +4,7 @@ export type CalculationStatus =
   | 'idle'
   | 'loading'
   | 'ready'
+  | 'warning'
   | 'rejected'
   | 'error'
 

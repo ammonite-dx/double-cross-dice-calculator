@@ -19,6 +19,32 @@ import {
   recordCalculationError,
 } from '../../../runtime/CalculationFeedback'
 
+/** @template TBasePresentation */
+/** @template TDisplayPresentation */
+/** @typedef {import('../../../calculation/planning/RangePlannerTypes').CalculationRangePlan} CalculationRangePlan */
+
+/**
+ * @template TBasePresentation
+ * @template TDisplayPresentation
+ * @param {{
+ *   state: object,
+ *   executeCalculation: (request: object) => Promise<object>,
+ *   createBasePresentation?: (batchResult: unknown, rangePlans?: ReadonlyArray<CalculationRangePlan>) => TBasePresentation,
+ *   createPresentation?: (batchResult: unknown, rangePlans?: ReadonlyArray<CalculationRangePlan>, request?: object, scoreRequest?: object) => TDisplayPresentation,
+ *   createDisplayPresentation?: (options: object) => TDisplayPresentation,
+ *   onPresentation?: (presentation: TDisplayPresentation, metadata?: object) => void,
+ *   onDisplayRejected?: (presentation: TDisplayPresentation|null) => void,
+ *   onError?: (error: unknown) => void,
+ * }} options
+ * @returns {{
+ *   run: (options?: object) => Promise<boolean>,
+ *   invalidate: () => void,
+ *   invalidateScoreDisplay: () => void,
+ *   refreshPresentation: (options?: object) => boolean,
+ *   dispose: () => void,
+ * }}
+ */
+
 /**
  * Connect the attack batch client to a latest-request runner.
  * The runner is UI-independent and owns the current calculation lane.
@@ -27,7 +53,7 @@ export function createAttackRunner({
   state,
   executeCalculation,
   createBasePresentation,
-  createPresentation = createAttackPresentation,
+  createPresentation,
   createDisplayPresentation,
   onPresentation,
   onDisplayRejected,
@@ -38,6 +64,7 @@ export function createAttackRunner({
       'createAttackRunner requires an incremental executeCalculation function'
     )
   }
+  const presentationFactory = createPresentation ?? createAttackPresentation
   let requestGeneration = null
   let displayRequestGeneration = 0
   let scoreDisplayRequestGeneration = 0
@@ -135,9 +162,9 @@ export function createAttackRunner({
   ) {
     if (request === null) {
       if (scoreRequest === null) {
-        return createPresentation(batchResult, rangePlans)
+        return presentationFactory(batchResult, rangePlans)
       }
-      return createPresentation(
+      return presentationFactory(
         batchResult,
         rangePlans,
         undefined,
@@ -145,13 +172,13 @@ export function createAttackRunner({
       )
     }
     if (scoreRequest === null) {
-      return createPresentation(
+      return presentationFactory(
         batchResult,
         rangePlans,
         request
       )
     }
-    return createPresentation(
+    return presentationFactory(
       batchResult,
       rangePlans,
       request,
@@ -529,7 +556,7 @@ export function createAttackRunner({
                 ? { scoreDisplayRequest: requestedScoreDisplayRequest }
                 : {}),
             })
-          : createPresentation(
+          : presentationFactory(
               lastBatchResult,
               lastRangePlans,
               Object.prototype.hasOwnProperty.call(options, 'displayRequest')

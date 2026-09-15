@@ -2,6 +2,9 @@ import {
   validateDistributionResult,
 } from '../../calculation/DistributionResult'
 
+/** @typedef {import('./DistributionProjectionTypes').DistributionDisplay} DistributionDisplay */
+/** @typedef {import('./DistributionProjectionTypes').CanonicalDistributionEnvelope} CanonicalDistributionEnvelope */
+
 export const DISTRIBUTION_DISPLAY_VERSION = 1
 
 // The production probability labels use a 0.1 percentage-point display step.
@@ -304,6 +307,10 @@ function readSummary(options) {
  * this function only projects them and copies the mutable probability array.
  * An optional displayWindow is retained as a request boundary and never
  * truncates the explicit coverage.
+ *
+ * @param {CanonicalDistributionEnvelope} envelope
+ * @param {{ summary: Object, warnings?: readonly Object[], displayWindow?: { min: number, max: number } }} options
+ * @returns {DistributionDisplay}
  */
 export function presentDistribution(envelope, options = {}) {
   if (!isRecord(options)) {

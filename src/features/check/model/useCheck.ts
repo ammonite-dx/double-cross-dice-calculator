@@ -36,39 +36,19 @@ import type {
   ScorePair,
   ScoreStatistics,
 } from '../../../calculation/DistributionResultTypes'
-
-interface CalculationFeedbackState {
-  status: string
-  plan: unknown
-  error: unknown
-}
-
-interface CheckDisplayWarning {
-  readonly code?: string
-  readonly severity?: string
-  readonly message?: string
-}
-
-interface CheckDisplayPlan {
-  readonly accepted: boolean
-  readonly warnings?: readonly CheckDisplayWarning[]
-  readonly rejectionReasons?: readonly string[]
-  readonly [key: string]: unknown
-}
-
-interface CheckPresentationSide {
-  readonly decision: string
-  readonly status: string
-  readonly reason: string | null
-  readonly plan?: CheckDisplayPlan | null
-}
-
-interface CheckPresentation {
-  readonly status: string
-  readonly decision: string
-  readonly action?: CheckPresentationSide | null
-  readonly reaction?: CheckPresentationSide | null
-}
+import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
+import type {
+  CalculationRangePlan,
+  CheckCalculationRangePlan,
+} from '../../../calculation/planning/RangePlannerTypes'
+import type {
+  CheckPresentation,
+  CheckPresentationSide,
+} from './CheckPresentationTypes'
+import type {
+  DisplayWarning,
+  DisplayFeedbackPlan,
+} from '../../../shared/presentation/DistributionProjectionTypes'
 
 interface CheckScoreParams {
   action: Partial<ScoreInput>
@@ -80,8 +60,8 @@ interface CheckState {
   scoreParams: CheckScoreParams
   calculationRecord: CheckCalculationRecord | null
   displayRequest: DisplayRequestSnapshot
-  rangeFeedback: CalculationFeedbackState
-  displayFeedback: CalculationFeedbackState
+  rangeFeedback: CalculationFeedbackState<CheckCalculationRangePlan>
+  displayFeedback: CalculationFeedbackState<DisplayFeedbackPlan>
 }
 
 const INITIAL_DIFFICULTY: DifficultyInput = Object.freeze({
@@ -135,10 +115,10 @@ export async function useCheck({
   })
   const rangeFeedback = reactive(
     createCalculationFeedbackState()
-  ) as CalculationFeedbackState
+  ) as CalculationFeedbackState<CheckCalculationRangePlan>
   const displayFeedback = reactive(
     createCalculationFeedbackState()
-  ) as CalculationFeedbackState
+  ) as CalculationFeedbackState<DisplayFeedbackPlan>
   const state = reactive<CheckState>({
     difficulty: { ...initialInputSnapshot.difficulty } as DifficultyInput,
     scoreParams: {
@@ -170,7 +150,7 @@ export async function useCheck({
 
   function createNotProjectablePlan(
     result: CheckPresentation | null | undefined
-  ): CheckDisplayPlan {
+  ): DisplayFeedbackPlan {
     const sides = [result?.action, result?.reaction].filter(
       (side): side is CheckPresentationSide => side !== null && side !== undefined
     )
@@ -183,7 +163,7 @@ export async function useCheck({
       : sides.filter((side) =>
         side.decision === CHECK_PRESENTATION_DECISIONS.RECALCULATE
       )
-    const warnings = feedbackSides.map((side) => {
+    const warnings: DisplayWarning[] = feedbackSides.map((side) => {
       const code = side.decision
         === CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED
         ? side.plan?.rejectionReasons?.[0] ?? 'display-point-count'
@@ -220,7 +200,7 @@ export async function useCheck({
     }
   }
 
-  function publishDisplayPlan(plan: CheckDisplayPlan) {
+  function publishDisplayPlan(plan: DisplayFeedbackPlan) {
     displayFeedback.status = plan.accepted === false
       ? 'rejected'
       : (plan.warnings?.length ?? 0) > 0
@@ -262,7 +242,7 @@ export async function useCheck({
         opposed: state.difficulty.opposed,
         policy: displayRangePolicy,
       }
-    ) as unknown as CheckPresentation
+    )
   }
 
   function currentCalculationInput() {
@@ -472,7 +452,9 @@ export async function useCheck({
 
   const initialCalculation = await runInitialCalculation({
     feedback: rangeFeedback,
-    calculate: (options: { onRangePlan: (plan: unknown) => void }) =>
+    calculate: (options: {
+      onRangePlan: (plan: CalculationRangePlan) => void
+    }) =>
       calculationClient.calculateCheck(
         initialCalculationRequest.params,
         initialCalculationRequest.difficulty,

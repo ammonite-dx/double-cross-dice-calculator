@@ -3,6 +3,9 @@ import {
 } from './DistributionPresenter'
 import { planDisplayRange } from './DisplayRangePlanner'
 
+/** @typedef {import('./DistributionProjectionTypes').DistributionProjection} DistributionProjection */
+/** @typedef {import('./DistributionProjectionTypes').ReadyDistributionProjection} ReadyDistributionProjection */
+
 export const DISTRIBUTION_PROJECTION_VERSION = 1
 
 export const DISTRIBUTION_PROJECTION_MODES = Object.freeze({
@@ -167,6 +170,7 @@ function makeWindow(plan) {
   })
 }
 
+/** @returns {DistributionProjection} */
 function makeNotReady(plan, mode, decision, reason, status = 'not-ready') {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
@@ -180,6 +184,7 @@ function makeNotReady(plan, mode, decision, reason, status = 'not-ready') {
   })
 }
 
+/** @returns {DistributionProjection} */
 function makeNotProjectable(plan, mode, reason) {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
@@ -195,6 +200,7 @@ function makeNotProjectable(plan, mode, reason) {
   })
 }
 
+/** @returns {ReadyDistributionProjection} */
 function makeReady(plan, mode, values, decision) {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
@@ -412,6 +418,10 @@ function classifyDecision(display, plan, mode) {
  * accidentally allocate a partial series for a missing or uncertain range.
  * The returned `values` buffer is present only for ready projections and is
  * an owned Float64Array independent of the display's explicit coefficients.
+ *
+ * @param {Object} display A canonical distribution display payload.
+ * @param {Object} [options] Projection mode, display window, and policy.
+ * @returns {DistributionProjection}
  */
 export function projectDistribution(display, options = {}) {
   const normalized = normalizeOptions(options)

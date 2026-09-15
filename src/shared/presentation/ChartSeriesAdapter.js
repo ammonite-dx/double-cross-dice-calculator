@@ -5,6 +5,10 @@ import {
   DISTRIBUTION_PROJECTION_VERSION,
 } from './DistributionProjection'
 
+/** @typedef {import('./DistributionProjectionTypes').ReadyDistributionProjection} ReadyDistributionProjection */
+/** @typedef {import('./DistributionProjectionTypes').ChartMaterializerOptions} ChartMaterializerOptions */
+/** @typedef {import('./DistributionProjectionTypes').ChartJsData} ChartJsData */
+
 export const CHART_SERIES_ERROR_CODES = Object.freeze({
   INVALID_SERIES: 'invalid-series',
   INVALID_MATERIALIZER_OPTIONS: 'invalid-materializer-options',
@@ -276,6 +280,10 @@ function normalizeMaterializerOptions(options) {
  * Materialize a ready canonical distribution projection at the Chart.js
  * boundary. Labels are allocated only here; the projection remains a dense
  * typed array with no Chart.js-specific objects.
+ *
+ * @param {ReadyDistributionProjection} series
+ * @param {ChartMaterializerOptions} [options]
+ * @returns {ChartJsData}
  */
 export function materializeChartJsData(series, options = {}) {
   const normalizedSeries = normalizeSeries(series)

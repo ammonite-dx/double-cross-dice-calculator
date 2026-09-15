@@ -4,6 +4,8 @@ import {
   createAttackTotalCalculationRecord,
 } from './AttackCalculationRecord'
 
+/** @typedef {import('../../../calculation/planning/RangePlannerTypes').CalculationRangePlan} CalculationRangePlan */
+
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -121,11 +123,11 @@ function assembleBatch(records, totalResult) {
  * returned execution object.
  *
  * @param {{
- *   entries: ReadonlyArray<unknown>,
- *   committedRecords?: ReadonlyArray<unknown>,
+ *   entries: ReadonlyArray<Object>,
+ *   committedRecords?: ReadonlyArray<Object>,
  *   calculationClient: object,
  *   options?: Record<string, unknown>,
- *   onRangePlan?: (plan: unknown, context?: object) => void,
+ *   onRangePlan?: (plan: CalculationRangePlan, context?: object) => void,
  *   forceAll?: boolean,
  * }} request
  */

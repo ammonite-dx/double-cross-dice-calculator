@@ -3,6 +3,7 @@ import {
   getProbabilityMassSummary,
 } from '../../../calculation/DistributionResult'
 import {
+  DISTRIBUTION_PROJECTION_DECISIONS,
   materializeChartJsData,
   presentDistribution,
   projectDistribution,
@@ -11,6 +12,12 @@ import {
   createAttackDisplayRequestSnapshot,
   DEFAULT_ATTACK_DISPLAY_REQUEST,
 } from './AttackDisplayRequestSnapshot'
+
+/** @typedef {import('./AttackPresentationTypes').AttackPresentation} AttackPresentation */
+/** @typedef {import('./AttackPresentationTypes').AttackBatchResult} AttackBatchResult */
+/** @typedef {import('./AttackPresentationTypes').AttackScorePresentation} AttackScorePresentation */
+/** @typedef {import('./AttackPresentationTypes').AttackDisplayPresentation} AttackDisplayPresentation */
+/** @typedef {import('./AttackPresentationTypes').AttackScoreDisplaySidePresentation} AttackScoreDisplaySidePresentation */
 
 export const ATTACK_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_BATCH_RESULT: 'invalid-batch-result',
@@ -23,13 +30,8 @@ export const ATTACK_PRESENTATION_ERROR_CODES = Object.freeze({
 
 export const ATTACK_DISPLAY_PRESENTATION_VERSION = 1
 
-export const ATTACK_DISPLAY_PRESENTATION_DECISIONS = Object.freeze({
-  REUSE: 'reuse',
-  KNOWN_ZERO: 'known-zero',
-  RECALCULATE: 'recalculate',
-  RESOURCE_REJECTED: 'resource-rejected',
-  NOT_PROJECTABLE: 'not-projectable',
-})
+export const ATTACK_DISPLAY_PRESENTATION_DECISIONS =
+  DISTRIBUTION_PROJECTION_DECISIONS
 
 export const ATTACK_SCORE_DISPLAY_PRESENTATION_DECISIONS =
   ATTACK_DISPLAY_PRESENTATION_DECISIONS
@@ -247,6 +249,7 @@ function createScoreSidePresentation(envelope) {
  * The action side is the side currently shown by Attack's score chart; the
  * reaction side is retained for the same batch and future consumers.
  */
+/** @returns {AttackScorePresentation|null} */
 function createScorePresentation(score) {
   if (!isRecord(score)) {
     return null
@@ -361,6 +364,7 @@ function getAttackDisplayDecision(sides) {
   return ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE
 }
 
+/** @returns {import('./AttackPresentationTypes').AttackDisplaySide} */
 function createAttackDisplaySide(
   display,
   displayRequest,
@@ -398,6 +402,7 @@ function createAttackDisplaySide(
   return Object.freeze(side)
 }
 
+/** @returns {AttackScoreDisplaySidePresentation|null} */
 function createAttackScoreDisplayPresentation(
   scorePresentation,
   displayRequest,
@@ -452,6 +457,9 @@ function copyRangePlan(rangePlan, warnings) {
  * Build one UI-independent presentation payload for an attack batch.
  * Calculation-owned score, damage, and statistics are reused by reference;
  * only the mutable probability arrays are copied by presentDistribution.
+ * @param {AttackBatchResult} batchResult
+ * @param {ReadonlyArray<Object>} [rangePlans]
+ * @returns {AttackPresentation}
  */
 export function createAttackPresentation(
   batchResult,
@@ -593,6 +601,9 @@ function buildAttackDisplayPresentationFrom(
  * Re-plan an already presented Attack result for a new display window or
  * mode. The distribution presenter owns the explicit probability copy; this
  * function only creates window-sized chart series.
+ * @param {AttackPresentation} presentation
+ * @param {Object} [options]
+ * @returns {AttackDisplayPresentation}
  */
 export function createAttackDisplayPresentationFrom(
   presentation,
@@ -622,6 +633,11 @@ export function createAttackDisplayPresentationFrom(
   )
 }
 
+/**
+ * @param {AttackBatchResult} batchResult
+ * @param {Object} [options]
+ * @returns {AttackDisplayPresentation}
+ */
 export function createAttackDisplayPresentation(
   batchResult,
   options = {}

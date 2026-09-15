@@ -2,6 +2,9 @@ import {
   PUBLISHED_OVERFLOW_INDEX,
 } from '../../../calculation/DistributionResult'
 
+/** @typedef {import('../../../domain/CalculationInputs').DisplayRequestSnapshot} DisplayRequestSnapshot */
+/** @typedef {import('../../../calculation/planning/RangePlannerTypes').RangePolicyInput} RangePolicyInput */
+
 export const ATTACK_DISPLAY_REQUEST_VERSION = 1
 
 export const ATTACK_DISPLAY_MODES = Object.freeze({
@@ -170,6 +173,10 @@ export function normalizeAttackDisplayRequest(request) {
 /**
  * Create an alias-free, deeply immutable display request snapshot.
  */
+/**
+ * @param {DisplayRequestSnapshot} [request]
+ * @returns {DisplayRequestSnapshot}
+ */
 export function createAttackDisplayRequestSnapshot(
   request = DEFAULT_ATTACK_DISPLAY_REQUEST
 ) {
@@ -189,6 +196,12 @@ export function createAttackDisplayRequestSnapshot(
  * coverage (and vice versa). The independent DisplayRangePlanner remains
  * responsible for display resource rejection; this policy only carries the
  * accepted requests into RangePlanner.
+ */
+/**
+ * @param {DisplayRequestSnapshot} displayRequest
+ * @param {RangePolicyInput} [suppliedPolicy]
+ * @param {DisplayRequestSnapshot} [scoreDisplayRequest]
+ * @returns {RangePolicyInput}
  */
 export function createAttackRangePolicy(
   displayRequest,

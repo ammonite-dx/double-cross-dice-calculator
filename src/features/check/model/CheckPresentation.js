@@ -5,6 +5,7 @@ import {
 } from '../../../calculation/DistributionResult'
 import {
   DISTRIBUTION_PROJECTION_MODES,
+  DISTRIBUTION_PROJECTION_DECISIONS,
   isChartSeriesError,
   isDistributionProjectionError,
   materializeChartJsData,
@@ -15,6 +16,9 @@ import {
 } from '../../../shared/presentation'
 import { getChartColor } from '../../../shared/theme/ChartPalette'
 
+/** @typedef {import('./CheckPresentationTypes').CheckPresentation} CheckPresentation */
+/** @typedef {import('./CheckPresentationTypes').CheckPresentationSide} CheckPresentationSide */
+
 export const CHECK_PRESENTATION_VERSION = 1
 
 export const CHECK_PRESENTATION_MODES = Object.freeze({
@@ -24,13 +28,7 @@ export const CHECK_PRESENTATION_MODES = Object.freeze({
 
 // The projection owns the low-level status and decision. Check only aggregates
 // the two sides so a feature cannot accidentally reinterpret overflow data.
-export const CHECK_PRESENTATION_DECISIONS = Object.freeze({
-  REUSE: 'reuse',
-  KNOWN_ZERO: 'known-zero',
-  RECALCULATE: 'recalculate',
-  RESOURCE_REJECTED: 'resource-rejected',
-  NOT_PROJECTABLE: 'not-projectable',
-})
+export const CHECK_PRESENTATION_DECISIONS = DISTRIBUTION_PROJECTION_DECISIONS
 
 export const CHECK_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_RESULT: 'invalid-result',
@@ -224,6 +222,7 @@ function getPresentationDecision(sides) {
   return CHECK_PRESENTATION_DECISIONS.REUSE
 }
 
+/** @returns {CheckPresentationSide} */
 function createSideState(side) {
   const state = {
     plan: side.projection.plan,
@@ -304,6 +303,11 @@ function isKnownTypedError(error) {
  * Connect a calculateCheck result to the shared display and Chart.js
  * contracts. The second argument is
  * `{ displayWindow, mode, opposed, policy }`.
+ */
+/**
+ * @param {Object} checkResult
+ * @param {Object} [options]
+ * @returns {CheckPresentation}
  */
 export function createCheckPresentation(
   checkResult,

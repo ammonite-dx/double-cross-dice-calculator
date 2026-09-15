@@ -7,6 +7,18 @@ import {
 } from 'vue'
 
 import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
+import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
+import type { CalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
+import type {
+  AttackDisplayPresentation,
+  AttackPresentation,
+  AttackScoreDisplayBatchPresentation,
+  AttackBatchResult,
+} from './AttackPresentationTypes'
+import type { AttackState } from './AttackStateTypes'
+import type {
+  DisplayFeedbackPlan,
+} from '../../../shared/presentation/DistributionProjectionTypes'
 import { createAttackRunner } from './AttackRunner'
 import {
   createAttackDisplayFeedback,
@@ -44,26 +56,9 @@ import {
   type AttackCombo,
 } from './AttackComboState'
 
-type FeedbackState = {
-  status: string
-  plan: unknown
-  error: unknown
-}
-
-type Presentation = {
-  status?: string
-  [key: string]: unknown
-}
-
-type AttackState = {
-  combos: AttackCombo[]
-  totalCalculation: unknown
-  basePresentation: Presentation | null
-  displayPresentation: Presentation | null
-  generation: number
-  feedback: FeedbackState
-  scoreDisplayFeedback: FeedbackState
-  displayFeedback: FeedbackState
+type AttackExecutionEntry = {
+  readonly id: number | string
+  readonly params: AttackCombo['data']['params']
 }
 
 export interface AttackUiCombo {
@@ -80,7 +75,8 @@ export interface AttackUiCombo {
 export interface ComboSideValidation {
   id: number | string
   side: 'action' | 'reaction'
-  snapshot: unknown
+  snapshot: AttackCombo['data']['params']['action']
+    | AttackCombo['data']['params']['reaction']
 }
 
 export interface ComboDetailsChange {
@@ -94,21 +90,15 @@ export interface UseAttackOptions {
 }
 
 const createAttackDisplayRequestSnapshot =
-  createRawAttackDisplayRequestSnapshot as unknown as (
-    request?: DisplayRequestSnapshot,
-  ) => DisplayRequestSnapshot
+  createRawAttackDisplayRequestSnapshot
 
-const createAttackRangePolicy = createRawAttackRangePolicy as unknown as (
-  displayRequest: DisplayRequestSnapshot,
-  suppliedPolicy?: Record<string, unknown>,
-  scoreDisplayRequest?: DisplayRequestSnapshot,
-) => unknown
+const createAttackRangePolicy = createRawAttackRangePolicy
 
 function createState(): AttackState {
   return reactive({
     combos: [createAttackCombo(0)],
     ...createAttackState(),
-  }) as unknown as AttackState
+  }) as AttackState
 }
 
 function toUiCombos(state: AttackState): AttackUiCombo[] {
@@ -125,7 +115,7 @@ function toUiCombos(state: AttackState): AttackUiCombo[] {
 }
 
 export function useAttack({ calculationClient }: UseAttackOptions) {
-  const client = calculationClient as unknown as CalculationClient
+  const client = calculationClient
   const supportsIncrementalExecution = client !== null
     && typeof client === 'object'
     && typeof client.calculateAttack === 'function'
@@ -148,7 +138,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   const state = createState()
 
   function publishDisplayFeedback(
-    presentation: unknown,
+    presentation: AttackDisplayPresentation | null,
     metadata: { scoreDisplaySuppressed?: boolean } = {},
   ) {
     Object.assign(
@@ -156,12 +146,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       createAttackDisplayFeedback(presentation)
     )
     if (metadata.scoreDisplaySuppressed !== true) {
-      const scorePresentation = (
-        presentation !== null
-        && typeof presentation === 'object'
-        ? (presentation as { score?: unknown }).score
-        : null
-      )
+      const scorePresentation = presentation?.score ?? null
       Object.assign(
         state.scoreDisplayFeedback,
         createAttackScoreDisplayFeedback(scorePresentation)
@@ -169,7 +154,9 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     }
   }
 
-  function publishDisplayRejection(presentation: unknown) {
+  function publishDisplayRejection(
+    presentation: AttackDisplayPresentation | null
+  ) {
     Object.assign(
       state.displayFeedback,
       createAttackDisplayFeedback(presentation)
@@ -179,7 +166,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     state.scoreDisplayFeedback.error = null
   }
 
-  const calculationRunner = createAttackRunner(({
+  const calculationRunner = createAttackRunner({
     state,
     executeCalculation: ({
         entries,
@@ -188,14 +175,14 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         onRangePlan,
         forceAll,
       }: {
-        entries: readonly unknown[]
+        entries: readonly AttackExecutionEntry[]
         calculationOptions: Record<string, unknown>
         signal?: AbortSignal
-        onRangePlan?: (plan: unknown) => void
+        onRangePlan?: (plan: CalculationRangePlan) => void
         forceAll?: boolean
       }) => executeAttackIncrementally({
         entries,
-        committedRecords: getAttackCalculationRecords(state.combos) as unknown[],
+        committedRecords: getAttackCalculationRecords(state.combos),
         calculationClient: client,
         options: {
           ...calculationOptions,
@@ -205,12 +192,12 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         forceAll,
     }),
     createBasePresentation: (
-      batchResult: unknown,
-      rangePlans: unknown[] = [],
+      batchResult: AttackBatchResult,
+      rangePlans: CalculationRangePlan[] = [],
     ) => createAttackPresentation(batchResult, rangePlans),
     createPresentation: (
-      batchResult: unknown,
-      rangePlans: unknown[] = [],
+      batchResult: AttackBatchResult,
+      rangePlans: CalculationRangePlan[] = [],
       request?: DisplayRequestSnapshot,
       scoreRequest?: DisplayRequestSnapshot,
     ) => createAttackDisplayPresentation(batchResult, {
@@ -227,19 +214,21 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       scoreDisplayRequest: scoreRequest,
     }: {
       state: AttackState
-      basePresentation?: Presentation | null
+      basePresentation?: AttackPresentation | null
       displayRequest?: DisplayRequestSnapshot
       scoreDisplayRequest?: DisplayRequestSnapshot
-    }) => createAttackDisplayPresentationFrom(
-      basePresentation ?? currentState.basePresentation,
-      {
-        displayRequest: request
-          ?? createAttackDisplayRequestSnapshot(displayRequest),
-        scoreDisplayRequest: scoreRequest
-          ?? createAttackDisplayRequestSnapshot(scoreDisplayRequest),
-        policy: displayRangePolicy,
-      }
-    ),
+    }) => {
+      return createAttackDisplayPresentationFrom(
+        (basePresentation ?? currentState.basePresentation)!,
+        {
+          displayRequest: request
+            ?? createAttackDisplayRequestSnapshot(displayRequest),
+          scoreDisplayRequest: scoreRequest
+            ?? createAttackDisplayRequestSnapshot(scoreDisplayRequest),
+          policy: displayRangePolicy,
+        }
+      )
+    },
     onPresentation: publishDisplayFeedback,
     onDisplayRejected: publishDisplayRejection,
     onError: (error: unknown) => {
@@ -249,9 +238,9 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       state.displayFeedback.error = error
       console.error('Failed to update attack', error)
     },
-  }) as unknown as Parameters<typeof createAttackRunner>[0])
+  })
 
-  function publishDisplayResourceRejection(plan: unknown) {
+  function publishDisplayResourceRejection(plan: DisplayFeedbackPlan) {
     state.displayPresentation = null
     state.displayFeedback.status = 'rejected'
     state.displayFeedback.plan = plan
@@ -275,7 +264,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     state.scoreDisplayFeedback.error = error
   }
 
-  function publishScoreDisplayResourceRejection(plan: unknown) {
+  function publishScoreDisplayResourceRejection(plan: DisplayFeedbackPlan) {
     state.scoreDisplayFeedback.status = 'rejected'
     state.scoreDisplayFeedback.plan = plan
     state.scoreDisplayFeedback.error = null
@@ -326,7 +315,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   function runCalculation(
     request: DisplayRequestSnapshot = displayRequest,
     scoreRequest: DisplayRequestSnapshot = scoreDisplayRequest,
-  ): Promise<unknown> {
+  ): Promise<boolean> {
     const snapshot = createAttackDisplayRequestSnapshot(request)
     const scoreSnapshot = createAttackDisplayRequestSnapshot(scoreRequest)
     if (!preflightDisplay(snapshot)) {
@@ -337,13 +326,13 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
       return calculationRunner.run({
         displayRequest: snapshot,
         rangePolicy: createAttackRangePolicy(snapshot),
-      }) as Promise<unknown>
+      })
     }
     return calculationRunner.run({
       displayRequest: snapshot,
       scoreDisplayRequest: scoreSnapshot,
       rangePolicy: createAttackRangePolicy(snapshot, {}, scoreSnapshot),
-    }) as Promise<unknown>
+    })
   }
 
   function findCombo(id: number | string) {
@@ -524,8 +513,8 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   const displayPresentation = computed(
     () => state.displayPresentation
   )
-  const scoreDisplayPresentation = computed(
-    () => (state.displayPresentation?.score ?? null) as Presentation | null
+  const scoreDisplayPresentation = computed<AttackScoreDisplayBatchPresentation | null>(
+    () => state.displayPresentation?.score ?? null
   )
   const displayFeedback = computed(
     () => state.displayFeedback
@@ -536,7 +525,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
   const summaryReady = computed(
     () => state.displayPresentation?.status === 'ready'
   )
-  const feedbackNotice = computed<FeedbackState>(() =>
+  const feedbackNotice = computed<CalculationFeedbackState<CalculationRangePlan>>(() =>
     state.feedback?.status === 'rejected'
       || state.feedback?.status === 'error'
       ? state.feedback
