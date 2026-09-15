@@ -41,3 +41,11 @@ R25-Eでは、RangePlannerの値とresource threshold、Score tail、Damage／To
 ## 検証
 
 各実装コミットでtypecheck、ESLint、差分検査を実行した。最終HEADでは`npm run verify:release`が成功し、Node version check、公開32 assetのgenerator検証、Vitest 103ファイル／1049テスト、generator 18件、simulation 13件、Ruff、typecheck、runtime DX 20,000ケース、ESLint、Markdown lint 65ファイル／0 issues、production build（424 modules）、production browser smoke、`git diff --check`を確認した。追加の`npm run audit:r23:damage-precision`と`npm run audit:r23:damage-tail`も成功した。作業ツリーは文書コミット後にcleanとする。
+
+## R25-E follow-up（2026-09-16）
+
+`7b67c3f`で、公開runtime contractを実装の境界へ合わせた。CalculationClientのoptionsはCheck、Attack、Backtrack、Total Damageごとに分離し、range plan callbackも操作別のplanへ絞った。Total Damageだけが受け取る集計上限を他の操作へ漏らさず、runtimeが既にResourceGuardへ渡していた`requestId`を`TotalDamageClientOptions`で表現した。Attackの表示requestはfeature runner側の責務としてclient calculation optionsから外した。
+
+`LatestCalculationRunner`は実装どおり`run(request?)`の1引数APIとし、Coordinatorの2引数APIとは分けた。`LatestCalculationRunnerOptions`を追加し、factoryの`feedback`、`snapshotRequest`、`calculate`、`onRangePlan`、`commitResult`、`onCancelled`が同じrequest／result／plan genericを共有するようJSDocから接続した。runtimeの実行順序、Abort、latest-wins、queue、Worker、ResourceGuardは変更していない。
+
+型回帰fixtureでは、操作別optionsとcallbackの誤用、Total Damageの`requestId`、factory callbackのcontextual typing、latest runnerへの第二引数をcompile-timeで検証している。follow-up後の`npm run typecheck`、`npm test`（103ファイル／1049テスト）、`npm run lint`、`git diff --check`はすべて成功した。
