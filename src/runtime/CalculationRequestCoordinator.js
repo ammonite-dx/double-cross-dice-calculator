@@ -8,6 +8,9 @@ export const CALCULATION_REQUEST_STATUS = Object.freeze({
   RESOURCE_REJECTED: 'resource-rejected',
 })
 
+/** @typedef {import('./CalculationFeedbackTypes').CalculationCoordinatorOptions} CalculationCoordinatorOptions */
+/** @typedef {import('./CalculationFeedbackTypes').CalculationRequestCoordinator} CalculationRequestCoordinator */
+
 function isAbortSignal(value) {
   return value !== null
     && typeof value === 'object'
@@ -134,6 +137,14 @@ function isResourceRejectedError(error) {
  *
  * execute(snapshot, context) receives the immutable-by-convention request
  * snapshot. context contains revision, signal, options, and onRangePlan.
+ */
+/**
+ * @template TRequest
+ * @template TResult
+ * @template TPlan
+ * @template TOptions
+ * @param {CalculationCoordinatorOptions<TRequest, TResult, TPlan, TOptions>} options
+ * @returns {CalculationRequestCoordinator<TRequest, TResult, TPlan, TOptions>}
  */
 export function createCalculationRequestCoordinator({
   execute,

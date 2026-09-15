@@ -8,6 +8,11 @@ const DEFAULT_CACHE_SIZE = 8
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
 
+/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollClientOptions} RuntimeDamageRollClientOptions */
+/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollWorkerLike} RuntimeDamageRollWorkerLike */
+/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollCalculateOptions} RuntimeDamageRollCalculateOptions */
+/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollClient} RuntimeDamageRollClient */
+
 function createAbortError(message = 'The calculation was aborted') {
   const error = new Error(message)
   error.name = 'AbortError'
@@ -94,6 +99,10 @@ function defaultWorkerFactory() {
   })
 }
 
+/**
+ * @param {RuntimeDamageRollClientOptions} [options]
+ * @returns {RuntimeDamageRollClient}
+ */
 export function createRuntimeDamageRollClient({
   workerFactory = defaultWorkerFactory,
   cacheSize = DEFAULT_CACHE_SIZE,

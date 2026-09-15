@@ -1,5 +1,9 @@
 const BYTES_PER_MIB = 1024 * 1024
 
+/** @typedef {import('./ResourceGuardTypes').ResourceGuard} ResourceGuardContract */
+/** @typedef {import('./ResourceGuardTypes').ResourceGuardPolicy} ResourceGuardPolicy */
+/** @typedef {import('./ResourceGuardTypes').ResourceReservationPlan} ResourceReservationPlan */
+
 export const RESOURCE_GUARD_ERROR_CODES = Object.freeze({
   INVALID_POLICY: 'invalid-policy',
   INVALID_REQUEST: 'invalid-request',
@@ -543,6 +547,10 @@ export class ResourceGuard {
   }
 }
 
+/**
+ * @param {Partial<ResourceGuardPolicy>} [policy]
+ * @returns {ResourceGuardContract}
+ */
 export function createResourceGuard(policy = {}) {
   return new ResourceGuard(policy)
 }

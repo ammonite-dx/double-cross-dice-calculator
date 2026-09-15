@@ -7,6 +7,9 @@ import {
   createCalculationRequestCoordinator,
 } from './CalculationRequestCoordinator'
 
+/** @typedef {import('./CalculationFeedbackTypes').CalculationFeedbackState} CalculationFeedbackState */
+/** @typedef {import('./CalculationFeedbackTypes').LatestCalculationRunner} LatestCalculationRunner */
+
 const RANGE_REASON_BY_CODE = Object.freeze({
   'display-points': '表示する点数が多すぎるため、計算結果を表示できません。',
   'display-point-count': '表示する点数が多すぎるため、計算結果を表示できません。',
@@ -133,6 +136,7 @@ function collectOverflowMessages(plan) {
     )
 }
 
+/** @returns {CalculationFeedbackState} */
 export function createCalculationFeedbackState() {
   return {
     status: 'idle',
@@ -269,6 +273,14 @@ export async function runInitialCalculation({ feedback, calculate, onError }) {
  * the same one-running-plus-one-pending coordinator. The caller signal is
  * composed with the coordinator-owned signal, so neither source is
  * overwritten.
+ */
+/**
+ * @template TRequest
+ * @template TResult
+ * @template TPlan
+ * @template TOptions
+ * @param {Object} options
+ * @returns {LatestCalculationRunner<TRequest, TResult, TPlan, TOptions>}
  */
 export function createLatestCalculationRunner({
   feedback,
