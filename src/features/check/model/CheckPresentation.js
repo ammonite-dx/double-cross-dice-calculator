@@ -4,16 +4,13 @@ import {
   isDistributionResultError,
 } from '../../../calculation/DistributionResult'
 import {
-  CHART_SERIES_MODES,
-  CHART_SERIES_NOT_PROJECTABLE_REASONS,
-  CHART_SERIES_NOT_READY_REASONS,
-  createChartSeries,
+  DISTRIBUTION_PROJECTION_MODES,
   isChartSeriesError,
+  isDistributionProjectionError,
   materializeChartJsData,
-  isDisplayRangePlannerError,
   isDistributionPresentationError,
-  planDisplayRange,
   presentDistribution,
+  projectDistribution,
   toChartPercentage,
 } from '../../../shared/presentation'
 import { getChartColor } from '../../../shared/theme/ChartPalette'
@@ -21,14 +18,12 @@ import { getChartColor } from '../../../shared/theme/ChartPalette'
 export const CHECK_PRESENTATION_VERSION = 1
 
 export const CHECK_PRESENTATION_MODES = Object.freeze({
-  PMF: CHART_SERIES_MODES.PMF,
-  UPPER_TAIL: CHART_SERIES_MODES.UPPER_TAIL,
+  PMF: DISTRIBUTION_PROJECTION_MODES.PMF,
+  UPPER_TAIL: DISTRIBUTION_PROJECTION_MODES.UPPER_TAIL,
 })
 
-// `status` remains the low-level ready/not-ready compatibility state used by
-// the existing chart boundary. `decision` is the Check-specific interpretation
-// consumed by the view: exact score overflow can be recalculated, while an
-// upper-bound overflow remains terminally not-projectable.
+// The projection owns the low-level status and decision. Check only aggregates
+// the two sides so a feature cannot accidentally reinterpret overflow data.
 export const CHECK_PRESENTATION_DECISIONS = Object.freeze({
   REUSE: 'reuse',
   KNOWN_ZERO: 'known-zero',
@@ -46,20 +41,14 @@ export const CHECK_PRESENTATION_ERROR_CODES = Object.freeze({
   UNEXPECTED_ERROR: 'unexpected-error',
 })
 
-function isPlainRecord(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
-  }
-  try {
-    const prototype = Object.getPrototypeOf(value)
-    return prototype === Object.prototype || prototype === null
-  } catch {
-    return false
-  }
+function isRecord(value) {
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
 }
 
 function freezeDetails(details) {
-  return Object.freeze(isPlainRecord(details) ? { ...details } : {})
+  return Object.freeze(isRecord(details) ? { ...details } : {})
 }
 
 export class CheckPresentationError extends Error {
@@ -97,92 +86,27 @@ function fail(code, message, details = {}) {
   throw new CheckPresentationValidationError(code, message, details)
 }
 
-function requirePlainRecord(value, code, path, message) {
-  if (!isPlainRecord(value)) {
-    fail(code, message ?? `${path} must be a plain record`, { path })
-  }
-  return value
-}
-
-function readOwnDataProperty(
-  value,
-  property,
-  code,
-  path,
-  { required = true } = {}
-) {
-  let descriptor
-  try {
-    descriptor = Object.getOwnPropertyDescriptor(value, property)
-  } catch (cause) {
-    throw new CheckPresentationValidationError(
-      code,
-      `${path}.${property} could not be inspected safely`,
-      { path: `${path}.${property}`, property },
-      cause
-    )
-  }
-
-  if (descriptor === undefined) {
-    if (required) {
-      fail(
-        code,
-        `${path}.${property} must be an own data property`,
-        { path: `${path}.${property}`, property }
-      )
-    }
-    return undefined
-  }
-
-  if (
-    !Object.prototype.hasOwnProperty.call(descriptor, 'value')
-    || descriptor.enumerable !== true
-  ) {
-    fail(
-      code,
-      `${path}.${property} must be an enumerable data property`,
-      { path: `${path}.${property}`, property }
-    )
-  }
-  return descriptor.value
-}
-
 function normalizeOptions(options) {
-  requirePlainRecord(
-    options,
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-    'options',
-      'Check presentation options must be a plain record'
-  )
+  if (!isRecord(options)) {
+    fail(
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+      'Check presentation options must be an object',
+      { path: 'options' }
+    )
+  }
 
-  const displayWindow = readOwnDataProperty(
-    options,
-    'displayWindow',
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-    'options'
-  )
+  const displayWindow = options.displayWindow
+  if (displayWindow === undefined || displayWindow === null) {
+    fail(
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
+      'options.displayWindow is required',
+      { path: 'options.displayWindow' }
+    )
+  }
 
-  const optionMode = readOwnDataProperty(
-    options,
-    'mode',
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-    'options',
-    { required: false }
-  )
-  const optionOpposed = readOwnDataProperty(
-    options,
-    'opposed',
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-    'options',
-    { required: false }
-  )
-  const optionPolicy = readOwnDataProperty(
-    options,
-    'policy',
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-    'options',
-    { required: false }
-  )
+  const optionMode = options.mode
+  const optionOpposed = options.opposed
+  const optionPolicy = options.policy
 
   const mode = optionMode ?? CHECK_PRESENTATION_MODES.PMF
   if (
@@ -214,39 +138,38 @@ function normalizeOptions(options) {
 }
 
 function normalizeCheckResult(checkResult, opposed) {
-  requirePlainRecord(
-    checkResult,
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_RESULT,
-    'checkResult',
-    'calculateCheck result must be a plain record'
-  )
-  const score = readOwnDataProperty(
-    checkResult,
-    'score',
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_RESULT,
-    'checkResult'
-  )
-  requirePlainRecord(
-    score,
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
-    'checkResult.score',
-    'checkResult.score must be a plain record'
-  )
+  if (!isRecord(checkResult)) {
+    fail(
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_RESULT,
+      'calculateCheck result must be an object',
+      { path: 'checkResult' }
+    )
+  }
+  const score = checkResult.score
+  if (!isRecord(score)) {
+    fail(
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+      'checkResult.score must be an object',
+      { path: 'checkResult.score' }
+    )
+  }
 
-  const action = readOwnDataProperty(
-    score,
-    'action',
-    CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
-    'checkResult.score'
-  )
-  const reaction = opposed
-    ? readOwnDataProperty(
-        score,
-        'reaction',
-        CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
-        'checkResult.score'
-      )
-    : undefined
+  const action = score.action
+  if (action === undefined || action === null) {
+    fail(
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+      'checkResult.score.action is required',
+      { path: 'checkResult.score.action' }
+    )
+  }
+  const reaction = opposed ? score.reaction : undefined
+  if (opposed && (reaction === undefined || reaction === null)) {
+    fail(
+      CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+      'checkResult.score.reaction is required when opposed',
+      { path: 'checkResult.score.reaction' }
+    )
+  }
 
   return { action, reaction }
 }
@@ -260,84 +183,30 @@ function createScorePresentation(envelope, displayWindow, mode, policy) {
     summary,
     displayWindow,
   })
-  const plannerOptions = { displayWindow }
-  if (policy !== undefined) {
-    plannerOptions.policy = policy
+  const projectionOptions = {
+    displayWindow,
+    mode,
   }
-  const plan = planDisplayRange(display, plannerOptions)
-  const series = createChartSeries(display, plan, { mode })
+  if (policy !== undefined) {
+    projectionOptions.policy = policy
+  }
+  const projection = projectDistribution(display, projectionOptions)
 
-  return Object.freeze({ display, plan, series })
+  return Object.freeze({ display, projection })
 }
 
 function getPresentationStatus(sides) {
-  if (sides.some(({ series }) => series.status === 'not-projectable')) {
+  if (sides.some(({ projection }) => projection.status === 'not-projectable')) {
     return 'not-projectable'
   }
-  if (sides.some(({ series }) => series.status === 'not-ready')) {
+  if (sides.some(({ projection }) => projection.status === 'not-ready')) {
     return 'not-ready'
   }
   return 'ready'
 }
 
-function hasPotentialUpperBoundOverflow(overflow) {
-  return overflow?.kind === 'upper-bound'
-    && (overflow.errorBound > 0 || overflow.probabilityUpperBound > 0)
-}
-
-function hasTerminalUpperBoundEvidence(side) {
-  if (
-    side.plan.status === 'resource-rejected'
-    || side.plan.decision === 'known-zero'
-  ) {
-    return false
-  }
-  const overflow = side.plan.coverage.overflow
-  if (!hasPotentialUpperBoundOverflow(overflow)) {
-    return false
-  }
-  return side.series.mode === CHECK_PRESENTATION_MODES.UPPER_TAIL
-    || overflow.lowerBound <= side.plan.displayWindow.max
-}
-
-function getSideDecision(side) {
-  if (side.plan.status === 'resource-rejected') {
-    return CHECK_PRESENTATION_DECISIONS.RESOURCE_REJECTED
-  }
-  if (hasTerminalUpperBoundEvidence(side)) {
-    return CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
-  }
-  if (side.series.status === 'not-projectable') {
-    if (
-      side.series.reason
-      === CHART_SERIES_NOT_PROJECTABLE_REASONS.EXACT_OVERFLOW_OVERLAP
-    ) {
-      return CHECK_PRESENTATION_DECISIONS.RECALCULATE
-    }
-    return CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
-  }
-  if (
-    side.series.status === 'not-ready'
-    && side.series.reason
-      === CHART_SERIES_NOT_READY_REASONS.RECALCULATE
-  ) {
-    return CHECK_PRESENTATION_DECISIONS.RECALCULATE
-  }
-  if (side.plan.decision === 'known-zero') {
-    return CHECK_PRESENTATION_DECISIONS.KNOWN_ZERO
-  }
-  return CHECK_PRESENTATION_DECISIONS.REUSE
-}
-
-function getSideReason(side) {
-  if (hasTerminalUpperBoundEvidence(side)) {
-    return CHART_SERIES_NOT_PROJECTABLE_REASONS.UPPER_BOUND_OVERFLOW
-  }
-  return side.series.reason ?? null
-}
-
 function getPresentationDecision(sides) {
-  const decisions = sides.map(getSideDecision)
+  const decisions = sides.map(({ projection }) => projection.decision)
   if (decisions.includes(CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE)) {
     return CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
   }
@@ -357,36 +226,38 @@ function getPresentationDecision(sides) {
 
 function createSideState(side) {
   const state = {
-    plan: side.plan,
-    status: side.series.status,
-    reason: getSideReason(side),
-    decision: getSideDecision(side),
+    plan: side.projection.plan,
+    status: side.projection.status,
+    reason: side.projection.status === 'ready'
+      ? null
+      : side.projection.reason ?? null,
+    decision: side.projection.decision,
   }
   return Object.freeze(state)
 }
 
-function toPercentageSeries(series) {
-  const values = new Float64Array(series.values.length)
-  for (let index = 0; index < series.values.length; index += 1) {
+function toPercentageSeries(projection) {
+  const values = new Float64Array(projection.values.length)
+  for (let index = 0; index < projection.values.length; index += 1) {
     // The legacy Check chart displays probability as a percentage rounded to
     // one decimal place. Keep this conversion at the Chart.js compatibility
   // boundary; the display and series remain probabilities.
-    values[index] = toChartPercentage(series.values[index])
+    values[index] = toChartPercentage(projection.values[index])
   }
 
   return {
-    kind: series.kind,
-    version: series.version,
-    status: series.status,
-    mode: series.mode,
-    displayWindow: series.displayWindow,
+    kind: 'canonical-chart-series',
+    version: 1,
+    status: 'ready',
+    mode: projection.mode,
+    displayWindow: projection.displayWindow,
     values,
   }
 }
 
 function materializeSideChart(side, label, color, includeLabels) {
   return materializeChartJsData(
-    toPercentageSeries(side.series),
+    toPercentageSeries(side.projection),
     {
       includeLabels,
       label,
@@ -426,7 +297,7 @@ function isKnownTypedError(error) {
   return isCheckPresentationError(error)
     || isDistributionResultError(error)
     || isDistributionPresentationError(error)
-    || isDisplayRangePlannerError(error)
+    || isDistributionProjectionError(error)
     || isChartSeriesError(error)
 }
 
@@ -440,13 +311,6 @@ export function createCheckPresentation(
   options = {}
 ) {
   try {
-    if (arguments.length !== 2) {
-      fail(
-        CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-        'createCheckPresentation expects checkResult and options',
-        { path: 'arguments' }
-      )
-    }
     const normalized = normalizeOptions(options)
     const scores = normalizeCheckResult(checkResult, normalized.opposed)
     const action = createScorePresentation(

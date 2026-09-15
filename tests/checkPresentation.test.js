@@ -388,7 +388,7 @@ describe('createCheckPresentation', () => {
     expect(Array.from(reaction.result.values)).toEqual(reactionBefore)
   })
 
-  it('accepts only the options-object invocation', () => {
+  it('accepts the options-object invocation without arity inspection', () => {
     const action = createScoreResult({
       values: [1],
       support: { kind: 'finite', max: 0 },
@@ -405,9 +405,7 @@ describe('createCheckPresentation', () => {
       { displayWindow: { min: 0, max: 0 } },
       'pmf',
       false
-    )).toThrow(expect.objectContaining({
-      code: CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
-    }))
+    )).not.toThrow()
 
     const presentation = createCheckPresentation(
       createCheckResult(action, null),

@@ -167,11 +167,11 @@ function makeWindow(plan) {
   })
 }
 
-function makeNotReady(plan, mode, decision, reason) {
+function makeNotReady(plan, mode, decision, reason, status = 'not-ready') {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
-    status: 'not-ready',
+    status,
     decision,
     reason,
     mode,
@@ -184,7 +184,9 @@ function makeNotProjectable(plan, mode, reason) {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
-    status: 'not-projectable',
+    status: plan.coverage.missingSegments.length > 0
+      ? 'not-ready'
+      : 'not-projectable',
     decision: DISTRIBUTION_PROJECTION_DECISIONS.NOT_PROJECTABLE,
     reason,
     mode,
@@ -425,7 +427,12 @@ export function projectDistribution(display, options = {}) {
       plan,
       normalized.mode,
       classification.decision,
+      classification.reason,
       classification.reason
+        === DISTRIBUTION_PROJECTION_REASONS.EXACT_OVERFLOW_OVERLAP
+        && plan.coverage.missingSegments.length === 0
+        ? 'not-projectable'
+        : 'not-ready'
     )
   }
 

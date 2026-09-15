@@ -120,7 +120,7 @@ describe('projectDistribution', () => {
       { min: 0, max: 1 }
     )
     expect(overlap).toMatchObject({
-      status: 'not-ready',
+      status: 'not-projectable',
       decision: DISTRIBUTION_PROJECTION_DECISIONS.RECALCULATE,
       reason: DISTRIBUTION_PROJECTION_REASONS.EXACT_OVERFLOW_OVERLAP,
     })
@@ -142,7 +142,7 @@ describe('projectDistribution', () => {
 
     expect(result.plan.decision).toBe('recalculate')
     expect(result).toMatchObject({
-      status: 'not-projectable',
+      status: 'not-ready',
       decision: DISTRIBUTION_PROJECTION_DECISIONS.NOT_PROJECTABLE,
       reason: DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW,
     })
