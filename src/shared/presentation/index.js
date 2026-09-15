@@ -45,3 +45,15 @@ export {
   toChartPercentage,
   toChartPercentages,
 } from './ChartPercentages'
+export {
+  DISTRIBUTION_PROJECTION_DECISIONS,
+  DISTRIBUTION_PROJECTION_ERROR_CODES,
+  DISTRIBUTION_PROJECTION_MODES,
+  DISTRIBUTION_PROJECTION_REASONS,
+  DISTRIBUTION_PROJECTION_VERSION,
+  DistributionProjectionError,
+  DistributionProjectionValidationError,
+  isDistributionProjectionError,
+  isDistributionProjectionValidationError,
+  projectDistribution,
+} from './DistributionProjection'

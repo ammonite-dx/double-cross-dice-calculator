@@ -43,6 +43,7 @@ describe('runtime and shared presentation architecture', () => {
       'src/shared/presentation/ChartPercentages.js',
       'src/shared/presentation/DisplayRangePlanner.js',
       'src/shared/presentation/DistributionPresenter.js',
+      'src/shared/presentation/DistributionProjection.js',
       'src/shared/presentation/index.js',
     ]) {
       expect(existsSync(`${repositoryRoot}/${path}`), path).toBe(true)
