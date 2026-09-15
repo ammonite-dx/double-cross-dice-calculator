@@ -61,6 +61,18 @@ function requestsEqual(entry, weights, kazanari, options) {
   return true
 }
 
+function notifyUnderlyingSettled(options, promise) {
+  if (typeof options?.onUnderlyingSettled !== 'function') {
+    return
+  }
+  try {
+    options.onUnderlyingSettled(promise)
+  } catch {
+    // Lifecycle observation is an internal diagnostic hook. A consumer
+    // callback must not change the calculation contract.
+  }
+}
+
 function waitWithSignal(promise, signal) {
   if (!signal) {
     return promise
@@ -70,7 +82,10 @@ function waitWithSignal(promise, signal) {
   }
 
   return new Promise((resolve, reject) => {
-    const abort = () => reject(createAbortError())
+    const abort = () => {
+      signal.removeEventListener('abort', abort)
+      reject(createAbortError())
+    }
     signal.addEventListener('abort', abort, { once: true })
     promise.then(
       (value) => {
@@ -83,18 +98,6 @@ function waitWithSignal(promise, signal) {
       }
     )
   })
-}
-
-function notifyUnderlyingSettled(options, promise) {
-  if (typeof options?.onUnderlyingSettled !== 'function') {
-    return
-  }
-  try {
-    options.onUnderlyingSettled(promise)
-  } catch {
-    // Lifecycle observation is an internal diagnostic hook. A consumer
-    // callback must not change the calculation contract.
-  }
 }
 
 function defaultWorkerFactory() {
@@ -112,87 +115,228 @@ export function createRuntimeDamageRollClient({
   }
 
   let worker = null
+  let workerToken = null
   let nextRequestId = 0
   let disposed = false
-  const pendingById = new Map()
+  let activeJob = null
+  const queuedJobs = []
   const cache = []
 
-  function rejectPending(error) {
-    for (const entry of pendingById.values()) {
-      entry.reject(error)
-    }
-    pendingById.clear()
-  }
-
-  function discardWorker(error) {
-    rejectPending(error)
-    worker?.terminate()
-    worker = null
-  }
-
-  function handleMessage(event) {
-    const entry = pendingById.get(event.data?.id)
-    if (!entry) {
+  function settleSubscriber(subscriber, error, distribution) {
+    if (subscriber.settled) {
       return
     }
-    pendingById.delete(entry.id)
+    subscriber.settled = true
+    if (subscriber.signal && subscriber.abortListener) {
+      subscriber.signal.removeEventListener(
+        'abort',
+        subscriber.abortListener
+      )
+    }
+    if (error) {
+      subscriber.reject(error)
+    } else {
+      subscriber.resolve(distribution.slice())
+    }
+  }
+
+  function settleJob(job, error, distribution) {
+    if (job.settled) {
+      return
+    }
+    job.settled = true
+    job.status = 'settled'
+    for (const subscriber of job.subscribers) {
+      settleSubscriber(subscriber, error, distribution)
+    }
+    job.subscribers.clear()
+    if (error) {
+      job.rejectLifecycle(error)
+    } else {
+      job.resolveLifecycle(distribution.slice())
+    }
+  }
+
+  function isCurrentWorker(token) {
+    return workerToken === token && worker === token.worker
+  }
+
+  function terminateCurrentWorker() {
+    const currentWorker = worker
+    worker = null
+    workerToken = null
+    currentWorker?.terminate()
+  }
+
+  function removeQueuedJob(job) {
+    const index = queuedJobs.indexOf(job)
+    if (index >= 0) {
+      queuedJobs.splice(index, 1)
+      return true
+    }
+    return false
+  }
+
+  function cancelQueuedJob(job) {
+    if (job.settled || job.status !== 'queued') {
+      return
+    }
+    removeQueuedJob(job)
+    settleJob(job, createAbortError())
+  }
+
+  function startNextJob() {
+    if (disposed || activeJob !== null) {
+      return
+    }
+
+    while (queuedJobs.length > 0) {
+      const job = queuedJobs.shift()
+      if (job.settled) {
+        continue
+      }
+      if (job.subscribers.size === 0) {
+        settleJob(job, createAbortError())
+        continue
+      }
+
+      job.status = 'active'
+      activeJob = job
+      try {
+        const currentWorker = getWorker()
+        const transmittedWeights = job.weights.slice()
+        currentWorker.postMessage(
+          {
+            id: job.id,
+            weights: transmittedWeights,
+            kazanari: job.kazanari,
+            options: job.options,
+          },
+          [transmittedWeights.buffer]
+        )
+      } catch (error) {
+        activeJob = null
+        settleJob(job, error)
+        continue
+      }
+      return
+    }
+  }
+
+  function finishActiveJob(job, error, distribution = null) {
+    if (activeJob !== job || job.settled) {
+      return
+    }
+    activeJob = null
+    settleJob(job, error, distribution)
+    startNextJob()
+  }
+
+  function abortActiveJob(job) {
+    if (activeJob !== job || job.settled) {
+      return
+    }
+    activeJob = null
+    terminateCurrentWorker()
+    settleJob(job, createAbortError())
+    startNextJob()
+  }
+
+  function handleMessage(token, event) {
+    if (!isCurrentWorker(token) || activeJob === null) {
+      return
+    }
+    const job = activeJob
+    if (event.data?.id !== job.id) {
+      return
+    }
 
     if (event.data.error) {
       const error = new Error(event.data.error.message)
       error.name = event.data.error.name || 'Error'
-      entry.reject(error)
+      finishActiveJob(job, error)
       return
     }
 
     try {
-      const expectedTotal = entry.weights.reduce(
+      const expectedTotal = job.weights.reduce(
         (total, weight) => total + weight,
         0
       )
       validateDistribution(
         event.data.distribution,
         expectedTotal,
-        entry.options.distributionLength
+        job.options.distributionLength
       )
       const distribution = event.data.distribution
 
       if (cacheSize > 0) {
         cache.unshift({
-          kazanari: entry.kazanari,
-          weights: entry.weights,
-          options: entry.options,
+          kazanari: job.kazanari,
+          weights: job.weights,
+          options: job.options,
           distribution,
         })
         cache.splice(cacheSize)
       }
-      entry.resolve(distribution)
+      finishActiveJob(job, null, distribution)
     } catch (error) {
-      entry.reject(error)
+      finishActiveJob(job, error)
     }
   }
 
-  function handleWorkerError(event) {
+  function rejectQueuedJobs(error) {
+    while (queuedJobs.length > 0) {
+      settleJob(queuedJobs.shift(), error)
+    }
+  }
+
+  function handleWorkerError(token, event) {
+    if (!isCurrentWorker(token)) {
+      return
+    }
     const error = new Error(event?.message || 'Runtime damage Worker failed')
-    discardWorker(error)
+    const job = activeJob
+    activeJob = null
+    terminateCurrentWorker()
+    if (job) {
+      settleJob(job, error)
+    }
+    rejectQueuedJobs(error)
   }
 
   function getWorker() {
     if (!worker) {
-      worker = workerFactory()
-      worker.addEventListener('message', handleMessage)
-      worker.addEventListener('error', handleWorkerError)
-      worker.addEventListener('messageerror', handleWorkerError)
+      const createdWorker = workerFactory()
+      const token = { worker: createdWorker }
+      worker = createdWorker
+      workerToken = token
+      createdWorker.addEventListener(
+        'message',
+        (event) => handleMessage(token, event)
+      )
+      createdWorker.addEventListener(
+        'error',
+        (event) => handleWorkerError(token, event)
+      )
+      createdWorker.addEventListener(
+        'messageerror',
+        (event) => handleWorkerError(token, event)
+      )
     }
     return worker
   }
 
   function findPending(weights, kazanari, options) {
-    for (const entry of pendingById.values()) {
-      if (requestsEqual(entry, weights, kazanari, options)) {
-        return entry
-      }
+    if (
+      activeJob &&
+      requestsEqual(activeJob, weights, kazanari, options)
+    ) {
+      return activeJob
     }
-    return null
+    return queuedJobs.find((job) =>
+      requestsEqual(job, weights, kazanari, options)
+    ) ?? null
   }
 
   function takeCached(weights, kazanari, options) {
@@ -206,6 +350,50 @@ export function createRuntimeDamageRollClient({
     const [entry] = cache.splice(index, 1)
     cache.unshift(entry)
     return entry.distribution.slice()
+  }
+
+  function subscribe(job, signal) {
+    let resolveSubscriber
+    let rejectSubscriber
+    const promise = new Promise((resolve, reject) => {
+      resolveSubscriber = resolve
+      rejectSubscriber = reject
+    })
+    const subscriber = {
+      job,
+      signal,
+      abortListener: null,
+      settled: false,
+      resolve: resolveSubscriber,
+      reject: rejectSubscriber,
+    }
+
+    const abort = () => {
+      if (subscriber.settled) {
+        return
+      }
+      settleSubscriber(subscriber, createAbortError())
+      job.subscribers.delete(subscriber)
+      if (job.subscribers.size !== 0 || job.settled) {
+        return
+      }
+      if (job.status === 'queued') {
+        cancelQueuedJob(job)
+      } else if (job.status === 'active') {
+        abortActiveJob(job)
+      }
+    }
+    subscriber.abortListener = abort
+
+    if (signal?.aborted) {
+      abort()
+      return promise
+    }
+    job.subscribers.add(subscriber)
+    if (signal) {
+      signal.addEventListener('abort', abort, { once: true })
+    }
+    return promise
   }
 
   function calculate(weights, kazanari, options = {}) {
@@ -235,54 +423,40 @@ export function createRuntimeDamageRollClient({
       normalizedOptions
     )
     if (existing) {
-      notifyUnderlyingSettled(options, existing.promise)
-      return waitWithSignal(
-        existing.promise.then((distribution) => distribution.slice()),
-        signal
-      )
+      const request = subscribe(existing, signal)
+      notifyUnderlyingSettled(options, existing.lifecyclePromise)
+      return request
     }
 
     const id = nextRequestId
     nextRequestId += 1
     const storedWeights = Float64Array.from(weights)
-    const transmittedWeights = storedWeights.slice()
-    let resolveRequest
-    let rejectRequest
-    const promise = new Promise((resolve, reject) => {
-      resolveRequest = resolve
-      rejectRequest = reject
+    let resolveLifecycle
+    let rejectLifecycle
+    const lifecyclePromise = new Promise((resolve, reject) => {
+      resolveLifecycle = resolve
+      rejectLifecycle = reject
     })
-    const entry = {
+    // A lifecycle observer is optional. Keep an unhandled rejection from a
+    // calculation whose caller has already aborted without observing it.
+    lifecyclePromise.catch(() => {})
+    const job = {
       id,
       kazanari,
       weights: storedWeights,
       options: normalizedOptions,
-      promise,
-      resolve: resolveRequest,
-      reject: rejectRequest,
+      status: 'queued',
+      subscribers: new Set(),
+      lifecyclePromise,
+      resolveLifecycle,
+      rejectLifecycle,
+      settled: false,
     }
-    pendingById.set(id, entry)
-    notifyUnderlyingSettled(options, promise)
-
-    try {
-      getWorker().postMessage(
-        {
-          id,
-          weights: transmittedWeights,
-          kazanari,
-          options: normalizedOptions,
-        },
-        [transmittedWeights.buffer]
-      )
-    } catch (error) {
-      pendingById.delete(id)
-      rejectRequest(error)
-    }
-
-    return waitWithSignal(
-      promise.then((distribution) => distribution.slice()),
-      signal
-    )
+    const request = subscribe(job, signal)
+    queuedJobs.push(job)
+    notifyUnderlyingSettled(options, lifecyclePromise)
+    startNextJob()
+    return request
   }
 
   function clearCache() {
@@ -295,7 +469,14 @@ export function createRuntimeDamageRollClient({
     }
     disposed = true
     cache.length = 0
-    discardWorker(createAbortError('Runtime damage client was disposed'))
+    const error = createAbortError('Runtime damage client was disposed')
+    const job = activeJob
+    activeJob = null
+    terminateCurrentWorker()
+    if (job) {
+      settleJob(job, error)
+    }
+    rejectQueuedJobs(error)
   }
 
   return {

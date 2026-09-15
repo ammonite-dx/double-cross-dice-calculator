@@ -100,6 +100,24 @@ describe('production runtime damage roll Worker client', () => {
     expect(workers).toHaveLength(1)
   })
 
+  it('snapshots caller weights before queueing and posting', async () => {
+    const { client, workers } = createHarness()
+    const weights = [0.25, 0.75]
+    const request = client.calculate(weights, 3)
+    weights[0] = 1
+    weights[1] = 0
+
+    const worker = workers[0]
+    expect(Array.from(worker.messages[0].message.weights)).toEqual([0.25, 0.75])
+    worker.respond(0, distributionAt(17))
+
+    await expect(request).resolves.toEqual(distributionAt(17))
+    await expect(client.calculate([0.25, 0.75], 3)).resolves.toEqual(
+      distributionAt(17)
+    )
+    expect(worker.messages).toHaveLength(1)
+  })
+
   it('forwards variable options and keeps distinct output ranges in the cache', async () => {
     const { client, workers } = createHarness()
     const options = {
@@ -153,13 +171,15 @@ describe('production runtime damage roll Worker client', () => {
     )
     const worker = workers[0]
 
-    expect(worker.messages).toHaveLength(2)
+    expect(worker.messages).toHaveLength(1)
     expect(worker.messages[0].message.options.rawSupportMax).toBe(10)
-    expect(worker.messages[1].message.options.rawSupportMax).toBe(12)
 
     worker.respond(0, distributionAt(1, 8))
-    worker.respond(1, distributionAt(2, 8))
     await expect(first).resolves.toEqual(distributionAt(1, 8))
+
+    expect(worker.messages).toHaveLength(2)
+    expect(worker.messages[1].message.options.rawSupportMax).toBe(12)
+    worker.respond(1, distributionAt(2, 8))
     await expect(second).resolves.toEqual(distributionAt(2, 8))
 
     await expect(client.calculate(
@@ -211,11 +231,17 @@ describe('production runtime damage roll Worker client', () => {
     ]
     const worker = workers[0]
 
+    expect(worker.messages).toHaveLength(1)
+    worker.respond(0, distributionAt(1))
+    await expect(requests[0]).resolves.toEqual(distributionAt(1))
+
+    expect(worker.messages).toHaveLength(2)
+    worker.respond(1, distributionAt(2))
+    await expect(requests[1]).resolves.toEqual(distributionAt(2))
+
     expect(worker.messages).toHaveLength(3)
-    requests.forEach((request, index) => {
-      worker.respond(index, distributionAt(index + 1))
-    })
-    await Promise.all(requests)
+    worker.respond(2, distributionAt(3))
+    await expect(requests[2]).resolves.toEqual(distributionAt(3))
   })
 
   it('does not start work for an already aborted request', async () => {
@@ -248,6 +274,104 @@ describe('production runtime damage roll Worker client', () => {
       distributionAt(31)
     )
     expect(worker.messages).toHaveLength(1)
+  })
+
+  it('terminates the active Worker when its sole caller aborts', async () => {
+    const { client, workers } = createHarness()
+    const controller = new AbortController()
+    const request = client.calculate([1], 0, { signal: controller.signal })
+    const worker = workers[0]
+
+    controller.abort()
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminate).toHaveBeenCalledOnce()
+    expect(workers).toHaveLength(1)
+  })
+
+  it('terminates a shared active Worker only after the last caller aborts', async () => {
+    const { client, workers } = createHarness()
+    const firstController = new AbortController()
+    const secondController = new AbortController()
+    const first = client.calculate([0.4, 0.6], 7, {
+      signal: firstController.signal,
+    })
+    const second = client.calculate([0.4, 0.6], 7, {
+      signal: secondController.signal,
+    })
+    const worker = workers[0]
+
+    firstController.abort()
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminate).not.toHaveBeenCalled()
+
+    secondController.abort()
+    await expect(second).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('removes an aborted queued job without terminating the active Worker', async () => {
+    const { client, workers } = createHarness()
+    const queuedController = new AbortController()
+    const active = client.calculate([1], 0)
+    const queued = client.calculate([0, 1], 0, {
+      signal: queuedController.signal,
+    })
+    const worker = workers[0]
+
+    expect(worker.messages).toHaveLength(1)
+    queuedController.abort()
+    await expect(queued).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminate).not.toHaveBeenCalled()
+    expect(worker.messages).toHaveLength(1)
+
+    worker.respond(0, distributionAt(1))
+    await expect(active).resolves.toEqual(distributionAt(1))
+  })
+
+  it('starts the next queued job on a fresh Worker after active abort', async () => {
+    const { client, workers } = createHarness()
+    const activeController = new AbortController()
+    const active = client.calculate([1], 0, {
+      signal: activeController.signal,
+    })
+    const queued = client.calculate([0, 1], 0)
+    const firstWorker = workers[0]
+
+    expect(firstWorker.messages).toHaveLength(1)
+    activeController.abort()
+    await expect(active).rejects.toMatchObject({ name: 'AbortError' })
+
+    expect(firstWorker.terminate).toHaveBeenCalledOnce()
+    expect(workers).toHaveLength(2)
+    expect(workers[1].messages).toHaveLength(1)
+    workers[1].respond(0, distributionAt(2))
+    await expect(queued).resolves.toEqual(distributionAt(2))
+  })
+
+  it('ignores late events from a terminated Worker', async () => {
+    const { client, workers } = createHarness()
+    const activeController = new AbortController()
+    const active = client.calculate([1], 0, {
+      signal: activeController.signal,
+    })
+    const queued = client.calculate([0, 1], 0)
+    const firstWorker = workers[0]
+    const firstId = firstWorker.messages[0].message.id
+
+    activeController.abort()
+    await expect(active).rejects.toMatchObject({ name: 'AbortError' })
+    expect(workers).toHaveLength(2)
+
+    firstWorker.emit('message', {
+      data: { id: firstId, distribution: distributionAt(99) },
+    })
+    firstWorker.emit('error', { message: 'late worker error' })
+    firstWorker.emit('messageerror', { message: 'late message error' })
+
+    expect(workers[1].terminate).not.toHaveBeenCalled()
+    workers[1].respond(0, distributionAt(2))
+    await expect(queued).resolves.toEqual(distributionAt(2))
   })
 
   it('exposes the underlying Worker lifecycle separately from caller abort', async () => {
@@ -353,6 +477,24 @@ describe('production runtime damage roll Worker client', () => {
     await recovered
   })
 
+  it('rejects queued jobs on a fatal Worker error and recovers for future work', async () => {
+    const { client, workers } = createHarness()
+    const first = client.calculate([1], 2)
+    const second = client.calculate([0, 1], 2)
+    const firstWorker = workers[0]
+
+    firstWorker.emit('error', { message: 'worker crashed' })
+
+    await expect(first).rejects.toThrow('worker crashed')
+    await expect(second).rejects.toThrow('worker crashed')
+    expect(firstWorker.terminate).toHaveBeenCalledOnce()
+
+    const recovered = client.calculate([0, 0, 1], 2)
+    expect(workers).toHaveLength(2)
+    workers[1].respond(0, distributionAt(3))
+    await expect(recovered).resolves.toEqual(distributionAt(3))
+  })
+
   it('rejects pending work and terminates the Worker when disposed', async () => {
     const { client, workers } = createHarness()
     const pending = client.calculate([1], 0)
@@ -366,7 +508,7 @@ describe('production runtime damage roll Worker client', () => {
     await expect(client.calculate([1], 0)).rejects.toThrow('disposed')
   })
 
-  it('keeps the CalculationClient lease until an aborted Worker request settles', async () => {
+  it('releases the CalculationClient lease after an aborted Worker request is preempted', async () => {
     const workers = []
     const runtimeClient = createRuntimeDamageRollClient({
       workerFactory: () => {
@@ -435,9 +577,7 @@ describe('production runtime damage roll Worker client', () => {
     await vi.waitFor(() => expect(workers).toHaveLength(1))
     controller.abort()
     await expect(request).rejects.toMatchObject({ name: 'AbortError' })
-    expect(guard.snapshot().activeCount).toBe(1)
-
-    workers[0].respond(0, distributionAt(0, 2))
+    expect(workers[0].terminate).toHaveBeenCalledOnce()
     await vi.waitFor(() => expect(guard.snapshot().activeCount).toBe(0))
   })
 })
