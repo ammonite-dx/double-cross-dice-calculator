@@ -423,6 +423,19 @@ function summarizeBatch(batchResult) {
   }
 }
 
+async function calculateAttackExecution(entries, options = {}) {
+  const combos = []
+  for (const entry of entries) {
+    const combo = await calculationClient.calculateAttack(entry.params, options)
+    combos.push({ id: entry.id, ...combo })
+  }
+  const total = await calculationClient.calculateTotalDamage(
+    combos.map((combo) => combo.damage),
+    options
+  )
+  return { combos, ...total }
+}
+
 function summarizeResourceEntries() {
   return performance.getEntriesByType('resource')
     .map((entry) => ({
@@ -548,7 +561,7 @@ async function measureSamples({
   return report
 }
 
-async function runBatchSample(testCase, requestId) {
+async function runExecutionSample(testCase, requestId) {
   const rangePlans = []
   const fftLengths = []
   const options = rangePlanOptions(
@@ -558,10 +571,7 @@ async function runBatchSample(testCase, requestId) {
     (fftLength) => diagnostics.fftLengths.push(fftLength) && fftLengths.push(fftLength)
   )
   try {
-    const result = await calculationClient.calculateAttackBatch(
-      testCase.entries,
-      options
-    )
+    const result = await calculateAttackExecution(testCase.entries, options)
     return {
       status: 'success',
       result: summarizeBatch(result),
@@ -639,10 +649,10 @@ async function runCase(testCase) {
   }
 
   const stage = await measureSamples({
-    name: 'CalculationClient.calculateAttackBatch',
+    name: 'CalculationClient.calculateAttack + calculateTotalDamage',
     iterations: measurement.iterations,
     warmupIterations: measurement.warmupIterations,
-    operation: () => runBatchSample(testCase, requestPrefix),
+    operation: () => runExecutionSample(testCase, requestPrefix),
   })
   const lastOutcome = stage.lastOutcome
   const expectedReject = testCase.execution === 'public-rejected'
@@ -659,7 +669,7 @@ async function runCase(testCase) {
         : 'error'
   return createCaseReport(testCase, measurement, stage, {
     status: caseStatus,
-    publicBoundary: 'calculationClient.calculateAttackBatch',
+    publicBoundary: 'calculationClient.calculateAttack + calculateTotalDamage',
     expectedReject,
     plan: lastOutcome?.rangePlans ?? null,
     worker: expectedReject && gotExpectedReject ? 'not-called' : 'diagnosed',
@@ -687,7 +697,7 @@ async function runCancelProbe() {
   const timed = await invokeTimed(async () => {
     const rangePlans = []
     try {
-      const result = await calculationClient.calculateAttackBatch(
+      const result = await calculateAttackExecution(
         [entry],
         {
           signal: controller.signal,
@@ -828,7 +838,7 @@ function createReport(cases, cancelProbe, staleProbe) {
     resultSink: round(resultSink),
     limitations: [
       'Worker error counters record naturally observed native error/messageerror events; this page does not crash a production Worker to create a synthetic error.',
-      'calculateAttackBatch has no stale commit policy by itself; stale behavior is measured through the existing AttackRunner.',
+      'calculateAttack has no stale commit policy by itself; stale behavior is measured through the existing AttackRunner.',
       'Attack.vue uses this benchmark as an explicit diagnostic page and is not a production UI path.',
     ],
   }

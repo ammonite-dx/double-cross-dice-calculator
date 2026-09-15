@@ -45,7 +45,6 @@ describe('Attack feature architecture', () => {
       'onUnmounted(',
       'createAttackRunner',
       'createAttackState',
-      'calculateAttackBatch',
     ]) {
       expect(routeSource).not.toContain(pattern)
     }

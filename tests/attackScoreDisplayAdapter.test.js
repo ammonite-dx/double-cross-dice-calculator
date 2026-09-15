@@ -15,11 +15,9 @@ import {
 import {
   createAttackState,
   createComboDataState,
+  getAttackCalculationRecords,
 } from '../src/features/attack/model/AttackState'
-import {
-  createAttackCalculationRecord,
-  createAttackTotalCalculationRecord,
-} from '../src/features/attack/model/AttackCalculationRecord'
+import { executeAttackIncrementally } from '../src/features/attack/model/AttackIncrementalExecution'
 import {
   ATTACK_DISPLAY_MODES,
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
@@ -168,6 +166,71 @@ const attackData = {
   combos: [{ id: 0, name: 'コンボ1' }],
 }
 
+function createIncrementalFixtureClient(fixtureClient) {
+  if (
+    typeof fixtureClient?.calculateAttack === 'function'
+    && typeof fixtureClient?.calculateTotalDamage === 'function'
+  ) {
+    return fixtureClient
+  }
+  if (typeof fixtureClient?.resolveAttackFixture !== 'function') {
+    throw new TypeError(
+      'test fixture client requires resolveAttackFixture or incremental methods'
+    )
+  }
+
+  const fixturesBySignal = new Map()
+  let latestFixture = null
+  const calculateAttack = vi.fn(async (params, options) => {
+    const fixture = await fixtureClient.resolveAttackFixture(
+      [{ id: 'combo-1', params }],
+      options
+    )
+    latestFixture = fixture
+    fixturesBySignal.set(options?.signal ?? null, fixture)
+    return fixture.combos[0]
+  })
+  const calculateTotalDamage = vi.fn(async (_damages, options) => {
+    const fixture = fixturesBySignal.get(options?.signal ?? null)
+      ?? latestFixture
+    if (fixture === null || fixture === undefined) {
+      throw new Error('total damage requested before a combo fixture')
+    }
+    return {
+      totalDamage: fixture.totalDamage,
+      totalDamageStatistics: fixture.totalDamageStatistics,
+    }
+  })
+  return {
+    ...fixtureClient,
+    calculateAttack,
+    calculateTotalDamage,
+  }
+}
+
+async function calculateSingleAttackResult(client, id, params, options = {}) {
+  const rangePlans = []
+  const combo = await client.calculateAttack(params, {
+    ...options,
+    onRangePlan: (plan) => {
+      rangePlans.push(plan)
+      options.onRangePlan?.(plan)
+    },
+  })
+  const total = await client.calculateTotalDamage(
+    [combo.damage],
+    options
+  )
+  return {
+    result: {
+      combos: [{ id, ...combo }],
+      totalDamage: total.totalDamage,
+      totalDamageStatistics: total.totalDamageStatistics,
+    },
+    rangePlans,
+  }
+}
+
 function createAttackRunner({
   state,
   calculationClient,
@@ -175,59 +238,30 @@ function createAttackRunner({
     createAttackPresentation(batchResult, rangePlans),
   ...options
 }) {
+  const runtimeClient = createIncrementalFixtureClient(calculationClient)
   return createIncrementalAttackRunner({
     state,
     ...options,
-    executeCalculation: async ({
+    executeCalculation: ({
       entries,
       calculationOptions,
       signal,
       onRangePlan,
-    }) => {
-      const rangePlans = []
-      const batchResult = await calculationClient.calculateAttackBatch(
-        entries,
-        {
-          ...calculationOptions,
-          signal,
-          onRangePlan: (rangePlan) => {
-            rangePlans.push(rangePlan)
-            onRangePlan?.(rangePlan)
-          },
-        }
-      )
-      const plans = entries.map((_, index) =>
-        rangePlans[index] ?? { warnings: [] }
-      )
-      const records = entries.map((entry, index) => ({
-        id: entry.id,
-        record: createAttackCalculationRecord(
-          entry.params,
-          batchResult.combos[index],
-          plans[index]
-        ),
-      }))
-      const totalCalculation = createAttackTotalCalculationRecord(
-        records,
-        {
-          totalDamage: batchResult.totalDamage,
-          totalDamageStatistics: batchResult.totalDamageStatistics,
-        }
-      )
-      return {
-        entries,
-        records,
-        rangePlans: plans,
-        totalCalculation,
-        batchResult,
-      }
-    },
+      forceAll,
+    }) => executeAttackIncrementally({
+      entries,
+      committedRecords: getAttackCalculationRecords(state.combos),
+      calculationClient: runtimeClient,
+      options: { ...calculationOptions, signal },
+      onRangePlan,
+      forceAll,
+    }),
     createBasePresentation,
   })
 }
 
 describe('Attack canonical score display adapter', () => {
-  it('uses the production canonical score producer at the public batch boundary', async () => {
+  it('uses the production canonical score producer through incremental operations', async () => {
     const damage = createEnvelope([1], 0)
     const rangePlans = []
     const client = createCalculationClient({
@@ -269,22 +303,22 @@ describe('Attack canonical score display adapter', () => {
       sumDamage,
     })
 
-    const result = await client.calculateAttackBatch([
+    const { result } = await calculateSingleAttackResult(
+      client,
+      'production-combo',
       {
-        id: 'production-combo',
-        params: {
-          action: {
-            score: { dice: 0, critical: 11, skill: 3, yousei: 0, shihai: 0 },
-            damage: { dice: 0, value: 0, kazanari: 0 },
-          },
-          reaction: {
-            mode: 'ドッジ',
-            score: { dice: 0, critical: 11, skill: 1, yousei: 0, shihai: 0 },
-            damage: { dice: 0, value: 0 },
-          },
+        action: {
+          score: { dice: 0, critical: 11, skill: 3, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: { dice: 0, critical: 11, skill: 1, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0 },
         },
       },
-    ], { onRangePlan: (plan) => rangePlans.push(plan) })
+      { onRangePlan: (plan) => rangePlans.push(plan) }
+    )
 
     expect(result.combos[0].score.action.result).toBeDefined()
     expect(result.combos[0].score.action.metadata.modeledDistribution)
@@ -700,22 +734,22 @@ describe('Attack canonical score display adapter', () => {
       getD10Distribution: vi.fn(),
       sumDamage,
     })
-    const result = await client.calculateAttackBatch([
+    const { result } = await calculateSingleAttackResult(
+      client,
+      'default-summary',
       {
-        id: 'default-summary',
-        params: {
-          action: {
-            score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
-            damage: { dice: 0, value: 0, kazanari: 0 },
-          },
-          reaction: {
-            mode: 'ドッジ',
-            score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
-            damage: { dice: 0, value: 0 },
-          },
+        action: {
+          score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+          damage: { dice: 0, value: 0 },
         },
       },
-    ], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
+      { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) }
+    )
     const presentation = createAttackDisplayPresentation(result, {
       displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
       scoreDisplayRequest: { min: 0, max: 100, mode: ATTACK_DISPLAY_MODES.PMF },
@@ -763,22 +797,22 @@ describe('Attack canonical score display adapter', () => {
         shihai: 0,
         ...overrides,
       }
-      const result = await client.calculateAttackBatch([
+      const { result } = await calculateSingleAttackResult(
+        client,
+        label,
         {
-          id: label,
-          params: {
-            action: {
-              score,
-              damage: { dice: 0, value: 0, kazanari: 0 },
-            },
-            reaction: {
-              mode: 'ドッジ',
-              score: { ...score },
-              damage: { dice: 0, value: 0 },
-            },
+          action: {
+            score,
+            damage: { dice: 0, value: 0, kazanari: 0 },
+          },
+          reaction: {
+            mode: 'ドッジ',
+            score: { ...score },
+            damage: { dice: 0, value: 0 },
           },
         },
-      ], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
+        { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) }
+      )
 
       const summary = result.combos[0].scoreStatistics
       expect(summary.action.expectedValue.kind, label)
@@ -830,9 +864,10 @@ describe('Attack canonical score display adapter', () => {
       getD10Distribution: vi.fn(),
       sumDamage,
     })
-    const result = await client.calculateAttackBatch([{
-      id: 'finite-critical-11',
-      params: {
+    const { result } = await calculateSingleAttackResult(
+      client,
+      'finite-critical-11',
+      {
         action: {
           score: {
             dice: 1,
@@ -855,7 +890,8 @@ describe('Attack canonical score display adapter', () => {
           damage: { dice: 0, value: 0 },
         },
       },
-    }], { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) })
+      { onRangePlan: (rangePlan) => rangePlans.push(rangePlan) }
+    )
 
     const presentation = createAttackDisplayPresentation(result, {
       displayRequest: { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF },
@@ -878,7 +914,7 @@ describe('Attack canonical score display adapter', () => {
     expect(presentation.score.status).toBe('ready')
   })
 
-  it('does not recalculate the canonical batch for a score-only coverage miss', async () => {
+  it('does not recalculate the canonical result for a score-only coverage miss', async () => {
     const score = createEnvelope([0.5, 0.5], 4)
     const batch = createBatch(score)
     const state = {
@@ -905,7 +941,7 @@ describe('Attack canonical score display adapter', () => {
     const scoreRequest = { min: 0, max: 4, mode: ATTACK_DISPLAY_MODES.PMF }
     const source = (currentState) => currentState.basePresentation
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         options.onRangePlan(plan)
         return batch
       }),
@@ -931,12 +967,12 @@ describe('Attack canonical score display adapter', () => {
 
     await expect(runner.run({ displayRequest: damageRequest })).resolves.toBe(true)
     expect(state.displayPresentation.score.status).toBe('not-ready')
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
 
     expect(runner.refreshPresentation({
       displayRequest: damageRequest,
     })).toBe(true)
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
     expect(state.displayPresentation.status).toBe('ready')
     expect(getScoreStatisticsForCombo(
       state.displayPresentation.score,

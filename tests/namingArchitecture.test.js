@@ -38,7 +38,6 @@ const retiredIdentifiers = [
   'CheckCanonical',
   'BacktrackCanonical',
   'CanonicalDamageAggregation',
-  'CanonicalAttackBatchInput',
   'CanonicalChartSeriesAdapter',
   'CanonicalSummaryFormatter',
 ]

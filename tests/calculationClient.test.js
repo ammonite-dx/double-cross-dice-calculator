@@ -133,7 +133,8 @@ describe('canonical CalculationClient surface', () => {
     const client = createCalculationClient(createDependencies())
 
     expect(client.calculateCheck).toEqual(expect.any(Function))
-    expect(client.calculateAttackBatch).toEqual(expect.any(Function))
+    expect(client.calculateAttack).toEqual(expect.any(Function))
+    expect(client).not.toHaveProperty('calculate' + 'AttackBatch')
     expect(client.calculateTotalDamage).toEqual(expect.any(Function))
     expect(client.calculateBacktrack).toEqual(expect.any(Function))
     expect(client).not.toHaveProperty('calculateCheckCanonical')

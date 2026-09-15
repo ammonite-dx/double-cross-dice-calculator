@@ -592,6 +592,19 @@ function summarizeBatch(batchResult) {
   }
 }
 
+async function calculateAttackExecution(entries, options = {}) {
+  const combos = []
+  for (const entry of entries) {
+    const combo = await calculationClient.calculateAttack(entry.params, options)
+    combos.push({ id: entry.id, ...combo })
+  }
+  const total = await calculationClient.calculateTotalDamage(
+    combos.map((combo) => combo.damage),
+    options
+  )
+  return { combos, ...total }
+}
+
 async function measurePlan(testCase, policy, name, measurement) {
   const stage = await measureStage({
     name,
@@ -614,13 +627,13 @@ async function measurePlan(testCase, policy, name, measurement) {
 
 async function measureExecution(testCase, measurement) {
   const stage = await measureStage({
-    name: 'CalculationClient.calculateAttackBatch benchmark policy',
+    name: 'CalculationClient.calculateAttack + calculateTotalDamage benchmark policy',
     iterations: measurement.iterations,
     warmupIterations: measurement.warmupIterations,
     operation: async () => {
       const rangePlans = []
       const fftLengths = []
-      const result = await calculationClient.calculateAttackBatch(
+      const result = await calculateAttackExecution(
         testCase.entries,
         {
           requestId: `phase2h-17-${testCase.id}`,
@@ -733,7 +746,7 @@ async function runCancelProbe() {
   let result = null
   let error = null
   try {
-    result = await calculationClient.calculateAttackBatch(
+    result = await calculateAttackExecution(
       [entry],
       {
         signal: controller.signal,

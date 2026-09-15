@@ -30,9 +30,9 @@ describe('canonical Attack Worker browser benchmark contract', () => {
     ])
   })
 
-  it('measures the public batch boundary instead of direct canonical damage', () => {
+  it('measures the public incremental boundary instead of direct canonical damage', () => {
     expect(benchmarkSource).toContain(
-      'calculationClient.calculateAttackBatch'
+      'calculationClient.calculateAttack'
     )
     expect(benchmarkSource).not.toContain('calculateDamageOnDemand(')
   })

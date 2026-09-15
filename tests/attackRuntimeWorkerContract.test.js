@@ -109,11 +109,9 @@ function createHarness() {
 }
 
 describe('canonical Attack runtime Worker boundary', () => {
-  it('passes the existing RuntimeDamageRollClient provider through canonical batch', async () => {
+  it('passes the existing RuntimeDamageRollClient provider through canonical calculateAttack', async () => {
     const harness = createHarness()
-    const pending = harness.client.calculateAttackBatch([
-      { id: 'combo-1', params: attackParams() },
-    ])
+    const pending = harness.client.calculateAttack(attackParams())
 
     expect(harness.workers).toHaveLength(1)
     expect(harness.workers[0].messages).toHaveLength(1)
@@ -132,8 +130,7 @@ describe('canonical Attack runtime Worker boundary', () => {
     })
 
     const result = await pending
-    expect(result.combos).toHaveLength(1)
-    expect(result.combos[0].damage).toEqual(
+    expect(result.damage).toEqual(
       expect.objectContaining({ result: expect.any(Object) })
     )
     expect(harness.calculateDamageOnDemand).toHaveBeenCalledOnce()

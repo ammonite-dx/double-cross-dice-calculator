@@ -11,6 +11,7 @@ import {
 import {
   createAttackState,
   createComboDataState,
+  getAttackCalculationRecords,
 } from '../src/features/attack/model/AttackState'
 import {
   ATTACK_DISPLAY_MODES,
@@ -19,10 +20,7 @@ import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
 import { getDamageStatistics } from '../src/calculation/DamageCalculator'
-import {
-  createAttackCalculationRecord,
-  createAttackTotalCalculationRecord,
-} from '../src/features/attack/model/AttackCalculationRecord'
+import { executeAttackIncrementally } from '../src/features/attack/model/AttackIncrementalExecution'
 
 function createEnvelope(values, max = values.length - 1) {
   return {
@@ -104,6 +102,22 @@ function createBatch(supportMax = 1, values = [0.25, 0.75]) {
   }
 }
 
+function createInfiniteBatch(values) {
+  const damage = createInfiniteEnvelope(values)
+  const damageStatistics = getDamageStatistics(damage)
+  return {
+    combos: [{
+      id: 'combo-1',
+      score: createScore(),
+      scoreStatistics: { action: { expectedValue: 1 } },
+      damage,
+      damageStatistics,
+    }],
+    totalDamage: damage,
+    totalDamageStatistics: damageStatistics,
+  }
+}
+
 function createScoreBatch() {
   const damage = createEnvelope([1], 0)
   const total = createEnvelope([1], 0)
@@ -177,10 +191,52 @@ function createSource(state) {
 }
 
 /**
- * Adapt the test fixture's batch client to the production incremental runner.
- * The adapter is test-only; production code receives executeCalculation from
- * useAttack and no longer falls back to calculateAttackBatch.
+ * Adapt a test fixture resolver to the production incremental runner. The
+ * resolver is test-only; the runner itself calls the same calculateAttack and
+ * calculateTotalDamage methods as the production feature.
  */
+function createIncrementalFixtureClient(fixtureClient) {
+  if (
+    typeof fixtureClient?.calculateAttack === 'function'
+    && typeof fixtureClient?.calculateTotalDamage === 'function'
+  ) {
+    return fixtureClient
+  }
+  if (typeof fixtureClient?.resolveAttackFixture !== 'function') {
+    throw new TypeError(
+      'test fixture client requires resolveAttackFixture or incremental methods'
+    )
+  }
+
+  const fixturesBySignal = new Map()
+  let latestFixture = null
+  const calculateAttack = vi.fn(async (params, options) => {
+    const fixture = await fixtureClient.resolveAttackFixture(
+      [{ id: 'combo-1', params }],
+      options
+    )
+    latestFixture = fixture
+    fixturesBySignal.set(options?.signal ?? null, fixture)
+    return fixture.combos[0]
+  })
+  const calculateTotalDamage = vi.fn(async (_damages, options) => {
+    const fixture = fixturesBySignal.get(options?.signal ?? null)
+      ?? latestFixture
+    if (fixture === null || fixture === undefined) {
+      throw new Error('total damage requested before a combo fixture')
+    }
+    return {
+      totalDamage: fixture.totalDamage,
+      totalDamageStatistics: fixture.totalDamageStatistics,
+    }
+  })
+  return {
+    ...fixtureClient,
+    calculateAttack,
+    calculateTotalDamage,
+  }
+}
+
 function createAttackRunner({
   state,
   calculationClient,
@@ -188,53 +244,24 @@ function createAttackRunner({
     createAttackPresentation(batchResult, rangePlans),
   ...options
 }) {
+  const runtimeClient = createIncrementalFixtureClient(calculationClient)
   return createIncrementalAttackRunner({
     state,
     ...options,
-    executeCalculation: async ({
+    executeCalculation: ({
       entries,
       calculationOptions,
       signal,
       onRangePlan,
-    }) => {
-      const rangePlans = []
-      const batchResult = await calculationClient.calculateAttackBatch(
-        entries,
-        {
-          ...calculationOptions,
-          signal,
-          onRangePlan: (plan) => {
-            rangePlans.push(plan)
-            onRangePlan?.(plan)
-          },
-        }
-      )
-      const plans = entries.map((_, index) =>
-        rangePlans[index] ?? { warnings: [] }
-      )
-      const records = entries.map((entry, index) => ({
-        id: entry.id,
-        record: createAttackCalculationRecord(
-          entry.params,
-          batchResult.combos[index],
-          plans[index]
-        ),
-      }))
-      const totalCalculation = createAttackTotalCalculationRecord(
-        records,
-        {
-          totalDamage: batchResult.totalDamage,
-          totalDamageStatistics: batchResult.totalDamageStatistics,
-        }
-      )
-      return {
-        entries,
-        records,
-        rangePlans: plans,
-        totalCalculation,
-        batchResult,
-      }
-    },
+      forceAll,
+    }) => executeAttackIncrementally({
+      entries,
+      committedRecords: getAttackCalculationRecords(state.combos),
+      calculationClient: runtimeClient,
+      options: { ...calculationOptions, signal },
+      onRangePlan,
+      forceAll,
+    }),
     createBasePresentation,
   })
 }
@@ -272,7 +299,7 @@ describe('Attack canonical display integration', () => {
       )
     )
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         options.onRangePlan(plans[0])
         return batch
       }),
@@ -290,7 +317,7 @@ describe('Attack canonical display integration', () => {
     displayRequest.max = 0
     expect(runner.refreshPresentation()).toBe(true)
 
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
     expect(createPresentation).toHaveBeenCalledOnce()
     expect(createDisplayPresentation).toHaveBeenCalledOnce()
     expect(state.displayPresentation.displayRequest).toEqual({
@@ -323,7 +350,7 @@ describe('Attack canonical display integration', () => {
     }
     const batch = createScoreBatch()
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         options.onRangePlan({ operation: 'attack', warnings: [] })
         return batch
       }),
@@ -361,7 +388,7 @@ describe('Attack canonical display integration', () => {
       scoreOnly: true,
     })).toBe(true)
     expect(state.displayPresentation.score.status).toBe('ready')
-    expect(calculationClient.calculateAttackBatch)
+    expect(calculationClient.resolveAttackFixture)
       .toHaveBeenCalledOnce()
 
     expect(runner.refreshPresentation({
@@ -377,7 +404,7 @@ describe('Attack canonical display integration', () => {
     expect(Array.from(
       state.displayPresentation.score.combos[0].action.series.values
     )).toEqual([0, 0])
-    expect(calculationClient.calculateAttackBatch)
+    expect(calculationClient.resolveAttackFixture)
       .toHaveBeenCalledOnce()
   })
 
@@ -405,7 +432,7 @@ describe('Attack canonical display integration', () => {
     )
     let calculationCount = 0
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         calculationCount += 1
         options.onRangePlan({
           id: `plan-${calculationCount}`,
@@ -453,9 +480,9 @@ describe('Attack canonical display integration', () => {
 
     await expect(recalculation).resolves.toBe(true)
     expect(calculationCount).toBe(2)
-    expect(calculationClient.calculateAttackBatch)
+    expect(calculationClient.resolveAttackFixture)
       .toHaveBeenCalledTimes(2)
-    const [, options] = calculationClient.calculateAttackBatch
+    const [, options] = calculationClient.resolveAttackFixture
       .mock.calls[1]
     expect(options.rangePolicy).toEqual({ calculationMax: 1200 })
     expect(state.displayPresentation.score.status).toBe('ready')
@@ -491,7 +518,7 @@ describe('Attack canonical display integration', () => {
     const deferredExpansion = createDeferred()
     let calculationCount = 0
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         calculationCount += 1
         options.onRangePlan({
           id: `plan-${calculationCount}`,
@@ -584,7 +611,7 @@ describe('Attack canonical display integration', () => {
       const externalController = new AbortController()
       let calculationCount = 0
       const calculationClient = {
-        calculateAttackBatch: vi.fn(async (_entries, options) => {
+        resolveAttackFixture: vi.fn(async (_entries, options) => {
           calculationCount += 1
           options.onRangePlan({
             id: `plan-${calculationCount}`,
@@ -675,7 +702,7 @@ describe('Attack canonical display integration', () => {
       hard: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
     }
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         options.onRangePlan({ operation: 'attack', warnings: [] })
         return batch
       }),
@@ -718,7 +745,7 @@ describe('Attack canonical display integration', () => {
       scoreOnly: true,
     })).toBe(false)
 
-    expect(calculationClient.calculateAttackBatch)
+    expect(calculationClient.resolveAttackFixture)
       .toHaveBeenCalledOnce()
     expect(state.displayPresentation.combos[0].display)
       .toBe(previousDamage)
@@ -770,7 +797,7 @@ describe('Attack canonical display integration', () => {
     }
     let calculationCount = 0
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         calculationCount += 1
         options.onRangePlan({
           id: `plan-${calculationCount}`,
@@ -827,7 +854,7 @@ describe('Attack canonical display integration', () => {
     })).resolves.toBe(true)
 
     expect(calculationCount).toBe(2)
-    const [, options] = calculationClient.calculateAttackBatch
+    const [, options] = calculationClient.resolveAttackFixture
       .mock.calls[1]
     expect(options.rangePolicy).toEqual({ calculationMax: 1 })
     expect(state.displayPresentation.displayRequest)
@@ -869,7 +896,7 @@ describe('Attack canonical display integration', () => {
     const signals = []
     let calculationCount = 0
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         calculationCount += 1
         signals.push(options.signal)
         options.onRangePlan({
@@ -965,7 +992,7 @@ describe('Attack canonical display integration', () => {
     const signals = []
     let calculationCount = 0
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         calculationCount += 1
         signals.push(options.signal)
         options.onRangePlan({
@@ -1075,7 +1102,7 @@ describe('Attack canonical display integration', () => {
       })
     )
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         calculationCount += 1
         options.onRangePlan(
           calculationCount === 1 ? initialPlan : extendedPlan
@@ -1109,9 +1136,9 @@ describe('Attack canonical display integration', () => {
     })).resolves.toBe(true)
 
     expect(calculationCount).toBe(2)
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledTimes(2)
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledTimes(2)
     const [, recalculationOptions] =
-      calculationClient.calculateAttackBatch.mock.calls[1]
+      calculationClient.resolveAttackFixture.mock.calls[1]
     expect(recalculationOptions.rangePolicy).toEqual(rangePolicy)
     expect(recalculationOptions.requestMetadata).toEqual(requestMetadata)
     expect(recalculationOptions.signal).toBeInstanceOf(AbortSignal)
@@ -1143,7 +1170,7 @@ describe('Attack canonical display integration', () => {
     let calculationCount = 0
     let recalculationOptions
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         calculationCount += 1
         options.onRangePlan({
           id: `plan-${calculationCount}`,
@@ -1202,7 +1229,7 @@ describe('Attack canonical display integration', () => {
     const batch = createBatch(4)
     const onDisplayRejected = vi.fn()
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         options.onRangePlan({ operation: 'attack', warnings: [] })
         return batch
       }),
@@ -1235,12 +1262,12 @@ describe('Attack canonical display integration', () => {
     })
 
     await expect(runner.run()).resolves.toBe(true)
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
 
     displayRequest.max = 2
     expect(runner.refreshPresentation()).toBe(false)
 
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledOnce()
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
     expect(onDisplayRejected).toHaveBeenCalledOnce()
     expect(state.displayPresentation).toBeNull()
     expect(state.totalCalculation).not.toBeNull()
@@ -1259,12 +1286,12 @@ describe('Attack canonical display integration', () => {
     const signals = []
     let callCount = 0
     const calculationClient = {
-      calculateAttackBatch: vi.fn(async (_entries, options) => {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
         callCount += 1
         signals.push(options.signal)
         options.onRangePlan({ operation: 'attack', warnings: [] })
         if (callCount === 1) {
-          return createBatch(4)
+          return createInfiniteBatch([0.1, 0.9])
         }
         if (callCount === 2) {
           return deferredExpansion.promise
@@ -1287,19 +1314,22 @@ describe('Attack canonical display integration', () => {
         ),
     })
 
-    await expect(runner.run({ displayRequest: initialRequest }))
-      .resolves.toBe(true)
+    const initialResult = await runner.run({ displayRequest: initialRequest })
+    expect(initialResult).toBe(true)
     const firstExpansion = runner.refreshPresentation({
       displayRequest: { ...initialRequest, max: 2 },
     })
     const latest = runner.run({
       displayRequest: { ...initialRequest, max: 3 },
+      forceAll: true,
     })
     deferredExpansion.resolve(oldExpansion)
 
-    await expect(firstExpansion).resolves.toBe(false)
-    await expect(latest).resolves.toBe(true)
-    expect(calculationClient.calculateAttackBatch).toHaveBeenCalledTimes(3)
+    const firstOutcome = await Promise.resolve(firstExpansion)
+    const latestOutcome = await Promise.resolve(latest)
+    expect(firstOutcome).toBe(false)
+    expect(latestOutcome).toBe(true)
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledTimes(3)
     expect(signals[1].aborted).toBe(true)
     expect(state.displayPresentation.displayRequest.max).toBe(3)
     expect(Array.from(state.displayPresentation.combos[0].series.values))
@@ -1325,7 +1355,7 @@ describe('Attack canonical display integration', () => {
       let calculationCount = 0
       const presentations = []
       const calculationClient = {
-        calculateAttackBatch: vi.fn(async (_entries, options) => {
+        resolveAttackFixture: vi.fn(async (_entries, options) => {
           calculationCount += 1
           options.onRangePlan({
             id: `plan-${calculationCount}`,

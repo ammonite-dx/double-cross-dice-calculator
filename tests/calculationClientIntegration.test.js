@@ -36,6 +36,15 @@ function calculateScoreWithProvider(
   )
 }
 
+async function calculateSingleAttackResult(client, id, params, options = {}) {
+  const combo = await client.calculateAttack(params, options)
+  const total = await client.calculateTotalDamage([combo.damage], options)
+  return {
+    combos: [{ id, ...combo }],
+    ...total,
+  }
+}
+
 const getD10Distribution = createD10DistributionProvider()
 
 const calculationClient = createCalculationClient({
@@ -80,8 +89,10 @@ describe('CalculationClient integration', () => {
         mode,
       }
       const rangePlans = []
-      const batch = await calculationClient.calculateAttackBatch(
-        [{ id: 0, params }],
+      const batch = await calculateSingleAttackResult(
+        calculationClient,
+        0,
+        params,
         {
           rangePolicy: createAttackRangePolicy(
             displayRequest,
@@ -136,8 +147,10 @@ describe('CalculationClient integration', () => {
         mode: ATTACK_DISPLAY_MODES.PMF,
       }
       const rangePlans = []
-      const batch = await calculationClient.calculateAttackBatch(
-        [{ id: `99d-${max}`, params }],
+      const batch = await calculateSingleAttackResult(
+        calculationClient,
+        `99d-${max}`,
+        params,
         {
           rangePolicy: createAttackRangePolicy(
             displayRequest,
@@ -193,8 +206,10 @@ describe('CalculationClient integration', () => {
       mode: ATTACK_DISPLAY_MODES.PMF,
     }
     const rangePlans = []
-    const batch = await client.calculateAttackBatch(
-      [{ id: 'yousei-attack', params }],
+    const batch = await calculateSingleAttackResult(
+      client,
+      'yousei-attack',
+      params,
       {
         rangePolicy: createAttackRangePolicy(
           displayRequest,
@@ -325,9 +340,10 @@ describe('CalculationClient integration', () => {
       },
     })
 
-    const result = await client.calculateAttackBatch([{
-      id: 'tail-combo',
-      params: {
+    const result = await calculateSingleAttackResult(
+      client,
+      'tail-combo',
+      {
         action: {
           score: { dice: 0, critical: 11, skill: 0, yousei: 0, shihai: 0 },
           damage: { dice: 0, value: 0, kazanari: 0 },
@@ -338,7 +354,7 @@ describe('CalculationClient integration', () => {
           damage: { dice: 0, value: 0 },
         },
       },
-    }])
+    )
 
     expect(observedPolicies).toEqual([{ scorePropagation: 'full-tail' }])
     expect(observedWeights[0]).toHaveLength(105)

@@ -178,14 +178,27 @@ function createTotalEntries() {
   })
 }
 
+async function calculateAttackExecution(client, entries, options = {}) {
+  const combos = []
+  for (const entry of entries) {
+    const combo = await client.calculateAttack(entry.params, options)
+    combos.push({ id: entry.id, ...combo })
+  }
+  const total = await client.calculateTotalDamage(
+    combos.map((combo) => combo.damage),
+    options
+  )
+  return { combos, ...total }
+}
+
 async function auditTotals(client) {
   const entries = createTotalEntries()
-  const batch = await client.calculateAttackBatch(entries)
+  const execution = await calculateAttackExecution(client, entries)
   const records = []
   for (const count of [2, 4]) {
-    const selected = batch.combos.slice(0, count)
+    const selected = execution.combos.slice(0, count)
     const total = count === entries.length
-      ? batch
+      ? execution
       : await client.calculateTotalDamage(selected.map((combo) => combo.damage))
     records.push({
       id: `total-${count}-combos`,
