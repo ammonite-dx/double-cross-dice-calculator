@@ -4,6 +4,8 @@
 - Date: 2026-09-08
 - Decision: Keep the current hybrid execution boundary
 
+> Superseded contract note (2026-09-15): The hybrid DR-only Worker boundary remains current. The caller-versus-underlying settlement and non-preemptive Abort semantics described in this historical R19 decision were superseded by [ADR 0004](./0004-runtime-damage-worker-preemption.md). The measurements and generalized-Worker decision below remain historical evidence.
+
 ## Context
 
 The application is a static SPA. Its current production execution topology keeps range planning, DX／Score, damage orchestration, total damage, and backtrack on the main thread, while a persistent module Worker executes the mixed damage-roll primitive. R19 was opened to decide whether the boundary should be extended to a partial or generalized calculation Worker.

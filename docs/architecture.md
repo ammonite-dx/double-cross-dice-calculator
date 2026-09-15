@@ -66,6 +66,8 @@ reactive view state -> Chart.js
 
 `dr`の配信形式は圧縮効率を優先したダイス数ごとの疎な分布で、generatorの出力検証と独立比較の参照用に保持します。本番の`CalculationClient`は`dr`をロードせず、攻撃ごとのweightsと`kazanari`を常駐`RuntimeDamageRollClient`へ渡してWorker内でダメージロール分布を計算します。Workerの結果は計算コアが固定値、d10防御ダイス、命中失敗を合成して画面向けの結果に仕上げます。
 
+Runtime Damageの要求ライフサイクルは、計算要求とWorkerジョブを分けて管理します。`RuntimeDamageRollClient`はWorkerへ送るactive jobを1件に制限し、後続jobをメインスレッドのqueueへ保持します。同一入力はsubscriberを共有しますが、各`CalculationClient`要求のResourceGuard leaseは独立しており、callerのAbort時にその要求の`finally`で解放します。共有subscriberが残る間はWorkerを継続し、最後のsubscriberが離脱したactive jobだけをWorker terminateして次のjobを新しいWorkerで開始します。旧Workerの遅延イベントはidentity guardで無視し、Worker protocolへcancel messageは追加しません。この契約の判断記録は[`ADR 0004`](./adr/0004-runtime-damage-worker-preemption.md)を参照してください。
+
 判定とダメージの中間計算は、要求windowとsupportに合わせて`RangePlanner`と`ResourceGuard`が計画する動的working rangeで行います。legacy published projection・compatibilityでは1024 bucketを使い、インデックス1023は値1023以上を表しますが、これは`DistributionResult`や最終表示の上限ではありません。この決定の根拠と厳密性の境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)を参照してください。
 
 ## 事前計算データ
