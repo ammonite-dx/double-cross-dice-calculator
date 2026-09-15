@@ -1,5 +1,4 @@
 import type {
-  AttackBatchEntry,
   AttackCalculationInput,
   CheckInputSnapshot,
   DisplayRequestSnapshot,
@@ -10,8 +9,6 @@ import type { ScoreInput } from '../domain/InputDomain'
 import type {
   AttackCalculationResult,
   BacktrackCalculationResult,
-  DamageEnvelope,
-  DamageStatistics,
   ScorePair,
   ScoreStatistics,
   TotalDamageResult,
@@ -52,14 +49,6 @@ export interface CalculationClient {
     params: AttackCalculationInput,
     options?: CalculationOptions,
   ): Promise<AttackCalculationResult>
-  calculateAttackBatch(
-    entries: readonly AttackBatchEntry[],
-    options?: CalculationOptions,
-  ): Promise<{
-    readonly combos: readonly (AttackCalculationResult & { id: string | number })[]
-    readonly totalDamage: DamageEnvelope
-    readonly totalDamageStatistics: DamageStatistics
-  }>
   calculateTotalDamage(
     damages: readonly DistributionEnvelope[],
     options?: CalculationOptions,

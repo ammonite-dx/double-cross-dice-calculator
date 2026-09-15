@@ -59,8 +59,3 @@ export interface DisplayRequestSnapshot {
   max: number
   mode: DisplayMode
 }
-
-export interface AttackBatchEntry {
-  id: string | number
-  params: AttackCalculationInput
-}

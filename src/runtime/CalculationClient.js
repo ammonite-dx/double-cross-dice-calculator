@@ -12,7 +12,6 @@ import {
 import {
   planDamageAggregation,
   sumDamage,
-  validateDamageAggregationOptions,
 } from '../calculation/DamageAggregation'
 import {
   calculateDxDistribution,
@@ -26,13 +25,6 @@ import {
   getScoreStatistics,
 } from '../calculation/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
-import {
-  CALCULATION_BATCH_INPUT_ERROR_CODES,
-  CalculationBatchInputError,
-  createTotalDamageAggregationOptions,
-  isCalculationBatchInputError,
-  snapshotAttackBatchRequest,
-} from './AttackBatchInput'
 import { createCheckRangePolicy } from './CheckRangePolicy'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 import { createResourceGuard } from './ResourceGuard'
@@ -100,7 +92,6 @@ const defaultDependencies = {
   planCalculationRanges,
   resourceGuard: defaultResourceGuard,
   sumDamage,
-  validateDamageAggregationOptions,
 }
 
 const EVASION_MODE = '《イベイジョン》'
@@ -119,12 +110,6 @@ export class CalculationRangeError extends Error {
     this.plan = plan
     this.rejectionReasons = rejectionReasons
   }
-}
-
-export {
-  CALCULATION_BATCH_INPUT_ERROR_CODES,
-  CalculationBatchInputError,
-  isCalculationBatchInputError,
 }
 
 function snapshotScoreParams(params) {
@@ -281,6 +266,34 @@ function hasOwn(object, property) {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
 
+const TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES = Object.freeze([
+  'maxValuesLength',
+  'maxFftLength',
+  'maxResourceBytes',
+  'maxComponents',
+  'signal',
+  'onFftLength',
+])
+
+function createTotalDamageAggregationOptions(
+  options,
+  defaultOnFftLength
+) {
+  const aggregationOptions = {}
+  for (const name of TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES) {
+    if (hasOwn(options, name)) {
+      aggregationOptions[name] = options[name]
+    }
+  }
+  if (
+    !hasOwn(aggregationOptions, 'onFftLength')
+    && typeof defaultOnFftLength === 'function'
+  ) {
+    aggregationOptions.onFftLength = defaultOnFftLength
+  }
+  return aggregationOptions
+}
+
 function copyTotalDamageEnvelope(totalDamage) {
   const result = totalDamage?.result
   if (
@@ -381,9 +394,6 @@ export function createCalculationClient(
   const damageSum =
     dependencies.sumDamage
     ?? sumDamage
-  const damageOptionsValidator =
-    dependencies.validateDamageAggregationOptions
-    ?? validateDamageAggregationOptions
   const totalDamageStatistics =
     dependencies.getTotalDamageStatistics
     ?? getTotalDamageStatistics
@@ -647,49 +657,6 @@ export function createCalculationClient(
 
     async calculateAttack(params, options = {}) {
       return calculateAttack(params, options)
-    },
-
-    async calculateAttackBatch(entries, options = {}) {
-      const batchRequest = snapshotAttackBatchRequest(
-        entries,
-        options,
-        {
-          validateAggregationOptions: damageOptionsValidator,
-          defaultOnFftLength: dependencies.onFftLength,
-        }
-      )
-      const {
-        entries: entrySnapshots,
-        options: batchOptions,
-        aggregationOptions,
-      } = batchRequest
-      throwIfAborted(batchOptions, 'attack batch')
-
-      const combos = []
-      for (const entry of entrySnapshots) {
-        throwIfAborted(batchOptions, 'attack batch')
-        const combo = await calculateAttack(
-          entry.params,
-          batchOptions
-        )
-        throwIfAborted(batchOptions, 'attack batch')
-        combos.push({
-          id: entry.id,
-          ...combo,
-        })
-      }
-
-      throwIfAborted(batchOptions, 'attack batch')
-      const total = await runTotalDamage(
-        combos.map((combo) => combo.damage),
-        batchOptions,
-        aggregationOptions
-      )
-      throwIfAborted(batchOptions, 'attack batch')
-      return {
-        combos,
-        ...total,
-      }
     },
 
     async calculateTotalDamage(damages, options = {}) {
