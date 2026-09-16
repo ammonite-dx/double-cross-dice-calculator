@@ -1,23 +1,44 @@
 import {
   generateMixedDamageDistribution,
 } from '../calculation/RuntimeDamageRollCalculator'
+import {
+  normalizeRuntimeDamageRollWorkerRequest,
+} from './RuntimeDamageRollProtocol'
+
+function getCorrelatableRequestId(value) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !Number.isSafeInteger(value.id) ||
+    value.id < 0
+  ) {
+    return null
+  }
+  return value.id
+}
 
 self.addEventListener('message', (event) => {
-  const { id, weights, kazanari, options } = event.data
+  let requestId = getCorrelatableRequestId(event?.data)
   try {
+    const request = normalizeRuntimeDamageRollWorkerRequest(event?.data)
+    requestId = request.id
     const distribution = generateMixedDamageDistribution(
-      weights,
-      kazanari,
-      options
+      request.weights,
+      request.kazanari,
+      request.options
     )
 
     self.postMessage(
-      { id, distribution },
+      { id: request.id, distribution },
       [distribution.buffer]
     )
   } catch (error) {
+    if (requestId === null) {
+      throw error
+    }
     self.postMessage({
-      id,
+      id: requestId,
       error: {
         name: error?.name || 'Error',
         message: error?.message || String(error),
