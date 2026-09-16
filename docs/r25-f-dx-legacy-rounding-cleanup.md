@@ -6,7 +6,7 @@ R25-Fでは、productionのDX計算から移行期にだけ必要だった小数
 
 ## 背景
 
-旧DX計算器は、引数なし呼出しを公開JSON互換のlegacy pathとして扱い、確率を小数第6位へ丸めた後に総和を1へ戻していました。working lengthを明示したdynamic pathには`unrounded`を指定する別経路があり、`size`、`roundingMode`、`fullPrecision`など複数の別名も受け付けていました。productionがcanonical runtimeへ統一された後は、この分岐が同じ計算器に二つの数値契約を残していました。
+旧DX計算器は、引数なし呼出しを公開JSON互換のlegacy pathとして扱い、確率を小数第6位へ丸めた後に総和を1へ戻していました。この小数第6位量子化は、旧precomputed DX JSONをCloudflare Pagesの配布サイズ制約内へ収めるためのserialization／data-size施策として導入されたもので、ゲームルールやruntimeの数値精度が要求したものではありません。working lengthを明示したdynamic pathには`unrounded`を指定する別経路があり、`size`、`roundingMode`、`fullPrecision`など複数の別名も受け付けていました。productionがcanonical runtimeへ統一された後は、この分岐が同じ計算器に二つの数値契約を残していました。
 
 ## 変更前
 
@@ -35,7 +35,8 @@ R25-Fでは、productionのDX計算から移行期にだけ必要だった小数
 - DXのルール、クリティカル値、強制失敗、ファンブル、`shihai`、`yousei`、技能値シフトの意味論。
 - `DX_DISTRIBUTION_SIZE=2048`、直接APIの最小・最大working length、計算量・メモリの絶対安全上限。
 - `Float64`の微小負値を許容範囲内だけ0へ補正する検証と、非有限値・意味のある負値・無効な総和を拒否する契約。
-- 旧公開JSON、Python generator、published-bucket投影、Reference repository。これらは歴史的な量子化済みデータの生成・参照・回帰比較に限定して使用します。
+- 旧公開JSONとPython generatorは、小数第6位量子化済みのhistorical／reference dataとして維持します。Reference repositoryも旧assetの参照・回帰比較に限定して使用します。
+- `published-bucket`の1024要素投影は小数第6位量子化とは独立した、明示的に要求できるproduction compatibility contractです。R25-Fでは変更せず、後続のpublic-source cleanup（R25-K）での撤去候補として扱います。
 
 ## 検証
 
