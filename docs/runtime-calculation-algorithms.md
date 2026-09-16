@@ -85,7 +85,7 @@ canonical経路では固定長へ集約せず、要求された表示windowの�
 
 `shihai>0`では、`shihai+1`個から要求されたダイス数までをダイス数の動的計画法で順に計算します。各ダイス数の一段階分布は、クリティカル個数が`shihai+1`以上かつ現在のダイス数未満の既計算状態をシフト加算して作ります。全ダイスがクリティカルする自己遷移は、$d_x=a_x+p_c^n d_{x-10}$を配列方向に解き、末尾バケットへ残余確率を集約します。`dice<=shihai`は自動失敗の点分布です。
 
-全入力範囲の旧公開JSON比較と数値監査は`node scripts/verify-runtime-dx.mjs`で実行します。比較行列は旧assetのcoverage（100D未満、shihai 20未満）に限定しており、runtimeの受理範囲を示すものではありません。現行実装では、`shihai=0`はmode-centered binomial recurrenceで二項確率を計算し、`shihai>0`は必要なダイス数のDPを順に生成します。DPの配列確保量と遷移回数には絶対安全上限があり、plannerは端末ごとの推定時間・メモリでさらに早く警告または拒否します。
+全入力範囲の旧公開JSON比較と数値監査は`node scripts/verify-runtime-dx.mjs`で実行します。比較行列は旧assetのcoverage（100D未満、shihai 20未満）に限定しており、runtimeの受理範囲を示すものではありません。現行実装では、`shihai=0`はmode-centered binomial recurrenceで二項確率を計算し、`shihai>0`は必要なダイス数のDPを順に生成します。DPの配列確保量と遷移回数には絶対安全上限があり、plannerはCPUワーク、メモリ、作業長、FFT長の固定resource limitで計算前に拒否します。端末ごとの経過時間推定やwarning段階は判定に使用しません。
 
 本番の通常判定はCalculationClientから実行時DX計算器を直接注入し、同じ入力の分布をクライアント単位の小さなLRUキャッシュで再利用します。実ブラウザ実験では旧最大ケースのメインスレッドウォーム最大が11.8 ms、Worker往復の追加コストが最大1.0 msでした。公開JSONは参照・回帰検証のために残します。
 
@@ -165,7 +165,7 @@ $$
 
 $a<0$の場合は固定値差を後段で適用するため$W=R$となります。作業配列は値$0$から$W$までを明示的に保持し、`W+1`を作業範囲外のoverflow sentinelとして使うので、`workingLength = W + 2`です。Damage Roll自身のFFT長は`nextPowerOfTwo(R + 1)`、防御ダイス数を$d$とした防御畳み込みのFFT長は`nextPowerOfTwo(workingLength + 10d)`です。防御ダイスはこの畳み込み長を増やしますが、`full-tail`の$W$を`calculationMax + 10d`へ戻す理由にはなりません。
 
-この計画により、たとえば99D・クリティカル値2では$S_{\max}=2271$、$N_{\max}=228$、$R=2280$となり、固定値差が0なら`workingLength = 2282`までを明示的に扱えます。1023を超えること自体は拒否理由ではなく、配列長、FFT長、推定時間、推定メモリが`ResourcePlanner`の既存policy内に収まるかどうかで受理可否を決めます。極端な入力はsilent truncationではなく、`damage-working-length`、`damage-fft-length`、`estimated-memory`、`estimated-time`などの資源理由でrejectされます。ここで新しい意味上の上限や202D capは導入しません。
+この計画により、たとえば99D・クリティカル値2では$S_{\max}=2271$、$N_{\max}=228$、$R=2280$となり、固定値差が0なら`workingLength = 2282`までを明示的に扱えます。1023を超えること自体は拒否理由ではなく、配列長、FFT長、CPUワーク、メモリが`ResourcePlanner`の固定policy内に収まるかどうかで受理可否を決めます。極端な入力はsilent truncationではなく、`damage-working-length`、`damage-fft-length`、`estimated-memory`、`cpu-work`などの資源理由でrejectされます。ここで新しい意味上の上限や202D capは導入しません。
 
 一方、`published-bucket`は比較・互換境界として旧来の`calculationMax`と1023バケットへの投影を保持します。したがって、公開互換経路の範囲計画とproduction `full-tail`の範囲計画は別の契約です。Scoreが無限supportの場合に残るScore tail uncertaintyはこの変更では解消せず、Damageのmodeled finite supportを計画範囲内で完全に保持することだけを保証します。
 
@@ -207,11 +207,11 @@ Total Damageの期待値は分布のFFT結果から再計算せず、各componen
 
 ### 5.1 Total Damageのresource preflight
 
-Total Damageは、FFTを開始する前に専用のaggregation planを作ります。処理順序は、component snapshot、aggregation plan、FFT work・メモリ・出力長の見積り、推定時間のhard-limit判定、ResourceGuardのlease取得、畳み込み、summary・certificateの生成です。
+Total Damageは、FFTを開始する前に専用のaggregation planを作ります。処理順序は、component snapshot、aggregation plan、FFT work・CPUワーク・メモリ・出力長の見積り、resource limit判定、ResourceGuardのlease取得、畳み込み、summary・certificateの生成です。
 
-畳み込み1回のFFT workは、forward FFT 2回とinverse FFT 1回、すなわち共有`fftOperationCount()`による3変換分として数えます。production defaultはFFT throughputを8,000,000 operations/ms、hard estimated timeを200 msとし、推定時間を超えるTotalはlease取得とFFT実行の前に`resource-limit`で拒否します。component数だけでは拒否せず、既存のcomponent上限内で実際のestimated workに基づいて判定します。
+畳み込み1回のFFT workは、forward FFT 2回とinverse FFT 1回、すなわち共有`fftOperationCount()`による3変換分として数えます。Totalの`operations`をCPUワークとして扱い、`DEFAULT_MAX_CPU_WORK = 1_600_000_000`を超えるTotalはlease取得とFFT実行の前に`resource-limit`で拒否します。component数だけでは拒否せず、既存のcomponent上限内で実際のworkに基づいて判定します。
 
-ResourceGuardは計画済みメモリの予約とactive／queued requestの管理を担当します。時間上限の判定はaggregation planningで完了しているため、Attack batchのTotalも同じaggregation planを通過してからleaseを取得します。64 MiB capacity、1.5倍のreservation、maxActiveなど既存のResourceGuard契約は変更しません。
+ResourceGuardは計画済みメモリの予約とactive／queued requestの管理を担当します。CPUワーク上限の判定はaggregation planningで完了しているため、Attack batchのTotalも同じaggregation planを通過してからleaseを取得します。64 MiB capacity、1.5倍のreservation、maxActiveなど既存のResourceGuard契約は変更しません。ResourceGuard自身はCPUワークや経過時間をadmission metricにしません。
 
 ## 6. バックトラック
 
@@ -263,7 +263,7 @@ Damageの防御側では、runtime D10生成そのものも計算資源を消費
 - 達成値の混合では確率が0でない達成値だけを処理し、不要な`dr`参照を避けます。
 - 公開分布より広い作業分布はFFTや走査の定数倍コストを増やしますが、負の補正前に上限を集約しないための正確性を優先した設計です。
 
-絶対時間は実行環境に依存します。変更前後の比較には`npm run benchmark:full-tail-attack`またはruntime DR benchmarkを同じ環境で実行します。
+CPUワークは端末差に依存しない資源計画の単位であり、経過時間の予測値ではありません。変更前後の実時間を比較したい場合は、`npm run benchmark:full-tail-attack`またはruntime DR benchmarkを同じ環境で実行しますが、ベンチマーク結果をresource policyへ直接換算しません。
 
 ## 9. 実装とテストの対応
 
@@ -275,9 +275,9 @@ Damageの防御側では、runtime D10生成そのものも計算資源を消費
 | 単発・合計ダメージ | `src/calculation/DamageCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/canonicalDamageOnDemand.test.js`、`tests/canonicalTotalDamageClient.test.js` |
 | バックトラック | `src/calculation/BacktrackCalculator.js` | `tests/runtimeRuleValidation.test.js`、`tests/backtrackCanonical.test.js` |
 | 参照用アセット検証とキャッシュ | `tooling/reference-data/ReferencePrecomputedDataRepository.js` | `tests/referencePrecomputedDataRepository.test.js` |
-| 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/application/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
-| 実行時DRの可変FFT・出力長、Worker protocol | `src/calculation/RuntimeDamageRollCalculator.js`、`src/calculation/RuntimeDamageRollLimits.js`、`src/application/RuntimeDamageRollClient.js`、`src/application/RuntimeDamageRollWorker.js` | `tests/runtimeDamageRollProduction.test.js`、`tests/runtimeDamageRollProductionClient.test.js` |
-| Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/application/CalculationClient.js` | `tests/canonicalDamageOnDemand.test.js`、`tests/calculationClient.test.js` |
+| 動的範囲の計画、Score配列長、CalculationClient preflight | `src/calculation/RangePlanner.js`、`src/calculation/ScoreCalculator.js`、`src/runtime/CalculationClient.js` | `tests/rangePlanner.test.js`、`tests/calculationCore.test.js`、`tests/calculationClient.test.js`、`tests/calculationClientIntegration.test.js` |
+| 実行時DRの可変FFT・出力長、Worker protocol | `src/calculation/RuntimeDamageRollCalculator.js`、`src/calculation/RuntimeDamageRollLimits.js`、`src/runtime/RuntimeDamageRollClient.js`、`src/runtime/RuntimeDamageRollWorker.js` | `tests/runtimeDamageRollProduction.test.js`、`tests/runtimeDamageRollProductionClient.test.js` |
+| Damageの動的範囲、有限防御support、CalculationClient接続 | `src/calculation/DamageCalculator.js`、`src/runtime/CalculationClient.js` | `tests/canonicalDamageOnDemand.test.js`、`tests/calculationClient.test.js` |
 
 独立したルール検証の考え方は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。旧実装との移行比較は過去の検証記録としてGit履歴に残っていますが、現行のルールテストはcanonical結果と独立した期待値を比較します。
 
@@ -647,6 +647,18 @@ Scoreのoverflow境界を$W$とすると、$E[X\,1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(
 Chart.jsのlabels、dataset、確率パーセントへの変換は最終表示境界でのみ生成する。projection本体はlabelsやpoint objectを保持せず、materializerはreadyなprojectionのowned `Float64Array`をdatasetから参照する。R25-Dの契約、既存表示値の維持、検証対象は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)にまとめている。
 
 詳細な式、境界条件、test-local oracle、stress caseは[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)に記録する。whole-Score expectation、Total Damage、resource policy、planner cutoff、UI表示はこの単位の対象外である。
+
+## R25-G 現行の資源ポリシー（2026-09-16）
+
+R25-Gでは、RangePlanner、Total Damage、表示範囲planner、ResourceGuardで別々に存在していた時間見積りとwarning／hard段階を廃止し、固定重みのCPUワークとメモリ・長さ上限へ統一した。CPUワークは経過時間の予測値ではなく、端末性能に依存しない計画上の作業量である。
+
+`src/calculation/planning/PlanningMath.js`の`calculateCpuWork()`が、Score×8、Damage×32、防御D10×32、FFT×1、Backtrack×16の重みを一箇所で適用する。既定の`maxCpuWork`は`1_600_000_000`で、各入力は有限かつ非負でなければならず、加算結果が有限範囲を超える場合はfail closedする。Damage Rollの推定式は`RuntimeDamageRollLimits.js`からplannerとruntimeへ共有し、`kazanari`の有効値、weight length、FFT lengthを同じ式で評価する。
+
+Range policyの`limits`は`maxCpuWork`、`estimatedMemoryBytes`、`workingLength`、`fftLength`を持つ単一レコードで、これらはすべてhard resource limitである。旧`costModel`、`limits.warning`、`limits.hard`は受理しない。Backtrackは`generationOperations`を計画へ明示し、`workingLength * 3 + generationOperations`をBacktrackのCPUワークへ渡す。plannerを迂回したruntime呼出しでも、生成量と絶対上限を再検証する。
+
+Total Damageは`operations`をCPUワークとして扱い、`DEFAULT_MAX_CPU_WORK`をFFT開始とResourceGuard lease取得の前に検査する。ResourceGuardは`float64Bytes`によるメモリ予約、active／queued request、Abortとreleaseだけを担当し、CPUワークや経過時間をadmission metricやlease metadataへ持ち込まない。表示範囲も`pointCount`、`float64Bytes`、`chartPoints`の単一上限で判定する。
+
+計算フィードバックは時間見積りを表示せず、メモリ上限超過を「計算に必要なメモリが上限を超えています。」と通知する。過去のR22〜R24節にある`estimatedTimeMs`や時間閾値は当時の測定・判断を記録した履歴であり、現行のadmission policyでは使用しない。実装の設計判断と検証結果は[`r25-g-resource-policy-cleanup.md`](./r25-g-resource-policy-cleanup.md)を参照する。
 
 ## Phase 5-B Total Damage expectation propagation（R23-C3C）
 

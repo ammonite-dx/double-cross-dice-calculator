@@ -619,3 +619,14 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - F2（`bee4061`）: DX関連テストをfull-precision契約へ移行し、旧JSON比較を量子化誤差`1e-6 + 1e-12`で検証するようにした。R22測定、runtime DX verifier、full-tail Attack benchmarkから旧オプション指定を削除し、verifierとbenchmarkは明示した`DX_DISTRIBUTION_SIZE`を使用する。
 - F3: 現行runtimeの数値契約、旧JSONの量子化済み参照境界、削除・維持・保留事項を[`r25-f-dx-legacy-rounding-cleanup.md`](./r25-f-dx-legacy-rounding-cleanup.md)へ記録し、[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)の現行DX説明を更新する。旧履歴資料、Python generator、公開JSON、published-bucket投影は変更しない。
 - 最終gate: `npm run verify:release`、`npm run audit:r23:damage-precision`、`npm run audit:r23:damage-tail`、`git diff --check`、`git status --short`をR25-Fの最終HEADで実行し、DX 20,000ケース、full-support、production smoke、generator、全テスト、lint、typecheck、buildがGREENであることを確認する。
+
+## R25-G Resource Policy Simplification / CPU Work Budget（実装中、2026-09-16）
+
+- 目的: 端末依存の経過時間推定とwarning／hardの二段階閾値を廃止し、Score、Damage、D10、防御FFT、Backtrack、表示範囲、Total Damageの資源判定を固定CPUワークとメモリ・配列長・FFT長へ統一する。
+- 実装: `DEFAULT_MAX_CPU_WORK = 1_600_000_000`と固定重み（Score×8、Damage×32、防御D10×32、FFT×1、Backtrack×16）を`PlanningMath.calculateCpuWork()`へ集約し、有限性・非負性・overflowをfail closedで検証する。
+- 実装: `RangePolicy.limits`を単一レコードへ変更し、旧`costModel`、`limits.warning`、`limits.hard`を拒否する。`ResourcePlan`はCPUワークと操作別見積りを返し、resource metricだけをhard rejectし、Backtrackの静的asset coverage warningは維持する。
+- 実装: Damage Rollの共通operation推定式をplanner／runtimeで共有し、Backtrackに`generationOperations`を追加してruntimeでも期待値と絶対上限を検証する。Total Damageは時間見積りを廃止し、CPUワーク上限をFFT・lease前に適用する。
+- 実装: ResourceGuardから操作数・時間を削除し、DisplayRangePlannerを単一上限へ移行した。CalculationFeedbackは時間を表示せず、メモリ上限超過を明示する。
+- 維持: R22〜R24の測定結果、公開schema-v2 asset、Python generator、published-bucket互換、過去のthreshold記録は履歴として変更しない。ベンチマークの経過時間は性能比較専用とする。
+- 検証: CPUワークの等号境界、混合操作、分数のDamage Roll式、Backtrack生成量、旧policy拒否、Total Damage超過、DisplayRangePlanner、ResourceGuard metadataをunit testとtypecheckで固定する。release gateは実装完了後に`npm run verify:release`、R23監査、lint、Markdown lint、build、`git diff --check`を実行する。
+- 詳細: [`r25-g-resource-policy-cleanup.md`](./r25-g-resource-policy-cleanup.md)と[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
