@@ -48,10 +48,14 @@ describe('calculation input normalization', () => {
       .toBe(false)
   })
 
-  it('requires a strict boolean difficulty flag and a non-negative target', () => {
+  it('preserves omitted difficulty defaults while requiring strict values', () => {
+    expect(normalizeDifficultyInput()).toEqual({ opposed: true, target: 0 })
+    expect(normalizeDifficultyInput({})).toEqual({ opposed: true, target: 0 })
     expect(normalizeDifficultyInput({ opposed: false, target: 10 }))
       .toEqual({ opposed: false, target: 10 })
     expect(() => normalizeDifficultyInput({ opposed: 'false', target: 10 }))
+      .toThrow()
+    expect(() => normalizeDifficultyInput({ opposed: null, target: 10 }))
       .toThrow()
     expect(() => normalizeDifficultyInput({ opposed: false, target: -1 }))
       .toThrow()

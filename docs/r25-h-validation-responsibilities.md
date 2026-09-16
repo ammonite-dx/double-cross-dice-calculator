@@ -57,7 +57,7 @@ Backtrackの残存ロイス上限は`INPUT_DOMAIN.remainingLois.max`を参照す
 
 ### `CalculationClient`の公開境界
 
-`src/runtime/CalculationClient.js`は、UI以外からも呼ばれる公開runtime APIである。Check、Attack、Backtrackの入力を開始時にsnapshotして正規化し、同じ正規化済み値をRangePlannerとCalculatorへ渡す。difficultyの`opposed`もここでstrict booleanとして検証する。入力をコピーすることで、呼出し元が計算中に元オブジェクトを変更しても、計画・計算・cacheのキーが変わらない。
+`src/runtime/CalculationClient.js`は、UI以外からも呼ばれる公開runtime APIである。Check、Attack、Backtrackの入力を開始時にsnapshotして正規化し、同じ正規化済み値をRangePlannerとCalculatorへ渡す。difficultyの`opposed`もここでstrict booleanとして検証する。difficulty自体または`opposed`・`target`が省略された場合は、既存APIと同じく`opposed: true`・`target: 0`を補完する。明示された値の型と範囲は検証する。入力をコピーすることで、呼出し元が計算中に元オブジェクトを変更しても、計画・計算・cacheのキーが変わらない。
 
 組合せ非対応のScoreは、primitiveな正規化エラーではなく、既存の`CalculationRangeError`と`incompatible-input`の計画結果へ接続する。したがって、UIのメッセージを保ったまま、計算前にResourceGuardや数値計算を開始しない。
 

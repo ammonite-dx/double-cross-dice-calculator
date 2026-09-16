@@ -29,7 +29,7 @@ export function isDisplayMode(
 }
 
 /**
- * Compute the number of points in an inclusive display window. Returning
+ * Compute the number of points in an inclusive display range. Returning
  * null keeps ordering and overflow checks in one reusable pure helper while
  * allowing each caller to preserve its own error code and message.
  */
