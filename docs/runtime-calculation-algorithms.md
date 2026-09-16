@@ -79,7 +79,7 @@ canonical経路では固定長へ集約せず、要求された表示windowの�
 
 ### 2.5 実行時`dx`基礎分布
 
-`calculateDxDistribution({ dice, critical, shihai, yousei })`は、`critical=2..11`と安全な非負整数の`dice`・`shihai`・`yousei`を受け付け、要求されたworking lengthの`Float64Array`を返します。`shihai`と`yousei`を同時に指定する入力は、効果適用順序を定義していないため拒否します。99D・19対象までという旧JSONの範囲は入力検証に使用しません。インデックスの最後は、そのworking rangeを超える値を表すtail bucketです。返却時には各確率を小数第6位へ丸め、確率総和が1になるよう生成器と同じ1単位補正を行います。これは公開JSONとの置換互換を保つための実装上の契約であり、一般的な計算コアの必須丸めを意味しません。
+`calculateDxDistribution({ dice, critical, shihai, yousei })`は、`critical=2..11`と安全な非負整数の`dice`・`shihai`・`yousei`を受け付け、要求されたworking lengthの`Float64Array`を返します。`shihai`と`yousei`を同時に指定する入力は、効果適用順序を定義していないため拒否します。99D・19対象までという旧JSONの範囲は入力検証に使用しません。インデックスの最後は、そのworking rangeを超える値を表すtail bucketです。返却時はFloat64の演算結果を保持したまま、有限性と負値を検証し、数値誤差の範囲にある負値だけを0へ補正してから、確率総和を1へ一度だけ正規化します。旧公開JSONは生成時の小数第6位量子化を含む参照データなので、runtimeとの比較ではその量子化幅を許容します。runtime自身が小数第6位へ丸めることはありません。
 
 `shihai=0`では、1個のダイスの累積分布を$F_c(x)$として$P(V_{n,c}\le x)=F_c(x)^n$を直接評価します。`dice=0`はインデックス0の自動失敗です。
 

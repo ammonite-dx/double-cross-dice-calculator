@@ -612,3 +612,10 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - 維持: 数値、表示値、Worker protocol、ResourceGuard、latest-wins、Attack incremental reuse、projection decision、Backtrack結果、入力・表示範囲、既存のresource thresholdは変更していない。詳細は[`r25-e-typed-runtime-contracts.md`](./r25-e-typed-runtime-contracts.md)を参照する。
 - 最終gate: R25-Eの全実装と文書変更を含むHEADで`npm run verify:release`を実行し、Vitest 103ファイル／1049テスト、generator 18件、simulation 13件、Ruff、typecheck、runtime DX 20,000ケース、ESLint、Markdown lint 65ファイル／0 issues、build 424 modules、production smoke、`git diff --check`を確認した。`npm run audit:r23:damage-precision`と`npm run audit:r23:damage-tail`も成功し、作業ツリーをcleanにした。
 - 追補（`7b67c3f`）: CalculationClientのoptionsと`onRangePlan`を操作別に分離し、Total Damageの`requestId`を型へ追加した。`LatestCalculationRunner`を1引数APIとして明文化し、factoryのgeneric callback推論と第二引数の拒否をtypecheck fixtureへ追加した。runtime挙動は変更せず、typecheck、Vitest 103ファイル／1049テスト、ESLint、`git diff --check`をGREENで確認した。
+
+## R25-F DX Legacy Rounding / Compatibility Cleanup（完了、2026-09-16）
+
+- F1（`18b724f`）: DX runtimeから小数第6位丸め、総和補正、`size`・`rounding`・`roundingMode`・`fullPrecision`の互換オプション、`stableTail`切替を削除した。`shihai=0`は安定tail計算に統一し、最終結果はfull-precisionの検証・正規化だけを行う。DXのworking length、FFT長、計算量・メモリ安全上限、Score接続、CalculationClientのcache identityは維持した。
+- F2（`bee4061`）: DX関連テストをfull-precision契約へ移行し、旧JSON比較を量子化誤差`1e-6 + 1e-12`で検証するようにした。R22測定、runtime DX verifier、full-tail Attack benchmarkから旧オプション指定を削除し、verifierとbenchmarkは明示した`DX_DISTRIBUTION_SIZE`を使用する。
+- F3: 現行runtimeの数値契約、旧JSONの量子化済み参照境界、削除・維持・保留事項を[`r25-f-dx-legacy-rounding-cleanup.md`](./r25-f-dx-legacy-rounding-cleanup.md)へ記録し、[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)の現行DX説明を更新する。旧履歴資料、Python generator、公開JSON、published-bucket投影は変更しない。
+- 最終gate: `npm run verify:release`、`npm run audit:r23:damage-precision`、`npm run audit:r23:damage-tail`、`git diff --check`、`git status --short`をR25-Fの最終HEADで実行し、DX 20,000ケース、full-support、production smoke、generator、全テスト、lint、typecheck、buildがGREENであることを確認する。
