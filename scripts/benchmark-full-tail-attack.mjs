@@ -19,25 +19,16 @@ export const PRODUCTION_RANGE_POLICY = Object.freeze({
   scorePropagation: 'full-tail',
 })
 
-// Benchmark-only policy: only RangePlanner thresholds are widened. The
-// planner's calculationMax, display policy, and cost model remain unchanged,
-// while downstream runtime and aggregation absolute safety ceilings remain in
-// force.
+// Benchmark-only policy: only RangePlanner resource limits are widened. The
+// planner's calculationMax and display policy remain unchanged, while
+// downstream runtime and aggregation absolute safety ceilings remain in force.
 export const BENCHMARK_RANGE_POLICY = Object.freeze({
   scorePropagation: 'full-tail',
   limits: Object.freeze({
-    warning: Object.freeze({
-      estimatedTimeMs: PERMISSIVE_RESOURCE_LIMIT,
-      estimatedMemoryBytes: PERMISSIVE_RESOURCE_LIMIT,
-      workingLength: PERMISSIVE_RESOURCE_LIMIT,
-      fftLength: PERMISSIVE_RESOURCE_LIMIT,
-    }),
-    hard: Object.freeze({
-      estimatedTimeMs: PERMISSIVE_RESOURCE_LIMIT,
-      estimatedMemoryBytes: PERMISSIVE_RESOURCE_LIMIT,
-      workingLength: PERMISSIVE_RESOURCE_LIMIT,
-      fftLength: PERMISSIVE_RESOURCE_LIMIT,
-    }),
+    maxCpuWork: PERMISSIVE_RESOURCE_LIMIT,
+    estimatedMemoryBytes: PERMISSIVE_RESOURCE_LIMIT,
+    workingLength: PERMISSIVE_RESOURCE_LIMIT,
+    fftLength: PERMISSIVE_RESOURCE_LIMIT,
   }),
 })
 
@@ -487,7 +478,7 @@ function summarizePlanFields(plan, kazanari) {
     fftLength: plan?.damage?.fftLength ?? null,
     distributionLength: null,
     kazanari,
-    estimatedTimeMs: plan?.estimates?.timeMs ?? null,
+    cpuWork: plan?.estimates?.cpuWork ?? null,
     estimatedMemoryBytes: plan?.estimates?.float64Bytes ?? null,
     warnings: summarizeWarnings(plan),
   }
@@ -591,7 +582,7 @@ function summarizePlannerOutcome(measurement) {
       status: 'planner-error',
       rejectionReasons: [],
       scoreCutoff: null,
-      estimatedTimeMs: null,
+      cpuWork: null,
       estimatedMemoryBytes: null,
       warnings: [],
       error: formatError(measurement.error),
@@ -605,7 +596,7 @@ function summarizePlannerOutcome(measurement) {
     status: accepted ? 'accepted' : 'planner-rejected',
     rejectionReasons: getPlanRejectionReasons(plan),
     scoreCutoff: plan.scores?.map((score) => score.tail?.cutoff ?? null) ?? null,
-    estimatedTimeMs: plan.estimates?.timeMs ?? null,
+    cpuWork: plan.estimates?.cpuWork ?? null,
     estimatedMemoryBytes: plan.estimates?.float64Bytes ?? null,
     warnings: summarizeWarnings(plan),
     error: accepted ? null : createRangePlanError(plan),
@@ -713,7 +704,7 @@ async function runDrCase(testCase, dependencies) {
       distributionLength,
       kazanari: testCase.kazanari,
       elapsed: { planner: null, execution: null },
-      estimatedTimeMs: null,
+      cpuWork: null,
       estimatedMemoryBytes: null,
       accepted: null,
       status: 'error',
@@ -739,7 +730,7 @@ async function runDrCase(testCase, dependencies) {
       planner: null,
       execution: createTimingReport(measurement.measurement),
     },
-    estimatedTimeMs: null,
+    cpuWork: null,
     estimatedMemoryBytes: null,
     accepted: true,
     status: 'measured',
@@ -787,7 +778,7 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
     productionStatus: productionPlanner.status,
     productionRejectionReasons: productionPlanner.rejectionReasons,
     productionScoreCutoff: productionPlanner.scoreCutoff,
-    productionEstimatedTimeMs: productionPlanner.estimatedTimeMs,
+    productionCpuWork: productionPlanner.cpuWork,
     productionEstimatedMemoryBytes: productionPlanner.estimatedMemoryBytes,
     productionWarnings: productionPlanner.warnings,
     productionError: productionPlanner.error,
@@ -1097,7 +1088,7 @@ export function formatHumanReport(report) {
       + `elapsed=production-planner(${formatTiming(testCase.elapsed?.productionPlanner ?? null)})/planner(${formatTiming(testCase.elapsed?.planner ?? null)})/execution(${formatTiming(testCase.elapsed?.execution ?? null)}) `
       + `productionEstimatedTimeMs=${formatValue(testCase.productionEstimatedTimeMs)} `
       + `productionEstimatedMemoryBytes=${formatValue(testCase.productionEstimatedMemoryBytes)} `
-      + `estimatedTimeMs=${formatValue(testCase.estimatedTimeMs)} `
+      + `cpuWork=${formatValue(testCase.cpuWork)} `
       + `estimatedMemoryBytes=${formatValue(testCase.estimatedMemoryBytes)} `
       + `error=${error} digest=${formatValue(testCase.resultDigest)}`
     )

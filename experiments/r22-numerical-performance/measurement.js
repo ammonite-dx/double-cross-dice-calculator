@@ -80,8 +80,7 @@ export function summarizePlan(plan) {
     estimates: plan.estimates === undefined
       ? null
       : {
-          operations: plan.estimates.operations ?? null,
-          timeMs: plan.estimates.timeMs ?? null,
+          cpuWork: plan.estimates.cpuWork ?? null,
           float64Bytes: plan.estimates.float64Bytes ?? null,
           persistentBytes: plan.estimates.persistentBytes ?? null,
           peakResourceBytes: plan.estimates.peakResourceBytes ?? null,

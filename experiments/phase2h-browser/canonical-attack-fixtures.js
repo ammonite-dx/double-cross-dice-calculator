@@ -165,8 +165,7 @@ export const BENCHMARK_CASES = Object.freeze([
     execution: 'public-rejected',
     plannerPolicy: {
       limits: {
-        warning: { estimatedTimeMs: 0 },
-        hard: { estimatedTimeMs: 0 },
+        maxCpuWork: 0,
       },
     },
     executionReason: 'public calculateAttack rejects during preflight before asset, score, or Worker work',

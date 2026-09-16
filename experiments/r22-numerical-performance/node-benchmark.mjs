@@ -446,7 +446,7 @@ export async function runBenchmark(options = {}) {
         return {
           id: fixture.id,
           accepted: plan?.accepted ?? true,
-          estimatedTimeMs: plan?.estimates?.timeMs ?? null,
+          cpuWork: plan?.estimates?.cpuWork ?? null,
           actualFirstMeasuredMs: warm?.timing?.firstMeasuredMs ?? null,
           actualSteadyP95Ms: warm?.timing?.warm?.p95Ms ?? null,
         }

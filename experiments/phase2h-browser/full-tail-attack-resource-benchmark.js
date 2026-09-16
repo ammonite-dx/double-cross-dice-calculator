@@ -515,9 +515,8 @@ function summarizePlan(plan) {
     warnings: Array.isArray(plan.warnings) ? clone(plan.warnings) : [],
     estimates: plan.estimates
       ? {
-          timeMs: plan.estimates.timeMs ?? null,
+          cpuWork: plan.estimates.cpuWork ?? null,
           memoryBytes: plan.estimates.float64Bytes ?? null,
-          operations: plan.estimates.operations ?? null,
         }
       : null,
     damage: plan.damage
@@ -849,7 +848,7 @@ function createReport(cases, cancel, stale) {
     policies: {
       production: 'CalculationClient.planAttackCombo(params) default policy',
       benchmark: clone(FULL_TAIL_ATTACK_BENCHMARK_POLICY),
-      benchmarkScope: 'RangePlanner thresholds and scorePropagation only; calculationMax/display/costModel and runtime absolute caps remain default',
+      benchmarkScope: 'RangePlanner resource limits and scorePropagation only; calculationMax/display and runtime absolute caps remain default',
     },
     caseIds: FULL_TAIL_ATTACK_CASE_IDS.slice(),
     caseCounts,

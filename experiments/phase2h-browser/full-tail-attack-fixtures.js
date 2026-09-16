@@ -78,18 +78,10 @@ const SCORE_FOR_400_OR_600_DAMAGE_DICE = scoreParams({
 export const FULL_TAIL_ATTACK_BENCHMARK_POLICY = Object.freeze({
   scorePropagation: 'full-tail',
   limits: Object.freeze({
-    warning: Object.freeze({
-      estimatedTimeMs: Number.MAX_SAFE_INTEGER,
-      estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
-      workingLength: Number.MAX_SAFE_INTEGER,
-      fftLength: Number.MAX_SAFE_INTEGER,
-    }),
-    hard: Object.freeze({
-      estimatedTimeMs: Number.MAX_SAFE_INTEGER,
-      estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
-      workingLength: Number.MAX_SAFE_INTEGER,
-      fftLength: Number.MAX_SAFE_INTEGER,
-    }),
+    maxCpuWork: Number.MAX_SAFE_INTEGER,
+    estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
+    workingLength: Number.MAX_SAFE_INTEGER,
+    fftLength: Number.MAX_SAFE_INTEGER,
   }),
 })
 
@@ -148,4 +140,3 @@ export const FULL_TAIL_ATTACK_CASES = Object.freeze([
 export const FULL_TAIL_ATTACK_CASE_IDS = Object.freeze(
   FULL_TAIL_ATTACK_CASES.map((testCase) => testCase.id)
 )
-
