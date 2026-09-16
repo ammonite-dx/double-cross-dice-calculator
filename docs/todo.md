@@ -631,3 +631,12 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - 検証: CPUワークの等号境界、混合操作、分数のDamage Roll式、Backtrack生成量、旧policy拒否、Total Damage超過、DisplayRangePlanner、ResourceGuard metadataをunit testとtypecheckで固定した。最終HEADで`npm run verify:release`、`npm run audit:r23:damage-precision`、`npm run audit:r23:damage-tail`、`git diff --check`を実行し、data 32 assets、Vitest 103ファイル／1052テスト、generator通常18件・simulation13件、Ruff、typecheck、ESLint、Markdown lint 67ファイル／0 issues、build、production smoke、runtime DX 20,000ケースをGREENで確認した。
 - 状態: R25-Gは`8057c51`（core／tests）、`f6d03eb`（benchmark harness）、`4f27d18`（docs）で実装・検証を完了し、作業ツリーをcleanにした。CPUワークを導入した現行policyと、時間見積りを含むR22〜R24の履歴資料を分離して保持する。
 - 詳細: [`r25-g-resource-policy-cleanup.md`](./r25-g-resource-policy-cleanup.md)と[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
+
+## R25-H Validation Responsibility Cleanup（完了、2026-09-16）
+
+- H1（`23b08b6`）: `CalculationInputNormalization.ts`を追加し、Score、difficulty、Attack／防御damage、reaction、Backtrackの入力正規化をdomainへ集約した。`isSupportedScoreFeatureCombination`をprimitive validationから分離し、非対応の《妖精の手》／《支配の領域》組合せを計画拒否へ残した。
+- H2（`b69f528`）: Score／Damage／Backtrack plannerと`CalculationClient`をdomain正規化へ接続した。raw／canonical Evasion、strict difficulty、Lois境界、入力snapshot、既存の`CalculationRangeError`／`incompatible-input`経路をテストで固定し、Calculator-level validationは維持した。
+- H3（`552d769`）: Runtime Damage Workerのwire境界にobject／array／primitiveと非負safe integerの`id`検証を追加した。valid IDのpayloadエラーはジョブ単位の`{ id, error }`として返し、ID不正のprotocol破損は応答を捏造せずWorker-level failureへ渡す。既存のWorker lifecycle、queue、cache、Abort、応答shapeは維持した。
+- H4（`4411aa5`）: shared validationへ表示座標・点数・モードpredicateを追加し、Check／Attack snapshotとCheckRangePolicyで再利用した。Score互換性ruleとBacktrackの残存ロイス上限をdomain正本へ接続し、Attack Evasionのderived skill overflowを安全に拒否する。UIのメッセージ・表示条件・resource plannerは変更していない。
+- H5（本コミット）: domain、UI、CalculationClient、RangePlanner、Calculator、Worker wire boundaryの責務と、繰り返し検証が必要な理由を[`r25-h-validation-responsibilities.md`](./r25-h-validation-responsibilities.md)へ記録した。
+- 検証: H1〜H4のtargeted test、typecheck、ESLintを成功させた。文書コミット後に`npm run check:node`、`npm test`、generator通常／simulation、Ruff、typecheck、runtime DX、ESLint、Markdown lint、build、production smoke、`verify:release`、`git diff --check`を実行してR25-Hを`CLOSED / GREEN`とする。
