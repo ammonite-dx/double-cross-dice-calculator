@@ -25,13 +25,18 @@ const RANGE_REASON_BY_CODE = Object.freeze({
   'attack-score-display-not-projectable': 'AttackのScore計算結果を指定の表示範囲へ安全に投影できません。表示範囲を狭めて再入力してください。',
   'attack-summary-not-projectable': '期待値が正確値でないため、サマリーの数値を表示できません。',
   'incompatible-input': '《妖精の手》と《支配の領域》は同時に使用できません。',
-  'score-working-length': '判定計算の作業範囲が大きくなっています。',
-  'score-fft-length': '判定計算のFFT範囲が大きくなっています。',
-  'damage-working-length': 'ダメージ計算の作業範囲が大きくなっています。',
-  'damage-fft-length': 'ダメージ計算のFFT範囲が大きくなっています。',
-  'backtrack-working-length': 'バックトラック計算の作業範囲が大きくなっています。',
+  'score-working-length': '判定計算の作業範囲が上限を超えています。',
+  'score-fft-length': '判定計算のFFT範囲が上限を超えています。',
+  'damage-working-length': 'ダメージ計算の作業範囲が上限を超えています。',
+  'damage-fft-length': 'ダメージ計算のFFT範囲が上限を超えています。',
+  'damage-generation': 'ダメージロールの計算量が上限を超えています。',
+  'defence-d10-length': '防御側の10面ダイス計算範囲が上限を超えています。',
+  'defence-d10-generation': '防御側の10面ダイス生成計算量が上限を超えています。',
+  'backtrack-working-length': 'バックトラック計算の作業範囲が上限を超えています。',
+  'backtrack-generation': 'バックトラックの生成計算量が上限を超えています。',
   'backtrack-asset-overflow': '静的なバックトラック用データのcoverageが不足しています（計算結果のoverflowではありません）。完全supportはオンデマンド計算を使用してください。',
   'estimated-memory': '計算に必要なメモリが上限を超えています。',
+  'cpu-work': '計算量が上限を超えています。',
   'tail-cutoff-unreachable': '判定の末尾誤差を指定範囲まで抑えられません。',
   'tail-error': '判定の末尾誤差が許容値を超えています。',
 })
@@ -73,8 +78,13 @@ function formatWarningReason(warning) {
   if (!warning || typeof warning !== 'object') {
     return '計算範囲の制限により、計算を続けられません。'
   }
-  return RANGE_REASON_BY_CODE[warning.code]
-    ?? '計算範囲の制限により、計算できる範囲を調整しています。'
+  const reason = RANGE_REASON_BY_CODE[warning.code]
+  if (reason) {
+    return reason
+  }
+  return warning.severity === 'reject'
+    ? '計算資源または計算範囲の上限を超えています。'
+    : '計算範囲の制限により、計算できる範囲を調整しています。'
 }
 
 function formatResourceGuardReason(error) {

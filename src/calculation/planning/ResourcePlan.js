@@ -3,7 +3,10 @@ import {
   D10_MAX_GENERATION_OPERATIONS,
 } from '../D10Calculator'
 import { BACKTRACK_MAX_GENERATION_OPERATIONS } from '../BacktrackLimits'
-import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from '../RuntimeDamageRollLimits'
+import {
+  RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
+  RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
+} from '../RuntimeDamageRollLimits'
 import {
   calculateCpuWork,
   fftOperationCount,
@@ -217,6 +220,14 @@ export function applyLimits(plan, policy) {
       plan.damage.maxDamageDice + 1,
       RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
       'elements'
+    )
+    accepted = rejectMetric(
+      warnings,
+      accepted,
+      'damage-generation',
+      plan.damage.operations,
+      RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
+      'operations'
     )
     accepted = rejectMetric(
       warnings,

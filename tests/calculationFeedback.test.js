@@ -83,6 +83,45 @@ describe('CalculationFeedback', () => {
     expect(display.action).toContain('入力値を下げる')
   })
 
+  it.each([
+    ['cpu-work', '計算量が上限を超えています。'],
+    ['score-working-length', '判定計算の作業範囲が上限を超えています。'],
+    ['score-fft-length', '判定計算のFFT範囲が上限を超えています。'],
+    ['damage-generation', 'ダメージロールの計算量が上限を超えています。'],
+    ['damage-working-length', 'ダメージ計算の作業範囲が上限を超えています。'],
+    ['damage-fft-length', 'ダメージ計算のFFT範囲が上限を超えています。'],
+    ['defence-d10-length', '防御側の10面ダイス計算範囲が上限を超えています。'],
+    ['defence-d10-generation', '防御側の10面ダイス生成計算量が上限を超えています。'],
+    ['backtrack-working-length', 'バックトラック計算の作業範囲が上限を超えています。'],
+    ['backtrack-generation', 'バックトラックの生成計算量が上限を超えています。'],
+  ])('formats %s as an explicit hard-limit reason', (code, reason) => {
+    const display = formatRangeFeedback({
+      status: 'rejected',
+      plan: {
+        accepted: false,
+        rejectionReasons: [code],
+        warnings: [{ code, severity: 'reject' }],
+      },
+    })
+
+    expect(display.reasons).toEqual([reason])
+  })
+
+  it('uses a reject-oriented fallback for unknown hard-limit codes', () => {
+    const display = formatRangeFeedback({
+      status: 'rejected',
+      plan: {
+        accepted: false,
+        rejectionReasons: ['future-resource-limit'],
+        warnings: [{ code: 'future-resource-limit', severity: 'reject' }],
+      },
+    })
+
+    expect(display.reasons).toEqual([
+      '計算資源または計算範囲の上限を超えています。',
+    ])
+  })
+
   it('formats DisplayRangePlanner resource reasons without exposing internal codes', () => {
     const display = formatRangeFeedback({
       status: 'rejected',

@@ -1147,6 +1147,36 @@ describe('production range planner', () => {
     expect(justAbove.rejectionReasons).toContain('defence-d10-generation')
   })
 
+  it('rejects Damage Roll operations above the runtime absolute guard even with a raised CPU budget', () => {
+    const plan = planCalculationRanges(attackParams({
+      score: {
+        action: scoreParams({ critical: 11 }),
+        reaction: scoreParams({ critical: 11 }),
+      },
+      attack: { dice: 500, value: 0, kazanari: 500 },
+      defence: { dice: 0, value: 0 },
+    }), {
+      scorePropagation: 'full-tail',
+      limits: {
+        ...PERMISSIVE_LIMITS,
+        maxCpuWork: Number.MAX_SAFE_INTEGER,
+      },
+    })
+
+    expect(plan.damage.operations).toBeGreaterThan(
+      RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE
+    )
+    expect(plan.accepted).toBe(false)
+    expect(plan.rejectionReasons).toContain('damage-generation')
+    expect(plan.rejectionReasons).not.toContain('cpu-work')
+    expect(plan.warnings).toContainEqual(expect.objectContaining({
+      code: 'damage-generation',
+      severity: 'reject',
+      value: plan.damage.operations,
+      limit: RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
+    }))
+  })
+
   it('retains the public overflow score bucket for a lower calculation maximum', () => {
     const params = attackParams()
     const published = planCalculationRanges(params, {

@@ -25,9 +25,9 @@ export const DX_CRITICAL_MIN = 2
 export const DX_CRITICAL_MAX = 11
 export const DX_SHIHAI_MIN = 0
 // These are absolute implementation-safety limits, not game input limits.
-// The planner normally rejects much smaller requests based on estimated
-// memory/time, while direct callers still need a finite guard before a
-// quadratic DP or an oversized typed-array allocation is attempted.
+// The planner normally rejects much smaller requests based on the shared
+// CPU-work and memory policy, while direct callers still need a finite guard
+// before a quadratic DP or oversized typed-array allocation is attempted.
 export const DX_MAX_CALCULATION_OPERATIONS = 2_000_000_000
 export const DX_MAX_CALCULATION_BYTES = 512 * 1024 * 1024
 
