@@ -2,8 +2,10 @@ import {
   D10_MAX_GENERATION_LENGTH,
   D10_MAX_GENERATION_OPERATIONS,
 } from '../D10Calculator'
+import { BACKTRACK_MAX_GENERATION_OPERATIONS } from '../BacktrackLimits'
 import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from '../RuntimeDamageRollLimits'
 import {
+  calculateCpuWork,
   fftOperationCount,
   nextPowerOfTwo,
 } from './PlanningMath'
@@ -12,40 +14,22 @@ function addWarning(warnings, code, severity, message, value, limit) {
   warnings.push({ code, severity, message, value, limit })
 }
 
-function classifyMetric(
-  warnings,
-  accepted,
-  code,
-  value,
-  warningLimit,
-  hardLimit,
-  unit
-) {
-  if (value > hardLimit) {
+function rejectMetric(warnings, accepted, code, value, limit, unit) {
+  if (!Number.isFinite(value) || value > limit) {
     addWarning(
       warnings,
       code,
       'reject',
-      `${code} exceeds the hard limit`,
+      `${code} exceeds the configured limit${unit ? ` (${unit})` : ''}`,
       value,
-      hardLimit
+      limit
     )
     return false
-  }
-  if (value > warningLimit) {
-    addWarning(
-      warnings,
-      code,
-      'warning',
-      `${code} exceeds the warning limit (${unit})`,
-      value,
-      warningLimit
-    )
   }
   return accepted
 }
 
-export function planResources(scorePlans, damagePlan, comboCount, policy) {
+export function planResources(scorePlans, damagePlan, comboCount) {
   const scoreOperations = scorePlans.reduce(
     (sum, plan) => sum + plan.operations,
     0
@@ -65,38 +49,29 @@ export function planResources(scorePlans, damagePlan, comboCount, policy) {
     : 0
   const damageFftOperations = damagePlan.fftOperations + comboFftOperations
   const defenceD10Operations = damagePlan.defenceD10Operations ?? 0
-  const defenceD10TimeMs =
-    defenceD10Operations / policy.costModel.damageOperationsPerMs
-  const operations = scoreOperations + scoreFftOperations +
-    damagePlan.operations + damageFftOperations + defenceD10Operations
-  const dxTimeMs = scoreOperations / policy.costModel.dxOperationsPerMs
-  const damageTimeMs =
-    damagePlan.operations / policy.costModel.damageOperationsPerMs +
-    defenceD10TimeMs
-  const fftTimeMs =
-    (scoreFftOperations + damageFftOperations) /
-    policy.costModel.fftOperationsPerMs
+  const fftOperations = scoreFftOperations + damageFftOperations
+  const damageOperations = damagePlan.operations
 
   return {
-    operations,
-    timeMs: dxTimeMs + damageTimeMs + fftTimeMs,
-    dxTimeMs,
-    damageTimeMs,
-    fftTimeMs,
+    cpuWork: calculateCpuWork({
+      scoreOperations,
+      damageOperations,
+      defenceD10Operations,
+      fftOperations,
+    }),
     float64Bytes: scoreBytes + damagePlan.float64Bytes +
       (damagePlan.defenceD10Float64Bytes ?? 0),
     scoreOperations,
     scoreFftOperations,
-    damageOperations: damagePlan.operations,
+    damageOperations,
     damageFftOperations,
     defenceD10Operations,
-    defenceD10TimeMs,
     defenceD10Float64Bytes: damagePlan.defenceD10Float64Bytes ?? 0,
     totalDamageFftOperations: damageFftOperations,
   }
 }
 
-export function scoreOnlyResources(scores, policy) {
+export function scoreOnlyResources(scores) {
   const scoreOperations = scores.reduce(
     (sum, score) => sum + score.operations,
     0
@@ -105,14 +80,11 @@ export function scoreOnlyResources(scores, policy) {
     (sum, score) => sum + score.fftOperations,
     0
   )
-  const dxTimeMs = scoreOperations / policy.costModel.dxOperationsPerMs
-  const fftTimeMs = scoreFftOperations / policy.costModel.fftOperationsPerMs
   return {
-    operations: scoreOperations + scoreFftOperations,
-    timeMs: dxTimeMs + fftTimeMs,
-    dxTimeMs,
-    damageTimeMs: 0,
-    fftTimeMs,
+    cpuWork: calculateCpuWork({
+      scoreOperations,
+      fftOperations: scoreFftOperations,
+    }),
     float64Bytes: scores.reduce(
       (sum, score) => sum + score.float64Bytes,
       0
@@ -124,22 +96,17 @@ export function scoreOnlyResources(scores, policy) {
   }
 }
 
-export function backtrackResources(backtrack, policy) {
-  const backtrackTimeMs =
-    backtrack.operations / policy.costModel.backtrackOperationsPerMs
+export function backtrackResources(backtrack) {
   return {
-    operations: backtrack.operations,
-    timeMs: backtrackTimeMs,
-    dxTimeMs: 0,
-    damageTimeMs: 0,
-    fftTimeMs: 0,
+    cpuWork: calculateCpuWork({
+      backtrackOperations: backtrack.operations,
+    }),
     float64Bytes: backtrack.float64Bytes,
     scoreOperations: 0,
     scoreFftOperations: 0,
     damageOperations: 0,
     damageFftOperations: 0,
     backtrackOperations: backtrack.operations,
-    backtrackTimeMs,
   }
 }
 
@@ -154,7 +121,7 @@ export function applyLimits(plan, policy) {
       warnings,
       'display-points',
       'reject',
-      'display point count exceeds the hard display limit',
+      'display point count exceeds the configured limit',
       plan.display.points,
       policy.display.maxPoints
     )
@@ -176,35 +143,40 @@ export function applyLimits(plan, policy) {
       )
       accepted = false
     }
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'score-working-length',
       score.workingLength,
-      limits.warning.workingLength,
-      limits.hard.workingLength,
+      limits.workingLength,
       'elements'
     )
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'score-fft-length',
       score.fftLength,
-      limits.warning.fftLength,
-      limits.hard.fftLength,
+      limits.fftLength,
       'elements'
     )
   }
 
   if (plan.backtrack) {
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'backtrack-working-length',
       plan.backtrack.workingLength,
-      limits.warning.workingLength,
-      limits.hard.workingLength,
+      limits.workingLength,
       'elements'
+    )
+    accepted = rejectMetric(
+      warnings,
+      accepted,
+      'backtrack-generation',
+      plan.backtrack.generationOperations,
+      BACKTRACK_MAX_GENERATION_OPERATIONS,
+      'operations'
     )
     if (
       plan.backtrack.assetOverflow &&
@@ -222,70 +194,63 @@ export function applyLimits(plan, policy) {
   }
 
   if (plan.damage) {
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'defence-d10-length',
       plan.damage.defenceD10Length,
       D10_MAX_GENERATION_LENGTH,
-      D10_MAX_GENERATION_LENGTH,
       'elements'
     )
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'defence-d10-generation',
       plan.damage.defenceD10Operations,
       D10_MAX_GENERATION_OPERATIONS,
-      D10_MAX_GENERATION_OPERATIONS,
       'operations'
     )
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'damage-weight-length',
       plan.damage.maxDamageDice + 1,
       RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
-      RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
       'elements'
     )
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'damage-working-length',
       plan.damage.workingLength,
-      limits.warning.workingLength,
-      limits.hard.workingLength,
+      limits.workingLength,
       'elements'
     )
-    accepted = classifyMetric(
+    accepted = rejectMetric(
       warnings,
       accepted,
       'damage-fft-length',
       Math.max(plan.damage.fftLength, plan.damage.defenceFftLength),
-      limits.warning.fftLength,
-      limits.hard.fftLength,
+      limits.fftLength,
       'elements'
     )
   }
 
-  accepted = classifyMetric(
+  accepted = rejectMetric(
     warnings,
     accepted,
     'estimated-memory',
     plan.estimates.float64Bytes,
-    limits.warning.estimatedMemoryBytes,
-    limits.hard.estimatedMemoryBytes,
+    limits.estimatedMemoryBytes,
     'bytes'
   )
-  accepted = classifyMetric(
+  accepted = rejectMetric(
     warnings,
     accepted,
-    'estimated-time',
-    plan.estimates.timeMs,
-    limits.warning.estimatedTimeMs,
-    limits.hard.estimatedTimeMs,
-    'ms'
+    'cpu-work',
+    plan.estimates.cpuWork,
+    limits.maxCpuWork,
+    'work units'
   )
 
   for (const score of plan.scores) {

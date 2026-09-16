@@ -10,8 +10,7 @@ import {
   sumDamage,
 } from '../src/calculation/DamageAggregation'
 import {
-  DEFAULT_FFT_OPERATIONS_PER_MS,
-  DEFAULT_HARD_ESTIMATED_TIME_MS,
+  DEFAULT_MAX_CPU_WORK,
   fftOperationCount,
 } from '../src/calculation/planning/PlanningMath'
 import {
@@ -520,7 +519,7 @@ describe('canonical damage aggregation', () => {
     ])
   })
 
-  it('uses the shared three-transform FFT cost and publishes a time estimate', () => {
+  it('uses the shared three-transform FFT cost and publishes CPU work', () => {
     const plan = planDamageAggregation([
       createEnvelope({ values: [0.5, 0.5] }),
       createEnvelope({ values: [0.25, 0.75] }),
@@ -528,11 +527,7 @@ describe('canonical damage aggregation', () => {
     const expectedOperations = fftOperationCount(plan.steps[0].fftLength)
 
     expect(plan.estimates.operations).toBe(expectedOperations)
-    expect(plan.estimates.timeMs).toBeGreaterThan(0)
-    expect(plan.estimates.timeMs).toBeCloseTo(
-      expectedOperations / DEFAULT_FFT_OPERATIONS_PER_MS,
-      12
-    )
+    expect(plan.estimates.cpuWork).toBe(expectedOperations)
   })
 
   it('rejects CPU-heavy but memory-light aggregation during planning', () => {
@@ -550,19 +545,19 @@ describe('canonical damage aggregation', () => {
     )
 
     expect(error.details).toMatchObject({
-      limit: DEFAULT_HARD_ESTIMATED_TIME_MS,
-      throughput: DEFAULT_FFT_OPERATIONS_PER_MS,
+      limit: DEFAULT_MAX_CPU_WORK,
+      cpuWork: expect.any(Number),
     })
-    expect(error.details.timeMs).toBeGreaterThan(
-      DEFAULT_HARD_ESTIMATED_TIME_MS
+    expect(error.details.cpuWork).toBeGreaterThan(
+      DEFAULT_MAX_CPU_WORK
     )
     expect(error.details.operations).toBeGreaterThan(0)
     // The case remains below the independent memory, length, FFT, and
-    // component ceilings; rejection is solely the estimated CPU time.
+    // component ceilings; rejection is solely the CPU-work limit.
     expect(error.details).not.toHaveProperty('resourceBytes')
   })
 
-  it('accepts many components when estimated work stays below the time limit', () => {
+  it('accepts many components when estimated work stays below the CPU limit', () => {
     const damages = Array.from({ length: DAMAGE_AGGREGATION_MAX_COMPONENTS }, () =>
       createEnvelope({
         values: [0.5, 0.5],
@@ -573,10 +568,8 @@ describe('canonical damage aggregation', () => {
     const plan = planDamageAggregation(damages)
 
     expect(plan.componentCount).toBe(DAMAGE_AGGREGATION_MAX_COMPONENTS)
-    expect(plan.estimates.timeMs).toBeGreaterThan(0)
-    expect(plan.estimates.timeMs).toBeLessThan(
-      DEFAULT_HARD_ESTIMATED_TIME_MS
-    )
+    expect(plan.estimates.cpuWork).toBeGreaterThan(0)
+    expect(plan.estimates.cpuWork).toBeLessThan(DEFAULT_MAX_CPU_WORK)
     expect(plan.estimates.float64Bytes).toBeLessThan(
       DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES
     )

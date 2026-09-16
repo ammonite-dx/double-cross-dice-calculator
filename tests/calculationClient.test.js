@@ -153,7 +153,7 @@ describe('canonical CalculationClient surface', () => {
       planCalculationRanges,
     }))
     const params = attackParams()
-    const policy = { limits: { hard: { estimatedTimeMs: 1 } } }
+    const policy = { limits: { maxCpuWork: 1 } }
 
     expect(client.planCheck({
       action: { ...scoreParams },

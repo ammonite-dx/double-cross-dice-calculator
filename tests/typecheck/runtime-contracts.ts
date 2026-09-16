@@ -25,7 +25,7 @@ void damageClient.calculate([1], 0, { signal: new AbortController().signal })
 void worker
 void guard.acquireForPlan({
   operation: 'damage',
-  estimates: { float64Bytes: 1024, operations: 4, timeMs: 1 },
+  estimates: { float64Bytes: 1024 },
 })
 
 const request: RuntimeDamageRollWorkerRequest = {

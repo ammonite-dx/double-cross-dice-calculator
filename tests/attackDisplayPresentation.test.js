@@ -374,8 +374,9 @@ describe('createAttackDisplayPresentation', () => {
       max: 2,
       mode: ATTACK_DISPLAY_MODES.PMF,
     }, {
-      warning: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
-      hard: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
+      pointCount: 2,
+      float64Bytes: 16,
+      chartPoints: 2,
     })
 
     expect(presentation.status).toBe('not-ready')

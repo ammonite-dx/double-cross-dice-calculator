@@ -154,10 +154,10 @@ export function planCalculationRanges(params, policy = {}) {
   }
 
   const estimates = backtrack
-    ? backtrackResources(backtrack, effectivePolicy)
+    ? backtrackResources(backtrack)
     : damage
-      ? planResources(scores, damage, comboCount, effectivePolicy)
-      : scoreOnlyResources(scores, effectivePolicy)
+      ? planResources(scores, damage, comboCount)
+      : scoreOnlyResources(scores)
 
   const result = {
     accepted: true,

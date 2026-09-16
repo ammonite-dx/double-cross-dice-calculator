@@ -20,18 +20,11 @@ export interface RangeDisplayPolicy {
   readonly maxPoints: number
 }
 
-export interface RangeLimitSet {
-  readonly estimatedTimeMs: number
+export interface RangeLimits {
+  readonly maxCpuWork: number
   readonly estimatedMemoryBytes: number
   readonly workingLength: number
   readonly fftLength: number
-}
-
-export interface RangeCostModel {
-  readonly dxOperationsPerMs: number
-  readonly fftOperationsPerMs: number
-  readonly damageOperationsPerMs: number
-  readonly backtrackOperationsPerMs: number
 }
 
 /** Fully merged policy returned by the planner's policy helper. */
@@ -40,11 +33,7 @@ export interface RangePolicy {
   readonly calculationMax: number
   readonly errorBudget: RangeErrorBudget
   readonly display: RangeDisplayPolicy
-  readonly limits: {
-    readonly warning: RangeLimitSet
-    readonly hard: RangeLimitSet
-  }
-  readonly costModel: RangeCostModel
+  readonly limits: RangeLimits
 }
 
 /** Nested partial accepted by mergePolicy/create*RangePolicy boundaries. */
@@ -53,11 +42,7 @@ export type RangePolicyInput = Readonly<{
   readonly calculationMax?: number
   readonly errorBudget?: Readonly<Partial<RangeErrorBudget>>
   readonly display?: Readonly<Partial<RangeDisplayPolicy>>
-  readonly limits?: Readonly<{
-    readonly warning?: Readonly<Partial<RangeLimitSet>>
-    readonly hard?: Readonly<Partial<RangeLimitSet>>
-  }>
-  readonly costModel?: Readonly<Partial<RangeCostModel>>
+  readonly limits?: Readonly<Partial<RangeLimits>>
 }>
 
 /** Normalized display coordinates returned inside every calculation plan. */
@@ -80,23 +65,16 @@ export interface RangePlanWarning {
 
 /** Common resource estimate fields; operation-specific fields are optional. */
 export interface RangePlanEstimates {
-  readonly operations: number
-  readonly timeMs: number
+  readonly cpuWork: number
   readonly float64Bytes: number
-  readonly dxTimeMs?: number
-  readonly damageTimeMs?: number
-  readonly fftTimeMs?: number
   readonly scoreOperations?: number
   readonly scoreFftOperations?: number
   readonly damageOperations?: number
   readonly damageFftOperations?: number
   readonly defenceD10Operations?: number
-  readonly defenceD10TimeMs?: number
   readonly defenceD10Float64Bytes?: number
   readonly totalDamageFftOperations?: number
   readonly backtrackOperations?: number
-  readonly backtrackTimeMs?: number
-  readonly [metric: string]: number | undefined
 }
 
 export interface ScoreSupportPlan {
@@ -211,6 +189,7 @@ export interface BacktrackRangePlan {
   readonly workingMax: number
   readonly workingLength: number
   readonly fftLength: 0
+  readonly generationOperations: number
   readonly operations: number
   readonly float64Bytes: number
   readonly finiteSupport: true

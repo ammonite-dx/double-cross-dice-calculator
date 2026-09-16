@@ -7,9 +7,6 @@ export interface ResourceGuardPolicy {
 
 export interface ResourceReservationEstimate {
   readonly float64Bytes?: number
-  readonly operations?: number
-  readonly timeMs?: number
-  readonly [metric: string]: number | undefined
 }
 
 /** Structural plan metadata accepted by ResourceGuard, independent of operation. */
@@ -26,8 +23,6 @@ export interface ResourceGuardAcquireOptions {
 
 export interface ResourceGuardRequest extends ResourceGuardAcquireOptions {
   readonly float64Bytes?: number
-  readonly operations?: number
-  readonly timeMs?: number
   readonly estimate?: ResourceReservationEstimate
   readonly estimateAvailable?: boolean
 }
@@ -37,8 +32,6 @@ export interface ResourceLeaseMetadata {
   readonly requestId: string | number | null | undefined
   readonly float64Bytes: number
   readonly reservedBytes: number
-  readonly operations: number | null
-  readonly timeMs: number | null
   readonly estimateAvailable: boolean
   readonly state: 'active' | 'queued' | 'released' | 'aborted'
 }

@@ -22,18 +22,11 @@ export const DISPLAY_RANGE_PLANNER_ERROR_CODES = Object.freeze({
 
 // These are resource budgets, not display-input limits. In particular, the
 // legacy 999/1000 boundary is intentionally not reused here. Applications
-// may replace every threshold with a device- or route-specific policy.
+// may replace every limit with a route-specific policy.
 export const DEFAULT_DISPLAY_RANGE_PLANNER_POLICY = Object.freeze({
-  warning: Object.freeze({
-    pointCount: 4_096,
-    float64Bytes: 32 * 1024 * 1024,
-    chartPoints: 4_096,
-  }),
-  hard: Object.freeze({
-    pointCount: 16_384,
-    float64Bytes: 64 * 1024 * 1024,
-    chartPoints: 16_384,
-  }),
+  pointCount: 16_384,
+  float64Bytes: 64 * 1024 * 1024,
+  chartPoints: 16_384,
 })
 
 function hasOwn(object, property) {
@@ -644,46 +637,20 @@ function normalizePolicy(policy) {
     'policy.limits must be a plain record'
   )
 
-  const warningInput = hasOwn(source, 'warning')
-    ? getOwnDataProperty(
-        source,
-        'warning',
-        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
-        'policy.limits'
-      )
-    : undefined
-  const hardInput = hasOwn(source, 'hard')
-    ? getOwnDataProperty(
-        source,
-        'hard',
-        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
-        'policy.limits'
-      )
-    : undefined
-  const warning = {
-    ...DEFAULT_DISPLAY_RANGE_PLANNER_POLICY.warning,
-    ...normalizeLimitRecord(warningInput, 'policy.warning'),
-  }
-  const hard = {
-    ...DEFAULT_DISPLAY_RANGE_PLANNER_POLICY.hard,
-    ...normalizeLimitRecord(hardInput, 'policy.hard'),
-  }
-
-  for (const metric of ['pointCount', 'float64Bytes', 'chartPoints']) {
-    if (warning[metric] > hard[metric]) {
+  for (const limitKind of ['warning', 'hard']) {
+    if (hasOwn(source, limitKind)) {
       fail(
         DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
-        `policy.warning.${metric} must not exceed policy.hard.${metric}`,
-        {
-          warning: warning[metric],
-          hard: hard[metric],
-          metric,
-        }
+        `policy.limits.${limitKind} is no longer supported; use policy.limits directly`,
+        { path: `policy.limits.${limitKind}` }
       )
     }
   }
 
-  return { warning, hard }
+  return {
+    ...DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
+    ...normalizeLimitRecord(source, 'policy.limits'),
+  }
 }
 
 function getInvocationOptions(display, options, policyOverride) {
@@ -877,35 +844,23 @@ function classifyResources(estimates, policy) {
   ]
 
   for (const metric of metrics) {
-    const warningLimit = policy.warning[metric.name]
-    const hardLimit = policy.hard[metric.name]
-    if (metric.value > hardLimit) {
+    const limit = policy[metric.name]
+    if (!Number.isFinite(metric.value) || metric.value > limit) {
       warnings.push({
         code: metric.code,
         severity: 'reject',
         message: `${metric.name} exceeds the hard display resource limit`,
         value: metric.value,
-        limit: hardLimit,
+        limit,
         unit: metric.unit,
       })
       accepted = false
-    } else if (metric.value > warningLimit) {
-      warnings.push({
-        code: metric.code,
-        severity: 'warning',
-        message: `${metric.name} exceeds the warning display resource limit`,
-        value: metric.value,
-        limit: warningLimit,
-        unit: metric.unit,
-      })
     }
   }
 
   return {
     accepted,
-    status: accepted
-      ? warnings.length > 0 ? 'warning' : 'accepted'
-      : 'rejected',
+    status: accepted ? 'accepted' : 'rejected',
     warnings,
     rejectionReasons: warnings
       .filter((warning) => warning.severity === 'reject')
@@ -1042,8 +997,7 @@ export function createDisplayRangePlanner(policy = {}) {
   const normalizedPolicy = normalizePolicy(policy)
   return Object.freeze({
     policy: deepFreeze({
-      warning: { ...normalizedPolicy.warning },
-      hard: { ...normalizedPolicy.hard },
+      ...normalizedPolicy,
     }),
     plan(display, options) {
       if (options === undefined) {

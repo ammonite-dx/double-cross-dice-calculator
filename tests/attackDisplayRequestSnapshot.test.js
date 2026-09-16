@@ -132,7 +132,7 @@ describe('Attack display request snapshot', () => {
     const suppliedPolicy = {
       calculationMax: 100,
       display: { maxPoints: 2 },
-      limits: { hard: { workingLength: 20 } },
+      limits: { workingLength: 20 },
     }
     const policy = createAttackRangePolicy({
       min: 10,

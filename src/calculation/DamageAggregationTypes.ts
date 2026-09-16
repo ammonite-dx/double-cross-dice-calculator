@@ -20,13 +20,12 @@ export interface DamageAggregationPlanStep {
   readonly fftLength: number
   readonly resourceBytes: number
   readonly operations: number
-  readonly timeMs: number
 }
 
 export interface DamageAggregationPlanEstimates {
   readonly float64Bytes: number
   readonly operations: number
-  readonly timeMs: number
+  readonly cpuWork: number
   readonly persistentBytes: number
   readonly peakResourceBytes: number
   readonly fftLengths: readonly number[]

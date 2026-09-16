@@ -20,11 +20,10 @@ function createDeferred() {
 const warningPlan = {
   accepted: true,
   warnings: [
-    { code: 'estimated-time', severity: 'warning' },
     { code: 'backtrack-asset-overflow', severity: 'warning' },
   ],
   estimates: {
-    timeMs: 52.5,
+    cpuWork: 52.5,
     float64Bytes: 2 * 1024 * 1024,
   },
   overflowInfo: {
@@ -35,12 +34,11 @@ const warningPlan = {
 
 const rejectionPlan = {
   accepted: false,
-  rejectionReasons: ['estimated-time'],
+  rejectionReasons: ['estimated-memory'],
   warnings: [
-    { code: 'estimated-time', severity: 'reject' },
+    { code: 'estimated-memory', severity: 'reject' },
   ],
   estimates: {
-    timeMs: 201,
     float64Bytes: 65 * 1024 * 1024,
   },
   overflowInfo: {
@@ -64,10 +62,9 @@ describe('CalculationFeedback', () => {
     })
 
     expect(display.type).toBe('warning')
-    expect(display.reasons).toContain('計算に時間がかかる可能性があります。')
     expect(display.reasons).toContain('静的なバックトラック用データのcoverageが不足しています（計算結果のoverflowではありません）。完全supportはオンデマンド計算を使用してください。')
-    expect(display.metrics.time).toBe('52.5 ms')
     expect(display.metrics.memory).toBe('2 MiB')
+    expect(display.metrics).not.toHaveProperty('time')
     expect(display.overflow).toContain('表示範囲: 1,000以上の値をまとめて扱います。')
     expect(display.overflow).toContain('バックトラックの計算範囲: 1,024以上の値をまとめて扱います。')
     expect(display.reasons.join(' ')).not.toContain('estimated-time')
@@ -82,7 +79,7 @@ describe('CalculationFeedback', () => {
 
     expect(display.type).toBe('error')
     expect(display.title).toBe('この入力では計算できません')
-    expect(display.reasons).toEqual(['計算に時間がかかる可能性があります。'])
+    expect(display.reasons).toEqual(['計算に必要なメモリが上限を超えています。'])
     expect(display.action).toContain('入力値を下げる')
   })
 

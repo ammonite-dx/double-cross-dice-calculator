@@ -4,7 +4,10 @@ import {
   DEFAULT_POLICY,
   planCalculationRanges,
 } from '../src/calculation/RangePlanner'
-import { nextPowerOfTwo } from '../src/calculation/planning/PlanningMath'
+import {
+  calculateCpuWork,
+  nextPowerOfTwo,
+} from '../src/calculation/planning/PlanningMath'
 import {
   findTailCutoff,
   maxTailFirstMomentUpperBound,
@@ -12,6 +15,10 @@ import {
 } from '../src/calculation/DxTailModel'
 import { OUTPUT_DISTRIBUTION_SIZE } from '../src/core/probability/Distribution'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
+import {
+  getRuntimeDamageRollOperationEstimate,
+  RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
+} from '../src/calculation/RuntimeDamageRollLimits'
 import {
   D10_MAX_GENERATION_OPERATIONS,
   getD10GenerationOperationEstimate,
@@ -51,18 +58,10 @@ function attackParams(overrides = {}) {
 }
 
 const PERMISSIVE_LIMITS = {
-  warning: {
-    estimatedTimeMs: Number.MAX_SAFE_INTEGER,
-    estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
-    workingLength: Number.MAX_SAFE_INTEGER,
-    fftLength: Number.MAX_SAFE_INTEGER,
-  },
-  hard: {
-    estimatedTimeMs: Number.MAX_SAFE_INTEGER,
-    estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
-    workingLength: Number.MAX_SAFE_INTEGER,
-    fftLength: Number.MAX_SAFE_INTEGER,
-  },
+  maxCpuWork: Number.MAX_SAFE_INTEGER,
+  estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
+  workingLength: Number.MAX_SAFE_INTEGER,
+  fftLength: Number.MAX_SAFE_INTEGER,
 }
 
 function createOneDieOracle(critical, maxValue) {
@@ -580,51 +579,32 @@ describe('production range planner', () => {
     expect(exactPowerOfTwo.defenceFftLength).toBe(256)
   })
 
-  it('uses exact display and resource warning/hard boundaries', () => {
+  it('uses exact display and CPU-work boundaries', () => {
     const exactDisplay = planCalculationRanges(scoreOnlyParams({
       display: { min: 0, max: 999 },
     }))
     const tooManyDisplayPoints = planCalculationRanges(scoreOnlyParams({
       display: { min: 0, max: 1000 },
     }))
-    const costModel = {
-      dxOperationsPerMs: 1,
-      fftOperationsPerMs: 1,
-      damageOperationsPerMs: 1,
-      backtrackOperationsPerMs: 1,
-    }
     const baseline = planCalculationRanges(
       scoreOnlyParams({ score: scoreParams({ critical: 2 }) }),
-      { costModel }
+      { limits: PERMISSIVE_LIMITS }
     )
-    const time = baseline.estimates.timeMs
     const exact = planCalculationRanges(
       scoreOnlyParams({ score: scoreParams({ critical: 2 }) }),
       {
-        costModel,
         limits: {
-          warning: { estimatedTimeMs: time },
-          hard: { estimatedTimeMs: time },
+          ...PERMISSIVE_LIMITS,
+          maxCpuWork: baseline.estimates.cpuWork,
         },
       }
     )
-    const warning = planCalculationRanges(
+    const rejected = planCalculationRanges(
       scoreOnlyParams({ score: scoreParams({ critical: 2 }) }),
       {
-        costModel,
         limits: {
-          warning: { estimatedTimeMs: time - 1 },
-          hard: { estimatedTimeMs: time + 1 },
-        },
-      }
-    )
-    const hard = planCalculationRanges(
-      scoreOnlyParams({ score: scoreParams({ critical: 2 }) }),
-      {
-        costModel,
-        limits: {
-          warning: { estimatedTimeMs: time - 1 },
-          hard: { estimatedTimeMs: time - 0.5 },
+          ...PERMISSIVE_LIMITS,
+          maxCpuWork: Math.max(0, baseline.estimates.cpuWork - 1),
         },
       }
     )
@@ -634,32 +614,90 @@ describe('production range planner', () => {
     expect(tooManyDisplayPoints.accepted).toBe(true)
     expect(tooManyDisplayPoints.display.points).toBe(1001)
     expect(exact.accepted).toBe(true)
-    expect(exact.warnings.some((warning) => warning.code === 'estimated-time')).toBe(false)
-    expect(warning.accepted).toBe(true)
-    expect(warning.warnings.find((item) => item.code === 'estimated-time').severity).toBe('warning')
-    expect(hard.accepted).toBe(false)
-    expect(hard.rejectionReasons).toContain('estimated-time')
+    expect(exact.warnings).toEqual([])
+    expect(rejected.accepted).toBe(false)
+    expect(rejected.rejectionReasons).toContain('cpu-work')
+    expect(() => planCalculationRanges(scoreOnlyParams(), {
+      costModel: { dxOperationsPerMs: 1 },
+    })).toThrow('costModel')
+    expect(() => planCalculationRanges(scoreOnlyParams(), {
+      limits: { warning: { workingLength: 1 } },
+    })).toThrow('warning')
+    expect(() => planCalculationRanges(scoreOnlyParams(), {
+      limits: { estimatedTimeMs: 1 },
+    })).toThrow('estimatedTimeMs')
+    expect(() => planCalculationRanges(scoreOnlyParams(), {
+      estimatedTimeMs: 1,
+    })).toThrow('estimatedTimeMs')
   })
 
-  it('separates DX/DR body cost from FFT cost', () => {
+  it('uses fixed CPU weights for score and FFT work', () => {
     const scoreParamsForTest = scoreOnlyParams({
       score: scoreParams({ dice: 10, critical: 2, yousei: 1 }),
     })
-    const common = {
-      dxOperationsPerMs: 1_000_000,
-      damageOperationsPerMs: 1_000_000,
-      backtrackOperationsPerMs: 1_000_000,
-    }
-    const slowerFft = planCalculationRanges(scoreParamsForTest, {
-      costModel: { ...common, fftOperationsPerMs: 1_000_000 },
-    })
-    const fasterFft = planCalculationRanges(scoreParamsForTest, {
-      costModel: { ...common, fftOperationsPerMs: 2_000_000 },
+    const plan = planCalculationRanges(scoreParamsForTest, {
+      limits: PERMISSIVE_LIMITS,
     })
 
-    expect(slowerFft.estimates.scoreFftOperations).toBeGreaterThan(0)
-    expect(fasterFft.estimates.timeMs).toBeLessThan(slowerFft.estimates.timeMs)
-    expect(fasterFft.estimates.dxTimeMs).toBe(slowerFft.estimates.dxTimeMs)
+    expect(plan.estimates.scoreFftOperations).toBeGreaterThan(0)
+    expect(plan.estimates.cpuWork).toBe(calculateCpuWork({
+      scoreOperations: plan.estimates.scoreOperations,
+      fftOperations: plan.estimates.scoreFftOperations,
+    }))
+  })
+
+  it('combines score, damage, defence D10, and FFT work with fixed weights', () => {
+    const plan = planCalculationRanges(attackParams({
+      score: {
+        action: scoreParams({ dice: 4, critical: 8 }),
+        reaction: scoreParams({ dice: 3, critical: 9 }),
+      },
+      attack: { dice: 6, value: 10, kazanari: 2 },
+      defence: { dice: 5, value: 4 },
+    }), {
+      limits: PERMISSIVE_LIMITS,
+    })
+    const expected =
+      8 * plan.estimates.scoreOperations +
+      32 * plan.estimates.damageOperations +
+      32 * plan.estimates.defenceD10Operations +
+      plan.estimates.scoreFftOperations +
+      plan.estimates.damageFftOperations
+
+    expect(plan.estimates.cpuWork).toBe(expected)
+    const exact = planCalculationRanges({
+      ...attackParams({
+        score: {
+          action: scoreParams({ dice: 4, critical: 8 }),
+          reaction: scoreParams({ dice: 3, critical: 9 }),
+        },
+        attack: { dice: 6, value: 10, kazanari: 2 },
+        defence: { dice: 5, value: 4 },
+      }),
+    }, {
+      limits: {
+        ...PERMISSIVE_LIMITS,
+        maxCpuWork: expected,
+      },
+    })
+    expect(exact.accepted).toBe(true)
+    const over = planCalculationRanges({
+      ...attackParams({
+        score: {
+          action: scoreParams({ dice: 4, critical: 8 }),
+          reaction: scoreParams({ dice: 3, critical: 9 }),
+        },
+        attack: { dice: 6, value: 10, kazanari: 2 },
+        defence: { dice: 5, value: 4 },
+      }),
+    }, {
+      limits: {
+        ...PERMISSIVE_LIMITS,
+        maxCpuWork: expected - 1,
+      },
+    })
+    expect(over.accepted).toBe(false)
+    expect(over.rejectionReasons).toContain('cpu-work')
   })
 
   it('uses full-tail by default while preserving explicit published-bucket compatibility', () => {
@@ -741,10 +779,11 @@ describe('production range planner', () => {
       const defenceFftLength = defence.dice > 0
         ? nextPowerOfTwo(workingLength + defenceMax)
         : 0
-      const operations =
-        (fftLength / 2 + 1) *
-        (maxDamageDice + 1) *
-        (1 + 15 * Math.log1p(attack.kazanari))
+      const operations = getRuntimeDamageRollOperationEstimate(
+        maxDamageDice + 1,
+        Math.min(attack.kazanari, maxDamageDice),
+        fftLength
+      )
       const defenceD10Length = defence.dice > 0
         ? defence.dice * 10 + 1
         : 0
@@ -989,21 +1028,18 @@ describe('production range planner', () => {
     expect(largerReaction.damage.workingMax).toBe(base.damage.workingMax)
     expect(largerReaction.damage.workingLength).toBe(base.damage.workingLength)
     expect(largerReaction.damage.fftLength).toBe(base.damage.fftLength)
-    expect(largerReaction.estimates.damageTimeMs).toBe(
-      base.estimates.damageTimeMs
-    )
     expect(largerReaction.estimates.damageFftOperations).toBe(
       base.estimates.damageFftOperations
     )
     expect(largerReaction.estimates.scoreOperations).toBeGreaterThan(
       base.estimates.scoreOperations
     )
-    expect(largerReaction.estimates.timeMs).toBeGreaterThan(
-      base.estimates.timeMs
+    expect(largerReaction.estimates.cpuWork).toBeGreaterThan(
+      base.estimates.cpuWork
     )
   })
 
-  it('applies resource warning and hard-reject thresholds to dynamic full-tail ranges', () => {
+  it('applies hard resource limits to dynamic full-tail ranges', () => {
     const params = attackParams({
       score: {
         action: scoreParams({ dice: 99, critical: 2, skill: -20 }),
@@ -1014,59 +1050,16 @@ describe('production range planner', () => {
     })
     const baseline = planCalculationRanges(params, {
       scorePropagation: 'full-tail',
+      limits: PERMISSIVE_LIMITS,
     })
-    const maximumScoreWorkingLength = Math.max(
-      ...baseline.scores.map((score) => score.workingLength)
-    )
-    const maximumScoreFftLength = Math.max(
-      ...baseline.scores.map((score) => score.fftLength),
-      baseline.damage.fftLength,
-      baseline.damage.defenceFftLength
-    )
-    const warning = planCalculationRanges(params, {
-      scorePropagation: 'full-tail',
-      limits: {
-        warning: {
-          estimatedTimeMs: Math.max(0, baseline.estimates.timeMs - 1e-6),
-          estimatedMemoryBytes: baseline.estimates.float64Bytes - 1,
-          workingLength: baseline.damage.workingLength - 1,
-          fftLength: baseline.damage.fftLength - 1,
-        },
-        hard: {
-          estimatedTimeMs: baseline.estimates.timeMs + 1,
-          estimatedMemoryBytes: baseline.estimates.float64Bytes + 1,
-          workingLength: Math.max(
-            maximumScoreWorkingLength,
-            baseline.damage.workingLength + 1
-          ),
-          fftLength: Math.max(maximumScoreFftLength, baseline.damage.fftLength + 1),
-        },
-      },
-    })
-
-    expect(warning.accepted).toBe(true)
-    expect(warning.warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'damage-working-length', severity: 'warning' }),
-      expect.objectContaining({ code: 'damage-fft-length', severity: 'warning' }),
-      expect.objectContaining({ code: 'estimated-memory', severity: 'warning' }),
-      expect.objectContaining({ code: 'estimated-time', severity: 'warning' }),
-    ]))
-
     const hardReject = planCalculationRanges(params, {
       scorePropagation: 'full-tail',
       limits: {
-        warning: {
-          estimatedTimeMs: 0,
-          estimatedMemoryBytes: 0,
-          workingLength: 0,
-          fftLength: 0,
-        },
-        hard: {
-          estimatedTimeMs: Math.max(0, baseline.estimates.timeMs - 1e-6),
-          estimatedMemoryBytes: baseline.estimates.float64Bytes - 1,
-          workingLength: baseline.damage.workingLength - 1,
-          fftLength: baseline.damage.fftLength - 1,
-        },
+        ...PERMISSIVE_LIMITS,
+        maxCpuWork: Math.max(0, baseline.estimates.cpuWork - 1),
+        estimatedMemoryBytes: baseline.estimates.float64Bytes - 1,
+        workingLength: baseline.damage.workingLength - 1,
+        fftLength: baseline.damage.fftLength - 1,
       },
     })
 
@@ -1075,7 +1068,7 @@ describe('production range planner', () => {
       'damage-working-length',
       'damage-fft-length',
       'estimated-memory',
-      'estimated-time',
+      'cpu-work',
     ]))
   })
 
@@ -1094,7 +1087,7 @@ describe('production range planner', () => {
     expect(plan.accepted).toBe(false)
     expect(plan.rejectionReasons).toEqual(expect.arrayContaining([
       'damage-fft-length',
-      'estimated-time',
+      'cpu-work',
     ]))
     expect(plan.rejectionReasons).not.toContain('calculationMax')
     expect(plan.damage.maxDamageDice).toBeGreaterThan(100_000)
@@ -1118,17 +1111,13 @@ describe('production range planner', () => {
       2 * 1001 * Float64Array.BYTES_PER_ELEMENT
     )
     expect(withDefence.estimates.defenceD10Operations).toBe(100100)
-    expect(withDefence.estimates.defenceD10TimeMs).toBeGreaterThan(0)
     expect(withDefence.estimates.float64Bytes).toBe(
       withoutDefence.estimates.float64Bytes +
         withDefence.damage.defenceD10Float64Bytes +
         (withDefence.damage.float64Bytes - withoutDefence.damage.float64Bytes)
     )
-    expect(withDefence.estimates.operations).toBeGreaterThan(
-      withoutDefence.estimates.operations
-    )
-    expect(withDefence.estimates.timeMs).toBeGreaterThan(
-      withoutDefence.estimates.timeMs
+    expect(withDefence.estimates.cpuWork).toBeGreaterThan(
+      withoutDefence.estimates.cpuWork
     )
   })
 
@@ -1284,8 +1273,8 @@ describe('production range planner', () => {
     )
   })
 
-  it('calibrates damage-roll reroll cost without hiding dice or FFT work', () => {
-    expect(DEFAULT_POLICY.limits.hard.estimatedTimeMs).toBe(200)
+  it('shares the damage-roll operation estimate with the runtime kernel', () => {
+    expect(DEFAULT_POLICY.limits.maxCpuWork).toBe(1_600_000_000)
 
     const makePlan = ({ attackDice, kazanari }) => planCalculationRanges(
       attackParams({
@@ -1308,12 +1297,27 @@ describe('production range planner', () => {
     const smallerDamageRange = makePlan({ attackDice: 0, kazanari: 0 })
     const largerDamageRange = makePlan({ attackDice: 197, kazanari: 0 })
 
-    expect(
-      oneReroll.damage.operations / noRerolls.damage.operations
-    ).toBeCloseTo(1 + 15 * Math.log1p(1), 10)
-    expect(
-      nineRerolls.damage.operations / noRerolls.damage.operations
-    ).toBeCloseTo(1 + 15 * Math.log1p(9), 10)
+    expect(noRerolls.damage.operations).toBe(
+      getRuntimeDamageRollOperationEstimate(
+        noRerolls.damage.maxDamageDice + 1,
+        noRerolls.damage.effectiveKazanari,
+        noRerolls.damage.fftLength
+      )
+    )
+    expect(oneReroll.damage.operations).toBe(
+      getRuntimeDamageRollOperationEstimate(
+        oneReroll.damage.maxDamageDice + 1,
+        oneReroll.damage.effectiveKazanari,
+        oneReroll.damage.fftLength
+      )
+    )
+    expect(nineRerolls.damage.operations).toBe(
+      getRuntimeDamageRollOperationEstimate(
+        nineRerolls.damage.maxDamageDice + 1,
+        nineRerolls.damage.effectiveKazanari,
+        nineRerolls.damage.fftLength
+      )
+    )
 
     expect(smallerDamageRange.damage.maxDamageDice).toBe(103)
     expect(largerDamageRange.damage.maxDamageDice).toBe(300)
@@ -1322,6 +1326,9 @@ describe('production range planner', () => {
     )
     expect(largerDamageRange.damage.operations).toBeGreaterThan(
       smallerDamageRange.damage.operations
+    )
+    expect(RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE).toBeGreaterThan(
+      noRerolls.damage.operations
     )
   })
 
@@ -1342,7 +1349,7 @@ describe('production range planner', () => {
     })).toThrow(RangeError)
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       costModel: { fftOperationsPerMs: 0 },
-    })).toThrow(RangeError)
+    })).toThrow('costModel')
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       errorBudget: { total: 1e-8, scoreTail: 2e-8 },
     })).toThrow(RangeError)

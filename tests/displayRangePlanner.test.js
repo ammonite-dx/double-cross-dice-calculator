@@ -512,30 +512,26 @@ describe('DisplayRangePlanner', () => {
     }
   })
 
-  it('returns warning and hard-rejection decisions from an injected resource policy', () => {
+  it('returns hard-rejection decisions from an injected resource policy', () => {
     const display = createDisplay({
       values: [1],
       support: { kind: 'finite', max: 10 },
     })
-    const warning = plan(display, { min: 0, max: 4 }, {
-      warning: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
-      hard: { pointCount: 10, float64Bytes: 1000, chartPoints: 10 },
+    const accepted = plan(display, { min: 0, max: 4 }, {
+      pointCount: 10,
+      float64Bytes: 1000,
+      chartPoints: 10,
     })
-    expect(warning).toMatchObject({
+    expect(accepted).toMatchObject({
       accepted: true,
       status: 'ready',
     })
-    expect(warning.warnings.map(({ code }) => code)).toEqual([
-      'display-point-count',
-      'display-float64-memory',
-      'chart-point-count',
-    ])
-    expect(warning.warnings.every(({ severity }) => severity === 'warning'))
-      .toBe(true)
+    expect(accepted.warnings).toEqual([])
 
     const rejected = plan(display, { min: 0, max: 4 }, {
-      warning: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
-      hard: { pointCount: 4, float64Bytes: 1000, chartPoints: 10 },
+      pointCount: 4,
+      float64Bytes: 1000,
+      chartPoints: 10,
     })
     expect(rejected).toMatchObject({
       accepted: false,
@@ -620,10 +616,7 @@ describe('DisplayRangePlanner', () => {
     }, { displayWindow: { min: 0, max: 0 } })).toThrow(DisplayRangePlannerError)
     expect(() => planDisplayRange(display, {
       displayWindow: { min: 0, max: 0 },
-      policy: {
-        warning: { pointCount: 2 },
-        hard: { pointCount: 1 },
-      },
+      policy: { warning: { pointCount: 2 } },
     })).toThrow(DisplayRangePlannerError)
   })
 
@@ -671,30 +664,17 @@ describe('DisplayRangePlanner', () => {
       values: [1],
       support: { kind: 'finite', max: 10 },
     })
-    const planner = createDisplayRangePlanner({
-      warning: { pointCount: 1 },
-      hard: { pointCount: 2 },
-    })
+    const planner = createDisplayRangePlanner({ pointCount: 2 })
     const result = planner.plan(display, { min: 0, max: 1 })
 
-    expect(DEFAULT_DISPLAY_RANGE_PLANNER_POLICY.hard.pointCount)
+    expect(DEFAULT_DISPLAY_RANGE_PLANNER_POLICY.pointCount)
       .toBeGreaterThan(1000)
     expect(planner.policy).toEqual({
-      warning: {
-        pointCount: 1,
-        float64Bytes: 32 * 1024 * 1024,
-        chartPoints: 4_096,
-      },
-      hard: {
-        pointCount: 2,
-        float64Bytes: 64 * 1024 * 1024,
-        chartPoints: 16_384,
-      },
+      pointCount: 2,
+      float64Bytes: 64 * 1024 * 1024,
+      chartPoints: 16_384,
     })
-    expect(result.warnings).toContainEqual(expect.objectContaining({
-      code: 'display-point-count',
-      severity: 'warning',
-    }))
+    expect(result.warnings).toEqual([])
     expect(Object.isFrozen(planner)).toBe(true)
     expect(Object.isFrozen(planner.policy)).toBe(true)
   })

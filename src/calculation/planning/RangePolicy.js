@@ -4,10 +4,8 @@ import {
   nonNegativeInteger,
   nonNegativeNumber,
   object,
-  positiveNumber,
   probability,
-  DEFAULT_FFT_OPERATIONS_PER_MS,
-  DEFAULT_HARD_ESTIMATED_TIME_MS,
+  DEFAULT_MAX_CPU_WORK,
 } from './PlanningMath'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
@@ -37,26 +35,10 @@ export const DEFAULT_POLICY = {
     maxPoints: Number.MAX_SAFE_INTEGER,
   },
   limits: {
-    warning: {
-      estimatedTimeMs: 50,
-      estimatedMemoryBytes: 32 * 1024 * 1024,
-      workingLength: 8192,
-      fftLength: 16384,
-    },
-    hard: {
-      estimatedTimeMs: DEFAULT_HARD_ESTIMATED_TIME_MS,
-      estimatedMemoryBytes: 64 * 1024 * 1024,
-      workingLength: 16384,
-      fftLength: 32768,
-    },
-  },
-  // These coefficients remain injectable until the supported device matrix
-  // has been calibrated with production measurements.
-  costModel: {
-    dxOperationsPerMs: 1_000_000,
-    fftOperationsPerMs: DEFAULT_FFT_OPERATIONS_PER_MS,
-    damageOperationsPerMs: 250_000,
-    backtrackOperationsPerMs: 1_000_000,
+    maxCpuWork: DEFAULT_MAX_CPU_WORK,
+    estimatedMemoryBytes: 64 * 1024 * 1024,
+    workingLength: 16384,
+    fftLength: 32768,
   },
 }
 
@@ -65,6 +47,39 @@ export { getPublishedScoreUpperBound }
 export function mergePolicy(policy) {
   const supplied = policy ?? {}
   object(supplied, 'policy')
+
+  for (const legacyKey of [
+    'costModel',
+    'estimatedTimeMs',
+    'dxOperationsPerMs',
+    'fftOperationsPerMs',
+    'damageOperationsPerMs',
+    'backtrackOperationsPerMs',
+  ]) {
+    if (Object.prototype.hasOwnProperty.call(supplied, legacyKey)) {
+      throw new RangeError(`policy.${legacyKey} is no longer supported`)
+    }
+  }
+  if (supplied.limits !== undefined) {
+    object(supplied.limits, 'policy.limits')
+    for (const threshold of ['warning', 'hard']) {
+      if (Object.prototype.hasOwnProperty.call(supplied.limits, threshold)) {
+        throw new RangeError(
+          `policy.limits.${threshold} is no longer supported; use policy.limits directly`
+        )
+      }
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(
+        supplied.limits,
+        'estimatedTimeMs'
+      )
+    ) {
+      throw new RangeError(
+        'policy.limits.estimatedTimeMs is no longer supported'
+      )
+    }
+  }
 
   const merged = {
     ...DEFAULT_POLICY,
@@ -78,18 +93,8 @@ export function mergePolicy(policy) {
       ...(supplied.display ?? {}),
     },
     limits: {
-      warning: {
-        ...DEFAULT_POLICY.limits.warning,
-        ...(supplied.limits?.warning ?? {}),
-      },
-      hard: {
-        ...DEFAULT_POLICY.limits.hard,
-        ...(supplied.limits?.hard ?? {}),
-      },
-    },
-    costModel: {
-      ...DEFAULT_POLICY.costModel,
-      ...(supplied.costModel ?? {}),
+      ...DEFAULT_POLICY.limits,
+      ...(supplied.limits ?? {}),
     },
   }
 
@@ -117,45 +122,13 @@ export function mergePolicy(policy) {
     )
   }
 
-  const metricNames = [
-    'estimatedTimeMs',
-    'estimatedMemoryBytes',
-    'workingLength',
-    'fftLength',
-  ]
-  for (const thresholdName of ['warning', 'hard']) {
-    for (const metricName of ['estimatedTimeMs', 'estimatedMemoryBytes']) {
-      nonNegativeNumber(
-        merged.limits[thresholdName][metricName],
-        `policy.limits.${thresholdName}.${metricName}`
-      )
-    }
-    for (const metricName of ['workingLength', 'fftLength']) {
-      nonNegativeInteger(
-        merged.limits[thresholdName][metricName],
-        `policy.limits.${thresholdName}.${metricName}`
-      )
-    }
-  }
-  for (const metricName of metricNames) {
-    if (
-      merged.limits.warning[metricName] >
-      merged.limits.hard[metricName]
-    ) {
-      throw new RangeError(
-        `policy.limits.warning.${metricName} must not exceed the hard limit`
-      )
-    }
-  }
-
-  for (const name of [
-    'dxOperationsPerMs',
-    'fftOperationsPerMs',
-    'damageOperationsPerMs',
-    'backtrackOperationsPerMs',
-  ]) {
-    positiveNumber(merged.costModel[name], `policy.costModel.${name}`)
-  }
+  nonNegativeNumber(merged.limits.maxCpuWork, 'policy.limits.maxCpuWork')
+  nonNegativeNumber(
+    merged.limits.estimatedMemoryBytes,
+    'policy.limits.estimatedMemoryBytes'
+  )
+  nonNegativeInteger(merged.limits.workingLength, 'policy.limits.workingLength')
+  nonNegativeInteger(merged.limits.fftLength, 'policy.limits.fftLength')
 
   return merged
 }

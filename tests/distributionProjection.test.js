@@ -213,8 +213,9 @@ describe('projectDistribution', () => {
     })
     const rejected = project(display, { min: 0, max: 2 }, {
       policy: {
-        warning: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
-        hard: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
+        pointCount: 2,
+        float64Bytes: 16,
+        chartPoints: 2,
       },
     })
     expect(rejected).toMatchObject({

@@ -89,7 +89,7 @@ describe('full-tail Attack browser resource benchmark contract', () => {
 
       expect(productionPlan.accepted, testCase.id).toBe(false)
       expect(productionPlan.rejectionReasons, testCase.id).toContain(
-        'estimated-time'
+        'cpu-work'
       )
       expect(benchmarkPlan.accepted, testCase.id).toBe(true)
     }

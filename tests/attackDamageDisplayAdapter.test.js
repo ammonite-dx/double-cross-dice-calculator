@@ -177,7 +177,7 @@ describe('Attack canonical damage display adapters', () => {
       upperBound: 2,
     }
     presentation.combos[0].plan.warnings = [{
-      code: 'estimated-time',
+      code: 'cpu-work',
       severity: 'warning',
     }]
 

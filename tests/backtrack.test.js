@@ -8,6 +8,7 @@ import {
   getBacktrackDiceCounts,
   getBacktrackSupportMax,
 } from '../src/domain/BacktrackRules'
+import { getBacktrackGenerationOperationEstimate } from '../src/calculation/BacktrackLimits'
 import {
   getLivingdeadDistribution,
   registerLivingdeadAsset,
@@ -271,8 +272,7 @@ describe('backtrack canonical producer', () => {
 
     const memoryPolicy = {
       limits: {
-        warning: { estimatedMemoryBytes: legacyBytes },
-        hard: { estimatedMemoryBytes: legacyBytes },
+        estimatedMemoryBytes: legacyBytes,
       },
     }
     const legacyLimited = planCalculationRanges({
@@ -287,6 +287,51 @@ describe('backtrack canonical producer', () => {
     expect(legacyLimited.accepted).toBe(true)
     expect(Limited.accepted).toBe(false)
     expect(Limited.rejectionReasons).toContain('estimated-memory')
+  })
+
+  it('records generation operations for on-demand plans only', () => {
+    const params = {
+      encroachment: 100,
+      lois: 0,
+      elois: 0,
+      dice: 103,
+      value: 0,
+      dlois: 'なし',
+    }
+    const onDemand = createBacktrackPlan(params)
+    const asset = createLegacyBacktrackPlan({ ...params, dice: 1 })
+
+    expect(onDemand.generationOperations).toBe(
+      getBacktrackGenerationOperationEstimate(
+        onDemand.maxDice,
+        onDemand.workingLength,
+        onDemand.livingdead
+      )
+    )
+    expect(onDemand.operations).toBe(
+      onDemand.workingLength * 3 + onDemand.generationOperations
+    )
+    expect(asset.distributionMode).toBe('asset')
+    expect(asset.generationOperations).toBe(0)
+  })
+
+  it('rejects a backtrack plan with inconsistent generation operations', () => {
+    const params = {
+      encroachment: 100,
+      lois: 0,
+      elois: 0,
+      dice: 1,
+      value: 0,
+      dlois: 'なし',
+    }
+    const plan = createBacktrackPlan(params)
+    const malformed = {
+      ...plan,
+      generationOperations: plan.generationOperations + 1,
+    }
+
+    expect(() => getFinalEncroachment(params, {}, malformed))
+      .toThrow('generationOperations')
   })
 
   it('exposes the canonical producer through the CalculationClient API', async () => {

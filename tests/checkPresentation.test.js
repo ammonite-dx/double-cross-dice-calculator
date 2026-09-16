@@ -279,8 +279,9 @@ describe('createCheckPresentation', () => {
       support: { kind: 'finite', max: 0 },
     })
     const policy = {
-      warning: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
-      hard: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
+      pointCount: 2,
+      float64Bytes: 16,
+      chartPoints: 2,
     }
 
     const presentation = present(createCheckResult(action), {

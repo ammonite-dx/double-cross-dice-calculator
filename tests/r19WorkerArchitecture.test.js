@@ -183,7 +183,7 @@ describe('R19 generalized Worker protocol', () => {
     const error = Object.assign(new Error('range rejected'), {
       name: 'CalculationRangeError',
       code: 'range-error',
-      rejectionReasons: ['estimated-time'],
+      rejectionReasons: ['cpu-work'],
       plan: { accepted: false },
       stack: 'secret stack detail',
     })
@@ -191,7 +191,7 @@ describe('R19 generalized Worker protocol', () => {
       name: 'CalculationRangeError',
       message: 'range rejected',
       code: 'range-error',
-      rejectionReasons: ['estimated-time'],
+      rejectionReasons: ['cpu-work'],
       plan: { accepted: false },
     })
     expect(createAbortError('check')).toMatchObject({

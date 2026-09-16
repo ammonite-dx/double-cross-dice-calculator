@@ -43,8 +43,6 @@ function createPlan(operation = 'check', float64Bytes = 1) {
     operation,
     estimates: {
       float64Bytes,
-      operations: 12,
-      timeMs: 3,
     },
     scores: operation === 'check'
       ? [{}, {}]
@@ -122,8 +120,6 @@ describe('ResourceGuard', () => {
       operation: 'check',
       requestId: 'one',
       float64Bytes: 3.1,
-      operations: 10,
-      timeMs: 2,
     })
 
     expect(guard.policy).toEqual(DEFAULT_RESOURCE_GUARD_POLICY)
@@ -132,9 +128,9 @@ describe('ResourceGuard', () => {
       requestId: 'one',
       float64Bytes: 3.1,
       reservedBytes: 5,
-      operations: 10,
-      timeMs: 2,
     })
+    expect(lease.metadata).not.toHaveProperty('operations')
+    expect(lease.metadata).not.toHaveProperty('timeMs')
     expect(guard.snapshot()).toMatchObject({
       reservedBytes: 5,
       activeCount: 1,

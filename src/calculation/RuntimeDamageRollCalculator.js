@@ -1,11 +1,13 @@
 import { transform } from './RuntimeDamageRollFFT'
 import {
+  getRuntimeDamageRollOperationEstimate,
   normalizeRuntimeDamageRollOptions,
   RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
   validateRuntimeDamageRollInputs,
 } from './RuntimeDamageRollLimits'
 
 export {
+  getRuntimeDamageRollOperationEstimate,
   getRuntimeDamageRollRawSupportMax,
   normalizeRuntimeDamageRollOptions,
   RUNTIME_DAMAGE_MAX_FFT_SIZE,
@@ -409,11 +411,10 @@ export function generateMixedDamageDistribution(
   const real = new Float64Array(fftLength)
   const imaginary = new Float64Array(fftLength)
   const maxOrder = Math.max(0, effectiveKazanari - 1)
-  const estimatedOperations = (
-    fftLength / 2 + 1
-  ) * (
-    weights.length * (1 + 3 * effectiveKazanari) +
-    5 * effectiveKazanari * (effectiveKazanari + 1) / 2
+  const estimatedOperations = getRuntimeDamageRollOperationEstimate(
+    weights.length,
+    effectiveKazanari,
+    fftLength
   )
   if (
     !Number.isFinite(estimatedOperations) ||

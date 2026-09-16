@@ -101,6 +101,7 @@ export function planBacktrack(params, display, completeSupport = false) {
     workingMax: rawSupportMax,
     workingLength,
     fftLength: 0,
+    generationOperations,
     operations,
     float64Bytes: baseFloat64Bytes + resultFloat64Bytes,
     finiteSupport: true,

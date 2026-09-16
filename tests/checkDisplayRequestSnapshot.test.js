@@ -68,7 +68,7 @@ describe('Check display request snapshot', () => {
     const policy = {
       calculationMax: 0,
       display: { maxPoints: 3 },
-      limits: { hard: { workingLength: 4096 } },
+      limits: { workingLength: 4096 },
     }
     const request = createCheckCalculationRequestSnapshot({
       ...input,
@@ -90,17 +90,18 @@ describe('Check display request snapshot', () => {
     expect(Object.isFrozen(request.rangePolicy)).toBe(true)
 
     input.params.action.dice = 99
-    policy.limits.hard.workingLength = 1
+    policy.limits.workingLength = 1
     expect(request.params.action.dice).toBe(7)
-    expect(request.rangePolicy.limits.hard.workingLength).toBe(4096)
+    expect(request.rangePolicy.limits.workingLength).toBe(4096)
   })
 })
 
 describe('display resource preflight', () => {
   it('rejects resource overflow without requiring a canonical distribution', () => {
     const plan = planDisplayWindowResources({ min: 0, max: 1200 }, {
-      warning: { pointCount: 100, float64Bytes: 800, chartPoints: 100 },
-      hard: { pointCount: 1000, float64Bytes: 8000, chartPoints: 1000 },
+      pointCount: 1000,
+      float64Bytes: 8000,
+      chartPoints: 1000,
     })
 
     expect(plan).toMatchObject({

@@ -197,14 +197,6 @@ function normalizeRequest(request, policy) {
   const normalizedFloat64Bytes = hasFloat64Bytes
     ? normalizeMetric(float64Bytes, 'float64Bytes', true)
     : 0
-  const operations = normalizeMetric(
-    getRequestValue(request, 'operations', estimate),
-    'operations'
-  )
-  const timeMs = normalizeMetric(
-    getRequestValue(request, 'timeMs', estimate),
-    'timeMs'
-  )
   const operation = normalizeOperation(request.operation)
   const requestId = request.requestId === undefined
     ? null
@@ -255,8 +247,6 @@ function normalizeRequest(request, policy) {
     requestId,
     float64Bytes: normalizedFloat64Bytes,
     reservedBytes,
-    operations,
-    timeMs,
     signal: normalizeSignal(request.signal),
     estimateAvailable: hasFloat64Bytes,
   }
@@ -284,8 +274,6 @@ export function extractPlanResourceMetadata(plan, options = {}) {
   const metadata = {
     operation,
     requestId: options.requestId,
-    operations: estimates?.operations,
-    timeMs: estimates?.timeMs,
     estimateAvailable: estimates !== null
       && hasOwn(estimates, 'float64Bytes'),
     signal: options.signal,
@@ -314,8 +302,6 @@ function copyMetadata(metadata, state) {
     requestId: metadata.requestId,
     float64Bytes: metadata.float64Bytes,
     reservedBytes: metadata.reservedBytes,
-    operations: metadata.operations,
-    timeMs: metadata.timeMs,
     estimateAvailable: metadata.estimateAvailable,
     state,
   })

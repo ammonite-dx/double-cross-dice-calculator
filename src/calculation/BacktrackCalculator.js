@@ -305,6 +305,7 @@ function validateBacktrackRangePlan(params, plan) {
     'workingMax',
     'workingLength',
     'fftLength',
+    'generationOperations',
     'assetSupportMax',
   ]) {
     if (!Number.isSafeInteger(plan[field])) {
@@ -313,7 +314,11 @@ function validateBacktrackRangePlan(params, plan) {
       )
     }
   }
-  if (plan.maxDice < 0 || plan.rawSupportMax < 0) {
+  if (
+    plan.maxDice < 0 ||
+    plan.rawSupportMax < 0 ||
+    plan.generationOperations < 0
+  ) {
     throw new RangeError('backtrackRangePlan support must be non-negative')
   }
   if (plan.maxDice > BACKTRACK_MAX_GENERATED_DICE) {
@@ -334,6 +339,11 @@ function validateBacktrackRangePlan(params, plan) {
   if (plan.workingLength > BACKTRACK_MAX_GENERATION_LENGTH) {
     throw new RangeError(
       `backtrackRangePlan.workingLength exceeds the absolute safety limit of ${BACKTRACK_MAX_GENERATION_LENGTH}`
+    )
+  }
+  if (plan.generationOperations > BACKTRACK_MAX_GENERATION_OPERATIONS) {
+    throw new RangeError(
+      `backtrackRangePlan.generationOperations exceeds the absolute safety limit of ${BACKTRACK_MAX_GENERATION_OPERATIONS}`
     )
   }
   if (plan.assetSupportMax !== BACKTRACK_ASSET_SUPPORT_MAX) {
@@ -391,6 +401,13 @@ function validateBacktrackRangePlan(params, plan) {
   const expectedDistributionMode = completeSupportPlan || expectedAssetOverflow
     ? 'on-demand'
     : 'asset'
+  const expectedGenerationOperations = expectedDistributionMode === 'on-demand'
+    ? getBacktrackGenerationOperationEstimate(
+        expectedMaxDice,
+        expectedRawSupportMax + 1,
+        getBacktrackRule(normalizedParams.dlois).livingdead
+      )
+    : 0
   if (plan.rawSupportMax !== expectedRawSupportMax) {
     throw new RangeError(
       'backtrackRangePlan.rawSupportMax does not match the rule support'
@@ -409,6 +426,11 @@ function validateBacktrackRangePlan(params, plan) {
   if (plan.distributionMode !== expectedDistributionMode) {
     throw new RangeError(
       'backtrackRangePlan.distributionMode does not match the asset boundary'
+    )
+  }
+  if (plan.generationOperations !== expectedGenerationOperations) {
+    throw new RangeError(
+      'backtrackRangePlan.generationOperations does not match the selected distribution mode'
     )
   }
   if (

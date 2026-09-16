@@ -16,8 +16,7 @@ import {
   sumDamage,
 } from '../src/calculation/DamageAggregation'
 import {
-  DEFAULT_FFT_OPERATIONS_PER_MS,
-  DEFAULT_HARD_ESTIMATED_TIME_MS,
+  DEFAULT_MAX_CPU_WORK,
 } from '../src/calculation/planning/PlanningMath'
 
 function createEnvelope(values, options = {}) {
@@ -49,7 +48,7 @@ describe('CalculationClient canonical total damage', () => {
     const events = []
     const plan = Object.freeze({
       operation: 'damage-aggregation',
-      estimates: Object.freeze({ float64Bytes: 128, operations: 4, timeMs: null }),
+      estimates: Object.freeze({ float64Bytes: 128, operations: 4, cpuWork: 4 }),
     })
     const aggregate = Object.freeze({
       result: Object.freeze({ values: [1] }),
@@ -126,8 +125,8 @@ describe('CalculationClient canonical total damage', () => {
       name: 'DamageAggregationError',
       code: DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT,
       details: {
-        limit: DEFAULT_HARD_ESTIMATED_TIME_MS,
-        throughput: DEFAULT_FFT_OPERATIONS_PER_MS,
+        limit: DEFAULT_MAX_CPU_WORK,
+        cpuWork: expect.any(Number),
       },
     })
     expect(sumDamage).not.toHaveBeenCalled()

@@ -495,8 +495,7 @@ function createClientDependencies(overrides = {}) {
     scores: [{ id: 'action' }, { id: 'reaction' }],
     estimates: {
       float64Bytes: 64,
-      operations: 10,
-      timeMs: 1,
+      cpuWork: 10,
     },
   }
   const resourceGuard = {

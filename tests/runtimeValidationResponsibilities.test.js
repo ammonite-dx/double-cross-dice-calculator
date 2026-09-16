@@ -39,25 +39,25 @@ describe('runtime validation responsibilities', () => {
 
   it('deep-freezes ordinary range policy snapshots', () => {
     const attackPolicyInput = {
-      limits: { hard: { workingLength: 4096 } },
+      limits: { workingLength: 4096 },
     }
     const attackPolicy = createAttackRangePolicy({
       min: 0,
       max: 1200,
       mode: ATTACK_DISPLAY_MODES.PMF,
     }, attackPolicyInput)
-    expect(attackPolicy.limits.hard.workingLength).toBe(4096)
-    expect(Object.isFrozen(attackPolicy.limits.hard)).toBe(true)
+    expect(attackPolicy.limits.workingLength).toBe(4096)
+    expect(Object.isFrozen(attackPolicy.limits)).toBe(true)
 
     const checkPolicyInput = {
-      limits: { hard: { workingLength: 4096 } },
+      limits: { workingLength: 4096 },
     }
     const checkPolicy = createCheckRangePolicy({
       min: 0,
       max: 1200,
       mode: CHECK_DISPLAY_MODES.PMF,
     }, checkPolicyInput)
-    expect(checkPolicy.limits.hard.workingLength).toBe(4096)
-    expect(Object.isFrozen(checkPolicy.limits.hard)).toBe(true)
+    expect(checkPolicy.limits.workingLength).toBe(4096)
+    expect(Object.isFrozen(checkPolicy.limits)).toBe(true)
   })
 })

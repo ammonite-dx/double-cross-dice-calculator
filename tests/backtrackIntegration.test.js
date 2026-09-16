@@ -357,7 +357,7 @@ describe('Backtrack canonical integration', () => {
       title: 'この入力では計算できません',
     })
     expect(formatRangeFeedback(setup.feedback).reasons).toContain(
-      '計算に必要なメモリが大きくなっています。'
+      '計算に必要なメモリが上限を超えています。'
     )
   })
 

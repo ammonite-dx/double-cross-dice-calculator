@@ -89,20 +89,17 @@ describe('full-tail Attack resource benchmark contract', () => {
     expect(BENCHMARK_CASES).toHaveLength(24)
   })
 
-  it('widens only benchmark planner thresholds and preserves production policy shape', () => {
+  it('widens only benchmark planner limits and preserves production policy shape', () => {
     expect(PRODUCTION_RANGE_POLICY).toEqual({
       scorePropagation: 'full-tail',
     })
     expect(BENCHMARK_RANGE_POLICY.scorePropagation).toBe('full-tail')
-    expect(BENCHMARK_RANGE_POLICY.limits.warning).toEqual({
-      estimatedTimeMs: Number.MAX_SAFE_INTEGER,
+    expect(BENCHMARK_RANGE_POLICY.limits).toEqual({
+      maxCpuWork: Number.MAX_SAFE_INTEGER,
       estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
       workingLength: Number.MAX_SAFE_INTEGER,
       fftLength: Number.MAX_SAFE_INTEGER,
     })
-    expect(BENCHMARK_RANGE_POLICY.limits.hard).toEqual(
-      BENCHMARK_RANGE_POLICY.limits.warning
-    )
     expect(BENCHMARK_RANGE_POLICY).not.toHaveProperty('calculationMax')
     expect(BENCHMARK_RANGE_POLICY).not.toHaveProperty('display')
     expect(BENCHMARK_RANGE_POLICY).not.toHaveProperty('costModel')
@@ -226,9 +223,9 @@ describe('full-tail Attack resource benchmark contract', () => {
             },
           },
         },
-        estimatedTimeMs: null,
+        cpuWork: null,
         estimatedMemoryBytes: null,
-        productionEstimatedTimeMs: null,
+        productionCpuWork: null,
         productionEstimatedMemoryBytes: null,
         error: null,
         resultDigest: 7,
@@ -244,7 +241,7 @@ describe('full-tail Attack resource benchmark contract', () => {
     expect(output).toContain('fftLength=4096')
     expect(output).toContain('distributionLength=3001')
     expect(output).toContain('kazanari=9')
-    expect(output).toContain('estimatedTimeMs=-')
+    expect(output).toContain('cpuWork=-')
     expect(output).toContain('estimatedMemoryBytes=-')
     expect(output).toContain('digest=7')
   })

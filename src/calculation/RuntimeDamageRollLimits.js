@@ -15,6 +15,37 @@ export const RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH =
 // requests from its device-specific resource policy.
 export const RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE = 2_000_000_000
 
+/**
+ * Estimate the mixed damage-roll kernel work using device-independent units.
+ * The planner and runtime must use this exact formula so admission cannot
+ * disagree with the absolute runtime safety check.
+ */
+export function getRuntimeDamageRollOperationEstimate(
+  weightLength,
+  effectiveKazanari,
+  fftLength
+) {
+  if (!Number.isFinite(weightLength) || weightLength < 0) {
+    throw new RangeError('weightLength must be a non-negative finite number')
+  }
+  if (!Number.isFinite(effectiveKazanari) || effectiveKazanari < 0) {
+    throw new RangeError(
+      'effectiveKazanari must be a non-negative finite number'
+    )
+  }
+  if (!Number.isFinite(fftLength) || fftLength < 0) {
+    throw new RangeError('fftLength must be a non-negative finite number')
+  }
+  const estimate = (fftLength / 2 + 1) * (
+    weightLength * (1 + 3 * effectiveKazanari) +
+    5 * effectiveKazanari * (effectiveKazanari + 1) / 2
+  )
+  if (!Number.isFinite(estimate) || estimate < 0) {
+    throw new RangeError('runtime damage operation estimate is not finite')
+  }
+  return estimate
+}
+
 function isPowerOfTwo(value) {
   return (value & (value - 1)) === 0
 }

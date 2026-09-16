@@ -13,8 +13,7 @@ import {
   getFiniteDamageExpectationInterval,
 } from './DamageExpectationCertificate'
 import {
-  DEFAULT_FFT_OPERATIONS_PER_MS,
-  DEFAULT_HARD_ESTIMATED_TIME_MS,
+  DEFAULT_MAX_CPU_WORK,
   fftOperationCount,
 } from './planning/PlanningMath'
 
@@ -892,21 +891,20 @@ function buildPlan(inspected, options, persistentBytes) {
   }
 
   ensureLengthLimit(currentLength, options, 'aggregate values length')
-  const timeMs = operations / DEFAULT_FFT_OPERATIONS_PER_MS
-  if (!Number.isFinite(timeMs)) {
-    failNumerical('damage aggregation time estimate is not finite', {
+  const cpuWork = operations
+  if (!Number.isFinite(cpuWork) || cpuWork < 0) {
+    failNumerical('damage aggregation CPU work estimate is not finite', {
       operations,
-      throughput: DEFAULT_FFT_OPERATIONS_PER_MS,
+      cpuWork,
     })
   }
-  if (timeMs > DEFAULT_HARD_ESTIMATED_TIME_MS) {
+  if (cpuWork > DEFAULT_MAX_CPU_WORK) {
     failResource(
-      'damage aggregation estimated time exceeds the hard limit',
+      'damage aggregation CPU work exceeds the configured limit',
       {
         operations,
-        timeMs,
-        limit: DEFAULT_HARD_ESTIMATED_TIME_MS,
-        throughput: DEFAULT_FFT_OPERATIONS_PER_MS,
+        cpuWork,
+        limit: DEFAULT_MAX_CPU_WORK,
       }
     )
   }
@@ -936,7 +934,7 @@ function buildPlan(inspected, options, persistentBytes) {
     persistentBytes,
     peakResourceBytes,
     operations,
-    timeMs,
+    cpuWork,
     steps,
   }
 }
@@ -1296,7 +1294,7 @@ function createPlanContract(Damages, inspected, plan, normalizedOptions) {
   const estimates = Object.freeze({
     float64Bytes: plan.peakResourceBytes,
     operations: plan.operations,
-    timeMs: plan.timeMs,
+    cpuWork: plan.cpuWork,
     persistentBytes: plan.persistentBytes,
     peakResourceBytes: plan.peakResourceBytes,
     fftLengths: Object.freeze(steps.map((step) => step.fftLength)),
@@ -1382,7 +1380,7 @@ function createDamagePlan(Damages, normalizedOptions) {
       persistentBytes,
       peakResourceBytes: persistentBytes,
       operations: 0,
-      timeMs: 0,
+      cpuWork: 0,
       steps: [],
     }
     return createPlanContract(

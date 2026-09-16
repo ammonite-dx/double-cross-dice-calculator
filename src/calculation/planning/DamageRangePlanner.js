@@ -3,10 +3,12 @@ import {
   getD10GenerationOperationEstimate,
   getD10RequiredLength,
 } from '../D10Calculator'
-import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from '../RuntimeDamageRollLimits'
+import {
+  getRuntimeDamageRollOperationEstimate,
+  RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
+} from '../RuntimeDamageRollLimits'
 import {
   addSafe,
-  getDamageKazanariCostFactor,
   integer,
   multiplySafe,
   nextPowerOfTwo,
@@ -124,10 +126,11 @@ export function planDamage(params, display, policy, maxScoreForDamage) {
     ? nextPowerOfTwo(addSafe(workingLength, defenceMax, 'defence FFT range'))
     : 0
   const effectiveKazanari = Math.min(attack.kazanari, maxDamageDice)
-  const damageOperations =
-    (damageRollFftLength / 2 + 1) *
-      (maxDamageDice + 1) *
-      getDamageKazanariCostFactor(effectiveKazanari)
+  const damageOperations = getRuntimeDamageRollOperationEstimate(
+    maxDamageDice + 1,
+    effectiveKazanari,
+    damageRollFftLength
+  )
   const fftOperations = fftOperationCount(defenceFftLength)
   const float64Bytes =
     (2 * damageRollFftLength + workingLength +

@@ -17,8 +17,7 @@ declare const client: CalculationClient
 const policy: RangePolicyInput = {
   scorePropagation: 'full-tail',
   errorBudget: { scoreTail: 1e-9 },
-  limits: { warning: { workingLength: 4096 } },
-  costModel: { dxOperationsPerMs: 1_000_000 },
+  limits: { workingLength: 4096, maxCpuWork: 1_000_000 },
 }
 
 const checkOptions: CheckCalculationOptions = {
@@ -87,6 +86,18 @@ void invalidBacktrackOptions
 // @ts-expect-error: scorePropagation accepts only the two supported modes.
 const invalidPolicy: RangePolicyInput = { scorePropagation: 'invalid' }
 
+// Migration-only resource policy keys are no longer part of the public type.
+const invalidResourcePolicy: RangePolicyInput = {
+  limits: {
+    // @ts-expect-error: warning/hard threshold nesting is intentionally removed.
+    warning: { workingLength: 4096 },
+  },
+}
+const invalidCostModel: RangePolicyInput = {
+  // @ts-expect-error: device-dependent cost models are intentionally removed.
+  costModel: { dxOperationsPerMs: 1_000_000 },
+}
+
 // Unknown aggregation option names are rejected at compile time.
 const invalidTotalDamageOptions: TotalDamageCalculationOptions = {
   // @ts-expect-error: typoed total-damage options must not silently pass through.
@@ -94,4 +105,6 @@ const invalidTotalDamageOptions: TotalDamageCalculationOptions = {
 }
 
 void invalidPolicy
+void invalidResourcePolicy
+void invalidCostModel
 void invalidTotalDamageOptions

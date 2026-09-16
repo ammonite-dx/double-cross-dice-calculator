@@ -540,7 +540,7 @@ describe('production runtime damage roll Worker client', () => {
     const plan = {
       accepted: true,
       operation: 'attack',
-      estimates: { float64Bytes: 1, operations: 1, timeMs: 1 },
+      estimates: { float64Bytes: 1, cpuWork: 1 },
       scores: [{}, {}],
     }
     const client = createCalculationClient({
@@ -619,7 +619,7 @@ describe('production runtime damage roll Worker client', () => {
     const plan = {
       accepted: true,
       operation: 'attack',
-      estimates: { float64Bytes: 1, operations: 1, timeMs: 1 },
+      estimates: { float64Bytes: 1, cpuWork: 1 },
       scores: [{}, {}],
     }
     const createClient = (resourceGuard) => createCalculationClient({

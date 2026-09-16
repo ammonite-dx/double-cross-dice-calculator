@@ -31,8 +31,7 @@ const RANGE_REASON_BY_CODE = Object.freeze({
   'damage-fft-length': 'ダメージ計算のFFT範囲が大きくなっています。',
   'backtrack-working-length': 'バックトラック計算の作業範囲が大きくなっています。',
   'backtrack-asset-overflow': '静的なバックトラック用データのcoverageが不足しています（計算結果のoverflowではありません）。完全supportはオンデマンド計算を使用してください。',
-  'estimated-memory': '計算に必要なメモリが大きくなっています。',
-  'estimated-time': '計算に時間がかかる可能性があります。',
+  'estimated-memory': '計算に必要なメモリが上限を超えています。',
   'tail-cutoff-unreachable': '判定の末尾誤差を指定範囲まで抑えられません。',
   'tail-error': '判定の末尾誤差が許容値を超えています。',
 })
@@ -55,11 +54,6 @@ function formatNumber(value, maximumFractionDigits = 1) {
   return new Intl.NumberFormat('ja-JP', {
     maximumFractionDigits,
   }).format(value)
-}
-
-function formatTime(value) {
-  const formatted = formatNumber(value)
-  return formatted === null ? null : `${formatted} ms`
 }
 
 function formatMemory(value) {
@@ -230,7 +224,6 @@ export function formatRangeFeedback(feedback) {
       ...visibleWarnings.map(formatWarningReason),
     ],
     metrics: {
-      time: formatTime(plan?.estimates?.timeMs),
       memory: formatMemory(plan?.estimates?.float64Bytes),
     },
     overflow: collectOverflowMessages(plan),
@@ -240,7 +233,7 @@ export function formatRangeFeedback(feedback) {
       ? '入力内容を確認して、もう一度お試しください。'
       : rejected
       ? '入力値を下げるか、表示範囲を狭めて再試行してください。'
-      : 'このまま計算しますが、処理に時間がかかる場合があります。',
+      : 'このまま計算します。',
   }
 }
 

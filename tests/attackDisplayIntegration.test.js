@@ -698,8 +698,9 @@ describe('Attack canonical display integration', () => {
     }
     const batch = createScoreBatch()
     const displayPolicy = {
-      warning: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
-      hard: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
+      pointCount: 1,
+      float64Bytes: 8,
+      chartPoints: 1,
     }
     const calculationClient = {
       resolveAttackFixture: vi.fn(async (_entries, options) => {
@@ -792,8 +793,9 @@ describe('Attack canonical display integration', () => {
     expandedBatch.totalDamageStatistics =
       getDamageStatistics(expandedDamage)
     const displayPolicy = {
-      warning: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
-      hard: { pointCount: 2, float64Bytes: 16, chartPoints: 2 },
+      pointCount: 2,
+      float64Bytes: 16,
+      chartPoints: 2,
     }
     let calculationCount = 0
     const calculationClient = {
@@ -1240,8 +1242,9 @@ describe('Attack canonical display integration', () => {
         {
           displayRequest,
           policy: {
-            warning: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
-            hard: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
+            pointCount: 1,
+            float64Bytes: 8,
+            chartPoints: 1,
           },
         }
       )
@@ -1253,8 +1256,9 @@ describe('Attack canonical display integration', () => {
           displayRequest,
           rangePlans,
           policy: {
-            warning: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
-            hard: { pointCount: 1, float64Bytes: 8, chartPoints: 1 },
+            pointCount: 1,
+            float64Bytes: 8,
+            chartPoints: 1,
           },
         }),
       createDisplayPresentation,
