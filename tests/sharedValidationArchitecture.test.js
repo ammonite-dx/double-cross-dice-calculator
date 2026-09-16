@@ -74,6 +74,18 @@ describe('shared validation architecture', () => {
       )
     }
 
+    const integerRuleConsumers = [
+      'src/features/attack/ui/AttackForm.vue',
+      'src/features/attack/ui/DefenceForm.vue',
+      'src/features/check/ui/DfcltyForm.vue',
+      'src/features/backtrack/ui/BacktrackForm.vue',
+    ]
+    for (const path of integerRuleConsumers) {
+      const contents = source(path)
+      expect(contents).toContain('createSafeIntegerRules')
+      expect(contents).not.toContain('Number.isSafeInteger')
+    }
+
     const displayConsumers = [
       'src/features/check/ui/SettingForm.vue',
       'src/features/attack/ui/ScoreSettingForm.vue',

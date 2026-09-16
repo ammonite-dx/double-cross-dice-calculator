@@ -9,6 +9,7 @@
         createScoreFeatureCompatibilityRule,
         createScoreFieldRules,
     } from '@/shared/validation/ScoreInputRules';
+    import { createSafeIntegerRules } from '@/shared/validation/IntegerRules';
 
     const props = defineProps(['params','comboColor','showDetails'])
     const emit = defineEmits(['validated', 'show-details'])
@@ -35,20 +36,22 @@
             getScore: () => currentParams.score,
         }),
     ];
-    const attackDiceRule = [
-        value => value!=="" || '攻撃力(ダイス)を入力して下さい。',
-        value => Number.isSafeInteger(value) || '攻撃力(ダイス)は整数値として下さい。',
-        value => value>=0 || '攻撃力(ダイス)は0以上として下さい。',
-    ];
-    const attackValueRule = [
-        value => value!=="" || '攻撃力(固定値)を入力して下さい。',
-        value => Number.isSafeInteger(value) || '攻撃力(固定値)は整数値として下さい',
-    ];
-    const kazanariRule = [
-        value => value!=="" || '振り直せるダメージダイスの数を入力して下さい。',
-        value => Number.isSafeInteger(value) || '振り直せるダメージダイスの数は整数値として下さい。',
-        value => value>=0 || '振り直せるダメージダイスの数の回数は0以上として下さい。',
-    ];
+    const attackDiceRule = createSafeIntegerRules({
+        requiredMessage: '攻撃力(ダイス)を入力して下さい。',
+        integerMessage: '攻撃力(ダイス)は整数値として下さい。',
+        min: 0,
+        minMessage: '攻撃力(ダイス)は0以上として下さい。',
+    });
+    const attackValueRule = createSafeIntegerRules({
+        requiredMessage: '攻撃力(固定値)を入力して下さい。',
+        integerMessage: '攻撃力(固定値)は整数値として下さい',
+    });
+    const kazanariRule = createSafeIntegerRules({
+        requiredMessage: '振り直せるダメージダイスの数を入力して下さい。',
+        integerMessage: '振り直せるダメージダイスの数は整数値として下さい。',
+        min: 0,
+        minMessage: '振り直せるダメージダイスの数の回数は0以上として下さい。',
+    });
     watch(currentParams, async () => {
         const ticket = validationGate.begin();
         const draft = createAttackInputSnapshot(currentParams);

@@ -2,6 +2,7 @@
 
     import { ref,reactive,useId,watch } from 'vue';
     import { INPUT_DOMAIN } from '@/domain/InputDomain';
+    import { createSafeIntegerRules } from '@/shared/validation/IntegerRules';
 
     const props = defineProps(['params']);
     const emit = defineEmits(['validated']);
@@ -25,31 +26,36 @@
         'dlois',
     ];
     const dloisItem = ['なし', '戦闘用人格・生きる伝説', '生還者', '不死者・悪夢', '屍人', '戦友(通常)', '戦友(強化)']
-    const encroachmentRule = [
-        value => value!=="" || '現在侵蝕率を入力して下さい。',
-        value => Number.isSafeInteger(value) || '現在侵蝕率は整数値として下さい。',
-    ];
-    const loisRule = [
-        value => value!=="" || '残存ロイス数を入力して下さい。',
-        value => Number.isSafeInteger(value) || '残存ロイス数は整数値として下さい。',
-        value => value>=0 || '残存ロイス数は0以上として下さい。',
-        value => value<=INPUT_DOMAIN.remainingLois.max || '残存ロイス数は7以下として下さい。',
-    ];
-    const eloisRule = [
-        value => value!=="" || 'Eロイス数を入力して下さい。',
-        value => Number.isSafeInteger(value) || 'Eロイス数は整数値として下さい',
-        value => value>=0 || 'Eロイス数は0以上として下さい。',
-    ];
-    const diceRule = [
-        value => value!=="" || '減少量(ダイス)を入力して下さい。',
-        value => Number.isSafeInteger(value) || '減少量(ダイス)は整数値として下さい',
-        value => value>=0 || '減少量(ダイス)は0以上として下さい。',
-    ];
-    const valueRule = [
-        value => value!=="" || '減少量(固定値)を入力して下さい。',
-        value => Number.isSafeInteger(value) || '減少量(固定値)は整数値として下さい',
-        value => value>=0 || '減少量(固定値)は0以上として下さい。',
-    ];
+    const encroachmentRule = createSafeIntegerRules({
+        requiredMessage: '現在侵蝕率を入力して下さい。',
+        integerMessage: '現在侵蝕率は整数値として下さい。',
+    });
+    const loisRule = createSafeIntegerRules({
+        requiredMessage: '残存ロイス数を入力して下さい。',
+        integerMessage: '残存ロイス数は整数値として下さい。',
+        min: INPUT_DOMAIN.remainingLois.min,
+        minMessage: '残存ロイス数は0以上として下さい。',
+        max: INPUT_DOMAIN.remainingLois.max,
+        maxMessage: '残存ロイス数は7以下として下さい。',
+    });
+    const eloisRule = createSafeIntegerRules({
+        requiredMessage: 'Eロイス数を入力して下さい。',
+        integerMessage: 'Eロイス数は整数値として下さい',
+        min: 0,
+        minMessage: 'Eロイス数は0以上として下さい。',
+    });
+    const diceRule = createSafeIntegerRules({
+        requiredMessage: '減少量(ダイス)を入力して下さい。',
+        integerMessage: '減少量(ダイス)は整数値として下さい',
+        min: 0,
+        minMessage: '減少量(ダイス)は0以上として下さい。',
+    });
+    const valueRule = createSafeIntegerRules({
+        requiredMessage: '減少量(固定値)を入力して下さい。',
+        integerMessage: '減少量(固定値)は整数値として下さい',
+        min: 0,
+        minMessage: '減少量(固定値)は0以上として下さい。',
+    });
     watch(() => [
         props.params.encroachment,
         props.params.lois,

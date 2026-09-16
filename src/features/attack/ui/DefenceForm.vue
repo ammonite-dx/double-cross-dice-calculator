@@ -10,6 +10,7 @@
         createScoreFeatureCompatibilityRule,
         createScoreFieldRules,
     } from '@/shared/validation/ScoreInputRules';
+    import { createSafeIntegerRules } from '@/shared/validation/IntegerRules';
 
     const props = defineProps(['params','comboColor','showDetails']);
     const emit = defineEmits(['validated', 'show-details']);
@@ -31,15 +32,16 @@
             getScore: () => currentParams.score,
         }),
     ];
-    const defenceDiceRule = [
-        value => value!=="" || 'ガード・装甲・軽減値(ダイス)を入力して下さい。',
-        value => Number.isSafeInteger(value) || 'ガード・装甲・軽減値(ダイス)は整数値として下さい。',
-        value => value>=0 || 'ガード・装甲・軽減値(ダイス)は0以上として下さい。',
-    ];
-    const defenceValueRule = [
-        value => value!=="" || 'ガード・装甲・軽減値(固定値)を入力して下さい。',
-        value => Number.isSafeInteger(value) || 'ガード・装甲・軽減値(固定値)は整数値として下さい',
-    ];
+    const defenceDiceRule = createSafeIntegerRules({
+        requiredMessage: 'ガード・装甲・軽減値(ダイス)を入力して下さい。',
+        integerMessage: 'ガード・装甲・軽減値(ダイス)は整数値として下さい。',
+        min: 0,
+        minMessage: 'ガード・装甲・軽減値(ダイス)は0以上として下さい。',
+    });
+    const defenceValueRule = createSafeIntegerRules({
+        requiredMessage: 'ガード・装甲・軽減値(固定値)を入力して下さい。',
+        integerMessage: 'ガード・装甲・軽減値(固定値)は整数値として下さい',
+    });
     watch(currentParams, async () => {
         const ticket = validationGate.begin();
         const draft = createDefenceInputDraftSnapshot(currentParams);

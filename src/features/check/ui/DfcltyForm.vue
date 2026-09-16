@@ -2,17 +2,19 @@
 
     import { onUnmounted, ref,reactive,watch } from 'vue';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
+    import { createSafeIntegerRules } from '@/shared/validation/IntegerRules';
 
     const props = defineProps(['dfclty']);
     const emit = defineEmits(['validated']);
     const form = ref();
     const currentDfclty = reactive({opposed:props.dfclty.opposed, target:props.dfclty.target});
     const validationGate = createLatestValidationGate();
-    const targetRule = [
-        value => value!=="" || '難易度を入力して下さい。',
-        value => Number.isSafeInteger(value) || '難易度は数値として下さい。',
-        value => value>=0 || '難易度は0以上として下さい。',
-    ];
+    const targetRule = createSafeIntegerRules({
+        requiredMessage: '難易度を入力して下さい。',
+        integerMessage: '難易度は数値として下さい。',
+        min: 0,
+        minMessage: '難易度は0以上として下さい。',
+    });
     watch(() => [props.dfclty.opposed, props.dfclty.target], ([opposed, target]) => {
         validationGate.invalidate();
         currentDfclty.opposed = opposed;
