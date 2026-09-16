@@ -3,6 +3,7 @@ import type {
   RuntimeDamageRollWorkerLike,
 } from '../../src/runtime/RuntimeDamageRollClientTypes'
 import type {
+  RuntimeDamageRollWorkerEnvelope,
   RuntimeDamageRollWorkerRequest,
   RuntimeDamageRollWorkerResponse,
 } from '../../src/runtime/RuntimeDamageRollProtocol'
@@ -35,6 +36,17 @@ const request: RuntimeDamageRollWorkerRequest = {
   options: { fftLength: 2, distributionLength: 2, rawSupportMax: 0 },
 }
 void request
+
+const envelope: RuntimeDamageRollWorkerEnvelope = {
+  id: 1,
+  weights: undefined,
+  kazanari: undefined,
+  options: undefined,
+}
+void envelope
+// @ts-expect-error: a wire envelope must not be treated as a validated request.
+const requestFromEnvelope: RuntimeDamageRollWorkerRequest = envelope
+void requestFromEnvelope
 
 // AbortSignal belongs to the caller-side client options, not the worker wire protocol.
 const requestWithSignal: RuntimeDamageRollWorkerRequest = {

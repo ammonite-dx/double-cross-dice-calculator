@@ -19,13 +19,24 @@ export interface RuntimeDamageRollWorkerRequest {
 }
 
 /**
+ * Runtime shape after wire-level validation. The payload is intentionally
+ * unknown until the numerical kernel validates it.
+ */
+export interface RuntimeDamageRollWorkerEnvelope {
+  readonly id: number
+  readonly weights: unknown
+  readonly kazanari: unknown
+  readonly options: unknown
+}
+
+/**
  * Validate the small amount of structure that belongs to the Worker wire
  * boundary. The numerical payload is intentionally left to the calculator's
  * own validation so that this boundary does not duplicate kernel rules.
  */
 export function normalizeRuntimeDamageRollWorkerRequest(
   value: unknown,
-): RuntimeDamageRollWorkerRequest {
+): RuntimeDamageRollWorkerEnvelope {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(
       'runtime damage roll worker message must be an object',
@@ -41,9 +52,9 @@ export function normalizeRuntimeDamageRollWorkerRequest(
 
   return {
     id: message.id as number,
-    weights: message.weights as Float64Array,
-    kazanari: message.kazanari as number,
-    options: message.options as RuntimeDamageRollOptions,
+    weights: message.weights,
+    kazanari: message.kazanari,
+    options: message.options,
   }
 }
 

@@ -298,6 +298,18 @@ describe('canonical CalculationClient surface', () => {
     expect(planCalculationRanges).not.toHaveBeenCalled()
   })
 
+  it('preserves the legacy fixed-difficulty default when difficulty is omitted', async () => {
+    const { dependencies } = createPlannedDependencies()
+    const client = createCalculationClient(dependencies)
+
+    await client.calculateCheck(checkParams(), undefined)
+
+    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
+      expect.any(Object),
+      { opposed: false, target: 0 },
+    )
+  })
+
   it('passes equivalent canonical coordinates for raw and normalized Evasion input', async () => {
     const raw = attackParams()
     const normalized = {

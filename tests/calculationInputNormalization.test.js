@@ -49,8 +49,8 @@ describe('calculation input normalization', () => {
   })
 
   it('preserves omitted difficulty defaults while requiring strict values', () => {
-    expect(normalizeDifficultyInput()).toEqual({ opposed: true, target: 0 })
-    expect(normalizeDifficultyInput({})).toEqual({ opposed: true, target: 0 })
+    expect(normalizeDifficultyInput()).toEqual({ opposed: false, target: 0 })
+    expect(normalizeDifficultyInput({})).toEqual({ opposed: false, target: 0 })
     expect(normalizeDifficultyInput({ opposed: false, target: 10 }))
       .toEqual({ opposed: false, target: 10 })
     expect(() => normalizeDifficultyInput({ opposed: 'false', target: 10 }))

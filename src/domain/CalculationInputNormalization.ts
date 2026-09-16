@@ -70,12 +70,12 @@ export function normalizeDifficultyInput(
   input: unknown = {},
   label = 'difficulty',
 ): NormalizedDifficultyInput {
-  // The legacy statistics API treats an omitted difficulty object, and
-  // omitted fields on an object, as an opposed check with target 0. Preserve
-  // those defaults while rejecting explicitly supplied values of the wrong
-  // type at the public runtime boundary.
+  // The legacy CalculationClient passed an omitted difficulty object as an
+  // empty object to getScoreStatistics(), which means a fixed difficulty of
+  // zero. Preserve that behavior while rejecting explicitly supplied values
+  // of the wrong type at the public runtime boundary.
   const source = input === undefined ? {} : object(input, label)
-  const opposed = source.opposed === undefined ? true : source.opposed
+  const opposed = source.opposed === undefined ? false : source.opposed
   if (typeof opposed !== 'boolean') {
     throw new TypeError(`${label}.opposed must be boolean`)
   }

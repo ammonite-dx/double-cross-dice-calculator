@@ -13,6 +13,7 @@ import {
   getBacktrackSupportMax,
   LIVINGDEAD_DLOIS,
 } from '../domain/BacktrackRules'
+import { normalizeBacktrackParams } from '../domain/CalculationInputNormalization'
 import { createDistributionResult } from './DistributionResult'
 import { calculateD10Distributions as calculateSharedD10Distributions } from './D10Calculator'
 
@@ -263,35 +264,6 @@ function sumLivingdeadStates(states, size, label, abortChecker) {
     }
   }
   return normalizeGeneratedDistribution(distribution, label, abortChecker)
-}
-
-function normalizeBacktrackParams(params) {
-  if (!params || typeof params !== 'object' || Array.isArray(params)) {
-    throw new TypeError('backtrack parameters must be an object')
-  }
-  const normalized = {
-    encroachment: params.encroachment ?? 0,
-    lois: params.lois ?? 0,
-    elois: params.elois ?? 0,
-    dice: params.dice ?? 0,
-    value: params.value ?? 0,
-    dlois: params.dlois ?? 'なし',
-  }
-  if (!Number.isSafeInteger(normalized.encroachment)) {
-    throw new TypeError('backtrack.encroachment must be a safe integer')
-  }
-  for (const field of ['lois', 'elois', 'dice', 'value']) {
-    if (!Number.isSafeInteger(normalized[field])) {
-      throw new TypeError(`backtrack.${field} must be a safe integer`)
-    }
-    if (normalized[field] < 0) {
-      throw new RangeError(`backtrack.${field} must be non-negative`)
-    }
-  }
-  if (typeof normalized.dlois !== 'string') {
-    throw new TypeError('backtrack.dlois must be a string')
-  }
-  return normalized
 }
 
 function validateBacktrackRangePlan(params, plan) {
