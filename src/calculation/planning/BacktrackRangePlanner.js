@@ -7,32 +7,11 @@ import {
   getBacktrackRule,
   getBacktrackSupportMax,
 } from '../../domain/BacktrackRules'
-import {
-  assertRemainingLois,
-} from '../../domain/InputDomain'
-import {
-  integer,
-  nonNegativeInteger,
-  object,
-} from './PlanningMath'
+import { normalizeBacktrackParams } from '../../domain/CalculationInputNormalization'
 
 /** Plan the finite support and source buffers for a backtrack calculation. */
 export function planBacktrack(params, display, completeSupport = false) {
-  object(params, 'backtrack')
-  const normalized = {
-    encroachment: integer(
-      params.encroachment ?? 0,
-      'backtrack.encroachment'
-    ),
-    lois: assertRemainingLois(params.lois ?? 0, 'backtrack.lois'),
-    elois: nonNegativeInteger(params.elois ?? 0, 'backtrack.elois'),
-    dice: nonNegativeInteger(params.dice ?? 0, 'backtrack.dice'),
-    value: nonNegativeInteger(params.value ?? 0, 'backtrack.value'),
-    dlois: params.dlois ?? 'なし',
-  }
-  if (typeof normalized.dlois !== 'string') {
-    throw new TypeError('backtrack.dlois must be a string')
-  }
+  const normalized = normalizeBacktrackParams(params)
   const rule = getBacktrackRule(normalized.dlois)
   const diceModifier = rule.diceModifier ?? 0
   const diceCounts = getBacktrackDiceCounts(normalized)

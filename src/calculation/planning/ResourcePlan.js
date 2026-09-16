@@ -12,6 +12,7 @@ import {
   fftOperationCount,
   nextPowerOfTwo,
 } from './PlanningMath'
+import { isSupportedScoreFeatureCombination } from '../../domain/InputDomain'
 
 function addWarning(warnings, code, severity, message, value, limit) {
   warnings.push({ code, severity, message, value, limit })
@@ -132,7 +133,7 @@ export function applyLimits(plan, policy) {
   }
 
   for (const score of plan.scores) {
-    if (score.params.shihai > 0 && score.params.yousei > 0) {
+    if (!isSupportedScoreFeatureCombination(score.params)) {
       addWarning(
         warnings,
         'incompatible-input',

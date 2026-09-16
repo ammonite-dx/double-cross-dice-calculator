@@ -6,12 +6,10 @@ import {
   findTailCutoff,
   scoreTailBound,
 } from '../DxTailModel'
-import { assertCriticalValue } from '../../domain/InputDomain'
+import { normalizeScoreInput } from '../../domain/CalculationInputNormalization'
 import {
   addSafe,
-  integer,
   multiplySafe,
-  nonNegativeInteger,
   subtractSafe,
   fftOperationCount,
 } from './PlanningMath'
@@ -46,16 +44,7 @@ function scoreOperationCount(plan) {
 }
 
 export function normalizeScore(params, name = 'score') {
-  if (!params || typeof params !== 'object' || Array.isArray(params)) {
-    throw new TypeError(`${name} must be an object`)
-  }
-  return {
-    dice: nonNegativeInteger(params.dice, `${name}.dice`),
-    critical: assertCriticalValue(params.critical, `${name}.critical`),
-    shihai: nonNegativeInteger(params.shihai ?? 0, `${name}.shihai`),
-    yousei: nonNegativeInteger(params.yousei ?? 0, `${name}.yousei`),
-    skill: integer(params.skill ?? 0, `${name}.skill`),
-  }
+  return normalizeScoreInput(params, name)
 }
 
 /** Plan the score distribution and its DX tail certificate. */

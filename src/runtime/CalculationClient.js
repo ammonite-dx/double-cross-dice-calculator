@@ -25,6 +25,12 @@ import {
   getScoreStatistics,
 } from '../calculation/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
+import {
+  normalizeAttackCalculationInput,
+  normalizeBacktrackParams,
+  normalizeDifficultyInput,
+  normalizeScoreInput,
+} from '../domain/CalculationInputNormalization'
 import { createCheckRangePolicy } from './CheckRangePolicy'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 import { createResourceGuard } from './ResourceGuard'
@@ -112,32 +118,16 @@ export class CalculationRangeError extends Error {
   }
 }
 
-function snapshotScoreParams(params) {
-  return {
-    dice: params.dice,
-    critical: params.critical,
-    skill: params.skill,
-    yousei: params.yousei,
-    shihai: params.shihai,
-  }
+function snapshotScoreParams(params, label = 'score') {
+  return normalizeScoreInput(params, label)
 }
 
 function snapshotAttackParams(params) {
-  return {
-    action: {
-      score: snapshotScoreParams(params.action.score),
-      damage: { ...params.action.damage },
-    },
-    reaction: {
-      mode: params.reaction.mode,
-      score: snapshotScoreParams(params.reaction.score),
-      damage: { ...params.reaction.damage },
-    },
-  }
+  return normalizeAttackCalculationInput(params)
 }
 
 function snapshotBacktrackParams(params) {
-  return { ...params }
+  return normalizeBacktrackParams(params)
 }
 
 function fixedReactionScoreForPlanning(request) {
@@ -564,8 +554,8 @@ export function createCalculationClient(
   return {
     planCheck(params, _difficulty, policy = {}) {
       const request = {
-        action: snapshotScoreParams(params.action),
-        reaction: snapshotScoreParams(params.reaction),
+        action: snapshotScoreParams(params.action, 'check.action'),
+        reaction: snapshotScoreParams(params.reaction, 'check.reaction'),
       }
       return planner(createCheckRangeParams(request), policy)
     },
@@ -585,10 +575,10 @@ export function createCalculationClient(
 
     async calculateCheck(params, difficulty, options = {}) {
       const request = {
-        action: snapshotScoreParams(params.action),
-        reaction: snapshotScoreParams(params.reaction),
+        action: snapshotScoreParams(params.action, 'check.action'),
+        reaction: snapshotScoreParams(params.reaction, 'check.reaction'),
       }
-      const difficultyRequest = { ...difficulty }
+      const difficultyRequest = normalizeDifficultyInput(difficulty)
       const plan = runRangePreflight(
         planner,
         createCheckRangeParams(request, options.displayRequest),

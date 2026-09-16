@@ -76,6 +76,25 @@ function attackParams() {
   }
 }
 
+function checkParams() {
+  return {
+    action: { ...scoreParams },
+    reaction: { ...scoreParams },
+  }
+}
+
+function createPlannedDependencies() {
+  const plan = {
+    accepted: true,
+    scores: [{}, {}],
+  }
+  const planCalculationRanges = vi.fn(() => plan)
+  return {
+    dependencies: createDependencies({ planCalculationRanges }),
+    planCalculationRanges,
+  }
+}
+
 describe('canonical CalculationClient surface', () => {
   it('keeps production canonical imports on calculation cores', () => {
     expect(calculationClientSource).toContain(
@@ -262,5 +281,95 @@ describe('canonical CalculationClient surface', () => {
       { opposed: true, target: 10 }
     )
     expect(dependencies.calculateScore).toHaveBeenCalledTimes(2)
+  })
+
+  it('normalizes strict public difficulty input before planning', async () => {
+    const { dependencies, planCalculationRanges } = createPlannedDependencies()
+    const client = createCalculationClient(dependencies)
+
+    await expect(client.calculateCheck(
+      checkParams(),
+      { opposed: 'false', target: 10 },
+    )).rejects.toThrow()
+    await expect(client.calculateCheck(
+      checkParams(),
+      { opposed: false, target: -1 },
+    )).rejects.toThrow()
+    expect(planCalculationRanges).not.toHaveBeenCalled()
+  })
+
+  it('passes equivalent canonical coordinates for raw and normalized Evasion input', async () => {
+    const raw = attackParams()
+    const normalized = {
+      ...raw,
+      reaction: {
+        ...raw.reaction,
+        score: {
+          dice: 0,
+          critical: 10,
+          skill: 2,
+          yousei: 0,
+          shihai: 0,
+        },
+      },
+    }
+    const rawSetup = createPlannedDependencies()
+    const normalizedSetup = createPlannedDependencies()
+    const rawDependencies = rawSetup.dependencies
+    const normalizedDependencies = normalizedSetup.dependencies
+
+    await createCalculationClient(rawDependencies).calculateAttack(raw)
+    await createCalculationClient(normalizedDependencies)
+      .calculateAttack(normalized)
+
+    expect(rawSetup.planCalculationRanges.mock.calls[0][0])
+      .toEqual(normalizedSetup.planCalculationRanges.mock.calls[0][0])
+    expect(rawDependencies.calculateScore.mock.calls[1][0])
+      .toEqual(normalizedDependencies.calculateScore.mock.calls[1][0])
+  })
+
+  it('rejects invalid reaction modes and Evasion skill conversion overflow at the public boundary', async () => {
+    const { dependencies, planCalculationRanges } = createPlannedDependencies()
+    const client = createCalculationClient(dependencies)
+
+    const raw = attackParams()
+    await expect(client.calculateAttack({
+      ...raw,
+      reaction: { ...raw.reaction, mode: 'unknown' },
+    })).rejects.toThrow()
+    await expect(client.calculateAttack({
+      ...raw,
+      reaction: {
+        ...raw.reaction,
+        score: {
+          dice: Number.MAX_SAFE_INTEGER,
+          skill: 0,
+        },
+      },
+    })).rejects.toThrow(/safe integer/)
+    expect(planCalculationRanges).not.toHaveBeenCalled()
+  })
+
+  it('keeps incompatible score effects on the range rejection path', async () => {
+    const client = createCalculationClient()
+
+    await expect(client.calculateCheck({
+      action: { ...scoreParams, yousei: 1, shihai: 1 },
+      reaction: { ...scoreParams },
+    }, { opposed: false, target: 0 }, {
+      rangePolicy: {},
+    })).rejects.toMatchObject({
+      name: 'CalculationRangeError',
+      rejectionReasons: ['incompatible-input'],
+    })
+  })
+
+  it('rejects invalid remaining Lois values consistently for planning and execution', async () => {
+    const { dependencies, planCalculationRanges } = createPlannedDependencies()
+    const client = createCalculationClient(dependencies)
+
+    expect(() => client.planBacktrack({ lois: 8 })).toThrow()
+    await expect(client.calculateBacktrack({ lois: 8 })).rejects.toThrow()
+    expect(planCalculationRanges).not.toHaveBeenCalled()
   })
 })

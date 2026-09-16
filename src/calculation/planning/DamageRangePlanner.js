@@ -8,31 +8,23 @@ import {
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
 } from '../RuntimeDamageRollLimits'
 import {
+  normalizeAttackDamageInput,
+  normalizeDefenceDamageInput,
+} from '../../domain/CalculationInputNormalization'
+import {
   addSafe,
-  integer,
   multiplySafe,
   nextPowerOfTwo,
-  nonNegativeInteger,
   subtractSafe,
   fftOperationCount,
-  object,
 } from './PlanningMath'
 
 export function normalizeAttack(params) {
-  object(params, 'attack')
-  return {
-    dice: nonNegativeInteger(params.dice, 'attack.dice'),
-    value: integer(params.value, 'attack.value'),
-    kazanari: nonNegativeInteger(params.kazanari ?? 0, 'attack.kazanari'),
-  }
+  return normalizeAttackDamageInput(params, 'attack')
 }
 
 export function normalizeDefence(params) {
-  object(params, 'defence')
-  return {
-    dice: nonNegativeInteger(params.dice, 'defence.dice'),
-    value: integer(params.value, 'defence.value'),
-  }
+  return normalizeDefenceDamageInput(params, 'defence')
 }
 
 /** Plan the finite damage-roll and defence-convolution ranges. */
