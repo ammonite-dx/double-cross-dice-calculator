@@ -47,7 +47,7 @@ Scoreのprimitiveな値は`normalizeScoreInput`で検証するが、`yousei > 0`
 
 ### UI validation
 
-`src/shared/validation/ScoreInputRules.ts`、`DisplayRangeRules.ts`、`IntegerRules.ts`はVuetifyのruleとしてユーザーへ入力ミスを知らせる。フィールドごとのメッセージとエラー表示位置はfeatureが所有し、共有層は値の意味だけを共有する。
+`src/shared/validation/ScoreInputRules.ts`、`DisplayRangeRules.ts`、`IntegerRules.ts`はVuetifyのruleとしてユーザーへ入力ミスを知らせる。攻撃・防御のダメージ、Checkの難易度、Backtrack各フィールドのsafe integer検証も`createSafeIntegerRules`を使い、フィールドごとのメッセージとエラー表示位置はfeatureが所有する。共有層は値の意味だけを共有する。
 
 Scoreの互換性ruleは`isSupportedScoreFeatureCombination`を呼び出すが、UI validationを計算の唯一の防御にはしない。フォームを経由しない呼出し、将来の別UI、テスト用の直接呼出しは、次の境界で改めて検証される。
 
@@ -67,11 +67,11 @@ Backtrackの残存ロイス上限は`INPUT_DOMAIN.remainingLois.max`を参照す
 
 ### Calculatorの数値境界
 
-`src/calculation`のCalculatorは、RangePlannerを迂回した呼出しに対しても入力型、範囲、配列長、確率、総和、support、数値誤差を検証する。これは重複ではなく、数値カーネルが壊れた入力を進めないためのdefense-in-depthである。上流で整形されたplain objectを受け取る場合も、Calculatorの不変条件を削除しない。
+`src/calculation`のCalculatorは、RangePlannerを迂回した呼出しに対しても入力型、範囲、配列長、確率、総和、support、数値誤差を検証する。これは重複ではなく、数値カーネルが壊れた入力を進めないためのdefense-in-depthである。BacktrackCalculatorもdomainの`normalizeBacktrackParams`を使って入力ルールを共有し、plan integrity、working length、生成量、supportの検証は計算器固有の責務として残す。上流で整形されたplain objectを受け取る場合も、Calculatorの不変条件を削除しない。
 
 ### Worker wire boundary
 
-`src/runtime/RuntimeDamageRollProtocol.ts`の`normalizeRuntimeDamageRollWorkerRequest`は、Worker messageがnull、配列、primitiveではないことと、`id`が非負のsafe integerであることだけを検証する。`weights`、`kazanari`、`options`の意味と計算量は、`generateMixedDamageDistribution`とruntime limitの正本へ委ねる。Worker protocolが数値ルールを複製しないため、plannerとCalculatorの上限がずれない。
+`src/runtime/RuntimeDamageRollProtocol.ts`の`normalizeRuntimeDamageRollWorkerRequest`は、Worker messageがnull、配列、primitiveではないことと、`id`が非負のsafe integerであることだけを検証する。戻り値はwire検証済みの`RuntimeDamageRollWorkerEnvelope`であり、`weights`、`kazanari`、`options`は`unknown`のまま数値カーネルへ渡す。これらの意味と計算量は、`generateMixedDamageDistribution`とruntime limitの正本へ委ねる。Worker protocolが数値ルールを複製しないため、plannerとCalculatorの上限がずれない。
 
 Workerは、validな`id`を持つ入力のpayloadが不正なら`{ id, error }`を返す。このエラーはそのジョブだけを失敗させ、常駐Workerと後続ジョブを維持する。`id`自体が欠落・不正なメッセージは応答先を特定できないため、応答を捏造せずWorker-levelのprotocol failureとして扱う。既存のRuntimeDamageRollClientが持つWorker再生成、queue、cache、Abort、late eventの契約は変更しない。
 
@@ -94,7 +94,7 @@ Workerは、validな`id`を持つ入力のpayloadが不正なら`{ id, error }`�
 - `tests/calculationInputNormalization.test.js`は、既定値、safe integer、critical 2..11、組合せpredicateから独立したScore、strict difficulty、Attack damage、Evasionのraw／canonical同値、変換overflow、Backtrack境界を検証する。
 - `tests/calculationClient.test.js`と関連integration testは、client正規化後の計画・計算同値、invalid difficulty、unknown reaction mode、Evasion、Lois、互換組合せの`CalculationRangeError`を検証する。
 - `tests/runtimeDamageRollProtocol.test.js`とWorker contract testは、wire messageの形、ID境界、valid IDのジョブエラー、invalid IDのprotocol failure、Worker listener継続を検証する。
-- `tests/sharedValidationRules.test.js`、snapshot test、`tests/runtimeValidationResponsibilities.test.js`は、shared predicate、既存のエラーコード、freeze、featureごとのsnapshot、表示範囲のresource preflightを検証する。
+- `tests/sharedValidationRules.test.js`、snapshot test、`tests/runtimeValidationResponsibilities.test.js`は、shared predicate、整数ruleの各feature利用、既存のエラーコード、freeze、featureごとのsnapshot、表示範囲のresource preflightを検証する。
 - CalculatorとRangePlannerの既存テストは残し、上流の正規化追加後も計算器単独のvalidationと数値不変条件を維持する。
 
 ## 非対象と今後
@@ -103,4 +103,4 @@ R25-Hでは、計算式、確率値、表示の見た目、JSON schema、公開a
 
 今後新しい入力経路やHTTP APIを追加する場合は、まずdomain正規化と互換性predicateを再利用し、その外側にAPI固有のserialization・認証・rate limitを置く。APIやMCPを実装する場合も、CalculationClient、RangePlanner、Calculator、Workerの下流検証を省略しない。
 
-R25-Hの実装と文書化は、H1〜H5の順で行った。実装コミットは`23b08b6`、`b69f528`、`552d769`、`4411aa5`であり、本ファイルとTODOの更新を最後の文書単位とする。
+R25-Hの実装と文書化は、H1〜H5の順で行った。主要実装コミットは`23b08b6`、`b69f528`、`552d769`、`4411aa5`であり、follow-upとして`9354967`（互換性境界・Backtrack・Worker型）と`9b5df3f`（共有整数rule）を追加した。本ファイルとTODOの更新を最後の文書単位とする。
