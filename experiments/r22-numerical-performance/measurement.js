@@ -116,10 +116,9 @@ export async function invokeFixture(runtime, fixture, context = {}) {
     case 'dx': {
       const scorePlan = fixture.plan?.scores?.[0] ?? fixture.plan
       const options = scorePlan === undefined || scorePlan === null
-        ? { rounding: 'unrounded' }
+        ? {}
         : {
             workingLength: scorePlan.workingLength,
-            rounding: 'unrounded',
             ...(scorePlan.fftLength > 0
               ? { fftLength: scorePlan.fftLength }
               : {}),

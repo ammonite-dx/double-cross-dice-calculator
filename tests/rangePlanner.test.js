@@ -203,7 +203,6 @@ describe('production range planner', () => {
     const params = { dice: 3, critical: 5, shihai: 0 }
     const distribution = calculateDxDistribution(params, {
       workingLength: 4098,
-      rounding: 'unrounded',
     })
     let simulatedResidual = 0
     for (let value = cutoff + 2; value < distribution.length - 1; value += 1) {

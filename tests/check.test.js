@@ -160,7 +160,7 @@ describe('canonical normal check score producer', () => {
       params.shihai,
       params.dice,
       params.critical,
-      { workingLength: 4, rounding: 'unrounded' }
+      { workingLength: 4 }
     )
     expect(result.offset).toBe(0)
     expect(result.support).toEqual({ kind: 'infinite' })

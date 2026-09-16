@@ -38,6 +38,9 @@ const assetDirectory = new URL(
   '../public/data/schema-v2/revision-1/dx/',
   import.meta.url
 )
+const RUNTIME_OPTIONS = Object.freeze({
+  workingLength: DX_DISTRIBUTION_SIZE,
+})
 const COMPARISON_TOLERANCE = 1e-6 + 1e-12
 
 async function loadAssets() {
@@ -58,14 +61,14 @@ function publishedProbability(distribution, value) {
 
 function benchmark(label, params, iterations = 10) {
   for (let iteration = 0; iteration < 3; iteration += 1) {
-    calculateDxDistribution(params)
+    calculateDxDistribution(params, RUNTIME_OPTIONS)
   }
 
   const elapsed = []
   let checksum = 0
   for (let iteration = 0; iteration < iterations; iteration += 1) {
     const start = performance.now()
-    const distribution = calculateDxDistribution(params)
+    const distribution = calculateDxDistribution(params, RUNTIME_OPTIONS)
     elapsed.push(performance.now() - start)
     checksum += distribution[1]
   }
@@ -108,7 +111,10 @@ for (let shihai = 0; shihai <= ASSET_SHIHAI_MAX; shihai += 1) {
       critical <= DX_CRITICAL_MAX;
       critical += 1
     ) {
-      const actual = calculateDxDistribution({ dice, critical, shihai })
+      const actual = calculateDxDistribution(
+        { dice, critical, shihai },
+        RUNTIME_OPTIONS
+      )
       const published = asset.distributions[dice][critical - 2]
       let actualTotal = 0
 

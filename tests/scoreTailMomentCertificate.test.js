@@ -61,7 +61,7 @@ function approximateTailFirstMoment(params, cutoff, workingLength = 8194) {
       shihai: params.shihai,
       yousei: 0,
     },
-    { workingLength, rounding: 'unrounded' }
+    { workingLength }
   )
   let firstMoment = 0
   for (let value = cutoff + 1; value < distribution.length - 1; value += 1) {

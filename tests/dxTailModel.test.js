@@ -124,7 +124,7 @@ describe('DxTailModel', () => {
     const cutoff = 80
     const distribution = calculateDxDistribution(
       { dice, critical, shihai: 0, yousei },
-      { workingLength: 4098, rounding: 'unrounded' },
+      { workingLength: 4098 },
     )
     let oracle = 0
     for (let value = cutoff + 1; value < distribution.length - 1; value += 1) {

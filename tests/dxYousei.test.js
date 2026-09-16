@@ -104,7 +104,7 @@ describe('runtime DX distribution with Yousei integrated', () => {
     const distribution = calculateDxDistribution({
       ...params,
       shihai: 0,
-    }, { workingLength: 128, rounding: 'unrounded' })
+    }, { workingLength: 128 })
 
     assertValid(distribution)
     expect(distribution[0]).toBe(1)
@@ -120,7 +120,7 @@ describe('runtime DX distribution with Yousei integrated', () => {
     const distribution = calculateDxDistribution({
       ...params,
       shihai: 0,
-    }, { workingLength: 128, rounding: 'unrounded' })
+    }, { workingLength: 128 })
 
     assertValid(distribution)
     expect(distribution[10]).toBe(1)
@@ -140,7 +140,7 @@ describe('runtime DX distribution with Yousei integrated', () => {
     const actual = calculateDxDistribution({
       ...params,
       shihai: 0,
-    }, { workingLength: length, rounding: 'unrounded' })
+    }, { workingLength: length })
     const expected = oldStyleYousei(params, length)
 
     assertValid(actual)
@@ -158,7 +158,7 @@ describe('runtime DX distribution with Yousei integrated', () => {
     const distribution = calculateDxDistribution({
       ...params,
       shihai: 0,
-    }, { workingLength: 4172, rounding: 'unrounded' })
+    }, { workingLength: 4172 })
 
     assertValid(distribution)
     expect(distribution.at(-1)).toBeGreaterThanOrEqual(0)

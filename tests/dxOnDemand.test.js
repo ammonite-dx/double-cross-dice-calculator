@@ -11,6 +11,7 @@ import {
 
 const LEGACY_COMPARISON_DICE = 99
 const LEGACY_COMPARISON_SHIHAI = 19
+const PUBLISHED_QUANTIZATION_TOLERANCE = 1e-6 + 1e-12
 
 function assertDistribution(distribution) {
   expect(distribution).toBeInstanceOf(Float64Array)
@@ -32,7 +33,8 @@ function expectPublishedValue(distribution, published, value) {
     expectedIndex >= 0 && expectedIndex < published.values.length
       ? published.values[expectedIndex]
       : 0
-  expect(distribution[value]).toBeCloseTo(expected, 12)
+  expect(Math.abs(distribution[value] - expected))
+    .toBeLessThanOrEqual(PUBLISHED_QUANTIZATION_TOLERANCE)
 }
 
 describe('runtime dx distribution with shihai=0', () => {
@@ -55,7 +57,7 @@ describe('runtime dx distribution with shihai=0', () => {
       expect(oneDie[value]).toBeCloseTo(0.1, 12)
     }
     expect(oneDie[10]).toBe(0)
-    expect(oneDie[11]).toBe(0.01)
+    expect(oneDie[11]).toBeCloseTo(0.01, 12)
   })
 
   it('preserves the critical=11 boundary and the maximum dice count', () => {
@@ -75,7 +77,7 @@ describe('runtime dx distribution with shihai>0', () => {
   it('accepts dice and target counts beyond the historical asset range', () => {
     const distribution = calculateDxDistribution(
       { dice: 100, critical: 11, shihai: 20 },
-      { workingLength: 64, rounding: 'unrounded' }
+      { workingLength: 64 }
     )
 
     expect(distribution).toHaveLength(64)
@@ -115,7 +117,7 @@ describe('runtime dx distribution with shihai>0', () => {
     }
   })
 
-  it('matches the published distribution at a representative DP case', async () => {
+  it('matches the quantized published distribution within its reference tolerance', async () => {
     const asset = await import(
       '../public/data/schema-v2/revision-1/dx/shihai-3.json'
     )
@@ -153,7 +155,7 @@ describe('runtime dx dynamic working lengths', () => {
     expect(DX_MIN_DISTRIBUTION_SIZE).toBe(2)
     const distribution = calculateDxDistribution(
       { dice: 0, critical: 11, shihai: 0 },
-      { workingLength: DX_MIN_DISTRIBUTION_SIZE, rounding: 'unrounded' }
+      { workingLength: DX_MIN_DISTRIBUTION_SIZE }
     )
 
     expect(distribution).toHaveLength(2)
@@ -166,10 +168,9 @@ describe('runtime dx dynamic working lengths', () => {
     { dice: LEGACY_COMPARISON_DICE, critical: 2, shihai: 0 },
     { dice: 0, critical: 11, shihai: 19 },
     { dice: LEGACY_COMPARISON_DICE, critical: 11, shihai: LEGACY_COMPARISON_SHIHAI },
-  ])('returns a valid unrounded distribution for %o', (params) => {
+  ])('returns a valid full-precision distribution for %o', (params) => {
     const distribution = calculateDxDistribution(params, {
       workingLength: 4172,
-      rounding: 'unrounded',
     })
 
     expect(distribution).toHaveLength(4172)
@@ -183,21 +184,20 @@ describe('runtime dx dynamic working lengths', () => {
     expect(total).toBeCloseTo(1, 12)
   })
 
-  it('accepts size as a compatibility alias and preserves the legacy path', () => {
+  it('matches the default result when the default working length is explicit', () => {
     const params = { dice: 20, critical: 6, shihai: 3 }
     const defaultDistribution = calculateDxDistribution(params)
-    const explicitLegacy = calculateDxDistribution(params, {
-      size: DX_DISTRIBUTION_SIZE,
-      rounding: 'legacy',
+    const explicitDefault = calculateDxDistribution(params, {
+      workingLength: DX_DISTRIBUTION_SIZE,
     })
 
-    expect(Array.from(explicitLegacy)).toEqual(Array.from(defaultDistribution))
+    expect(Array.from(explicitDefault)).toEqual(Array.from(defaultDistribution))
   })
 
-  it('does not discard a small dynamic tail through compatibility rounding', () => {
+  it('does not discard a small dynamic tail at an extended working length', () => {
     const distribution = calculateDxDistribution(
       { dice: 99, critical: 2, shihai: 0 },
-      { workingLength: 4172, rounding: 'full-precision' }
+      { workingLength: 4172 }
     )
 
     expect(distribution[2001]).toBeGreaterThan(0)
@@ -210,8 +210,8 @@ describe('runtime dx dynamic working lengths', () => {
     { workingLength: Number.MAX_SAFE_INTEGER },
     { workingLength: DX_MAX_DISTRIBUTION_SIZE + 1 },
     { workingLength: null },
-    { size: 32, workingLength: 64 },
-    { workingLength: 32, rounding: 'unknown' },
+    { workingLength: 32, fftLength: -1 },
+    { workingLength: 32, fftLength: 1.5 },
   ])('rejects invalid dynamic options %o', (options) => {
     expect(() => calculateDxDistribution(
       { dice: 1, critical: 10, shihai: 0 },

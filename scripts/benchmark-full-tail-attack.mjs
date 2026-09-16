@@ -643,7 +643,6 @@ function createRuntimeDxProvider(calculateDxDistribution) {
       critical,
       yousei,
       options?.workingLength ?? '',
-      options?.rounding ?? '',
       options?.fftLength ?? '',
     ].join(':')
     if (cache.has(key)) {
