@@ -80,13 +80,32 @@ export function assertRemainingLois(
   return value
 }
 
+/**
+ * Return whether the supplied score-effect values can be used together.
+ * Value validation remains the responsibility of the throwing assertion;
+ * this predicate is intended for UI and planner decisions that must preserve
+ * an explicit incompatibility result instead of throwing during normalization.
+ */
+export function isSupportedScoreFeatureCombination(
+  input: ScoreFeatureInput = {},
+): boolean {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return false
+  }
+  const yousei = input.yousei ?? 0
+  const shihai = input.shihai ?? 0
+  return isNonNegativeSafeInteger(yousei)
+    && isNonNegativeSafeInteger(shihai)
+    && !(yousei > 0 && shihai > 0)
+}
+
 export function assertSupportedScoreFeatures({
   yousei = 0,
   shihai = 0,
 }: ScoreFeatureInput = {}): true {
   assertNonNegativeSafeInteger(yousei, 'score.yousei')
   assertNonNegativeSafeInteger(shihai, 'score.shihai')
-  if (yousei > 0 && shihai > 0) {
+  if (!isSupportedScoreFeatureCombination({ yousei, shihai })) {
     throw new RangeError(
       'score.yousei and score.shihai cannot both be non-zero in the current supported feature set'
     )
