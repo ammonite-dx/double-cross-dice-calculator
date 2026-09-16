@@ -1,6 +1,11 @@
 import {
   PUBLISHED_OVERFLOW_INDEX,
 } from '../../../calculation/DistributionResult'
+import {
+  getDisplayRangePointCount,
+  isDisplayMode,
+  isDisplayCoordinate,
+} from '../../../shared/validation/DisplayRangeRules'
 
 /** @typedef {import('../../../domain/CalculationInputs').DisplayRequestSnapshot} DisplayRequestSnapshot */
 /** @typedef {import('../../../calculation/planning/RangePlannerTypes').RangePolicyInput} RangePolicyInput */
@@ -107,7 +112,7 @@ function readOwn(request, property) {
 }
 
 function normalizeCoordinate(value, property) {
-  if (!Number.isSafeInteger(value) || value < 0) {
+  if (!isDisplayCoordinate(value)) {
     fail(
       property === 'min'
         ? ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_MIN
@@ -120,7 +125,7 @@ function normalizeCoordinate(value, property) {
 }
 
 function normalizeMode(value) {
-  if (!Object.values(ATTACK_DISPLAY_MODES).includes(value)) {
+  if (!isDisplayMode(value)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_MODE,
       'displayRequest.mode must be pmf or upper-tail',
@@ -154,8 +159,7 @@ export function normalizeAttackDisplayRequest(request) {
     )
   }
 
-  const pointCount = max - min + 1
-  if (!Number.isSafeInteger(pointCount)) {
+  if (getDisplayRangePointCount(min, max) === null) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POINT_COUNT,
       'displayRequest point count must be a safe integer',
@@ -282,8 +286,8 @@ export function createAttackRangePolicy(
     ...requests.map((request) => request.max),
     ...(suppliedDefaultMax === null ? [] : [suppliedDefaultMax])
   )
-  const pointCount = defaultMax - defaultMin + 1
-  if (!Number.isSafeInteger(pointCount)) {
+  const pointCount = getDisplayRangePointCount(defaultMin, defaultMax)
+  if (pointCount === null) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
       'rangePolicy.display point count must be a safe integer',

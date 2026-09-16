@@ -98,6 +98,17 @@ describe('AttackInputSnapshot', () => {
     expect(normalizeDefenceInputDraft(createDefenceDraft('unknown'))).toBeNull()
   })
 
+  it('rejects an Evasion draft whose derived skill would exceed safe integers', () => {
+    expect(() => normalizeDefenceInputDraft({
+      mode: '《イベイジョン》',
+      score: {
+        dice: Number.MAX_SAFE_INTEGER,
+        skill: Number.MAX_SAFE_INTEGER,
+      },
+      damage: { dice: 0, value: 0 },
+    })).toThrow('exceeds the safe integer range')
+  })
+
   it('replaces one side with a second alias-free snapshot', () => {
     const params = {
       action: createAttackDraft(),

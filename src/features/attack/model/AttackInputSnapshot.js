@@ -1,3 +1,7 @@
+import {
+  normalizeReactionInput,
+} from '../../../domain/CalculationInputNormalization'
+
 const SCORE_FIELDS = Object.freeze([
   'dice',
   'critical',
@@ -75,43 +79,20 @@ export function createDefenceInputDraftSnapshot(draft = {}) {
  * The switch preserves the existing mode-specific values and zeroing rules.
  */
 export function normalizeDefenceInputDraft(draft = {}) {
-  const score = draft.score ?? {}
-  const damage = copyDefenceDamageDraft(draft.damage)
-
-  switch (draft.mode) {
-    case 'ドッジ':
-      return {
-        mode: draft.mode,
-        score: copyScoreDraft(score),
-        damage,
-      }
-    case '《イベイジョン》':
-      return {
-        mode: draft.mode,
-        score: {
-          dice: 0,
-          critical: 10,
-          skill: score.dice * 2 + score.skill,
-          yousei: 0,
-          shihai: 0,
-        },
-        damage,
-      }
-    case 'ガード・リアクション放棄':
-      return {
-        mode: draft.mode,
-        score: {
-          dice: 0,
-          critical: 10,
-          skill: 0,
-          yousei: 0,
-          shihai: 0,
-        },
-        damage,
-      }
-    default:
-      return null
+  const source = draft ?? {}
+  if (
+    source.mode !== 'ドッジ'
+    && source.mode !== '《イベイジョン》'
+    && source.mode !== 'ガード・リアクション放棄'
+  ) {
+    return null
   }
+
+  return normalizeReactionInput({
+    mode: source.mode,
+    score: source.score ?? {},
+    damage: source.damage ?? {},
+  })
 }
 
 /**

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDisplayRangeRules,
+  getDisplayRangePointCount,
+  isDisplayCoordinate,
+  isDisplayMode,
 } from '../src/shared/validation/DisplayRangeRules'
 import {
   createSafeIntegerRules,
@@ -74,6 +77,18 @@ describe('shared score input rules', () => {
 })
 
 describe('shared display range rules', () => {
+  it('centralizes display coordinate, mode, and point-count predicates', () => {
+    expect(isDisplayCoordinate(0)).toBe(true)
+    expect(isDisplayCoordinate(-1)).toBe(false)
+    expect(isDisplayCoordinate(Number.MAX_SAFE_INTEGER + 1)).toBe(false)
+    expect(isDisplayMode('pmf')).toBe(true)
+    expect(isDisplayMode('upper-tail')).toBe(true)
+    expect(isDisplayMode('unknown')).toBe(false)
+    expect(getDisplayRangePointCount(2, 4)).toBe(3)
+    expect(getDisplayRangePointCount(4, 2)).toBeNull()
+    expect(getDisplayRangePointCount(0, Number.MAX_SAFE_INTEGER)).toBeNull()
+  })
+
   it('accepts arbitrary safe ranges, including a single point', () => {
     const range = { min: 0, max: 0 }
     const rules = createDisplayRangeRules(() => range)

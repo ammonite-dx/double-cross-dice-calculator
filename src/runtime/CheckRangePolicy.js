@@ -1,6 +1,11 @@
 import {
   PUBLISHED_OVERFLOW_INDEX,
 } from '../calculation/DistributionResult'
+import {
+  getDisplayRangePointCount,
+  isDisplayMode,
+  isDisplayCoordinate,
+} from '../shared/validation/DisplayRangeRules'
 
 /**
  * Stable error code for invalid calculation/display range policy input.
@@ -14,11 +19,6 @@ const DISPLAY_REQUEST_ERROR_CODES = Object.freeze({
   INVALID_MIN: 'invalid-display-min',
   INVALID_MAX: 'invalid-display-max',
   INVALID_MODE: 'invalid-display-mode',
-})
-
-const CHECK_DISPLAY_MODES = Object.freeze({
-  PMF: 'pmf',
-  UPPER_TAIL: 'upper-tail',
 })
 
 const LEGACY_SAFE_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
@@ -46,7 +46,7 @@ function readOwn(request, property) {
 }
 
 function normalizeCoordinate(value, property) {
-  if (!Number.isSafeInteger(value) || value < 0) {
+  if (!isDisplayCoordinate(value)) {
     fail(
       property === 'min'
         ? DISPLAY_REQUEST_ERROR_CODES.INVALID_MIN
@@ -59,7 +59,7 @@ function normalizeCoordinate(value, property) {
 }
 
 function normalizeMode(value) {
-  if (!Object.values(CHECK_DISPLAY_MODES).includes(value)) {
+  if (!isDisplayMode(value)) {
     fail(
       DISPLAY_REQUEST_ERROR_CODES.INVALID_MODE,
       'displayRequest.mode must be a supported Check display mode',
@@ -90,8 +90,7 @@ function normalizeDisplayRequest(displayRequest) {
       { min, max }
     )
   }
-  const pointCount = max - min + 1
-  if (!Number.isSafeInteger(pointCount)) {
+  if (getDisplayRangePointCount(min, max) === null) {
     fail(
       DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
       'displayRequest point count must be a safe integer',

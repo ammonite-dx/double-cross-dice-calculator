@@ -7,6 +7,7 @@ import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
 import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type { BacktrackCalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
 import type { BacktrackParams } from '../../../domain/BacktrackRules'
+import { INPUT_DOMAIN } from '../../../domain/InputDomain'
 import {
   createBacktrackRunner,
 } from './BacktrackCalculationRunner'
@@ -29,7 +30,7 @@ interface BacktrackState {
 
 const INITIAL_PARAMS: Partial<BacktrackParams> = {
   encroachment: 100,
-  lois: 7,
+  lois: INPUT_DOMAIN.remainingLois.max,
   elois: 0,
   dice: 0,
   value: 0,

@@ -1,5 +1,6 @@
 import {
   INPUT_DOMAIN,
+  isSupportedScoreFeatureCombination,
   isSafeInteger,
   type ScoreFeatureInput,
 } from '@/domain/InputDomain'
@@ -127,15 +128,15 @@ export function createScoreFeatureCompatibilityRule({
   getScore,
   message = DEFAULT_COMPATIBILITY_MESSAGE,
 }: ScoreFeatureCompatibilityRuleOptions): ValidationRule {
-  const otherField = field === 'yousei' ? 'shihai' : 'yousei'
-
   return (value) => {
     if (!isSafeInteger(value) || value <= 0) {
       return true
     }
 
     const score = getScore() ?? {}
-    const otherValue = score[otherField]
-    return otherValue === 0 || message
+    return isSupportedScoreFeatureCombination({
+      ...score,
+      [field]: value,
+    }) || message
   }
 }

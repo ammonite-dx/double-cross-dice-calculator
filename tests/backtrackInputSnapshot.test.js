@@ -106,6 +106,14 @@ describe('Backtrack input flow contracts', () => {
     expect(backtrackFormSource).toContain("emit('validated', draft)")
   })
 
+  it('uses the shared remaining-Lois domain boundary in the form', () => {
+    expect(backtrackFormSource).toContain("@/domain/InputDomain")
+    expect(backtrackFormSource).toContain(
+      'INPUT_DOMAIN.remainingLois.max'
+    )
+    expect(backtrackFormSource).not.toMatch(/(?:max=7|value<=7)/)
+  })
+
   it('does not assign nested Backtrack props from the form', () => {
     expect(backtrackFormSource).not.toMatch(/props\.params\.[\w]+\s*=/)
   })
