@@ -7,8 +7,6 @@ export interface DxDistributionInput {
 
 export interface DxDistributionOptions {
   readonly workingLength?: number
-  readonly size?: number
-  readonly rounding?: 'legacy' | 'unrounded'
   readonly fftLength?: number
 }
 

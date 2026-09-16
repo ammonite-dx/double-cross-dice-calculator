@@ -344,7 +344,6 @@ function createRuntimeDxProvider(calculateDistribution) {
       shihai,
       yousei,
       normalizedOptions.workingLength,
-      normalizedOptions.rounding,
       normalizedOptions.fftLength ?? '',
     ].join(':')
     if (cache.has(key)) {

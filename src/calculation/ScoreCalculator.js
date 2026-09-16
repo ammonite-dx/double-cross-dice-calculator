@@ -123,7 +123,6 @@ function calculateScoreWorking(
   const dxOptions = plan
     ? {
         workingLength: requestedLength,
-        rounding: 'unrounded',
         ...(params.yousei > 0 && plan.fftLength > 0
           ? { fftLength: plan.fftLength }
           : {}),

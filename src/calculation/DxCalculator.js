@@ -11,7 +11,6 @@ import {
   calculateYouseiTailProbability,
   maxGeometricTail,
   negativeBinomialPmf,
-  oneDieCumulative,
   oneDieTail,
 } from './DxTailModel'
 
@@ -32,11 +31,7 @@ export const DX_SHIHAI_MIN = 0
 export const DX_MAX_CALCULATION_OPERATIONS = 2_000_000_000
 export const DX_MAX_CALCULATION_BYTES = 512 * 1024 * 1024
 
-const ROUNDING_UNIT = 1e-6
 const FULL_PRECISION_NEGATIVE_TOLERANCE = 1e-12
-
-const LEGACY_ROUNDING = 'legacy'
-const UNROUNDED_ROUNDING = 'unrounded'
 
 function validateInput(params) {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
@@ -92,10 +87,7 @@ function binomialPmfAt(dice, successes, probability) {
 
 export function normalizeDxOptions(options) {
   if (options === undefined) {
-    return {
-      workingLength: DX_DISTRIBUTION_SIZE,
-      rounding: LEGACY_ROUNDING,
-    }
+    return { workingLength: DX_DISTRIBUTION_SIZE }
   }
   if (!options || typeof options !== 'object' || Array.isArray(options)) {
     throw new TypeError(
@@ -103,20 +95,7 @@ export function normalizeDxOptions(options) {
     )
   }
 
-  const hasWorkingLength = options.workingLength !== undefined
-  const hasSize = options.size !== undefined
-  const suppliedLength = hasWorkingLength
-    ? options.workingLength
-    : hasSize
-      ? options.size
-      : undefined
-  if (
-    hasWorkingLength &&
-    hasSize &&
-    options.workingLength !== options.size
-  ) {
-    throw new RangeError('workingLength and size must match when both are supplied')
-  }
+  const suppliedLength = options.workingLength
   const workingLength = suppliedLength === undefined
     ? DX_DISTRIBUTION_SIZE
     : suppliedLength
@@ -134,37 +113,6 @@ export function normalizeDxOptions(options) {
     )
   }
 
-  const suppliedRounding = options.rounding !== undefined
-    ? options.rounding
-    : options.roundingMode !== undefined
-      ? options.roundingMode
-      : options.fullPrecision
-        ? UNROUNDED_ROUNDING
-        : undefined
-  const rounding = suppliedRounding ?? (
-    suppliedLength === undefined
-      ? LEGACY_ROUNDING
-      : UNROUNDED_ROUNDING
-  )
-  const normalizedRounding = {
-    legacy: LEGACY_ROUNDING,
-    rounded: LEGACY_ROUNDING,
-    'six-decimal': LEGACY_ROUNDING,
-    'six-decimals': LEGACY_ROUNDING,
-    'round-to-six-decimals': LEGACY_ROUNDING,
-    compatibility: LEGACY_ROUNDING,
-    compat: LEGACY_ROUNDING,
-    unrounded: UNROUNDED_ROUNDING,
-    'full-precision': UNROUNDED_ROUNDING,
-    fullPrecision: UNROUNDED_ROUNDING,
-    none: UNROUNDED_ROUNDING,
-  }[rounding]
-  if (!normalizedRounding) {
-    throw new RangeError(
-      'rounding must be legacy/compatibility or unrounded/full-precision'
-    )
-  }
-
   const fftLength = options.fftLength
   if (
     fftLength !== undefined
@@ -175,7 +123,6 @@ export function normalizeDxOptions(options) {
 
   return {
     workingLength,
-    rounding: normalizedRounding,
     ...(fftLength === undefined ? {} : { fftLength }),
   }
 }
@@ -291,8 +238,7 @@ function getTerminalOrderStatistic(dice, shihai, critical, workingLength) {
 function calculateShihaiZeroDistribution(
   dice,
   critical,
-  workingLength,
-  stableTail = false
+  workingLength
 ) {
   const result = new Float64Array(workingLength)
   if (dice === 0) {
@@ -303,28 +249,19 @@ function calculateShihaiZeroDistribution(
   // For shihai=0, the result is the maximum of dice independent rolls.
   // If F_c(x) is the one-die cumulative distribution, then
   // P(V_{n,c} <= x) = F_c(x)^n.
-  let previousCumulative = 0
   let previousTail = 1
-  let total = 0
   const overflowIndex = workingLength - 1
   for (let value = 0; value < overflowIndex; value += 1) {
-    if (stableTail) {
-      const oneDieTailProbability = oneDieTail(value, critical)
-      const tail = oneDieTailProbability === 1
-        ? 1
-        : -Math.expm1(
-            dice * Math.log1p(-oneDieTailProbability)
-          )
-      result[value] = previousTail - tail
-      previousTail = tail
-    } else {
-      const cumulative = oneDieCumulative(value, critical) ** dice
-      result[value] = cumulative - previousCumulative
-      previousCumulative = cumulative
-    }
-    total += result[value]
+    const oneDieTailProbability = oneDieTail(value, critical)
+    const tail = oneDieTailProbability === 1
+      ? 1
+      : -Math.expm1(
+          dice * Math.log1p(-oneDieTailProbability)
+        )
+    result[value] = previousTail - tail
+    previousTail = tail
   }
-  result[overflowIndex] = stableTail ? previousTail : 1 - total
+  result[overflowIndex] = previousTail
   return result
 }
 
@@ -641,65 +578,6 @@ function normalizeFullPrecisionProbabilities(distribution) {
   return normalized
 }
 
-function roundToSixDecimals(value) {
-  const scaled = Math.abs(value) / ROUNDING_UNIT
-  const lower = Math.floor(scaled)
-  const fraction = scaled - lower
-  const roundedInteger =
-    fraction > 0.5 ||
-    (fraction === 0.5 && lower % 2 === 1)
-      ? lower + 1
-      : lower
-  return roundedInteger * ROUNDING_UNIT
-}
-
-function roundNormalizedProbabilities(distribution) {
-  const rounded = new Float64Array(distribution.length)
-  for (let index = 0; index < distribution.length; index += 1) {
-    rounded[index] = roundToSixDecimals(distribution[index])
-  }
-
-  let total = 0
-  for (const probability of rounded) {
-    total += probability
-  }
-
-  while (Math.abs(total - 1) > ROUNDING_UNIT / 2) {
-    const errors = new Float64Array(distribution.length)
-    let index = 0
-    if (total > 1) {
-      let largestError = -Infinity
-      for (let candidate = 0; candidate < distribution.length; candidate += 1) {
-        errors[candidate] = rounded[candidate] - distribution[candidate]
-        if (errors[candidate] > largestError) {
-          largestError = errors[candidate]
-          index = candidate
-        }
-      }
-      rounded[index] -= ROUNDING_UNIT
-      total -= ROUNDING_UNIT
-    } else {
-      let smallestError = Infinity
-      for (let candidate = 0; candidate < distribution.length; candidate += 1) {
-        errors[candidate] = rounded[candidate] - distribution[candidate]
-        if (errors[candidate] < smallestError) {
-          smallestError = errors[candidate]
-          index = candidate
-        }
-      }
-      rounded[index] += ROUNDING_UNIT
-      total += ROUNDING_UNIT
-    }
-  }
-
-  for (let index = 0; index < rounded.length; index += 1) {
-    if (rounded[index] === 0) {
-      rounded[index] = 0
-    }
-  }
-  return rounded
-}
-
 export function calculateDxDistribution(params, options) {
   validateInput(params)
   const normalizedOptions = normalizeDxOptions(options)
@@ -755,8 +633,7 @@ export function calculateDxDistribution(params, options) {
           ? calculateShihaiZeroDistribution(
               dice,
               critical,
-              normalizedOptions.workingLength,
-              normalizedOptions.rounding === UNROUNDED_ROUNDING
+              normalizedOptions.workingLength
             )
           : critical === DX_CRITICAL_MAX
             ? createPointDistribution(normalizedOptions.workingLength, 10)
@@ -768,8 +645,5 @@ export function calculateDxDistribution(params, options) {
                 normalizedOptions.fftLength
               )
 
-  assertFiniteProbabilityArray(rawDistribution, true)
-  return normalizedOptions.rounding === UNROUNDED_ROUNDING
-    ? normalizeFullPrecisionProbabilities(rawDistribution)
-    : roundNormalizedProbabilities(rawDistribution)
+  return normalizeFullPrecisionProbabilities(rawDistribution)
 }
