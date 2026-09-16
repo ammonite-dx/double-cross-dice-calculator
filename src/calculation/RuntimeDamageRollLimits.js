@@ -12,7 +12,7 @@ export const RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH =
 // The reroll algorithm is quadratic in the effective reroll count and is
 // evaluated at every FFT frequency. This is an absolute computation guard,
 // not a game-rule input ceiling; the planner normally rejects much smaller
-// requests from its device-specific resource policy.
+// requests from its application-wide resource policy.
 export const RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE = 2_000_000_000
 
 /**
