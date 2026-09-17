@@ -642,3 +642,12 @@ Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper�
 - Follow-up（`9354967`）: difficulty省略時を旧CalculationClientと同じ`opposed: false`・`target: 0`へ修正し、client回帰テストを追加した。BacktrackCalculatorの入力正規化をdomainへ接続し、Worker wire検証の戻り値を未検証payloadを表す`RuntimeDamageRollWorkerEnvelope`へ分離した。
 - Follow-up（`9b5df3f`）: Attack／防御damage、Check difficulty、Backtrack各フィールドのVuetify整数ruleを`createSafeIntegerRules`へ統一し、日本語メッセージとdomain上限を維持した。architecture testで各featureが共有ruleを使う契約を固定した。
 - 最終検証: `npm run verify:release`をfollow-up後の最終内容で実行し、`npm run check:node`、data 32 assets、Vitest 105ファイル／1096テスト、generator通常18件・simulation13件、Ruff、typecheck、runtime DX 20,000ケース、ESLint、Markdown lint 68ファイル／0 issues、build、production smoke、`git diff --check`をGREENで確認した。R25-Hを`CLOSED / GREEN`とする。
+
+## R25-I テスト・CI・参照検証の責務分離（完了）
+
+- I1（`cf075c0`）: productionのDX計算実装から独立した小規模全列挙オラクルを`tests/dxDirectOracle.test.js`へ追加した。ダイス数0〜4、クリティカル値2〜11、`shihai` 0〜3、64バケットの全組合せを、状態DPによる直接列挙と最大絶対誤差`1e-10`で比較する。
+- I2（`304cebb`）: 公開revision-1 JSON、参照repository、DR実験、量子化比較を`tests/reference/`へ分離し、`vitest.config.js`では除外、`vitest.reference.config.js`と`npm run test:reference`では専用実行する。production側の通常テストは参照JSONをimportしない。
+- I3（`64a8ff4`）: `verify:core`、`verify:browser`、`verify:reference`、`verify:release`、`verify:all`をpackage scriptへ追加した。production releaseはcoreとbrowser smokeだけで完結し、generator・公開データ・runtime DXはreference gateへ分離した。
+- I4（`7bf9086`）: GitHub Actionsを差分スコープ検出、core、browser、referenceのジョブへ分割した。coreはNode.jsのみ、browserはChromiumのみ、referenceはuv/Pythonのみを導入し、main pushではbrowserとreferenceを常に実行する。検証契約テストも意味的な分離を確認する形へ更新した。
+- I5（本コミット）: 検証境界、reference資産とproduction計算の違い、published-bucket互換の位置づけ、変更時のコマンド選択を[`r25-i-test-ci-reference-decoupling.md`](./r25-i-test-ci-reference-decoupling.md)、[`README.md`](../README.md)、[`CONTRIBUTING.md`](../CONTRIBUTING.md)へ記録した。revision-1 JSON、generator出力、published-bucket production code、計算UIは変更していない。
+- 最終確認: `verify:core`（103ファイル／1051件）、`test:reference`（6ファイル／46件）、`verify:reference`（32 assets、generator通常18件、simulation13件、runtime DX 20,000ケース）、`verify:release`（production browser smokeを含む）、`git diff --check`を実行し、core／browser／referenceの責務が独立していることを確認した。

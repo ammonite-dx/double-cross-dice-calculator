@@ -19,7 +19,7 @@ Double Cross Dice Calculatorへの改善提案をありがとうございます�
 1. Node.jsのバージョンを `.node-version` の `22.23.2` に合わせます。
 2. `npm run check:node` でNode.jsのバージョンを確認します。
 3. `npm ci` で依存関係をインストールします。
-4. [uv](https://docs.astral.sh/uv/)をインストールし、`uv sync --project generator --dev`で事前計算生成器の依存関係を用意します。リリース用の全検証ではgeneratorのテストとデータ検証を実行するため、生成器を変更しない場合もこの環境が必要です。
+4. [uv](https://docs.astral.sh/uv/)とPython 3.12は、`verify:reference`やgeneratorを変更したときだけ用意します。通常のproductionコードのテストはNode.jsだけで実行できます。
 5. 作業用ブランチを作成します。
 6. 実装とテストを変更します。
 7. Pull Requestを作成する前に品質確認を実行します。
@@ -29,15 +29,19 @@ npm run lint
 npm test
 ```
 
-リリース前の正本となる全検証は、次のコマンドで実行します。
+Pull Request作成前は、まずproduction側の検証を実行します。
 
 ```sh
-npm run verify:release
+npm run verify:core
 ```
 
-このコマンドには事前計算データ、generator、型検査、runtime、lint、ビルド、production browser smoke、`git diff --check`が含まれます。production browser smokeをローカルで実行する場合は、必要に応じて`npx playwright install chromium`でChromiumを導入してください。環境にあるChromeを利用できる場合は既存のfallbackも使われます。CIでは`npx playwright install --with-deps chromium`を先に実行します。
+ブラウザ表示まで確認する場合は`npm run verify:browser`を追加します。generator、公開データ、過去の分布との比較を含める場合は、uv環境を用意して`npm run verify:reference`を実行します。production releaseの正本は`npm run verify:release`（coreとproduction browser smoke）で、参照資産を含む全検証は`npm run verify:all`です。
+
+`verify:core`はNode.js、通常テスト、型検査、ESLint、Markdown lint、ビルド、`git diff --check`を含みます。`verify:browser`はビルド済みサイトのproduction browser smokeだけを担当し、必要に応じて`npx playwright install chromium`でChromiumを導入してください。環境にあるChromeを利用できる場合は既存のfallbackも使われます。`verify:reference`は`tests/reference/`、事前計算データ、generatorの通常テスト・シミュレーション、Ruff、runtime DX検証を担当します。CIではcore、browser、referenceを別ジョブで実行し、Chromiumはbrowserジョブ、uvとPythonはreferenceジョブだけで導入します。
 
 ローカルの`git diff --check`は作業ツリーの未コミット差分を検査します。CIでは同じrelease gateにbase commitからcheckoutされたheadまでのコミット範囲検査を加えるため、コミット済みの差分も検証されます。
+
+公開済み`schema-v2/revision-1` JSONとgeneratorは、productionの計算結果を供給する経路ではなく、再生成と歴史的な互換性を確認する参照領域です。referenceテストを変更した場合は`npm run test:reference`を実行し、公開データまたはgeneratorを変更した場合は`npm run verify:reference`まで実行してください。
 
 Markdownではmarkdownlintの規約に従い、段落内の文章を途中で改行しません。コードブロック、表、箇条書きなど、Markdownの構造に必要な改行は維持します。
 

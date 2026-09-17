@@ -38,7 +38,7 @@ npm run dev
 
 ## 品質確認
 
-通常の開発中は、変更に応じて個別のlintやテストを実行します。Pull Request作成前やリリース前には、Node.js、事前計算データ、JavaScript・Pythonのテスト、型検査、runtime検証、lint、ビルド、production browser smoke、差分検査をまとめて実行する`npm run verify:release`を使用してください。
+通常の開発中は、変更に応じて個別のlintやテストを実行します。検証はproductionと参照資産を分けて実行でき、Node.jsだけで完結する`npm run verify:core`、本番ビルドをChromiumで確認する`npm run verify:browser`、事前計算データ・generator・シミュレーション・参照テストを確認する`npm run verify:reference`を使い分けます。
 
 ```sh
 npm run lint
@@ -47,7 +47,11 @@ npm test
 
 `npm run lint:fix` はESLintで自動修正可能な箇所を更新します。
 
-事前計算後にブラウザで行う判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証は[`docs/precomputation-validation.md`](./docs/precomputation-validation.md)を参照してください。
+`npm test`は本番計算とアプリケーションのテストだけを実行し、`tests/reference/`にある過去の公開データとの比較テストは除外します。参照テストは`npm run test:reference`で単独実行できます。リリース用のproduction gateは`npm run verify:release`（`verify:core`とproduction browser smoke）で、参照資産まで含めた全検証は`npm run verify:all`で実行します。`verify:reference`だけを実行する場合はuvとPython 3.12が必要です。
+
+`public/data/schema-v2/revision-1/`、`tooling/reference-data/`、`generator/`および`tests/reference/`は、現在のブラウザ実行経路そのものではなく、過去に公開した分布の再現性・生成器・互換境界を検証する参照領域です。これらの検証をproduction gateから分離しても、published-bucket互換の仕様とテストを削除したことにはなりません。
+
+事前計算後にブラウザで行う判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証と、production gateから分離した検証手順は[`docs/precomputation-validation.md`](./docs/precomputation-validation.md)と[`docs/r25-i-test-ci-reference-decoupling.md`](./docs/r25-i-test-ci-reference-decoupling.md)を参照してください。
 
 Attackのfull-tail計算に関する参考ベンチマークは`npm run benchmark:full-tail-attack`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 
