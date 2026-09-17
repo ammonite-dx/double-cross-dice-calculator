@@ -9,19 +9,8 @@ import {
   getBacktrackSupportMax,
 } from '../src/domain/BacktrackRules'
 import { getBacktrackGenerationOperationEstimate } from '../src/calculation/BacktrackLimits'
-import {
-  getLivingdeadDistribution,
-  registerLivingdeadAsset,
-} from '../tooling/reference-data/ReferencePrecomputedDataRepository'
-import { calculateD10Distribution } from '../src/calculation/D10Calculator'
 import { createCalculationClient } from '../src/runtime/CalculationClient'
-import livingdead from '../public/data/schema-v2/revision-1/livingdead.json'
-
-registerLivingdeadAsset(livingdead)
-
-const getD10Distribution = (dice, size) =>
-  calculateD10Distribution(dice, { size })
-const backtrackDependencies = { getD10Distribution, getLivingdeadDistribution }
+const backtrackDependencies = {}
 
 function getFinalEncroachment(
   params,
@@ -115,7 +104,7 @@ describe('backtrack canonical producer', () => {
     const plan = createBacktrackPlan(params)
     const canonical = calculateFinalEncroachment(
       params,
-      { getD10Distribution, getLivingdeadDistribution },
+      backtrackDependencies,
       {},
       plan
     )
@@ -140,7 +129,7 @@ describe('backtrack canonical producer', () => {
     const plan = createBacktrackPlan(params)
     const canonical = calculateFinalEncroachment(
       params,
-      { getD10Distribution, getLivingdeadDistribution },
+      backtrackDependencies,
       {},
       plan
     )

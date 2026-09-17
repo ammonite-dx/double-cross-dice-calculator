@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const assetDirectory = fileURLToPath(
-  new URL('../public/data/schema-v2/revision-1/', import.meta.url)
+  new URL('../../public/data/schema-v2/revision-1/', import.meta.url)
 )
 const manifestPath = path.join(assetDirectory, 'manifest.json')
 
