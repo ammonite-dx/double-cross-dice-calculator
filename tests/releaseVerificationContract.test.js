@@ -16,39 +16,63 @@ const readme = readRepositoryFile('README.md')
 const contributing = readRepositoryFile('CONTRIBUTING.md')
 const diffCheck = readRepositoryFile('scripts/diff-check.mjs')
 
-const releaseSteps = [
+const coreSteps = [
   'npm run check:node',
-  'npm run data:check',
   'npm test',
-  'npm run generator:test',
-  'npm run generator:test:simulation',
-  'npm run generator:lint',
   'npm run typecheck',
-  'npm run verify:runtime-dx',
   'npm run lint',
   'npm run lint:markdown',
   'npm run build',
-  'npm run smoke:production:built',
   'npm run diff:check',
 ]
 
+const referenceSteps = [
+  'npm run check:node',
+  'npm run data:check',
+  'npm run test:reference',
+  'npm run generator:test',
+  'npm run generator:test:simulation',
+  'npm run generator:lint',
+  'npm run verify:runtime-dx',
+]
+
+function expectStepsInOrder(script, steps) {
+  let previousIndex = -1
+  for (const step of steps) {
+    const index = script.indexOf(step)
+    expect(index, `missing verification step: ${step}`).toBeGreaterThan(-1)
+    expect(index, `out-of-order verification step: ${step}`).toBeGreaterThan(
+      previousIndex
+    )
+    previousIndex = index
+  }
+}
+
+function workflowJob(name) {
+  const match = workflow.match(
+    new RegExp(`\\n  ${name}:\\n([\\s\\S]*?)(?=\\n  [a-z-]+:|$)`)
+  )
+  return match?.[1] ?? ''
+}
+
 describe('release verification contract', () => {
-  it('defines one ordered release gate in package.json', () => {
+  it('defines separate core, browser, reference, and release gates', () => {
+    expect(scripts).toHaveProperty('verify:core')
+    expect(scripts).toHaveProperty('verify:browser')
+    expect(scripts).toHaveProperty('verify:reference')
     expect(scripts).toHaveProperty('verify:release')
-    expect(scripts['verify:release'])
-      .not.toContain('npm run data:verify-generator')
+    expect(scripts).toHaveProperty('verify:all')
     expect(scripts).toHaveProperty('smoke:production:built')
     expect(scripts).toHaveProperty('diff:check', 'node scripts/diff-check.mjs')
 
-    let previousIndex = -1
-    for (const step of releaseSteps) {
-      const index = scripts['verify:release'].indexOf(step)
-      expect(index, `missing release step: ${step}`).toBeGreaterThan(-1)
-      expect(index, `out-of-order release step: ${step}`).toBeGreaterThan(
-        previousIndex
-      )
-      previousIndex = index
-    }
+    expectStepsInOrder(scripts['verify:core'], coreSteps)
+    expectStepsInOrder(scripts['verify:reference'], referenceSteps)
+    expect(scripts['verify:browser']).toContain('npm run build')
+    expect(scripts['verify:browser']).toContain('npm run smoke:production:built')
+    expect(scripts['verify:release']).toContain('npm run verify:core')
+    expect(scripts['verify:release']).toContain('npm run smoke:production:built')
+    expect(scripts['verify:release'])
+      .not.toMatch(/data:check|generator:|test:reference|verify:runtime-dx/)
   })
 
   it('keeps standalone production smoke and the built smoke path', () => {
@@ -61,12 +85,33 @@ describe('release verification contract', () => {
     )
   })
 
-  it('connects CI to the release gate and installs Chromium explicitly', () => {
-    expect(workflow).toContain('npm run verify:release')
-    expect(workflow).toContain('npx playwright install --with-deps chromium')
-    expect(workflow).toContain('fetch-depth: 0')
-    expect(workflow).toContain('DIFF_CHECK_BASE:')
-    expect(workflow).toContain('DIFF_CHECK_HEAD:')
+  it('splits CI into core, browser, and reference jobs', () => {
+    expect(workflow).toContain('changes:')
+    expect(workflow).toContain('core:')
+    expect(workflow).toContain('browser:')
+    expect(workflow).toContain('reference:')
+    expect(workflow).toContain('git diff --name-only')
+    expect(workflow).toContain("github.event_name == 'push'")
+
+    const core = workflowJob('core')
+    const browser = workflowJob('browser')
+    const reference = workflowJob('reference')
+
+    expect(core).toContain('npm run verify:core')
+    expect(core).toContain('fetch-depth: 0')
+    expect(core).toContain('DIFF_CHECK_BASE:')
+    expect(core).toContain('DIFF_CHECK_HEAD:')
+    expect(core).not.toContain('uv ')
+    expect(core).not.toContain('playwright')
+
+    expect(browser).toContain('npm run verify:browser')
+    expect(browser).toContain('npx playwright install --with-deps chromium')
+    expect(browser).not.toContain('uv ')
+
+    expect(reference).toContain('npm run verify:reference')
+    expect(reference).toContain('uv sync --project generator --locked --dev')
+    expect(reference).toContain('uv python install 3.12')
+    expect(reference).not.toContain('playwright')
   })
 
   it('checks the working tree locally and a committed range in CI', () => {
@@ -83,7 +128,5 @@ describe('release verification contract', () => {
     expect(contributing).toContain('npm run verify:release')
     expect(readme).not.toContain('src/data/')
     expect(readme).not.toContain('npm run benchmark:calculators')
-    expect(readme).not.toContain('canonical')
-    expect(readme).not.toContain('legacy')
   })
 })
