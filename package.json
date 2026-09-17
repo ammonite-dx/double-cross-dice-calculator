@@ -56,7 +56,11 @@
     "test": "vitest run",
     "test:reference": "vitest run --config vitest.reference.config.js",
     "verify:runtime-dx": "node scripts/verify-runtime-dx.mjs",
-    "verify:release": "npm run check:node && npm run data:check && npm test && npm run generator:test && npm run generator:test:simulation && npm run generator:lint && npm run typecheck && npm run verify:runtime-dx && npm run lint && npm run lint:markdown && npm run build && npm run smoke:production:built && npm run diff:check",
+    "verify:core": "npm run check:node && npm test && npm run typecheck && npm run lint && npm run lint:markdown && npm run build && npm run diff:check",
+    "verify:browser": "npm run build && npm run smoke:production:built",
+    "verify:reference": "npm run check:node && npm run data:check && npm run test:reference && npm run generator:test && npm run generator:test:simulation && npm run generator:lint && npm run verify:runtime-dx",
+    "verify:release": "npm run verify:core && npm run smoke:production:built",
+    "verify:all": "npm run verify:release && npm run verify:reference",
     "test:runtime-dr:full": "node scripts/verify-runtime-dr-experiment.mjs --optimized",
     "test:runtime-dr:full:reference": "node scripts/verify-runtime-dr-experiment.mjs",
     "test:watch": "vitest"
