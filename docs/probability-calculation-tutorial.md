@@ -4,7 +4,7 @@
 
 この文書は、Double Cross Dice Calculatorで使用する確率計算を題材に、離散確率分布、畳み込み、動的計画法、順序統計量、FFTを段階的に学ぶための入門書です。いきなり一般の場合を扱わず、通常の1D10、基本判定、効果なしのダメージから始め、特殊効果を少しずつ加えます。
 
-ゲーム内の処理を正確に定義する正規仕様は[`dice-rules.md`](./dice-rules.md)、現在の生成器を再実装するための簡潔な技術仕様は[`precomputation-algorithms.md`](./precomputation-algorithms.md)、ブラウザ内で行う合成処理の技術仕様は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)です。この文書は学習を目的とした補助資料であり、ルールブックの文章を転載するものではありません。
+ゲーム内の処理を正確に定義する正規仕様は[`dice-rules.md`](./dice-rules.md)、歴史的な参照fixtureを再生成するための簡潔な技術仕様は[`reference/precomputation-algorithms.md`](./reference/precomputation-algorithms.md)、ブラウザ内で行う合成処理の技術仕様は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)です。この文書は学習を目的とした補助資料であり、ルールブックの文章を転載するものではありません。
 
 本文では、ダイスは互いに独立であり、10面ダイスの各面は等確率で出るものとします。「独立」とは、あるダイスの出目を知っても別のダイスの出目の確率が変わらないという意味です。この前提があるため、複数の事象が同時に起こる確率をそれぞれの確率の積で表せます。
 

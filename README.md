@@ -51,7 +51,7 @@ npm test
 
 `tooling/reference-data/assets/schema-v2/revision-1/`、`tooling/reference-data/`、`generator/`および`tests/reference/`は、現在のブラウザ実行経路そのものではなく、過去に生成した分布の再現性・生成器・互換境界を検証する参照領域です。これらの検証をproduction gateから分離しても、published-bucket互換の仕様とテストを削除したことにはなりません。
 
-事前計算後にブラウザで行う判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証と、production gateから分離した検証手順は[`docs/reference/precomputation-validation.md`](./docs/reference/precomputation-validation.md)と[`docs/r25-i-test-ci-reference-decoupling.md`](./docs/r25-i-test-ci-reference-decoupling.md)を参照してください。
+実行時の判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。参照fixture自体の検証とproduction gateから分離した手順は[`docs/reference/precomputation-validation.md`](./docs/reference/precomputation-validation.md)を参照してください。CI分離の経緯は[`docs/archive/r25-i-test-ci-reference-decoupling.md`](./docs/archive/r25-i-test-ci-reference-decoupling.md)にあります。
 
 Attackのfull-tail計算に関する参考ベンチマークは`npm run benchmark:full-tail-attack`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 

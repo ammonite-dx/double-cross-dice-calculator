@@ -1,142 +1,71 @@
 # アーキテクチャ
 
-このアプリはCloudflare Pagesで配信する静的SPAです。サーバー側の計算やデータベースを必要とせず、必要なruntime計算をブラウザ内で行います。DXとD10はメインスレッド、DRのFFT本体はRuntimeDamageRollWorker、Backtrackはruntime coreで実行し、全計算を一律Workerへ移すことは現行方針にしません。
+このアプリはCloudflare Pagesで配信する静的SPAです。サーバー側の計算やデータベースを必要とせず、必要な計算をブラウザ内で行います。DXとD10はメインスレッド、DRのFFT本体は`RuntimeDamageRollWorker`、Backtrackはruntimeの計算コアで実行します。全計算を一律Workerへ移す構成ではありません。
 
-## モジュール境界
+## レイヤーと責務
 
-- `src/calculation/ScoreCalculator.js`: 一般判定・対決判定の達成値と成功率を計算するコア
-- `src/calculation/DamageCalculator.js`: ダメージ、期待値、複数コンボの合計を計算するコア
-- `src/calculation/BacktrackCalculator.js`: バックトラック後の侵蝕率を計算するコア
-- `src/runtime/CalculationClient.js`: UI向けの非同期計算境界、実行時DX/D10計算器の注入、常駐runtime damage Workerの組み立て
-- `src/runtime/CalculationFeedback.js`、`CalculationRequestCoordinator.js`、`ResourceGuard.js`: 計算要求のlatest-wins、フィードバック、資源予約を管理するframework-independent runtime
-- `src/runtime/RuntimeDamageRollClient.js`、`RuntimeDamageRollProtocol.ts`、`RuntimeDamageRollWorker.js`: ダメージロールのWorker境界と通信契約
-- `src/calculation/D10Calculator.js`: 通常D10合計の完全有限supportを生成するruntime primitive
-- `src/calculation/DxTailModel.js`: DX一個・最大値・《妖精の手》の尾部確率と、範囲計画で共有するtail certificateを計算するpure model
-- `src/calculation/planning/ScoreRangePlanner.js`: Scoreのworking range、DX tail、Yousei FFT、配列見積りを計画する
-- `src/calculation/planning/DamageRangePlanner.js`: 攻撃・防御の差分、DR support、D10防御、畳み込み範囲を計画する
-- `src/calculation/planning/BacktrackRangePlanner.js`: バックトラックの有限support、asset coverage、on-demand生成資源を計画する
-- `src/calculation/DamageAggregation.js`: Total Damageのcomponent畳み込み、集計範囲、FFT・メモリ・CPUワークの事前計画を提供する
-- `src/calculation/planning/PlanningMath.js`: safe integer算術、FFT長、共有するCPUワーク定数を提供する
-- `src/calculation/planning/RangePolicy.js`: `DEFAULT_POLICY`、policy検証、表示windowの正規化を提供する
-- `src/calculation/planning/ResourcePlan.js`: Check・Attack・Backtrackの操作別資源見積り、資源上限のreject、意味上のwarningを提供する
-- `src/calculation/RuntimeDamageRollCalculator.js`: `kazanari`を含むDRのruntime生成とFFT境界
-- `src/core/probability/Distribution.js`: 疎な分布の展開、期待値、上側確率などの共通処理
-- `src/core/probability/FFT.js`: 独立な確率分布の加算・減算
-- `src/shared/presentation/DistributionProjection.js`: Check／Attackで共有する表示window、coverage、overflowの投影判断とwindow-sized probability bufferの生成
-- `src/shared/presentation/ChartSeriesAdapter.js`: readyなprojectionをChart.js datasetへmaterializeする最終境界
-- `src/shared/presentation/**`: Check／Attackで共有する`DistributionResult`の表示範囲計画、projection、サマリー、確率表示のpure adapter
-- `src/shared/theme/ChartPalette.js`: Check／Attackで共有するチャートpalette
-- `tooling/reference-data/ReferencePrecomputedDataRepository.js`: テスト・独立比較用の公開asset取得、検証、cache
-- `tooling/reference-data/PrecomputedDataSchema.js`: 公開assetのschemaと分布検証
+- `src/features/`: Check、Attack、Backtrackの入力snapshot、runner、画面状態、Vue UI
+- `src/runtime/`: `CalculationClient`、latest-wins、Abort、`ResourceGuard`、DR Workerの非同期境界
+- `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア
+- `src/core/probability/`: 配列分布、上側確率、FFTなどのVue非依存primitive
+- `src/domain/`: 入力domain、Backtrack rules、`CertifiedValue`などの共有契約
+- `src/shared/`: validation、presentation、Chart.js adapter、themeなどの横断処理
+- `tooling/reference-data/`: 歴史的JSONのschema、登録・検証・比較用repository
 
-現行productionの`CalculationClient`はScore、Damage、Backtrackの計算コアを直接参照する。公開assetのReference repositoryはproduction経路へ注入せず、テストと独立比較に限定する。
-
-Vueコンポーネントは入力状態と表示を管理し、`CalculationClient`だけを介して確率計算を利用します。`src/calculation/`の計算コアはVue、DOM、`fetch`、静的アセットの配置に依存せず、必要な分布は引数で渡される関数から取得します。
-
-R12では、`RangePlanner.js`を後方互換の調整役として残し、操作別の計画式を`planning/`へ分離しました。`ScoreRangePlanner`と`DxCalculator`は`DxTailModel`へ依存し、`ScoreCalculator`はplannerを参照しません。`DamageRangePlanner`と`BacktrackRangePlanner`はそれぞれの計算ドメインと`PlanningMath`だけを参照し、`ResourcePlan`はCheck・Attack・Backtrackの見積りと制限判定を担当します。Total Damageは`DamageAggregation`が独自のaggregation planを作り、component・values・FFT・メモリ・CPUワークを計画します。このplanは共有`fftOperationCount()`と固定重みの`calculateCpuWork()`からCPUワークを求め、`maxCpuWork`のhard limitをFFT開始前かつResourceGuardのlease取得前に適用します。ResourceGuardはメモリ予約と同時実行数だけを担当し、Attack batchのTotalも同じaggregation planを通ります。この依存方向により、tail計算や個別操作の式をUI・runtime・他の操作plannerから独立して検証できます。
-
-Phase 8の棚卸しでは、ファイル単位で削除を判断せず、旧`src/data`にあったmixed-use moduleをexport/symbol単位で分類します。R8でproduction probability symbolは`src/core/probability/`へ、paletteは`src/shared/theme/`へ、reference supportは`tooling/reference-data/`へ移し、`src/data`を廃止しました。published-bucket adapter、Distribution/FFTのproduction symbol、互換に必要なsymbolは保持しています。
-
-各計算モジュールが事前計算済み分布へ加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載しています。
+計算コアはVue、DOM、HTTP、Cloudflare API、静的アセットの配置に依存しません。必要な分布やDR providerは`CalculationClient`から注入します。production sourceから`tooling/reference-data`をimportすることは禁止しています。
 
 ## データフロー
 
 ```text
-validated input / latest-wins runner / async view setup
-          |
-          v
-CalculationClient
-  snapshot -> runtime DX + runtime D10 -> runtime calculation
-          |
-          v
-runtime DX calculator / runtime D10 calculator / RuntimeDamageRollClient
-  generate in main thread / validate -> cache or DR Worker
-          |
-          v
-calculation core
-  score + on-demand damage finalization
-          |
-          v
-resident RuntimeDamageRollClient -> RuntimeDamageRollWorker
-  weights + kazanari -> runtime damage-roll distribution
-          |
-          v
-presentDistribution -> projectDistribution
-  feature state aggregation -> Chart.js materializer -> reactive view state
+validated input
+  -> feature snapshot / latest-wins request
+  -> CalculationClient
+  -> range preflight + ResourceGuard lease
+  -> runtime DX / D10 / DR Worker + calculation core
+  -> DistributionResult / statistics
+  -> display projection
+  -> Chart.js materializer / Vue state
 ```
 
-計算routeには`CalculationClient.prepare`やroute guardのpreloadを置かず、各計算runnerがvalidated snapshotを受けてlatest-winsで実行します。通常のCheckは`calculateDxDistribution`によるruntime DXだけを使います。Attackは同じruntime DXに加えて防御側のD10合計も`D10Calculator`で生成し、damage-roll distributionは常駐`RuntimeDamageRollClient`からDR Workerへ依頼します。Backtrackは完全on-demandのgeneratorを使い、公開assetを読みません。連続した入力変更では古い非同期計算結果で新しい入力結果を上書きしないようにします。
-
-`dr`の配信形式は圧縮効率を優先したダイス数ごとの疎な分布で、generatorの出力検証と独立比較の参照用に保持します。本番の`CalculationClient`は`dr`をロードせず、攻撃ごとのweightsと`kazanari`を常駐`RuntimeDamageRollClient`へ渡してWorker内でダメージロール分布を計算します。Workerの結果は計算コアが固定値、d10防御ダイス、命中失敗を合成して画面向けの結果に仕上げます。
-
-CheckとAttackの表示は、calculation resultを`presentDistribution()`でdisplay payloadへ変換した後、shared `projectDistribution()`で一度だけ表示範囲を計画・投影する。projectionは`reuse`、`known-zero`、`recalculate`、`resource-rejected`、`not-projectable`のdecisionとplanを返し、readyの場合に限りowned `Float64Array`を持つ。Check／Attackはdecisionの集約だけを担当し、overflowやprojection uncertaintyを独自に解釈しない。Chart.js固有のlabels、dataset、百分率変換はmaterializerまたはfeatureのChart.js境界で生成し、projection本体へ混ぜない。詳細は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)を参照する。
-
-Runtime Damageの要求ライフサイクルは、計算要求とWorkerジョブを分けて管理します。`RuntimeDamageRollClient`はWorkerへ送るactive jobを1件に制限し、後続jobをメインスレッドのqueueへ保持します。同一入力はsubscriberを共有しますが、各`CalculationClient`要求のResourceGuard leaseは独立しており、callerのAbort時にその要求の`finally`で解放します。共有subscriberが残る間はWorkerを継続し、最後のsubscriberが離脱したactive jobだけをWorker terminateして次のjobを新しいWorkerで開始します。旧Workerの遅延イベントはidentity guardで無視し、Worker protocolへcancel messageは追加しません。この契約の判断記録は[`ADR 0004`](./adr/0004-runtime-damage-worker-preemption.md)を参照してください。
-
-判定とダメージの中間計算は、要求windowとsupportに合わせて`RangePlanner`と`ResourceGuard`が計画する動的working rangeで行います。legacy published projection・compatibilityでは1024 bucketを使い、インデックス1023は値1023以上を表しますが、これは`DistributionResult`や最終表示の上限ではありません。この決定の根拠と厳密性の境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)を参照してください。
-
-## 事前計算データ
-
-事前計算データは`public/data/schema-v{schemaVersion}/revision-{dataRevision}/`に配置し、アプリ本体と同じデプロイから配信します。ファイル名に内容ハッシュは付けず、変更時は`dataRevision`を更新します。同一リビジョンのファイルは変更せず、長期キャッシュの対象にします。
-
-現在の配信データはschema-v2/revision-1です。旧schema-v1とdense JSONはPhase 8-2G9で退役し、必要な場合はGit履歴を参照します。詳しいスキーマ、ダイス数範囲の根拠、更新手順は[`precomputed-data.md`](./precomputed-data.md)、計算方法は[`precomputation-algorithms.md`](./precomputation-algorithms.md)を参照してください。
-
-## 旧実装との比較
-
-分離前の計算実装と旧比較データはG7～G9で退役し、Git履歴にのみ残しています。現在のPython generatorはschema、manifest、数値監査、シミュレーションで検証し、JavaScript側はruntime rule／range／resourceテストで検証します。published-bucket互換が必要な箇所は、独立したadapterテストで挙動を固定します。
-
-過去の移行テストは削除済みです。新しいルールやデータ形式を追加する場合は、旧実装を再導入せず、独立した期待値、generator検証、runtimeテストを同じ変更単位で追加します。
-
-## 検証の分担
-
-事前計算器の数式、丸め、生成範囲は[`precomputation-validation.md`](./precomputation-validation.md)に従って検証します。JavaScriptが事前計算済み分布へ加える技能値、成功判定、ダメージ軽減、バックトラック区分のアルゴリズムは[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)、独立テストは[`runtime-rule-validation.md`](./runtime-rule-validation.md)に記載しています。
-
-移行比較の過去証跡はGit履歴に保持します。現行の独立テストはルールから期待値を直接作り、旧実装と現行実装が同じ誤りを持つ場合にも検出できる構成です。
-
-`tests/calculationClient.test.js`はCalculationClientのoperation surface、public Backtrack planと実行時planの一致、runtime DX/D10、Check summary、Backtrackのasset非依存を検証します。`tests/calculationClientIntegration.test.js`はclientのCheck/Attack/Backtrack、latest-wins、resource lease、runtime D10、DR Worker、total damageの境界を検証します。公開assetとの数値照合はReference repositoryとgeneratorの検証が担当し、削除済みの`CalculationClient.prepare`やlegacy client APIを前提にしません。
+入力変更のたびにfeatureはvalidated snapshotを作り、`CalculationClient`へ最新要求を渡します。古い要求のAbortまたは遅延完了は、request identityで結果commitから除外します。表示範囲の変更は計算結果を再利用できる場合と、範囲を拡張して再計算する場合をprojection plannerが判断します。
 
 ## 計算実行境界
 
-計算ロジックはVue、ブラウザ、HTTP、Cloudflare固有APIに依存しない計算コアへ分離しています。UIは非同期の`CalculationClient`だけを呼び出し、アプリケーション層が`calculateDxDistribution`と`calculateD10Distribution`を計算コアへ、常駐`RuntimeDamageRollClient`の`calculate`をDR providerとして注入します。Backtrackのon-demand generatorは公開assetを参照せず、要求範囲をruntime生成します。DXと通常D10の計算はメインスレッドで行い、ダメージロールのFFT本体だけをWorkerチャンクで実行します。固定値、D10防御ダイス、命中失敗の合成は計算コアで行います。公開schema-v2 assetはgeneratorの照合と独立検証用に保持し、旧dense JSONとschema-v1 assetは退役済みです。
+`CalculationClient`は、操作ごとに次の依存を組み立てます。
 
-公開サイトは当面、Cloudflare Pages上の静的SPAと、DXメインスレッド・DR `RuntimeDamageRollWorker`・Backtrack runtime coreに分けたブラウザ内計算を維持します。低速端末や入力範囲の拡張で停止時間が許容できなくなった場合だけ、追加Worker化を性能測定に基づき再評価します。外部HTTP APIとMCPは同じ計算コアを再利用する将来の提供手段とし、サイトをAPI専用ビューワーへ変更することとは分けて判断します。
+- Check: `DxCalculator`でDXを生成し、`ScoreCalculator`で技能値、ファンブル、自動失敗、成功率、対決を処理する
+- Attack: Scoreと防御側D10をメインスレッドで計算し、DRの畳み込みを常駐`RuntimeDamageRollClient`へ渡す
+- Backtrack: `BacktrackCalculator`が通常D10または《屍人》の分布をon-demand生成し、侵蝕率区分を計算する
 
-この決定の理由、Cloudflare上の構成、段階的な導入順序は[`ADR 0002`](./adr/0002-separate-calculation-core.md)に記載します。
+DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Workerは一度に1つのactive jobを処理し、同じ入力のsubscriberを共有します。最後のsubscriberが離脱したjobだけを停止し、遅延した旧Workerのイベントはidentity guardで無視します。
 
-## R9現在の責務分離（2026-09-04）
+## 範囲計画と資源管理
 
-R9では、混在していた`src/application`を廃止し、Attack固有のsnapshot、state、runner、presentation、feedbackを`src/features/attack/model/`へ移した。CalculationClient、latest-wins coordinator、ResourceGuard、DR Worker client／protocol／workerは`src/runtime/`へ移し、runtimeからfeatureやVueへの依存をなくした。`CalculationClientTypes.ts`はpure TypeScript contractだけを持ち、Vueの`InjectionKey`は`CalculationClient.js`が公開するsymbolへ分離した。
+`ScoreRangePlanner`、`DamageRangePlanner`、`BacktrackRangePlanner`は、requested display window、数学的support、working length、FFT length、CPU work、メモリ見積りを計画します。`ResourceGuard`は計画済みメモリとactive/queued requestを管理します。CPU workと絶対上限の検査は配列確保・FFT・Worker jobの開始前に行い、過大な入力はsilent truncationではなくresource rejectionになります。
 
-Checkの表示範囲policyは`src/runtime/CheckRangePolicy.js`を正本とし、Check featureのdisplay request snapshotはruntime policyを利用する。policyの計算上限、表示既定値、safe-integer検証、clone／freeze、error codeは変更していない。
+中間配列の末尾へ未計算のtailを黙って集約しません。計算結果は[`result-contract.md`](./result-contract.md)の`DistributionResult`、support、overflow、certificateを保持し、表示層はそれを検査してからprojectionします。
 
-feature非依存の表示変換は`src/shared/presentation/`へ移し、`DistributionPresenter.js`が`DistributionResult`を検証する依存だけを例外として許可する。runtimeとshared presentationは相互に依存せず、Vue、Vuetify、Chart.js、Node、DOM、`fetch`にも依存しない。旧`src/application/`と`src/presentation/`は空directoryを含めて削除し、compatibility re-exportは作成していない。
+## 表示と結果契約
 
-このR9はbehavior-neutralな構造変更であり、canonical result、legacy/published-bucket互換adapter、public asset、generator、表示ラベルと数値丸めは変更していない。構造境界は[`runtimePresentationArchitecture.test.js`](../tests/runtimePresentationArchitecture.test.js)とESLintで検証し、shared presentationの相対sibling importおよび廃止済み`src/application`／`src/presentation` pathの再導入も禁止する。最終実装`31b9271`でfresh full gateとproduction smokeを完了し、R9を`CLOSED / GREEN`とした。詳細な移動表と検証記録は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
+`src/shared/presentation/`は、計算結果を要求されたwindowへ投影し、coverage、overflow、再計算要否を判定します。readyなprojectionだけをChart.js adapterへ渡します。百分率、桁丸め、チャートdatasetの生成はpresentationの責務であり、計算coreの確率値を変更しません。
 
-## R12現在の責務分離（2026-09-05）
+期待値と成功率は`exact`、`bounded`、`lower-bound`などの証明状態を保持します。自動失敗・ファンブルの強制失敗確率と、通常の達成値0は別の意味を持ちます。詳細は[`result-contract.md`](./result-contract.md)を参照してください。
 
-R12では、DX tailの数式を`DxTailModel.js`へ集約し、Score、Damage、Backtrackの範囲計画と資源判定を`src/calculation/planning/`へ分離した。`RangePlanner.js`は入力operationを振り分け、計画を合成し、overflow情報を作る薄いfacadeである。`PlanningMath.js`へsafe arithmeticとFFT見積りを集約したが、working range、tail error budget、cost係数、resource threshold、DistributionResult、Worker protocolの意味は変更していない。
+## 参照アセットとgenerator
 
-`tests/dxTailModel.test.js`は一個のDX、最大値、負の二項分布、《妖精の手》の境界と単調性を直接検証し、`tests/corePlanningArchitecture.test.js`はfacade、計算core、planning moduleの依存方向と重複tail実装の不在を検証する。既存のRangePlanner、runtime rule、resource、browser smokeの契約は引き続きRangePlannerの公開入口から検証する。詳細な変更表とR12の検証結果は[`refactoring-core-decomposition.md`](./refactoring-core-decomposition.md)を参照する。
+過去のschema-v2/revision-1 JSONは`tooling/reference-data/assets/schema-v2/revision-1/`に保存します。これらはgeneratorの再生成照合、独立比較、reference testsのfixtureであり、production bundleへコピーされず、ブラウザから取得されません。generatorは`generator/`のPython 3.12/NumPy実装に一本化されています。
 
-## R25-D現在の表示投影責務（2026-09-15）
+参照形式と生成アルゴリズムは[`reference/`](./reference/README.md)、実行時の計算は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)、ルールの独立検証は[`runtime-rule-validation.md`](./runtime-rule-validation.md)を参照してください。
 
-R25-Dでは、Check／Attackに分散していた`planDisplayRange()`後のprojection decisionとwindow allocationを`DistributionProjection.js`へ統合した。`ChartSeriesAdapter.js`はreadyなcanonical projectionをChart.jsへ渡すmaterializerだけを保持し、旧`createChartSeries(display, plan)`と専用のnot-ready／not-projectable reasonは削除した。DisplayRangePlannerはresource preflightとcoverage計画の正本として残し、Backtrack、計算core、ResourceGuard、Worker、latest-wins、表示の丸め値は変更していない。
+## published-bucket互換
 
-R25-Dの詳細な契約と検証範囲は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)に記録する。
+1024要素のpublished-bucket形式とインデックス1023への集約は、過去データとの比較・互換性を必要とする境界だけに残します。`DistributionResult`のsupport、overflow、要求されたdisplay windowを置き換えるものではなく、productionの表示上限でもありません。この互換経路の撤去は、別途判断するR25-Kの対象です。
 
-## R25-E現在の型契約（2026-09-15）
+## 検証
 
-R25-Eでは、計画、runtime実行、表示投影、feature stateの境界をtype-only TypeScript contractへ集約し、既存JavaScript runtimeへJSDocで接続した。`RangePlannerTypes.ts`と`CalculationClientTypes.ts`はoperation別のplan、policy、warning、resource estimate、optionsを共有し、`RuntimeDamageRollClientTypes.ts`と`ResourceGuardTypes.ts`はWorker／leaseの最小surfaceを表す。`CalculationFeedbackTypes.ts`はrequest／result／planをgenericとして扱い、`DistributionProjectionTypes.ts`はready projectionだけがChart.js materializerへ渡る判別共用体を提供する。Attack runner、incremental execution、calculation record、validated side eventもfeature型へ接続した。
+- `npm run verify:core`: Node、通常テスト、typecheck、ESLint、Markdown lint、build、差分検査
+- `npm run verify:browser`: production buildとChromium smoke。Check、Attack、Backtrackの計算、表示範囲、latest-wins、browser diagnosticsを確認
+- `npm run verify:reference`: generator、reference tests、simulation、runtime DX比較
+- `npm run verify:release`: production releaseに必要なcoreとbrowser smoke
 
-`checkJs: false`は維持する。これは大規模JavaScript moduleの全面変換を避けつつ、consumerが辿るsemantic contractを一箇所へ集めるためである。catchした外部例外、generic metadata、未検証raw input、異種warning値の`unknown`は正当な境界として残し、計算・表示・range plan・runner optionsを`as unknown as`で迂回しない。R25-Eはruntime object shape、数値、Worker protocol、ResourceGuard、latest-wins、UIを変更していない。最終gateではVitest 103ファイル／1049テスト、generator／simulation、runtime DX、typecheck、ESLint、Markdown lint、build、production smoke、R23 precision／tail auditをGREENで確認した。詳細は[`r25-e-typed-runtime-contracts.md`](./r25-e-typed-runtime-contracts.md)を参照する。
-
-## R25-G現在の資源ポリシー（2026-09-16）
-
-R25-Gでは、端末ごとの処理時間推定とwarning／hardの二段階閾値を廃止し、操作量を共通のCPUワーク単位へ換算して資源判定を統一した。既定の`maxCpuWork`は`1_600_000_000`で、Score、Damage、防御D10、FFT、Backtrackに固定重みを適用する。これは経過時間の予測値ではなく、端末差に依存しない計画上の作業量である。
-
-Range policyの`limits`は`maxCpuWork`、`estimatedMemoryBytes`、`workingLength`、`fftLength`の単一レコードとし、すべてをhard resource limitとして扱う。旧`costModel`や`limits.warning`／`limits.hard`は受理せず、意味上の`backtrack-asset-overflow`だけを非致命warningとして保持する。表示範囲も`pointCount`、`float64Bytes`、`chartPoints`の単一上限で判定し、時間警告は生成しない。
-
-Damage Rollの推定式はplannerとruntimeで共有し、`kazanari`を含む同じ入力から同じoperation数を得る。Backtrackは`generationOperations`を計画へ明示し、`workingLength * 3 + generationOperations`を固定重みでCPUワークへ換算する。runtime側でも生成量と絶対上限を再検証するため、plannerを迂回した呼出しが無制限の配列確保へ進むことはない。
-
-ResourceGuardはメモリ予約とactive／queued requestの管理だけを担当し、CPUワークや時間をlease metadataへ持ち込まない。Total Damageも同じCPUワーク上限をFFT開始前に検査し、表示フィードバックでは時間見積りを表示せず、メモリ上限超過を明示する。詳細な契約、移行理由、検証結果は[`r25-g-resource-policy-cleanup.md`](./r25-g-resource-policy-cleanup.md)を参照する。
+本番の計算経路に参照assetが混入していないことは、source architecture tests、build後の`dist/data`不在、production smokeのrevision-1 request 0で確認します。
