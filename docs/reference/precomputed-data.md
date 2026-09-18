@@ -13,7 +13,7 @@
 
 アセットは`tooling/reference-data/assets/schema-v2/revision-1/`に保存します。旧schema-v1とdense JSONは退役済みで、内容を確認したい場合はGit履歴を参照します。
 
-revision-1のファイルはimmutableな歴史的fixtureとして扱います。新しい静的アセットをproductionで配布する場合は、別のアーキテクチャ判断と新しいrevisionを必要とします。Git上で参照fixtureを整理することと、過去に公開したURLのretirementは別の判断です。
+revision-1のファイルはimmutableな歴史的fixtureとしてリポジトリ内に保持します。R25-Jで新しいproduction deployからは旧revision-1公開URLを退役させました。新しい静的アセットをproductionで配布する場合は、別のアーキテクチャ判断と新しいrevisionを必要とします。公開URLの退役は`published-bucket`互換の削除・変更とは別の判断です。
 
 現行の生成元は`generator/`のPython実装です。参照アセットはgeneratorの照合、独立検証、互換比較のために保持します。
 

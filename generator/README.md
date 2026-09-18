@@ -1,6 +1,6 @@
 # 事前計算データ生成器
 
-確率分布をオフラインで再計算し、Webアプリが配信する分割・疎形式JSONを生成します。ブラウザから実行するコードでも、Cloudflare Pagesの通常ビルドで実行するコードでもありません。
+schema-v2/revision-1のhistorical/reference fixtureをオフラインで再生成・検証するPython generatorです。production buildやブラウザruntimeはこのJSONを使用せず、Cloudflare Pagesへ配信するファイルも生成しません。
 
 実装は旧Python・Juliaノートブックを仕様の参照元として整理したものです。通常の10面ダイス、`livingdead`、`shihai`、`kazanari`をすべてPythonで計算します。
 
@@ -8,7 +8,7 @@
 
 通常D10合計、`dx`、`dr`、`livingdead`の状態と計算方法、FFT、丸め、疎形式化は[`docs/reference/precomputation-algorithms.md`](../docs/reference/precomputation-algorithms.md)を参照してください。確率計算を具体例から段階的に学ぶ場合は[`docs/probability-calculation-tutorial.md`](../docs/probability-calculation-tutorial.md)を参照してください。
 
-現在の生成範囲は`dx`が0～99ダイス、`dr`が0～202ダイス、`d10`と`livingdead`が0～223ダイスです。各上限を現在の入力フォームから導く計算は[`docs/dice-rules.md`の「事前計算範囲の決定方針」](../docs/dice-rules.md#事前計算範囲の決定方針)に記載しています。
+生成範囲はrevision-1 fixtureのcoverageです。`dx`は0～99ダイス、`dr`は0～202ダイス、`d10`と`livingdead`は0～223ダイスを再現します。これは現在の入力フォームやproduction runtimeの上限を定義するものではありません。歴史的なcoverageの根拠は[`docs/dice-rules.md`の「事前計算範囲の決定方針」](../docs/dice-rules.md#事前計算範囲の決定方針)に記載しています。
 
 ## セットアップ
 

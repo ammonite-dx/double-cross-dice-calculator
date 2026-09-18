@@ -14,7 +14,8 @@ R25-Jは、現行の計算経路と表示契約を変更せずに完了した。
 - `3d5a589`: 現行の結果契約を`docs/result-contract.md`へ追加
 - `0ff7940`: live architecture/runtime文書を現在の実装へ更新
 - `34a6702`: 履歴実験のnpm command surface、TODO、ADRを整理
-- 最終HEAD: 本文書を追加するcommit。SHAはこの文書を含むGit履歴で確定する。
+- R25-J実装のclosure commit: `1f62e52`
+- live documentation follow-up: 本文書を更新するcommit。最終SHAはこの文書を含むGit履歴で確定する。
 
 ## アセットの完全性
 
@@ -22,7 +23,7 @@ R25-Jは、現行の計算経路と表示契約を変更せずに完了した。
 
 manifestは`schemaVersion: 2`、`dataRevision: 1`、`dx`／`dr`が2048要素、`d10`／`livingdead`が1024要素を記録する。新パスの33ファイルは合計11,984,253 bytesで、ファイル名順のSHA-256列を改行結合した監査用aggregate SHA-256は`6d8a5b82f2fc33ae9f90b0f5f4e0874e86a7f5626cbbf5741230d572e60e7aae`である。
 
-`public/data`と`dist/data`は存在せず、production browser smokeでは旧JSON、`d10`、`livingdead`の取得件数をすべて0として確認する。参照アセットの生成・検証は`generator/`と`npm run data:check`から行い、productionのブラウザローダーは持たない。
+`public/data`と`dist/data`は存在せず、production browser smokeでは旧JSON、`d10`、`livingdead`の取得件数をすべて0として確認する。したがってR25-J以降のproduction deployでは旧revision-1公開URLを提供しない。参照アセットの生成・検証は`generator/`と`npm run data:check`から行い、productionのブラウザローダーは持たない。fixtureをリポジトリ内に保持することと、`published-bucket`互換の削除・変更は別の判断である。
 
 ## 文書とツールの境界
 
