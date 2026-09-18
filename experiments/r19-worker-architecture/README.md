@@ -53,7 +53,7 @@ Workerへのrequestは次の形である。
 
 rapid supersessionではfresh clientと制御済みcacheから開始し、重いrequestを開始して呼び出し側からAbortした直後に、異なるAttackまたはCheckを送る。`Attack → Attack`と`Attack → Check`を別シナリオとして測定し、呼び出し側のAbort応答、最新requestのqueue待ち、最新request全体の遅延、stale requestのunderlying settlementを分離して記録する。stale/latestが異なるため、pending dedupの影響をarchitecture根拠へ混入させない。
 
-`result-digest.js`のdigestはcorrectness確認用であり、timed sectionの外で計算する。巨大なrun-by-run JSONはコミットせず、集計値と判断に必要な代表値だけを`docs/r19-worker-architecture-decision.md`へ転記する。
+`result-digest.js`のdigestはcorrectness確認用であり、timed sectionの外で計算する。巨大なrun-by-run JSONはコミットせず、集計値と判断に必要な代表値だけを[`docs/archive/r19-worker-architecture-decision.md`](../../docs/archive/r19-worker-architecture-decision.md)へ転記する。
 
 ## R19の境界
 

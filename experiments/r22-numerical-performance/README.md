@@ -31,6 +31,6 @@ Node測定はproductionモジュールの同期処理を局所化する診断用
 
 測定結果はこのディレクトリの`results/`に保存します。生成されたJSONには絶対パスを含めません。R22のtriggerは、Chrome通常条件の同期main-thread span p95が16.7ms以上、Chrome CPU 4xの同期span p95が50ms以上、または50ms以上のLong Taskが、同一条件3回中2回以上で確認された場合です。Attackの壁時計時間だけが閾値を超えた場合は、Worker待機を含み得るためtriggerにしません。
 
-triggerが見つからなければ、結果を`docs/r22-measured-numerical-performance.md`へ転記してR22を`CLOSED / GREEN — NO CHANGE`として閉じます。triggerが見つかった場合は、証拠を記録して`OPTIMIZATION REVIEW REQUIRED`で停止し、別の実装判断を行います。Nodeの結果だけでproduction最適化を採用しません。
+triggerが見つからなければ、結果を[`docs/archive/r22-measured-numerical-performance.md`](../../docs/archive/r22-measured-numerical-performance.md)へ転記してR22を`CLOSED / GREEN — NO CHANGE`として閉じます。triggerが見つかった場合は、証拠を記録して`OPTIMIZATION REVIEW REQUIRED`で停止し、別の実装判断を行います。Nodeの結果だけでproduction最適化を採用しません。
 
 ベンチマークが起動したViteやブラウザはrunnerの`finally`で停止します。途中で中断した場合は、不要なVite／Nodeプロセスが残っていないことを確認してから再実行してください。

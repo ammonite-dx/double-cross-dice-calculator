@@ -14,5 +14,6 @@
 - `r19-worker-architecture/`: generalized Workerを採用しない判断の再現用測定
 - `r20-conservative-rendering/`: Chart.js描画方式を変更しない判断の再現用測定
 - `r23-ui-review/`: Product Ownerのvisual reviewとprototype capture
+- `dynamic-distribution-ranges/`: 動的範囲plannerへ移行する前の設計・測定記録。現在のruntime契約は`docs/runtime-calculation-algorithms.md`を参照する
 
 履歴実験のrunnerは、現在のnpm command surfaceからは削除しています。再現する場合は各READMEに記載した`node experiments/...`コマンドを直接実行してください。履歴資料は[`docs/archive/`](../docs/archive/)にあり、当時のパス、入力範囲、測定値は現在のproduction仕様を定義しません。

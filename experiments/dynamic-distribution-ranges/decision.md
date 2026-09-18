@@ -19,7 +19,7 @@
 
 ## 既存判断との関係
 
-既存の[`docs/todo.md`](../../docs/todo.md)は、第6段階で入力、計算、FFT、表示の範囲を同時に設計し、誤差、計算時間、メモリ、描画点数をまとめて扱う方針です。[`experiments/runtime-dr/decision.md`](../runtime-dr/decision.md)は、固定された1024、2048、4096を単純に大きくするのではなく、入力範囲、表示範囲、中間範囲、FFT長を役割ごとに分離する方針を定めています。[`docs/runtime-calculation-algorithms.md`](../../docs/runtime-calculation-algorithms.md)と[`docs/adr/0001-expanded-working-distributions.md`](../../docs/adr/0001-expanded-working-distributions.md)は、現行の公開1024要素、作業2048要素、負の補正前に上限集約しない順序を説明しています。
+当時の詳細な作業日誌は[`docs/archive/todo-history.md`](../../docs/archive/todo-history.md)に保存しています。[`experiments/runtime-dr/decision.md`](../runtime-dr/decision.md)は、固定された1024、2048、4096を単純に大きくするのではなく、入力範囲、表示範囲、中間範囲、FFT長を役割ごとに分離する方針を定めています。現行のruntime契約は[`docs/runtime-calculation-algorithms.md`](../../docs/runtime-calculation-algorithms.md)と[`docs/result-contract.md`](../../docs/result-contract.md)に記載し、固定2048要素の判断は[`docs/adr/0001-expanded-working-distributions.md`](../../docs/adr/0001-expanded-working-distributions.md)で`Superseded`として扱います。
 
 今回のplannerは、この判断を実装前に検査するための参照実装です。planner自体は計算を実行せず、計算器へ「どの範囲を、どの誤差契約で、どの資源上限内に確保するか」を渡す責務に限定します。
 

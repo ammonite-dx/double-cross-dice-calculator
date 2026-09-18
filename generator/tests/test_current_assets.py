@@ -13,8 +13,9 @@ from dx_precompute.assets import (
 
 REFERENCE_DIRECTORY = (
     Path(__file__).resolve().parents[2]
-    / "public"
-    / "data"
+    / "tooling"
+    / "reference-data"
+    / "assets"
     / "schema-v2"
     / "revision-1"
 )
@@ -43,7 +44,10 @@ def test_lightweight_generated_assets_match_current_assets(dataset: str) -> None
 
 def test_default_generation_does_not_overwrite_published_assets() -> None:
     assert "generated-data" in default_output_directory().parts
-    assert "public" in default_reference_directory().parts
+    assert "public" not in default_reference_directory().parts
+    assert "tooling" in default_reference_directory().parts
+    assert "reference-data" in default_reference_directory().parts
+    assert "assets" in default_reference_directory().parts
     assert "schema-v2" in default_output_directory().parts
     assert "schema-v2" in default_reference_directory().parts
     assert "revision-1" in default_output_directory().parts
