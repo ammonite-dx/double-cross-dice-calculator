@@ -42,12 +42,10 @@ describe('R20 conservative rendering experiment contract', () => {
     expect(runner).toContain("query.set(key, options[key])")
   })
 
-  it('exposes normal and short runner commands', () => {
+  it('keeps the historical runner outside the production command surface', () => {
     expect(packageJson.scripts['benchmark:r20:conservative-rendering'])
-      .toBe('node experiments/r20-conservative-rendering/playwright-runner.mjs')
+      .toBeUndefined()
     expect(packageJson.scripts['benchmark:r20:conservative-rendering:short'])
-      .toBe(
-        'node experiments/r20-conservative-rendering/playwright-runner.mjs --iterations=1 --warmup=0 --initial-animation-ms=100 --update-animation-ms=100'
-      )
+      .toBeUndefined()
   })
 })

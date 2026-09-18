@@ -8,7 +8,7 @@ repository rootでproduction buildを作成してから、次を実行する。
 
 ```powershell
 npm run build
-npm run review:r23:ui
+node experiments/r23-ui-review/playwright-runner.mjs
 ```
 
 runnerは`dist/`をVite previewで配信し、production routeを実際に操作する。PlaywrightのChromeを使用し、desktop `1280×900`とmobile `390×844`のviewportを使う。FirefoxやWebKitの追加インストールは必要ない。
@@ -26,7 +26,7 @@ node experiments/r23-ui-review/playwright-runner.mjs --scenarios=backtrack-mobil
 現行production buildと公開版のvisual driftを、意味のあるDOMアンカーのgeometryとcomputed styleで比較する場合は、次を実行する。先に`npm run build`を実行する。
 
 ```powershell
-npm run review:r23:parity
+node experiments/r23-ui-review/parity-runner.mjs
 ```
 
 既定のreferenceは公開サイト`https://double-cross-dice-calculator.pages.dev`である。公開版を取得できない場合は、`origin/main`のpinned SHA `461ab898e2c62583c1ae504470c3ceb169d2d363`を一時的なreferenceとして使用し、その選択をレビュー文書へ記録する。別のURLや対象scenarioを指定することもできる。
@@ -70,23 +70,23 @@ npm run build
 全variantを実行するコマンドは次のとおりである。
 
 ```powershell
-npm run review:r23:prototype -- --variant=visual-parity
-npm run review:r23:prototype -- --variant=advanced-setting-parity
-npm run review:r23:prototype -- --variant=setting-form-parity
-npm run review:r23:prototype -- --variant=scoped-visual-parity
-npm run review:r23:prototype -- --variant=backtrack-other-reduction-wide
-npm run review:r23:prototype -- --variant=backtrack-other-reduction-stack
-npm run review:r23:prototype -- --variant=backtrack-other-reduction-compound-label
-npm run review:r23:prototype -- --variant=footer-flex
-npm run review:r23:prototype -- --variant=footer-short-baseline
-npm run review:r23:prototype -- --variant=footer-short-flex
-npm run review:r23:prototype -- --variant=footer-short-production
-npm run review:r23:prototype -- --variant=backtrack-label-6
-npm run review:r23:prototype -- --variant=backtrack-label-8
-npm run review:r23:prototype -- --variant=backtrack-label-9
-npm run review:r23:prototype -- --variant=backtrack-label-8-stress
-npm run review:r23:prototype -- --variant=backtrack-label-9-stress
-npm run review:r23:prototype -- --variant=backtrack-label-9-adaptive-stress
+node experiments/r23-ui-review/prototype-runner.mjs --variant=visual-parity
+node experiments/r23-ui-review/prototype-runner.mjs --variant=advanced-setting-parity
+node experiments/r23-ui-review/prototype-runner.mjs --variant=setting-form-parity
+node experiments/r23-ui-review/prototype-runner.mjs --variant=scoped-visual-parity
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-other-reduction-wide
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-other-reduction-stack
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-other-reduction-compound-label
+node experiments/r23-ui-review/prototype-runner.mjs --variant=footer-flex
+node experiments/r23-ui-review/prototype-runner.mjs --variant=footer-short-baseline
+node experiments/r23-ui-review/prototype-runner.mjs --variant=footer-short-flex
+node experiments/r23-ui-review/prototype-runner.mjs --variant=footer-short-production
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-label-6
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-label-8
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-label-9
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-label-8-stress
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-label-9-stress
+node experiments/r23-ui-review/prototype-runner.mjs --variant=backtrack-label-9-adaptive-stress
 ```
 
 npmの引数転送を使わずに実行する場合は、次の形式を使う。
@@ -148,13 +148,13 @@ R23のUI-04A、UI-04B、UI-06、UI-08では、post-buildのCSS patchではなく
 次のvariantを個別に実行できる。
 
 ```powershell
-npm run review:r23:source-prototype -- --variant=advanced-setting-inline-source
-npm run review:r23:source-prototype -- --variant=setting-form-comfortable-source
-npm run review:r23:source-prototype -- --variant=backtrack-compound-label-source
-npm run review:r23:source-prototype -- --variant=backtrack-compound-label-aligned-source
-npm run review:r23:source-prototype -- --variant=backtrack-compound-label-positioned-source
-npm run review:r23:source-prototype -- --variant=attack-compound-d10-source
-npm run review:r23:source-prototype -- --variant=attack-compound-d10-guard-offset-source
+node experiments/r23-ui-review/source-prototype-runner.mjs --variant=advanced-setting-inline-source
+node experiments/r23-ui-review/source-prototype-runner.mjs --variant=setting-form-comfortable-source
+node experiments/r23-ui-review/source-prototype-runner.mjs --variant=backtrack-compound-label-source
+node experiments/r23-ui-review/source-prototype-runner.mjs --variant=backtrack-compound-label-aligned-source
+node experiments/r23-ui-review/source-prototype-runner.mjs --variant=backtrack-compound-label-positioned-source
+node experiments/r23-ui-review/source-prototype-runner.mjs --variant=attack-compound-d10-source
+node experiments/r23-ui-review/source-prototype-runner.mjs --variant=attack-compound-d10-guard-offset-source
 ```
 
 `advanced-setting-inline-source`はCheck 1件、Attack 2件の「高度な設定」checkboxへ`inline`だけを追加する。`setting-form-comfortable-source`はCheck/Attackの最小値・最大値・表示モードだけを`density="comfortable"`へ変更する。`backtrack-compound-label-source`は外側`cols=6`、desktop`md=3`、内側`6 / 6`を維持し、app-owned group label、`role="group"`、2つの個別accessible nameを候補にする。
@@ -167,4 +167,4 @@ npm run review:r23:source-prototype -- --variant=attack-compound-d10-guard-offse
 
 `attack-compound-d10-guard-offset-source`はUI-08の初回候補でREVISEとなったガード・リアクション放棄分岐だけを再確認するrevisionである。共通labelの構造と全フィールドgeometryを維持し、direct-rowのlabelへ`inset-inline-start: 4px`と`inset-block-start: 4px`を追加する。desktop/mobileの2scenarioだけをcaptureし、初回候補でPASSだった他の6scenarioは再実行しない。候補はproductionへ接続せず、capture前にsourceを復元する。
 
-画像とgeometry/accessibility metricsは`experiments/r23-ui-review/output/source-prototypes/<variant>/`へ保存される。unit testはreplacement定義、出現数、復元、build失敗時の復元を検証するが、画像をgoldenにしない。技術的なcapture成功はvisual approvalやproduction採用を意味しない。候補の計測値、制約、未採用状態は[`docs/r23-vuetify-control-source-prototypes.md`](../../docs/r23-vuetify-control-source-prototypes.md)に記録する。
+画像とgeometry/accessibility metricsは`experiments/r23-ui-review/output/source-prototypes/<variant>/`へ保存される。unit testはreplacement定義、出現数、復元、build失敗時の復元を検証するが、画像をgoldenにしない。技術的なcapture成功はvisual approvalやproduction採用を意味しない。候補の計測値、制約、未採用状態は[`docs/archive/r23-vuetify-control-source-prototypes.md`](../../docs/archive/r23-vuetify-control-source-prototypes.md)に記録する。このrunnerは履歴実験であり、package.jsonのproduction command surfaceには登録していない。

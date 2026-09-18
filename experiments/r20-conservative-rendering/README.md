@@ -21,8 +21,8 @@ R20の保守的な描画レビューで使う、現行のLine chart専用ベン�
 通常条件とCPU 4x条件を分けて実行します。
 
 ```powershell
-npm run benchmark:r20:conservative-rendering
-npm run benchmark:r20:conservative-rendering -- --cpu-4x
+node experiments/r20-conservative-rendering/playwright-runner.mjs
+node experiments/r20-conservative-rendering/playwright-runner.mjs --cpu-4x
 ```
 
 短縮実行では反復数とアニメーション観測時間を減らします。
@@ -30,13 +30,13 @@ npm run benchmark:r20:conservative-rendering -- --cpu-4x
 通常実行は初回描画と更新をそれぞれ最大1,100 ms観測し、Chart.jsの標準的なアニメーション完了を確認します。短縮実行は両方を100 msにします。
 
 ```powershell
-npm run benchmark:r20:conservative-rendering:short
+node experiments/r20-conservative-rendering/playwright-runner.mjs --iterations=1 --warmup=0 --initial-animation-ms=100 --update-animation-ms=100
 ```
 
 ケース、系列数、markerを絞る場合は、カンマ区切りの引数を指定できます。例えば次のコマンドは、アニメーション完了まで観測する代表ケースだけを実行します。
 
 ```powershell
-npm run benchmark:r20:conservative-rendering -- --cases=100,4096,16384,20000 --datasets=1,4 --markers=baseline,radius-1
+node experiments/r20-conservative-rendering/playwright-runner.mjs --cases=100,4096,16384,20000 --datasets=1,4 --markers=baseline,radius-1
 ```
 
-結果は標準出力のJSONとして保存できます。環境依存の測定値をrelease gateの固定閾値にはしません。結果の採否と、markerや表示範囲を変更するかどうかは[`docs/r20-conservative-graph-review.md`](../../docs/r20-conservative-graph-review.md)へ記録します。
+結果は標準出力のJSONとして保存できます。環境依存の測定値をrelease gateの固定閾値にはしません。結果の採否と、markerや表示範囲を変更するかどうかは[`docs/archive/r20-conservative-graph-review.md`](../../docs/archive/r20-conservative-graph-review.md)へ記録します。このrunnerは歴史的な実験であり、package.jsonのproduction command surfaceには登録していません。

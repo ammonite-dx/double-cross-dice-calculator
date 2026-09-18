@@ -1,0 +1,653 @@
+# TODO
+
+リポジトリ内で判明している、後続作業が必要な技術課題と過去の判断を記録します。完了した項目も、対応したコミットまたはPull Requestを記録したうえで、必要に応じてhistorical recordとしてこの一覧に保持します。
+
+状態ラベルは`open`（現行実装に対する未完了の課題）、`done`（現行実装で完了）、`obsolete`（現行方針では実施しない課題）、`historical`（過去の実装・判断を記録する項目）を用います。過去の作業記録に残る「未着手」「継続」「一部完了」は、現在の状態を示すラベルとして解釈しません。
+
+R1〜R12のcanonical移行に関する横断的な実装順序と判断は、historical documentである[canonical-migration-roadmap.md](./canonical-migration-roadmap.md)に記録しています。現在の作業はこのTODOと個別のpost-refactor documentで管理します。
+
+## 推奨実装順
+
+大きな変更は以下の順に独立ブランチで実施します。各段階で現行実装との適合テストを維持し、オンデマンド計算、入力範囲の拡張、外部API公開を同時に導入しません。
+
+1. 完了: `9571f08`で「不死者・悪夢」の100%境界バグを修正し、以後の構造変更に正しい期待値を持ち込んだ
+2. 完了: `9beeea2`で現行の判定、ダメージ、バックトラック計算からVue、`fetch`、静的アセット取得への依存を除き、互換ラッパーで現行UIを維持した
+3. 完了: `b29b4e0`で非同期の`CalculationClient`とローカルアダプターを導入し、UIから計算モジュールとデータリポジトリへの直接参照をなくした
+4. 完了: 実験済みの混合分布アルゴリズムと常駐Web Workerを本番化し、現在の入力範囲で`dr`用JSON経路との一致を確立した
+5. 完了: `codex/runtime-dx-production`で`dx`をオンデマンド化し、`shihai=0`の累積分布と`shihai>0`の動的計画法を別々に検証したうえで本番の通常判定へ統合した
+6. 完了: `codex/dynamic-distribution-ranges`で入力、中間計算、FFT、表示の範囲を一体的に決めるcore plannerを追加し、`CalculationClient`のpreflight、warning通知、hard reject、DX/Scoreの可変workingLength、Score FFT、RuntimeDamageRollCalculator/Workerの可変FFT・出力長、DamageCalculatorの動的raw range、防御畳み込み、DamageRangePlan接続、バックトラックの完全support生成、既存戻り値維持、check/attack/backtrack UIへのwarning/reject表示まで接続した。Phase 2-Eでは本番コードを変更せずNode/Chromeベンチマーク基盤を追加・修正し、現行1024 published bucketのtotal damage集計を維持したまま、現行入力上限を変更しない暫定判断と追加実測の受入基準を確定した。resource guard、将来のdynamic output契約、入力拡張候補、JSON経路は次段階へ引き継ぐ
+7. 完了: [Phase 8-1 inventory](./phase8-inventory.md)でオンデマンド経路、production import graph、legacy wrapper、JSON、公開asset、generator、migration/comparison testをsymbol/export単位で棚卸しし、runtimeRuleValidationのoracle位置付け、dependency contract/browser smokeの分離、revision-1の32 data assets + manifest、manifest/barrel分類を実装実態に合わせて最終補正した。削除、公開URLのretirement、cleanupはPhase 8-2以降の独立作業として残す
+8. 完了（Phase 8-2A〜2G10）: Attackのlegacy chart adapterを`LegacyChartSetter.js`へ分離し、canonical adapterを`ChartSetter.js`へ集約した。`ChartPercentages.js`の表示丸めとgolden test、`tests/productionDependencyContract.test.js`のCalculationClient dependency contract、`scripts/production-browser-smoke.mjs`によるproduction network smokeを追加した。Checkはcanvas 1・revision-1 asset request 0、Attack初期はcanvas 2・request 0、Backtrackはcanvas 3・request 0で、same-origin HTTP error、console warning/error、pageerror、same-origin requestfailedはいずれも0だった。続いてsourceを`PrecomputedDataSchema.js`、`D10PrecomputedDataRepository.js`、`ReferencePrecomputedDataRepository.js`へ分離し、production importerを整理した。D10 validatorのschema、dataset、distribution count、probability、success cacheを直接テストし、`docs/phase8-inventory.md`へsymbol/export単位のreference/legacy importer監査を追加した。`tests/runtimeRuleValidation.test.js`のactual側は`src/calculation/`のcanonical Score、Damage、Backtrackへ移行し、独立expectedを維持した。G7ではmigration testとlegacy rule oracleを独立検証へ移し、G8ではlegacy calculation surfaceと比較実装を撤去、G9ではdense JSON・schema-v1・旧JS generatorを削除してPython generatorへ一本化、G10では残存legacy/dead codeを分類してPhase 8を閉じた。Release hardening closure follow-upでは残存legacy Damage adapter、`clipData`、`Distribution.range`と専用fixtureを削除し、Backtrackの100D smokeで各入力変更の結果commitを必須化した。公開schema-v2、Python generator、参照・互換用の下位fixture、benchmark条件、計算意味論は維持している。
+G6C closure（2026-08-28）: repository・asset対象テスト22件、`benchmark:calculators`、`benchmark:phase2h -- --iterations 1 --warmup 0`、全Vitest（64 files / 908 tests）、ESLint、Markdown lint（24 files / 0 issues）、production build、`git diff --check`を実行し、すべて成功した。wrapperのimport・SSR load・文字列参照0件も再確認し、`dynamic-distribution-ranges/benchmark-phase2e.mjs`も全ケースをエラーなしで完了した。
+9. 完了（R7 Attack featureization、2026-09-03、実装最終 `32e2118`）: `src/features/attack`へAttackのcontroller、combo state、Page、UIを移し、`src/views/Attack.vue`を薄いroute adapterにした。`useAttack`が初期値、combo操作、monotonic id、validated snapshot、表示request、canonical計算、feedback、presentation、lifecycleを所有し、入力変更だけを明示的に再計算する。UIからnested props mutation、広い`attackData` prop、旧`src/components/Attack` pathを撤去し、chartとsummaryには必要なcombos・presentationだけを渡す。既存のAttackCanonicalRunner、CalculationClient、latest-wins、Abort、resource planning、表示契約、Backtrack、計算coreは変更していない。Node 22.23.2、Vitest 69 files / 848 tests、data 32 assets、generator、simulation、Ruff、typecheck、ESLint、Markdown lint、runtime DX 20,000 cases、build、production browser smoke、`git diff --check`をGREENで確認した。詳細は[`refactoring-attack-feature.md`](./refactoring-attack-feature.md)に記録する。R8へ進んだ。
+10. 完了（R8 `src/data`責務分離、2026-09-04）: Distribution／FFTを`src/core/probability/`、ChartPaletteを`src/shared/theme/`、schema／Reference repositoryを`tooling/reference-data/`へ移し、旧`src/data`と互換re-exportを削除した。`64ccf0d`でcore→features、shared theme→calculation／validationなどの逆依存を封じ、Final Closure Follow-up 2の最終実装`9afdd93`で`../validation`、`../chart`、複数段の相対sibling importもESLintとsource scanで禁止した。同一theme内の相対importは許可している。全consumer、schema-v2/revision-1、reference cache、paletteの契約を維持し、Node 22.23.2、Vitest 71 files / 865 tests、data各32 assets、generator／simulation、Ruff、typecheck、runtime DX 20,000 cases、ESLint、Markdown lint 33 files / 0 issues、build、production browser smoke、`git diff --check`をGREENで確認した。P0／P1／P2は0件、R8は`CLOSED / GREEN`である。詳細は[`refactoring-data-responsibilities.md`](./refactoring-data-responsibilities.md)、[`phase8-inventory.md`](./phase8-inventory.md)、[`refactoring-architecture-boundaries.md`](./refactoring-architecture-boundaries.md)に記録する。次はR9のapplication／presentation／runtime責務再評価とする。
+11. 完了（R10 Runtime Validation Simplification、2026-09-04）: trusted internal ordinary object境界から過剰なreflection・prototype traversal・descriptor防御を除去し、数値・範囲・資源・Worker・Abortの意味的境界を維持した。production実装は`ce743f07f7e656b79b5569a3d506726caae20bf0`／`89170d090068c29c4982a8aaccf0dd5dc18cfe1a`、テスト契約縮小は`e4e53568856c65c27b31ad76b3cc7f25b988f6e9`である。accessor／getter、custom prototype、symbols、Proxy、reflection failureの挙動は未規定とし、肯定的な受入契約にしない。4対象モジュールのforbidden reflection pattern 0件、保護領域の差分0件、fresh full gate、production smoke、P0／P1／P2=0を確認し、R10を`CLOSED / GREEN`とした。詳細は[`refactoring-runtime-validation.md`](./refactoring-runtime-validation.md)と[`canonical-migration-roadmap.md`](./canonical-migration-roadmap.md)を参照する。
+
+12. 完了（R11 Canonical / Migration Terminology Cleanup、2026-09-05）: R11開始SHAは`ffe05c70d9cf5d61e861a63445f73da72b30e99b`、production実装は`269d20e63cdf8eb319341d2c3a0ea28435c4f85b`、命名境界テストは`6e36594b557ba63d1c67b3eda61f5c2241bd5126`である。productionのCanonical filename、廃止identifier、compatibility aliasは各0件となり、`published-bucket`互換語だけを現行境界として保持した。protected area（`public`、`generator`、`tooling/reference-data`）の差分は0件だった。Vitest 74 files / 866 tests、generator 18、simulation 13、data 32 assets、typecheck／ESLint／Ruff／Markdown lint、runtime DX 20,000 cases、production build 408 modules、production browser smoke、`git diff --check`をGREENで確認し、P0／P1／P2=0、R11を`CLOSED / GREEN`とした。詳細は[`r11-terminology-cleanup.md`](./r11-terminology-cleanup.md)を参照する。次はR12 core module decompositionとする。
+
+13. 完了（R12 Core Module Decomposition、2026-09-05）: R12開始SHAは`2267027e1df386e6509cac90821d64ab16d7d6b1`である。`DxTailModel`へ一個のDX、最大値、Yousei、tail cutoff、first-moment boundを集約し、`ScoreRangePlanner`、`DamageRangePlanner`、`BacktrackRangePlanner`へ操作別の範囲計画を分離した。`PlanningMath`はsafe arithmetic・FFT長・見積り係数、`RangePolicy`はpolicyとdisplay正規化、`ResourcePlan`は資源見積りとwarning／rejectを担当し、`RangePlanner`はorchestration facadeとして残した。`ScoreCalculator`と`DxCalculator`からplanner依存をなくし、数値式、tail error budget、resource threshold、公開結果、UI、public／generator／reference-dataは変更していない。`51c7ae5`と`dab6bd4`で実装し、`tests/dxTailModel.test.js`と`tests/corePlanningArchitecture.test.js`を追加した。Vitest 76 files / 873 tests、typecheck、ESLint、`git diff --check`をGREENで確認し、P0／P1／P2=0、R12を`CLOSED / GREEN`とした。詳細は[`refactoring-core-decomposition.md`](./refactoring-core-decomposition.md)を参照する。次はR13候補の整理へ進む。
+14. 完了（R13 Post-refactor Technical Debt / Release Readiness Audit、2026-09-05）: R12完了後のproduction source、runtime lifecycle、architecture boundary、実験面を監査し、RD-01（release gateのCI・開発者手順との不一致）、RD-02（READMEのarchitecture・コマンド記述の不一致）、RD-03（migration roadmapのactive扱い継続）を記録した。runtime correctness、数値契約、ResourceGuard、Worker lifecycle、逆依存には新たなblockerを確認せず、`experiments/runtime-dr`とpublished-bucket互換境界は維持する。R13は`CLOSED / AUDIT COMPLETE`とし、詳細は[`r13-post-refactor-audit.md`](./r13-post-refactor-audit.md)を参照する。
+15. 完了（R14 Release Verification & Live Documentation Consolidation、2026-09-05）: `verify:release`をrelease gateの正本としてpackage.jsonに定義し、CI・README・CONTRIBUTINGから参照した。production browser smokeはCIでChromiumを明示導入したうえで実行し、ローカルでは作業ツリー、CIではbase〜headのコミット範囲を`git diff --check`で検査するよう同じgateへ接続した。RD-01〜RD-03を解消し、Node／data／Vitest／generator／simulation／Ruff／typecheck／runtime DX／ESLint／Markdown lint／build／production smoke／差分検査をGREENで確認した。R14を`CLOSED / GREEN`とし、Cloudflare Worker、HTTP API、MCPの公開は引き続き延期する。
+
+16. 完了（R15 Correctness & Measurement Foundation、2026-09-07）: 外部レビューのRR-01〜RR-04を修正した。Score出力バッファをResourcePlannerの見積りへ加え（`9299a04`）、表示拒否後のCheck結果失効（`f3c6cfc`）、固定難易度のScore tail-aware成功率（`f17ae56`）、Worker実処理完了後のResourceGuard lease解放（`37ab270`）を実装した。full-tail Attack測定の`yousei`／FFT長伝播、実ケースエラーの非0終了、canonical D10の静的取得ゼロ、release gate重複除去を`aa73437`で固定し、production browser smokeのCheck回帰ケースと契約テストを`eb53073`で追加した。Nightmare境界の古い記述、レビュー文書の絶対パス、`html lang`も更新した。詳細は[`r15-external-review-remediation.md`](./r15-external-review-remediation.md)を参照する。Worker全体の常駐化、結果契約の全面再設計、TypeScript化、FFT／D10追加最適化、Cloudflare Worker／API／MCP化は後続課題として維持する。
+17. 完了（R16 Certified Result / Precision Contract、2026-09-07）: `CertifiedValue`と`CertifiedProbability`のconstructorを`src/domain/CertifiedValue.ts`へ追加し、有限値・区間順序・確率範囲・immutabilityを共通契約にした。Scoreの`failureProbability`を`automaticFailureProbability`へ明確化し、期待値・成功確率・tail／expectation certificateを統計契約へ移行した。計算コアは確率を分数のまま返し、公開CalculationClientは`scoreStatistics`、`damageStatistics`、`totalDamageStatistics`を返す。百分率丸めはshared presentationへ移し、既存UIの表示は維持した。独立した1D10／2D10全列挙オラクルと対決同値テストを追加した。詳細は[`r16-certified-result-contract.md`](./r16-certified-result-contract.md)を参照する。R17の結果所有権整理、R18のpresenter簡素化、Worker/API/MCP化、UI redesignは対象外として後続へ残す。
+18. 完了（R17 Result Ownership / Incremental Execution、2026-09-07）: Checkの内部計算結果を入力snapshotとresultからなる`CheckCalculationRecord`へまとめ、表示拒否・表示範囲変更と計算結果の所有権を分離した。Attackではコンボごとの`AttackCalculationRecord`と順序付きsourceを持つ`AttackTotalCalculationRecord`を導入し、安定したidと入力snapshotが一致する未変更コンボを再利用する差分executorへ`useAttack`を接続した。コンボ追加・duplicate・削除・一部失敗・合計のみの再試行・表示生成失敗・resource拒否からの復帰をテストで固定した。実装コミットは`acbcebc`、`ef46f7c`、`b644ef8`、`1f5178f`、`85ec222`、表示復帰の修正は`5e55d98`、文書は`39636b1`である。詳細は[`r17-result-ownership.md`](./r17-result-ownership.md)を参照する。最終gateは同文書のclosure evidenceへ記録した。
+
+R17追補（2026-09-08、実装`ed3ab40`、guard test`e0d78db`）: incremental Attackの計算commitとpresentation commitを分離し、baseまたはdisplay presentationの生成失敗後も全コンボrecordと合計recordを保持するようにした。`refreshPresentation()`によるpresentation-only retry、無効なpresentationのatomic reject、計算結果に含まれるidからstable combo idを保護する回帰テストを追加した。`713c399`では、表示専用再試行が成功したときだけ計算feedbackを`ready`へ戻し、表示エラーのフラグが後続のcombo／total計算エラーを消さないようにした。追補の検証結果は[`r17-result-ownership.md`](./r17-result-ownership.md)のfollow-up closure evidenceへ記録した。R17は`CLOSED / GREEN`のまま維持し、旧batch互換fieldの整理はR18へ送る。
+
+### R15後のactive roadmap
+
+R15完了後の実装順序は、二つの独立レビューを統合して次のとおりとする。`canonical-migration-roadmap.md`はR1〜R12のhistorical roadmapとしてfreezeしており、ここでは更新しない。
+
+1. 完了: R16 — Certified Result / Precision Contract
+2. 完了: R17 — Result Ownership / Incremental Execution
+3. 完了（R18 Presentation Boundary Simplification、2026-09-08）: `DistributionPresenter`、`AttackPresentation`、`AttackRunner`、`AttackState`、`ChartSeriesAdapter`からowned internal resultへの汎用reflection／任意グラフcloneを削減し、計算結果・統計値・表示状態の所有権を整理した。確率、support、overflow、projection、表示範囲、配列長、allocation、resourceの安全性は維持し、`scoreDisplayPresentation`は`displayPresentation.score`から導出する。R18固有の信頼境界テストを含むVitest 83 files / 907 tests、typecheck、lint、full-tail Attack benchmark（全ケースエラーなし）が成功した。詳細は[`r18-presentation-boundary.md`](./r18-presentation-boundary.md)を参照する。CalculationClientのlegacy batch API、DisplayRangePlanner、Worker／API／MCP化、UI redesignは後続課題として維持する。
+4. 完了（R19 Worker Architecture Decision、2026-09-08）: 初回のcache-enabled hybrid対uncached generalized比較に含まれていた非対称を、fresh hybrid client、Damage Roll cache-missモード、firstMeasuredへのmetric名称修正、異なる入力による`Attack → Attack`／`Attack → Check` supersessionで補正した。Chrome通常条件とCDP CPU 4xで10フィクスチャのparity、Worker起動、structured clone往復差、Long Task、heartbeat、caller Abortとunderlying settlement、queue delayを再計測し、50ms以上の再現可能なblockingは確認しなかった。補正後も決定は`KEEP CURRENT HYBRID`とし、production計算、ResourceGuard ownership、既存RuntimeDamageRollWorkerは変更しない。詳細は[`r19-worker-architecture-decision.md`](./r19-worker-architecture-decision.md)と[`adr/0003-browser-worker-execution-boundary.md`](./adr/0003-browser-worker-execution-boundary.md)を参照する。Firefox／WebKitは環境上利用できず、追加インストールはしていない。次はR20 Graph-first UI / Rendering Redesignとし、Worker移行はblockingが再現した場合のR19Bとして扱う。
+5. 完了（R20 Conservative Graph Review、2026-09-09）: 既存UIを正本とする保守的な描画レビューを完了した。PMFとupper-tailのtooltip意味分離、画面を変えないaccessible name、重複する`img`ロールの修正を採用し、PMFのBar化、upper-tailの階段線化、binning、sampling、viewport依存の描画、marker変更、表示範囲上限変更、Backtrackのグラフ形式変更、Backtrack確率表、アニメーション無効化は採用しない。高密度Lineの負荷は実測したが、保守的なmarker変更に一貫した改善はなく、productionの描画方式と表示範囲は維持する。Backtrack Doughnutのラベル可読性とユーザーに見える高密度描画の解決策はR23へ送る。実装・測定・判断の記録は[`r20-conservative-graph-review.md`](./r20-conservative-graph-review.md)を参照し、R20を`CLOSED / GREEN`とする。
+6. 完了（R21 Compatibility / Verification / Repository Cleanup、2026-09-09）: [`r21-compatibility-verification-cleanup.md`](./r21-compatibility-verification-cleanup.md)で、batch API、`published-bucket`、architecture test、R19〜R20・Phase 2-H・runtime実験、release gate、schema-v2・generator・reference-data、README・architecture docsのconsumerと責務を監査した。production featureはincremental Attackを使用し、batchは検証・reference boundaryとして保持する。削除条件を満たすD分類はなく、UI、計算core、runtime、公開asset、generator、test、experimentの削除は行わない。R21を`CLOSED / GREEN`とする。
+7. 完了（R22 Measured Numerical / Performance Review、2026-09-09）: 現行production計算を直接使うNode診断とChrome通常／CPU 4xのブラウザ測定を、受入済み27fixture、steady-state／cache-miss、依存trace、Worker待機分離、heartbeat、Long Task、result digestで実施した。同期main-thread spanのp95最大は通常9.0ms、CPU 4x 41.7ms、Long Taskは0件で、3回中2回以上のrepeatable triggerはなかった。数値計算、UI、Worker境界、resource policy、公開schemaは変更せず、R22を`CLOSED / GREEN — NO CHANGE`とする。詳細は[`r22-measured-numerical-performance.md`](./r22-measured-numerical-performance.md)と実測JSONを参照する。
+8. 完了（R23 User-supervised UI / UX Review、closure 2026-09-12）: `d001bc7`でproduct-owner観察を記録し、`aa7fa7d`で公開版とのsemantic parity診断と異なる入力のmulti-combo captureを追加した。`fbf323e`でDamage／Total Damageのstable bounded期待値表示を共通formatterへ統一し、`48c374d`で13 fixtureの精度監査（exact 1、lower-bound 12、bounded 0、丸め境界crossing 0）を実施した。`6f10a14`でvisual parity、Backtrack responsive layout、footer、6／8／9px labelのexperiment-only prototypeを作成し、`f17d3d2`でbundle置換をfail-closed化、`f2601b4`で追加近似候補の集計とsynthetic testを追加した。R23-Bでは`2eee499`で公開版3.1相当fixtureとDamage tail attribution監査を追加し、safe slice 4件で有限上界候補、その他8件で`insufficient-certificate`を記録した。公開版fixtureの候補区間は`[3.080808080565, 8.806116748611]`と広く、production表示へは接続しない。`e757218`でUI-06 revision 4の採用判断を記録し、`39671ef`、`b51edc4`、`86cbc84`、`9212fc6`、`973bf2a`でUI-01・UI-04A・UI-04B・UI-06・UI-07をproductionへ個別反映した。`c43cb17`と`cd41315`でproduction CSS単体のfooterを短ページ・drawer・長いAttackページで検証し、`b39cf75`と`e189c0b`でsource prototypeとproduction smokeの契約を追随させた。`7ca714d`、`fbd19bd`、`6726dfc`、`b6dad4d`でUI-08のproduction反映、15scenario capture、Roboto条件のfail-closed検証を追加した。Product Ownerの最終visual reviewは、Check／Attack／Backtrackを含む8画像を確認して`PASS`となり、corrected captureは15/15、全font evidence PASS、diagnostics 0だった。`npm run verify:release`はGREENで、R23を`CLOSED / GREEN`とした。UI-04C・UI-05はProduct Owner reviewで`NO CHANGE`と判断し、R23内で完了した。Damageの有限certificate化（R23-C候補）、experiment cleanup、shared compound component化、Cloudflare Worker／API／MCPは後続の独立課題として維持する。詳細は[`r23-user-supervised-ui-review.md`](./r23-user-supervised-ui-review.md)、[`r23-damage-expectation-investigation.md`](./r23-damage-expectation-investigation.md)、[`r23-vuetify-control-source-prototypes.md`](./r23-vuetify-control-source-prototypes.md)を参照する。
+追加レビュー（2026-09-12、closure）: R23 UI-08としてAttackForm／DefenceFormのD10+固定値compound inputを対象に、shared label、`role="group"`、個別accessible name、`useId()`の一意性、既存geometryを確認するsource prototype `attack-compound-d10-source`を追加した。8scenarioの初回candidateはAttack／ドッジ／《イベイジョン》がPASS、ガードdirect-rowがREVISEだったため、`dd2c573`で実測どおり`+4px / +8px`を補正する`attack-compound-d10-guard-offset-source`を追加した。ガードdesktop／mobileの2scenarioでbaseline/candidate capture、入力操作、browser diagnostics、source復元、structural validationはGREENである。product ownerがoffset revisionをdesktop／mobileとも`ADOPT`と判断したため、`7ca714d`で判断を記録し、`fbd19bd`でproduction sourceを反映、`6726dfc`で15scenarioの統合captureとproduction smokeを拡張した。`b6dad4d`でRoboto条件をfail-closedにしたvisual runnerを追加し、corrected captureは15/15、全font evidence PASS、diagnostics 0となった。Product OwnerがCheck desktop／mobile、Attack desktop／mobile、Backtrack mobile／Living Dead、Guard desktop／mobileの8画像を確認して`PASS`と判断したため、R23を`CLOSED / GREEN`、UI-08を`ADOPT / PASS`とした。Damage expectation、R23-C、experiment cleanupは独立課題として残す。詳細は[`r23-vuetify-control-source-prototypes.md`](./r23-vuetify-control-source-prototypes.md)を参照する。
+9. 完了（R23-C0 Production full-tail Damage range、2026-09-12）: `40f7acb`で`full-tail`のDamage作業範囲をアクションScoreの明示上端から動的に導出し、`calculationMax`／1023境界によるsemantic truncationを除去した。`workingMax = rawSupportMax + max(fixedDifference, 0)`、`workingLength = workingMax + 2`とし、防御ダイスは畳み込みFFT長だけへ反映する。`published-bucket`の互換計画は変更していない。`6bf642c`では有限supportの確率総和に生じる`TOTAL_TOLERANCE`未満の数値残差から位置不明overflowを生成しないようDamage合成を補正した。range plannerの境界・resource・published回帰、Score→Damage統合、full-tail benchmark（Node 22.23.2、9 Attackケース、実行エラー0）を確認し、既存thresholdは変更していない。99D・クリティカル値2では`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=2282`を計画し、攻撃側の追加Damage dice 150〜200個相当や防御ダイス99を含むresource内ケースを1023超えで受理した。固定値差20000、`yousei=9`、`shihai=19`はsemantic capではなく既存`estimated-time`等のresource理由でrejectされる。Damage期待値certificate、Total Damage期待値、Yousei／Shihai first moment、published-bucket cleanupはR23-C1以降へ残す。詳細は[`r23-c0-damage-range.md`](./r23-c0-damage-range.md)と[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
+10. 完了（R23-C1B Score tail first moment／Damage expected-value certificate、2026-09-13）: `6d099eb`でScoreの`scoreTailMomentCertificate`を追加し、通常DXの尾部first moment、正負の技能値、《絶対支配》の保守的上界、finite supportをmetadataへ記録した。`f054ef1`で`full-tail` Damageの`damageExpectationCertificate`を追加し、action／reaction tailの寄与、tail同士の非二重計上、実際のDamage overflow時のfail-closed、専用証明書から`getDamageStatistics`へのbounded値接続を実装した。`c9935e3`で公開版相当のbounded値を既存の共有formatterで3.1へ表示する回帰を追加した。専用テストを含むVitest 101 files／1027 tests、generator 18件、simulation 13件、typecheck、ESLint、Ruff、Markdown lint、runtime DX 20,000件、build、production smoke、`git diff --check`をGREENで確認した。action側《妖精の手》のfirst-moment証明、Total Damage伝播、generic API・formatter・resource policy変更は対象外として残した。これは当時の記録であり、後続C3Bで数値marginをcertificateから除去し、C3CでTotal Damageへ区間を伝播した。詳細は[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)と[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
+11. 完了（R23-C3A 《妖精の手》Score tail first moment、2026-09-13）: `417bd17`で`DxTailModel`に負の二項tailの幾何残差を含むYousei residual first-moment上界を追加し、`1cc1db1`で`ScoreCalculator`を`exact-yousei`へ接続した。`shihai=0`、`yousei>0`、`critical<=10`のaction／reaction Scoreが`dx-yousei-tail`証明書を持ち、既存Damage期待値certificateへ伝播する。`critical=10/8/5`、正負の技能値、1個のダイスの独立oracle、reaction側momentを使わないDamage、`Number.MAX_SAFE_INTEGER`級diceのstressをテストし、UI、whole-Score expectation、Total Damage、resource policy、planner cutoff、既存Yousei分布生成は変更していない。詳細は[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)、[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)、[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
+12. 完了（R23-C3B/C3C semantic uncertainty and Total Damage propagation、2026-09-13）: `1e39b68`でScore、成功率、Damageのcertificateから数値marginを除き、検証済みFloat64結果をcanonical数値として扱うsemantic-only契約へ整理した。`b8ee50c`でDamage certificate validatorとcomponent区間snapshotを共通化し、`7387bd1`でbounded／exact／lower-boundの組合せ、mutation safety、通常攻撃とaction側《妖精の手》のTotal end-to-end、2コンボ・4コンボ監査を追加した。Totalの上下界はcomponent区間の補償和だけで作り、FFT・集約の診断値は区間へ伝播しない。`DamageExpectationCertificate.js`の専用証明書は全componentに有限区間があり、少なくとも一つの専用Damage certificateがある場合だけ発行し、lower-boundしかない場合はgeneric fallbackへ戻す。詳細は[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)を参照する。
+13. R24 — Final Release Audit / RC（CLOSED / GREEN）
+
+R21はUI完全凍結で、互換surface、検証資産、historical experiment、reference asset、live documentationを棚卸しする。削除はconsumerと公開互換性を確認した後に限定し、最初にinventory documentを作成する。R22は実測で明確な効果が見込める場合だけ行う任意の数値・性能レビューである。R23でユーザーに見えるUI変更を検討する場合は、直接のproduct-owner reviewを必須とする。R24は最終release auditとrelease candidate判定を扱う。API／MCPは今回の更新範囲外のdeferred goalとして扱う。
+
+### R24-A Total Damage resource preflight closure（完了、2026-09-13）
+
+- 状態: done（production `d067e2a`、regression tests `d193027`）
+- Total Damage aggregationのFFT operation estimateを共通`fftOperationCount()`へ統一し、畳み込み1回をforward 2回＋inverse 1回の3変換として計上する。
+- Total Damage planへ`estimatedTimeMs = operations / 8,000,000`を追加し、既存production policyと同じ200ms hard limitをFFT開始前に適用した。component count、resource、values length、FFT lengthの既存閾値は緩和していない。
+- 多数のcomponentでもestimated workが小さいケースは受理し、estimated CPU workだけが大きいケースは既存のresource-limit経路で拒否することを回帰テストで固定した。Total Damage単体とCalculationClient経路のいずれもlease／FFT実行前に判定する。
+
+### R24-B Final Documentation & Release Closure（完了、2026-09-13、初回closure）
+
+- 状態: `CLOSED / GREEN`、Release Candidate: `GREEN`、P0 / P1 / P2: `0 / 0 / 0`
+- READMEのDamage期待値参照先をC1B／C3B／C3Cの現行certificate文書へ変更し、R23-C1B以前の調査記録をhistorical investigationとして明示した。R24-A後のPlanningMath、architecture、runtime algorithmの責務とTotal Damage preflight説明も同期した。
+- R23 precision auditは15 fixture（`bounded` 14、`exact` 1、安定丸め14、追加近似候補0）、tail attribution auditは13 fixture（有限上界候補4、certificate不足9）で成功した。`npm run verify:release`はNode 22.23.2、32 asset、Vitest 102 files / 1054 tests、generator 18、simulation 13、typecheck、Ruff、ESLint、Markdown lint 61 files / 0 issues、runtime DX 20,000、build 424 modules、production browser smoke、`git diff --check`をGREENで確認した。最終HEAD full SHAはこのclosure commitの実装報告に記録する。
+- 詳細な監査観点、R24-Aで閉じた項目、RC blockers、deferred事項、historical分類は[`r24-final-release-audit.md`](./r24-final-release-audit.md)に記録する。低速実機の追加測定、入力上限の拡張、追加Worker化、HTTP API、MCPは今回のrelease scope外としてdeferredに残す。
+
+### R24 Follow-up C1〜C4（完了、2026-09-14）
+
+- 状態: `CLOSED / GREEN`、Release Candidate: `GREEN`、P0 / P1 / P2: `0 / 0 / 0`
+- C1（`374f43a`）: Score metadata／statisticsの名称を`forcedFailureProbability`へ統一し、表示上の0から強制失敗と通常の達成値0を分離する`getScoreOutcomePartition()`を追加した。固定難易度0、Check対決、Attack命中を同じ意味論へ接続し、表示用の`result.values[0]`と既存チャート形式は維持した。強制失敗するアクションは勝たず、強制失敗するリアクションには通常アクションが勝ち、通常同士の同値はリアクション勝利とする。
+- C2（`032bae1`）: `ScoreTailMomentCertificate`をfinite-supportと解析tailの判別unionへ分割し、実行時の有限証明書へ解析専用フィールドを要求しない型契約を追加した。`satisfies`とモデル絞り込みのTypeScriptコンパイルフィクスチャを含む。
+- C3（`3497d40`）: FFT後処理をfail-closed化し、非有限係数または`1e-12`を超える負係数を拒否し、それ以内の負の丸めノイズだけを0へ補正した。既存のFFT、Damage集約、runtime計算回帰を維持した。
+- C4（`01e2842`）: 本番最適化と独立したRuntime Damage総当たりオラクルをテストへ追加し、ダメージダイス0〜3、《風鳴りの爪》0〜2、混合weight、非単位質量0.6を`1e-10`以内で照合した。既存のschema-v2 asset比較は残している。
+- C1〜C4後のVitestは103 files / 1071 tests、typecheck、ESLint、Markdown lint（62 files / 0 issues）、`git diff --check`がGREENだった。2026-09-14のfresh release gateではgenerator 18件、simulation 13件、runtime DX 20,000ケース、build 424 modules、production browser smoke、R23の2監査を含む全項目がGREENになった。最終HEAD full SHAとコミット後のclean treeはFollow-up後のclosure commitの実装報告に記録する。
+- 詳細な監査観点、修正前に判明したP0、各commit、RC blockers、deferred事項は[`r24-final-release-audit.md`](./r24-final-release-audit.md)に記録する。低速実機の追加測定、入力上限の拡張、追加Worker化、HTTP API、MCPは今回のrelease scope外としてdeferredに残す。
+
+### R7 closure follow-up（2026-09-03）
+
+`91e30da`を開始点として、R7 acceptance criteriaの残件だったcontroller wiringの直接回帰テスト、Attack固有browser acceptance、closure優先度記録を完了した。`44c1b4f`でreaction snapshot、表示reuse／recalculation／resource rejection、Score-only rejection時のDamage保持、latest-wins、dispose後stale抑止を追加し、テストで判明した凍結display requestの問題を`30febb2`で修正した。`5b4ad75`ではaction／reaction入力とcombo add／rename／duplicate／removeをproduction smokeへ追加した。最終gateはVitest 69 files／857 tests、data 32 assets、generator／simulation、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases、build、production smoke、`git diff --check`がGREENで、P0／P1／P2は0件である。詳細は[`refactoring-attack-feature.md`](./refactoring-attack-feature.md)を参照する。R7は`CLOSED / GREEN`とし、次はR8とする。
+
+### R7 final closure follow-up（2026-09-03）
+
+開始SHA `030f62a`から、残っていたAttack browserのresource rejection／recovery受入と、コンボ削除後canonical commit確認の強化を完了した。`3c1dccd`でDamage表示`0..20000`のreject時canvas 0・alert、`0..100`へのrecovery時canonical再commit・canvas 2・Summary「合計」行を確認し、削除後はDOM差分に加えてcanvas data差分を必須化した。production sourceの追加変更はなく、最終gateはVitest 69 files／857 tests、data 32 assets、generator／simulation、Ruff、typecheck、ESLint、Markdown lint 32 files／0 issues、runtime DX 20,000 cases、build、production smoke、`git diff --check`がGREEN、P0／P1／P2は0件である。R7は`CLOSED / GREEN`、次はR8とする。
+
+- open: 計算コアの入出力、数値誤差、資源上限が安定した後にだけ独立API Workerを実験し、第三者向けAPIとMCPはその後に別途判断する
+
+第6段階の実装前調査と参照plannerは[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)に記録しています。本番coreの`src/calculation/RangePlanner.js`へ移植済みで、`DEFAULT_POLICY`は比較・互換用に`published-bucket`を保持しつつ、Attackのproduction `CalculationClient`は`full-tail`を明示的に選択します。DXの尾部certificate、Scoreの可変workingLengthと実畳み込みFFT長、finite support、推定時間・メモリによるwarning/rejectの契約を持ちます。`CalculationClient`のpreflightから計画とwarningを取得でき、hard rejectはアセット読込と計算開始より前に働きます。RuntimeDamageRollCalculator/Workerは`fftLength`、`distributionLength`、`rawSupportMax`を受け取り、DamageCalculatorと防御畳み込み、バックトラックの完全support計算も各RangePlanへ接続済みです。Phase 2-EのNode/Chrome測定とPhase 2-FのFirefox/WebKit/Chrome 4x測定では、case errorと数値異常を確認しなかった。full-tail Attackのresource計測・暫定threshold判断は下記Phase 7実装単位へ記録し、残るJSON経路、legacy整理、低速実機、入力拡張候補の追加受入は後続課題です。
+
+## Release hardening (RH1--RH6)
+
+- 完了（RH1、`874119c`）: canonical入力domainを`src/domain/InputDomain.js`へ集約し、ゲーム上の範囲、旧事前計算範囲、計算資源上限を分離した。
+- 完了（RH2、`21161f4`）: runtime D10 primitiveを追加し、production Attack/BacktrackからD10 JSON取得を除去した。公開assetは参照・比較用に保持する。
+- 完了（RH3、`e512eec`）: DXの固定dice/shihai境界、DRの固定damage dice/kazanari境界、UIフォームの99/999上限を撤廃した。safe integer domainを受け付け、FFT、配列長、推定時間・メモリ、二次計算量の絶対安全上限で計算前に拒否する。`kazanari`は実際のダメージダイス数を超えた場合に同値な有効値へ正規化する。
+- 完了（RH4、`687d14c`）: production consumerがない`DamageCalculator`のlegacy finalizerを削除した。chart setter、published adapter、rounding aliasは比較・再生成用途のconsumerが残るため保持し、symbol単位で監査した。
+- 完了（RH5、`156b59e`）: D10全224ケースのasset equivalence、rule-validなresource-heavy入力のreject、100D級のproduction browser smokeを追加した。現行HEADでstatic auditとJavaScript・generatorの最終gateが成功している。
+- 完了（RH6、`490988a`）: runtime防御D10のsupport length、operation、2本のFloat64 DP bufferを`RangePlanner`が事前見積もりし、`D10Calculator`と同じabsolute operation guardを共有した。damageと総resource estimateへcostを加算し、長さ・operation超過を`defence-d10-length`／`defence-d10-generation`として計算前にrejectする。防御ダイス0のcost 0、1D/100D、absolute guard境界を回帰テストで固定した。calculator側guardはdefence-in-depthとして保持する。
+
+### Release hardening closure（RH6 follow-up、2026-08-31）
+
+- 完了（`0d38320`）: canonical Damageの防御D10 providerへ`AbortSignal`を伝播し、生成中のキャンセルをlatest-wins契約へ接続した。
+- 完了（`0576c14`）: `shihai >= dice`の決定論的shortcutをRangePlannerの配列・操作量見積りへ反映し、実際に確保しないDP stateを見積もらないようにした。
+- 完了（`5b2a7c3`）: production browser smokeの100D Check／Attack／Backtrackで、新しい計算結果のcommit完了を待つ条件を追加した。Backtrackのように表示バケットが変わらないケースは、入力保持・描画状態・browser error 0を組み合わせて判定する。
+- 完了（`9787571`）: 互換surfaceをsymbol単位で再監査した。参照のない`getAttackScoreChartData`、`collapseDistribution`、`DISTRIBUTION_SIZE`は実装と自己検証を削除し、legacy Damage adapter、published-bucket adapter、`shiftDistribution`、上側確率helper、DX rounding aliasは現行consumerがあるため保持した。詳細は[`phase8-inventory.md`](./phase8-inventory.md)を参照する。
+- 最終gateはRH5／G10の履歴値を上書きせず、現行HEADで再実行して結果をこの節へ追記する。Cloudflare Worker、HTTP API、MCP、公開assetのrevision変更は対象外とする。
+
+2026-08-31の現行HEAD gateはすべて成功した。Node.js 22.23.2、data verify 32 assets、Vitest 57 files / 772 tests、generator test 18 passed / 13 deselected、simulation 13 passed / 18 deselected、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`を確認した。smokeではCheck／Attack／Backtrackの100D再計算完了、precomputed request 0、console warning/error 0、same-origin HTTP error 0だった。
+
+RH2以降の現行productionでは、D10は`src/calculation/D10Calculator.js`のruntime primitiveから生成し、`src/data/D10PrecomputedDataRepository.js`や公開`d10.json`を読み込まない。Phase 8-2D以前のD10 lazy-fetch記述は履歴として保持する。
+
+## Canonical migration Phase 7 status
+
+- 完了: Attackの初期計算、validated input、combo操作、Score/Damage chart、Summary、totalをcanonical batch/presentationと一つのlatest-wins runnerへ統合し、temporary `canonicalOptIn`、debug panel、legacy combo/total runner、route preloadをproduction接続から削除した。
+- 完了: Check Summaryをcanonical typed summaryへ切り替え、production Checkから1024 published projectionとlegacy `getScoreSummary`依存を除去した。Attackのcanonical summary formatterを共有presentation utilityとして再利用している。
+- 完了: AttackのScore/Damage表示フォームから999上限を撤廃し、任意の非負safe integerをcanonical display requestとして受け付ける。表示点数・メモリ・計算量のresource plannerによるrejectは維持している。
+- 完了: `CalculationClient.prepare`、`calculateCheck`、`calculateAttackCombo`、`calculateTotalDamage`、`calculateBacktrack`とlegacy score/damage/backtrack dependency/fallbackを削除し、`/check`を含む全計算routeからpreload guardを外した。canonical防御D10のlazy asset、`RuntimeDamageRollWorker`、RangePlanner、ResourceGuardを維持している。production AttackのScore→Damageは`full-tail`で、Damage rangeはaction canonical Scoreの`outputMax`から計画し、reaction Scoreの大きさに依存しない。`published-bucket` propagationは比較・互換用の明示policyとして残している。
+- 完了: productionの`CalculationClient`はScore/Backtrackのcanonical計算コアを直接参照し、Score、Damage、Backtrackのdata calculator wrapperはPhase 8-2G6で削除した。全consumerは各owner moduleと明示的なrepository依存を直接参照する。
+- 維持: canonical core、独立した比較・rule・asset tests、公開schema-v2、Python generator、必要なpublished-bucket/legacy chart/rounding互換fixture、legacy計算上の1024/1022境界。Attack表示フォームの999上限は撤廃済みで、旧legacy core・dense JSON・schema-v1・旧JS generatorはG8〜G10で撤去した。
+- 完了: full-tail Attackのresource planning・Node/Chrome受入・cost model校正・warning/hard thresholdの暫定維持判断を`8c7d10c`で記録し、action-only damage range assertionを`569c278`で整合させた。production warning/hard thresholdは50/200msを暫定維持する。PRをacceptance gateにしない現在のsolo developmentでは、repository workflow相当のローカルgateを最終HEADで実行する。202Dはlegacy/published-bucket由来の比較境界であり、production semantic capではない。runtime absolute safety ceilingは維持している。
+- 完了: AttackのScore/Damage表示範囲について、`0..100`、`0..999`、`0..1000`、`0..1023`、`0..1024`、`0..1200`、`1000..1200`、`0..20000`の入力・coverage・resource判定を回帰テストへ追加した。単一点（`min === max`）は有効な表示windowとして扱い、非負safe integerの範囲を受け付ける契約を明文化した。`0..20000`はlegacy上限ではなくresource budget超過としてrejectする。Score/Damage独立更新、known-zero、coverage再計算、resource reject、stale/recoveryは既存integration testで維持する。
+- 完了: `d30b3d1`でfull-tail overflowの位置契約を修正し、Score尾部由来の位置不明massは`lowerBound=0`、Damage出力だけの右側overflowは最終出力境界をlower boundとするよう分離した。続く表示層では`projectionUncertainty.positionUnknownProbabilityUpperBound`と`DISPLAY_PROBABILITY_TOLERANCE=5e-4`を導入し、位置不明確率の誤差をUI表示精度内に抑えられるtailだけをPMF/upper-tail projectionから省略できるようにした。この閾値は丸め結果が常に完全一致することを意味しない。Damage出力overflowは`outputOverflowLowerBound`で別に保持し、windowと重なる場合は安全側の再計算または`not-projectable`を維持する。
+- 確認済み: 現行Attack入力フォームの上限とは独立に、production `CalculationClient.planAttackCombo()`はaction `dice=99`・`critical=2`から`scoreValueUpperBound=2271`、`maxDamageDice=228`、`rawSupportMax=2280`、`workingLength=1024`、`fftLength=4096`、`accepted=true`、拒否理由なしを導出した。Node integrationでは通常およびaction/reaction双方`99D/critical=2`の`Damage 0..100`、`0..1200`をcanonical chart readyとして確認し、PMF/upper-tail、mixed/output-only tail、resource rejection、latest-winsの既存回帰テストも維持している。2026-08-25のin-app Chromium実測では、通常AttackのPMF/upper-tail `0..100`、action/reaction双方`99D/critical=2`のPMF/upper-tail `0..100`とPMF `0..1200`、通常AttackのPMF `1000..1200`がcanvas 2・alertなし・console warn/error 0で表示できた。`0..20000`は描画点数resource reject、`0..100`への復帰はcanvas 2・alertなし・古いエラー表示なしで確認した。
+- 完了（Phase 7 closure、2026-08-26、HEAD `82ea5be`）: canonical default化、production legacy API/fallback削除、full-tail overflow correctness、表示精度projection、任意display range、`>202D`計画・ブラウザ受入、resource reject/recoveryを確認した。最終HEADで`check:node`、data check/verify（各32 assets）、Vitest（61 files / 889 tests）、generator test（18 passed / 13 deselected）、simulation（13 passed / 18 deselected）、ESLint、Markdown lint、Ruff、build、`git diff --check`がすべて成功した。legacy core/wrapper、assets、JSON、generatorの棚卸し・削除はPhase 8へ移す。Vue完全mount制約、低速実機・Firefox/WebKitのthreshold再評価は後続検証とする。
+- 完了（Y1 closure、2026-09-01、closure commit `f657c7e`）: AttackのPlanner → Score → Damage → Presentation経路で`yousei=1`を実際に通す統合テストを追加し、ScoreのDX分布が統合済みの妖精の手を経由して生成されること、Damageと表示結果まで接続されることを確認した。最終HEADでNode.js 22.23.2、data verify（32 assets）、Vitest（59 files / 790 tests）、generator test（18 passed / 13 deselected）、simulation（13 passed / 18 deselected）、ESLint、Markdown lint（24 files / 0 issues）、Ruff、production build、production browser smoke、`git diff --check`が成功した。SmokeではCheck／Attack／Backtrackの100Dケースを含め、precomputed request 0、D10 request 0、console warning/error 0、same-origin HTTP error 0だった。`npm run verify:runtime-dx`はclosure gateに含めていない。既存の拡張子なし内部importをnative Node ESMが解決できず、検証開始前に停止するため、Y1の計算失敗ではなくR0のtooling/module-resolution debtとして扱う。helper共通化、provider API整理、TypeScript化、API/MCP化はY1の対象外とする。
+- 完了（R4 Check featureization、2026-09-03、実装最終 `8bf71ea`）: Checkのsnapshot・presentationを`src/features/check/model`へ移し、計算と表示のstate machineを`useCheck.ts`へ抽出した。Check UI 10ファイルを`src/features/check/ui`へ移動し、`CheckPage.vue`と薄い`src/views/Check.vue`を導入した。初期canonical計算、validated snapshot、latest-wins、Abort、表示windowのpreflight・再利用・再計算、同一windowのloop guard、resource rejection、disposeと既存のprops/eventsを維持した。構造テストで旧path、広い`checkData` prop、model→UI逆依存、TypeScript modelの明示的な`any`を禁止し、Node 22.23.2、Vitest 62 files / 812 tests、runtime DX 20,000 cases、data 32 assets、generator、simulation、Ruff、typecheck、ESLint、Markdown lint（29 files / 0 issues）、build、production browser smokeをGREENで確認した。browser smokeは対決ON／OFF、PMF／upper-tail、`99D/critical=2`、`0..20000`拒否と`0..100`復帰まで含む。詳細は[`refactoring-check-feature.md`](./refactoring-check-feature.md)に記録する。R5でCheckとAttackの入力validation・form contract共通化を完了した。
+- 完了（R5 Shared Input Validation、2026-09-03、実装最終 `0d31e4f`）: `src/shared/validation`にVue非依存のIntegerRules、ScoreInputRules、DisplayRangeRules、LatestValidationGateを追加し、Check／AttackのScore・表示範囲validationと全フォームのasync latest-wins gateを移行した。InputDomainを数値domainとsafe-integer predicateの正本として再利用し、shared validationから`data/**`と`node:*`への依存を禁止した。yousei／shihai同時指定、負のskill、critical 2..11、single-point range、`0..20000`のform-valid／resource-rejected契約を維持した。Node 22.23.2、Vitest 65 files / 826 tests、runtime DX 20,000 cases、data 32 assets、generator、simulation、Ruff、typecheck、ESLint、Markdown lint（30 files / 0 issues）、build、production browser smoke、`git diff --check`をGREENで確認した。詳細は[`refactoring-shared-validation.md`](./refactoring-shared-validation.md)に記録する。次はR6 Shared Probability Chart Infrastructureとする。
+- 完了（R6 Shared Probability Chart Infrastructure、2026-09-03、実装最終 `811c9c4`）: Check Score、Attack Score、Attack DamageのChart.js登録、vue-chartjs Line wrapper、Vuetify breakpoint style、共通optionsを`src/shared/chart`へ集約し、Check固有の難易度annotationはfeature側に残した。0.1%表示丸めは`src/presentation/ChartPercentages.js`へ移し、既存props・data adapter・CheckのFloat64Array・Attackのowned Array・Backtrack Doughnutを維持した。shared chartの依存境界と3 consumerの直接依存禁止を構造テスト／ESLintで固定し、Node 22.23.2、Vitest 67 files / 835 tests、runtime DX 20,000 cases、data 32 assets、generator、simulation、Ruff、typecheck、ESLint、Markdown lint（30 files / 0 issues）、build、production browser smoke、`git diff --check`をGREENで確認した。詳細は[`refactoring-shared-chart.md`](./refactoring-shared-chart.md)に記録する。次はR7 Attack featureizationとする。
+
+Phase 8は削除から始めず、legacy calculation core、`src/data/` wrapper、precomputed JSON、runtime asset、generator、migration/comparison test、`published-bucket` compatibility codeを、productionで使用中、comparison/regression用、generator/regeneration用、migration残存、dead/削除候補の5分類で棚卸しする。production import graphと再生成用途を確認し、canonical Check/Attack/Backtrack、D10 lazy asset、`RuntimeDamageRollWorker`、`RangePlanner`、`ResourceGuard`、1024/1022境界テストの用途を維持したまま、分類結果に基づいて個別に保持・参照用化・削除を判断する。JSON、asset、generatorは一括削除しない。
+
+### Phase 8-2G status
+
+- 完了（Phase 8-2G1）: `tests/`の`PrecomputedDataRepository` facade importを実測し、単なるre-export利用だった8テストを`D10PrecomputedDataRepository.js`または`ReferencePrecomputedDataRepository.js`へ直接移行した。`tests/precomputedDataRepository.test.js`だけはG5までfacade compatibility regressionとして保持した。legacy calculator、migration/comparisonの意味、public JSON、production `src/`は変更していない。
+- 完了（Phase 8-2G2）: `scripts/benchmark-calculators.mjs`、`scripts/benchmark-phase2h.mjs`、`scripts/benchmark-full-tail-attack.mjs`、`experiments/**`のfacade importerを、benchmark/experiment自体を保持したままD10/Reference repositoryへ直接移行した。benchmark case、測定条件、report schema、public revision-1 asset pathは変更していない。
+- 完了（Phase 8-2G3）: `src/calculation/index.js`のlegacy/canonical barrel importerを、各symbolのowner moduleへ直接移行した。barrel本体は変更せず保持し、`src`、`tests`、`scripts`、`experiments`のimporter 0とdynamic/package reference 0を確認した。
+- 完了（Phase 8-2G4）: G3後のglobal/static/dynamic/SSR/package importer 0とbarrelの副作用なしを再確認し、`src/calculation/index.js`を単独削除した。owner module、facade、data wrapper、legacy core、comparison、JSON、asset、generatorは変更していない。
+- 完了（Phase 8-2G5）: facade importerが専用testだけになったことを確認し、DXのconcurrent dedupe/cacheとrevision mismatchを`referencePrecomputedDataRepository.test.js`へ移植した。`src/data/PrecomputedDataRepository.js`と`tests/precomputedDataRepository.test.js`を削除し、旧facade importerと`clearPrecomputedDataCache`を0件にした。D10/Reference repository、public asset、JSON、generatorは変更していない。
+- 完了（Phase 8-2G6）: `src/data/ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`を削除し、tests、scripts、experimentsの全consumerを各`src/calculation/` owner moduleとD10/Reference repositoryへ直接移行した。新しい共有adapter moduleは追加していない。legacy core、JSON、asset、generator、計算意味論は変更していない。
+- 完了（Phase 8-2G7〜2G10）: legacy comparison/migration依存を独立oracleへ移行し、legacy calculation surface、dense JSON、schema-v1、旧JS generator、実行不能なlegacy harnessを撤去した。残存するpublished-bucket、rounding alias、Reference repository等はconsumerと保持理由をinventoryへ記録し、Phase 8をclosureした。旧Attack chart adapterと`Distribution.range`はRelease hardening closure follow-upで削除済みである。
+
+第4段階では通常Checkのcontrolled SettingForm、999上限撤廃、dynamic display windowを実装し、resource rejectionで広い表示範囲を制御しました。Attack、バックトラック、三経路全体の入力・表示上限拡張は、誤差、計算時間、メモリ使用量、描画点数を同時に検証した後に判断します。
+
+## 1023 overflow bucket UI（obsolete / compatibility-only historical requirement）
+
+- 状態: obsolete
+- 位置づけ: 1024要素のpublished bucketはlegacy comparison/compatibility用に残すが、canonical production UIの表示上限や未完了課題とはしない。
+
+### 過去の仕様
+
+旧公開分布ではインデックス1023が値1023以上をまとめたバケットであり、画面上の表示もこの形状に依存していました。現在はcanonical resultがsupport、overflow、display windowを分離して保持し、production UIは任意の非負safe integer windowをResourceGuardの範囲内で表示します。
+
+### 互換用途
+
+旧1024形状とインデックス1023の意味は、legacy comparison、schema-v1 reference、published-bucket policyの説明とテストでのみ維持します。canonical chartで最終バケットを特別表示する実装は追加しません。
+
+## 計算コアを実行環境から分離する
+
+- 状態: done（計算コアと`CalculationClient`の分離、`9beeea2`・`b29b4e0`、canonical runner、DR Worker接続）
+- 実行場所: DXはメインスレッド、DRのFFT本体は`RuntimeDamageRollWorker`、Backtrackはruntime coreで実行する。全計算をWorkerへ移すことは現行要件ではない。
+- 将来再評価: open（低速端末や新しい入力範囲でメインスレッド停止時間が許容できなくなった場合に、性能測定に基づき追加Worker化を判断する）
+- 優先度: 高
+- 判断記録: [`ADR 0002`](./adr/0002-separate-calculation-core.md)
+- 対象:
+  - `src/data/`
+  - 判定・攻撃・バックトラック画面の計算呼び出し
+  - 新規の計算コア、`CalculationClient`、ブラウザ内Web Workerアダプター
+  - 計算コアの環境非依存テストとアダプター適合テスト
+
+### 目的
+
+計算ロジックをVue、DOM、`fetch`、Web Worker、Cloudflare固有APIに依存しないコアへ分離し、UIが計算の実行場所を知らずに結果を表示できる構成へ移行します。公開サイトは当面、静的SPAとブラウザ内計算を維持し、外部HTTP APIとMCPは同じコアを利用する後続の提供手段とします。
+
+### 実装計画
+
+1. 判定、ダメージ、バックトラックの入力、結果、エラー、キャンセルを表す内部契約を定義する
+2. 完了: 計算コアからVue、静的アセット取得、ブラウザとCloudflare固有APIへの依存を除く
+3. 完了: UIが利用する`CalculationClient`相当のインターフェースを定義する
+4. historical: 全計算を標準Web Workerへ移す計画は現行方針では採用しない。DR専用Workerの契約は実装済み
+5. done: 現行canonical経路、計算コア、DR Workerで同じ入力が同じ結果になる適合テストを追加した
+6. オンデマンド計算と範囲決定処理を計算コアへ統合した後に、HTTP APIの入出力契約を設計する
+7. HTTP APIの性能と運用を検証した後にだけ第三者公開を判断し、MCPは安定した契約を呼ぶ薄いアダプターとして最後に検討する
+
+### 完了条件
+
+- 計算コアがブラウザ、Vue、HTTP、Cloudflare固有APIを参照しない
+- UIが計算モジュールや静的データリポジトリを直接参照しない
+- DXメインスレッド、DR Worker、Backtrack runtime coreの実行境界が文書・テスト・production接続と一致する
+- 現行の計算結果、ルールテスト、数値誤差、キャンセル動作が維持される
+- APIやMCPを実装しなくても、同じ計算コアへ新しいアダプターを追加できる
+
+## 旧生成元と移行専用テストの整理（完了）
+
+- 状態: done（Phase 8-2G7〜G10でcleanupを完了）
+- 実施内容: 旧dense JSON、schema-v1 reference、旧JavaScript生成処理、legacy計算実装、移行比較専用テストを現行経路から撤去し、Python生成器、schema-v2/revision-1、独立oracle、simulationへ責務を移した。
+- 履歴: 削除したファイルと移行理由は[`phase8-inventory.md`](./phase8-inventory.md)およびGit履歴に残している。現行のlive TODOとして旧JSONや旧生成処理の削除を要求しない。
+- 完了確認: Python生成器から現行配信アセットを再生成でき、生成物検証、独立境界テスト、全テスト、lint、本番ビルドが成功している。
+
+## `dx`をブラウザ内でオンデマンド生成する構成を検討する
+
+- 状態: 本番統合と実ブラウザ検証を完了、現行入力範囲ではメインスレッド直接実行を採用
+- 優先度: 中
+- 対象:
+  - `generator/src/dx_precompute/dx.py`
+  - `src/calculation/DxCalculator.js`（旧facadeはPhase 8-2G5で削除済み）
+  - `public/data/schema-v2/revision-1/dx/`
+  - 新規のJavaScript判定分布生成器
+
+### 目的
+
+現在の`dx`分布は事前計算したJSONとして配信しています。ブラウザ内で必要な分布だけを高速に生成できれば、`dx`用JSONの削減、デプロイ対象の縮小、ダイス数上限の拡張が可能になります。
+
+### 予備調査
+
+- `shihai=0`では、1個のダイスによる判定結果の累積分布を $F_c(x)$ とすると $P(V_{n,c}\le x)=F_c(x)^n$ から対象の分布を $O(L)$ で計算できる
+- `shihai>0`では、全ダイスがクリティカルする自己遷移を $d_x=a_x+q d_{x-10}$ で解き、ダイス数に関する動的計画法と組み合わせられる
+- Node.jsのV8上でのJavaScript試作では、長さ2048、ダイス数99個まで、指定された1組のクリティカル値と`shihai`の分布列を約5～7 msで生成できた
+- 予備調査では公開済みJSONとの最大差が約 $5.3\times10^{-7}$ であり、小数第6位への丸めで説明できる範囲だった
+- `shihai>0`では上限200個で約30 ms、500個で約160～220 ms、1000個で約0.6～1.0秒を要したため、大幅な上限拡張にはアルゴリズムの追加改善またはWeb Workerが必要になる
+
+### 検討事項
+
+- Chrome、Firefox、Safariおよび低速なモバイル相当環境で実測する
+- `shihai=0`の閉じた式と`shihai>0`の動的計画法を独立した実装とするか決める
+- 同じ `(shihai, critical)` の中間分布をキャッシュし、ダイス数の増加時に差分だけを計算できる構成を検討する
+- メインスレッドで計算する上限と、静的Pages構成を維持できるブラウザ内Web Workerへ切り替える条件を決める
+- 実行時生成の数値誤差、オーバーフローバケット、キャッシュのメモリ上限をテストする
+- 自己遷移の計算を等比級数のシフト加算から係数漸化式 $d_{n,c}(x)=a_{n,c}(x)+p_c^n d_{n,c}(x-10)$ へ変更した場合は、確率質量関数から動的計画法を導入する説明を主とし、確率母関数を再帰構造の要約として後から示すように教科書を書き換える
+- 上記の実装変更時は、教科書だけでなく事前計算と実行時計算の開発者向けアルゴリズム文書も現行実装に合わせて更新する
+- historical: 当時は`dr`と`kazanari`を本項目の対象外としていたが、現在はDRをRuntimeDamageRollWorkerでオンデマンド生成する。公開JSONはPhase 8-1 inventoryでcomparison/referenceに分類し、保持・retirementはPhase 8-2以降のrelease判断とする。
+
+### 本番統合の判断
+
+- `CalculationClient`は通常判定のDX分布を`calculateDxDistribution`から注入し、`dx` JSONをロードしない。反復入力に対して同一クライアント内の直近32分布をLRUキャッシュする。
+- 実ブラウザ測定では現行最大ケースのメインスレッド実行がウォーム最大11.8 msで60 Hzの16.7 ms枠内に収まり、Long Taskも観測されなかったため、現時点でWeb Workerは本番導入しない。
+- 公開済み`dx` JSONは参照・回帰検証用として残し、本番の配信経路から削除する判断は別変更で行う。
+
+### 完了条件
+
+- 現行入力範囲ではメインスレッド直接実行を採用し、対応範囲を拡張する場合にWorker切替条件を再評価する
+- Python生成器および現行JSONとの全列挙比較テストを用意する
+- `shihai`、クリティカル値、ダイス数の境界条件と数値誤差を検証する
+- 採用した計算方法と教科書および開発者向けアルゴリズム文書の説明が一致している
+- `dx`用JSONを参照・回帰検証用として維持する
+
+## `dr`と`kazanari`をブラウザ内でオンデマンド計算する
+
+- 状態: done（固定4096/2048の本番移植、可変FFT・出力長のRuntimeDamageRollCalculator/Worker、production AttackのDamage経路接続）
+- 現行経路: production `CalculationClient`は`RuntimeDamageRollClient`/`RuntimeDamageRollWorker`でDRをオンデマンド生成し、`dr` JSONをロードしない。`dr` JSONはcomparison/referenceとasset equivalence用に保持するため、Phase 8-1 inventoryでは削除せず、配信assetのretirementはPhase 8-2以降のrelease判断とする。
+- 優先度: 高
+- 作業ブランチ: 実験・検証は`codex/runtime-dr-experiment`、本番移植は`codex/runtime-dr-production`
+- 対象:
+  - `src/data/DamageCalculator.js`
+  - `src/data/FFT.js`
+  - `src/application/RuntimeDamageRollWorker.js`（旧facadeはPhase 8-2G5で削除済み）
+  - `generator/src/dx_precompute/dr.py`
+  - `public/data/schema-v2/revision-1/dr/`
+  - 新規のJavaScript実行時ダメージロール計算器とベンチマーク
+
+### 目的
+
+現在のアプリは、`kazanari`ごとにダイス数0～202個の`dr`分布203本をJSONから取得し、命中達成値から決まるダメージダイス数の確率で混合します。ブラウザ内計算では203本を再生成せず、この混合分布を直接求めることで、`dr`用JSONの削減と対応ダイス数の拡張可能性を検討します。
+
+### 候補アルゴリズム
+
+- ダメージダイス数が`n`個になる命中確率を $w_n$ とし、$W(s)=\sum_n w_ns^n$ を作る
+- `kazanari=0`では、1D10の確率母関数を $D(z)$ として混合分布を $W(D(z))$ で直接計算する
+- `kazanari>0`では、最後に振り直される元の出目 $t\in\{1,\ldots,5\}$ とそれより小さいダイス数で排他的に場合分けする
+- $E_r(s)=W^{(r)}(s)/r!=\sum_{n\ge r}\binom{n}{r}w_ns^{n-r}$ を0階から`kazanari - 1`階まで拡張Horner法で同時に評価し、ダイス数ごとの二項係数付き混合をまとめる
+- 既定長4096のFFT周波数点で上記の式を評価し、optionsで指定された有限supportを保持できる2の冪へ変更可能とする。最終的な混合分布だけを逆FFT 1回で復元する
+- 実数分布の共役対称性を使って半分の周波数点だけを計算し、型付き配列の再利用と複素数演算のインライン化で一時オブジェクトを削減する
+
+### 予備調査
+
+- Node.jsのV8上での未最適化のJavaScript試作では、ダイス数0～202個の任意の重み付き混合分布を`kazanari=0`で約2.8 ms、`kazanari=3`で約32.5 ms、`kazanari=9`で約55.1 msで計算できた
+- 型付き配列とインライン複素数演算を使う最適化版では、Node.js上で`kazanari=0`が約0.87 ms、`kazanari=3`が約20.55 ms、`kazanari=9`が約44.24 msとなった
+- Windows x64のChrome 150ではメインスレッド中央値が`kazanari=0`で約0.9 ms、1で約15.1 ms、2で約16.9 ms、9で約44.5 msとなり、60 Hz表示の1フレームに相当する約16.7 msを`kazanari=2`から超えた
+- 同じChrome環境のmodule Workerでは既定2048要素の分布転送を含む往復増分が中央値で概ね0.1～0.3 msに留まった。可変出力長でもtransferable配列とrequest単位のcache/dedup契約を維持する
+- Workerクライアントの重複排除、LRUキャッシュ、呼び出し単位の中断、障害後の再生成を独立テストで検証し、`kazanari=0/3/9`では防御適用後の最終ダメージ分布も現行JSON経路と最大絶対差 $2\times10^{-6}$ 以内で一致した
+- Codex In-app BrowserのVite production previewで`kazanari=0/3/9`、固定値の正負、防御ダイス、連続入力、一般判定、バックトラックを確認し、Workerチャンクの取得は同一URLの1件、`dr`用JSONの取得は0件、console warning/errorは0件だった
+- 公開済みJSONから作った同じ混合分布との最大差は約 $1.4\times10^{-7}$ であり、個別分布の代表比較では約 $5.4\times10^{-7}$ だった
+- FFT由来の負値は絶対値 $10^{-15}$ 程度に収まった
+- 現行の`dr`アセットは10ファイルで非圧縮約4.02 MiB、gzip圧縮約0.83 MiBであり、1ファイルのJSON解析と転置は約2.3～2.5 msだった
+- 読み込み済みJSONを使う現行方式よりCPU計算は重くなるが、初回のネットワーク取得、配信サイズ、キャッシュメモリを含めるとオンデマンド化に検討価値がある
+
+### 実装計画
+
+1. 文書作業と分離した`codex/runtime-dr-experiment`ブランチで、本番コードから独立した数式リファレンス実装、型付き配列による最適化実装、ベンチマークを追加する
+2. 単一のダイス数だけに重みを置いた全組み合わせにより、`n=0～202`と`kazanari=0～9`の2030分布がPython生成器および現行JSONと許容誤差内で一致することを検証する
+3. 複数のダイス数を含む混合分布、`kazanari>=n`、最大入力、総和、負値、オーバーフローバケットを独立にテストする
+4. Chrome、Firefox、Safariと低速なモバイル相当環境で、`kazanari=0`、中間値、9の応答時間、メモリ、メインスレッドの停止時間を測定する
+5. ブラウザ内Web Workerの必要性と切り替え条件を決め、必要な場合は静的Pages構成を維持したまま導入する
+6. 現在の入力範囲を対象として、`DamageCalculator`を`dr`全体の表を参照する方式から、命中確率をダメージダイス数ごとに集約して混合分布生成器へ渡す方式へ変更する
+7. 既存の実行時ルールテストと新旧経路の比較テストを成功させ、パフォーマンス目標を満たした後にだけ初期読込みと`dr`用JSONを削除する
+8. 入力範囲を拡張する場合は、入力から表示範囲、中間計算範囲、FFT長、推定計算時間、推定メモリ使用量を求める範囲決定処理を追加する
+9. 達成値を表示用の最終バケットへ集約する前にダメージダイス数ごとの重みへ変換し、広い分布の計算範囲とグラフの描画点数を分離する
+10. 採用した式と実装に合わせて、教科書、事前計算アルゴリズム、実行時計算アルゴリズム、アーキテクチャの各文書を更新する
+
+### 判断条件
+
+- メインスレッドで許容できる最大応答時間、Web Workerを使う場合の最大応答時間、対応端末の性能下限を事前に定める
+- 数値誤差、メモリ使用量、実装複雑度、配信サイズの比較に基づき、全オンデマンド化、`kazanari=0`だけのオンデマンド化、現行JSON維持のいずれかを選ぶ
+- 対応ダイス数や固定値を拡張する場合は、[判断記録](../experiments/runtime-dr/decision.md#入力範囲と分布範囲に関する判断)に従い、入力範囲、表示範囲、中間計算範囲、FFT長を一体として設計する
+- 判定の無限尾部に対する総打ち切り誤差と各計算段階への誤差予算を定め、固定長をより大きな固定長へ置き換えるだけの拡張は行わない
+- 警告範囲と安全上限は、入力値そのものだけでなく、推定計算時間と推定メモリ使用量に基づいて決定する
+- オンデマンド化を採用しない場合も、導出、ベンチマーク、不採用理由を開発者向け文書に残す
+
+### 完了条件
+
+- 全列挙比較、数値監査、実行時ルールテストが成功する
+- 対応ブラウザと端末性能の下限でパフォーマンス目標を満たす
+- Phase 8-2 prerequisite: 不要になったJSON、キャッシュ、初期読込み、スキーマ参照をPhase 8-1 inventoryとproduction import graphで確認し、削除または保持の判断を個別に記録する
+- ゲームルール、数式、実装、テスト、教科書と開発者向け文書が同じ計算方法を説明している
+
+### Damage dynamic range 第2-B
+
+- 完了: `RangePlanner`と実験plannerのDamage境界、異長防御差分布のFFT、境界テスト、契約文書を更新した
+- 完了: `DamageCalculator`と`CalculationClient`へ`DamageRangePlan`を接続し、raw分布長、provider options、防御support、`defenceFftLength`、公開1024要素へのcollapseを動的化した
+- done: total damageのresource guard、canonical dynamic output契約、バックトラック配列のplan接続は完了した。done（Phase 8-1）: JSON経路のinventoryと保持・参照用化・削除判断。open（Phase 8-2）: 個別cleanup。入力上限の追加拡張はrelease hardeningで再評価する。
+
+### Dynamic distribution range Phase 2-C
+
+- 完了: `CalculationFeedback`の共通formatter/request runnerを追加し、`CalculationClient`の`onRangePlan`をUIへ伝播した
+- 完了: check、attack、backtrackでwarningの理由、推定時間、推定メモリ、該当するoverflow下限を日本語表示し、hard rejectを結果なしの画面状態へ反映した
+- 完了: request token、AbortError除外、アンマウント時の無効化により、連続入力の古いwarning/error/resultが新しい入力を上書きしないようにした
+- 完了: attackの合計damageに専用generation/readyを持たせ、個別結果の追加・削除・reject、stale result、合計計算エラー、アンマウントで古い合計を表示しないようにした。未知の計算エラーは内部詳細を漏らさず日本語の再入力案内へ変換する
+- 完了: `onRangePlan`を同期callback契約としてJSDoc、文書、実行順テストで固定し、UI runnerの外部`signal`はrunner所有signalと合成する
+- テスト: component mount依存を増やさず、状態層テストで複数comboのaggregate ready、generic error、initial reject、stale/unmount、signal合成を固定した。残余リスクは実ブラウザでのVuetify/Chart.js描画と入力イベントの結合確認、およびresource guard・dynamic output契約である
+- obsolete: 公開1024 bucketの最終ラベル・確率をcanonicalチャートで個別表示する要件はcompatibility-onlyとする。done（Phase 8-1）: JSON経路のinventory。open（Phase 8-2）: 個別cleanup。入力上限とresource guardの追加変更はrelease hardeningで再評価する。
+
+### Dynamic distribution range Phase 2-D
+
+- 完了: `RangePlanner.backtrack`の`workingMax`、`workingLength`、`fftLength`を`BacktrackCalculator`へ明示的に渡し、runtime optionsと計画を別引数として`CalculationClient`から伝播した
+- 完了: 1024要素を超える計画では、通常D10の和を有限support DPで生成し、《屍人》は`sum - max + 1`の専用DPで生成する。1024要素以内は完全supportがアセット内に収まる場合だけ既存アセットを展開する
+- 完了: 計画経路で末尾アセットbucketを下流の閾値判定へ流さず、有限support全体を分類してから既存の公開結果形状へ変換する。配列長、有限性、非負性、確率総和、事前に定義された`fftLength=0`を検証する
+- 完了: 既存アセットのsupport境界は`assetOverflow`の静的coverage metadataとして計画に残し、完全supportを生成できるon-demand経路ではstatic asset warningを表示しない。実計算結果のoverflow、通常planner policy、core絶対安全上限を分離する
+- 完了: planなし経路、1024要素の公開結果、既存入力範囲、cancel/staleのrequest runner契約を維持し、JSON削除、入力上限拡張、full-tail、total damageのdynamic outputは対象外とした
+
+### Dynamic distribution range Phase 2-E
+
+- 完了: `benchmark-phase2e.mjs`でNode `v22.23.2`の18ケースを測定し、13ケースを実測、5ケースをplanner-onlyまたはcore cap理由でskip、エラー0を確認した。warmup 2回、warm 7回の結果は[`experiments/dynamic-distribution-ranges/decision.md`](../experiments/dynamic-distribution-ranges/decision.md)へ記録した
+- 完了: Chrome `151.0.0.0`相当のWindows環境でブラウザ12ケースを実測し、エラー0、Long Task 0、数値異常0、Worker resource timingの利用不可4件を診断上のunavailableとして分類した。DR/attackのWorker telemetryは各`createdCount=1`で、cold値に生成と初回要求を含めた
+- 完了: `mainThreadTimerDelayApproxMilliseconds`をCPU時間ではなくzero-delay timer遅延の近似として文書化し、短時間ケースの約4–5 ms下限をtimer clamping・スケジューリングの特性として扱った
+- 完了: 通常buildの`dist/`と専用buildの`dist-dynamic-distribution-ranges/`を分離し、Phase 2-Eの新規JSON結果を保存・Git追跡しない方針を[`experiments/dynamic-distribution-ranges/README.md`](../experiments/dynamic-distribution-ranges/README.md)へ記録した
+- 完了: 現行入力上限はこの作業単位では変更しないと判断した。拡張はplanner warning/hard reject、dynamic outputと公開出力契約、resource guardを組み合わせ、複合入力の推定時間・メモリで段階的に制御する
+- 引継ぎ: Firefox/WebKitのengine差とChrome 4xのrenderer CPU条件はPhase 2-Fで測定済み。低速実機、入力拡張候補のブラウザ実測、dynamic output/resource guard/JSON経路を検証した後に具体的なUI入力上限を判断する
+
+### Dynamic distribution range Phase 2-F
+
+- 完了: Playwright `1.62.1`をdevDependencyへ追加し、`package.json`と`package-lock.json`を更新した。指定Node `v22.23.2`で`npm install --save-dev playwright`を実行した
+- 完了: `npx playwright install firefox webkit`でFirefox `153.0`（revision `v1538`）とWebKit `26.5`（revision `v2336`）だけを取得した。ダウンロード表示はFirefox 119.9 MiB、WebKit 59.6 MiBで、取得後directoryはFirefox 352,898,025 bytes、WebKit 177,304,497 bytes、合計530,202,522 bytes（505.6 MiB）だった
+- 完了: [`playwright-runner.mjs`](../experiments/dynamic-distribution-ranges/playwright-runner.mjs)を追加し、専用Viteの起動・停止、Firefox、WebKit、Chrome channelの順次実行、ChromeだけのCDP 4x、page/context/profile/CDP cleanup、標準出力JSON、engine単位の明示的失敗を再現可能にした。`--no-sandbox`は使用していない
+- 完了: Firefox `153.0`、WebKit `26.5`、Chrome `151.0.7922.108`で同じ`browser: true` 12ケースを各12/12成功させた。page errorと数値検証エラーは各0件、Firefox/WebKitはLong Task APIなし、Chrome 4xはLong Task 50件（最大154 ms）、Worker resource timing unavailableは4件だった
+- 完了: 代表値はFirefoxのmain warm median/p95最大34/40 ms・Worker cold/warm p95最大56/36 ms、WebKitの15/24 ms・38/19 ms、Chrome 4xの129.5/132.8 ms・74.8/31.5 msだった。timer-delay warm p95最大は40/24/134.2 msで、CPU時間ではなくzero-delay timer遅延近似として記録した
+- 完了: 入力拡張候補の`dx-two-x-planner-only`、`dx-large-planner-only`、`dx-hard-reject-planner-only`、`dr-over-core-cap`、`attack-two-x-planner-only`はcore capを変更せずplanner-onlyに維持し、`backtrack-large-normal-node-only`はNode-onlyとしてブラウザ測定から除外した
+- done: dynamic outputとresource guardのproduction契約、3 engineの基準実測、配信JSONを変更しない暫定判断を完了した。open（release hardening）: 低速実機と入力拡張候補の追加受入。done（Phase 8-1）: JSON経路のinventory。open（Phase 8-2）: 個別cleanup。
+
+## Dynamic distribution range Phase 2-G
+
+- 完了: `src/application/ResourceGuard.js`にcapacity 64 MiB、maxActive 4、maxQueued 32、1.5倍切上げ予約、FIFO待機、queued abort、typed rejection、snapshot/diagnostics、idempotent lease releaseを実装し、`CalculationClient`のcheck、attack、backtrackとattack total damageへ共有guardを接続した
+- 完了: preflight hard reject後かつアセット読込・計算開始前の予約、成功・cancel・stale・repository error・Worker error・同期例外の単一finally解放、複数CalculationClient共有、既存AbortSignalによるstale queued request除去をテストした
+- 完了: `CalculationFeedback`と`RangePlanNotice`でresource rejectのcapacity超過・queue満杯を通常の未知エラーに隠さず表示する最小接続を追加した
+- 対象外: owner replace policy、入力上限、RangePlanner hard policy、core absolute safety limit、JSON経路、dynamic output、RuntimeDamageRollClient内部の重複guardは変更しない
+
+## Dynamic distribution range Phase 2-H
+
+- 完了: `src/calculation/DistributionResult.js`にversion 1のcanonical distribution result、explicit max導出、finite/infinite support、exact/upper-bound overflow、centralized mass tolerance、typed validation errors、mass summaryを追加した
+- 完了: factoryは入力ArrayLikeのvaluesを一度だけFloat64Arrayへコピーしてresult所有bufferを直接公開し、metadataをfreezeした。TypedArray要素はfreezeせず、書き込み可能なcopyは`copyDistributionValues(result)`で明示取得するため、copy-on-readのO(n)割り当てを行わない
+- 完了: 現行1024 published bucketとのadapterを追加し、supportの明示要求、1023末尾bucketのexact overflow化、exact overflowの安全なfold、upper-bound projection拒否、欠落した個別値を復元できないlower bound投影のtyped拒否、offset・可変長・finite/infinite境界をテストした
+- 完了: `tests/distributionResult.test.js`で正常系、invalid number、NaN、負値、mass、support、exact/upper-bound、mutation、round-trip、overflow folding、unsafe projection rejectionを固定した
+- 対象外: 既存calculator、`CalculationClient`、UI戻り値、JSON asset経路、Worker serialization、入力上限、現行1024 bucketの解釈、metadata-aware演算、dynamic outputのproduction接続は変更しない
+- 次段階: 各計算経路のcanonical result生成地点、support metadataとoverflow証明の伝播、JSON・Workerのserialization、公開結果とUIをcanonical契約へ切り替える条件を設計・検証する
+- 完了: `calculateCanonicalDamageOnDemand`をopt-in pure calculation APIとして追加し、acceptedなtop-level attack planと`published-bucket` score propagationを必須化した。damage subplanだけの入力と未実装の`full-tail`は明示的に拒否する
+- 完了: DR hit mass `H`を条件付き正規化せずproviderへ渡し、failure mass `F`と分離して、防御・fixed shift・failure合成後だけ`F + H = 1 ± 1e-8`と`DistributionResult`のmassを検証する。既存planned APIと共通のcollapse前helperを使い、provider、防御、shift、failure合成を一度だけ実行する
+- 完了: published-bucket score由来のmodeled supportをfinite、未打切りDX sourceをinfiniteとしてmetadataで分離し、score tail certificateをoverflowへ加算せず防御コピー・freezeした。modeled support max式、最終damage座標のoverflow lower bound、末尾ゼロの除外、既知massとraw overflowのexact合算、null/exact overflowを専用テストで固定した
+- 対象外: `CalculationClient`、UI、RuntimeDamageRoll Client/Worker protocol、cache、transfer、JSON、total damage、入力上限、full-tail、公開dynamic outputは変更しない
+- 次段階: canonical resultのconsumer、Worker・JSON serialization、既存1024結果から公開結果・UIを切り替える互換境界を設計・検証する
+- 完了: `createCalculationClient()`へopt-inの`calculateAttackCanonical(params, options = {})`を追加し、既存`calculateAttackCombo`の戻り値と既定動作を維持した
+- 完了: canonical pathを既存attackと同じsnapshot、RangePlanner preflight、`onRangePlan`、ResourceGuard lease、abort/stale確認、score計算へ接続し、acceptedなtop-level attack plan、DR/D10 provider、`onFftLength`、runtime optionsを伝播した
+- 完了: 第3単位時点のcanonical戻り値を`{ score, scoreSummary, canonicalDamage }`に限定し、pure APIのfreeze済み`{ result, metadata }`を保持した。第4単位で`canonicalDamageSummary`を追加したが、legacy calculator、`damage`、`damageSummary`、`getDamageSummary`はcanonical pathで呼び出さない
+- 対象外: canonical consumerのUI接続、既存公開結果、RuntimeDamageRoll Client/Worker protocol、JSON serialization、`getTotalDamage`、入力上限、full-tail、公開dynamic outputは変更しない
+- 次段階: canonical resultを利用するconsumer、Worker・JSON serialization、公開結果・UIへの移行条件、total damageとのsupport metadata境界を設計・検証する
+- 完了: `DistributionResult.js`にoffset込みの明示一次モーメントとoverflow-awareな`getExpectedValueSummary`を追加し、exact・bounded・lower-boundのJSON-safe unionを返すようにした
+- 完了: `overflow: null`、exact overflowのfinite/infinite support、`p=0`、`lowerBound === support.max`、upper-bound overflowの`q=0`、finite/infinite supportを期待値summaryの専用テストで固定した
+- 完了: overflowの`errorBound`を期待値区間へ加算せず既存mass summaryのmetadataとして伝播し、summaryの再帰freeze、入力・values非変更、invalid入力をテストした
+- 完了: `getCanonicalDamageSummary`をcanonical damage envelopeの薄いadapterとして追加し、`{ expectedValue, mass }`を返して`calculation/index.js`と`CalculationClient`の`canonicalDamageSummary`へ接続した。canonical pathからlegacy summary、legacy adapter、UI、Worker、JSON、total damageは呼び出さない
+- 対象外: 既存`getDamageSummary`、legacy/UI/total damage/Worker/JSON protocol、canonical result自体のserialization契約は変更しない
+
+### Dynamic distribution range Phase 2-H 第5単位
+
+- 完了: `sumCanonicalDamage(canonicalDamages, options = {})`を追加し、canonical damage envelopeだけを独立和として加算するpure coreを実装した。0件はdamage 0のidentity、1件は不要なFFTを省略し、複数件だけ完全線形畳み込みを行う
+- 完了: 明示`values`はoffsetを加算した座標のまま保持し、異長配列を含む完全畳み込みを行う。空の明示配列が一つでもあれば明示結果は空とし、overflowのlowerBoundを一点massへ変換しない
+- 完了: finite modeled/source supportのsafe integer加算、infinite伝播、exact/null/upper-bound overflowの独立union、mixed時のexact-only lower bound、source errorBoundとFFT mass driftの補助metadataを実装した。upper-boundはFFT後の明示mass不足も上界へ含める
+- 完了: `src/data/FFT.js`のprivate線形畳み込みを異長対応の公開`convolveDistributions` helperとして整理し、旧公開aliasは残さず、既存`sumDistribution`・`subDistribution`の公開挙動を維持した。`onFftLength`、AbortSignal、FFT stage境界のabort確認を伝播する
+- 完了: result/metadataとcomponent descriptorsをfreezeし、入力envelope/result/valuesを変更しない。metadataには`aggregation: 'independent-sum'`、`independence: 'assumed'`、support、overflow lower bound、aggregation error boundを残す
+- 完了: values/FFTは`1 << 20`、componentは`1 << 12`、resourceは512 MiBを絶対安全上限とし、persistent bytes（component、inspected、steps、descriptors、metadata、output）と各FFT peakの合計をguardする。canonical option名以外を拒否し、optionsで下げられるが緩和できないようにした。invalid envelope/options、index overflow、resource limit、numerical failure、abortをtyped error codeで識別する
+- 対象外: `CalculationClient`、UI、legacy `getTotalDamage`、combo ViewModel、Worker/JSON protocol、display再集約、total summary、公開dynamic outputは変更しない
+
+### Dynamic distribution range Phase 2-H 第6単位
+
+- 完了: `planCanonicalDamageAggregation()`でcanonical damage配列の検証とFFT/resource見積りを一度だけ行い、freeze済みread-only planを公開した。planは入力係数列の所有copyを保持して呼び出し元の後続変更から分離し、そのmemoryも見積りへ含める。`plan.estimates.float64Bytes`等をResourceGuardの`acquirePlan()`へ渡し、偽造・改変planは内部識別で拒否する
+- 完了: `sumCanonicalDamage()`が同一planを実行できるようにし、client側でFFT長・resource量を再実装しない。`getCanonicalTotalDamageSummary()`はupper-bound aggregateの`overflowProbabilityLowerBound × lowerBound`を期待値下限へ反映し、sourceMassDrift/errorBoundを区間へ加算しない
+- 完了: `CalculationClient.calculateCanonicalTotalDamage()`をopt-inで追加し、入力snapshot、plan、単一lease、同一planのaggregation、summary、finally releaseの順序、abort/requestId/onFftLength、入力非変更・返却alias防止をテストした
+- 対象外: 既存`calculateTotalDamage`、UI、combo ViewModel、Worker/JSON、display再集約、公開1024結果は変更しない
+
+### Dynamic distribution range Phase 2-H 第7単位
+
+- 完了: `src/presentation/DistributionPresenter.js`にsingle damageとtotal damageのcanonical envelopeを同じUI非依存display modelへ変換するopt-in presenterを追加し、`src/presentation/index.js`から公開した。`modeledDistribution === true`と`validateDistributionResult`を境界で要求し、metadata・summaryの必須値はown data propertyとして扱う
+- 完了: 明示係数はoffsetと通常配列で全件保持し、0確率を残したまま`explicitMax`を導出する。overflow/tailを末尾へ加算せず、support・overflow union、caller提供のmass・expectedValue summary、structured warningを防御コピーして深くfreezeする。point object列は生成しない。JSON copyは循環・accessorをtyped errorで拒否し、深度64・総ノード数10,000、DAG memoを適用する。optionsの`null`等を拒否し、planner warningの`reject` severityをそのまま受理する
+- 対象外: UI、ViewModel、Worker、JSON serialization、legacy calculator/adapter、既存consumer、公開結果の切替、canonical resultの生成・serialization、既存1024 bucketの解釈は変更しない
+
+### Dynamic distribution range Phase 2-H 第8前半
+
+- 完了: `createCalculationClient()`へopt-inの`calculateAttackCanonicalBatch(entries, options = {})`を追加し、entry順序・idを保持したcombo配列とcanonical total damage・summaryを一つの成功結果として返す。各entryは既存attack canonical経路を正確に1回通し、全combo成功後にcanonical total aggregationを正確に1回実行する
+- 完了: batch専用validatorはentries、entry、id、paramsの構造・own enumerable data property境界とoptionsを開始時に検証し、stringまたはfinite number以外のid、重複id、構造不正な入力/optionsを`CalculationBatchInputError`でtyped rejectする。dice・critical等のゲーム入力leafは既存RangePlannerを唯一の検証元として維持し、空entriesは既存canonical aggregationのdamage 0 identityへ接続し、caller入力・返却combo配列のaliasを作らない
+- 完了: batch optionsを開始時にsnapshotし、total aggregationのlimitと`entries.length <= maxComponents`をattack開始前に既存option validatorで検証した。batchを直列実行し、既存RangePlanner preflight、`onRangePlan`、attack/totalの個別ResourceGuard plan・lease・finally release、abort確認、signal・requestId・rangePolicy・onFftLength・runtime options伝播を再利用した。attack leasesをbatch全体で二重予約せず、partial resultを返さない失敗・abort・total失敗の解放順序をspyで固定した
+- 対象外: Vue/UI、presentation import、legacy `calculateAttackCombo`・`calculateTotalDamage`、既存canonical単体APIのreturn shape、Worker/JSON protocol、公開1024 bucket、batch専用callback、full-tail、入力上限は変更しない
+
+### Dynamic distribution range Phase 2-H 第8後半
+
+- 完了: `src/application/AttackCanonicalPresentation.js`に`createAttackCanonicalPresentation(batchResult, rangePlans = [])`を追加し、canonical attack batchのcombos、single damage presentation、canonical total damage、total presentationをUI非依存payloadとして一括生成する。canonical envelopeとcaller提供summaryを保持し、再計算・legacy投影・partial payload返却を行わない
+- 完了: `rangePlans`はbatchの`onRangePlan`呼出順かつcombo順と1:1で対応させ、count不一致・invalid batch shape・必須summary欠落をtyped application errorで拒否する。各comboには対応planのwarningを渡し、total warningはcombo順・warning順を維持したままdefensive copyへ`entryId`を付けてflat化する。summary/envelope内容の詳細検証は既存presenterのtyped errorへ委ねる
+- 完了: combo/planの返却wrapperとmutableなscore/summary/plan内容を入力から分離し、canonical envelopeは既存freeze/defensive contractを保持する。score、scoreSummary、range plan snapshotはplain record・dense/sparse arrayのindexed entries・ArrayBuffer/DataView/TypedArrayに限定したsafe defensive cloneであり、accessor、symbol key、unknown class、cycle、深度/ノード上限超過、Proxy reflection failureをtyped rejectする。payload root、combo配列、combo、mutable snapshotをfreezeし、presenter既存契約によりexplicit probability、overflow/tail、exact・bounded・lower-bound summary、warningのdeep copy/freezeとJSON round-tripを維持する
+- 対象外: Vue/template、Attack Viewのscript、legacy表示・`calculateAttackCombo`・`calculateTotalDamage`、Worker/JSON protocol、公開1024 bucket、batch計算経路、full-tail、既存入力上限は変更しない。専用runnerも追加せず、`onRangePlan`収集とstale/AbortSignal制御はcaller責務のまま残す
+- 次段階: Attack Vue scriptへopt-in接続し、batch計算成功後に収集したplan配列とpresentation payloadを一回のstate commitへ渡す。必要ならその接続時にのみ、既存`onRangePlan`を保持する薄いrunnerを追加する
+
+### Dynamic distribution range Phase 2-H 第9単位
+
+- 完了: `attackData.canonicalOptIn`を既定falseのscript-only opt-inとして追加し、falseの初期watch、params変更、combo追加・複製・削除・並べ替えでは`calculateAttackCanonicalBatch`を呼ばないようにした。新規comboのcanonical fieldsはapplication helperで遅延初期化し、legacy fieldsと完全分離した
+- 完了: opt-in true時は現在のcombo順の`[{ id, params }]`をnested aliasなしでsnapshotし、全comboのcanonical batchを最新runnerへ渡す。`onRangePlan`をentry順に収集し、成功時の`createAttackCanonicalPresentation`を一回に限定した
+- 完了: batch開始時のordered entries snapshotとcommit直前の現在canonical入力をID・順序・全paramsで明示比較し、不一致の旧結果をcommitしないようにした。batch resultとpresentation payloadをgeneration/request検証後にatomic commitし、rapid changeのabort/stale抑止、disable中のabortとlate result無視、range/resource reject・error時のcanonical専用clear/feedbackをテストした。legacy resultReady、damage、totalDamage、legacy feedbackは変更しない
+- 完了: empty combosではcanonical damage 0 identityをcommitし、combo追加・削除・複製・reorderのid順、plan warning mapping、入力snapshot alias防止をpure application testsで固定した
+- 対象外: Vue template、Chart/Summary表示、InputForm/ComboForm template、legacy calculator/state、Worker、JSON、公開1024 bucket、canonical resultの表示切替は変更しない
+- 次段階: canonical presentationの表示設計とlegacy結果との比較実測を行い、表示接続・移行条件・dynamic outputのproduction採用可否を決める
+
+### Dynamic distribution range Phase 2-H 第10単位
+
+- 完了: `src/calculation/LegacyCanonicalComparison.js`にUI非依存のlegacy/canonical数値比較coreを追加し、legacy 1024 published distributionとcanonical envelopeを既存`fromPublishedBucketDistribution()`・`toPublishedBucketDistribution()`で防御的に投影して比較する契約を固定した。legacy側はlength/indexed own data propertyを比較境界でsnapshotし、canonical既知schemaはown data propertyのplain snapshot境界を通す。両者の入力と`values`・metadata overflowを防御コピーし、legacy projectionのsupportは`infinite`であり、index 1023を有限maxとは解釈しない
+- 完了: `comparable` / `not-comparable`のdiscriminated result、max absolute difference、L1 difference、mass difference、閾値、passedを追加した。暫定閾値はmass `1e-8`、max absolute `2e-6`、L1 `2e-4`とし、入力配列・canonical values・overflowを変更しない
+- 完了: invalid legacy inputは既存`DistributionResultAdapterError`のtyped codeを維持し、optionsのaccessor/reflection failureは`LegacyCanonicalComparisonError(INVALID_OPTIONS)`へ変換した。component descriptor overflowはlowerBound・probability・probabilityUpperBound・errorBoundをcanonical overflowと同等に検証し、不正値を`INVALID_SCHEMA`へ変換する。validなupper-bound overflowまたは安全に1023へ投影できないexact overflowは`not-comparable`へ分け、exactは`probability > 0 || errorBound > 0`、upper-boundは潜在massがある場合だけtotal overflow関与とした。totalはactiveなcomponent/source overflowが関与する場合に直接一致を主張しない
+- 完了: `tests/legacyCanonicalComparison.test.js`へ、実計算を使った固定値shift・防御、`kazanari > 0`、failure mass、multi-combo total、1023以上へ安全投影できるexact overflow、upper-bound、1023未満のexact overflow、入力非変更のfixtureを追加した。revoked Proxy、result/metadata/options/thresholds accessor、inactive overflow、active component overflow、閾値直上の`passed: false`も固定した
+- 完了: expected valueは比較対象へ追加せず、canonicalのexact/bounded/lower-bound summaryとlegacyのraw moment・小数1桁表示丸めを混同しない方針を文書化した
+- 対象外: canonical/UI表示切替、performance計測、browser cold/warm計測、Worker/JSON serialization、legacy/canonical return shape、入力上限、依存追加
+- 次段階: 比較fixtureのブラウザ実測と表示接続・移行条件・dynamic output採用可否を別単位で判断する
+
+### Dynamic distribution range Phase 2-H 第11単位
+
+- 完了: `scripts/benchmark-phase2h.mjs`と`npm run benchmark:phase2h`を追加し、RangePlanner/preflight、legacy JSON damage、準備済みlegacy combo結果に対するlegacy total、canonical damage、canonical total aggregation、canonical presentation、legacy/canonical comparisonを既存API境界で分離計測した。legacy totalは`getTotalDamage`呼出しだけを計時し、planner・score・asset setupは区間外とした。内部helperへの侵入、公開経路の切替、UI/Worker/JSON変更は行っていない
+- 完了: 小規模通常、fixed shift/defence、`kazanari=0`と`kazanari>0`、failure mass、3 combo total、warning-onlyの`planner-only`、明示hard rejectの`planner-rejected`をfixtureとして固定した。`planner-rejected`は`accepted=false`を検出した時点で重い計算へ進まない。各caseの入力、route、execution、executionReason、plan、反復数、warmup、結果digestと制約をJSONへ含めた
+- 完了: `performance.now()`によるcold/warm分離、nearest-rank median/p95/min/max、machine/Node/local commit metadata、`--json`、`--iterations`、`--warmup`、結果を捨てないdigestを追加した。統計関数、出力shape、引数validationは軽量テストで固定した。JSONは`npm run --silent benchmark:phase2h -- --json`またはscript直接実行で機械可読stdoutになる
+- 完了: Nodeのcold/warmはmodule/Vite load、fixture準備、共有asset登録、browser Worker、fetch/JSON、event-loop delay、Vue/Chart/Summary描画を含まないため、ブラウザ結果と混同せず、Node結果だけでcanonical/dynamic outputの採用判断をしないことを文書化した。Node結果は計算coreの比較基準に限定する
+- 残作業: Chrome/Firefox/WebKitの同一fixture、低速実機/低速機相当、Worker起動・往復・cancel/error、fetch/JSON serializationとasset setup、Vue/Chart/Summary描画、fallback、canonical/dynamic outputの採用判断
+
+### Dynamic distribution range Phase 2-H 第12単位
+
+- 完了: `experiments/phase2h-browser/`へ、Node第11単位と同じ7 fixtureを現行公開APIと公開repositoryで測定するブラウザページ、専用Vite config、READMEを追加した。通常、fixed/defence、`kazanari=0/>0`、failure mass、3 combo total、`planner-only`、`planner-rejected`を同じcase idで保持し、production UIと既存srcは変更していない
+- 完了: asset fetch、JSON parse、repository registrationをcase計算のwarmup前に独立cold/warm stageとして測定し、`performance.getEntriesByType('resource')`の`dx`/`dr`/`d10` data pathだけをreportへ残すようにした。URLはdata pathへ縮約し、外部URLや個人情報を含めない
+- 完了: preflight、legacy damage/total、canonical on-demand damage/total aggregation、canonical presentation、legacy/canonical comparisonを個別stageで測り、main-thread invocation elapsed、queued zero-delay timer delay、cold/warm nearest-rank median/p95/min/max、numeric digest、Long Task supported/nullを保持する。comparisonは`comparable`/`not-comparable`をcase reportへ保存する
+- 完了: `window.__phase2hBrowserBenchmarkResult`/`window.__phase2hBrowserBenchmarkError`と画面JSON、browser userAgent、viewport、case counts、pageErrors/unhandledrejections、resource fetch countを公開した。Workerは現行canonical Attack stateが未接続のため`not-connected`と記録し、Worker経路を偽装しない
+- 完了: `iterations`/`warmup` query overrideに安全な上限を設け、`npm run benchmark:phase2h:browser`をローカルVite起動案内として追加した。npm testへブラウザ起動を追加せず、READMEへtimer delayがCPU時間ではないこと、Chrome実測後にFirefox/WebKit/低速機を検討すること、production切替対象外であることを記録した
+- 完了: `experiments/phase2h-browser/playwright-runner.mjs`と`npm run benchmark:phase2h:browser:playwright`を追加した。Playwright管理のFirefox/WebKitを順次起動し、専用Vite、ページ完了待機、7ケースのstatus/count、page error、asset setup、numeric digest、cleanupを検証してJSONを標準出力へ出す。`--iterations`/`--warmup`を転送し、通常のnpm testへブラウザ起動を追加していない。ブラウザ未取得環境の導入手順は実験READMEへ記録した
+- 完了: 親タスクで`npm run benchmark:phase2h:browser:playwright -- --iterations 3 --warmup 1`を実行した。Firefox 153.0とWebKit 26.5の両方で7ケース（measured 5、planner-only 1、planner-rejected 1、error 0）、page error 0、numeric validation成功、Vite/profile cleanup成功を確認した。canonical damage warm中央値最大値はFirefox 54 ms、WebKit 23 ms、legacy damageは両engine 2 ms、asset setupはFirefox 23 ms、WebKit 26 msだった。Chromeの親タスク実測と同じく、Workerは`not-connected`である
+- 残作業: 低速実機・低速機相当、Workerが必要になった場合の別経路、Vue/Chart/Summary描画は別測定とする。結果だけでcanonical Worker接続、JSON削除、入力上限、production UI切替を行わない
+
+### Dynamic distribution range Phase 2-H 第13単位
+
+- 完了: `experiments/phase2h-browser/playwright-runner.mjs`を拡張し、既存のFirefox/WebKitと同じ7 fixtureをChrome channelでも測れるengineを追加した。ChromeだけCDPの`Emulation.setCPUThrottlingRate`へrate 4を設定し、通常Chromeは親タスク実測との重複を避けるため既定では省略する。`--include-chrome`で通常Chrome比較を明示的に追加できる
+- 完了: CPU throttleの適用・rate 1への解除、CDP session、page、browser context、一時profile、専用ViteのcleanupをJSONへ記録し、page error、ページ側unhandled rejection、7ケースのstatus/count、case id、stage error、asset setup、numeric digest、Long Task、result sinkをrunner側で検証する。ブラウザ実測結果は標準出力だけへ出し、結果ファイルやdistを保存しない
+- 完了: `npm run benchmark:phase2h:browser:playwright`を標準条件、`npm run benchmark:phase2h:browser:playwright:short`を`iterations=1`/`warmup=0`の短縮条件として追加し、個別の`--iterations`/`--warmup`転送も維持した。既存のplanner-only/planner-rejected、入力上限、core cap、production UI、Worker接続、既存APIは変更していない
+- 完了: 親タスクで`npm run --silent benchmark:phase2h:browser:playwright`を実行した。Firefox 153.0、WebKit 26.5、Chrome channel 151.0.7922.138（CPU throttle rate 4）の全engineで7ケース（measured 5、planner-only 1、planner-rejected 1、error 0）、page error 0、numeric validation成功、Vite/profile/CDP cleanup成功を確認した。canonical damage warm中央値最大値はFirefox 46 ms、WebKit 22 ms、Chrome CPU 4x 143.3 ms、legacy damageは2 ms、1 ms、4.4 ms、asset setupは22 ms、20 ms、67.5 msだった
+- 判断: CPU throttleは実CPU時間や低速実機のCPU・メモリを再現しないが、Chrome CPU 4xでcanonical計算が143.3 msまで増加したため、低速条件ではWorker接続を候補として優先する。低速実機・Worker往復・UI描画の実測を終えるまで、メインスレッド実行、JSON削除、入力上限、canonical/dynamic outputのproduction採用は決めない
+
+### Dynamic distribution range Phase 2-H 第14単位
+
+- 完了: canonical Attack batchのproduction依存を監査し、`CalculationClient`のdefault `getDamageRollDistribution`がmodule内singletonの`RuntimeDamageRollClient.calculate`であること、canonical damageのDR部分だけが既存`RuntimeDamageRollWorker`を利用すること、score/DX、D10 asset、固定値差、防御畳み込み、failure合成、canonical envelope/total aggregationはmain threadに残ることを確認した。`AttackCanonicalRunner`のstale/AbortSignal責務と、`Attack.vue`の`canonicalOptIn=false`・canonical template未接続も確認した
+- 完了: `experiments/phase2h-browser/canonical-attack-worker-benchmark.html`と専用moduleを追加し、既存7 fixtureをpublic `calculateAttackCanonicalBatch`境界へ渡すproduction依存の実測ページを用意した。warning境界はpublic `planAttackCombo`、reject境界はpublic batch preflight rejectとして扱い、既存のcore直呼び出しPhase 2-Hページと区別した
+- 完了: native Workerの薄い診断wrapperで生成、postMessage/message、transfer bytes、error/messageerror、terminateを、`fetch` wrapperとresource timingでdata asset fetchを記録するようにした。実AbortSignal cancelと既存`AttackCanonicalRunner`のstale二連続requestも診断し、Workerを意図的に壊すsynthetic errorは行わない
+- 完了: `tests/canonicalAttackRuntimeWorkerContract.test.js`でFakeWorkerを使い、canonical batchが既存`RuntimeDamageRollClient` providerを介してWorkerへ到達する契約を固定した。`tests/canonicalAttackWorkerBenchmarkContract.test.js`で7 fixture idとpublic boundary、direct `calculateCanonicalDamageOnDemand`不使用を固定した
+- 対象外: production `src`、既存Worker protocol、JSON serialization、入力上限、legacy経路、Attack template表示切替、追加依存、GUI、git commit
+- 完了: In-app Chrome（Chromium 151.0.0.0、Windows）の標準条件（`iterations=3`、`warmup=1`）で7 casesを実測し、`measured=5`、`planner-only=1`、`planner-rejected=1`、`error=0`を確認した。canonical Attack batchのwarm invocation median最大は`combo-total-3`の2.4 ms、cold最大は40.9 ms、small case coldは25.3 msだった。短縮条件（`iterations=1`、`warmup=0`）も成功した
+- 完了: production Workerは1 instance、8 postMessage/8 message、transfer 8回・12,992 bytes、worker error/messageerror 0、terminate 0だった。D10 asset fetchはstatus 200を1回、encodedBodySize 373,168 bytes、fetch elapsed 3.7 ms（resource 1.8 ms）で、pageErrors/unhandledRejectionsは0件だった。cancelは`abortSent=true`かつ`AbortError`、staleは`firstCommit=false`、`secondCommit=true`、`runnerErrors=0`でmeasuredだった
+- 判断: 上記は単一ブラウザ・単一実行条件の結果であり、Worker接続は既存DR部分のみと確認した。score/DX、preflight、D10、固定値差、防御畳み込み、failure合成、canonical envelope/total aggregationはmain threadのままであり、新しいWorker protocol、score/DXのWorker移行、canonical UI表示切替はこの単位では行わない
+- 次段階: ブラウザ間差・端末差を調べる場合、またはscore/DXをWorkerへ移す場合は別単位で設計・実測する。新しいWorker protocolを推測で追加しない
+
+### Dynamic distribution range Phase 2-H 第15単位
+
+- 完了: 既存`experiments/phase2h-browser/playwright-runner.mjs`へ`--target core|canonical-attack`の明示分岐を追加し、既定のcore target（`browser-benchmark.html`、既存結果global、既存report validation）は変更せず、canonical targetだけを`canonical-attack-worker-benchmark.html`へ向けた
+- 完了: canonical targetでFirefox、WebKit、Chrome channel CPU 4xを順次実行し、`--include-chrome`時だけ通常Chrome channelを追加するengine構成を維持した。`--iterations`/`--warmup`、Node version check、専用Viteの空きport、temporary profile、engine/CDP/page/context/Vite cleanup、標準出力JSON、結果ファイルを保存しない方針を維持した
+- 完了: canonical reportの`status=measured`、7 fixture id/count（measured 5、planner-only 1、planner-rejected 1、error 0）、pageErrors/unhandledRejections 0、`production-runtime-observed` Worker、Worker error/messageError 0、cancelのmeasured/AbortError、staleの`firstCommit=false`/`secondCommit=true`、D10 asset fetch status 200をrunner側で検証し、各engineのWorker countersとtiming summaryを出力へ残すようにした
+- 修正: `runCancelProbe`のabortを`setTimeout(0)`から`CalculationClient`の同期`onRangePlan`通知内へ移し、preflight後かつWorker実行前に`AbortSignal`を発火するdeterministic cancellationへ変更した。reportへ`abortBoundary=onRangePlan-preflight`とinterpretationを残し、runnerのAbortError必須検証と`completed-before-abort`非許容は維持した
+- 完了: `benchmark:phase2h:browser:playwright:canonical-attack`と短縮条件`...:canonical-attack:short`を追加し、既存core runnerの標準/short scriptは維持した。CLI args、canonical path/global、engine ids、report validationを`tests/canonicalAttackPlaywrightRunnerContract.test.js`で固定した。ブラウザ起動は`npm test`へ追加していない
+- 対象外: production `src`、JSON、既存Worker protocol、UI、既存core runnerの測定対象、Phase 13のcore結論、Phase 14のIn-app Chrome結果、追加依存、外部アクセス、git commit
+- 経緯: 初回親実測ではFirefoxとChrome CPU 4xのrunner validationは成功し、WebKitは処理完了が`setTimeout(0)`より先行して`completed-before-abort`となりvalidation失敗した。既存結果を捨てず、速度非依存のpreflight boundary cancellationへ修正した
+- 完了: 親タスクの昇格実行`npm run --silent benchmark:phase2h:browser:playwright:canonical-attack -- --iterations 3 --warmup 1`（`resultsPersisted=false`）で修正後の3 engine実測を完了した。Firefox 153.0はcanonical warm invocation median最大3 ms、cold最大52 ms、WebKit 26.5はwarm最大2 ms、cold最大40 ms、Chrome channel 151.0.7922.138（CPU throttle 4x）はwarm最大7.4 ms、cold最大110.4 msだった。全engineでstatus measured、7 cases（measured 5、planner-only 1、planner-rejected 1、error 0）、case IDs、page/unhandled errors 0、D10 status 200、cancel/stale validation成功、cleanup成功を確認した
+- 完了: 各engineでWorkerは1 instance、7 postMessage/7 message、transfer 7回・11,368 bytes、worker errors 0・messageErrors 0だった。cancelは`status=measured`、`AbortError`、`abortBoundary=onRangePlan-preflight`、staleは`firstCommit=false`/`secondCommit=true`で、ChromeもCDP resetを含めてcleanup成功した
+- 判断: 結果は標準条件の単一実行であり、CPU throttleは実CPU・低速端末のCPU/メモリを再現しない。Worker接続は既存DR部分のみで、score/DX、preflight、D10、固定値差、防御畳み込み、failure合成、canonical envelope/total aggregationはmain threadに残る。実測だけで新しいWorker protocolやcanonical UI切替を決めない
+- 次段階: 3 engine結果の数値・validation・cleanupを基準に、canonical UI接続やWorker範囲の変更可否を別単位で判断する。score/DXを含む新しいWorker経路やprotocolは推測で追加しない
+
+### Dynamic distribution range Phase 2-H 第16単位
+
+- 完了: `src/views/Attack.vue`に独立した`CanonicalAttackPanel`を接続し、`canonicalOptIn`を既定`false`として、トグル有効時だけcanonical計算と結果表示を行う。既存legacyチャート、サマリー、`resultsReady`、legacy fieldsは変更していない
+- 完了: `RangePlanNotice`を再利用し、canonical expected value、support、explicitMax、overflowを欠損・非有限値に耐える純粋表示helperで安全に表示する。`exact`/`bounded`/`lower-bound`とoverflowの`exact`/`upper-bound`を区別し、巨大な`probabilities`配列をDOMへ列挙しない
+- 完了: canonical panelの接続契約、legacy表示との分離、表示helperの安全なフォーマットをunit testで固定した
+- 完了: canonical damage envelopeからlegacy chart互換の1024 bucketと上側確率を作る移行用projection boundaryを追加し、`DamageChartPanel`/`SummaryPanel`へ接続する前段としてcanonical overflowとpresentationを保持した。summaryの期待値丸めは行わない
+- 完了: `upper-bound` overflowとlegacy bucketへ安全に投影できないexact overflowは`not-projectable`として理由を保持し、自動投影しない。上界を実確率として表示配列へ変換しない
+- 完了: `canonicalOptIn=true`で全comboとtotalが安全なexact finite projectionに成功した場合だけderived display dataを既存`DamageChartPanel`/`SummaryPanel`へ渡し、それ以外はlegacy `attackData`へfallbackする。ScoreChart、InputPanel、レイアウト、既存コンポーネント、`resultsReady`は変更していない。これらのtest-only projection adaptersと専用テストは最終比較完了後のPhase 7 cleanup第1単位で削除した
+- 対象外: canonical結果によるlegacyチャート・サマリーの無条件または全面置換、bounded/lower-boundの一点値化、dynamic outputの採用、新しいWorker protocolの追加・変更、score/DXのWorker移行
+- 次段階: exact finite以外のcanonical表示範囲、legacyとの比較条件、Score/Worker範囲を別単位で判断する。実測だけで既存表示やprotocolを切り替えない
+
+## Canonical migration Phase 4: 通常のCheck（完了）
+
+- 完了: `ef14744`、`dfe25fe`、`cdef582`、`b0bede7`、`fac55bb`で、通常Checkのcanonical producer、presentation/chart/summary接続、既定Check接続、dynamic display window、controlled SettingForm、999上限撤廃、coverage再利用・不足時latest-wins再計算、resource拒否時のclient未呼出、upper-bound terminal、legacy fallbackなしを実装した。
+- 検証: 全715テスト、lint、Markdown、buildが成功した。2026-08-20のin-app browserで`/check`を確認し、初期`0..30`、`0..1200`への拡張、`0..20000`のdisplay resource rejection（警告表示）、`30`への復旧、canvas 1、console warn/error 0を確認した。
+- 状態: historical（Phase 5時点ではAttackのScore/Damageをdynamic displayへ接続した。後続のPhase 6〜7でAttack、Backtrack、Checkのcanonical default化とproduction legacy経路/fallback削除を完了した。）
+
+## Canonical migration Phase 5: AttackのScore/Damageをdynamic displayへ接続する（完了）
+
+- 成果（完了）: `c457b5c`でDamage/Total display coverage拡張、`b305eb7`でcanonical Attack Score表示接続、`1401695`でAttack Score display coverage拡張、`ffb7785`でcanonical total damage aggregationの`errorBound > 0` tailにおける`lowerBound`保持と既定Damage `0..100`のcoverage誤判定修正、`00b5b3f`でScore期待値tail certificate・両側tail成功率区間・丸め安定時だけの既存サマリー表示、`eb043a9`でAttack入力のcontrolled化、`c26d511`でproduction公開CalculationClientを通すlegacy比較fixtureを実装した。
+- 入力データフロー（完了）: `AttackForm.vue`と`DefenceForm.vue`はlocal draftから最新async validationのvalidated snapshotだけをemitし、`ComboForm.vue`はside paramsを一括置換して1 validated eventにつきcanonical latest-wins runnerを1回だけ発火する。showDetailsは明示eventとし、validation gateとrunnerをunmount時にdisposeして破棄後のemit/runを抑止する。snapshot alias防止、Defence mode正規化、latest ticket/disposeは`tests/attackInputSnapshot.test.js`で固定した。canonical batch laneの既存submit-time snapshot/latest-wins、canonical runner、表示は変更していない。
+- 実装済み: Score/Damageの独立lane、coverage内reuse、finite known-zero、coverage不足時latest-wins batch再計算、resource reject時のclient未呼出、Score-only reject時のDamage保持、legacy fallbackなしを確認した。
+- legacy比較fixture（完了・履歴）: 最終比較では`tests/attackCanonicalLegacyFixture.test.js`で同じordered 2-combo入力をlegacy `calculateAttackCombo`/`calculateTotalDamage`とcanonical `calculateAttackCanonicalBatch`へ通して比較した。最終比較完了後、このclient-level fixtureはcleanup第2単位で削除し、下位core比較・migration fixtureへ責務を残した。
+- ブラウザ受入（2026-08-22、in-app Chromium / Vite local）: canonical opt-in既定入力のScore/Damage各`0..100`と各`0..1200`で計算完了・2 chart・alertなし、Score `0..20000`の描画点数resource reject時はDamage chart保持、`0..100`復帰時は2 chart復旧・alertなしを確認した。`00b5b3f`後の既定サマリーは達成値期待値`6`、命中率`45.5%`、ダメージ期待値`3.1`となり、新規セッションconsole warn/error 0件だった。
+- 追加ブラウザ受入（2026-08-23、in-app Chromium / Vite local、canonical opt-in）: action diceを`2→20→3`と連続入力すると最終値`3`だけが残り、サマリーは達成値期待値`9.7`、命中率`71%`、ダメージ期待値`5.5`、chart 2だった。入力`99`直後にcomboを削除しても削除済み結果は復活せず、新規comboは既定dice `1`、サマリーは`6`、`45.5%`、`3.1`、chart 2だった。《妖精の手》`2`を設定後に詳細設定を閉じ、再度開くと`0`へ戻り、サマリーも既定値へ復帰した。console warning/errorとJavaScript dialogは0件だった。action dice `3`では、boundedなcanonicalダメージ期待値を安定した丸め値として表示する既存契約に伴い、「canonicalの期待値が正確値でない」という画面内の注意を確認した。明示的なresource warningは対象外とした。一時server/tabを終了し、port `3000`を解放したため、追加ブラウザ実測は完了とした。
+- Score期待値表示契約（完了）: 無限supportでScore期待値certificateが未対応の`skill<0`、`yousei>0`、`shihai>0`は、内部expected valueをlower-boundのまま保持し、通常UIの達成値期待値を`—`とする。これは期待値の保証範囲に限る契約であり、canonical分布・chart・計算自体の失敗を意味しない。successRateは独立したcertificate/区間規則に従い、丸めが確定すれば表示し、Damage/Totalも各自の契約で表示を継続する。`dice<=shihai`の自動失敗や`critical=11`などfinite supportでgeneric summaryがexactになる場合は従来どおり数値表示する。
+- 更新済み: R23-C1Bで通常DXの負の`skill`と`shihai`の保守的tail first-moment certificate、R23-C3Aで`shihai=0`のaction／reaction `yousei`に対する`dx-yousei-tail` certificate、R23-C3B/C3Cでsemantic-onlyの数値契約とTotal Damageへのcomponent区間伝播を実装済み。未対応の無限supportでは、`shihai + yousei`の同時利用は入力制約どおり非対応であり、published-bucket cleanupと実験資料の整理を後続課題とする。canonical既定化、debug panel/toggle削除、legacy計算・fallback削除はPhase 7で完了した。詳細は[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)を参照する。
+
+## Phase 8-2G7: legacy comparison / migration responsibility consolidation（完了）
+
+- migration test 3本（DX、Damage、Backtrack）とlegacy rule oracleの`calculator.test.js`を削除した。caseのreplacementは`docs/phase8-inventory.md`に記録し、canonical/runtime/generatorの独立検証へ責務を移した。
+- Backtrackのlegacy結果比較、Attack display adapterのlegacy Score spy、legacy-only calculator benchmarkを削除した。production計算、公開asset、dense JSON、legacy calculation source、比較utilityは変更していない。
+- G7の受入条件は、production legacy importer 0、canonical/runtime rule testの独立expected維持、legacy比較utilityのみの限定保持である。次はG8のlegacy calculation surface削除。
+
+## Canonical migration Phase 7 第1実装単位: バックトラックcanonical default（完了）
+
+- 完了: Backtrackの初期計算・再計算を`createBacktrackCanonicalRunner`の`calculateBacktrackCanonical`→`createBacktrackCanonicalPresentation`経路へ統合し、`Backtrack.vue`の初期計算も`onMounted`から同じrunnerで実行するようにした。
+- 完了: `InputPanel.vue`と`Backtrack.vue`から一時`canonicalOptIn` toggle、snapshot mode、legacy branchを削除した。canonicalのpresentation error、ResourceGuard rejection、range rejection、abort、stale result、disposeでは結果をclearし、retryで復旧する。
+- 完了（cleanup第2単位）: `/backtrack`を含む全計算routeの`prepareCalculation`/`beforeEnter` preloadと`CalculationClient.prepare`を削除した。legacy core/assets、下位比較テストは維持している。
+- 検証: canonical adapter、resource rejectionのclear/no fallback、retry、abort/latest-wins、入力snapshotのtoggle削除、route preloadなしを`backtrackCanonicalIntegration.test.js`と`backtrackInputSnapshot.test.js`で固定した。
+- ブラウザ受入（2026-08-24、in-app browser / Vite local `--force`）: `/backtrack`で一時canonical toggleは表示されず、初回からcanvas 3、alertなしを確認した。侵蝕率`90→140→105`の連続入力後は最終値`105`、canvas 3、alertなしだった。Dロイス「なし」「不死者・悪夢」「屍人」の各ケースでもcanvas 3、alertなしだった。完全Vue mountはNode test環境制約で未実施だが、runner behavior/router module testで補完した。検証用tab/serverは終了し、port `3000`を解放した。
+- legacy削除前の最終比較（2026-08-24、Node/Vitest）: Check/Attack/Backtrackのcomparison・migration・asset・runtime rule・range関連15ファイル229テストを実行し全件成功した。Checkはdice 0/1/99、critical 2/10/11、skill正負、yousei/shihai、failure/fumble、tail certificateを、Attackは既存2-combo fixtureと追加境界fixtureでdice 0/1/2/99、critical 2/11、skill正負、yousei/shihai、defence、fixed damage、kazanariを、Backtrackは7種Dロイス、標準/悪夢境界、負値、asset/on-demand境界をlegacyと比較した。比較可能なScore/Damageは既存のexactまたはtolerance契約で成功し、同じ境界fixtureのcritical 11/dice 0・99のfinite-support subsetではcanonical batchの個別DamageとTotalをlegacy per-combo→legacy totalへ直接比較して成功した。critical 2/youseiを含むfull boundary batchのTotalは`not-comparable`（`total-overflow`）とoverflow certificateを確認し、canonical tailを0扱いせず、legacy total API削除前の残余ギャップとして記録した。
+- legacy cleanup第1単位（完了）: 最終比較完了後、productionからimportされないtest-only legacy display adaptersと専用テストを削除した。実計算比較fixture、`LegacyCanonicalComparison`、`CalculationClient` legacy API、legacy core/wrappers、legacy assets/JSON/generatorは後続まで維持する。
+- legacy cleanup第2単位（完了）: 最終比較完了後、`CalculationClient` legacy計算API、legacy score/damage/backtrack dependency、fallback、route `prepare`、全計算routeのpreload guardを削除した。client-level legacy比較fixtureと専用client/prepareテストを削除・canonical契約へ移植し、`LegacyCanonicalComparison`、下位core/migration/rule/asset tests、legacy JSON/assets/generatorは維持している。
+- 状態: Phase 7のバックトラックとAttackのcanonical default化、ブラウザ受入、legacy削除前の最終比較、CalculationClient/route cleanup第2単位、任意表示範囲の最終受入、最終HEAD gateは完了した。Phase 8-1 inventoryとPhase 8-2A/2B/2C/2D/2E/2F/2G1/2G2/2G3/2G4/2G5/2G6（ChartSetter split、CalculationClient dependency contract、production browser smoke、precomputed repository source split、reference/legacy importer audit、runtimeRuleValidation actual migration、facade importer migration、calculation barrel importer migration・削除、compatibility facade・専用test削除、data calculator wrapper削除）も完了している。legacy core/assets/生成物/JSON、benchmark/experimentの個別cleanupは後続作業とし、次はG7のlegacy comparison/migration依存整理へ進む。
+
+### Full-tail Attack resource benchmark
+
+- 完了: `scripts/benchmark-full-tail-attack.mjs`と`benchmark:full-tail-attack`（`npm run --silent benchmark:full-tail-attack`）を追加し、DR単独の202/300/400/600/800D × `kazanari=0/1/9`と、full-tail Attackの99D通常、202/300/400/600D境界、`kazanari=1/9`、`yousei=9`、`shihai=19`を標準出力JSON/人間向け行形式で測定する契約を追加した。各caseはscore cutoff、maxDamageDice、rawSupportMax、workingLength、FFT長、distributionLength、kazanari、elapsed、RangePlannerのestimatedTimeMs/estimatedMemoryBytes、production/benchmark policyのaccepted/status/rejection、tail metadata、digestを記録する。
+- 校正前の標準実測（Windows `win32/x64`、Node `v22.23.2`、Ryzen 7 9700X、warm=3、warmup=1）: DRのwarm中央値（kazanari=0/1/9）は202D=`1.30/7.60/21.65 ms`、300D=`1.16/22.22/64.74 ms`、400D=`1.54/29.33/85.88 ms`、600D=`4.17/88.74/282.91 ms`、800D=`5.95/118.14/378.26 ms`だった。高負荷Attackはscore cutoff=`2271/4261`、maxDamageDice=`427/626`、rawSupportMax=`4270/6260`、FFT=`8192`、estimatedTime=`401.98/566.72 ms`となり、現行hard `estimated-time=200 ms`により計算前rejectとなった。planner閾値は変更していない。
+- 解釈: 今回はNodeのcanonical core/resource計測であり、browser/低速機/Worker往復・UI描画は未測定である。これらの後続実測とproduction採用判断は別単位で行う。
+- Task 2/3更新（当時）: full-tail Attack benchmarkは各caseでproduction相当policyのaccepted/status/rejection理由と推定値を先に記録し、RangePlannerのthresholdだけを広げたbenchmark policyでacceptedなcaseに限りScore→hit→DR→defence→Damage→canonical totalを実行する。production policy、absolute safety cap、Task 5 threshold、browser測定はこの時点では変更していない。Task 4ではRangePlannerのkazanari cost modelを実測へ校正し、詳細とestimate/measured比を`docs/runtime-calculation-algorithms.md`へ記録した。
+- Task 4完了（当時）: damage本体のmaxDamageDice×FFT長、Score operations/FFT、defence FFTの分離を維持し、kazanari係数を`1 + 15 × log1p(kazanari)`へ変更した。DEFAULT_POLICYの200ms等threshold、production policy、runtime絶対上限は未変更である。browser受入とTask 5判断は後続Task 6/5で実施した。
+- Task 6完了: 既存canonical Attack targetを壊さず、専用`full-tail-attack-resource` browser target/page、11-case matrix（202/400/600D × kazanari 0/1/9、yousei9、shihai19）、short CLI、stdout/page-global reportを追加した。Chrome desktop/CPU 4x短縮実測で各11 cases benchmark measured、production reject 3件、Worker/D10、planner/end-to-end/Worker timing、Long Task、performance.memory before/after、cancel/staleを記録した。production threshold/cost model/runtime absolute capは未変更である。
+- Task 5暫定判断: 今回のNodeおよびChrome desktop/CPU 4x測定だけではhard thresholdを引き上げず、productionの推定時間warning/hard thresholdは50/200 msを当面維持する。CPU 4xの高負荷end-to-endとWorker応答が100/200 msを超えるためであり、低速実機、Firefox/WebKit、実際のUI描画を含む最終再評価は別環境で行う。
+- Task 7 acceptance（2026-08-25、commit `8c7d10c`）: Node `v22.23.2`でfull-tail benchmark短縮実測（DR 15ケース、Attack 9ケース、`iterations=1`、`warmup=0`）を完走し、production planner rejectは`yousei=9`、`shihai=19`を含む3件、benchmark側は全24ケースを測定した。`d30b3d1`後の最終ローカルgateでは、`data:check`が32 assets、`data:verify-generator`が32 assets、Nodeテストが61ファイル877テスト、generator testが18 passed/13 deselected、simulationが13 passed/18 deselected、JavaScript lint、Markdown lint（23ファイル0 issues）、generator lint、build、`git diff --check`、`check:node`がすべて成功した。Chrome desktop/CPU 4xの11ケース計測結果、Worker/D10、cancel/stale、Long Task、memoryの詳細は`docs/runtime-calculation-algorithms.md`と`experiments/phase2h-browser/README.md`に記録している。位置不明Score tailのprojectability受入とPhase 8 JSON/assets整理は後続である。
+
+### Phase 8-2G8: legacy calculation surfaceの撤去（完了）
+
+- `ScoreCalculator.js`、`DamageCalculator.js`、`BacktrackCalculator.js`からlegacy APIを削除し、canonical APIと完全support生成器を保持した。
+- `LegacyCanonicalComparison`、`LegacyCalculator`、legacy比較テスト、legacy-only Phase 2-H core benchmarkを削除した。canonical Attack／full-tail resource benchmarkは維持し、Playwright runnerの既定targetをcanonical Attackへ変更した。
+- 検証: Node 22.23.2、Vitest 57 files / 766 tests、ESLint、Markdown lint、production build、`git diff --check`が成功した。
+- 次の作業単位はPhase 8-2G9。dense JSON、schema-v1 reference、旧JS generatorを削除し、`data:generate`／`data:check`をPython generatorへ委譲する。公開schema-v2 revision-1は保持する。
+
+### Phase 8-2G9: dense JSONとschema-v1生成系の撤去（完了）
+
+- `src/data/dx.json`、`dr.json`、`d10.json`、`livingdead.json`、旧JS generator、dense-data test、`reference-data/schema-v1`を削除した。
+- `data:generate`／`data:check`はPython generatorへ委譲し、generatorのasset照合先を公開schema-v2 revision-1へ統一した。公開revision-1の内容は変更していない。
+- 検証: data verify 32 assets、generator test 18 passed / 13 deselected、generator lint、Node test 56 files / 763 testsが成功した。simulation、full JS gate、production smokeはG10 closureで確認する。
+- 次はPhase 8-2G10。残存するlegacy/dead codeを削除候補・互換維持・実験資料へ分類し、Phase 8を閉じる。
+
+### Phase 8-2G10: 残存legacy/dead code監査とPhase 8 closure（完了）
+
+- `src`、`tests`、`scripts`のlegacy計算API importerを再監査し、production importer 0を確認した。published-bucket adapter、旧チャート形状、Reference/D10 repositoryは利用箇所が残るため保持した。
+- G8後に実行不能となったdynamic-distribution-rangesのPhase 2-E／2-F Node・ブラウザハーネスと、未参照の`experiments/runtime-dr/damage.js`を削除した。planner、benchmark、decision、resultsは歴史資料として保持し、現行測定はcanonical/full-tail benchmarkへ集約した。
+- packageから`benchmark:dynamic-distribution-ranges:browser`を削除し、壊れたlegacy harnessを現行コマンドから到達不能にした。旧API、dense JSON、schema-v1、旧JS generatorはG8／G9で退役済みである。
+- 公開`public/data/schema-v2/revision-1/**`は変更していない。残存コードの分類と削除理由は[`phase8-inventory.md`](./phase8-inventory.md)へ記録した。
+- 最終gate: `npm run check:node`、`npm test`（56 files / 763 tests）、`npm run generator:test`（18 passed / 13 deselected）、`npm run generator:test:simulation`（13 passed / 18 deselected）、`npm run generator:lint`、`npm run lint`、`npm run lint:markdown`（24 files / 0 issues）、`npm run build`、`npm run smoke:production`、`npm run data:check`（32 assets）、`git diff --check`が成功した。
+- Phase 8は、canonical production、必要なpublished-bucket互換、公開schema-v2 asset、Python generator、独立検証資料だけを保持する状態で完了した。Cloudflare Worker/API/MCPは従来どおり将来目標とする。
+
+### R9 Application／Runtime／Presentation責務分離（完了）
+
+- 完了: Attack固有のsnapshot、state、runner、presentation、feedbackを`src/features/attack/model/`へ移し、CalculationClient、latest-wins、ResourceGuard、DR Worker client／protocol／worker、CheckRangePolicyを`src/runtime/`へ移した。汎用表示変換は`src/shared/presentation/`へ移した。
+- 完了: `CalculationClient`からCheck featureへの依存を除去し、`CalculationClientTypes.ts`のVue `InjectionKey`をruntime symbolへ分離した。旧`src/application/`、`src/presentation/`とcompatibility shimは削除した。
+- 完了: runtime／shared presentationの依存境界をESLintと`tests/runtimePresentationArchitecture.test.js`で固定した。`DistributionResult`のread-only validationだけをshared presentationのcore例外として保持し、相対sibling importと廃止済み`application`／`presentation` pathの再導入もglobal／UI overrideで禁止した。最終実装は`31b9271`である。
+- 検証: fresh gateでNode 22.23.2、data 32 assets、Vitest 72 files／869 tests、generator 18 passed／13 deselected、simulation 13 passed／18 deselected、Ruff、typecheck、runtime DX 20,000 cases、ESLint、Markdown lint 34 files／0 issues、build 408 modules、production browser smoke、`git diff --check`が成功した。schema-v2／D10 request、browser diagnostics、R9開始点からのpublic／generator／reference tooling差分はいずれも0件である。P0／P1／P2は0件、R9は`CLOSED / GREEN`とした。詳細は[`refactoring-application-runtime.md`](./refactoring-application-runtime.md)を参照する。
+- 対象外: 計算意味論、canonical／legacy表示契約、public asset、generator、Cloudflare Workers、HTTP API、MCP、追加のブラウザWorker化。
+
+## R25-C Runtime Damage Worker preemption（完了）
+
+- C3（`d75a4f2`）: `RuntimeDamageRollClient`から`onUnderlyingSettled`、lifecycle promise、旧job lifecycle追跡を削除し、`CalculationClient`のResourceGuard leaseをrequest単位の`finally`で解放する経路へ戻した。Runtime Damageのactive jobは最後のsubscriber離脱時だけWorkerをterminateし、共有subscriberの一部AbortではWorkerを継続する。sole Abortの即時lease解放、共有jobの独立lease、既存のqueue・cache・fatal error・late event・dispose契約をテストで固定した。
+- C4: [ADR 0004](./adr/0004-runtime-damage-worker-preemption.md)を追加し、[ADR 0003](./adr/0003-browser-worker-execution-boundary.md)へsuperseded noteを追記した。現行の[アーキテクチャ文書](./architecture.md)と[実行時計算アルゴリズム](./runtime-calculation-algorithms.md)へ、main-thread queue、subscriber ownership、Worker identity guard、Coordinator supersession、request単位leaseの契約を反映した。R19の測定・判断記録は歴史資料として変更していない。
+- C5: C1〜C4のtargeted lifecycle suite（11 files／134 tests）、full release gate、数値監査（precision／tail）、production smoke、作業ツリー検証がすべて成功した。Worker protocol、DR numerical kernel、full-tail／published compatibilityは変更していない。`onUnderlyingSettled`はproduction source／testで0件、R25-Cは`CLOSED / GREEN`とする。
+
+## R25-D Presentation Pipeline Consolidation（完了、2026-09-15）
+
+- 完了（`de819ab`）: shared `projectDistribution(display, options)`を追加し、表示windowの計画、overflow／projection uncertaintyの判定、ready時のowned `Float64Array`生成を一つのprojection contractへ統合した。PMF／upper-tail、known-zero、exact／upper-bound overflow、coverage不足、resource reject、1023超window、表示精度内の位置不確かさを専用テストで固定した。
+- 完了（`f7683ba`）: Checkのaction／reaction表示をshared projectionへ移行し、feature固有のoverflow解釈、descriptor／prototype検査、legacy chart projectionを削除した。既存の百分率変換、dataset順、再計算通知、表示値は維持した。
+- 完了（`7d4af66`）: Attackのscore／damage／total各laneをshared projectionへ移行し、combo間の独立性、known-zero、overflow、resource、1023超windowを維持した。既存runner、latest-wins、Abort、incremental計算、ResourceGuard、Backtrackは変更していない。
+- 完了（本コミット）: `ChartSeriesAdapter.js`をChart.js materializerだけへ整理し、旧`createChartSeries`、専用not-ready／not-projectable reason、plan再検証を削除した。Attack／Checkのテスト、architecture test、architecture／runtime algorithmの現行説明を更新した。コミット後にR25-D targeted suiteとfull release gateを実行し、作業ツリーをcleanにする。
+- 詳細: [`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)を参照する。
+
+## R25-E Typed Runtime Contracts（完了、2026-09-15）
+
+- 完了（`bb97f04`）: RangePlanner、CalculationClient、Damage aggregationのoptions／result／plan境界をTypeScript contractへ移し、nested policy、operation別range plan、warning、resource estimate、FFT／memory／Abort optionsを具体化した。
+- 完了（`313f89e`）: Runtime Damage Roll client／Worker最小surface、ResourceGuard lease／reservation、CalculationFeedbackとlatest calculation runnerのgeneric contractを追加した。Worker protocolとAbort／queue／cache／leaseのruntime挙動は変更していない。
+- 完了（`1e2ced0`）: Distribution projectionのready／not-ready／not-projectable判別共用体、ready projection専用Chart.js materializer、Check／Attack presentationとfeature stateの型を追加し、local shadow typeと重複decision aliasを整理した。
+- 完了（`4cca1bb`）: Attack runner、incremental execution、calculation record、state、display feedbackを型へ接続し、Attack runnerのdouble castとvalidated side eventの曖昧なsnapshot unionを除去した。`side`とsnapshotを相関した判別共用体へ変更し、無効な組合せをcompile-timeで拒否するfixtureを追加した。
+- 方針: `checkJs: false`を維持し、既存JavaScript runtimeへtype-only contractとJSDocを接続する。catchした外部例外、generic metadata、未検証raw input、異種warning値の`unknown`は正当な境界として残し、semantic contractを跨ぐ`as unknown as`は追加しない。
+- 維持: 数値、表示値、Worker protocol、ResourceGuard、latest-wins、Attack incremental reuse、projection decision、Backtrack結果、入力・表示範囲、既存のresource thresholdは変更していない。詳細は[`r25-e-typed-runtime-contracts.md`](./r25-e-typed-runtime-contracts.md)を参照する。
+- 最終gate: R25-Eの全実装と文書変更を含むHEADで`npm run verify:release`を実行し、Vitest 103ファイル／1049テスト、generator 18件、simulation 13件、Ruff、typecheck、runtime DX 20,000ケース、ESLint、Markdown lint 65ファイル／0 issues、build 424 modules、production smoke、`git diff --check`を確認した。`npm run audit:r23:damage-precision`と`npm run audit:r23:damage-tail`も成功し、作業ツリーをcleanにした。
+- 追補（`7b67c3f`）: CalculationClientのoptionsと`onRangePlan`を操作別に分離し、Total Damageの`requestId`を型へ追加した。`LatestCalculationRunner`を1引数APIとして明文化し、factoryのgeneric callback推論と第二引数の拒否をtypecheck fixtureへ追加した。runtime挙動は変更せず、typecheck、Vitest 103ファイル／1049テスト、ESLint、`git diff --check`をGREENで確認した。
+
+## R25-F DX Legacy Rounding / Compatibility Cleanup（完了、2026-09-16）
+
+- F1（`18b724f`）: DX runtimeから小数第6位丸め、総和補正、`size`・`rounding`・`roundingMode`・`fullPrecision`の互換オプション、`stableTail`切替を削除した。`shihai=0`は安定tail計算に統一し、最終結果はfull-precisionの検証・正規化だけを行う。DXのworking length、FFT長、計算量・メモリ安全上限、Score接続、CalculationClientのcache identityは維持した。
+- F2（`bee4061`）: DX関連テストをfull-precision契約へ移行し、旧JSON比較を量子化誤差`1e-6 + 1e-12`で検証するようにした。R22測定、runtime DX verifier、full-tail Attack benchmarkから旧オプション指定を削除し、verifierとbenchmarkは明示した`DX_DISTRIBUTION_SIZE`を使用する。
+- F3: 現行runtimeの数値契約、旧JSONの量子化済み参照境界、削除・維持・保留事項を[`r25-f-dx-legacy-rounding-cleanup.md`](./r25-f-dx-legacy-rounding-cleanup.md)へ記録し、[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)の現行DX説明を更新する。旧履歴資料、Python generator、公開JSON、published-bucket投影は変更しない。
+- 最終gate: `npm run verify:release`、`npm run audit:r23:damage-precision`、`npm run audit:r23:damage-tail`、`git diff --check`、`git status --short`をR25-Fの最終HEADで実行し、DX 20,000ケース、full-support、production smoke、generator、全テスト、lint、typecheck、buildがGREENであることを確認する。
+
+## R25-G Resource Policy Simplification / CPU Work Budget（完了、2026-09-16）
+
+- 目的: 端末依存の経過時間推定とwarning／hardの二段階閾値を廃止し、Score、Damage、D10、防御FFT、Backtrack、表示範囲、Total Damageの資源判定を固定CPUワークとメモリ・配列長・FFT長へ統一する。
+- 実装: `DEFAULT_MAX_CPU_WORK = 1_600_000_000`と固定重み（Score×8、Damage×32、防御D10×32、FFT×1、Backtrack×16）を`PlanningMath.calculateCpuWork()`へ集約し、有限性・非負性・overflowをfail closedで検証する。
+- 実装: `RangePolicy.limits`を単一レコードへ変更し、旧`costModel`、`limits.warning`、`limits.hard`を拒否する。`ResourcePlan`はCPUワークと操作別見積りを返し、resource metricだけをhard rejectし、Backtrackの静的asset coverage warningは維持する。
+- 実装: Damage Rollの共通operation推定式をplanner／runtimeで共有し、Backtrackに`generationOperations`を追加してruntimeでも期待値と絶対上限を検証する。Total Damageは時間見積りを廃止し、CPUワーク上限をFFT・lease前に適用する。
+- 実装: ResourceGuardから操作数・時間を削除し、DisplayRangePlannerを単一上限へ移行した。CalculationFeedbackは時間を表示せず、メモリ上限超過を明示する。
+- 維持: R22〜R24の測定結果、公開schema-v2 asset、Python generator、published-bucket互換、過去のthreshold記録は履歴として変更しない。ベンチマークの経過時間は性能比較専用とする。
+- 検証: CPUワークの等号境界、混合操作、分数のDamage Roll式、Backtrack生成量、旧policy拒否、Total Damage超過、DisplayRangePlanner、ResourceGuard metadataをunit testとtypecheckで固定した。最終HEADで`npm run verify:release`、`npm run audit:r23:damage-precision`、`npm run audit:r23:damage-tail`、`git diff --check`を実行し、data 32 assets、Vitest 103ファイル／1052テスト、generator通常18件・simulation13件、Ruff、typecheck、ESLint、Markdown lint 67ファイル／0 issues、build、production smoke、runtime DX 20,000ケースをGREENで確認した。
+- 状態: R25-Gは`8057c51`（core／tests）、`f6d03eb`（benchmark harness）、`4f27d18`（docs）で実装・検証を完了し、作業ツリーをcleanにした。CPUワークを導入した現行policyと、時間見積りを含むR22〜R24の履歴資料を分離して保持する。
+- 詳細: [`r25-g-resource-policy-cleanup.md`](./r25-g-resource-policy-cleanup.md)と[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)を参照する。
+
+## R25-H Validation Responsibility Cleanup（完了、2026-09-17）
+
+- H1（`23b08b6`）: `CalculationInputNormalization.ts`を追加し、Score、difficulty、Attack／防御damage、reaction、Backtrackの入力正規化をdomainへ集約した。`isSupportedScoreFeatureCombination`をprimitive validationから分離し、非対応の《妖精の手》／《支配の領域》組合せを計画拒否へ残した。
+- H2（`b69f528`）: Score／Damage／Backtrack plannerと`CalculationClient`をdomain正規化へ接続した。raw／canonical Evasion、strict difficulty、Lois境界、入力snapshot、既存の`CalculationRangeError`／`incompatible-input`経路をテストで固定し、Calculator-level validationは維持した。
+- H3（`552d769`）: Runtime Damage Workerのwire境界にobject／array／primitiveと非負safe integerの`id`検証を追加した。valid IDのpayloadエラーはジョブ単位の`{ id, error }`として返し、ID不正のprotocol破損は応答を捏造せずWorker-level failureへ渡す。既存のWorker lifecycle、queue、cache、Abort、応答shapeは維持した。
+- H4（`4411aa5`）: shared validationへ表示座標・点数・モードpredicateを追加し、Check／Attack snapshotとCheckRangePolicyで再利用した。Score互換性ruleとBacktrackの残存ロイス上限をdomain正本へ接続し、Attack Evasionのderived skill overflowを安全に拒否する。UIのメッセージ・表示条件・resource plannerは変更していない。
+- H5（本コミット）: domain、UI、CalculationClient、RangePlanner、Calculator、Worker wire boundaryの責務と、繰り返し検証が必要な理由を[`r25-h-validation-responsibilities.md`](./r25-h-validation-responsibilities.md)へ記録した。
+- Follow-up（`9354967`）: difficulty省略時を旧CalculationClientと同じ`opposed: false`・`target: 0`へ修正し、client回帰テストを追加した。BacktrackCalculatorの入力正規化をdomainへ接続し、Worker wire検証の戻り値を未検証payloadを表す`RuntimeDamageRollWorkerEnvelope`へ分離した。
+- Follow-up（`9b5df3f`）: Attack／防御damage、Check difficulty、Backtrack各フィールドのVuetify整数ruleを`createSafeIntegerRules`へ統一し、日本語メッセージとdomain上限を維持した。architecture testで各featureが共有ruleを使う契約を固定した。
+- 最終検証: `npm run verify:release`をfollow-up後の最終内容で実行し、`npm run check:node`、data 32 assets、Vitest 105ファイル／1096テスト、generator通常18件・simulation13件、Ruff、typecheck、runtime DX 20,000ケース、ESLint、Markdown lint 68ファイル／0 issues、build、production smoke、`git diff --check`をGREENで確認した。R25-Hを`CLOSED / GREEN`とする。
+
+## R25-I テスト・CI・参照検証の責務分離（完了）
+
+- I1（`cf075c0`）: productionのDX計算実装から独立した小規模全列挙オラクルを`tests/dxDirectOracle.test.js`へ追加した。ダイス数0〜4、クリティカル値2〜11、`shihai` 0〜3、64バケットの全組合せを、状態DPによる直接列挙と最大絶対誤差`1e-10`で比較する。
+- I2（`304cebb`）: 公開revision-1 JSON、参照repository、DR実験、量子化比較を`tests/reference/`へ分離し、`vitest.config.js`では除外、`vitest.reference.config.js`と`npm run test:reference`では専用実行する。production側の通常テストは参照JSONをimportしない。
+- I3（`64a8ff4`）: `verify:core`、`verify:browser`、`verify:reference`、`verify:release`、`verify:all`をpackage scriptへ追加した。production releaseはcoreとbrowser smokeだけで完結し、generator・公開データ・runtime DXはreference gateへ分離した。
+- I4（`7bf9086`）: GitHub Actionsを差分スコープ検出、core、browser、referenceのジョブへ分割した。coreはNode.jsのみ、browserはChromiumのみ、referenceはuv/Pythonのみを導入し、main pushではbrowserとreferenceを常に実行する。検証契約テストも意味的な分離を確認する形へ更新した。
+- I5（本コミット）: 検証境界、reference資産とproduction計算の違い、published-bucket互換の位置づけ、変更時のコマンド選択を[`r25-i-test-ci-reference-decoupling.md`](./r25-i-test-ci-reference-decoupling.md)、[`README.md`](../README.md)、[`CONTRIBUTING.md`](../CONTRIBUTING.md)へ記録した。revision-1 JSON、generator出力、published-bucket production code、計算UIは変更していない。
+- 最終確認: `verify:core`（103ファイル／1051件）、`test:reference`（6ファイル／46件）、`verify:reference`（32 assets、generator通常18件、simulation13件、runtime DX 20,000ケース）、`verify:release`（production browser smokeを含む）、`git diff --check`を実行し、core／browser／referenceの責務が独立していることを確認した。

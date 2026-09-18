@@ -16,13 +16,13 @@
 Node.js 22.23.2を使用し、リポジトリルートから次を実行する。
 
 ```powershell
-npm run benchmark:r19:worker:short
+node experiments/r19-worker-architecture/playwright-runner.mjs --iterations 1 --warmup 0
 ```
 
 通常条件ではChromiumとChromium CDP CPU 4xを測定する。反復回数を増やす場合は次を使う。
 
 ```powershell
-npm run benchmark:r19:worker -- --iterations 3 --warmup 1
+node experiments/r19-worker-architecture/playwright-runner.mjs --iterations 3 --warmup 1
 ```
 
 1回の実行で`steady-state`と`damage-roll-cache-miss`の2モードを順に測定する。前者はproductionの反復入力としてcache hitを許し、後者は実験専用のfresh hybrid clientで各timed sample直前にDamage Roll cacheをclearして、cache効果を除外する。`firstMeasured`はwarmup後の最初の計測値を表し、Workerのconstructorからreadyまでのstartupとは別の指標である。
