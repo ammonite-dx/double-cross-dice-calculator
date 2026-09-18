@@ -2,7 +2,7 @@
 
 ## 目的と範囲
 
-この文書は、ブラウザ内のcanonical計算コアが行う達成値、成功率、ダメージ、バックトラックの計算を、現在の実装に対応する形で説明します。計算結果の確度と確率単位の共通契約は[`r16-certified-result-contract.md`](./r16-certified-result-contract.md)にまとめています。ゲーム内処理の正規仕様は[`dice-rules.md`](./dice-rules.md)、事前計算データを作るアルゴリズムは[`precomputation-algorithms.md`](./precomputation-algorithms.md)、学習用の導入は[`probability-calculation-tutorial.md`](./probability-calculation-tutorial.md)を参照してください。公開assetは必要な箇所で参照されますが、DX、DR、Backtrackの主要計算は入力に応じてruntime生成します。
+この文書は、ブラウザ内の計算コアが行う達成値、成功率、ダメージ、バックトラックの計算を、現在の実装に対応する形で説明します。計算結果の確度と確率単位の共通契約は[`result-contract.md`](./result-contract.md)にまとめています。ゲーム内処理の正規仕様は[`dice-rules.md`](./dice-rules.md)、歴史的な参照fixtureを作るアルゴリズムは[`reference/precomputation-algorithms.md`](./reference/precomputation-algorithms.md)、学習用の導入は[`probability-calculation-tutorial.md`](./probability-calculation-tutorial.md)を参照してください。DX、DR、Backtrackの主要計算は入力に応じてruntime生成します。
 
 事前計算器は公開assetとして利用する`dx`、`dr`、`d10`、`livingdead`の基礎分布を生成します。実行時のJavaScriptは、DXとDRを必要な範囲で生成し、技能値、成功条件、対決、攻撃力、防御、バックトラックの区分など、画面操作によって変化する条件を合成します。
 
@@ -195,7 +195,7 @@ $$
 
 action tailの寄与は`Delta_A = M_A + C p_A`です。reaction tailは`p_R = 0`、または`A_max <= L_R`なら0とし、それ以外では`Delta_R = p_R (A_max + C)`とします。action tailとreaction tailの同時発生はaction側の寄与へすでに含まれるため、reaction側へ重ねて加算しません。actionの明示最大値が得られない状態でreaction tailがある場合も証明書を発行しません。
 
-最終的な証明書は、explicit first momentを下限、`M_explicit + Delta_A + Delta_R`を上限とする`bounded`値へ変換されます。tailが両側とも0なら専用証明書を作らず、従来のgeneric summaryが返す`exact`を維持します。証明できない入力、実際のDamage output overflow、壊れたmetadataでは専用証明書を`null`にしてgenericな`lower-bound`へ戻すため、`overflow.errorBound`を期待値の誤差幅として解釈することはありません。数値誤差用のmarginはC3Bでcertificateから除去し、FFT・DPの診断は別metadataへ保持します。詳細な式、検証条件、後続範囲は[`r23-c1b-damage-expectation.md`](./r23-c1b-damage-expectation.md)にまとめています。
+最終的な証明書は、explicit first momentを下限、`M_explicit + Delta_A + Delta_R`を上限とする`bounded`値へ変換されます。tailが両側とも0なら専用証明書を作らず、従来のgeneric summaryが返す`exact`を維持します。証明できない入力、実際のDamage output overflow、壊れたmetadataでは専用証明書を`null`にしてgenericな`lower-bound`へ戻すため、`overflow.errorBound`を期待値の誤差幅として解釈することはありません。数値誤差用のmarginはcertificateへ混ぜず、FFT・DPの診断は別metadataへ保持します。結果の意味は[`result-contract.md`](./result-contract.md)にまとめています。
 
 ## 5. 複数攻撃の合計
 
@@ -203,7 +203,7 @@ action tailの寄与は`Delta_A = M_A + C p_A`です。reaction tailは`p_R = 0`
 
 各コンボの結果はすでに非命中をダメージ0として含むため、単純な畳み込みによって「どの攻撃が命中したか」を含む合計ダメージ分布になります。canonical合計は各envelopeのsupportとoverflow metadataを維持したまま必要なFFT長で計算し、published-bucketへ投影する場合だけ1023以上を最後のバケットへ集約します。
 
-Total Damageの期待値は分布のFFT結果から再計算せず、各componentの有限な期待値区間をinspection時にsnapshotして加算します。専用Damage certificateが少なくとも一つあり、全componentに有限区間がある場合だけaggregate certificateを生成し、lower-boundしかないcomponentがあれば従来のgeneric fallbackへ戻します。FFTのmass driftやaggregationの診断値はこの区間へ足しません。実装の詳細はPhase 5-Bと[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)を参照してください。
+Total Damageの期待値は分布のFFT結果から再計算せず、各componentの有限な期待値区間をinspection時にsnapshotして加算します。専用Damage certificateが少なくとも一つあり、全componentに有限区間がある場合だけaggregate certificateを生成し、lower-boundしかないcomponentがあれば従来のgeneric fallbackへ戻します。FFTのmass driftやaggregationの診断値はこの区間へ足しません。結果契約と区間伝播の要件は[`result-contract.md`](./result-contract.md)を参照してください。
 
 ### 5.1 Total Damageのresource preflight
 
@@ -646,7 +646,7 @@ Scoreのoverflow境界を$W$とすると、$E[X\,1_{\{X>W\}}]=(W+1)P(X>W)+E[(X-(
 
 Chart.jsのlabels、dataset、確率パーセントへの変換は最終表示境界でのみ生成する。projection本体はlabelsやpoint objectを保持せず、materializerはreadyなprojectionのowned `Float64Array`をdatasetから参照する。R25-Dの契約、既存表示値の維持、検証対象は[`r25-d-presentation-pipeline.md`](./r25-d-presentation-pipeline.md)にまとめている。
 
-詳細な式、境界条件、test-local oracle、stress caseは[`r23-c3a-yousei-tail-moment.md`](./r23-c3a-yousei-tail-moment.md)に記録する。whole-Score expectation、Total Damage、resource policy、planner cutoff、UI表示はこの単位の対象外である。
+詳細な式、境界条件、test-local oracle、stress caseは履歴資料[`archive/r23-c3a-yousei-tail-moment.md`](./archive/r23-c3a-yousei-tail-moment.md)に記録する。whole-Score expectation、Total Damage、resource policy、planner cutoff、UI表示はこの単位の対象外である。
 
 ## R25-G 現行の資源ポリシー（2026-09-16）
 
@@ -666,7 +666,7 @@ Total Damageの期待値は、Total FFTの明示配列から再構築しない�
 
 全componentについて$L_i\leq E[D_i]\leq U_i$が得られれば、独立性を仮定しなくても$\sum_iL_i\leq E[\sum_iD_i]\leq\sum_iU_i$が成り立つ。上下界は補償和で加算し、`aggregationErrorBound`、`fftMassDrift`、`sourceMassDrift`などのdiagnosticを区間へ足さない。少なくとも一つのcomponentが専用Damage certificateを持ち、全componentに有限区間がある場合だけaggregate `damageExpectationCertificate`を発行する。全componentがgeneric exactだけなら従来のgeneric exactを使い、一つでもlower-boundしかない場合は専用Total certificateを作らずgeneric fallbackへ戻す。0 componentはexact 0、1 componentはその区間をそのまま伝播する。
 
-`getTotalDamageStatistics()`は有効なaggregate certificateを最優先し、なければ従来のgeneric処理を使う。これにより、通常攻撃とaction側《妖精の手》を含む複数comboでも、componentのsemantic boundsを足した区間としてTotal期待値を表示できる。詳細なvalidator、snapshot、fail-closed条件は[`r23-c3b-c3c-semantic-numerics.md`](./r23-c3b-c3c-semantic-numerics.md)に記録する。
+`getTotalDamageStatistics()`は有効なaggregate certificateを最優先し、なければ従来のgeneric処理を使う。これにより、通常攻撃とaction側《妖精の手》を含む複数comboでも、componentのsemantic boundsを足した区間としてTotal期待値を表示できる。詳細なvalidator、snapshot、fail-closed条件は[`result-contract.md`](./result-contract.md)と履歴資料[`archive/r23-c3b-c3c-semantic-numerics.md`](./archive/r23-c3b-c3c-semantic-numerics.md)に記録する。
 
 対決成功率は、action/reactionの通常明示bucketを$A_0^r,R_0^r$、tailを$A_T^r,R_T^r$、tail mass区間を$[a_-,a_+],[r_-,r_+]$、tail値の下限を$L_A,L_R$とする。明示部分の$S_0=P(A_0^r>R_0^r)+f_RP(A_0^r)$は既存の昇順2ポインタ走査と強制失敗項で計算し、排他的なtail組を分けて$S_{lower}=S_0+a_-(f_R+P(R_0^r<L_A))$、$S_{upper}=S_0+a_+(f_R+P(R_0^r)+r_+)+r_+P(A_0^r>L_R)$とする。最終区間はsemantic boundsだけから作り、固定の`DISTRIBUTION_RESULT_TOLERANCE`を再加算しない。reaction側はaction区間の補区間`[100-S_{upper},100-S_{lower}]`である。
 

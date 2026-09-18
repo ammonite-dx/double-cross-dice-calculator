@@ -20,7 +20,7 @@ The initial run remains valid for result parity and Long Task observation, but i
 
 Corrected supersession measurements used fresh clients, controlled cache state, and distinct inputs. In the `Attack A → Attack B` scenario, Chrome latest total latency was 35.9ms for the hybrid and 37.7ms for the generalized Worker, with a 22.7ms generalized queue delay. Under CPU 4x the corresponding values were 46.5ms and 40.0ms, with a 24.0ms generalized queue delay. In the `Attack A → Check B` scenario, Chrome latest total latency was 0.8ms for the hybrid and 24.6ms for the generalized Worker, with a 23.3ms generalized queue delay; under CPU 4x it was 4.1ms and 24.3ms, with a 23.0ms generalized queue delay. The stale underlying work settled separately in every scenario, and caller Abort remained prompt.
 
-Detailed measurements and limitations are recorded in [R19 Worker Architecture Decision](../r19-worker-architecture-decision.md).
+Detailed measurements and limitations are recorded in [R19 Worker Architecture Decision](../archive/r19-worker-architecture-decision.md).
 
 ## Decision
 

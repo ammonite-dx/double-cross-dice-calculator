@@ -55,7 +55,7 @@ npm test
 
 Attackのfull-tail計算に関する参考ベンチマークは`npm run benchmark:full-tail-attack`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 
-Damage期待値は、Score tail first moment certificateとDamage expectation certificateに基づく`exact`・`bounded`・`lower-bound`の区別を保ち、semantic uncertainty（証明できる範囲）とnumerical diagnostics（数値計算上の診断）を分離します。複数コンボのTotal Damageでは、各componentの期待値区間を合計へ伝播します。現行仕様の説明は[`r23-c1b-damage-expectation.md`](./docs/r23-c1b-damage-expectation.md)と[`r23-c3b-c3c-semantic-numerics.md`](./docs/r23-c3b-c3c-semantic-numerics.md)を参照してください。Youseiを含むtailの補足は[`r23-c3a-yousei-tail-moment.md`](./docs/r23-c3a-yousei-tail-moment.md)にあります。`npm run audit:r23:damage-precision`と`npm run audit:r23:damage-tail`で、これらの証明書とtail attributionを監査できます。以前の調査過程と当時の数値は[`r23-damage-expectation-investigation.md`](./docs/r23-damage-expectation-investigation.md)にhistorical investigationとして残しています。
+Damage期待値は、Score tail first moment certificateとDamage expectation certificateに基づく`exact`・`bounded`・`lower-bound`の区別を保ち、semantic uncertainty（証明できる範囲）とnumerical diagnostics（数値計算上の診断）を分離します。複数コンボのTotal Damageでは、各componentの期待値区間を合計へ伝播します。現行の結果契約は[`docs/result-contract.md`](./docs/result-contract.md)を参照してください。過去の証明書設計と調査過程は[`docs/archive/`](./docs/archive/)に履歴資料として残しています。
 
 確率計算を変更する場合は、少なくとも次の不変条件を保つ必要があります。
 
