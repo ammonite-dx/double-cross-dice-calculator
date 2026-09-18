@@ -281,7 +281,7 @@ Lₙ = X₁ + X₂ + ... + Xₙ - max(X₁, X₂, ..., Xₙ) + 1
 
 事前計算と独立した単純なダイスロール実装を用意し、固定した乱数シードで代表値と境界値を検証します。低確率の階級は統合し、期待度数が十分な階級に対する適合度検定と、累積分布の最大差を併用します。
 
-試行回数、代表ケース、棄却水準、多重検定の補正方法は[`precomputation-validation.md`](./precomputation-validation.md)に定義します。
+試行回数、代表ケース、棄却水準、多重検定の補正方法は[`precomputation-validation.md`](./reference/precomputation-validation.md)に定義します。
 
 ### 実行時計算
 

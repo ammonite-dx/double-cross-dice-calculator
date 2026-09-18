@@ -41,7 +41,7 @@ npm run verify:core
 
 ローカルの`git diff --check`は作業ツリーの未コミット差分を検査します。CIでは同じrelease gateにbase commitからcheckoutされたheadまでのコミット範囲検査を加えるため、コミット済みの差分も検証されます。
 
-公開済み`schema-v2/revision-1` JSONとgeneratorは、productionの計算結果を供給する経路ではなく、再生成と歴史的な互換性を確認する参照領域です。referenceテストを変更した場合は`npm run test:reference`を実行し、公開データまたはgeneratorを変更した場合は`npm run verify:reference`まで実行してください。
+`tooling/reference-data/assets/schema-v2/revision-1`のJSONとgeneratorは、productionの計算結果を供給する経路ではなく、再生成と歴史的な互換性を確認する参照領域です。referenceテストを変更した場合は`npm run test:reference`を実行し、参照アセットまたはgeneratorを変更した場合は`npm run verify:reference`まで実行してください。
 
 Markdownではmarkdownlintの規約に従い、段落内の文章を途中で改行しません。コードブロック、表、箇条書きなど、Markdownの構造に必要な改行は維持します。
 

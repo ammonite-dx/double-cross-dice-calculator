@@ -4,7 +4,7 @@
 
 この文書は、事前計算済み確率分布を受け取った後にJavaScriptで行う達成値、成功率、ダメージ、バックトラックの計算が、[`dice-rules.md`](./dice-rules.md)の仕様と一致することを検証する方針を定義します。計算手順は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)、対応するテストは`tests/runtimeRuleValidation.test.js`です。
 
-事前計算器そのものの確率計算は[`precomputation-validation.md`](./precomputation-validation.md)で検証します。旧実装との移行比較は過去の検証記録としてGit履歴に残っていますが、現在のテストは旧実装を参照せず、ルールから直接導いた期待値と比較します。これにより、旧実装と現行実装が同じ誤りを持つ場合も検出できます。
+参照fixtureそのものの確率計算は[`precomputation-validation.md`](./reference/precomputation-validation.md)で検証します。旧実装との移行比較は過去の検証記録としてGit履歴に残っていますが、現在のテストは旧実装を参照せず、ルールから直接導いた期待値と比較します。これにより、旧実装と現行実装が同じ誤りを持つ場合も検出できます。
 
 ## 検証対象
 

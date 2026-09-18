@@ -2,11 +2,11 @@
 
 ## 目的
 
-この文書は、オフライン生成器が`d10`、`dx`、`dr`、`livingdead`の確率分布を計算し、配信用JSONへ変換するアルゴリズムを説明します。ゲーム内の手順と用語は[`dice-rules.md`](./dice-rules.md)、検証方法と許容誤差は[`precomputation-validation.md`](./precomputation-validation.md)、JSON構造と更新手順は[`precomputed-data.md`](./precomputed-data.md)を正規の仕様とします。
+この文書は、オフライン生成器が`d10`、`dx`、`dr`、`livingdead`の確率分布を計算し、参照fixture用JSONへ変換するアルゴリズムを説明します。ゲーム内の手順と用語は[`dice-rules.md`](../dice-rules.md)、検証方法と許容誤差は[`precomputation-validation.md`](./precomputation-validation.md)、JSON構造と更新手順は[`precomputed-data.md`](./precomputed-data.md)を正規の仕様とします。
 
 ここでは現在のPythonコードを行単位で説明するのではなく、同じ確率分布を再実装できるよう、確率変数、状態、漸化式、高速化、打ち切りを分けて記載します。生成器はブラウザやCloudflare Pagesの通常ビルドでは実行せず、データ更新時に開発環境で明示的に実行します。
 
-確率分布、畳み込み、動的計画法、順序統計量、FFTを具体例から学ぶ場合は、学習用の[`probability-calculation-tutorial.md`](./probability-calculation-tutorial.md)を参照してください。
+確率分布、畳み込み、動的計画法、順序統計量、FFTを具体例から学ぶ場合は、学習用の[`probability-calculation-tutorial.md`](../probability-calculation-tutorial.md)を参照してください。
 
 ## 全体の処理
 

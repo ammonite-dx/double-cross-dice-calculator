@@ -6,7 +6,7 @@
 
 計算が従うゲーム内のダイスロール手順は[`docs/dice-rules.md`](../docs/dice-rules.md)を参照してください。ノートブックや既存JSONではなく、承認済みのルール仕様を実装と検証の基準にします。
 
-通常D10合計、`dx`、`dr`、`livingdead`の状態と計算方法、FFT、丸め、疎形式化は[`docs/precomputation-algorithms.md`](../docs/precomputation-algorithms.md)を参照してください。確率計算を具体例から段階的に学ぶ場合は[`docs/probability-calculation-tutorial.md`](../docs/probability-calculation-tutorial.md)を参照してください。
+通常D10合計、`dx`、`dr`、`livingdead`の状態と計算方法、FFT、丸め、疎形式化は[`docs/reference/precomputation-algorithms.md`](../docs/reference/precomputation-algorithms.md)を参照してください。確率計算を具体例から段階的に学ぶ場合は[`docs/probability-calculation-tutorial.md`](../docs/probability-calculation-tutorial.md)を参照してください。
 
 現在の生成範囲は`dx`が0～99ダイス、`dr`が0～202ダイス、`d10`と`livingdead`が0～223ダイスです。各上限を現在の入力フォームから導く計算は[`docs/dice-rules.md`の「事前計算範囲の決定方針」](../docs/dice-rules.md#事前計算範囲の決定方針)に記載しています。
 
@@ -64,6 +64,6 @@ uv run --project generator dx-precompute verify
 uv run --project generator dx-precompute generate
 ```
 
-一部だけを生成した場合は、不完全なマニフェストを作らないよう`manifest.json`を更新しません。既定出力は、現行の配信データを誤って上書きしないためのレビュー用ディレクトリです。公開するときは`dataRevision`を更新し、アプリ側の参照先も同じリビジョンへ変更してから、新しい`public/data/schema-vN/revision-N/`へ生成物を配置します。同じリビジョンの配信済みファイルは上書きしません。
+一部だけを生成した場合は、不完全なマニフェストを作らないよう`manifest.json`を更新しません。既定出力は、reference assetを誤って上書きしないためのレビュー用ディレクトリです。生成物をproductionで配布する場合は、別途アーキテクチャ判断と新しいrevisionを設計します。同じrevisionのfixtureは上書きしません。
 
-旧`src/data/*.json`とschema-v1 referenceはPhase 8-2G9で退役しました。現在の照合対象は公開中の`public/data/schema-v2/revision-1/`だけで、旧ファイルの内容はGit履歴から参照できます。旧ノートブックは再生成元ではなく、ルール解釈の履歴資料として扱います。
+旧`src/data/*.json`とschema-v1 referenceは退役しました。現在の照合対象は`tooling/reference-data/assets/schema-v2/revision-1/`です。旧ファイルの内容はGit履歴から参照できます。旧ノートブックは再生成元ではなく、ルール解釈の履歴資料として扱います。

@@ -49,9 +49,9 @@ npm test
 
 `npm test`は本番計算とアプリケーションのテストだけを実行し、`tests/reference/`にある過去の公開データとの比較テストは除外します。参照テストは`npm run test:reference`で単独実行できます。リリース用のproduction gateは`npm run verify:release`（`verify:core`とproduction browser smoke）で、参照資産まで含めた全検証は`npm run verify:all`で実行します。`verify:reference`だけを実行する場合はuvとPython 3.12が必要です。
 
-`public/data/schema-v2/revision-1/`、`tooling/reference-data/`、`generator/`および`tests/reference/`は、現在のブラウザ実行経路そのものではなく、過去に公開した分布の再現性・生成器・互換境界を検証する参照領域です。これらの検証をproduction gateから分離しても、published-bucket互換の仕様とテストを削除したことにはなりません。
+`tooling/reference-data/assets/schema-v2/revision-1/`、`tooling/reference-data/`、`generator/`および`tests/reference/`は、現在のブラウザ実行経路そのものではなく、過去に生成した分布の再現性・生成器・互換境界を検証する参照領域です。これらの検証をproduction gateから分離しても、published-bucket互換の仕様とテストを削除したことにはなりません。
 
-事前計算後にブラウザで行う判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証と、production gateから分離した検証手順は[`docs/precomputation-validation.md`](./docs/precomputation-validation.md)と[`docs/r25-i-test-ci-reference-decoupling.md`](./docs/r25-i-test-ci-reference-decoupling.md)を参照してください。
+事前計算後にブラウザで行う判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。事前計算器自体の検証と、production gateから分離した検証手順は[`docs/reference/precomputation-validation.md`](./docs/reference/precomputation-validation.md)と[`docs/r25-i-test-ci-reference-decoupling.md`](./docs/r25-i-test-ci-reference-decoupling.md)を参照してください。
 
 Attackのfull-tail計算に関する参考ベンチマークは`npm run benchmark:full-tail-attack`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 
@@ -71,7 +71,7 @@ npm run build
 npm run preview
 ```
 
-事前計算データの形式、生成方法、更新手順は[`docs/precomputed-data.md`](./docs/precomputed-data.md)、各データセットの計算アルゴリズムは[`docs/precomputation-algorithms.md`](./docs/precomputation-algorithms.md)、ブラウザ内の合成処理は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)を参照してください。確率分布、動的計画法、順序統計量、FFTを具体例から学ぶための入門は[`docs/probability-calculation-tutorial.md`](./docs/probability-calculation-tutorial.md)に記載しています。
+事前計算データの形式、生成方法、更新手順は[`docs/reference/precomputed-data.md`](./docs/reference/precomputed-data.md)、各データセットの計算アルゴリズムは[`docs/reference/precomputation-algorithms.md`](./docs/reference/precomputation-algorithms.md)、ブラウザ内の合成処理は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)を参照してください。確率分布、動的計画法、順序統計量、FFTを具体例から学ぶための入門は[`docs/probability-calculation-tutorial.md`](./docs/probability-calculation-tutorial.md)に記載しています。
 
 本番用ファイルは `dist/` に生成されます。`dist/` と `.wrangler/` は生成物のためGit管理しません。
 
@@ -95,9 +95,9 @@ src/
   layouts/     共通レイアウト
   router/      ルーティング
   views/       ページ単位のroute adapter
-tooling/reference-data/  参照用スキーマとデータリポジトリ
-public/data/   バージョン管理された事前計算済み静的アセット
-generator/     Python製の事前計算データ生成器
+tooling/reference-data/  参照用スキーマ、リポジトリ、歴史的アセット
+tooling/reference-data/assets/  productionに同梱しないrevision-1 fixture
+generator/     Python製の参照fixture生成器
 experiments/   runtime計算・性能検証の参照実装と履歴資料
 schemas/       事前計算データのJSON Schema
 scripts/       事前計算データの生成・検証スクリプト
