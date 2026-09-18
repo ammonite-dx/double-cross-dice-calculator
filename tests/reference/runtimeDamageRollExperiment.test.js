@@ -9,7 +9,7 @@ import {
 import { generateMixedDamageDistributionOptimized } from '../../experiments/runtime-dr/optimized'
 
 const assetDirectory = new URL(
-  '../../public/data/schema-v2/revision-1/dr/',
+  '../../tooling/reference-data/assets/schema-v2/revision-1/dr/',
   import.meta.url
 )
 const COMPARISON_TOLERANCE = 6e-7

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { fileURLToPath } from 'node:url'
 
@@ -1226,6 +1227,11 @@ async function main() {
   let browser = null
   let server = null
   try {
+    assertCondition(
+      'production build assets',
+      !existsSync(fileURLToPath(new URL('../dist/data/', import.meta.url))),
+      'historical reference data was included in dist/data',
+    )
     server = await startPreviewServer()
     browser = await launchChromium()
     const summaries = []

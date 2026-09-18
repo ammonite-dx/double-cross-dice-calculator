@@ -3,14 +3,6 @@ export const PRECOMPUTED_DATA_REVISION = 1
 
 export const PROBABILITY_TOLERANCE = 2e-4
 
-export const PRECOMPUTED_DATA_BASE_PATH = `${
-  import.meta.env.BASE_URL
-}data/schema-v${PRECOMPUTED_DATA_SCHEMA_VERSION}/revision-${PRECOMPUTED_DATA_REVISION}`
-
-export function getPrecomputedDataPath(...segments) {
-  return [PRECOMPUTED_DATA_BASE_PATH, ...segments].join('/')
-}
-
 export function assert(condition, message) {
   if (!condition) {
     throw new Error(`Invalid precomputed data: ${message}`)

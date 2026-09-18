@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { calculateD10Distributions } from '../../src/calculation/D10Calculator'
 
 const assetDirectory = fileURLToPath(
-  new URL('../../public/data/schema-v2/revision-1/', import.meta.url)
+  new URL('../../tooling/reference-data/assets/schema-v2/revision-1/', import.meta.url)
 )
 
 async function readPublishedD10Asset() {

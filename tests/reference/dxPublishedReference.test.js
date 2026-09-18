@@ -28,7 +28,7 @@ function expectPublishedValue(distribution, published, value) {
 describe('published DX reference', () => {
   it('matches the quantized published distribution within its reference tolerance', async () => {
     const asset = await import(
-      '../../public/data/schema-v2/revision-1/dx/shihai-3.json'
+      '../../tooling/reference-data/assets/schema-v2/revision-1/dx/shihai-3.json'
     )
     const published = asset.default.distributions[20][6 - 2]
     const distribution = calculateDxDistribution({

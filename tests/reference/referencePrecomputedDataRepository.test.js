@@ -6,8 +6,8 @@ import {
   registerLivingdeadAsset,
   clearReferencePrecomputedDataCache,
 } from '../../tooling/reference-data/ReferencePrecomputedDataRepository'
-import dxShihai0 from '../../public/data/schema-v2/revision-1/dx/shihai-0.json'
-import livingdead from '../../public/data/schema-v2/revision-1/livingdead.json'
+import dxShihai0 from '../../tooling/reference-data/assets/schema-v2/revision-1/dx/shihai-0.json'
+import livingdead from '../../tooling/reference-data/assets/schema-v2/revision-1/livingdead.json'
 
 function createJsonResponse(body, { ok = true, status = 200 } = {}) {
   return {

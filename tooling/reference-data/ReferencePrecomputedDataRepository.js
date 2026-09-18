@@ -8,7 +8,6 @@ import {
   PRECOMPUTED_DATA_REVISION,
   PRECOMPUTED_DATA_SCHEMA_VERSION,
   assert,
-  getPrecomputedDataPath,
   validateSparseDistribution,
 } from './PrecomputedDataSchema'
 
@@ -54,7 +53,8 @@ function validateDxAsset(asset, expectedShihai) {
   return asset
 }
 
-export function createDxRepository(fetchAsset = (...args) => fetch(...args)) {
+export function createDxRepository(fetchAsset) {
+  assert(typeof fetchAsset === 'function', 'DX asset loader is required')
   const assets = new Map()
   const pendingAssets = new Map()
 
@@ -75,9 +75,7 @@ export function createDxRepository(fetchAsset = (...args) => fetch(...args)) {
       return pendingAssets.get(shihai)
     }
 
-    const request = fetchAsset(
-      getPrecomputedDataPath('dx', `shihai-${shihai}.json`)
-    )
+    const request = fetchAsset(`dx/shihai-${shihai}.json`)
       .then((response) => {
         if (!response.ok) {
           throw new Error(
@@ -129,14 +127,7 @@ export function createDxRepository(fetchAsset = (...args) => fetch(...args)) {
   }
 }
 
-const dxRepository = createDxRepository()
-
-export const getDxDistribution = dxRepository.getDxDistribution
-export const loadDxAsset = dxRepository.loadDxAsset
-export const registerDxAsset = dxRepository.registerDxAsset
-
 let livingdeadAsset = null
-let livingdeadRequest = null
 const expandedLivingdeadDistributions = new Map()
 
 function validateLivingdeadAsset(asset) {
@@ -173,32 +164,6 @@ export function registerLivingdeadAsset(asset) {
   expandedLivingdeadDistributions.clear()
   livingdeadAsset = validatedAsset
   return asset
-}
-
-export async function loadLivingdeadAsset() {
-  if (livingdeadAsset) {
-    return livingdeadAsset
-  }
-  if (livingdeadRequest) {
-    return livingdeadRequest
-  }
-
-  const request = fetch(getPrecomputedDataPath('livingdead.json'))
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(
-          `Failed to load livingdead data: HTTP ${response.status}`
-        )
-      }
-      return response.json()
-    })
-    .then((asset) => registerLivingdeadAsset(asset))
-    .finally(() => {
-      livingdeadRequest = null
-    })
-
-  livingdeadRequest = request
-  return request
 }
 
 export function getLivingdeadDistribution(
@@ -281,7 +246,6 @@ function validateDrAsset(asset, expectedKazanari) {
 }
 
 const drAssets = new Map()
-const drRequests = new Map()
 const drDamageDistributions = new Map()
 
 export function registerDrAsset(asset) {
@@ -293,34 +257,6 @@ export function registerDrAsset(asset) {
   drAssets.set(kazanari, validatedAsset)
 
   return asset
-}
-
-export async function loadDrAsset(kazanari) {
-  validateKazanari(kazanari)
-
-  if (drAssets.has(kazanari)) {
-    return drAssets.get(kazanari)
-  }
-  if (drRequests.has(kazanari)) {
-    return drRequests.get(kazanari)
-  }
-
-  const request = fetch(getPrecomputedDataPath('dr', `kazanari-${kazanari}.json`))
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(
-          `Failed to load dr data for kazanari ${kazanari}: HTTP ${response.status}`
-        )
-      }
-      return response.json()
-    })
-    .then((asset) => registerDrAsset(asset))
-    .finally(() => {
-      drRequests.delete(kazanari)
-    })
-
-  drRequests.set(kazanari, request)
-  return request
 }
 
 export function getDrDamageDistributions(kazanari) {
@@ -356,11 +292,8 @@ export function getDrDamageDistributions(kazanari) {
 }
 
 export function clearReferencePrecomputedDataCache() {
-  dxRepository.clear()
   livingdeadAsset = null
-  livingdeadRequest = null
   expandedLivingdeadDistributions.clear()
   drAssets.clear()
-  drRequests.clear()
   drDamageDistributions.clear()
 }

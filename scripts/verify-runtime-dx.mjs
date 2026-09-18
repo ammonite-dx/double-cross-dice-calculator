@@ -35,7 +35,7 @@ const ASSET_DICE_COUNT = 100
 const ASSET_SHIHAI_MAX = 19
 
 const assetDirectory = new URL(
-  '../public/data/schema-v2/revision-1/dx/',
+  '../tooling/reference-data/assets/schema-v2/revision-1/dx/',
   import.meta.url
 )
 const RUNTIME_OPTIONS = Object.freeze({

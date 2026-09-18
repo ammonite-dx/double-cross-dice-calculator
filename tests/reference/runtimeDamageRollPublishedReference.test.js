@@ -5,9 +5,9 @@ import {
   RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
 } from '../../src/calculation/RuntimeDamageRollCalculator'
 
-import drKazanari0 from '../../public/data/schema-v2/revision-1/dr/kazanari-0.json'
-import drKazanari3 from '../../public/data/schema-v2/revision-1/dr/kazanari-3.json'
-import drKazanari9 from '../../public/data/schema-v2/revision-1/dr/kazanari-9.json'
+import drKazanari0 from '../../tooling/reference-data/assets/schema-v2/revision-1/dr/kazanari-0.json'
+import drKazanari3 from '../../tooling/reference-data/assets/schema-v2/revision-1/dr/kazanari-3.json'
+import drKazanari9 from '../../tooling/reference-data/assets/schema-v2/revision-1/dr/kazanari-9.json'
 
 const LEGACY_ASSET_MAX_DAMAGE_DICE = 202
 const ASSET_TOLERANCE = 6e-7

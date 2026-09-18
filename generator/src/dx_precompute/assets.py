@@ -41,8 +41,9 @@ def default_reference_directory() -> Path:
     repository_root = Path(__file__).resolve().parents[3]
     return (
         repository_root
-        / "public"
-        / "data"
+        / "tooling"
+        / "reference-data"
+        / "assets"
         / f"schema-v{SCHEMA_VERSION}"
         / f"revision-{DATA_REVISION}"
     )

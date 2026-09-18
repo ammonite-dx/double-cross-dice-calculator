@@ -39,6 +39,8 @@ const referenceFiles = [
   'tooling/reference-data/PrecomputedDataSchema.js',
   'tooling/reference-data/ReferencePrecomputedDataRepository.js',
 ]
+const referenceAssetDirectory =
+  'tooling/reference-data/assets/schema-v2/revision-1'
 const retiredFiles = [
   'src/data/ColorSetter.js',
   'src/data/Distribution.js',
@@ -62,6 +64,8 @@ describe('data responsibility architecture', () => {
       expect(existsSync(new URL(path, root)), path).toBe(false)
     }
     expect(existsSync(new URL('src/data', root))).toBe(false)
+    expect(existsSync(new URL('public/data', root))).toBe(false)
+    expect(existsSync(new URL(referenceAssetDirectory, root))).toBe(true)
   })
 
   it('does not retain old data imports in source or tests', () => {
