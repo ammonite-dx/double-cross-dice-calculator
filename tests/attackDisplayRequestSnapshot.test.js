@@ -149,6 +149,18 @@ describe('Attack display request snapshot', () => {
     expect(policy.display.maxPoints).toBe(2)
   })
 
+  it.each([
+    { calculationMax: 1022 },
+    { display: { defaultMin: 0 } },
+    { display: { defaultMax: 999 } },
+  ])('rejects retired range policy fields: %o', (policy) => {
+    expect(() => createAttackRangePolicy({
+      min: 0,
+      max: 100,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }, policy)).toThrow('no longer supported')
+  })
+
   it('passes the expanded display boundary through the existing RangePlanner', () => {
     const policy = createAttackRangePolicy({
       min: 0,

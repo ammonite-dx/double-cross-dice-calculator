@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   shiftDistribution,
 } from '../src/core/probability/Distribution'
-import { REFERENCE_WORKING_DISTRIBUTION_SIZE } from '../tooling/reference-data/ReferenceDataConstants'
+
+const TEST_DISTRIBUTION_SIZE = 4096
 
 function pointMass(size, value) {
   const distribution = Array(size).fill(0)
@@ -13,7 +14,7 @@ function pointMass(size, value) {
 
 describe('working distributions', () => {
   it('shifts values by the requested amount', () => {
-    const distribution = pointMass(REFERENCE_WORKING_DISTRIBUTION_SIZE, 1500)
+    const distribution = pointMass(TEST_DISTRIBUTION_SIZE, 1500)
     const shifted = shiftDistribution(distribution, -999)
 
     expect(shifted[501]).toBe(1)

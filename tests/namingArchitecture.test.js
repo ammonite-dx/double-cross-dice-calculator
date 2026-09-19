@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = resolve(fileURLToPath(new URL('../', import.meta.url)))
 const sourceRoot = resolve(repositoryRoot, 'src')
+const testsRoot = resolve(repositoryRoot, 'tests')
 
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -21,6 +22,23 @@ const sourceText = files.map((filePath) => ({
   path: relative(repositoryRoot, filePath),
   contents: readFileSync(filePath, 'utf8'),
 }))
+
+function testFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const filePath = resolve(directory, entry.name)
+    if (entry.isDirectory()) {
+      return testFiles(filePath)
+    }
+    return /\.test\.(?:js|ts|vue)$/.test(entry.name) ? [filePath] : []
+  })
+}
+
+const coreTestText = testFiles(testsRoot)
+  .filter((filePath) => !filePath.includes(`${resolve(testsRoot, 'reference')}`))
+  .map((filePath) => ({
+    path: relative(repositoryRoot, filePath),
+    contents: readFileSync(filePath, 'utf8'),
+  }))
 const referenceCompatibilitySource = readFileSync(
   resolve(
     repositoryRoot,
@@ -74,5 +92,13 @@ describe('production naming boundaries', () => {
       .toContain('fromPublishedBucketDistribution')
     expect(referenceCompatibilitySource)
       .toContain('toPublishedBucketDistribution')
+  })
+
+  it('keeps reference tooling imports out of core tests', () => {
+    for (const { path, contents } of coreTestText) {
+      expect(contents, `${path}: reference tooling import`).not.toMatch(
+        /(?:from|import)\s+['"][^'"]*tooling\/reference-data\//
+      )
+    }
   })
 })

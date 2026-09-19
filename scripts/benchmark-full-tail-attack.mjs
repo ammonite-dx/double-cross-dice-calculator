@@ -94,7 +94,7 @@ export const ATTACK_CASES = Object.freeze([
     }),
   }),
   Object.freeze({
-    id: 'attack-202d-critical11-skill0-attack99',
+    id: 'attack-202d-critical11-skill1010-attack99',
     label: 'full-tail Attack 202D from 99D critical=11 skill=1010 attackDice=99',
     kind: 'attack',
     params: createAttackParams({
@@ -104,7 +104,7 @@ export const ATTACK_CASES = Object.freeze([
     }),
   }),
   Object.freeze({
-    id: 'attack-300d-critical11-skill999-attack197',
+    id: 'attack-300d-critical11-skill1010-attack197',
     label: 'full-tail Attack 300D from 99D critical=11 skill=+1010 attackDice=197',
     kind: 'attack',
     params: createAttackParams({
@@ -114,8 +114,8 @@ export const ATTACK_CASES = Object.freeze([
     }),
   }),
   Object.freeze({
-    id: 'attack-400d-critical2-skill999-attack72',
-    label: 'full-tail Attack 400D from 99D critical=11 skill=+3270 attackDice=72',
+    id: 'attack-400d-critical11-skill3260-attack72',
+    label: 'full-tail Attack 400D from 99D critical=11 skill=+3260 attackDice=72',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 11, skill: 3260 },
@@ -124,8 +124,8 @@ export const ATTACK_CASES = Object.freeze([
     }),
   }),
   Object.freeze({
-    id: 'attack-600d-critical2-skill999-attack272',
-    label: 'full-tail Attack 600D from 99D critical=11 skill=+3270 attackDice=272',
+    id: 'attack-600d-critical11-skill3260-attack272',
+    label: 'full-tail Attack 600D from 99D critical=11 skill=+3260 attackDice=272',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 11, skill: 3260 },
@@ -152,16 +152,16 @@ export const ATTACK_CASES = Object.freeze([
     }),
   }),
   Object.freeze({
-    id: 'attack-99d-critical2-skill999-yousei9-shihai0',
-    label: 'full-tail Attack stress critical=11 skill=+5250 yousei=9',
+    id: 'attack-99d-critical10-skill5250-yousei9-shihai0',
+    label: 'full-tail Attack stress critical=10 skill=+5250 yousei=9',
     kind: 'attack',
     params: createAttackParams({
-      score: { critical: 11, skill: 5250, yousei: 9, shihai: 0 },
+      score: { critical: 10, skill: 5250, yousei: 9, shihai: 0 },
       kazanari: 9,
     }),
   }),
   Object.freeze({
-    id: 'attack-99d-critical2-skill999-yousei0-shihai19',
+    id: 'attack-99d-critical11-skill3260-yousei0-shihai19',
     label: 'full-tail Attack stress critical=11 skill=+3260 shihai=19',
     kind: 'attack',
     params: createAttackParams({

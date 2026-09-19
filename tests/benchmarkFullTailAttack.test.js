@@ -43,14 +43,14 @@ describe('full-tail Attack resource benchmark contract', () => {
     expect(ATTACK_CASES).toHaveLength(9)
     expect(ATTACK_CASES.map(({ id }) => id)).toEqual([
       'attack-99d-critical2-skill0-kazanari0',
-      'attack-202d-critical11-skill0-attack99',
-      'attack-300d-critical11-skill999-attack197',
-      'attack-400d-critical2-skill999-attack72',
-      'attack-600d-critical2-skill999-attack272',
+      'attack-202d-critical11-skill1010-attack99',
+      'attack-300d-critical11-skill1010-attack197',
+      'attack-400d-critical11-skill3260-attack72',
+      'attack-600d-critical11-skill3260-attack272',
       'attack-99d-critical2-kazanari1',
       'attack-99d-critical2-kazanari9',
-      'attack-99d-critical2-skill999-yousei9-shihai0',
-      'attack-99d-critical2-skill999-yousei0-shihai19',
+      'attack-99d-critical10-skill5250-yousei9-shihai0',
+      'attack-99d-critical11-skill3260-yousei0-shihai19',
     ])
     expect(ATTACK_CASES[0].params.action.score).toMatchObject({
       dice: 99,
@@ -61,7 +61,7 @@ describe('full-tail Attack resource benchmark contract', () => {
     })
     expect(ATTACK_CASES[7].params.action.score).toMatchObject({
       dice: 99,
-      critical: 11,
+      critical: 10,
       skill: 5250,
       shihai: 0,
       yousei: 9,
@@ -75,7 +75,7 @@ describe('full-tail Attack resource benchmark contract', () => {
     })
     for (const { params } of ATTACK_CASES) {
       expect(params.action.score.dice).toBe(99)
-      expect([2, 11]).toContain(params.action.score.critical)
+      expect([2, 10, 11]).toContain(params.action.score.critical)
       expect(params.action).not.toHaveProperty('weights')
       expect(params.action.damage).toMatchObject({
         value: 999,
@@ -105,10 +105,10 @@ describe('full-tail Attack resource benchmark contract', () => {
 
   it('keeps every Attack matrix case on the planner-safe canonical path', () => {
     const expectedBoundaryMaxDamageDice = new Map([
-      ['attack-202d-critical11-skill0-attack99', 202],
-      ['attack-300d-critical11-skill999-attack197', 300],
-      ['attack-400d-critical2-skill999-attack72', 400],
-      ['attack-600d-critical2-skill999-attack272', 600],
+      ['attack-202d-critical11-skill1010-attack99', 202],
+      ['attack-300d-critical11-skill1010-attack197', 300],
+      ['attack-400d-critical11-skill3260-attack72', 400],
+      ['attack-600d-critical11-skill3260-attack272', 600],
     ])
 
     for (const { params } of ATTACK_CASES) {

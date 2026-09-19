@@ -74,9 +74,9 @@ const SCORE_FOR_400_OR_600_DAMAGE_DICE = scoreParams({
   skill: 3260,
 })
 
-// This policy widens only RangePlanner resource thresholds. The production
-// calculation maximum, display policy, cost model, and runtime safety caps
-// remain the defaults supplied by CalculationClient and its dependencies.
+// This policy widens only RangePlanner resource thresholds. Production
+// display coverage, cost model, and runtime safety caps remain the defaults
+// supplied by CalculationClient and its dependencies.
 export const FULL_TAIL_ATTACK_BENCHMARK_POLICY = Object.freeze({
   limits: Object.freeze({
     maxCpuWork: Number.MAX_SAFE_INTEGER,
@@ -103,7 +103,7 @@ const MATRIX_CASES = [
     actionScore: SCORE_FOR_400_OR_600_DAMAGE_DICE,
     attackDice: 72,
     kazanari,
-    note: 'critical=11 skill=3270 action score and attackDice=72 produce maxDamageDice=400',
+    note: 'critical=11 skill=3260 action score and attackDice=72 produce maxDamageDice=400',
   })),
   ...[0, 1, 9].map((kazanari) => makeCase({
     id: `matrix-600d-kazanari${kazanari}`,
@@ -112,24 +112,24 @@ const MATRIX_CASES = [
     actionScore: SCORE_FOR_400_OR_600_DAMAGE_DICE,
     attackDice: 272,
     kazanari,
-    note: 'critical=11 skill=3270 action score and attackDice=272 produce maxDamageDice=600',
+    note: 'critical=11 skill=3260 action score and attackDice=272 produce maxDamageDice=600',
   })),
 ]
 
 export const FULL_TAIL_ATTACK_CASES = Object.freeze([
   ...MATRIX_CASES,
   makeCase({
-    id: 'stress-yousei9',
-    label: 'full-tail Attack stress: yousei=9, kazanari=9',
-    targetMaxDamageDice: 626,
-    actionScore: scoreParams({ critical: 11, skill: 5250, yousei: 9 }),
+    id: 'stress-critical10-yousei9',
+    label: 'full-tail Attack stress: critical=10, yousei=9, kazanari=9',
+    targetMaxDamageDice: 649,
+    actionScore: scoreParams({ critical: 10, skill: 5250, yousei: 9 }),
     attackDice: 99,
     kazanari: 9,
     note: 'production resource hard threshold is expected to reject; benchmark policy executes canonical batch',
   }),
   makeCase({
-    id: 'stress-shihai19',
-    label: 'full-tail Attack stress: shihai=19, kazanari=9',
+    id: 'stress-critical11-shihai19',
+    label: 'full-tail Attack stress: critical=11, shihai=19, kazanari=9',
     targetMaxDamageDice: 427,
     actionScore: scoreParams({ critical: 11, skill: 3260, shihai: 19 }),
     attackDice: 99,

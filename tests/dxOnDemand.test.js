@@ -7,14 +7,13 @@ import {
   DX_MAX_DISTRIBUTION_SIZE,
   DX_MIN_DISTRIBUTION_SIZE,
 } from '../src/calculation/DxCalculator'
-import { REFERENCE_WORKING_DISTRIBUTION_SIZE } from '../tooling/reference-data/ReferenceDataConstants'
-
-const LEGACY_COMPARISON_DICE = 99
-const LEGACY_COMPARISON_SHIHAI = 19
+const TEST_WORKING_LENGTH = 4096
+const COMPARISON_DICE = 99
+const COMPARISON_SHIHAI = 19
 
 function assertDistribution(
   distribution,
-  expectedLength = REFERENCE_WORKING_DISTRIBUTION_SIZE
+  expectedLength = TEST_WORKING_LENGTH
 ) {
   expect(distribution).toBeInstanceOf(Float64Array)
   expect(distribution).toHaveLength(expectedLength)
@@ -35,12 +34,12 @@ describe('runtime dx distribution with shihai=0', () => {
       dice: 0,
       critical: DX_CRITICAL_MIN,
       shihai: 0,
-    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
+    }, { workingLength: TEST_WORKING_LENGTH })
     const oneDie = calculateDxDistribution({
       dice: 1,
       critical: 10,
       shihai: 0,
-    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
+    }, { workingLength: TEST_WORKING_LENGTH })
 
     assertDistribution(zeroDice)
     assertDistribution(oneDie)
@@ -54,10 +53,10 @@ describe('runtime dx distribution with shihai=0', () => {
 
   it('preserves the critical=11 boundary and the maximum dice count', () => {
     const distribution = calculateDxDistribution({
-      dice: LEGACY_COMPARISON_DICE,
+      dice: COMPARISON_DICE,
       critical: DX_CRITICAL_MAX,
       shihai: 0,
-    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
+    }, { workingLength: TEST_WORKING_LENGTH })
 
     assertDistribution(distribution)
     expect(distribution[10]).toBeGreaterThan(0)
@@ -80,15 +79,15 @@ describe('runtime dx distribution with shihai>0', () => {
 
   it('returns automatic failure through and at the shihai boundary', () => {
     const belowBoundary = calculateDxDistribution({
-      dice: LEGACY_COMPARISON_SHIHAI,
+      dice: COMPARISON_SHIHAI,
       critical: 7,
-      shihai: LEGACY_COMPARISON_SHIHAI,
-    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
+      shihai: COMPARISON_SHIHAI,
+    }, { workingLength: TEST_WORKING_LENGTH })
     const atBoundary = calculateDxDistribution({
-      dice: LEGACY_COMPARISON_SHIHAI + 1,
+      dice: COMPARISON_SHIHAI + 1,
       critical: 7,
-      shihai: LEGACY_COMPARISON_SHIHAI,
-    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
+      shihai: COMPARISON_SHIHAI,
+    }, { workingLength: TEST_WORKING_LENGTH })
 
     assertDistribution(belowBoundary)
     assertDistribution(atBoundary)
@@ -101,10 +100,10 @@ describe('runtime dx distribution with shihai>0', () => {
   it('handles the critical boundaries and maximum dice count', () => {
     for (const critical of [DX_CRITICAL_MIN, DX_CRITICAL_MAX]) {
       const distribution = calculateDxDistribution({
-        dice: LEGACY_COMPARISON_DICE,
+        dice: COMPARISON_DICE,
         critical,
         shihai: 1,
-      }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
+      }, { workingLength: TEST_WORKING_LENGTH })
       assertDistribution(distribution)
     }
   })
@@ -141,9 +140,9 @@ describe('runtime dx dynamic working lengths', () => {
 
   it.each([
     { dice: 0, critical: 2, shihai: 0 },
-    { dice: LEGACY_COMPARISON_DICE, critical: 2, shihai: 0 },
+    { dice: COMPARISON_DICE, critical: 2, shihai: 0 },
     { dice: 0, critical: 11, shihai: 19 },
-    { dice: LEGACY_COMPARISON_DICE, critical: 11, shihai: LEGACY_COMPARISON_SHIHAI },
+    { dice: COMPARISON_DICE, critical: 11, shihai: COMPARISON_SHIHAI },
   ])('returns a valid full-precision distribution for %o', (params) => {
     const distribution = calculateDxDistribution(params, {
       workingLength: 4172,
@@ -164,7 +163,7 @@ describe('runtime dx dynamic working lengths', () => {
     const params = { dice: 20, critical: 6, shihai: 3 }
     expect(() => calculateDxDistribution(params)).toThrow('workingLength')
     const explicit = calculateDxDistribution(params, {
-      workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE,
+      workingLength: TEST_WORKING_LENGTH,
     })
     assertDistribution(explicit)
   })

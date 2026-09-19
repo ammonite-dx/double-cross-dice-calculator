@@ -45,8 +45,8 @@ const EXPECTED_FULL_TAIL_ATTACK_CASE_IDS = [
   'matrix-600d-kazanari0',
   'matrix-600d-kazanari1',
   'matrix-600d-kazanari9',
-  'stress-yousei9',
-  'stress-shihai19',
+  'stress-critical10-yousei9',
+  'stress-critical11-shihai19',
 ]
 
 const TARGET_CONFIGS = {
