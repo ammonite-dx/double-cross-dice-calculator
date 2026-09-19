@@ -199,6 +199,8 @@ export interface BacktrackRangePlan {
   readonly generationOperations: number
   readonly operations: number
   readonly float64Bytes: number
+  readonly baseFloat64Bytes: number
+  readonly resultFloat64Bytes: number
   readonly finiteSupport: true
   readonly generationMode: 'on-demand'
 }
