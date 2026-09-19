@@ -40,7 +40,7 @@ $$
 
 ### 2.3 DX分布の生成
 
-通常モードでは`CalculationClient`が`calculateDxDistribution({ dice, critical, shihai, yousei })`を注入します。ダイス数0や`dice <= shihai`は自動失敗、インデックス1はファンブルとして扱います。`shihai`と`yousei`を同時に指定する入力は、効果適用順序を定義していないため拒否します。
+通常モードでは`CalculationClient`が`calculateDxDistribution({ dice, critical, shihai, yousei })`を注入します。ダイス数0はraw DX値0の自動失敗です。正のダイス数で`dice <= shihai`なら、全ダイスを1へ変更したraw DX値1のファンブルとなり、Score側で0へ変換されます。`shihai`と`yousei`を同時に指定する入力は、効果適用順序を定義していないため拒否します。
 
 `shihai=0`では、1個のダイスの累積分布$F_c$を使い、$n$個のダイスの最大値を
 
@@ -62,7 +62,7 @@ $$
 P(Y=x)=P(Y>x-1)-P(Y>x)
 $$
 
-で求められます。`n <= m`は最初のロールで全ダイスを1へ変更する点分布として先に処理します。各`x`について`oneDieTail`と二項上側確率を評価し、隣接差を明示配列へ置き、最後の要素へ作業範囲外のtailを保存します。二項上側確率は成功側と失敗側の短い方を対数空間で評価するため、必要な項数は$L=\min(m+1,n-m)$です。これによりダイス数に比例する状態表を持たずに、巨大な`n`も同じ作業配列で扱えます。
+で求められます。`n <= m`は、`n=0`ならraw DX値0、`n>0`ならraw DX値1の点分布として先に処理します。各`x`について`oneDieTail`と二項上側確率を評価し、隣接差を明示配列へ置き、最後の要素へ作業範囲外のtailを保存します。二項上側確率は成功側と失敗側の短い方を対数空間で評価するため、必要な項数は$L=\min(m+1,n-m)$です。これによりダイス数に比例する状態表を持たずに、巨大な`n`も同じ作業配列で扱えます。
 
 `yousei>0`では、元の判定の連続クリティカル数と追加の1D10判定の連続クリティカル数をまとめ、必要な範囲だけを一度畳み込みます。これは「現在の達成値を10単位へ切り上げ、1D10を加える」操作を繰り返す手順と同値で、各回の分布を再取得しません。クリティカル値11では自然クリティカルが起こらず、正のダイス数に対する追加判定は達成値10の点分布になります。
 
@@ -110,7 +110,7 @@ $$
 
 ## 5. Tailと期待値
 
-Scoreは、明示範囲外の質量を`scoreTailCertificate`、一次モーメントの上限を`scoreTailMomentCertificate`へ記録します。finite supportではtailを0と証明でき、通常DXや条件付きの`yousei`ではtail-sum identityと負の二項tail modelから上界を作ります。Damageはaction・reactionのtail寄与を合成し、明示部分のfirst momentを下限、tail寄与を加えた値を上限とする`bounded`期待値を作ります。証明できない場合は`lower-bound`へ戻し、`overflow.errorBound`を期待値の誤差幅とは解釈しません。
+Scoreは、明示範囲外の質量を`scoreTailCertificate`、一次モーメントの上限を`scoreTailMomentCertificate`へ記録します。finite supportではtailを0と証明でき、通常DXは最大値のexact tail、正の`shihai`は順序統計量のexact tail、`yousei`は専用tail modelから上界を作ります。正の`shihai`では、一次モーメントも二項上側確率の順序統計量上界と10刻みの幾何級数から評価し、期待値certificateへ使います。raw DX値1の確率はexact tailの差から求め、ファンブルには技能値を加えません。Damageはaction・reactionのtail寄与を合成し、明示部分のfirst momentを下限、tail寄与を加えた値を上限とする`bounded`期待値を作ります。証明できない場合は`lower-bound`へ戻し、`overflow.errorBound`を期待値の誤差幅とは解釈しません。
 
 複数コンボのTotal Damageは、各componentの期待値区間をsnapshotして加算します。FFTのmass driftや集約の診断値を意味論上の区間へ加えません。詳細な型とcertificateの関係は[`result-contract.md`](./result-contract.md)を参照してください。
 

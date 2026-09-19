@@ -65,8 +65,10 @@ type ScoreStatisticsLane = {
 Scoreの`metadata`には、明示範囲の外側について計算コアが証明した情報を保持します。
 
 - `scoreTailCertificate`: tail質量の下限・上限、tailが始まる下限、確率誤差
-- `scoreTailMomentCertificate`: tail質量と一次モーメントの上限。DXの無限tail、妖精の手のtail、有限supportなどモデルを区別する
-- `scoreExpectationCertificate`: DXのtailモデルから得た期待値の下限・上限
+- `scoreTailMomentCertificate`: tail質量と一次モーメントの上限。通常DX、順序統計量として扱う正の`shihai`、妖精の手のtail、有限supportなどモデルを区別する
+- `scoreExpectationCertificate`: DXのmaxまたは正の`shihai`のorder-statistic tailモデルから得た期待値の下限・上限
+
+正の`shihai`で`dice > shihai`かつ`yousei=0`、`critical <= 10`、技能値が非負なら、producerと同じexact order-statistic tailから期待値区間を構成します。raw DX値1の確率は`P(Y>0)-P(Y>1)`として扱い、この部分はファンブルなので技能値を加えません。tailの一次モーメントを有限に証明できない場合は、このcertificateを返さず、統計値は`lower-bound`に留めます。
 
 Damageの`damageExpectationCertificate`は、Scoreのtail、攻撃力、反応側のtailが期待値へ与える寄与を合成した区間を表します。Total Damageでは各コンボの期待値区間を独立に合計へ伝播します。明示配列の質量だけから期待値を計算して、未解決tailを無視してはいけません。
 
