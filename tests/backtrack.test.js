@@ -9,6 +9,9 @@ import {
   getBacktrackSupportMax,
 } from '../src/domain/BacktrackRules'
 import { getBacktrackGenerationOperationEstimate } from '../src/calculation/BacktrackLimits'
+import {
+  calculateLivingdeadDistributions,
+} from '../src/calculation/BacktrackLivingdeadDistribution'
 import { createCalculationClient } from '../src/runtime/CalculationClient'
 const backtrackDependencies = {}
 
@@ -67,6 +70,42 @@ function expectResult(result, params, dice) {
   expect(result.values[0]).toBeGreaterThan(0)
   expect(result.values[result.values.length - 1]).toBeGreaterThan(0)
 }
+
+describe('livingdead distribution generator', () => {
+  it('matches small independent PMF oracles', () => {
+    const size = 12
+    const distributions = calculateLivingdeadDistributions([0, 1, 2], size)
+
+    const zeroDice = distributions.get(0)
+    expect(zeroDice).toBeInstanceOf(Float64Array)
+    expect(zeroDice?.[0]).toBe(1)
+    expect(zeroDice?.slice(1).every((probability) => probability === 0))
+      .toBe(true)
+
+    const oneDie = distributions.get(1)
+    expect(oneDie).toBeInstanceOf(Float64Array)
+    expect(oneDie?.[1]).toBe(1)
+    expect(oneDie?.slice(0, 1).every((probability) => probability === 0))
+      .toBe(true)
+
+    const expectedTwoDice = new Float64Array(size)
+    for (let first = 1; first <= 10; first += 1) {
+      for (let second = 1; second <= 10; second += 1) {
+        const value = first + second - Math.max(first, second) + 1
+        expectedTwoDice[value] += 0.01
+      }
+    }
+
+    const twoDice = distributions.get(2)
+    expect(twoDice).toBeInstanceOf(Float64Array)
+    expect(twoDice).toHaveLength(size)
+    for (let index = 0; index < size; index += 1) {
+      expect(twoDice?.[index]).toBeCloseTo(expectedTwoDice[index], 14)
+    }
+    expect(Array.from(twoDice ?? []).reduce((sum, value) => sum + value, 0))
+      .toBeCloseTo(1, 14)
+  })
+})
 
 describe('backtrack canonical producer', () => {
   it.each([

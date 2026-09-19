@@ -1,8 +1,33 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 function source(path) {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+}
+
+function importsFrom(path) {
+  const matches = source(path).matchAll(
+    /\bimport\s+(?:[\s\S]*?\sfrom\s+)?['"]([^'"]+)['"]/g
+  )
+  return Array.from(matches, (match) => match[1])
+}
+
+function sourceTree(path) {
+  let entries
+  try {
+    entries = readdirSync(new URL(`../${path}/`, import.meta.url), {
+      withFileTypes: true,
+    })
+  } catch {
+    return []
+  }
+  return entries.flatMap((entry) => {
+    const child = `${path}/${entry.name}`
+    if (entry.isDirectory()) {
+      return sourceTree(child)
+    }
+    return /\.(?:js|ts)$/.test(entry.name) ? [source(child)] : []
+  })
 }
 
 describe('calculation core planning boundaries', () => {
@@ -109,6 +134,26 @@ describe('calculation core planning boundaries', () => {
     expect(executor).toContain('./DamageAggregationMetadata')
   })
 
+  it('prevents execution and planning dependencies from crossing ownership boundaries', () => {
+    const metadata = 'src/calculation/DamageAggregationMetadata.js'
+    const executor = 'src/calculation/DamageAggregationExecutor.js'
+    const planner = 'src/calculation/DamageAggregationPlanner.js'
+
+    expect(importsFrom(metadata)).not.toContain('../core/probability/FFT')
+    expect(importsFrom(metadata)).not.toContain('./DamageAggregationExecutor')
+    expect(importsFrom(executor)).not.toContain('./DamageAggregationPlanner')
+    expect(executor).not.toMatch(/\binspectEnvelope\b/)
+    expect(source(planner)).not.toContain('convolveDistributions')
+
+    const runtimeAndApplication = [
+      ...sourceTree('src/runtime'),
+      ...sourceTree('src/application'),
+    ]
+    runtimeAndApplication.forEach((moduleSource) => {
+      expect(moduleSource).not.toContain('DamageAggregationPlanStore')
+    })
+  })
+
   it('keeps Backtrack generation and plan validation outside the orchestrator', () => {
     const calculator = source('src/calculation/BacktrackCalculator.js')
     expect(calculator).toContain('./BacktrackDistributionGenerator')
@@ -121,9 +166,35 @@ describe('calculation core planning boundaries', () => {
     const livingdead = source('src/calculation/BacktrackLivingdeadDistribution.js')
     expect(livingdead).toContain('states[max][value]')
     expect(livingdead).toContain('calculateLivingdeadDistributions')
+    const livingdeadImports = importsFrom(
+      'src/calculation/BacktrackLivingdeadDistribution.js'
+    )
+    for (const forbidden of [
+      '../runtime',
+      '../features',
+      '../presentation',
+      '../tooling',
+      'RangePlanner',
+    ]) {
+      expect(livingdeadImports.some((specifier) => specifier.includes(forbidden)))
+        .toBe(false)
+    }
 
     const validation = source('src/calculation/BacktrackPlanValidation.js')
     expect(validation).toContain('validateBacktrackRangePlan')
     expect(validation).toContain('generationOperations')
+
+    const rangePlannerImports = importsFrom(
+      'src/calculation/planning/BacktrackRangePlanner.js'
+    )
+    for (const forbidden of [
+      'BacktrackDistributionGenerator',
+      'BacktrackLivingdeadDistribution',
+      'BacktrackPlanValidation',
+      'BacktrackCalculator',
+    ]) {
+      expect(rangePlannerImports.some((specifier) => specifier.includes(forbidden)))
+        .toBe(false)
+    }
   })
 })

@@ -10,7 +10,7 @@ R26-Bでは、R26-Aで確定した結果契約を前提に、計算コアの実�
 
 ## Backtrack
 
-`BacktrackCalculator.js`は入力正規化、range plan検証、生成器呼び出し、最終侵蝕率への変換だけを担当する。通常D10のwrapperと生成modeのdispatchは`BacktrackDistributionGenerator.js`、《屍人》の状態DPは`BacktrackLivingdeadDistribution.js`、計画と入力の整合性検証は`BacktrackPlanValidation.js`へ移した。既存の`calculateD10Distributions`、`calculateLivingdeadDistributions` export、第三引数のdependencies、計画を第三引数へ渡す位置引数互換性、Abort間隔、103個までの完全support生成は維持した。
+`BacktrackCalculator.js`は入力正規化、range plan検証、生成器呼び出し、最終侵蝕率への変換だけを担当する。通常D10のwrapperと生成modeのdispatchは`BacktrackDistributionGenerator.js`、《屍人》の状態DPは`BacktrackLivingdeadDistribution.js`、計画と入力の整合性検証は`BacktrackPlanValidation.js`へ移した。既存の`calculateD10Distributions`、`calculateLivingdeadDistributions` export、第三引数のdependencies、計画を第三引数へ渡す位置引数互換性、Abort間隔、103個の既存回帰ケースを含むon-demand完全support生成は維持した。
 
 ## 型と検証
 
@@ -20,6 +20,17 @@ R26-Bでは、R26-Aで確定した結果契約を前提に、計算コアの実�
 
 確率計算式、FFT実装、丸め・許容誤差、resource上限、ResourceGuard、CalculationClientのsnapshot・lease・Abort・release lifecycle、UI、Worker protocol、公開APIの名前と引数、参照JSONは変更していない。R27ではruntime/application adapterの型境界と、高度な設定が計算へ及ぼす効果を整理する。
 
-## 検証
+## 検証実績
 
-Damage aggregation、Backtrack、CalculationClient、architecture regressionの既存テストを通過し、ESLintとTypeScriptの型検査も成功した。最終closureでは通常テスト、generator・simulation、build、browser smoke、Markdown lint、`git diff --check`を実行する。
+R26-Bのclosure follow-upでは、以下を実行してすべて成功した。
+
+- `npm run verify:all`
+- Vitest 104 files / 1071 tests
+- generator通常テスト18件、simulation 13件
+- runtime DX 20,000ケース
+- production browser smoke（Check／Attack／Backtrack）
+- TypeScript型検査、ESLint、Markdown lint、production build
+- full-tail attack benchmark（エラー0件、digest `1245155.511306`）
+- `git diff --check`
+
+作業ツリーもcleanである。103個の既存回帰ケースを含むon-demand完全support生成、DamageAggregationとBacktrackの依存境界テスト、《屍人》のn=0／n=1およびn=2独立オラクルも通過した。

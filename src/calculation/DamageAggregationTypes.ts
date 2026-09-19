@@ -4,6 +4,10 @@ import type {
   DistributionResult,
   DistributionSupport,
 } from '../domain/DistributionResultTypes'
+import type {
+  DamageExpectationCertificate,
+  DamageMetadata,
+} from '../domain/DamageResultTypes'
 
 export interface TotalDamageCalculationOptions {
   readonly maxValuesLength?: number
@@ -61,15 +65,7 @@ export interface DamageComponentDescriptor {
   readonly projectionUncertainty?: DamageProjectionUncertainty
 }
 
-export interface DamageExpectationCertificate {
-  readonly version: number
-  readonly kind: 'damage-expectation-certificate'
-  readonly lowerBound: number
-  readonly upperBound: number
-}
-
-export interface AggregatedDamageMetadata {
-  readonly modeledDistribution: true
+export interface AggregatedDamageMetadata extends DamageMetadata {
   readonly aggregation: 'independent-sum'
   readonly independence: 'assumed'
   readonly componentCount: number
