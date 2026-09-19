@@ -1,5 +1,7 @@
 import type {
+  DistributionOverflow,
   DistributionEnvelope,
+  DistributionResult,
   DistributionSupport,
 } from '../domain/DistributionResultTypes'
 
@@ -16,10 +18,9 @@ export interface DamageAggregationPlanStep {
   readonly index: number
   readonly leftLength: number
   readonly rightLength: number
-  readonly outputLength: number
+  readonly resultLength: number
   readonly fftLength: number
   readonly resourceBytes: number
-  readonly operations: number
 }
 
 export interface DamageAggregationPlanEstimates {
@@ -44,3 +45,112 @@ export interface DamageAggregationPlan {
 }
 
 export type DamageAggregationInput = readonly DistributionEnvelope[]
+
+export interface DamageProjectionUncertainty {
+  readonly positionUnknownProbabilityUpperBound: number
+  readonly outputOverflowLowerBound?: number | null
+}
+
+export interface DamageComponentDescriptor {
+  readonly index: number
+  readonly offset: number
+  readonly valuesLength: number
+  readonly modeledSupport: DistributionSupport
+  readonly sourceSupport: DistributionSupport
+  readonly overflow: DistributionOverflow | null
+  readonly projectionUncertainty?: DamageProjectionUncertainty
+}
+
+export interface DamageExpectationCertificate {
+  readonly version: number
+  readonly kind: 'damage-expectation-certificate'
+  readonly lowerBound: number
+  readonly upperBound: number
+}
+
+export interface AggregatedDamageMetadata {
+  readonly modeledDistribution: true
+  readonly aggregation: 'independent-sum'
+  readonly independence: 'assumed'
+  readonly componentCount: number
+  readonly modeledSupport: DistributionSupport
+  readonly sourceSupport: DistributionSupport
+  readonly overflowProbabilityLowerBound: number
+  readonly aggregationErrorBound: number
+  readonly componentDescriptors: readonly DamageComponentDescriptor[]
+  readonly sourceOverflowProbability: number | null
+  readonly sourceOverflowProbabilityUpperBound: number
+  readonly expectedExplicitMass: number
+  readonly rawExplicitMass: number
+  readonly explicitMass: number
+  readonly sourceErrorBound: number
+  readonly fftMassDrift: number
+  readonly sourceMassDrift: number
+  readonly damageExpectationCertificate: DamageExpectationCertificate | null
+  readonly projectionUncertainty?: DamageProjectionUncertainty
+}
+
+export interface AggregatedDamageEnvelope {
+  readonly result: DistributionResult
+  readonly metadata: AggregatedDamageMetadata
+}
+
+export interface InspectedDamageComponent {
+  readonly index: number
+  readonly result: DistributionResult
+  readonly values: Float64Array
+  readonly offset: number
+  readonly explicitMass: number
+  readonly support: DistributionSupport
+  readonly overflow: DistributionOverflow | null
+  readonly sourceSupport: DistributionSupport
+  readonly projectionUncertainty: DamageProjectionUncertainty | null
+  readonly expectedValueInterval: {
+    readonly lowerBound: number
+    readonly upperBound: number
+    readonly source: string
+  } | null
+}
+
+export interface DamageAggregationInternalPlan {
+  readonly offset: number
+  readonly modeledSupport: DistributionSupport
+  readonly sourceSupport: DistributionSupport
+  readonly sourceErrorBound: number
+  readonly expectedExplicitMass: number
+  readonly exactUnion: number
+  readonly upperUnion: number
+  readonly allOverflowNull: boolean
+  readonly hasUpperBound: boolean
+  readonly potentialOverflowLowerBound: number
+  readonly hasEmptyValues: boolean
+  readonly outputLength: number
+  readonly persistentBytes: number
+  readonly peakResourceBytes: number
+  readonly operations: number
+  readonly cpuWork: number
+  readonly steps: readonly DamageAggregationPlanStep[]
+}
+
+export interface DamageAggregationPlanRecord {
+  readonly Damages: readonly DistributionEnvelope[]
+  readonly inspected: readonly InspectedDamageComponent[]
+  readonly plan: DamageAggregationInternalPlan
+  readonly normalizedOptions: Readonly<{
+    maxValuesLength: number
+    maxFftLength: number
+    maxResourceBytes: number
+    maxComponents: number
+    signal: AbortSignal | null
+    onFftLength?: (fftLength: number) => void
+    plan: null
+  }>
+}
+
+export interface DamageAggregationExecutionDiagnostics {
+  readonly aggregationErrorBound: number
+  readonly rawExplicitMass: number
+  readonly explicitMass: number
+  readonly fftMassDrift: number
+  readonly sourceMassDrift: number
+}

@@ -10,7 +10,15 @@ import type {
   CheckCalculationRangePlan,
   RangePolicyInput,
 } from '../../src/calculation/planning/RangePlannerTypes'
-import type { TotalDamageCalculationOptions } from '../../src/calculation/DamageAggregationTypes'
+import type {
+  AggregatedDamageEnvelope,
+  DamageAggregationPlan,
+  TotalDamageCalculationOptions,
+} from '../../src/calculation/DamageAggregationTypes'
+import type {
+  BacktrackDistributionGenerationRequest,
+  ValidatedBacktrackExecutionPlan,
+} from '../../src/calculation/BacktrackCalculationTypes'
 
 declare const client: CalculationClient
 
@@ -110,3 +118,31 @@ void invalidPolicy
 void invalidResourcePolicy
 void invalidCostModel
 void invalidTotalDamageOptions
+
+declare const aggregatePlan: DamageAggregationPlan
+aggregatePlan.steps.forEach((step) => {
+  step.resultLength
+  // @ts-expect-error: runtime step operations belong to plan.estimates.
+  step.operations
+})
+
+declare const aggregateEnvelope: AggregatedDamageEnvelope
+aggregateEnvelope.metadata.componentDescriptors[0]?.sourceSupport
+
+const generationRequest: BacktrackDistributionGenerationRequest = {
+  diceCounts: [0, 1, 2],
+  size: 21,
+  livingdead: true,
+}
+const validatedBacktrackPlan: ValidatedBacktrackExecutionPlan = {
+  normalizedParams: {
+    encroachment: 100,
+    lois: 1,
+    elois: 0,
+    dice: 0,
+    value: 0,
+    dlois: 'なし',
+  },
+  diceCounts: generationRequest.diceCounts,
+}
+void validatedBacktrackPlan

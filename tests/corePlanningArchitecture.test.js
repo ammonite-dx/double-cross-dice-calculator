@@ -89,4 +89,41 @@ describe('calculation core planning boundaries', () => {
     expect(workingShape).toContain('getDxYouseiBlockLength')
     expect(workingShape).toContain('getDxYouseiFftLength')
   })
+
+  it('keeps damage aggregation execution responsibilities in dedicated modules', () => {
+    const facade = source('src/calculation/DamageAggregation.js')
+    expect(facade).toContain('./DamageAggregationCommon')
+    expect(facade).toContain('./DamageAggregationInspection')
+    expect(facade).toContain('./DamageAggregationPlanner')
+    expect(facade).toContain('./DamageAggregationExecutor')
+    expect(facade).toContain('./DamageAggregationPlanStore')
+
+    const planner = source('src/calculation/DamageAggregationPlanner.js')
+    expect(planner).toContain('buildDamageAggregationPlan')
+    expect(planner).toContain('getConvolutionFftLength')
+    expect(planner).not.toContain('convolveDistributions')
+
+    const executor = source('src/calculation/DamageAggregationExecutor.js')
+    expect(executor).toContain('executeDamageAggregationPlan')
+    expect(executor).toContain('convolveDistributions')
+    expect(executor).toContain('./DamageAggregationMetadata')
+  })
+
+  it('keeps Backtrack generation and plan validation outside the orchestrator', () => {
+    const calculator = source('src/calculation/BacktrackCalculator.js')
+    expect(calculator).toContain('./BacktrackDistributionGenerator')
+    expect(calculator).toContain('./BacktrackPlanValidation')
+    expect(calculator).toContain('generateBacktrackDistributions')
+
+    const generator = source('src/calculation/BacktrackDistributionGenerator.js')
+    expect(generator).toContain('calculateSharedD10Distributions')
+    expect(generator).toContain('./BacktrackLivingdeadDistribution')
+    const livingdead = source('src/calculation/BacktrackLivingdeadDistribution.js')
+    expect(livingdead).toContain('states[max][value]')
+    expect(livingdead).toContain('calculateLivingdeadDistributions')
+
+    const validation = source('src/calculation/BacktrackPlanValidation.js')
+    expect(validation).toContain('validateBacktrackRangePlan')
+    expect(validation).toContain('generationOperations')
+  })
 })
