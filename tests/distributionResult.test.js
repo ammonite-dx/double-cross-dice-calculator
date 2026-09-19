@@ -4,19 +4,22 @@ import {
   DISTRIBUTION_RESULT_ERROR_CODES,
   DISTRIBUTION_RESULT_TOLERANCE,
   DistributionResultError,
-  PUBLISHED_BUCKET_LENGTH,
-  PUBLISHED_OVERFLOW_INDEX,
   copyDistributionValues,
   createDistributionResult,
-  fromPublishedBucketDistribution,
   getExplicitMax,
   getTotalDamageStatistics,
   getCertifiedExpectedValue,
   getProbabilityMassSummary,
   isDistributionResultAdapterError,
-  toPublishedBucketDistribution,
   validateDistributionResult,
 } from '../src/calculation/DistributionResult'
+import {
+  PUBLISHED_BUCKET_ERROR_CODES,
+  PUBLISHED_BUCKET_LENGTH,
+  PUBLISHED_OVERFLOW_INDEX,
+  fromPublishedBucketDistribution,
+  toPublishedBucketDistribution,
+} from '../tooling/reference-data/PublishedBucketCompatibility'
 
 function expectTypedError(callback, code) {
   let error
@@ -725,7 +728,7 @@ describe('published bucket distribution adapters', () => {
     })
     expectTypedError(
       () => fromPublishedBucketDistribution(legacy),
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_SUPPORT_REQUIRED
+      PUBLISHED_BUCKET_ERROR_CODES.LEGACY_SUPPORT_REQUIRED
     )
   })
 
@@ -766,7 +769,7 @@ describe('published bucket distribution adapters', () => {
 
     expectTypedError(
       () => toPublishedBucketDistribution(result),
-      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION
+      PUBLISHED_BUCKET_ERROR_CODES.UNSAFE_PROJECTION
     )
   })
 
@@ -807,12 +810,12 @@ describe('published bucket distribution adapters', () => {
 
     const upperBoundError = expectTypedError(
       () => toPublishedBucketDistribution(upperBound, { length: 1024 }),
-      DISTRIBUTION_RESULT_ERROR_CODES.UPPER_BOUND_PROJECTION
+      PUBLISHED_BUCKET_ERROR_CODES.UPPER_BOUND_PROJECTION
     )
     expect(isDistributionResultAdapterError(upperBoundError)).toBe(true)
     expectTypedError(
       () => toPublishedBucketDistribution(missingIndividualValues, { length: 1024 }),
-      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION
+      PUBLISHED_BUCKET_ERROR_CODES.UNSAFE_PROJECTION
     )
   })
 
@@ -828,7 +831,7 @@ describe('published bucket distribution adapters', () => {
 
     expectTypedError(
       () => toPublishedBucketDistribution(unsafeResult, { length: 1024 }),
-      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION
+      PUBLISHED_BUCKET_ERROR_CODES.UNSAFE_PROJECTION
     )
 
     const inertResult = createDistributionResult({
@@ -851,7 +854,7 @@ describe('published bucket distribution adapters', () => {
       () => fromPublishedBucketDistribution(new Float64Array(1023), {
         support: { kind: 'infinite' },
       }),
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH
+      PUBLISHED_BUCKET_ERROR_CODES.LEGACY_LENGTH
     )
     const nanLegacy = new Float64Array(PUBLISHED_BUCKET_LENGTH)
     nanLegacy[0] = Number.NaN
@@ -878,7 +881,7 @@ describe('published bucket distribution adapters', () => {
         }),
         { length: 1023 }
       ),
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH_OPTION
+      PUBLISHED_BUCKET_ERROR_CODES.LEGACY_LENGTH_OPTION
     )
   })
 })

@@ -8,10 +8,12 @@ import {
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   createDistributionResult,
-  DISTRIBUTION_RESULT_ERROR_CODES,
-  toPublishedBucketDistribution,
   validateDistributionResult,
 } from '../src/calculation/DistributionResult'
+import {
+  PUBLISHED_BUCKET_ERROR_CODES,
+  toPublishedBucketDistribution,
+} from '../tooling/reference-data/PublishedBucketCompatibility'
 import {
   CalculationRangeError,
   calculationClient,
@@ -207,7 +209,7 @@ describe('canonical normal check score producer', () => {
       error = caught
     }
     expect(error?.code).toBe(
-      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION
+      PUBLISHED_BUCKET_ERROR_CODES.UNSAFE_PROJECTION
     )
   })
 

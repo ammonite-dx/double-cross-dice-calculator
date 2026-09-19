@@ -17,7 +17,6 @@ export const DISTRIBUTION_RESULT_VERSION = 1
 export const DISTRIBUTION_RESULT_TOLERANCE = 1e-8
 export const PROBABILITY_TOLERANCE = DISTRIBUTION_RESULT_TOLERANCE
 
-export const PUBLISHED_BUCKET_LENGTH = 1024
 export const PUBLISHED_OVERFLOW_INDEX = 1023
 
 export const DISTRIBUTION_RESULT_ERROR_CODES = Object.freeze({
@@ -39,12 +38,6 @@ export const DISTRIBUTION_RESULT_ERROR_CODES = Object.freeze({
   MASS_NOT_NORMALIZED: 'mass-not-normalized',
   EXPLICIT_MASS_ABOVE_ONE: 'explicit-mass-above-one',
   UPPER_BOUND_TOO_SMALL: 'upper-bound-too-small',
-  LEGACY_INPUT: 'legacy-input',
-  LEGACY_LENGTH: 'legacy-length',
-  LEGACY_SUPPORT_REQUIRED: 'legacy-support-required',
-  LEGACY_LENGTH_OPTION: 'legacy-length-option',
-  UPPER_BOUND_PROJECTION: 'upper-bound-projection',
-  UNSAFE_PROJECTION: 'unsafe-projection',
 })
 
 function hasOwn(object, property) {
@@ -60,10 +53,6 @@ function isValueSource(value) {
     && typeof value === 'object'
     && Number.isSafeInteger(value.length)
     && value.length >= 0
-}
-
-function isLegacyValueSource(value) {
-  return Array.isArray(value) || value instanceof Float64Array
 }
 
 function freezeDetails(details) {
@@ -470,18 +459,6 @@ function createImmutableResult(values, offset, support, overflow) {
   return Object.freeze(result)
 }
 
-function createValidatedResult(values, offset, support, overflow) {
-  const candidate = {
-    version: DISTRIBUTION_RESULT_VERSION,
-    values,
-    offset,
-    support,
-    overflow,
-  }
-  inspectDistributionResult(candidate)
-  return createImmutableResult(values, offset, support, overflow)
-}
-
 function normalizeFactoryInput(input, options) {
   if (options === undefined && isRecord(input) && hasOwn(input, 'values')) {
     return input
@@ -753,171 +730,4 @@ export function getTotalDamageStatistics(totalDamage) {
     expectedValue,
     mass: getProbabilityMassSummary(result),
   })
-}
-
-function validateLegacyInputValues(distribution) {
-  if (!isLegacyValueSource(distribution)) {
-    failAdapter(
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_INPUT,
-      'legacy published distribution must be an Array or Float64Array'
-    )
-  }
-  if (distribution.length !== PUBLISHED_BUCKET_LENGTH) {
-    failAdapter(
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH,
-      `legacy published distribution must have ${PUBLISHED_BUCKET_LENGTH} entries`,
-      { length: distribution.length }
-    )
-  }
-
-  for (let index = 0; index < distribution.length; index += 1) {
-    const value = distribution[index]
-    if (!Number.isFinite(value)) {
-      failAdapter(
-        DISTRIBUTION_RESULT_ERROR_CODES.NON_FINITE_PROBABILITY,
-        'legacy published distribution must contain finite probabilities',
-        { index, value }
-      )
-    }
-    if (value < 0) {
-      failAdapter(
-        DISTRIBUTION_RESULT_ERROR_CODES.NEGATIVE_PROBABILITY,
-        'legacy published distribution must contain non-negative probabilities',
-        { index, value }
-      )
-    }
-    if (value > 1) {
-      failAdapter(
-        DISTRIBUTION_RESULT_ERROR_CODES.PROBABILITY_ABOVE_ONE,
-        'legacy published distribution probabilities must not exceed one',
-        { index, value }
-      )
-    }
-  }
-  return distribution
-}
-
-/**
- * Convert the current 1024 published buckets to the distribution result.
- * `options.support` is intentionally required; the legacy array cannot prove
- * finite versus infinite support by itself.
- */
-export function fromPublishedBucketDistribution(distribution, options) {
-  const legacyValues = validateLegacyInputValues(distribution)
-  if (!isRecord(options) || !hasOwn(options, 'support')) {
-    failAdapter(
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_SUPPORT_REQUIRED,
-      'legacy conversion requires explicit options.support'
-    )
-  }
-
-  const explicitValues = new Float64Array(PUBLISHED_OVERFLOW_INDEX)
-  for (let index = 0; index < explicitValues.length; index += 1) {
-    explicitValues[index] = legacyValues[index]
-  }
-
-  return createValidatedResult(
-    explicitValues,
-    0,
-    options.support,
-    {
-      kind: 'exact',
-      lowerBound: PUBLISHED_OVERFLOW_INDEX,
-      probability: legacyValues[PUBLISHED_OVERFLOW_INDEX],
-      errorBound: 0,
-    }
-  )
-}
-
-function normalizeLegacyOutputLength(options) {
-  if (options === undefined) {
-    return PUBLISHED_BUCKET_LENGTH
-  }
-  if (!isRecord(options)) {
-    failAdapter(
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH_OPTION,
-      'legacy output options must be an object'
-    )
-  }
-  const length = options.length === undefined
-    ? PUBLISHED_BUCKET_LENGTH
-    : options.length
-  if (
-    !Number.isSafeInteger(length)
-    || length !== PUBLISHED_BUCKET_LENGTH
-  ) {
-    failAdapter(
-      DISTRIBUTION_RESULT_ERROR_CODES.LEGACY_LENGTH_OPTION,
-      `legacy output length must be ${PUBLISHED_BUCKET_LENGTH}`,
-      { length }
-    )
-  }
-  return length
-}
-
-function validateExactOverflowProjection({ overflow }) {
-  if (overflow === null || overflow.kind === 'upper-bound') {
-    return
-  }
-  if (overflow.lowerBound >= PUBLISHED_OVERFLOW_INDEX) {
-    return
-  }
-
-  const hasPotentialMass = hasPotentialOverflowMass(overflow)
-  if (!hasPotentialMass) {
-    return
-  }
-  failAdapter(
-    DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION,
-    'exact overflow with potential mass below the legacy overflow bucket cannot be projected safely',
-    {
-      lowerBound: overflow.lowerBound,
-      probability: overflow.probability,
-      errorBound: overflow.errorBound,
-      legacyOverflowIndex: PUBLISHED_OVERFLOW_INDEX,
-    }
-  )
-}
-
-/**
- * Convert a distribution result to a fresh 1024-element legacy probability
- * array. Exact overflow is folded into bucket 1023 only when its lower bound
- * is at least 1023, or when the overflow is inert.
- */
-export function toPublishedBucketDistribution(result, options) {
-  const length = normalizeLegacyOutputLength(options)
-  const inspected = inspectDistributionResult(result)
-  const { values, offset, overflow } = inspected
-
-  if (offset < 0) {
-    failAdapter(
-      DISTRIBUTION_RESULT_ERROR_CODES.UNSAFE_PROJECTION,
-      'distribution values below zero cannot be projected to legacy buckets without clamping',
-      { offset }
-    )
-  }
-
-  if (overflow?.kind === 'upper-bound') {
-    failAdapter(
-      DISTRIBUTION_RESULT_ERROR_CODES.UPPER_BOUND_PROJECTION,
-      'upper-bound overflow is not an actual probability and cannot be projected to legacy buckets',
-      { probabilityUpperBound: overflow.probabilityUpperBound }
-    )
-  }
-
-  validateExactOverflowProjection(inspected)
-
-  const published = new Float64Array(length)
-  for (let index = 0; index < values.length; index += 1) {
-    const value = offset + index
-    const target = value >= PUBLISHED_OVERFLOW_INDEX
-      ? PUBLISHED_OVERFLOW_INDEX
-      : value
-    published[target] += values[index]
-  }
-
-  if (overflow !== null) {
-    published[PUBLISHED_OVERFLOW_INDEX] += overflow.probability
-  }
-  return published
 }

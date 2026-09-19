@@ -21,6 +21,13 @@ const sourceText = files.map((filePath) => ({
   path: relative(repositoryRoot, filePath),
   contents: readFileSync(filePath, 'utf8'),
 }))
+const referenceCompatibilitySource = readFileSync(
+  resolve(
+    repositoryRoot,
+    'tooling/reference-data/PublishedBucketCompatibility.js'
+  ),
+  'utf8'
+)
 
 const retiredIdentifiers = [
   'calculateCheckCanonical',
@@ -59,10 +66,13 @@ describe('production naming boundaries', () => {
     }
   })
 
-  it('retains reference compatibility adapters without a production mode label', () => {
+  it('keeps published compatibility adapters outside production source', () => {
     const combined = sourceText.map(({ contents }) => contents).join('\n')
-    expect(combined).toContain('fromPublishedBucketDistribution')
-    expect(combined).toContain('toPublishedBucketDistribution')
-    expect(combined).not.toContain("scorePropagation: 'published-bucket'")
+    expect(combined).not.toContain('fromPublishedBucketDistribution')
+    expect(combined).not.toContain('toPublishedBucketDistribution')
+    expect(referenceCompatibilitySource)
+      .toContain('fromPublishedBucketDistribution')
+    expect(referenceCompatibilitySource)
+      .toContain('toPublishedBucketDistribution')
   })
 })
