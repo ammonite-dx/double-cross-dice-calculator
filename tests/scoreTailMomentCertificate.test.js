@@ -4,7 +4,10 @@ import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
 } from '../src/calculation/ScoreCalculator'
-import { scoreTailBound } from '../src/calculation/ScoreTailModel'
+import {
+  MAX_CERTIFIED_ORDER_STATISTIC_RANK,
+  scoreTailBound,
+} from '../src/calculation/ScoreTailModel'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 function calculatePlannedScore(params) {
@@ -245,6 +248,25 @@ describe('Score tail first-moment certificate', () => {
     expect(oracle).toBeLessThanOrEqual(
       certificate.firstMomentUpperBound + 1e-10
     )
+  })
+
+  it('fails closed for certificates beyond the certified order-statistic rank', () => {
+    const rank = MAX_CERTIFIED_ORDER_STATISTIC_RANK + 1
+    const params = {
+      dice: rank * 2,
+      critical: 10,
+      shihai: rank - 1,
+      yousei: 0,
+      skill: 0,
+    }
+    const cutoff = 8
+    const { plan, envelope } = calculateScoreAtCutoff(params, cutoff)
+
+    expect(plan.tail.model).toBe('exact-order-statistic')
+    expect(envelope.result.support).toEqual({ kind: 'infinite' })
+    expect(envelope.result.values.every(Number.isFinite)).toBe(true)
+    expect(envelope.metadata.scoreTailMomentCertificate).toBeNull()
+    expect(envelope.metadata).not.toHaveProperty('scoreExpectationCertificate')
   })
 
   it.each([

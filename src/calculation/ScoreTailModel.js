@@ -38,52 +38,36 @@ function probability(value, name) {
   return value
 }
 
+// Certificate bounds use this value to keep the directly summed binomial
+// coefficient auditable and predictable. A larger reduced rank makes the
+// certificate unavailable; the distribution and exact tail model remain
+// usable independently.
+export const MAX_CERTIFIED_ORDER_STATISTIC_RANK = 1_000
+
 /**
- * Upper-bound log binomial coefficients without constructing a factorial.
- * The direct recurrence is exact enough for ordinary ranks; large ranks use
- * a conservative Lanczos approximation with an outward rounding margin.
+ * Log binomial coefficient without constructing a factorial.
+ *
+ * This direct recurrence is intentionally limited to a modest reduced rank.
+ * It is used only for mathematical upper-bound certificates, so an input
+ * outside the certified range fails closed instead of switching to an
+ * approximation whose rounding direction is not proven.
  */
 function logBinomialCoefficient(n, k) {
   const reduced = Math.min(k, n - k)
   if (reduced <= 0) {
     return 0
   }
-  if (reduced <= 100_000) {
-    let result = 0
-    for (let index = 1; index <= reduced; index += 1) {
-      result += Math.log(n - reduced + index) - Math.log(index)
-    }
-    return result
+  if (reduced > MAX_CERTIFIED_ORDER_STATISTIC_RANK) {
+    throw new RangeError(
+      `order-statistic certificate rank exceeds ${MAX_CERTIFIED_ORDER_STATISTIC_RANK}`
+    )
   }
 
-  const coefficients = [
-    676.5203681218851,
-    -1259.1392167224028,
-    771.3234287776531,
-    -176.6150291621406,
-    12.5073432786869,
-    -0.1385710952657201,
-    9.98436957801957e-6,
-    1.505632735149312e-7,
-  ]
-  const logGamma = (value) => {
-    if (value < 0.5) {
-      return Math.log(Math.PI) -
-        Math.log(Math.sin(Math.PI * value)) -
-        logGamma(1 - value)
-    }
-    const shifted = value - 1
-    let sum = 0.9999999999998099
-    for (let index = 0; index < coefficients.length; index += 1) {
-      sum += coefficients[index] / (shifted + index + 1)
-    }
-    const t = shifted + 7.5
-    return 0.5 * Math.log(2 * Math.PI) +
-      (shifted + 0.5) * Math.log(t) - t + Math.log(sum)
+  let result = 0
+  for (let index = 1; index <= reduced; index += 1) {
+    result += Math.log(n - reduced + index) - Math.log(index)
   }
-  const result =
-    logGamma(n + 1) - logGamma(reduced + 1) - logGamma(n - reduced + 1)
-  return result + Number.EPSILON * Math.max(1, Math.abs(result)) * 64
+  return result
 }
 
 /**
