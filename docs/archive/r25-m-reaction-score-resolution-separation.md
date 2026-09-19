@@ -17,6 +17,12 @@ Damage式、対決判定、presentation、resource limitの数値、Score tail b
 
 ## 検証
 
-reaction resolution、raw snapshot、BigInt境界、planner/producer一致、固定値・強制失敗のcertificate、MAX_SAFE_INTEGER境界を回帰テストで固定した。Node/Vitest、typecheck、ESLint、Markdown lint、production buildを実行して確認する。
+実装コミット`3d71aaf`を対象に、次の検証を完了した。
+
+- `npm run verify:all`: 成功。Vitestは104ファイル・1064テスト、typecheck、ESLint、Markdown lint（78ファイル・0 issues）、production build（426 modules）、production browser smoke、reference 7ファイル・53テスト、generator通常18件、simulation 13件、Ruff、runtime DXをすべて通過した。
+- generatorのデータ検証は32 assetsを検証した。production browser smokeではCheck・Attack・Backtrackの全シナリオでprecomputed/D10リクエスト0件、表示範囲の拒否・回復も確認した。
+- runtime DXは20,000ケースで成功した。比較許容誤差は`0.000001000001`、最大絶対差は`8.999999999999999e-7`、最大総誤差は`1.4432899320127035e-15`、非有限値・負値・tail caseはいずれも0件だった。
+- `npm run benchmark:full-tail-attack`: 全ケースがruntime canonical経路で測定され、エラーは0件だった。production plannerが`cpu-work`で拒否するケースは、実行時リソース上限による想定どおりの拒否として記録される。結果ダイジェストは`1245155.511306`だった。
+- `git diff --check`と作業ツリーのcleanも確認した。
 
 R25-Mの次のlive taskはR12の計算core責務分割であり、Cloudflare Worker・HTTP API・MCP化は引き続き将来目標とする。
