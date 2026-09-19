@@ -101,7 +101,7 @@ export function planScore(params, display, tailBudget) {
   })
   const fftOperations = fftOperationCount(youseiFftLength)
   // When 《絶対支配》 covers every die, DxCalculator returns a point mass
-  // immediately and does not allocate the per-dice DP table. Keep the
+  // immediately and does not allocate the order-statistic work table. Keep the
   // planner's memory model aligned with that shortcut: the raw result and
   // its normalized copy are the only two Float64 buffers for the DX step.
   const shihaiShortcut =
@@ -128,7 +128,7 @@ export function planScore(params, display, tailBudget) {
     : null
   // Positive shihai now uses a constant number of working buffers: the raw
   // order-statistic result, its normalized copy, and ScoreCalculator's
-  // Array.from working representation. It no longer allocates dice-sized DP
+  // Array.from working representation. It no longer allocates dice-sized
   // state arrays.
   const arrayCount = normalized.shihai === 0
     ? 4

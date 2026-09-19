@@ -88,8 +88,7 @@ function benchmark(label, params, iterations = 10) {
     float64WorkingBytes:
       params.shihai === 0
         ? REFERENCE_WORKING_DISTRIBUTION_SIZE * Float64Array.BYTES_PER_ELEMENT
-        : (params.dice + 1) *
-          REFERENCE_WORKING_DISTRIBUTION_SIZE *
+        : 2 * REFERENCE_WORKING_DISTRIBUTION_SIZE *
           Float64Array.BYTES_PER_ELEMENT,
   }
 }
