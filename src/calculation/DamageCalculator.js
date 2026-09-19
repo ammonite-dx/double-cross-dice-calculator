@@ -585,5 +585,3 @@ export async function calculateDamageOnDemand(
     return Object.freeze({ result, metadata })
   }
 }
-
-export { createDamageRollRequest } from './DamageRollRequest'
