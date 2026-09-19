@@ -1,7 +1,5 @@
 import {
   DISTRIBUTION_RESULT_ERROR_CODES,
-  DistributionResultAdapterError,
-  PUBLISHED_OVERFLOW_INDEX,
   createDistributionResult,
   validateDistributionResult,
 } from '../../src/calculation/DistributionResult'
@@ -13,7 +11,21 @@ import {
  * and regression tests.
  */
 export const PUBLISHED_BUCKET_LENGTH = 1024
-export { PUBLISHED_OVERFLOW_INDEX }
+export const PUBLISHED_OVERFLOW_INDEX = PUBLISHED_BUCKET_LENGTH - 1
+
+export function isDistributionResultAdapterError(error) {
+  return error?.adapter === true && typeof error.code === 'string'
+}
+
+export class DistributionResultAdapterError extends Error {
+  constructor(code, message, details = {}) {
+    super(message)
+    this.name = 'DistributionResultAdapterError'
+    this.code = code
+    this.details = Object.freeze({ ...details })
+    this.adapter = true
+  }
+}
 
 export const PUBLISHED_BUCKET_ERROR_CODES = Object.freeze({
   LEGACY_INPUT: 'legacy-input',

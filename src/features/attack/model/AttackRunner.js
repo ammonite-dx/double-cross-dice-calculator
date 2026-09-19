@@ -260,6 +260,7 @@ export function createAttackRunner({
         entries,
         calculationOptions,
         signal,
+        scoreDisplayRequest,
         onRangePlan: rangePlanCallback,
         forceAll: forceAll === true,
       })

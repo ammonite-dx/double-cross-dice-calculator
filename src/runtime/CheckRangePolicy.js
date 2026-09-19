@@ -1,7 +1,4 @@
 import {
-  PUBLISHED_OVERFLOW_INDEX,
-} from '../calculation/DistributionResult'
-import {
   getDisplayRangePointCount,
   isDisplayMode,
   isDisplayCoordinate,
@@ -20,8 +17,6 @@ const DISPLAY_REQUEST_ERROR_CODES = Object.freeze({
   INVALID_MAX: 'invalid-display-max',
   INVALID_MODE: 'invalid-display-mode',
 })
-
-const LEGACY_SAFE_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -156,13 +151,12 @@ function validateOptionalPolicyInteger(value, path) {
 }
 
 /**
- * Snapshot the calculation options needed to extend a Check result.
- * `calculationMax` is a calculation boundary, not a display-input limit. It
- * is expanded to the requested display max and never below the legacy
- * published-score safety boundary derived from DistributionResult.
+ * Snapshot the calculation policy needed by a Check request. Display
+ * coordinates are validated here, but remain planner parameters rather than
+ * being copied into the resource policy.
  */
 export function createCheckRangePolicy(displayRequest, suppliedPolicy = {}) {
-  const display = normalizeDisplayRequest(displayRequest)
+  normalizeDisplayRequest(displayRequest)
   if (!isRecord(suppliedPolicy)) {
     fail(
       CHECK_RANGE_POLICY_ERROR_CODE,
@@ -172,11 +166,13 @@ export function createCheckRangePolicy(displayRequest, suppliedPolicy = {}) {
   }
 
   const policy = clonePolicyValue(suppliedPolicy)
-  const suppliedCalculationMax = policy.calculationMax
-  validateOptionalPolicyInteger(
-    suppliedCalculationMax,
-    'rangePolicy.calculationMax'
-  )
+  if (Object.prototype.hasOwnProperty.call(policy, 'calculationMax')) {
+    fail(
+      CHECK_RANGE_POLICY_ERROR_CODE,
+      'rangePolicy.calculationMax is no longer supported; pass display coverage as a planner request',
+      { path: 'rangePolicy.calculationMax' }
+    )
+  }
   const suppliedDisplay = policy.display ?? {}
   if (!isRecord(suppliedDisplay)) {
     fail(
@@ -190,21 +186,15 @@ export function createCheckRangePolicy(displayRequest, suppliedPolicy = {}) {
     'rangePolicy.display.maxPoints'
   )
 
-  const pointCount = display.max - display.min + 1
-  const calculationMax = Math.max(
-    suppliedCalculationMax ?? LEGACY_SAFE_CALCULATION_MAX,
-    display.max,
-    LEGACY_SAFE_CALCULATION_MAX
-  )
-  policy.calculationMax = calculationMax
-  policy.display = {
-    ...suppliedDisplay,
-    defaultMin: display.min,
-    defaultMax: display.max,
-    // RangePlanner's display guard must not become a second input ceiling.
-    // The independent DisplayRangePlanner remains responsible for its own
-    // resource budget and can reject before this policy reaches calculation.
-    maxPoints: Math.max(suppliedDisplay.maxPoints ?? 0, pointCount),
+  if (
+    Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMin')
+    || Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMax')
+  ) {
+    fail(
+      CHECK_RANGE_POLICY_ERROR_CODE,
+      'rangePolicy.display.defaultMin/defaultMax are no longer supported; pass display coverage as a planner request',
+      { path: 'rangePolicy.display' }
+    )
   }
   return deepFreeze(policy)
 }

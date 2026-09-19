@@ -10,8 +10,7 @@ function createPlan() {
     accepted: true,
     operation: 'backtrack',
     backtrack: {
-      calculationMode: 'complete-support',
-      distributionMode: 'on-demand',
+      generationMode: 'on-demand',
       workingMax: 0,
       workingLength: 1,
       fftLength: 0,
@@ -51,7 +50,7 @@ describe('CalculationClient.calculateBacktrack', () => {
     const options = {
       signal,
       requestId: 'canonical-backtrack-1',
-      rangePolicy: { calculationMax: 17 },
+      rangePolicy: {},
       onRangePlan,
     }
 
@@ -65,7 +64,6 @@ describe('CalculationClient.calculateBacktrack', () => {
     expect(dependencies.planCalculationRanges).toHaveBeenCalledWith(
       {
         operation: 'backtrack',
-        completeSupportBacktrack: true,
         backtrack: request,
       },
       options.rangePolicy
@@ -79,8 +77,7 @@ describe('CalculationClient.calculateBacktrack', () => {
         operation: 'backtrack',
       }
     )
-    expect(plan.backtrack.calculationMode).toBe('complete-support')
-    expect(plan.backtrack.distributionMode).toBe('on-demand')
+    expect(plan.backtrack.generationMode).toBe('on-demand')
     expect(dependencies.getFinalEncroachment).toHaveBeenCalledWith(
       request,
       { signal, requestId: options.requestId },

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   generateMixedDamageDistribution,
-  RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
 } from '../../src/calculation/RuntimeDamageRollCalculator'
+import { REFERENCE_WORKING_DISTRIBUTION_SIZE } from '../../tooling/reference-data/ReferenceDataConstants'
 
 import drKazanari0 from '../../tooling/reference-data/assets/schema-v2/revision-1/dr/kazanari-0.json'
 import drKazanari3 from '../../tooling/reference-data/assets/schema-v2/revision-1/dr/kazanari-3.json'
@@ -26,7 +26,7 @@ function oneHotWeights(dice) {
 
 function expandSparseDistribution(sparseDistribution) {
   const distribution = new Float64Array(
-    RUNTIME_DAMAGE_DISTRIBUTION_SIZE
+    REFERENCE_WORKING_DISTRIBUTION_SIZE
   )
   distribution.set(
     sparseDistribution.values,
@@ -61,7 +61,9 @@ describe('published runtime damage-roll reference', () => {
     (kazanari, dice) => {
       const actual = generateMixedDamageDistribution(
         oneHotWeights(dice),
-        kazanari
+        kazanari,
+        { fftLength: REFERENCE_WORKING_DISTRIBUTION_SIZE,
+          distributionLength: REFERENCE_WORKING_DISTRIBUTION_SIZE }
       )
       const expected = expandSparseDistribution(
         assets.get(kazanari).distributions[dice]
@@ -82,7 +84,7 @@ describe('published runtime damage-roll reference', () => {
       weights[LEGACY_ASSET_MAX_DAMAGE_DICE] = 0.3
       const asset = assets.get(kazanari)
       const expected = new Float64Array(
-        RUNTIME_DAMAGE_DISTRIBUTION_SIZE
+        REFERENCE_WORKING_DISTRIBUTION_SIZE
       )
 
       for (let dice = 0; dice < weights.length; dice += 1) {
@@ -93,7 +95,10 @@ describe('published runtime damage-roll reference', () => {
         }
       }
 
-      const actual = generateMixedDamageDistribution(weights, kazanari)
+      const actual = generateMixedDamageDistribution(weights, kazanari, {
+        fftLength: REFERENCE_WORKING_DISTRIBUTION_SIZE,
+        distributionLength: REFERENCE_WORKING_DISTRIBUTION_SIZE,
+      })
       expectDistributionsClose(actual, expected, ASSET_TOLERANCE)
     }
   )

@@ -210,8 +210,7 @@ describe('canonical CalculationClient surface', () => {
     expect(executionPlans).toHaveLength(1)
     expect(planned).toEqual(executionPlans[0])
     expect(planned.backtrack).toMatchObject({
-      calculationMode: 'complete-support',
-      distributionMode: 'on-demand',
+      generationMode: 'on-demand',
     })
     expect(planned.estimates).toEqual(executionPlans[0].estimates)
     expect(planned.estimates.float64Bytes).toBeGreaterThan(0)
@@ -219,8 +218,8 @@ describe('canonical CalculationClient surface', () => {
     expect(planCalculationRangesSpy.mock.calls[0][0]).toEqual(
       planCalculationRangesSpy.mock.calls[1][0]
     )
-    expect(planCalculationRangesSpy.mock.calls[0][0].completeSupportBacktrack)
-      .toBe(true)
+    expect(planCalculationRangesSpy.mock.calls[0][0])
+      .not.toHaveProperty('completeSupportBacktrack')
   })
 
   it('runs canonical Attack through the runtime D10 provider and canonical damage only', async () => {

@@ -4,17 +4,20 @@ import {
   calculateDxDistribution,
   DX_CRITICAL_MAX,
   DX_CRITICAL_MIN,
-  DX_DISTRIBUTION_SIZE,
   DX_MAX_DISTRIBUTION_SIZE,
   DX_MIN_DISTRIBUTION_SIZE,
 } from '../src/calculation/DxCalculator'
+import { REFERENCE_WORKING_DISTRIBUTION_SIZE } from '../tooling/reference-data/ReferenceDataConstants'
 
 const LEGACY_COMPARISON_DICE = 99
 const LEGACY_COMPARISON_SHIHAI = 19
 
-function assertDistribution(distribution) {
+function assertDistribution(
+  distribution,
+  expectedLength = REFERENCE_WORKING_DISTRIBUTION_SIZE
+) {
   expect(distribution).toBeInstanceOf(Float64Array)
-  expect(distribution).toHaveLength(DX_DISTRIBUTION_SIZE)
+  expect(distribution).toHaveLength(expectedLength)
 
   let total = 0
   for (const probability of distribution) {
@@ -32,12 +35,12 @@ describe('runtime dx distribution with shihai=0', () => {
       dice: 0,
       critical: DX_CRITICAL_MIN,
       shihai: 0,
-    })
+    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
     const oneDie = calculateDxDistribution({
       dice: 1,
       critical: 10,
       shihai: 0,
-    })
+    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
 
     assertDistribution(zeroDice)
     assertDistribution(oneDie)
@@ -54,7 +57,7 @@ describe('runtime dx distribution with shihai=0', () => {
       dice: LEGACY_COMPARISON_DICE,
       critical: DX_CRITICAL_MAX,
       shihai: 0,
-    })
+    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
 
     assertDistribution(distribution)
     expect(distribution[10]).toBeGreaterThan(0)
@@ -80,12 +83,12 @@ describe('runtime dx distribution with shihai>0', () => {
       dice: LEGACY_COMPARISON_SHIHAI,
       critical: 7,
       shihai: LEGACY_COMPARISON_SHIHAI,
-    })
+    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
     const atBoundary = calculateDxDistribution({
       dice: LEGACY_COMPARISON_SHIHAI + 1,
       critical: 7,
       shihai: LEGACY_COMPARISON_SHIHAI,
-    })
+    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
 
     assertDistribution(belowBoundary)
     assertDistribution(atBoundary)
@@ -101,7 +104,7 @@ describe('runtime dx distribution with shihai>0', () => {
         dice: LEGACY_COMPARISON_DICE,
         critical,
         shihai: 1,
-      })
+      }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
       assertDistribution(distribution)
     }
   })
@@ -157,14 +160,13 @@ describe('runtime dx dynamic working lengths', () => {
     expect(total).toBeCloseTo(1, 12)
   })
 
-  it('matches the default result when the default working length is explicit', () => {
+  it('requires an explicit working length for direct DX calls', () => {
     const params = { dice: 20, critical: 6, shihai: 3 }
-    const defaultDistribution = calculateDxDistribution(params)
-    const explicitDefault = calculateDxDistribution(params, {
-      workingLength: DX_DISTRIBUTION_SIZE,
+    expect(() => calculateDxDistribution(params)).toThrow('workingLength')
+    const explicit = calculateDxDistribution(params, {
+      workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE,
     })
-
-    expect(Array.from(explicitDefault)).toEqual(Array.from(defaultDistribution))
+    assertDistribution(explicit)
   })
 
   it('does not discard a small dynamic tail at an extended working length', () => {

@@ -58,7 +58,6 @@ function createResult(result) {
 function createFromProducer(params) {
   const plan = planCalculationRanges({
     operation: 'backtrack',
-    completeSupportBacktrack: true,
     backtrack: params,
   })
   return calculateFinalEncroachment(

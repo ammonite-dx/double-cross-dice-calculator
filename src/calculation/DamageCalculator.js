@@ -1,7 +1,4 @@
-import {
-  WORKING_DISTRIBUTION_SIZE,
-  shiftDistribution,
-} from '../core/probability/Distribution'
+import { shiftDistribution } from '../core/probability/Distribution'
 import { subDistribution } from '../core/probability/FFT'
 import { calculateD10Distribution } from './D10Calculator'
 import {
@@ -287,11 +284,6 @@ function validateRangePlan(rangePlan, attack, defence) {
   }
   if (rangePlan.operation !== 'attack' || rangePlan.accepted !== true) {
     throw new TypeError('rangePlan must be an accepted top-level attack plan')
-  }
-  if (rangePlan.propagation?.score !== undefined) {
-    throw new RangeError(
-      'rangePlan.propagation.score is no longer supported; Damage uses canonical full-tail propagation'
-    )
   }
   if (!Array.isArray(rangePlan.scores) || rangePlan.scores.length === 0) {
     throw new TypeError('rangePlan.scores must contain score plans')
@@ -667,9 +659,7 @@ async function requestDamageRollDistribution(
     providerOptions
   )
   const hitProbability = sumProbabilities(request.weights)
-  const expectedLength = planned
-    ? providerOptions.distributionLength
-    : WORKING_DISTRIBUTION_SIZE
+  const expectedLength = providerOptions.distributionLength
 
   return {
     damageRollDistribution: validateDamageRollDistribution(

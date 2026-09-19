@@ -28,7 +28,7 @@ export function normalizeDefence(params) {
 }
 
 /** Plan the finite damage-roll and defence-convolution ranges. */
-export function planDamage(params, display, policy, maxScoreForDamage) {
+export function planDamage(params, display, maxScoreForDamage) {
   const attack = normalizeAttack(params.attack)
   const defence = normalizeDefence(params.defence)
   const maxDamageDice = Math.max(
@@ -76,8 +76,7 @@ export function planDamage(params, display, policy, maxScoreForDamage) {
     'damage working range'
   )
   // Canonical full-tail propagation carries the complete finite DR support
-  // into final damage coordinates. The legacy calculationMax floor remains a
-  // score planning boundary, not a second Damage calculation mode.
+  // into final damage coordinates.
   const workingMax = fixedDifference >= 0
     ? Math.max(0, rawPlusDifference)
     : rawMax
@@ -133,7 +132,6 @@ export function planDamage(params, display, policy, maxScoreForDamage) {
     defenceD10Float64Bytes,
     finiteSupport: true,
     scoreValueUpperBound: maxScoreForDamage,
-    calculationMax: policy.calculationMax,
     display,
   }
 }

@@ -220,12 +220,12 @@ describe('production range planner', () => {
     const score = plan.scores[0]
 
     expect(plan.accepted).toBe(true)
-    expect(score.tail.model).toBe('exact-max')
+    expect(score.tail.model).toBe('finite-support')
     expect(score.tail.cutoff).toBe(0)
     expect(score.tail.bound).toBe(0)
-    expect(score.finiteSupport).toBe(false)
-    expect(plan.overflowInfo.score.type).toBe('dx-tail')
-    expect(plan.overflowInfo.score.lowerBound).toBe(1023)
+    expect(score.finiteSupport).toBe(true)
+    expect(plan.overflowInfo.score.type).toBe('finite-support')
+    expect(plan.overflowInfo.score.lowerBound).toBeNull()
   })
 
   it('summarizes multiple DX tail certificates without a shared boundary', () => {
@@ -429,16 +429,19 @@ describe('production range planner', () => {
 
   it('adjusts the working range in the expected direction for skill shifts', () => {
     const positiveSkill = planCalculationRanges(scoreOnlyParams({
-      score: scoreParams({ skill: 10 }),
+      score: scoreParams({ dice: 1, critical: 10, skill: 10 }),
     }))
     const negativeSkill = planCalculationRanges(scoreOnlyParams({
-      score: scoreParams({ skill: -10 }),
+      score: scoreParams({ dice: 1, critical: 10, skill: -10 }),
     }))
 
-    expect(positiveSkill.scores[0].workingMax).toBe(1012)
-    expect(negativeSkill.scores[0].workingMax).toBe(1032)
-    expect(positiveSkill.scores[0].outputMax).toBe(1022)
-    expect(negativeSkill.scores[0].outputMax).toBe(1022)
+    expect(positiveSkill.scores[0].workingMax)
+      .toBeLessThanOrEqual(negativeSkill.scores[0].workingMax)
+    expect(positiveSkill.scores[0].outputMax)
+      .toBe(positiveSkill.scores[0].workingMax + 10)
+    expect(negativeSkill.scores[0].outputMax).toBe(
+      Math.max(0, negativeSkill.scores[0].workingMax - 10)
+    )
   })
 
   it('plans finite DR support and a separate defence-convolution FFT', () => {
@@ -450,7 +453,7 @@ describe('production range planner', () => {
     const requiredDefenceConvolution = damage.workingLength + damage.defenceMax
 
     expect(damage.finiteSupport).toBe(true)
-    expect(damage.rawSupportMax).toBe(1130)
+    expect(damage.rawSupportMax).toBe(110)
     expect(damage.fftLength).toBe(nextPowerOfTwo(damage.rawSupportMax + 1))
     expect(damage.defenceFftLength).toBe(
       nextPowerOfTwo(requiredDefenceConvolution)
@@ -462,10 +465,7 @@ describe('production range planner', () => {
   })
 
   it('keeps both signs of fixed attack-defence differences in range planning', () => {
-    const policy = {
-      calculationMax: 200,
-      display: { defaultMax: 0 },
-    }
+    const policy = {}
     const positive = planCalculationRanges(attackParams({
       attack: { dice: 0, value: 5, kazanari: 0 },
       defence: { dice: 2, value: 0 },
@@ -494,11 +494,8 @@ describe('production range planner', () => {
     )
   })
 
-  it('keeps pre-defence overflow above calculationMax after defence', () => {
-    const policy = {
-      calculationMax: 200,
-      display: { defaultMax: 0 },
-    }
+  it('keeps pre-defence overflow independent from display coverage', () => {
+    const policy = {}
     const cases = [
       {
         label: 'positive difference',
@@ -551,10 +548,8 @@ describe('production range planner', () => {
         damage.workingMax + 1
       )
 
-      expect(
-        defendedOverflowLowerBound(damage, overflowLowerBound),
-        testCase.label
-      ).toBeGreaterThan(policy.calculationMax)
+      expect(defendedOverflowLowerBound(damage, overflowLowerBound), testCase.label)
+        .toBeLessThanOrEqual(overflowLowerBound)
       if (damage.defenceDice > 0) {
         expect(damage.defenceFftLength, testCase.label).toBe(
           nextPowerOfTwo(damage.workingLength + damage.defenceMax)
@@ -568,10 +563,7 @@ describe('production range planner', () => {
       attack: { dice: 30, value: 0, kazanari: 0 },
       defence: { dice: 2, value: 0 },
       display: { min: 0, max: 0 },
-    }), {
-      calculationMax: 214,
-      display: { defaultMax: 0 },
-    }).damage
+    }), {}).damage
     expect(exactPowerOfTwo.workingMax).toBe(
       exactPowerOfTwo.rawSupportMax
     )
@@ -863,7 +855,7 @@ describe('production range planner', () => {
         damage.rawSupportMax + Math.max(fixedDifference, 0)
       )
       expect(damage.workingLength).toBe(damage.workingMax + 2)
-      expect(damage.workingMax).toBeGreaterThan(damage.calculationMax)
+      expect(damage.workingMax).toBeGreaterThanOrEqual(damage.rawSupportMax)
     }
   )
 
@@ -1161,14 +1153,11 @@ describe('production range planner', () => {
     }))
   })
 
-  it('retains the calculation maximum floor without changing score support', () => {
+  it('uses the mathematical score support without a calculation floor', () => {
     const params = attackParams()
-    const plan = planCalculationRanges(params, {
-      calculationMax: 0,
-      display: { defaultMax: 0 },
-    })
+    const plan = planCalculationRanges(params)
 
-    expect(plan.propagation.calculationMax).toBe(0)
+    expect(plan).not.toHaveProperty('propagation')
     expect(plan.scores[0].outputMax).toBe(0)
     expect(plan.damage.scoreValueUpperBound).toBe(plan.scores[0].outputMax)
     expect(plan.damage.rawSupportMax).toBe(10)
@@ -1203,13 +1192,12 @@ describe('production range planner', () => {
     })
     expect(clamped.backtrack.finiteSupport).toBe(true)
     expect(overflow.backtrack.rawSupportMax).toBe(3000)
-    expect(overflow.backtrack.assetOverflow).toBe(true)
+    expect(overflow.backtrack.generationMode).toBe('on-demand')
     expect(overflow.warnings).not.toContainEqual(
       expect.objectContaining({ code: 'backtrack-asset-overflow' })
     )
     expect(overflow.overflowInfo.backtrack.type).toBe('finite-support')
     expect(overflow.overflowInfo.backtrack.lowerBound).toBeNull()
-    expect(overflow.backtrack.distributionMode).toBe('on-demand')
     expect(overflow.backtrack.fftLength).toBe(0)
   })
 
@@ -1237,21 +1225,20 @@ describe('production range planner', () => {
 
     expect(livingdead.backtrack.rawSupportMax).toBe(1021)
     expect(livingdead.backtrack.workingLength).toBe(1022)
-    expect(livingdead.backtrack.distributionMode).toBe('asset')
-    expect(livingdead.backtrack.assetOverflow).toBe(false)
+    expect(livingdead.backtrack.generationMode).toBe('on-demand')
     expect(livingdead.warnings).not.toContainEqual(
       expect.objectContaining({ code: 'backtrack-asset-overflow' })
     )
 
     expect(ordinary.backtrack.rawSupportMax).toBe(1030)
     expect(ordinary.backtrack.workingLength).toBe(1031)
-    expect(ordinary.backtrack.distributionMode).toBe('on-demand')
+    expect(ordinary.backtrack.generationMode).toBe('on-demand')
     expect(ordinary.warnings).not.toContainEqual(
       expect.objectContaining({ code: 'backtrack-asset-overflow' })
     )
   })
 
-  it('keeps the asset boundary independent from a lower calculation maximum', () => {
+  it('keeps on-demand generation independent from display policy', () => {
     const plan = planCalculationRanges({
       operation: 'backtrack',
       backtrack: {
@@ -1262,12 +1249,9 @@ describe('production range planner', () => {
         value: 0,
         dlois: 'なし',
       },
-    }, {
-      calculationMax: 0,
     })
 
-    expect(plan.backtrack.assetOverflow).toBe(false)
-    expect(plan.backtrack.distributionMode).toBe('asset')
+    expect(plan.backtrack.generationMode).toBe('on-demand')
     expect(plan.warnings).not.toContainEqual(
       expect.objectContaining({ code: 'backtrack-asset-overflow' })
     )
@@ -1318,8 +1302,8 @@ describe('production range planner', () => {
       )
     )
 
-    expect(smallerDamageRange.damage.maxDamageDice).toBe(103)
-    expect(largerDamageRange.damage.maxDamageDice).toBe(300)
+    expect(smallerDamageRange.damage.maxDamageDice).toBe(1)
+    expect(largerDamageRange.damage.maxDamageDice).toBe(198)
     expect(largerDamageRange.damage.fftLength).toBeGreaterThan(
       smallerDamageRange.damage.fftLength
     )

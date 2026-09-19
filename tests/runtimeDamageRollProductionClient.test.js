@@ -43,7 +43,7 @@ class FakeWorker {
 
 function createHarness(options = {}) {
   const workers = []
-  const client = createRuntimeDamageRollClient({
+  const runtimeClient = createRuntimeDamageRollClient({
     ...options,
     workerFactory: () => {
       const worker = new FakeWorker()
@@ -51,6 +51,20 @@ function createHarness(options = {}) {
       return worker
     },
   })
+  // Keep these client lifecycle tests focused on queueing/cache behavior. The
+  // runtime calculator's omitted-option dynamic sizing is covered separately;
+  // use a stable explicit range here so the fake worker fixtures remain small
+  // and deterministic.
+  const client = {
+    ...runtimeClient,
+    calculate(weights, kazanari, calculateOptions = {}) {
+      return runtimeClient.calculate(weights, kazanari, {
+        fftLength: calculateOptions.fftLength ?? 2048,
+        distributionLength: calculateOptions.distributionLength ?? 2048,
+        ...calculateOptions,
+      })
+    },
+  }
   return { client, workers }
 }
 

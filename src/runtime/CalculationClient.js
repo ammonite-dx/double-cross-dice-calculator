@@ -166,8 +166,8 @@ function getCheckRangePolicy(options) {
     : createCheckRangePolicy(options.displayRequest, options.rangePolicy)
 }
 
-function createAttackRangeParams(request) {
-  return {
+function createAttackRangeParams(request, scoreDisplayRequest) {
+  const params = {
     operation: 'attack',
     score: {
       action: request.action.score,
@@ -176,17 +176,19 @@ function createAttackRangeParams(request) {
     attack: { ...request.action.damage },
     defence: { ...request.reaction.damage },
   }
+  if (scoreDisplayRequest !== undefined && scoreDisplayRequest !== null) {
+    params.display = {
+      min: scoreDisplayRequest.min,
+      max: scoreDisplayRequest.max,
+    }
+  }
+  return params
 }
 
-function createBacktrackRangeParams(request, completeSupport = false) {
+function createBacktrackRangeParams(request) {
   const params = {
     operation: 'backtrack',
     backtrack: { ...request },
-  }
-  if (completeSupport) {
-    // Keep the public planner and complete-support execution on the same
-    // on-demand plan. The operation remains `backtrack` for callers.
-    params.completeSupportBacktrack = true
   }
   return params
 }
@@ -202,6 +204,7 @@ function getRuntimeOptions(options) {
   const runtimeOptions = { ...options }
   delete runtimeOptions.rangePolicy
   delete runtimeOptions.onRangePlan
+  delete runtimeOptions.scoreDisplayRequest
   return runtimeOptions
 }
 
@@ -325,12 +328,10 @@ function createRuntimeDxProvider(calculateDistribution) {
       return distribution
     }
 
-    const distribution = options === undefined
-      ? calculateDistribution({ dice, critical, shihai, yousei })
-      : calculateDistribution(
-          { dice, critical, shihai, yousei },
-          normalizedOptions
-        )
+    const distribution = calculateDistribution(
+      { dice, critical, shihai, yousei },
+      normalizedOptions
+    )
     cache.set(key, distribution)
     while (cache.size > RUNTIME_DX_CACHE_SIZE) {
       cache.delete(cache.keys().next().value)
@@ -422,7 +423,7 @@ export function createCalculationClient(
     const request = snapshotAttackParams(params)
     const plan = runRangePreflight(
       planner,
-      createAttackRangeParams(request),
+      createAttackRangeParams(request, options.scoreDisplayRequest),
       options.rangePolicy,
       options.onRangePlan
     )
@@ -552,7 +553,7 @@ export function createCalculationClient(
 
     planBacktrack(params, policy = {}) {
       const request = snapshotBacktrackParams(params)
-      return planner(createBacktrackRangeParams(request, true), policy)
+      return planner(createBacktrackRangeParams(request), policy)
     },
 
     async calculateCheck(params, difficulty, options = {}) {

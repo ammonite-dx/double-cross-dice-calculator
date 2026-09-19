@@ -1,7 +1,5 @@
-import {
-  calculateDxDistribution,
-  DX_DISTRIBUTION_SIZE,
-} from '../../src/calculation/DxCalculator.js'
+import { calculateDxDistribution } from '../../src/calculation/DxCalculator.js'
+import { REFERENCE_WORKING_DISTRIBUTION_SIZE } from '../../tooling/reference-data/ReferenceDataConstants.js'
 import { createDxWorkerClient } from './client.js'
 
 const WARMUP_ITERATIONS = 3
@@ -122,10 +120,10 @@ function nextFrame() {
 function validateDistribution(distribution) {
   if (
     !(distribution instanceof Float64Array) ||
-    distribution.length !== DX_DISTRIBUTION_SIZE
+    distribution.length !== REFERENCE_WORKING_DISTRIBUTION_SIZE
   ) {
     throw new Error(
-      `Expected a ${DX_DISTRIBUTION_SIZE}-element Float64Array distribution`
+      `Expected a ${REFERENCE_WORKING_DISTRIBUTION_SIZE}-element Float64Array distribution`
     )
   }
 
@@ -458,7 +456,7 @@ async function run() {
       warmupIterations: WARMUP_ITERATIONS,
       warmIterations: WARM_ITERATIONS,
       continuousRuns: CONTINUOUS_RUNS,
-      distributionSize: DX_DISTRIBUTION_SIZE,
+      distributionSize: REFERENCE_WORKING_DISTRIBUTION_SIZE,
       elapsedMilliseconds: performance.now() - started,
     },
     environment: {

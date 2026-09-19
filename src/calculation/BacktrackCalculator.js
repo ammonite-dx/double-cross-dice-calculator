@@ -1,6 +1,5 @@
 import {
   BACKTRACK_ABORT_CHECK_INTERVAL,
-  BACKTRACK_ASSET_SUPPORT_MAX,
   BACKTRACK_MAX_GENERATED_DICE,
   BACKTRACK_MAX_GENERATION_LENGTH,
   BACKTRACK_MAX_GENERATION_OPERATIONS,
@@ -278,7 +277,6 @@ function validateBacktrackRangePlan(params, plan) {
     'workingLength',
     'fftLength',
     'generationOperations',
-    'assetSupportMax',
   ]) {
     if (!Number.isSafeInteger(plan[field])) {
       throw new TypeError(
@@ -318,11 +316,6 @@ function validateBacktrackRangePlan(params, plan) {
       `backtrackRangePlan.generationOperations exceeds the absolute safety limit of ${BACKTRACK_MAX_GENERATION_OPERATIONS}`
     )
   }
-  if (plan.assetSupportMax !== BACKTRACK_ASSET_SUPPORT_MAX) {
-    throw new RangeError(
-      'backtrackRangePlan.assetSupportMax does not match the repository asset boundary'
-    )
-  }
   if (plan.fftLength !== 0) {
     throw new RangeError(
       'backtrackRangePlan.fftLength must be zero for backtrack distributions'
@@ -331,25 +324,10 @@ function validateBacktrackRangePlan(params, plan) {
   if (plan.finiteSupport !== true) {
     throw new RangeError('backtrackRangePlan must describe finite support')
   }
-  if (!['asset', 'on-demand'].includes(plan.distributionMode)) {
+  if (plan.generationMode !== 'on-demand') {
     throw new RangeError(
-      'backtrackRangePlan.distributionMode must be asset or on-demand'
+      'backtrackRangePlan.generationMode must be on-demand'
     )
-  }
-  if (typeof plan.assetOverflow !== 'boolean') {
-    throw new TypeError('backtrackRangePlan.assetOverflow must be boolean')
-  }
-  if (plan.assetOverflowLowerBound !== undefined) {
-    if (!Number.isSafeInteger(plan.assetOverflowLowerBound)) {
-      throw new TypeError(
-        'backtrackRangePlan.assetOverflowLowerBound must be a safe integer'
-      )
-    }
-    if (plan.assetOverflowLowerBound !== BACKTRACK_ASSET_SUPPORT_MAX + 1) {
-      throw new RangeError(
-        'backtrackRangePlan.assetOverflowLowerBound does not match the asset boundary'
-      )
-    }
   }
 
   const normalizedParams = normalizeBacktrackParams(params)
@@ -359,27 +337,11 @@ function validateBacktrackRangePlan(params, plan) {
     normalizedParams.dlois,
     expectedMaxDice
   )
-  const expectedAssetOverflow =
-    expectedRawSupportMax > BACKTRACK_ASSET_SUPPORT_MAX
-  const completeSupportPlan = plan.calculationMode === 'complete-support'
-  if (
-    plan.calculationMode !== undefined
-    && !completeSupportPlan
-  ) {
-    throw new RangeError(
-      'backtrackRangePlan.calculationMode must be complete-support when present'
-    )
-  }
-  const expectedDistributionMode = completeSupportPlan || expectedAssetOverflow
-    ? 'on-demand'
-    : 'asset'
-  const expectedGenerationOperations = expectedDistributionMode === 'on-demand'
-    ? getBacktrackGenerationOperationEstimate(
-        expectedMaxDice,
-        expectedRawSupportMax + 1,
-        getBacktrackRule(normalizedParams.dlois).livingdead
-      )
-    : 0
+  const expectedGenerationOperations = getBacktrackGenerationOperationEstimate(
+    expectedMaxDice,
+    expectedRawSupportMax + 1,
+    getBacktrackRule(normalizedParams.dlois).livingdead
+  )
   if (plan.rawSupportMax !== expectedRawSupportMax) {
     throw new RangeError(
       'backtrackRangePlan.rawSupportMax does not match the rule support'
@@ -390,14 +352,9 @@ function validateBacktrackRangePlan(params, plan) {
       'backtrackRangePlan.maxDice does not match the request'
     )
   }
-  if (plan.assetOverflow !== expectedAssetOverflow) {
+  if (plan.generationMode !== 'on-demand') {
     throw new RangeError(
-      'backtrackRangePlan.assetOverflow does not match the asset boundary'
-    )
-  }
-  if (plan.distributionMode !== expectedDistributionMode) {
-    throw new RangeError(
-      'backtrackRangePlan.distributionMode does not match the asset boundary'
+      'backtrackRangePlan.generationMode must be on-demand'
     )
   }
   if (plan.generationOperations !== expectedGenerationOperations) {
@@ -484,15 +441,9 @@ function getPlannedBacktrackDistributions(
 ) {
   if (!backtrackRangePlan) {
     throw new TypeError(
-      'complete-support backtrack calculation requires a complete range plan'
+      'backtrack calculation requires a range plan'
     )
   }
-  if (backtrackRangePlan.calculationMode !== 'complete-support') {
-    throw new RangeError(
-      'complete-support backtrack calculation requires a complete-support range plan'
-    )
-  }
-
   const normalizedParams = normalizeBacktrackParams(params)
   const planInfo = validateBacktrackRangePlan(
     normalizedParams,
@@ -578,8 +529,8 @@ function createFinalEncroachmentDistributionResult(
  *
  * Each returned DistributionResult is keyed by the actual final encroachment
  * value, not by the intermediate decrease amount used by the legacy
- * category calculator. A complete-support range plan always selects the on-demand
- * generator because the current sparse assets do not prove complete support.
+ * category calculator. The production plan always generates the complete
+ * finite support on demand.
  */
 export function calculateFinalEncroachment(
   params,
@@ -588,7 +539,7 @@ export function calculateFinalEncroachment(
   backtrackRangePlan
 ) {
   // Keep the positional dependency argument for the data-layer adapter. The
-  // Complete-support calculation intentionally does not inspect asset providers.
+  // production calculation intentionally does not inspect asset providers.
   void dependencies
   const normalizedArguments = normalizeBacktrackCalculationArguments(
     runtimeOptions,

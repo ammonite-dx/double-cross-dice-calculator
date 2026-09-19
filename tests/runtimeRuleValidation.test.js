@@ -67,9 +67,14 @@ function fixedScore(value) {
 }
 
 function calculateRuleScore(params, getDxDistribution) {
+  const plan = planCalculationRanges({
+    operation: 'score',
+    score: params,
+  }).scores[0]
   return calculateScore(
     params,
-    { getDxDistribution }
+    { getDxDistribution },
+    plan
   )
 }
 
@@ -363,7 +368,10 @@ describe('runtime score rules', () => {
       expect(shihai).toBe(0)
       expect(dice).toBe(4)
       expect(critical).toBe(10)
-      expect(options).toBeUndefined()
+      expect(options).toEqual(expect.objectContaining({
+        workingLength: expect.any(Number),
+        fftLength: expect.any(Number),
+      }))
       expect(yousei).toBe(2)
       return sparseDistribution([[23, 1]])
     })
@@ -470,7 +478,6 @@ describe('runtime backtrack rules', () => {
 
       const plan = planCalculationRanges({
         operation: 'backtrack',
-        completeSupportBacktrack: true,
         backtrack: params,
       })
       const canonical = calculateFinalEncroachment(

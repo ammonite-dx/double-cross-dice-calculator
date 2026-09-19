@@ -14,7 +14,6 @@ import {
   oneDieTail,
 } from './DxTailModel'
 
-export const DX_DISTRIBUTION_SIZE = 2048
 // The planner's default hard policy is deliberately lower than this direct
 // API safety ceiling. Keep the ceiling explicit so a future planner policy
 // can be changed without making an arbitrary array allocation safe by
@@ -86,19 +85,19 @@ function binomialPmfAt(dice, successes, probability) {
 }
 
 export function normalizeDxOptions(options) {
-  if (options === undefined) {
-    return { workingLength: DX_DISTRIBUTION_SIZE }
-  }
   if (!options || typeof options !== 'object' || Array.isArray(options)) {
     throw new TypeError(
-      'calculateDxDistribution options must be an object when supplied'
+      'calculateDxDistribution options must be an object with an explicit workingLength'
     )
   }
 
   const suppliedLength = options.workingLength
-  const workingLength = suppliedLength === undefined
-    ? DX_DISTRIBUTION_SIZE
-    : suppliedLength
+  const workingLength = suppliedLength
+  if (workingLength === undefined) {
+    throw new TypeError(
+      'calculateDxDistribution options.workingLength is required'
+    )
+  }
   if (!Number.isSafeInteger(workingLength)) {
     throw new TypeError('workingLength must be a safe integer')
   }

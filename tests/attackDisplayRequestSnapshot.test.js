@@ -130,7 +130,6 @@ describe('Attack display request snapshot', () => {
 
   it('creates a frozen calculation policy that expands with the display window', () => {
     const suppliedPolicy = {
-      calculationMax: 100,
       display: { maxPoints: 2 },
       limits: { workingLength: 20 },
     }
@@ -140,21 +139,14 @@ describe('Attack display request snapshot', () => {
       mode: ATTACK_DISPLAY_MODES.PMF,
     }, suppliedPolicy)
 
-    expect(policy.calculationMax).toBe(1200)
-    expect(policy.display).toMatchObject({
-      defaultMin: 10,
-      defaultMax: 1200,
-      maxPoints: 1191,
-    })
+    expect(policy).toEqual(suppliedPolicy)
     expect(policy.limits).toEqual(suppliedPolicy.limits)
     expect(policy).not.toBe(suppliedPolicy)
     expect(Object.isFrozen(policy)).toBe(true)
     expect(Object.isFrozen(policy.display)).toBe(true)
 
-    suppliedPolicy.calculationMax = 9999
     suppliedPolicy.display.maxPoints = 1
-    expect(policy.calculationMax).toBe(1200)
-    expect(policy.display.maxPoints).toBe(1191)
+    expect(policy.display.maxPoints).toBe(2)
   })
 
   it('passes the expanded display boundary through the existing RangePlanner', () => {
@@ -183,11 +175,11 @@ describe('Attack display request snapshot', () => {
       },
       attack: { dice: 0, value: 1, kazanari: 0 },
       defence: { dice: 0, value: 0 },
+      display: { min: 0, max: 1200 },
     }, policy)
 
     expect(plan.display).toMatchObject({ min: 0, max: 1200, points: 1201 })
-    expect(plan.propagation.calculationMax).toBe(1200)
-    expect(plan.damage.workingMax).toBeGreaterThanOrEqual(1200)
+    expect(plan.scores[0].workingMax).toBeGreaterThanOrEqual(1200)
   })
 
   it('composes damage and score display windows without shrinking either range', () => {
@@ -197,7 +189,7 @@ describe('Attack display request snapshot', () => {
         max: 300,
         mode: ATTACK_DISPLAY_MODES.PMF,
       },
-      { calculationMax: 100 },
+      {},
       {
         min: 900,
         max: 1200,
@@ -205,14 +197,7 @@ describe('Attack display request snapshot', () => {
       }
     )
 
-    expect(policy.calculationMax).toBe(1200)
-    expect(policy.display).toMatchObject({
-      defaultMin: 0,
-      defaultMax: 1200,
-      maxPoints: 1201,
-    })
-    expect(policy.calculationMax).toBeGreaterThanOrEqual(300)
-    expect(policy.calculationMax).toBeGreaterThanOrEqual(1200)
+    expect(policy).toEqual({})
     expect(Object.isFrozen(policy)).toBe(true)
     expect(Object.isFrozen(policy.display)).toBe(true)
   })

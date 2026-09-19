@@ -27,6 +27,7 @@ export interface AttackRunnerCalculationRequest {
   readonly entries: readonly AttackExecutionEntry[]
   readonly calculationOptions: AttackCalculationOptions
   readonly signal?: AbortSignal
+  readonly scoreDisplayRequest?: DisplayRequestSnapshot | null
   readonly onRangePlan?: (plan: CalculationRangePlan) => void
   readonly forceAll?: boolean
 }
@@ -49,7 +50,10 @@ export type AttackRunnerRefreshOptions = Omit<
 >
 
 export interface AttackRunnerRunOptions
-  extends Omit<AttackCalculationOptions, 'signal' | 'onRangePlan'> {
+  extends Omit<
+    AttackCalculationOptions,
+    'signal' | 'onRangePlan' | 'scoreDisplayRequest'
+  > {
   readonly signal?: AbortSignal
   readonly onRangePlan?: (plan: CalculationRangePlan) => void
   readonly displayRequest?: DisplayRequestSnapshot | null

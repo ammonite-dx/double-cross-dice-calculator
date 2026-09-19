@@ -99,6 +99,7 @@ describe('CalculationClient integration', () => {
             {},
             displayRequest
           ),
+          scoreDisplayRequest: displayRequest,
           onRangePlan: (plan) => rangePlans.push(plan),
         }
       )
@@ -157,6 +158,7 @@ describe('CalculationClient integration', () => {
             {},
             displayRequest
           ),
+          scoreDisplayRequest: displayRequest,
           onRangePlan: (plan) => rangePlans.push(plan),
         }
       )

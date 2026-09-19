@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url'
 import { performance } from 'node:perf_hooks'
 
 import { rolldown } from 'rolldown'
+import {
+  REFERENCE_WORKING_DISTRIBUTION_SIZE,
+} from '../tooling/reference-data/ReferenceDataConstants.js'
 
 async function loadRuntimeDxModule() {
   const entryPoint = fileURLToPath(
@@ -26,7 +29,6 @@ const {
   calculateDxDistribution,
   DX_CRITICAL_MAX,
   DX_CRITICAL_MIN,
-  DX_DISTRIBUTION_SIZE,
 } = await loadRuntimeDxModule()
 
 // Keep the historical asset comparison matrix explicit. These values are
@@ -39,7 +41,7 @@ const assetDirectory = new URL(
   import.meta.url
 )
 const RUNTIME_OPTIONS = Object.freeze({
-  workingLength: DX_DISTRIBUTION_SIZE,
+  workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE,
 })
 const COMPARISON_TOLERANCE = 1e-6 + 1e-12
 
@@ -85,9 +87,9 @@ function benchmark(label, params, iterations = 10) {
     checksum,
     float64WorkingBytes:
       params.shihai === 0
-        ? DX_DISTRIBUTION_SIZE * Float64Array.BYTES_PER_ELEMENT
+        ? REFERENCE_WORKING_DISTRIBUTION_SIZE * Float64Array.BYTES_PER_ELEMENT
         : (params.dice + 1) *
-          DX_DISTRIBUTION_SIZE *
+          REFERENCE_WORKING_DISTRIBUTION_SIZE *
           Float64Array.BYTES_PER_ELEMENT,
   }
 }
@@ -118,7 +120,11 @@ for (let shihai = 0; shihai <= ASSET_SHIHAI_MAX; shihai += 1) {
       const published = asset.distributions[dice][critical - 2]
       let actualTotal = 0
 
-      for (let value = 0; value < DX_DISTRIBUTION_SIZE; value += 1) {
+      for (
+        let value = 0;
+        value < REFERENCE_WORKING_DISTRIBUTION_SIZE;
+        value += 1
+      ) {
         const probability = actual[value]
         actualTotal += probability
         if (!Number.isFinite(probability)) {
@@ -135,7 +141,7 @@ for (let shihai = 0; shihai <= ASSET_SHIHAI_MAX; shihai += 1) {
           maxAbsoluteDifference = difference
           maxDifferenceContext = { shihai, dice, critical, value }
         }
-        if (value === DX_DISTRIBUTION_SIZE - 1) {
+        if (value === REFERENCE_WORKING_DISTRIBUTION_SIZE - 1) {
           const publishedTail = publishedProbability(published, value)
           if (publishedTail > 0) {
             tailCaseCount += 1

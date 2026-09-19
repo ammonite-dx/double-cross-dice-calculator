@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   generateMixedDamageDistribution,
-  RUNTIME_DAMAGE_DISTRIBUTION_SIZE,
   RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH,
   RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
   validateRuntimeDamageRollInputs,
@@ -139,7 +138,7 @@ describe('production runtime damage roll calculator', () => {
     )
 
     expect(distribution).toBeInstanceOf(Float64Array)
-    expect(distribution).toHaveLength(RUNTIME_DAMAGE_DISTRIBUTION_SIZE)
+    expect(distribution).toHaveLength(11)
     expect(total).toBeCloseTo(0.5, 10)
     expect(Math.min(...distribution)).toBeGreaterThanOrEqual(
       -NUMERICAL_TOLERANCE
@@ -169,7 +168,7 @@ describe('production runtime damage roll calculator', () => {
 
     expect(total).toBeCloseTo(1, 10)
     expect(Math.max(...distribution)).toBeGreaterThan(0)
-    expect(distribution[2047]).toBe(0)
+    expect(distribution.length).toBe(2021)
   })
 
   it('accepts more than the historical 202-dice/9-reroll asset boundary', () => {

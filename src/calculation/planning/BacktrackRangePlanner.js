@@ -1,7 +1,4 @@
-import {
-  BACKTRACK_ASSET_SUPPORT_MAX,
-  getBacktrackGenerationOperationEstimate,
-} from '../BacktrackLimits'
+import { getBacktrackGenerationOperationEstimate } from '../BacktrackLimits'
 import {
   getBacktrackDiceCounts,
   getBacktrackRule,
@@ -10,7 +7,7 @@ import {
 import { normalizeBacktrackParams } from '../../domain/CalculationInputNormalization'
 
 /** Plan the finite support and source buffers for a backtrack calculation. */
-export function planBacktrack(params, display, completeSupport = false) {
+export function planBacktrack(params, display) {
   const normalized = normalizeBacktrackParams(params)
   const rule = getBacktrackRule(normalized.dlois)
   const diceModifier = rule.diceModifier ?? 0
@@ -31,32 +28,17 @@ export function planBacktrack(params, display, completeSupport = false) {
   if (!Number.isSafeInteger(workingLength)) {
     throw new TypeError('backtrack.workingLength must be a safe integer')
   }
-  // schema-v2 backtrack assets are 1024-element arrays. The calculation
-  // maximum is a separate policy boundary and may be lower than the asset
-  // boundary, so it must not be used to classify asset overflow.
-  const assetSupportMax = BACKTRACK_ASSET_SUPPORT_MAX
-  const assetOverflow = rawSupportMax > assetSupportMax
-  const distributionMode = completeSupport || assetOverflow ? 'on-demand' : 'asset'
-  const dynamicSupport = distributionMode === 'on-demand'
-  const generationOperations = dynamicSupport
-    ? getBacktrackGenerationOperationEstimate(
-        maxDice,
-        workingLength,
-        rule.livingdead
-      )
-    : 0
+  const generationOperations = getBacktrackGenerationOperationEstimate(
+    maxDice,
+    workingLength,
+    rule.livingdead
+  )
   const operations = workingLength * 3 + generationOperations
-  const generationFloat64Arrays = dynamicSupport
-    ? rule.livingdead
-      ? 22
-      : 2
-    : 0
+  const generationFloat64Arrays = rule.livingdead ? 22 : 2
   const baseFloat64Bytes = (
     3 + generationFloat64Arrays
   ) * workingLength * Float64Array.BYTES_PER_ELEMENT
-  const resultFloat64Bytes = completeSupport
-    ? 3 * workingLength * Float64Array.BYTES_PER_ELEMENT
-    : 0
+  const resultFloat64Bytes = 3 * workingLength * Float64Array.BYTES_PER_ELEMENT
 
   const plan = {
     params: normalized,
@@ -84,15 +66,9 @@ export function planBacktrack(params, display, completeSupport = false) {
     operations,
     float64Bytes: baseFloat64Bytes + resultFloat64Bytes,
     finiteSupport: true,
-    distributionMode,
-    assetSupportMax,
-    assetOverflow,
-    assetOverflowLowerBound: assetSupportMax + 1,
-  }
-  if (completeSupport) {
-    plan.calculationMode = 'complete-support'
-    plan.baseFloat64Bytes = baseFloat64Bytes
-    plan.resultFloat64Bytes = resultFloat64Bytes
+    generationMode: 'on-demand',
+    baseFloat64Bytes,
+    resultFloat64Bytes,
   }
   return plan
 }

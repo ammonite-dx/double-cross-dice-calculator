@@ -181,6 +181,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         calculationOptions,
         signal,
         onRangePlan,
+        scoreDisplayRequest,
         forceAll,
       }: AttackRunnerCalculationRequest) => executeAttackIncrementally({
         entries,
@@ -189,6 +190,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
         options: {
           ...calculationOptions,
           signal,
+          scoreDisplayRequest: scoreDisplayRequest ?? undefined,
         },
         onRangePlan,
         forceAll,

@@ -12,8 +12,6 @@ export interface RangeErrorBudget {
 }
 
 export interface RangeDisplayPolicy {
-  readonly defaultMin: number
-  readonly defaultMax: number
   readonly maxPoints: number
 }
 
@@ -26,7 +24,6 @@ export interface RangeLimits {
 
 /** Fully merged policy returned by the planner's policy helper. */
 export interface RangePolicy {
-  readonly calculationMax: number
   readonly errorBudget: RangeErrorBudget
   readonly display: RangeDisplayPolicy
   readonly limits: RangeLimits
@@ -34,7 +31,6 @@ export interface RangePolicy {
 
 /** Nested partial accepted by mergePolicy/create*RangePolicy boundaries. */
 export type RangePolicyInput = Readonly<{
-  readonly calculationMax?: number
   readonly errorBudget?: Readonly<Partial<RangeErrorBudget>>
   readonly display?: Readonly<Partial<RangeDisplayPolicy>>
   readonly limits?: Readonly<Partial<RangeLimits>>
@@ -73,8 +69,8 @@ export interface RangePlanEstimates {
 }
 
 export interface ScoreSupportPlan {
-  readonly kind: 'dx-tail'
-  readonly finiteSupport: false
+  readonly kind: 'dx-tail' | 'finite-support'
+  readonly finiteSupport: boolean
   readonly min: number
   readonly max: number
   readonly cutoff: number
@@ -85,11 +81,12 @@ export type ScoreTailModel =
   | 'exact-max'
   | 'conservative-union-bound'
   | 'conservative-max-bound'
+  | 'finite-support'
 
 export interface ScoreTailPlan {
   readonly model: ScoreTailModel
-  readonly kind: 'dx-tail'
-  readonly finiteSupport: false
+  readonly kind: 'dx-tail' | 'finite-support'
+  readonly finiteSupport: boolean
   readonly requested: number
   readonly cutoff: number
   readonly bound: number
@@ -112,7 +109,7 @@ export interface ScoreRangePlan {
   readonly operations: number
   readonly fftOperations: number
   readonly float64Bytes: number
-  readonly finiteSupport: false
+  readonly finiteSupport: boolean
 }
 
 export interface DamageSupportPlan {
@@ -150,7 +147,6 @@ export interface DamageRangePlan {
   readonly defenceD10Float64Bytes: number
   readonly finiteSupport: true
   readonly scoreValueUpperBound: number
-  readonly calculationMax: number
   readonly display: RangeDisplayPlan
 }
 
@@ -166,8 +162,6 @@ export interface BacktrackDiceCounts {
   readonly double: number
   readonly second: number
 }
-
-export type BacktrackDistributionMode = 'asset' | 'on-demand'
 
 export interface BacktrackRangePlan {
   readonly params: BacktrackParams
@@ -186,13 +180,7 @@ export interface BacktrackRangePlan {
   readonly operations: number
   readonly float64Bytes: number
   readonly finiteSupport: true
-  readonly distributionMode: BacktrackDistributionMode
-  readonly assetSupportMax: number
-  readonly assetOverflow: boolean
-  readonly assetOverflowLowerBound: number
-  readonly calculationMode?: 'complete-support'
-  readonly baseFloat64Bytes?: number
-  readonly resultFloat64Bytes?: number
+  readonly generationMode: 'on-demand'
 }
 
 export interface RangeOverflowInfo {
@@ -212,9 +200,6 @@ export interface RangeOverflowInfoSet {
 
 export interface CalculationRangePlanBase {
   readonly accepted: boolean
-  readonly propagation: {
-    readonly calculationMax: number
-  }
   readonly display: RangeDisplayPlan
   readonly estimates: RangePlanEstimates
   readonly errorBudget: {
@@ -284,5 +269,4 @@ export interface RangePlannerParams {
   readonly backtrack?: BacktrackParams
   readonly display?: Partial<Pick<DisplayRequestSnapshot, 'min' | 'max'>>
   readonly comboCount?: number
-  readonly completeSupportBacktrack?: boolean
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { calculateDxDistribution } from '../../src/calculation/DxCalculator'
+import { REFERENCE_WORKING_DISTRIBUTION_SIZE } from '../../tooling/reference-data/ReferenceDataConstants'
 
 const PUBLISHED_QUANTIZATION_TOLERANCE = 1e-6 + 1e-12
 
@@ -35,7 +36,7 @@ describe('published DX reference', () => {
       dice: 20,
       critical: 6,
       shihai: 3,
-    })
+    }, { workingLength: REFERENCE_WORKING_DISTRIBUTION_SIZE })
 
     assertDistribution(distribution)
     for (const value of [3, 4, 10, 11, 20, 31, 60, 2047]) {

@@ -3,10 +3,7 @@ import {
   createBoundedCertifiedValue,
   createExactProbability,
 } from '../domain/CertifiedValue'
-import {
-  WORKING_DISTRIBUTION_SIZE,
-  expandSparseDistribution,
-} from '../core/probability/Distribution'
+import { expandSparseDistribution } from '../core/probability/Distribution'
 import {
   DISTRIBUTION_RESULT_TOLERANCE,
   createDistributionResult,
@@ -64,10 +61,7 @@ function expandDxDistribution(
     return Array.from(distribution)
   }
 
-  const expanded = expandSparseDistribution(
-    distribution,
-    fallbackLength
-  )
+  const expanded = expandSparseDistribution(distribution, fallbackLength)
   if (expectedLength !== undefined && expanded.length !== expectedLength) {
     throw new RangeError(
       `${label} length must equal scoreRangePlan.workingLength`
@@ -119,7 +113,12 @@ function calculateScoreWorking(
     }
   }
 
-  const requestedLength = plan?.workingLength ?? WORKING_DISTRIBUTION_SIZE
+  if (plan === null) {
+    throw new TypeError(
+      'non-fixed score calculation requires a score range plan with an explicit workingLength'
+    )
+  }
+  const requestedLength = plan.workingLength
   const dxOptions = plan
     ? {
         workingLength: requestedLength,

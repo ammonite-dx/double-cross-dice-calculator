@@ -120,7 +120,9 @@ describe('canonical Attack runtime Worker boundary', () => {
     })
     expect(harness.workers[0].messages[0].transfer).toHaveLength(1)
 
-    const distribution = new Float64Array(2048)
+    const distribution = new Float64Array(
+      harness.workers[0].messages[0].message.options.distributionLength
+    )
     distribution[0] = 1
     harness.workers[0].emit('message', {
       data: {

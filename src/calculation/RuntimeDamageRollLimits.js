@@ -1,5 +1,3 @@
-export const RUNTIME_DAMAGE_FFT_SIZE = 4096
-export const RUNTIME_DAMAGE_DISTRIBUTION_SIZE = 2048
 export const RUNTIME_DAMAGE_MIN_FFT_SIZE = 2
 export const RUNTIME_DAMAGE_MAX_FFT_SIZE = 1 << 20
 export const RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE = 2
@@ -50,6 +48,14 @@ function isPowerOfTwo(value) {
   return (value & (value - 1)) === 0
 }
 
+function nextPowerOfTwoAtLeast(value) {
+  let result = 1
+  while (result < value) {
+    result *= 2
+  }
+  return Math.max(RUNTIME_DAMAGE_MIN_FFT_SIZE, result)
+}
+
 export function getRuntimeDamageRollRawSupportMax(weights) {
   for (let damageDice = weights.length - 1; damageDice >= 0; damageDice -= 1) {
     if (weights[damageDice] !== 0) {
@@ -78,8 +84,9 @@ export function normalizeRuntimeDamageRollOptions(
     throw new TypeError('requiredRawSupportMax must be a non-negative safe integer')
   }
 
+  const defaultFftLength = nextPowerOfTwoAtLeast(requiredRawSupportMax + 1)
   const fftLength = options.fftLength === undefined
-    ? RUNTIME_DAMAGE_FFT_SIZE
+    ? Math.min(defaultFftLength, RUNTIME_DAMAGE_MAX_FFT_SIZE)
     : options.fftLength
   if (!Number.isSafeInteger(fftLength)) {
     throw new TypeError('fftLength must be a safe integer')
@@ -99,7 +106,10 @@ export function normalizeRuntimeDamageRollOptions(
   }
 
   const distributionLength = options.distributionLength === undefined
-    ? RUNTIME_DAMAGE_DISTRIBUTION_SIZE
+    ? Math.max(
+        RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE,
+        requiredRawSupportMax + 1
+      )
     : options.distributionLength
   if (!Number.isSafeInteger(distributionLength)) {
     throw new TypeError('distributionLength must be a safe integer')

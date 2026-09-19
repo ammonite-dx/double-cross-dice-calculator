@@ -7,14 +7,16 @@
 - 公開サイトは静的SPAとして維持し、確率計算はブラウザ内のruntimeを正本とする。
 - 旧来の確率JSONは [`tooling/reference-data/assets/`](../tooling/reference-data/assets/) に参照用として保持し、公開成果物へは含めない。
 - `published-bucket` はproductionの計算・表示モードではなく、[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)に置く歴史的比較・互換adapterとして維持する。
-- `RangePlanner`の既定`calculationMax=1022`と`PUBLISHED_OVERFLOW_INDEX=1023`は、今回のR25-Kでは変更しない。これは入力・表示上限ではなく、既存比較と資源計画の境界である。
+- productionの計算範囲に`calculationMax=1022`や`PUBLISHED_OVERFLOW_INDEX=1023`を置かない。これらは`tooling/reference-data/`にある歴史的な比較形式の定数としてのみ保持する。入力・表示範囲は要求されたwindowと数学的supportから計画し、resource guardで安全性を判定する。
+- DXの直接APIは暗黙の既定配列長を持たず、呼び出し側が`workingLength`を明示する。通常のproduction呼び出しでは`ScoreRangePlanner`がtail certificateと要求windowから値を決める。
+- DRのFFT長と出力長は、明示指定がない限り入力の有限supportから動的に導出する。Backtrackは通常D10・Dロイス《屍人》ともon-demand生成し、歴史的assetのcoverage metadataをproduction planへ持ち込まない。
 - 結果契約、資源ガード、latest-wins、Worker境界、数値許容誤差を変更する場合は、先に対応するテストと文書を更新する。
 
 ## 次に行う作業
 
-1. **R12: 計算coreの責務分割**: R25-Kで整理したcanonical result境界を前提に、Score、Damage、Backtrack、結果契約の依存方向を再評価する。
-2. **1022境界の再評価**: 実測した計算量・メモリと利用実態を確認し、`calculationMax`を維持するか、別の資源計画へ置き換えるかを決める。変更時は表示上限と混同しないようにする。
-3. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+1. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+2. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+3. **R2以降の外部API/MCP化の再評価**: 静的SPAとブラウザ内計算を維持したまま、結果契約が安定した段階で別フェーズとして設計する。
 
 ## 保留
 

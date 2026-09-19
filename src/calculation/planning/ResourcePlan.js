@@ -182,19 +182,6 @@ export function applyLimits(plan, policy) {
       BACKTRACK_MAX_GENERATION_OPERATIONS,
       'operations'
     )
-    if (
-      plan.backtrack.assetOverflow &&
-      plan.backtrack.distributionMode !== 'on-demand'
-    ) {
-      addWarning(
-        warnings,
-        'backtrack-asset-overflow',
-        'warning',
-        'the selected static backtrack asset cannot represent the full support; use an on-demand calculator or a larger asset',
-        plan.backtrack.rawSupportMax,
-        plan.backtrack.assetOverflowLowerBound
-      )
-    }
   }
 
   if (plan.damage) {

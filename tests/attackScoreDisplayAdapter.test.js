@@ -210,8 +210,14 @@ function createIncrementalFixtureClient(fixtureClient) {
 
 async function calculateSingleAttackResult(client, id, params, options = {}) {
   const rangePlans = []
+  const scoreDisplayRequest = options.scoreDisplayRequest ?? {
+    min: 0,
+    max: 100,
+    mode: ATTACK_DISPLAY_MODES.PMF,
+  }
   const combo = await client.calculateAttack(params, {
     ...options,
+    scoreDisplayRequest,
     onRangePlan: (plan) => {
       rangePlans.push(plan)
       options.onRangePlan?.(plan)
@@ -247,12 +253,13 @@ function createAttackRunner({
       calculationOptions,
       signal,
       onRangePlan,
+      scoreDisplayRequest,
       forceAll,
     }) => executeAttackIncrementally({
       entries,
       committedRecords: getAttackCalculationRecords(state.combos),
       calculationClient: runtimeClient,
-      options: { ...calculationOptions, signal },
+      options: { ...calculationOptions, signal, scoreDisplayRequest },
       onRangePlan,
       forceAll,
     }),
@@ -352,9 +359,9 @@ describe('Attack canonical score display adapter', () => {
       getTotalDamageStatistics,
       getDamageRollDistribution: vi.fn(),
       getD10Distribution: vi.fn(),
-      planCalculationRanges: vi.fn((_params, policy = {}) => {
-        planningPolicies.push(policy)
-        const calculationMax = policy.calculationMax ?? 1
+      planCalculationRanges: vi.fn((params, policy = {}) => {
+        planningPolicies.push({ params, policy })
+        const calculationMax = params.display?.max ?? 1
         return {
           accepted: true,
           operation: 'attack',
@@ -440,7 +447,7 @@ describe('Attack canonical score display adapter', () => {
     await expect(runner.run({
       displayRequest: damageRequest,
       scoreDisplayRequest: initialScoreRequest,
-      rangePolicy: { calculationMax: 1022 },
+      rangePolicy: {},
     })).resolves.toBe(true)
     expect(state.displayPresentation.score.status).toBe('ready')
 
@@ -448,12 +455,12 @@ describe('Attack canonical score display adapter', () => {
       displayRequest: damageRequest,
       scoreDisplayRequest: expandedScoreRequest,
       scoreOnly: true,
-      calculationOptions: { rangePolicy: { calculationMax: 1025 } },
+        calculationOptions: { rangePolicy: {} },
     })).resolves.toBe(true)
 
-    expect(planningPolicies).toEqual([
-      { calculationMax: 1022 },
-      { calculationMax: 1025 },
+    expect(planningPolicies.map(({ params }) => params.display)).toEqual([
+      { min: 0, max: 1022 },
+      { min: 0, max: 1025 },
     ])
     expect(state.displayPresentation.score.status).toBe('ready')
     expect(state.displayPresentation.score.displayRequest)

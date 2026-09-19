@@ -61,15 +61,15 @@ describe('full-tail Attack resource benchmark contract', () => {
     })
     expect(ATTACK_CASES[7].params.action.score).toMatchObject({
       dice: 99,
-      critical: 2,
-      skill: 999,
+      critical: 11,
+      skill: 5250,
       shihai: 0,
       yousei: 9,
     })
     expect(ATTACK_CASES[8].params.action.score).toMatchObject({
       dice: 99,
-      critical: 2,
-      skill: 999,
+      critical: 11,
+      skill: 3260,
       shihai: 19,
       yousei: 0,
     })
@@ -123,7 +123,7 @@ describe('full-tail Attack resource benchmark contract', () => {
       }, BENCHMARK_RANGE_POLICY)
 
       expect(plan.accepted).toBe(true)
-      expect(plan.propagation).not.toHaveProperty('score')
+      expect(plan).not.toHaveProperty('propagation')
       expect(plan.damage).not.toHaveProperty('scoreValueMode')
       expect(plan.damage.maxDamageDice).toBeGreaterThan(0)
       expect(plan.damage.fftLength).toBeGreaterThan(0)

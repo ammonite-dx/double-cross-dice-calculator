@@ -43,6 +43,8 @@ DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Wor
 
 `ScoreRangePlanner`、`DamageRangePlanner`、`BacktrackRangePlanner`は、requested display window、数学的support、working length、FFT length、CPU work、メモリ見積りを計画します。`ResourceGuard`は計画済みメモリとactive/queued requestを管理します。CPU workと絶対上限の検査は配列確保・FFT・Worker jobの開始前に行い、過大な入力はsilent truncationではなくresource rejectionになります。
 
+productionの計算範囲には、事前計算asset由来の`calculationMax`や1022／1023の固定境界を使用しません。有限supportは数学的最大値まで、無限supportはtail certificateと要求されたdisplay windowを満たす範囲まで計画します。DXの直接APIは`workingLength`を明示し、DRの既定FFT・出力長は入力supportから導出します。1024／2048の参照値は歴史的assetの検証に限って`tooling/reference-data/`から明示的に使用します。
+
 中間配列の末尾へ未計算のtailを黙って集約しません。計算結果は[`result-contract.md`](./result-contract.md)の`DistributionResult`、support、overflow、certificateを保持し、表示層はそれを検査してからprojectionします。
 
 ## 表示と結果契約
@@ -59,7 +61,7 @@ DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Wor
 
 ## published-bucket互換
 
-1024要素のpublished-bucket形式とインデックス1023への集約は、過去データとの比較・互換性を必要とする境界だけに残します。adapterの実装は[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)にあり、productionの`src/`から参照しません。`DistributionResult`のsupport、overflow、要求されたdisplay windowを置き換えるものでも、productionの表示上限でもありません。productionのrange plannerとDamage計算はcanonical full-tailだけを受け付け、`scorePropagation`による旧モード選択は廃止しました。
+1024要素のpublished-bucket形式とインデックス1023への集約は、過去データとの比較・互換性を必要とする境界だけに残します。adapterの実装は[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)にあり、productionの`src/`から参照しません。`DistributionResult`のsupport、overflow、要求されたdisplay windowを置き換えるものでも、productionの表示上限でもありません。productionのrange plannerとDamage計算はcanonical full-tailだけを受け付け、`scorePropagation`による旧モード選択は廃止しました。Backtrackは歴史的assetのcoverageによらず常にon-demandで生成します。
 
 ## 検証
 

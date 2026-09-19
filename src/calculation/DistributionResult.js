@@ -17,8 +17,6 @@ export const DISTRIBUTION_RESULT_VERSION = 1
 export const DISTRIBUTION_RESULT_TOLERANCE = 1e-8
 export const PROBABILITY_TOLERANCE = DISTRIBUTION_RESULT_TOLERANCE
 
-export const PUBLISHED_OVERFLOW_INDEX = 1023
-
 export const DISTRIBUTION_RESULT_ERROR_CODES = Object.freeze({
   INVALID_INPUT: 'invalid-input',
   INVALID_SCHEMA: 'invalid-schema',
@@ -77,14 +75,6 @@ export class DistributionResultValidationError extends DistributionResultError {
   }
 }
 
-export class DistributionResultAdapterError extends DistributionResultError {
-  constructor(code, message, details = {}) {
-    super(code, message, details)
-    this.name = 'DistributionResultAdapterError'
-    this.adapter = true
-  }
-}
-
 export function isDistributionResultError(error) {
   return error?.distributionResultError === true
     && typeof error.code === 'string'
@@ -94,16 +84,8 @@ export function isDistributionResultValidationError(error) {
   return isDistributionResultError(error) && error.validation === true
 }
 
-export function isDistributionResultAdapterError(error) {
-  return isDistributionResultError(error) && error.adapter === true
-}
-
 function failValidation(code, message, details = {}) {
   throw new DistributionResultValidationError(code, message, details)
-}
-
-function failAdapter(code, message, details = {}) {
-  throw new DistributionResultAdapterError(code, message, details)
 }
 
 function validateProbability(value, field, index) {
@@ -621,7 +603,7 @@ function validateTotalDamageEnvelope(totalDamage) {
     || !isRecord(totalDamage.metadata)
     || totalDamage.metadata.modeledDistribution !== true
   ) {
-    failAdapter(
+    failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
       'total damage summary expects a modeled result envelope'
     )
@@ -633,7 +615,7 @@ function validateTotalDamageEnvelope(totalDamage) {
     const lowerBound = totalDamage.metadata
       .overflowProbabilityLowerBound
     if (!Number.isFinite(lowerBound) || lowerBound < 0 || lowerBound > 1) {
-      failAdapter(
+      failValidation(
         DISTRIBUTION_RESULT_ERROR_CODES.INVALID_LOWER_BOUND,
         'total damage metadata.overflowProbabilityLowerBound must be a probability',
         { overflowProbabilityLowerBound: lowerBound }
@@ -643,7 +625,7 @@ function validateTotalDamageEnvelope(totalDamage) {
       lowerBound
       > overflow.probabilityUpperBound + DISTRIBUTION_RESULT_TOLERANCE
     ) {
-      failAdapter(
+      failValidation(
         DISTRIBUTION_RESULT_ERROR_CODES.UPPER_BOUND_TOO_SMALL,
         'total damage overflow probability lower bound exceeds its upper bound',
         {
@@ -698,7 +680,7 @@ export function getTotalDamageStatistics(totalDamage) {
     + overflowProbabilityLowerBound * inspected.overflow.lowerBound
 
   if (!Number.isFinite(lowerExpectedValue)) {
-    failAdapter(
+    failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
       'total damage expected-value lower bound is not finite',
       { lowerExpectedValue }
@@ -712,7 +694,7 @@ export function getTotalDamageStatistics(totalDamage) {
     const upperExpectedValue = explicitFirstMoment
       + inspected.overflow.probabilityUpperBound * inspected.support.max
     if (!Number.isFinite(upperExpectedValue)) {
-      failAdapter(
+      failValidation(
         DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
         'total damage expected-value upper bound is not finite',
         { upperExpectedValue }

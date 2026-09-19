@@ -1,8 +1,8 @@
+import { expandSparseDistribution } from '../../src/core/probability/Distribution'
 import {
-  OUTPUT_DISTRIBUTION_SIZE,
-  WORKING_DISTRIBUTION_SIZE,
-  expandSparseDistribution,
-} from '../../src/core/probability/Distribution'
+  REFERENCE_OUTPUT_DISTRIBUTION_SIZE,
+  REFERENCE_WORKING_DISTRIBUTION_SIZE,
+} from './ReferenceDataConstants'
 import { getDatasetSupportMax } from '../../src/domain/BacktrackRules'
 import {
   PRECOMPUTED_DATA_REVISION,
@@ -26,7 +26,7 @@ function validateDxAsset(asset, expectedShihai) {
   assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
   assert(asset?.dataset === 'dx', 'dataset must be dx')
   assert(
-    asset?.distributionSize === WORKING_DISTRIBUTION_SIZE,
+    asset?.distributionSize === REFERENCE_WORKING_DISTRIBUTION_SIZE,
     'distribution size mismatch'
   )
   assert(asset?.shard?.shihai === expectedShihai, 'shihai shard mismatch')
@@ -135,7 +135,7 @@ function validateLivingdeadAsset(asset) {
   assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
   assert(asset?.dataset === 'livingdead', 'dataset must be livingdead')
   assert(
-    asset?.distributionSize === OUTPUT_DISTRIBUTION_SIZE,
+    asset?.distributionSize === REFERENCE_OUTPUT_DISTRIBUTION_SIZE,
     'distribution size mismatch'
   )
   assert(
@@ -168,7 +168,7 @@ export function registerLivingdeadAsset(asset) {
 
 export function getLivingdeadDistribution(
   dice,
-  size = OUTPUT_DISTRIBUTION_SIZE
+  size = REFERENCE_OUTPUT_DISTRIBUTION_SIZE
 ) {
   if (!livingdeadAsset) {
     throw new Error('livingdead data has not been loaded')
@@ -223,7 +223,7 @@ function validateDrAsset(asset, expectedKazanari) {
   assert(asset?.dataRevision === PRECOMPUTED_DATA_REVISION, 'revision mismatch')
   assert(asset?.dataset === 'dr', 'dataset must be dr')
   assert(
-    asset?.distributionSize === WORKING_DISTRIBUTION_SIZE,
+    asset?.distributionSize === REFERENCE_WORKING_DISTRIBUTION_SIZE,
     'distribution size mismatch'
   )
   assert(asset?.shard?.kazanari === expectedKazanari, 'kazanari shard mismatch')

@@ -45,7 +45,9 @@ export interface CheckCalculationOptions
 }
 
 export interface AttackCalculationOptions
-  extends PlannedCalculationOptions<AttackCalculationRangePlan> {}
+  extends PlannedCalculationOptions<AttackCalculationRangePlan> {
+  readonly scoreDisplayRequest?: DisplayRequestSnapshot
+}
 
 export interface BacktrackCalculationOptions
   extends PlannedCalculationOptions<BacktrackCalculationRangePlan> {}

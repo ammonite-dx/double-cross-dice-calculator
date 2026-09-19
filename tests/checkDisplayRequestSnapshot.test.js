@@ -9,7 +9,6 @@ import {
   createCalculationFeedbackState,
   createLatestCalculationRunner,
 } from '../src/runtime/CalculationFeedback'
-import { PUBLISHED_OVERFLOW_INDEX } from '../src/calculation/DistributionResult'
 import { planDisplayWindowResources } from '../src/shared/presentation'
 
 function createInput() {
@@ -66,7 +65,6 @@ describe('Check display request snapshot', () => {
   it('deep-copies input, display request, and range policy for calculation', () => {
     const input = createInput()
     const policy = {
-      calculationMax: 0,
       display: { maxPoints: 3 },
       limits: { workingLength: 4096 },
     }
@@ -80,10 +78,10 @@ describe('Check display request snapshot', () => {
       rangePolicy: policy,
     })
 
-    expect(request.rangePolicy.calculationMax).toBe(1200)
-    expect(request.rangePolicy.display.maxPoints).toBe(1201)
-    expect(request.rangePolicy.calculationMax)
-      .toBeGreaterThanOrEqual(PUBLISHED_OVERFLOW_INDEX - 1)
+    expect(request.rangePolicy).toEqual({
+      display: { maxPoints: 3 },
+      limits: { workingLength: 4096 },
+    })
     expect(Object.isFrozen(request)).toBe(true)
     expect(Object.isFrozen(request.params.action)).toBe(true)
     expect(Object.isFrozen(request.difficulty)).toBe(true)
@@ -147,12 +145,12 @@ describe('Check display request latest-wins boundary', () => {
     const queuedDraft = {
       ...createInput(),
       displayRequest: { min: 0, max: 1200, mode: CHECK_DISPLAY_MODES.UPPER_TAIL },
-      rangePolicy: { calculationMax: 0 },
+      rangePolicy: { display: { maxPoints: 2000 } },
     }
     const firstRun = runner.run(firstRequest)
     const secondRun = runner.run(queuedDraft)
     queuedDraft.displayRequest.max = 1
-    queuedDraft.rangePolicy.calculationMax = 1
+    queuedDraft.rangePolicy.display.maxPoints = 1
     resolveFirst('stale')
 
     await expect(firstRun).resolves.toBe(false)
@@ -162,7 +160,7 @@ describe('Check display request latest-wins boundary', () => {
       max: 1200,
       mode: CHECK_DISPLAY_MODES.UPPER_TAIL,
     })
-    expect(received[1].rangePolicy.calculationMax).toBe(1200)
+    expect(received[1].rangePolicy.display.maxPoints).toBe(2000)
     expect(committed).toEqual(['latest'])
   })
 })

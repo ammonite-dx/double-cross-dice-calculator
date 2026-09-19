@@ -1,30 +1,23 @@
-import { PUBLISHED_OVERFLOW_INDEX } from '../DistributionResult'
 import {
-  nonNegativeInteger,
   nonNegativeNumber,
+  nonNegativeInteger,
   object,
   probability,
   DEFAULT_MAX_CPU_WORK,
 } from './PlanningMath'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
-const LEGACY_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
 
 /**
  * The default propagates the complete canonical score tail. Resource
  * thresholds are provisional policy inputs, not UI input limits.
  */
 export const DEFAULT_POLICY = {
-  calculationMax: LEGACY_CALCULATION_MAX,
   errorBudget: {
     total: DEFAULT_ERROR_BUDGET,
     scoreTail: 8e-9,
   },
   display: {
-    defaultMin: 0,
-    defaultMax: 999,
-    // The display range is no longer tied to the old 0..999 chart. Typed
-    // arrays and the resource policy below provide the practical bound.
     maxPoints: Number.MAX_SAFE_INTEGER,
   },
   limits: {
@@ -94,7 +87,21 @@ export function mergePolicy(policy) {
       'policy.scorePropagation is no longer supported; production uses canonical full-tail propagation'
     )
   }
-  nonNegativeInteger(merged.calculationMax, 'policy.calculationMax')
+  if (Object.prototype.hasOwnProperty.call(supplied, 'calculationMax')) {
+    throw new RangeError(
+      'policy.calculationMax is no longer supported; use explicit display coverage and the tail budget'
+    )
+  }
+  for (const legacyDisplayKey of ['defaultMin', 'defaultMax']) {
+    if (
+      supplied.display !== undefined
+      && Object.prototype.hasOwnProperty.call(supplied.display, legacyDisplayKey)
+    ) {
+      throw new RangeError(
+        `policy.display.${legacyDisplayKey} is no longer supported; pass a display request to the planner`
+      )
+    }
+  }
 
   probability(merged.errorBudget.total, 'policy.errorBudget.total')
   probability(merged.errorBudget.scoreTail, 'policy.errorBudget.scoreTail')
@@ -104,14 +111,7 @@ export function mergePolicy(policy) {
     )
   }
 
-  nonNegativeInteger(merged.display.defaultMin, 'policy.display.defaultMin')
-  nonNegativeInteger(merged.display.defaultMax, 'policy.display.defaultMax')
   nonNegativeInteger(merged.display.maxPoints, 'policy.display.maxPoints')
-  if (merged.display.defaultMax < merged.display.defaultMin) {
-    throw new RangeError(
-      'policy.display.defaultMax must be greater than or equal to defaultMin'
-    )
-  }
 
   nonNegativeNumber(merged.limits.maxCpuWork, 'policy.limits.maxCpuWork')
   nonNegativeNumber(
@@ -124,11 +124,11 @@ export function mergePolicy(policy) {
   return merged
 }
 
-export function normalizeDisplay(display, policy) {
+export function normalizeDisplay(display) {
   const supplied = display ?? {}
   object(supplied, 'display')
-  const min = supplied.min ?? policy.display.defaultMin
-  const max = supplied.max ?? policy.display.defaultMax
+  const min = supplied.min ?? 0
+  const max = supplied.max ?? min
   nonNegativeInteger(min, 'display.min')
   nonNegativeInteger(max, 'display.max')
   if (max < min) {

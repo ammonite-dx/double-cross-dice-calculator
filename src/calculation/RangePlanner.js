@@ -41,18 +41,26 @@ export { DEFAULT_POLICY }
  */
 function makeOverflowInfo(plan) {
   const score = plan.scores.length > 0
-    ? {
-        type: 'dx-tail',
-        finiteSupport: false,
-        lowerBound: plan.scores.length === 1
-          ? plan.scores[0].workingMax + 1
-          : null,
-        bound: plan.scores.reduce(
-          (sum, item) => sum + item.tail.bound,
-          0
-        ),
-        meaning: 'DX values above each modeled range are represented by tail certificates; for multiple scores, bound is the sum and lowerBound is null because each score has its own boundary',
-      }
+    ? plan.scores.every((item) => item.finiteSupport)
+      ? {
+          type: 'finite-support',
+          finiteSupport: true,
+          lowerBound: null,
+          bound: 0,
+          meaning: 'score values have finite mathematical support',
+        }
+      : {
+          type: 'dx-tail',
+          finiteSupport: false,
+          lowerBound: plan.scores.length === 1
+            ? plan.scores[0].workingMax + 1
+            : null,
+          bound: plan.scores.reduce(
+            (sum, item) => sum + item.tail.bound,
+            0
+          ),
+          meaning: 'DX values above each modeled range are represented by tail certificates; for multiple scores, bound is the sum and lowerBound is null because each score has its own boundary',
+        }
     : null
   const damage = plan.damage
     ? {
@@ -72,19 +80,11 @@ function makeOverflowInfo(plan) {
   }
   const backtrack = plan.backtrack
     ? {
-        type: plan.backtrack.assetOverflow &&
-            plan.backtrack.distributionMode !== 'on-demand'
-          ? 'asset'
-          : 'finite-support',
+        type: 'finite-support',
         finiteSupport: true,
-        lowerBound: plan.backtrack.assetOverflow &&
-            plan.backtrack.distributionMode !== 'on-demand'
-          ? plan.backtrack.assetOverflowLowerBound
-          : null,
+        lowerBound: null,
         bound: null,
-        meaning: plan.backtrack.distributionMode === 'on-demand'
-          ? 'backtrack values have finite support and this plan generates the complete support on demand; assetOverflow only describes static asset coverage'
-          : 'backtrack values have finite support within the selected asset',
+        meaning: 'backtrack values have finite support and this plan generates the complete support on demand',
       }
     : null
 
@@ -122,11 +122,7 @@ export function planCalculationRanges(params, policy = {}) {
   let tailBudget = 0
 
   if (operation === 'backtrack') {
-    backtrack = planBacktrack(
-      params.backtrack ?? params,
-      display,
-      params.completeSupportBacktrack === true
-    )
+    backtrack = planBacktrack(params.backtrack ?? params, display)
   } else {
     const scoreParams = operation === 'score'
       ? [params.score ?? params]
@@ -140,14 +136,13 @@ export function planCalculationRanges(params, policy = {}) {
     }
     tailBudget = effectivePolicy.errorBudget.scoreTail / scoreParams.length
     scores = scoreParams.map((score) =>
-      planScore(score, display, effectivePolicy, tailBudget)
+      planScore(score, display, tailBudget)
     )
 
     if (operation === 'attack') {
       damage = planDamage(
         params,
         display,
-        effectivePolicy,
         getScoreValueUpperBound(scores)
       )
     }
@@ -162,9 +157,6 @@ export function planCalculationRanges(params, policy = {}) {
   const result = {
     accepted: true,
     operation,
-    propagation: {
-      calculationMax: effectivePolicy.calculationMax,
-    },
     display,
     scores,
     damage,
@@ -185,7 +177,7 @@ export function planCalculationRanges(params, policy = {}) {
       score: 'values above the modeled cutoff are omitted only within tail error budget',
       damage: 'finite modeled values above display.max are an explicit display overflow bucket',
       totalDamage: 'once a value is aggregated above display.max, later operations must not subtract from it',
-      backtrack: 'backtrack values have finite support; on-demand plans generate the complete support, while static asset coverage is reported separately',
+      backtrack: 'backtrack values have finite support; this plan generates the complete support on demand',
     },
     overflowInfo: null,
     warnings: [],

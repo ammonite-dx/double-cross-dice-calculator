@@ -1,7 +1,4 @@
 import {
-  PUBLISHED_OVERFLOW_INDEX,
-} from '../../../calculation/DistributionResult'
-import {
   getDisplayRangePointCount,
   isDisplayMode,
   isDisplayCoordinate,
@@ -31,8 +28,6 @@ export const DEFAULT_ATTACK_DISPLAY_REQUEST = Object.freeze({
   max: 100,
   mode: ATTACK_DISPLAY_MODES.PMF,
 })
-
-const LEGACY_SAFE_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -193,13 +188,9 @@ export function createAttackDisplayRequestSnapshot(
 }
 
 /**
- * Expand the calculation range policy only when an Attack display request
- * needs coverage beyond the published calculation boundary. When a score
- * request is supplied, the policy covers the envelope of both display
- * requests so a score-only expansion cannot shrink the current damage
- * coverage (and vice versa). The independent DisplayRangePlanner remains
- * responsible for display resource rejection; this policy only carries the
- * accepted requests into RangePlanner.
+ * Validate and snapshot the policy boundary for an Attack request. Display
+ * requests are validated here for ownership, but their calculation coverage
+ * is passed separately to the planner by the CalculationClient.
  */
 /**
  * @param {DisplayRequestSnapshot} displayRequest
@@ -212,7 +203,7 @@ export function createAttackRangePolicy(
   suppliedPolicy = {},
   scoreDisplayRequest
 ) {
-  const display = createAttackDisplayRequestSnapshot(displayRequest)
+  createAttackDisplayRequestSnapshot(displayRequest)
   if (!isRecord(suppliedPolicy)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
@@ -221,40 +212,11 @@ export function createAttackRangePolicy(
     )
   }
 
-  // Keep the optional second display request out of the RangePlanner policy
-  // itself. Accepting it as a third argument keeps the existing
-  // createAttackRangePolicy(request, policy) contract intact while allowing
-  // callers to compose the damage and score request snapshots explicitly.
-  let policyInput = suppliedPolicy
-  let composedScoreDisplayRequest = scoreDisplayRequest
-  if (
-    composedScoreDisplayRequest === undefined
-    && Object.prototype.hasOwnProperty.call(
-      suppliedPolicy,
-      'scoreDisplayRequest'
-    )
-  ) {
-    composedScoreDisplayRequest = suppliedPolicy.scoreDisplayRequest
-    policyInput = {}
-    for (const [key, value] of Object.entries(suppliedPolicy)) {
-      if (key !== 'scoreDisplayRequest') {
-        policyInput[key] = value
-      }
-    }
+  if (scoreDisplayRequest !== undefined && scoreDisplayRequest !== null) {
+    createAttackDisplayRequestSnapshot(scoreDisplayRequest)
   }
 
-  const policy = clonePolicyValue(policyInput)
-  const score = composedScoreDisplayRequest === undefined
-    ? null
-    : composedScoreDisplayRequest === null
-      ? null
-      : createAttackDisplayRequestSnapshot(composedScoreDisplayRequest)
-  const requests = score === null ? [display] : [display, score]
-  const suppliedCalculationMax = policy.calculationMax
-  validateOptionalPolicyInteger(
-    suppliedCalculationMax,
-    'rangePolicy.calculationMax'
-  )
+  const policy = clonePolicyValue(suppliedPolicy)
   const suppliedDisplay = policy.display ?? {}
   if (!isRecord(suppliedDisplay)) {
     fail(
@@ -267,45 +229,16 @@ export function createAttackRangePolicy(
     suppliedDisplay.maxPoints,
     'rangePolicy.display.maxPoints'
   )
-
-  const suppliedDefaultMin = score !== null
-    && Number.isSafeInteger(suppliedDisplay.defaultMin)
-    && suppliedDisplay.defaultMin >= 0
-    ? suppliedDisplay.defaultMin
-    : null
-  const suppliedDefaultMax = score !== null
-    && Number.isSafeInteger(suppliedDisplay.defaultMax)
-    && suppliedDisplay.defaultMax >= 0
-    ? suppliedDisplay.defaultMax
-    : null
-  const defaultMin = Math.min(
-    ...requests.map((request) => request.min),
-    ...(suppliedDefaultMin === null ? [] : [suppliedDefaultMin])
-  )
-  const defaultMax = Math.max(
-    ...requests.map((request) => request.max),
-    ...(suppliedDefaultMax === null ? [] : [suppliedDefaultMax])
-  )
-  const pointCount = getDisplayRangePointCount(defaultMin, defaultMax)
-  if (pointCount === null) {
+  if (
+    Object.prototype.hasOwnProperty.call(policy, 'calculationMax')
+    || Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMin')
+    || Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMax')
+  ) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
-      'rangePolicy.display point count must be a safe integer',
-      { path: 'rangePolicy.display', defaultMin, defaultMax }
+      'legacy calculation/display coverage fields are no longer supported; pass score display coverage as a planner request',
+      { path: 'rangePolicy' }
     )
-  }
-  policy.calculationMax = Math.max(
-    suppliedCalculationMax ?? LEGACY_SAFE_CALCULATION_MAX,
-    defaultMax,
-    LEGACY_SAFE_CALCULATION_MAX
-  )
-  policy.display = {
-    ...suppliedDisplay,
-    defaultMin,
-    defaultMax,
-    // RangePlanner's display guard is not a second UI input limit. The
-    // independent DisplayRangePlanner has already checked this window.
-    maxPoints: Math.max(suppliedDisplay.maxPoints ?? 0, pointCount),
   }
   return deepFreeze(policy)
 }

@@ -13,7 +13,12 @@ import {
   subtractSafe,
   fftOperationCount,
 } from './PlanningMath'
-import { getScoreOutputBufferLength } from '../ScoreSupport'
+import {
+  getFiniteRawSupportMax,
+  getScoreOutputBufferLength,
+  getScoreOutputMax,
+  getScoreSupport,
+} from '../ScoreSupport'
 
 function scoreOperationCount(plan) {
   const dice = plan.params.dice
@@ -47,21 +52,29 @@ export function normalizeScore(params, name = 'score') {
 }
 
 /** Plan the score distribution and its DX tail certificate. */
-export function planScore(params, display, policy, tailBudget) {
+export function planScore(params, display, tailBudget) {
   const normalized = normalizeScore(params)
-  const cutoffResult = findTailCutoff(normalized, tailBudget)
-  const calculationSourceMax = Math.max(display.max, policy.calculationMax)
+  const support = getScoreSupport(normalized)
+  const finiteRawSupportMax = getFiniteRawSupportMax(normalized)
+  const finiteSupport = support.kind === 'finite'
+  const cutoffResult = finiteSupport
+    ? { reachable: true, cutoff: finiteRawSupportMax, bound: 0 }
+    : findTailCutoff(normalized, tailBudget)
   const displaySourceMax = subtractSafe(
-    calculationSourceMax,
+    display.max,
     normalized.skill,
     'score display range'
   )
-  const workingMax = Math.max(
-    cutoffResult.cutoff,
-    displaySourceMax,
-    0
-  )
-  const tailBound = scoreTailBound(workingMax, normalized)
+  const workingMax = finiteSupport
+    ? finiteRawSupportMax
+    : Math.max(
+        cutoffResult.cutoff,
+        displaySourceMax,
+        0
+      )
+  const tailBound = finiteSupport
+    ? 0
+    : scoreTailBound(workingMax, normalized)
   const oneDieCutoff = normalized.yousei > 0
     ? findTailCutoff(
         {
@@ -80,13 +93,9 @@ export function planScore(params, display, policy, tailBudget) {
     normalized,
     workingMax
   )
-  // `outputMax` remains the score propagation boundary used by the damage
-  // planner. The separate buffer length follows the producer's actual dense
-  // allocation, which can be much smaller for finite-support score paths.
-  const outputMax = Math.max(
-    0,
-    addSafe(workingMax, normalized.skill, 'score output range')
-  )
+  // Finite scores propagate their mathematical support. Infinite scores use
+  // the modeled cutoff plus the fixed skill shift.
+  const outputMax = getScoreOutputMax(normalized, workingMax)
   // The DX calculator convolves truncated critical-block arrays. The FFT
   // length therefore depends on the explicit block coverage, not on the
   // full score working array and not on the number of Yousei uses.
@@ -144,7 +153,9 @@ export function planScore(params, display, policy, tailBudget) {
     Float64Array.BYTES_PER_ELEMENT,
     'score array size'
   )
-  const tailModel = normalized.yousei > 0
+  const tailModel = finiteSupport
+    ? 'finite-support'
+    : normalized.yousei > 0
     ? normalized.shihai === 0
       ? 'exact-yousei'
       : 'conservative-union-bound'
@@ -155,21 +166,23 @@ export function planScore(params, display, policy, tailBudget) {
   const tail = {
     model: tailModel,
     kind: 'dx-tail',
-    finiteSupport: false,
+    finiteSupport,
     requested: tailBudget,
     cutoff: cutoffResult.cutoff,
     bound: tailBound,
     reachable: cutoffResult.reachable,
     modeledMax: workingMax,
-    meaning: 'Probability of a score above the modeled cutoff before fixed skill shift',
+    meaning: finiteSupport
+      ? 'The score has finite mathematical support; no tail is omitted'
+      : 'Probability of a score above the modeled cutoff before fixed skill shift',
   }
 
   return {
     params: normalized,
     display,
     support: {
-      kind: 'dx-tail',
-      finiteSupport: false,
+      kind: finiteSupport ? 'finite-support' : 'dx-tail',
+      finiteSupport,
       min: 0,
       max: workingMax,
       cutoff: cutoffResult.cutoff,
@@ -184,7 +197,7 @@ export function planScore(params, display, policy, tailBudget) {
     operations,
     fftOperations,
     float64Bytes,
-    finiteSupport: false,
+    finiteSupport,
   }
 }
 

@@ -65,10 +65,31 @@ function createScoreStatistics() {
 }
 
 function getScorePlan(params, policy) {
+  const legacyDisplayMax = policy?.calculationMax
+    ?? policy?.display?.defaultMax
+    ?? 0
+  const plannerPolicy = policy && {
+    ...policy,
+    display: policy.display && {
+      ...policy.display,
+      maxPoints: undefined,
+      defaultMin: undefined,
+      defaultMax: undefined,
+    },
+  }
+  if (plannerPolicy?.display) {
+    delete plannerPolicy.display.defaultMin
+    delete plannerPolicy.display.defaultMax
+    delete plannerPolicy.display.maxPoints
+  }
+  if (plannerPolicy) {
+    delete plannerPolicy.calculationMax
+  }
   return planCalculationRanges({
     operation: 'score',
     score: params,
-  }, policy).scores[0]
+    display: { min: 0, max: legacyDisplayMax },
+  }, plannerPolicy).scores[0]
 }
 
 function getDxDistribution(shihai, dice, critical, options, yousei = 0) {
@@ -402,12 +423,9 @@ describe('canonical normal check score producer', () => {
       critical: 11,
       skill: -3,
     })
-    const { plan, result } = calculate(params, {
-      calculationMax: 0,
-      display: { defaultMax: 0 },
-    })
+    const { plan, result } = calculate(params)
 
-    expect(plan.finiteSupport).toBe(false)
+    expect(plan.finiteSupport).toBe(true)
     expect(result.support).toEqual({ kind: 'finite', max: 7 })
     expect(result.values).toHaveLength(8)
     expect(result.overflow).toBeNull()
@@ -436,10 +454,7 @@ describe('canonical normal check score producer', () => {
     scoreParams({ dice: 0, critical: 2, skill: -9, yousei: 4 }),
     scoreParams({ dice: 1, critical: 2, skill: 7, shihai: 2 }),
   ])('represents a proven zero-score finite support for %o', (params) => {
-    const { result } = calculate(params, {
-      calculationMax: 0,
-      display: { defaultMax: 0 },
-    })
+    const { result } = calculate(params)
 
     expect(result.offset).toBe(0)
     expect(result.values).toEqual(new Float64Array([1]))
@@ -530,7 +545,7 @@ describe('CalculationClient canonical normal check API', () => {
     const options = {
       signal,
       requestId: 'canonical-check-1',
-      rangePolicy: { calculationMax: 12 },
+      rangePolicy: {},
       onRangePlan,
     }
     const params = checkParams()

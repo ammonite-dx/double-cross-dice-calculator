@@ -848,7 +848,7 @@ function createReport(cases, cancel, stale) {
     policies: {
       production: 'CalculationClient.planAttackCombo(params) default policy',
       benchmark: clone(FULL_TAIL_ATTACK_BENCHMARK_POLICY),
-      benchmarkScope: 'RangePlanner resource limits and scorePropagation only; calculationMax/display and runtime absolute caps remain default',
+      benchmarkScope: 'RangePlanner resource limits and score propagation only; dynamic display coverage and runtime absolute caps remain default',
     },
     caseIds: FULL_TAIL_ATTACK_CASE_IDS.slice(),
     caseCounts,

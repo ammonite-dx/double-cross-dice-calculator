@@ -105,7 +105,7 @@ export function summarizePlan(plan) {
       : {
           workingLength: plan.backtrack.workingLength ?? null,
           rawSupportMax: plan.backtrack.rawSupportMax ?? null,
-          distributionMode: plan.backtrack.distributionMode ?? null,
+          generationMode: plan.backtrack.generationMode ?? null,
         },
   }
 }
@@ -180,11 +180,10 @@ export function getFixturePlan(modules, fixture) {
     )
   }
   if (fixture.operation === 'backtrack') {
-    return modules.planCalculationRanges({
-      operation: 'backtrack',
-      backtrack: fixture.params,
-      completeSupportBacktrack: true,
-    })
+      return modules.planCalculationRanges({
+        operation: 'backtrack',
+        backtrack: fixture.params,
+      })
   }
   if (fixture.operation === 'range') {
     return modules.planCalculationRanges(fixture.params, fixture.policy)

@@ -18,8 +18,8 @@ const PERMISSIVE_RESOURCE_LIMIT = Number.MAX_SAFE_INTEGER
 export const PRODUCTION_RANGE_POLICY = Object.freeze({})
 
 // Benchmark-only policy: only RangePlanner resource limits are widened. The
-// planner's calculationMax and display policy remain unchanged, while
-// downstream runtime and aggregation absolute safety ceilings remain in force.
+// planner's display coverage is supplied by each request, while downstream
+// runtime and aggregation absolute safety ceilings remain in force.
 export const BENCHMARK_RANGE_POLICY = Object.freeze({
   limits: Object.freeze({
     maxCpuWork: PERMISSIVE_RESOURCE_LIMIT,
@@ -95,40 +95,40 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-202d-critical11-skill0-attack99',
-    label: 'full-tail Attack 202D from 99D critical=11 skill=0 attackDice=99',
+    label: 'full-tail Attack 202D from 99D critical=11 skill=1010 attackDice=99',
     kind: 'attack',
     params: createAttackParams({
-      score: { critical: 11, skill: 0 },
+      score: { critical: 11, skill: 1010 },
       attackDice: 99,
       kazanari: 0,
     }),
   }),
   Object.freeze({
     id: 'attack-300d-critical11-skill999-attack197',
-    label: 'full-tail Attack 300D from 99D critical=11 skill=+999 attackDice=197',
+    label: 'full-tail Attack 300D from 99D critical=11 skill=+1010 attackDice=197',
     kind: 'attack',
     params: createAttackParams({
-      score: { critical: 11, skill: 999 },
+      score: { critical: 11, skill: 1010 },
       attackDice: 197,
       kazanari: 0,
     }),
   }),
   Object.freeze({
     id: 'attack-400d-critical2-skill999-attack72',
-    label: 'full-tail Attack 400D from 99D critical=2 skill=+999 attackDice=72',
+    label: 'full-tail Attack 400D from 99D critical=11 skill=+3270 attackDice=72',
     kind: 'attack',
     params: createAttackParams({
-      score: { skill: 999 },
+      score: { critical: 11, skill: 3260 },
       attackDice: 72,
       kazanari: 0,
     }),
   }),
   Object.freeze({
     id: 'attack-600d-critical2-skill999-attack272',
-    label: 'full-tail Attack 600D from 99D critical=2 skill=+999 attackDice=272',
+    label: 'full-tail Attack 600D from 99D critical=11 skill=+3270 attackDice=272',
     kind: 'attack',
     params: createAttackParams({
-      score: { skill: 999 },
+      score: { critical: 11, skill: 3260 },
       attackDice: 272,
       kazanari: 0,
     }),
@@ -153,19 +153,19 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-99d-critical2-skill999-yousei9-shihai0',
-    label: 'full-tail Attack 99D critical=2 skill=+999 yousei=9 shihai=0',
+    label: 'full-tail Attack stress critical=11 skill=+5250 yousei=9',
     kind: 'attack',
     params: createAttackParams({
-      score: { skill: 999, yousei: 9, shihai: 0 },
+      score: { critical: 11, skill: 5250, yousei: 9, shihai: 0 },
       kazanari: 9,
     }),
   }),
   Object.freeze({
     id: 'attack-99d-critical2-skill999-yousei0-shihai19',
-    label: 'full-tail Attack 99D critical=2 skill=+999 yousei=0 shihai=19',
+    label: 'full-tail Attack stress critical=11 skill=+3260 shihai=19',
     kind: 'attack',
     params: createAttackParams({
-      score: { skill: 999, yousei: 0, shihai: 19 },
+      score: { critical: 11, skill: 3260, yousei: 0, shihai: 19 },
       kazanari: 9,
     }),
   }),

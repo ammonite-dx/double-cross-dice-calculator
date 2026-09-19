@@ -30,14 +30,6 @@ const RESULT_KEYS = ['single', 'double', 'second']
 function createBacktrackPlan(params) {
   return planCalculationRanges({
     operation: 'backtrack',
-    completeSupportBacktrack: true,
-    backtrack: params,
-  }).backtrack
-}
-
-function createLegacyBacktrackPlan(params) {
-  return planCalculationRanges({
-    operation: 'backtrack',
     backtrack: params,
   }).backtrack
 }
@@ -160,7 +152,7 @@ describe('backtrack canonical producer', () => {
       plan
     )
 
-    expect(plan.distributionMode).toBe('on-demand')
+    expect(plan.generationMode).toBe('on-demand')
     expect(getD10).not.toHaveBeenCalled()
     expectResult(canonical.single, params, 103)
   })
@@ -186,7 +178,7 @@ describe('backtrack canonical producer', () => {
     )
 
     expect(plan.rawSupportMax).toBe(70)
-    expect(plan.distributionMode).toBe('on-demand')
+    expect(plan.generationMode).toBe('on-demand')
     expect(getD10).not.toHaveBeenCalled()
     expectResult(canonical.single, params, 7)
 
@@ -217,7 +209,7 @@ describe('backtrack canonical producer', () => {
       plan
     )
 
-    expect(plan.distributionMode).toBe('on-demand')
+    expect(plan.generationMode).toBe('on-demand')
     expect(getLivingdead).not.toHaveBeenCalled()
     expectResult(canonical.single, params, 103)
 
@@ -229,7 +221,7 @@ describe('backtrack canonical producer', () => {
     expectRelativeProbability(canonical.single.values.at(-1), 928 * 10 ** -103)
   })
 
-  it('separates canonical memory overhead from the unchanged legacy plan', () => {
+  it('accounts for on-demand generation memory in the resource plan', () => {
     const params = {
       encroachment: 100,
       lois: 0,
@@ -239,18 +231,10 @@ describe('backtrack canonical producer', () => {
       dlois: 'なし',
     }
     const plan = createBacktrackPlan(params)
-    const legacyPlan = createLegacyBacktrackPlan(params)
     const resultBytes =
       3 * plan.workingLength * Float64Array.BYTES_PER_ELEMENT
-    const legacyBytes =
-      3 * legacyPlan.workingLength * Float64Array.BYTES_PER_ELEMENT
 
-    expect(legacyPlan.distributionMode).toBe('asset')
-    expect(legacyPlan.float64Bytes).toBe(legacyBytes)
-    expect(legacyPlan.baseFloat64Bytes).toBeUndefined()
-    expect(legacyPlan.resultFloat64Bytes).toBeUndefined()
-    expect(plan.calculationMode).toBe('complete-support')
-    expect(plan.distributionMode).toBe('on-demand')
+    expect(plan.generationMode).toBe('on-demand')
     expect(plan.resultFloat64Bytes).toBe(resultBytes)
     expect(plan.baseFloat64Bytes).toBe(
       5 * plan.workingLength * Float64Array.BYTES_PER_ELEMENT
@@ -259,23 +243,7 @@ describe('backtrack canonical producer', () => {
       plan.baseFloat64Bytes + plan.resultFloat64Bytes
     )
 
-    const memoryPolicy = {
-      limits: {
-        estimatedMemoryBytes: legacyBytes,
-      },
-    }
-    const legacyLimited = planCalculationRanges({
-      operation: 'backtrack',
-      backtrack: params,
-    }, memoryPolicy)
-    const Limited = planCalculationRanges({
-      operation: 'backtrack',
-      completeSupportBacktrack: true,
-      backtrack: params,
-    }, memoryPolicy)
-    expect(legacyLimited.accepted).toBe(true)
-    expect(Limited.accepted).toBe(false)
-    expect(Limited.rejectionReasons).toContain('estimated-memory')
+    expect(plan.baseFloat64Bytes).toBeGreaterThan(resultBytes)
   })
 
   it('records generation operations for on-demand plans only', () => {
@@ -288,7 +256,6 @@ describe('backtrack canonical producer', () => {
       dlois: 'なし',
     }
     const onDemand = createBacktrackPlan(params)
-    const asset = createLegacyBacktrackPlan({ ...params, dice: 1 })
 
     expect(onDemand.generationOperations).toBe(
       getBacktrackGenerationOperationEstimate(
@@ -300,8 +267,8 @@ describe('backtrack canonical producer', () => {
     expect(onDemand.operations).toBe(
       onDemand.workingLength * 3 + onDemand.generationOperations
     )
-    expect(asset.distributionMode).toBe('asset')
-    expect(asset.generationOperations).toBe(0)
+    expect(createBacktrackPlan({ ...params, dice: 1 }).generationOperations)
+      .toBeGreaterThan(0)
   })
 
   it('rejects a backtrack plan with inconsistent generation operations', () => {

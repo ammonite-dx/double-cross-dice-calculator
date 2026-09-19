@@ -1,10 +1,10 @@
-export const OUTPUT_DISTRIBUTION_SIZE = 1024
-export const WORKING_DISTRIBUTION_SIZE = 2048
-
 export function expandSparseDistribution(
   sparseDistribution,
-  size = OUTPUT_DISTRIBUTION_SIZE
+  size
 ) {
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    throw new TypeError('distribution expansion size must be a positive safe integer')
+  }
   const distribution = Array(size).fill(0)
   const { offset, values } = sparseDistribution
 
