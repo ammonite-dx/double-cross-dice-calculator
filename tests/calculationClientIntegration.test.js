@@ -108,8 +108,8 @@ describe('CalculationClient integration', () => {
         rangePlans,
       })
 
-      expect(batch.combos[0].damage.metadata.scorePropagation)
-        .toBe('full-tail')
+      expect(batch.combos[0].damage.metadata)
+        .not.toHaveProperty('scorePropagation')
       expect(batch.combos[0].damage.result.values)
         .toBeInstanceOf(Float64Array)
       expect(batch.totalDamage.result.values)
@@ -241,7 +241,7 @@ describe('CalculationClient integration', () => {
     expect(presentation.combos[0].chart).not.toBeNull()
   })
 
-  it('keeps published comparison explicit while full-tail uses resource limits', () => {
+  it('uses full-tail production planning with resource limits', () => {
     const checkPlan = calculationClient.planCheck({
       action: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
       reaction: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
@@ -257,11 +257,7 @@ describe('CalculationClient integration', () => {
         damage: { dice: 99, value: -999 },
       },
     }
-    const attackPlan = calculationClient.planAttackCombo(
-      attackParams,
-      { scorePropagation: 'published-bucket' }
-    )
-    const fullTailAttackPlan = calculationClient.planAttackCombo(attackParams)
+    const attackPlan = calculationClient.planAttackCombo(attackParams)
     const backtrackPlan = calculationClient.planBacktrack({
       encroachment: 100,
       lois: 7,
@@ -272,12 +268,12 @@ describe('CalculationClient integration', () => {
     })
 
     expect(checkPlan.accepted).toBe(true)
-    expect(attackPlan.accepted).toBe(true)
-    expect(attackPlan.damage.scoreValueMode).toBe('published-bucket')
-    expect(attackPlan.damage.scoreValueUpperBound).toBe(1023)
-    expect(fullTailAttackPlan.damage.scoreValueMode).toBe('full-tail')
-    expect(fullTailAttackPlan.damage.scoreValueUpperBound).toBeGreaterThan(1023)
-    expect(fullTailAttackPlan.accepted).toBe(false)
+    expect(attackPlan.damage.scoreValueUpperBound).toBeGreaterThan(1023)
+    expect(attackPlan.accepted).toBe(false)
+    expect(() => calculationClient.planAttackCombo(
+      attackParams,
+      { scorePropagation: 'published-bucket' }
+    )).toThrow('scorePropagation')
     expect(backtrackPlan.accepted).toBe(true)
   })
 
@@ -302,7 +298,6 @@ describe('CalculationClient integration', () => {
       return {
         accepted: true,
         operation: 'attack',
-        propagation: { score: 'full-tail' },
         scores: [
           { tail: { kind: 'test-tail', bound: 0, modeledMax: 1030 } },
           { tail: { kind: 'test-tail', bound: 0, modeledMax: 0 } },
@@ -317,7 +312,6 @@ describe('CalculationClient integration', () => {
           defenceMax: 0,
           fftLength: 2048,
           defenceFftLength: 0,
-          scoreValueMode: 'full-tail',
         },
       }
     })
@@ -356,13 +350,13 @@ describe('CalculationClient integration', () => {
       },
     )
 
-    expect(observedPolicies).toEqual([{ scorePropagation: 'full-tail' }])
+    expect(observedPolicies).toEqual([undefined])
     expect(observedWeights[0]).toHaveLength(105)
     expect(observedWeights[0][104]).toBeCloseTo(1, 12)
     expect(observedWeights[0][102]).toBe(0)
     expect(result.combos[0].score.action.result.values[1030]).toBe(1)
-    expect(result.combos[0].damage.metadata.scorePropagation)
-      .toBe('full-tail')
+    expect(result.combos[0].damage.metadata)
+      .not.toHaveProperty('scorePropagation')
     expect(result.totalDamage.result).toBeDefined()
   })
 

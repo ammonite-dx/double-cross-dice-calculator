@@ -97,7 +97,7 @@ function createFullTailContext({
     },
     attack,
     defence,
-  }, { scorePropagation: 'full-tail' })
+  })
   const score = {
     action: calculateScoreForPlan(actionScore, rangePlan.scores[0]),
     reaction: calculateScoreForPlan(reactionScore, rangePlan.scores[1]),
@@ -116,7 +116,6 @@ describe('Damage expected-value certificate', () => {
     const plan = {
       accepted: true,
       operation: 'attack',
-      propagation: { score: 'full-tail' },
       scores: [
         { tail: { kind: 'finite-support', bound: 0, modeledMax: 5 } },
         { tail: { kind: 'finite-support', bound: 0, modeledMax: 0 } },
@@ -130,7 +129,6 @@ describe('Damage expected-value certificate', () => {
         defenceMax: 0,
         fftLength: 32,
         defenceFftLength: 0,
-        scoreValueMode: 'full-tail',
         maxDamageDice: 2,
       },
     }
@@ -213,7 +211,6 @@ describe('Damage expected-value certificate', () => {
     const plan = {
       accepted: true,
       operation: 'attack',
-      propagation: { score: 'full-tail' },
       scores: [
         { tail: { kind: 'dx-tail', bound: 0, modeledMax: 5 } },
         { tail: { kind: 'dx-tail', bound: 0.4, modeledMax: 1 } },
@@ -227,7 +224,6 @@ describe('Damage expected-value certificate', () => {
         defenceMax: 0,
         fftLength: 16,
         defenceFftLength: 0,
-        scoreValueMode: 'full-tail',
         maxDamageDice: 1,
       },
     }
@@ -297,7 +293,6 @@ describe('Damage expected-value certificate', () => {
     const plan = {
       accepted: true,
       operation: 'attack',
-      propagation: { score: 'full-tail' },
       scores: [
         { tail: { kind: 'dx-tail', bound: 0.1, modeledMax: 5 } },
         { tail: { kind: 'finite-support', bound: 0, modeledMax: 0 } },
@@ -311,7 +306,6 @@ describe('Damage expected-value certificate', () => {
         defenceMax: 0,
         fftLength: 32,
         defenceFftLength: 0,
-        scoreValueMode: 'full-tail',
         maxDamageDice: 2,
       },
     }
@@ -368,7 +362,6 @@ describe('Damage expected-value certificate', () => {
     const plan = {
       accepted: true,
       operation: 'attack',
-      propagation: { score: 'full-tail' },
       scores: [
         { tail: { kind: 'finite-support', bound: 0, modeledMax: 5 } },
         { tail: { kind: 'dx-tail', bound: 0.2, modeledMax: 0 } },
@@ -382,7 +375,6 @@ describe('Damage expected-value certificate', () => {
         defenceMax: 0,
         fftLength: 32,
         defenceFftLength: 0,
-        scoreValueMode: 'full-tail',
         maxDamageDice: 3,
       },
     }
@@ -428,7 +420,6 @@ describe('Damage expected-value certificate', () => {
     const plan = {
       accepted: true,
       operation: 'attack',
-      propagation: { score: 'full-tail' },
       scores: [
         { tail: { kind: 'dx-tail', bound: 0.1, modeledMax: 5 } },
         { tail: { kind: 'dx-tail', bound: 0.2, modeledMax: 0 } },
@@ -442,7 +433,6 @@ describe('Damage expected-value certificate', () => {
         defenceMax: 0,
         fftLength: 32,
         defenceFftLength: 0,
-        scoreValueMode: 'full-tail',
         maxDamageDice: 2,
       },
     }

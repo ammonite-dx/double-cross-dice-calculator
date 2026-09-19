@@ -108,7 +108,6 @@ function createRuleDamageRangePlan(score, attack, defence) {
   return {
     accepted: true,
     operation: 'attack',
-    propagation: { score: 'full-tail' },
     scores: [
       { tail: { kind: 'dx-tail', bound: 0, modeledMax: maxScore } },
       { tail: { kind: 'dx-tail', bound: 0, modeledMax: score.reaction.result.support.max } },
@@ -125,7 +124,6 @@ function createRuleDamageRangePlan(score, attack, defence) {
       defenceFftLength: defence.dice > 0
         ? nextPowerOfTwo(workingLength + defenceMax)
         : 0,
-      scoreValueMode: 'full-tail',
     },
   }
 }

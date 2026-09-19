@@ -58,7 +58,7 @@ describe('full-tail Attack browser resource benchmark contract', () => {
     for (const testCase of FULL_TAIL_ATTACK_CASES) {
       const productionPlan = planCalculationRanges(
         plannerParams(testCase.entries[0]),
-        { scorePropagation: 'full-tail' }
+        {}
       )
       const benchmarkPlan = planCalculationRanges(
         plannerParams(testCase.entries[0]),
@@ -80,7 +80,7 @@ describe('full-tail Attack browser resource benchmark contract', () => {
     for (const testCase of stressCases) {
       const productionPlan = planCalculationRanges(
         plannerParams(testCase.entries[0]),
-        { scorePropagation: 'full-tail' }
+        {}
       )
       const benchmarkPlan = planCalculationRanges(
         plannerParams(testCase.entries[0]),

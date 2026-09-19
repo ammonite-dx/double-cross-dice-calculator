@@ -76,7 +76,6 @@ const SCORE_FOR_400_OR_600_DAMAGE_DICE = scoreParams({
 // calculation maximum, display policy, cost model, and runtime safety caps
 // remain the defaults supplied by CalculationClient and its dependencies.
 export const FULL_TAIL_ATTACK_BENCHMARK_POLICY = Object.freeze({
-  scorePropagation: 'full-tail',
   limits: Object.freeze({
     maxCpuWork: Number.MAX_SAFE_INTEGER,
     estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,

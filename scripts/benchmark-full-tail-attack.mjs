@@ -15,15 +15,12 @@ const PERMISSIVE_RESOURCE_LIMIT = Number.MAX_SAFE_INTEGER
 
 // This mirrors the production Attack policy selection without copying or
 // mutating the application's DEFAULT_POLICY object.
-export const PRODUCTION_RANGE_POLICY = Object.freeze({
-  scorePropagation: 'full-tail',
-})
+export const PRODUCTION_RANGE_POLICY = Object.freeze({})
 
 // Benchmark-only policy: only RangePlanner resource limits are widened. The
 // planner's calculationMax and display policy remain unchanged, while
 // downstream runtime and aggregation absolute safety ceilings remain in force.
 export const BENCHMARK_RANGE_POLICY = Object.freeze({
-  scorePropagation: 'full-tail',
   limits: Object.freeze({
     maxCpuWork: PERMISSIVE_RESOURCE_LIMIT,
     estimatedMemoryBytes: PERMISSIVE_RESOURCE_LIMIT,
@@ -502,7 +499,6 @@ function summarizeCanonicalDamage(envelope) {
       overflow: envelope.result.overflow,
     },
     metadata: {
-      scorePropagation: envelope.metadata.scorePropagation,
       scoreTailProbabilityUpperBound:
         envelope.metadata.scoreTailProbabilityUpperBound ?? null,
       scoreTailErrorBound: envelope.metadata.scoreTailErrorBound ?? null,
@@ -986,7 +982,6 @@ function createMetadata(options) {
     defaultWarmupIterations: DEFAULT_WARMUP_ITERATIONS,
     requestedIterations: options.iterations,
     requestedWarmupIterations: options.warmupIterations,
-    scorePropagation: 'full-tail',
     productionRangePolicy: PRODUCTION_RANGE_POLICY,
     benchmarkRangePolicy: BENCHMARK_RANGE_POLICY,
     drWeightMatrix: DR_CASES.map(({ dice, kazanari }) => ({ dice, kazanari })),

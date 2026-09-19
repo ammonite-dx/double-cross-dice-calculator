@@ -18,7 +18,6 @@ function createPlan(operation) {
     return {
       accepted: true,
       operation,
-      propagation: { score: 'full-tail' },
       scores: [{}, {}],
       damage: {},
       warnings: [],

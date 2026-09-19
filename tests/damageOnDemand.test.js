@@ -19,7 +19,7 @@ function scoreWithHitProbability(hitProbability) {
   }
 }
 
-function createRangePlan(attack, defence, overrides = {}, propagation = 'published-bucket') {
+function createRangePlan(attack, defence, overrides = {}) {
   const fixedDifference = attack.value - defence.value
   const workingMax = fixedDifference >= 0 ? 10 + fixedDifference : 10
   const damage = {
@@ -31,13 +31,12 @@ function createRangePlan(attack, defence, overrides = {}, propagation = 'publish
     defenceMax: defence.dice * 10,
     fftLength: 16,
     defenceFftLength: defence.dice > 0 ? 32 : 0,
-    scoreValueMode: propagation,
     ...overrides,
   }
   return {
     accepted: true,
     operation: 'attack',
-    propagation: { score: propagation },
+    propagation: {},
     scores: [
       { tail: { kind: 'dx-tail', bound: 2e-9, modeledMax: 20 } },
       { tail: { kind: 'dx-tail', bound: 3e-9, modeledMax: 30 } },
@@ -253,14 +252,14 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'finite', max: 20 })
+    expect(result.support).toEqual({ kind: 'infinite' })
     expect(result.values).toHaveLength(6)
-    expect(result.overflow).toEqual({
-      kind: 'exact',
+    expect(result.overflow).toMatchObject({
+      kind: 'upper-bound',
       lowerBound: 6,
-      probability: 1,
-      errorBound: 1e-8,
+      probabilityUpperBound: 1,
     })
+    expect(result.overflow.errorBound).toBeGreaterThan(0)
   })
 
   it('uses final damage coordinates for defended overflow and preserves known tail mass', async () => {
@@ -291,17 +290,18 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'finite', max: 29 })
-    expect(result.values).toHaveLength(6)
-    for (const probability of result.values) {
+    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.values).toHaveLength(16)
+    for (const probability of result.values.slice(0, -1)) {
       expect(probability).toBeCloseTo(0, 12)
     }
-    expect(result.overflow).toEqual({
-      kind: 'exact',
+    expect(result.values[15]).toBeCloseTo(0.25, 12)
+    expect(result.overflow).toMatchObject({
+      kind: 'upper-bound',
       lowerBound: 6,
-      probability: 1,
-      errorBound: 1e-8,
+      probabilityUpperBound: 1,
     })
+    expect(result.overflow.errorBound).toBeGreaterThan(0)
 
   })
 
@@ -331,14 +331,14 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'finite', max: 26 })
-    expect(result.values).toHaveLength(3)
+    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.values).toHaveLength(16)
     expect(result.overflow).toMatchObject({
-      kind: 'exact',
+      kind: 'upper-bound',
       lowerBound: 3,
-      errorBound: 1e-8,
+      probabilityUpperBound: 1,
     })
-    expect(result.overflow.probability).toBeCloseTo(1, 12)
+    expect(result.overflow.errorBound).toBeGreaterThan(0)
   })
 
   it('uses empty explicit values when final overflow starts at zero', async () => {
@@ -367,14 +367,14 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'finite', max: 29 })
-    expect(result.values).toHaveLength(0)
+    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.values).toHaveLength(6)
     expect(result.overflow).toMatchObject({
-      kind: 'exact',
+      kind: 'upper-bound',
       lowerBound: 0,
-      errorBound: 1e-8,
+      probabilityUpperBound: 1,
     })
-    expect(result.overflow.probability).toBeCloseTo(1, 12)
+    expect(result.overflow.errorBound).toBeGreaterThan(0)
   })
 
   it('defensively copies and freezes modeled/source metadata', async () => {
@@ -393,9 +393,8 @@ describe('canonical on-demand damage calculation', () => {
 
     expect(metadata).toMatchObject({
       modeledDistribution: true,
-      scorePropagation: 'published-bucket',
       modeledSupport: { kind: 'finite', max: 10 },
-      sourceSupport: { kind: 'infinite' },
+      sourceSupport: { kind: 'finite' },
     })
     expect(metadata.scoreTails[0].bound).toBe(2e-9)
     expect(metadata.scoreTails[0]).not.toBe(originalTail)
@@ -406,7 +405,7 @@ describe('canonical on-demand damage calculation', () => {
     expect(Object.isFrozen(metadata.sourceSupport)).toBe(true)
   })
 
-  it('rejects missing sub-probability mass at final composition', async () => {
+  it('preserves missing sub-probability mass at final composition', async () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
     const incompleteScore = {
       action: ScoreEnvelope([[1, 0.5]], {
@@ -421,14 +420,21 @@ describe('canonical on-demand damage calculation', () => {
       reaction: ScoreEnvelope([[0, 1]]),
     }
 
-    await expect(calculateDamageOnDemand(
+    const result = await calculateDamageOnDemand(
       incompleteScore,
       attack,
       noDefence,
       { getDamageRollDistribution: pointProvider(2) },
       {},
       createRangePlan(attack, noDefence)
-    )).rejects.toThrow('failure probability plus hit probability')
+    )
+
+    expect(result.result.support).toEqual({ kind: 'infinite' })
+    expect(result.result.overflow).toMatchObject({
+      kind: 'upper-bound',
+      probabilityUpperBound: 0.5,
+      lowerBound: 0,
+    })
   })
 
   it('rejects a damage subplan in place of the required top-level plan', async () => {
@@ -456,7 +462,7 @@ describe('canonical on-demand damage calculation', () => {
       workingLength: 2042,
       fftLength: 4096,
       maxDamageDice: 204,
-    }, 'full-tail')
+    })
     const score = {
       action: ScoreEnvelope([[2030, 1]]),
       reaction: ScoreEnvelope([[0, 1]]),
@@ -479,7 +485,6 @@ describe('canonical on-demand damage calculation', () => {
     expect(canonical.result.support).toEqual({ kind: 'finite', max: 2040 })
     expect(canonical.metadata).toMatchObject({
       modeledDistribution: true,
-      scorePropagation: 'full-tail',
       scoreTailProbabilityUpperBound: 0,
     })
   })
@@ -502,8 +507,6 @@ describe('canonical on-demand damage calculation', () => {
       },
       attack,
       defence,
-    }, {
-      scorePropagation: 'full-tail',
     })
     const score = {
       action: calculatePlannedScore(
@@ -555,7 +558,7 @@ describe('canonical on-demand damage calculation', () => {
       workingLength: 22,
       fftLength: 32,
       maxDamageDice: 1,
-    }, 'full-tail')
+    })
     const canonical = await calculateDamageOnDemand(
       scoreWithHitProbability(1),
       attack,

@@ -281,13 +281,12 @@ describe('Attack canonical score display adapter', () => {
       planCalculationRanges: vi.fn(() => ({
         accepted: true,
         operation: 'attack',
-        propagation: { score: 'full-tail' },
+        propagation: {},
         scores: [
           { workingLength: 16, fftLength: 16, tail: {} },
           { workingLength: 16, fftLength: 16, tail: {} },
         ],
         damage: {
-          scoreValueMode: 'full-tail',
           fixedDifference: 0,
           rawSupportMax: 0,
           workingMax: 0,
@@ -359,13 +358,12 @@ describe('Attack canonical score display adapter', () => {
         return {
           accepted: true,
           operation: 'attack',
-          propagation: { score: 'published-bucket' },
+          propagation: {},
           scores: [
             { workingLength: calculationMax + 2, fftLength: 0, tail: {} },
             { workingLength: calculationMax + 2, fftLength: 0, tail: {} },
           ],
           damage: {
-            scoreValueMode: 'published-bucket',
             fixedDifference: 0,
             rawSupportMax: 0,
             workingMax: 0,
@@ -454,8 +452,8 @@ describe('Attack canonical score display adapter', () => {
     })).resolves.toBe(true)
 
     expect(planningPolicies).toEqual([
-      { calculationMax: 1022, scorePropagation: 'full-tail' },
-      { calculationMax: 1025, scorePropagation: 'full-tail' },
+      { calculationMax: 1022 },
+      { calculationMax: 1025 },
     ])
     expect(state.displayPresentation.score.status).toBe('ready')
     expect(state.displayPresentation.score.displayRequest)

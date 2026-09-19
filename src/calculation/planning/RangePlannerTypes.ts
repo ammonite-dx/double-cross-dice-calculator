@@ -6,9 +6,6 @@ import type {
 import type { BacktrackParams } from '../../domain/BacktrackRules'
 import type { ScoreInput } from '../../domain/InputDomain'
 
-/** The two score propagation modes accepted by the range planner. */
-export type ScorePropagation = 'published-bucket' | 'full-tail'
-
 export interface RangeErrorBudget {
   readonly total: number
   readonly scoreTail: number
@@ -29,7 +26,6 @@ export interface RangeLimits {
 
 /** Fully merged policy returned by the planner's policy helper. */
 export interface RangePolicy {
-  readonly scorePropagation: ScorePropagation
   readonly calculationMax: number
   readonly errorBudget: RangeErrorBudget
   readonly display: RangeDisplayPolicy
@@ -38,7 +34,6 @@ export interface RangePolicy {
 
 /** Nested partial accepted by mergePolicy/create*RangePolicy boundaries. */
 export type RangePolicyInput = Readonly<{
-  readonly scorePropagation?: ScorePropagation
   readonly calculationMax?: number
   readonly errorBudget?: Readonly<Partial<RangeErrorBudget>>
   readonly display?: Readonly<Partial<RangeDisplayPolicy>>
@@ -111,7 +106,6 @@ export interface ScoreRangePlan {
   readonly workingMax: number
   readonly workingLength: number
   readonly outputMax: number
-  readonly publishedOutputMax: number
   readonly oneDieCutoff: number
   readonly fftLength: number
   readonly dxBlockLength: number
@@ -155,7 +149,6 @@ export interface DamageRangePlan {
   readonly defenceD10Operations: number
   readonly defenceD10Float64Bytes: number
   readonly finiteSupport: true
-  readonly scoreValueMode: ScorePropagation
   readonly scoreValueUpperBound: number
   readonly calculationMax: number
   readonly display: RangeDisplayPlan
@@ -220,7 +213,6 @@ export interface RangeOverflowInfoSet {
 export interface CalculationRangePlanBase {
   readonly accepted: boolean
   readonly propagation: {
-    readonly score: ScorePropagation
     readonly calculationMax: number
   }
   readonly display: RangeDisplayPlan

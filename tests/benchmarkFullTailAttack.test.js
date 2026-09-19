@@ -90,10 +90,8 @@ describe('full-tail Attack resource benchmark contract', () => {
   })
 
   it('widens only benchmark planner limits and preserves production policy shape', () => {
-    expect(PRODUCTION_RANGE_POLICY).toEqual({
-      scorePropagation: 'full-tail',
-    })
-    expect(BENCHMARK_RANGE_POLICY.scorePropagation).toBe('full-tail')
+    expect(PRODUCTION_RANGE_POLICY).toEqual({})
+    expect(BENCHMARK_RANGE_POLICY).not.toHaveProperty('scorePropagation')
     expect(BENCHMARK_RANGE_POLICY.limits).toEqual({
       maxCpuWork: Number.MAX_SAFE_INTEGER,
       estimatedMemoryBytes: Number.MAX_SAFE_INTEGER,
@@ -125,8 +123,8 @@ describe('full-tail Attack resource benchmark contract', () => {
       }, BENCHMARK_RANGE_POLICY)
 
       expect(plan.accepted).toBe(true)
-      expect(plan.propagation.score).toBe('full-tail')
-      expect(plan.damage.scoreValueMode).toBe('full-tail')
+      expect(plan.propagation).not.toHaveProperty('score')
+      expect(plan.damage).not.toHaveProperty('scoreValueMode')
       expect(plan.damage.maxDamageDice).toBeGreaterThan(0)
       expect(plan.damage.fftLength).toBeGreaterThan(0)
     }

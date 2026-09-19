@@ -13,7 +13,6 @@ import {
   maxTailFirstMomentUpperBound,
   scoreTailBound,
 } from '../src/calculation/DxTailModel'
-import { OUTPUT_DISTRIBUTION_SIZE } from '../src/core/probability/Distribution'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   getRuntimeDamageRollOperationEstimate,
@@ -466,7 +465,6 @@ describe('production range planner', () => {
     const policy = {
       calculationMax: 200,
       display: { defaultMax: 0 },
-      scorePropagation: 'published-bucket',
     }
     const positive = planCalculationRanges(attackParams({
       attack: { dice: 0, value: 5, kazanari: 0 },
@@ -480,21 +478,26 @@ describe('production range planner', () => {
     }), policy)
 
     expect(positive.damage.fixedDifference).toBe(5)
-    expect(positive.damage.workingMax).toBe(220)
-    expect(positive.damage.workingLength).toBe(222)
+    expect(positive.damage.workingMax).toBe(
+      positive.damage.rawSupportMax + positive.damage.fixedDifference
+    )
+    expect(positive.damage.workingLength).toBe(
+      positive.damage.workingMax + 2
+    )
     expect(negative.damage.fixedDifference).toBe(-5)
-    expect(negative.damage.workingMax).toBe(225)
-    expect(negative.damage.workingLength).toBe(227)
+    expect(negative.damage.workingMax).toBe(negative.damage.rawSupportMax)
+    expect(negative.damage.workingLength).toBe(
+      negative.damage.workingMax + 2
+    )
     expect(positive.damage.defenceFftLength).toBe(
       nextPowerOfTwo(positive.damage.workingLength + positive.damage.defenceMax)
     )
   })
 
-  it('keeps published-bucket pre-defence overflow above calculationMax after defence', () => {
+  it('keeps pre-defence overflow above calculationMax after defence', () => {
     const policy = {
       calculationMax: 200,
       display: { defaultMax: 0 },
-      scorePropagation: 'published-bucket',
     }
     const cases = [
       {
@@ -502,28 +505,24 @@ describe('production range planner', () => {
         attack: { dice: 30, value: 5, kazanari: 0 },
         defence: { dice: 2, value: 0 },
         expectedDifference: 5,
-        expectedWorkingMax: 220,
       },
       {
         label: 'zero difference',
         attack: { dice: 30, value: 0, kazanari: 0 },
         defence: { dice: 2, value: 0 },
         expectedDifference: 0,
-        expectedWorkingMax: 220,
       },
       {
         label: 'negative difference with defence',
         attack: { dice: 30, value: 0, kazanari: 0 },
         defence: { dice: 2, value: 5 },
         expectedDifference: -5,
-        expectedWorkingMax: 225,
       },
       {
         label: 'negative difference without defence',
         attack: { dice: 30, value: 0, kazanari: 0 },
         defence: { dice: 0, value: 5 },
         expectedDifference: -5,
-        expectedWorkingMax: 205,
       },
     ]
 
@@ -543,19 +542,19 @@ describe('production range planner', () => {
         testCase.expectedDifference
       )
       expect(damage.workingMax, testCase.label).toBe(
-        testCase.expectedWorkingMax
+        damage.rawSupportMax + Math.max(testCase.expectedDifference, 0)
       )
       expect(damage.workingLength, testCase.label).toBe(
-        testCase.expectedWorkingMax + 2
+        damage.workingMax + 2
       )
       expect(overflowLowerBound, testCase.label).toBe(
-        testCase.expectedWorkingMax + 1
+        damage.workingMax + 1
       )
 
       expect(
         defendedOverflowLowerBound(damage, overflowLowerBound),
         testCase.label
-      ).toBe(201)
+      ).toBeGreaterThan(policy.calculationMax)
       if (damage.defenceDice > 0) {
         expect(damage.defenceFftLength, testCase.label).toBe(
           nextPowerOfTwo(damage.workingLength + damage.defenceMax)
@@ -572,11 +571,16 @@ describe('production range planner', () => {
     }), {
       calculationMax: 214,
       display: { defaultMax: 0 },
-      scorePropagation: 'published-bucket',
     }).damage
-    expect(exactPowerOfTwo.workingMax).toBe(234)
-    expect(exactPowerOfTwo.workingLength).toBe(236)
-    expect(exactPowerOfTwo.defenceFftLength).toBe(256)
+    expect(exactPowerOfTwo.workingMax).toBe(
+      exactPowerOfTwo.rawSupportMax
+    )
+    expect(exactPowerOfTwo.workingLength).toBe(
+      exactPowerOfTwo.workingMax + 2
+    )
+    expect(exactPowerOfTwo.defenceFftLength).toBe(
+      nextPowerOfTwo(exactPowerOfTwo.workingLength + exactPowerOfTwo.defenceMax)
+    )
   })
 
   it('uses exact display and CPU-work boundaries', () => {
@@ -700,7 +704,7 @@ describe('production range planner', () => {
     expect(over.rejectionReasons).toContain('cpu-work')
   })
 
-  it('uses full-tail by default while preserving explicit published-bucket compatibility', () => {
+  it('uses canonical full-tail propagation by default', () => {
     const params = attackParams({
       score: {
         action: scoreParams({ dice: 200, critical: 2, skill: 500 }),
@@ -709,20 +713,14 @@ describe('production range planner', () => {
       attack: { dice: 150, value: 500, kazanari: 0 },
       defence: { dice: 99, value: -500 },
     })
-    const fullTail = planCalculationRanges(params)
-    const published = planCalculationRanges(params, {
+    const plan = planCalculationRanges(params)
+
+    expect(DEFAULT_POLICY).not.toHaveProperty('scorePropagation')
+    expect(plan.damage).not.toHaveProperty('scoreValueMode')
+    expect(plan.damage.scoreValueUpperBound).toBe(plan.scores[0].outputMax)
+    expect(() => planCalculationRanges(params, {
       scorePropagation: 'published-bucket',
-    })
-
-    expect(DEFAULT_POLICY.scorePropagation).toBe('full-tail')
-
-    expect(published.damage.scoreValueMode).toBe('published-bucket')
-    expect(fullTail.damage.scoreValueMode).toBe('full-tail')
-    expect(published.damage.maxDamageDice).toBe(253)
-    expect(fullTail.damage.maxDamageDice).toBe(434)
-    expect(fullTail.damage.scoreValueUpperBound).toBeGreaterThan(
-      published.damage.scoreValueUpperBound
-    )
+    })).toThrow('scorePropagation')
   })
 
   it.each([
@@ -761,7 +759,6 @@ describe('production range planner', () => {
         attack,
         defence,
       }), {
-        scorePropagation: 'full-tail',
         limits: PERMISSIVE_LIMITS,
       })
       const damage = plan.damage
@@ -802,7 +799,6 @@ describe('production range planner', () => {
       ) * Float64Array.BYTES_PER_ELEMENT
 
       expect(plan.accepted).toBe(true)
-      expect(damage.scoreValueMode).toBe('full-tail')
       expect(damage.scoreValueUpperBound).toBe(scoreValueUpperBound)
       expect(damage.scoreValueUpperBound).not.toBe(1023)
       expect(damage.maxDamageDice).toBe(maxDamageDice)
@@ -856,7 +852,6 @@ describe('production range planner', () => {
         attack,
         defence,
       }), {
-        scorePropagation: 'full-tail',
         limits: PERMISSIVE_LIMITS,
       })
 
@@ -881,7 +876,6 @@ describe('production range planner', () => {
       attack: { dice: 0, value: 0, kazanari: 0 },
       defence: { dice: 0, value: 0 },
     }), {
-      scorePropagation: 'full-tail',
     })
 
     expect(plan.accepted).toBe(true)
@@ -901,7 +895,6 @@ describe('production range planner', () => {
       attack: { dice: 0, value: 0, kazanari: 0 },
       defence: { dice: 0, value: 0 },
     }), {
-      scorePropagation: 'full-tail',
     })
 
     expect(plan.accepted).toBe(true)
@@ -948,7 +941,6 @@ describe('production range planner', () => {
         attack,
         defence,
       }), {
-        scorePropagation: 'full-tail',
         limits: PERMISSIVE_LIMITS,
       })
 
@@ -969,7 +961,7 @@ describe('production range planner', () => {
     }
   )
 
-  it('keeps published-bucket damage compatibility independent of reaction score size', () => {
+  it('keeps damage planning independent of reaction score size', () => {
     const shared = {
       action: scoreParams({ dice: 0, critical: 11 }),
     }
@@ -978,16 +970,14 @@ describe('production range planner', () => {
         ...shared,
         reaction: scoreParams({ dice: 1, critical: 2 }),
       },
-    }), { scorePropagation: 'published-bucket' })
+    }))
     const largerReaction = planCalculationRanges(attackParams({
       score: {
         ...shared,
         reaction: scoreParams({ dice: 99, critical: 2 }),
       },
-    }), { scorePropagation: 'published-bucket' })
+    }))
 
-    expect(base.damage.scoreValueMode).toBe('published-bucket')
-    expect(largerReaction.damage.scoreValueMode).toBe('published-bucket')
     expect(largerReaction.damage.scoreValueUpperBound).toBe(
       base.damage.scoreValueUpperBound
     )
@@ -1004,7 +994,6 @@ describe('production range planner', () => {
         reaction: scoreParams({ dice: 1, critical: 2 }),
       },
     }), {
-      scorePropagation: 'full-tail',
       limits: PERMISSIVE_LIMITS,
     })
     const largerReaction = planCalculationRanges(attackParams({
@@ -1013,7 +1002,6 @@ describe('production range planner', () => {
         reaction: scoreParams({ dice: 99, critical: 2 }),
       },
     }), {
-      scorePropagation: 'full-tail',
       limits: PERMISSIVE_LIMITS,
     })
 
@@ -1049,11 +1037,9 @@ describe('production range planner', () => {
       defence: { dice: 99, value: -5 },
     })
     const baseline = planCalculationRanges(params, {
-      scorePropagation: 'full-tail',
       limits: PERMISSIVE_LIMITS,
     })
     const hardReject = planCalculationRanges(params, {
-      scorePropagation: 'full-tail',
       limits: {
         ...PERMISSIVE_LIMITS,
         maxCpuWork: Math.max(0, baseline.estimates.cpuWork - 1),
@@ -1081,7 +1067,6 @@ describe('production range planner', () => {
       attack: { dice: 100_000, value: 0, kazanari: 100_000 },
       defence: { dice: 0, value: 0 },
     }), {
-      scorePropagation: 'full-tail',
     })
 
     expect(plan.accepted).toBe(false)
@@ -1156,7 +1141,6 @@ describe('production range planner', () => {
       attack: { dice: 500, value: 0, kazanari: 500 },
       defence: { dice: 0, value: 0 },
     }), {
-      scorePropagation: 'full-tail',
       limits: {
         ...PERMISSIVE_LIMITS,
         maxCpuWork: Number.MAX_SAFE_INTEGER,
@@ -1177,31 +1161,17 @@ describe('production range planner', () => {
     }))
   })
 
-  it('retains the public overflow score bucket for a lower calculation maximum', () => {
+  it('retains the calculation maximum floor without changing score support', () => {
     const params = attackParams()
-    const published = planCalculationRanges(params, {
+    const plan = planCalculationRanges(params, {
       calculationMax: 0,
       display: { defaultMax: 0 },
-      scorePropagation: 'published-bucket',
-    })
-    const fullTail = planCalculationRanges(params, {
-      calculationMax: 0,
-      display: { defaultMax: 0 },
-      scorePropagation: 'full-tail',
     })
 
-    expect(published.scores[0].publishedOutputMax).toBe(
-      OUTPUT_DISTRIBUTION_SIZE - 1
-    )
-    expect(published.damage.scoreValueUpperBound).toBe(
-      OUTPUT_DISTRIBUTION_SIZE - 1
-    )
-    expect(published.damage.maxDamageDice).toBe(103)
-    expect(published.damage.rawSupportMax).toBe(1030)
-    expect(fullTail.damage.scoreValueUpperBound).toBe(
-      fullTail.scores[0].outputMax
-    )
-    expect(fullTail.damage.rawSupportMax).toBe(10)
+    expect(plan.propagation.calculationMax).toBe(0)
+    expect(plan.scores[0].outputMax).toBe(0)
+    expect(plan.damage.scoreValueUpperBound).toBe(plan.scores[0].outputMax)
+    expect(plan.damage.rawSupportMax).toBe(10)
   })
 
   it('keeps the Lois rule boundary and separates static asset coverage', () => {
@@ -1316,7 +1286,6 @@ describe('production range planner', () => {
         defence: { dice: 0, value: 0 },
       }),
       {
-        scorePropagation: 'full-tail',
         limits: PERMISSIVE_LIMITS,
       }
     )

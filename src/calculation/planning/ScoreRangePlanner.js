@@ -13,7 +13,6 @@ import {
   subtractSafe,
   fftOperationCount,
 } from './PlanningMath'
-import { getPublishedScoreUpperBound } from './RangePolicy'
 import { getScoreOutputBufferLength } from '../ScoreSupport'
 
 function scoreOperationCount(plan) {
@@ -179,7 +178,6 @@ export function planScore(params, display, policy, tailBudget) {
     workingMax,
     workingLength,
     outputMax,
-    publishedOutputMax: getPublishedScoreUpperBound(policy.calculationMax),
     oneDieCutoff,
     fftLength: youseiFftLength,
     dxBlockLength: youseiBlockLength,
@@ -190,11 +188,7 @@ export function planScore(params, display, policy, tailBudget) {
   }
 }
 
-export function getScoreValueUpperBound(scorePlans, policy) {
-  if (policy.scorePropagation !== 'full-tail') {
-    return getPublishedScoreUpperBound(policy.calculationMax)
-  }
-
+export function getScoreValueUpperBound(scorePlans) {
   return scorePlans[0].outputMax
 }
 

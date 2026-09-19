@@ -15,7 +15,6 @@ import type { TotalDamageCalculationOptions } from '../../src/calculation/Damage
 declare const client: CalculationClient
 
 const policy: RangePolicyInput = {
-  scorePropagation: 'full-tail',
   errorBudget: { scoreTail: 1e-9 },
   limits: { workingLength: 4096, maxCpuWork: 1_000_000 },
 }
@@ -82,8 +81,8 @@ void invalidCheckFftOptions
 void invalidAttackOptions
 void invalidBacktrackOptions
 
-// Invalid propagation values are rejected at compile time.
-// @ts-expect-error: scorePropagation accepts only the two supported modes.
+// The retired production propagation selector is rejected at compile time.
+// @ts-expect-error: scorePropagation is no longer a public production key.
 const invalidPolicy: RangePolicyInput = { scorePropagation: 'invalid' }
 
 // Migration-only resource policy keys are no longer part of the public type.

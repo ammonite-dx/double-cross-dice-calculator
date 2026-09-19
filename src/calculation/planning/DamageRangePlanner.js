@@ -75,41 +75,12 @@ export function planDamage(params, display, policy, maxScoreForDamage) {
     fixedDifference,
     'damage working range'
   )
-  // full-tail carries the complete finite DR support into final damage
-  // coordinates.  published-bucket intentionally retains its historical
-  // calculationMax/defence boundary for compatibility callers.
-  const workingMax = policy.scorePropagation === 'full-tail'
-    ? fixedDifference >= 0
-      ? Math.max(0, rawPlusDifference)
-      : rawMax
-    : (() => {
-        const calculationPlusDefence = addSafe(
-          policy.calculationMax,
-          defenceMax,
-          'damage calculation range'
-        )
-        const calculationMinusDifference = subtractSafe(
-          policy.calculationMax,
-          fixedDifference,
-          'damage working range'
-        )
-        return fixedDifference >= 0
-          ? Math.max(
-              0,
-              Math.min(rawPlusDifference, calculationPlusDefence)
-            )
-          : Math.max(
-              0,
-              Math.min(
-                rawMax,
-                addSafe(
-                  calculationMinusDifference,
-                  defenceMax,
-                  'damage working range'
-                )
-              )
-            )
-      })()
+  // Canonical full-tail propagation carries the complete finite DR support
+  // into final damage coordinates. The legacy calculationMax floor remains a
+  // score planning boundary, not a second Damage calculation mode.
+  const workingMax = fixedDifference >= 0
+    ? Math.max(0, rawPlusDifference)
+    : rawMax
   const damageRollFftLength = nextPowerOfTwo(
     addSafe(rawMax, 1, 'damage FFT range')
   )
@@ -161,7 +132,6 @@ export function planDamage(params, display, policy, maxScoreForDamage) {
     defenceD10Operations,
     defenceD10Float64Bytes,
     finiteSupport: true,
-    scoreValueMode: policy.scorePropagation,
     scoreValueUpperBound: maxScoreForDamage,
     calculationMax: policy.calculationMax,
     display,

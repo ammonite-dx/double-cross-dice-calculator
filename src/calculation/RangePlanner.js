@@ -148,7 +148,7 @@ export function planCalculationRanges(params, policy = {}) {
         params,
         display,
         effectivePolicy,
-        getScoreValueUpperBound(scores, effectivePolicy)
+        getScoreValueUpperBound(scores)
       )
     }
   }
@@ -163,7 +163,6 @@ export function planCalculationRanges(params, policy = {}) {
     accepted: true,
     operation,
     propagation: {
-      score: effectivePolicy.scorePropagation,
       calculationMax: effectivePolicy.calculationMax,
     },
     display,

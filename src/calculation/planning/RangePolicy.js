@@ -1,4 +1,3 @@
-import { OUTPUT_DISTRIBUTION_SIZE } from '../../core/probability/Distribution'
 import { PUBLISHED_OVERFLOW_INDEX } from '../DistributionResult'
 import {
   nonNegativeInteger,
@@ -9,19 +8,13 @@ import {
 } from './PlanningMath'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
-const PUBLISHED_SCORE_MAX_INDEX = OUTPUT_DISTRIBUTION_SIZE - 1
 const LEGACY_CALCULATION_MAX = PUBLISHED_OVERFLOW_INDEX - 1
-
-function getPublishedScoreUpperBound(calculationMax) {
-  return Math.max(calculationMax + 1, PUBLISHED_SCORE_MAX_INDEX)
-}
 
 /**
  * The default propagates the complete canonical score tail. Resource
  * thresholds are provisional policy inputs, not UI input limits.
  */
 export const DEFAULT_POLICY = {
-  scorePropagation: 'full-tail',
   calculationMax: LEGACY_CALCULATION_MAX,
   errorBudget: {
     total: DEFAULT_ERROR_BUDGET,
@@ -41,8 +34,6 @@ export const DEFAULT_POLICY = {
     fftLength: 32768,
   },
 }
-
-export { getPublishedScoreUpperBound }
 
 export function mergePolicy(policy) {
   const supplied = policy ?? {}
@@ -98,9 +89,9 @@ export function mergePolicy(policy) {
     },
   }
 
-  if (!['published-bucket', 'full-tail'].includes(merged.scorePropagation)) {
+  if (Object.prototype.hasOwnProperty.call(supplied, 'scorePropagation')) {
     throw new RangeError(
-      'policy.scorePropagation must be published-bucket or full-tail'
+      'policy.scorePropagation is no longer supported; production uses canonical full-tail propagation'
     )
   }
   nonNegativeInteger(merged.calculationMax, 'policy.calculationMax')

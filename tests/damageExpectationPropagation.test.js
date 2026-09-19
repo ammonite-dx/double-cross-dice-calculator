@@ -106,7 +106,7 @@ async function calculateFullTailDamage(scoreParams, attack, defence) {
     },
     attack,
     defence,
-  }, { scorePropagation: 'full-tail' })
+  })
   const score = {
     action: calculateScoreEnvelope(scoreParams.action, rangePlan.scores[0]),
     reaction: calculateScoreEnvelope(scoreParams.reaction, rangePlan.scores[1]),

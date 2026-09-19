@@ -251,16 +251,11 @@ describe('canonical CalculationClient surface', () => {
     expect(dependencies.calculateScore).toHaveBeenCalledTimes(2)
     expect(dependencies.calculateDamageOnDemand).toHaveBeenCalledOnce()
     expect(dependencies.getScoreStatistics).toHaveBeenCalledOnce()
-    expect(planCalculationRangesSpy.mock.calls[0][1]).toMatchObject({
-      scorePropagation: 'full-tail',
-    })
+    expect(planCalculationRangesSpy.mock.calls[0][1]).toBeUndefined()
 
-    await client.calculateAttack(attackParams(), {
+    await expect(client.calculateAttack(attackParams(), {
       rangePolicy: { scorePropagation: 'published-bucket' },
-    })
-    expect(planCalculationRangesSpy.mock.calls[1][1]).toMatchObject({
-      scorePropagation: 'published-bucket',
-    })
+    })).rejects.toThrow('scorePropagation')
   })
 
   it('keeps canonical Check compatibility summary without a legacy score call', async () => {

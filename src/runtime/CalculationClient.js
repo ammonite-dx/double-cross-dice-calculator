@@ -178,24 +178,6 @@ function createAttackRangeParams(request) {
   }
 }
 
-function getAttackRangePolicy(rangePolicy) {
-  if (rangePolicy === undefined) {
-    return { scorePropagation: 'full-tail' }
-  }
-  if (
-    rangePolicy === null ||
-    typeof rangePolicy !== 'object' ||
-    Array.isArray(rangePolicy) ||
-    Object.prototype.hasOwnProperty.call(rangePolicy, 'scorePropagation')
-  ) {
-    return rangePolicy
-  }
-  return {
-    ...rangePolicy,
-    scorePropagation: 'full-tail',
-  }
-}
-
 function createBacktrackRangeParams(request, completeSupport = false) {
   const params = {
     operation: 'backtrack',
@@ -441,7 +423,7 @@ export function createCalculationClient(
     const plan = runRangePreflight(
       planner,
       createAttackRangeParams(request),
-      getAttackRangePolicy(options.rangePolicy),
+      options.rangePolicy,
       options.onRangePlan
     )
     const leaseRequest = acquirePlanLease(
@@ -564,7 +546,7 @@ export function createCalculationClient(
       const request = snapshotAttackParams(params)
       return planner(
         createAttackRangeParams(request),
-        getAttackRangePolicy(policy)
+        policy
       )
     },
 

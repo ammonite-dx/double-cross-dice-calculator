@@ -59,10 +59,10 @@ describe('production naming boundaries', () => {
     }
   })
 
-  it('retains published-bucket compatibility adapters', () => {
+  it('retains reference compatibility adapters without a production mode label', () => {
     const combined = sourceText.map(({ contents }) => contents).join('\n')
-    expect(combined).toContain('published-bucket')
     expect(combined).toContain('fromPublishedBucketDistribution')
     expect(combined).toContain('toPublishedBucketDistribution')
+    expect(combined).not.toContain("scorePropagation: 'published-bucket'")
   })
 })

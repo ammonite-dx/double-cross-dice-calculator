@@ -288,15 +288,9 @@ function validateRangePlan(rangePlan, attack, defence) {
   if (rangePlan.operation !== 'attack' || rangePlan.accepted !== true) {
     throw new TypeError('rangePlan must be an accepted top-level attack plan')
   }
-  const scorePropagation = rangePlan.propagation?.score
-  if (!['published-bucket', 'full-tail'].includes(scorePropagation)) {
+  if (rangePlan.propagation?.score !== undefined) {
     throw new RangeError(
-      'damage requires a published-bucket or full-tail score propagation plan'
-    )
-  }
-  if (rangePlan.damage?.scoreValueMode !== scorePropagation) {
-    throw new RangeError(
-      'damage score propagation must match the damage scoreValueMode'
+      'rangePlan.propagation.score is no longer supported; Damage uses canonical full-tail propagation'
     )
   }
   if (!Array.isArray(rangePlan.scores) || rangePlan.scores.length === 0) {
@@ -313,7 +307,6 @@ function validateRangePlan(rangePlan, attack, defence) {
   return {
     damage: validateDamageRangePlan(rangePlan.damage, attack, defence),
     scoreTails: Object.freeze(scoreTails),
-    scorePropagation,
   }
 }
 
@@ -349,18 +342,6 @@ function getFinalOverflowLowerBound(plan, attack, defence) {
     throw new RangeError('final damage overflow lower bound must be a safe integer')
   }
   return Math.max(0, shiftedLowerBound)
-}
-
-function sumDistributionFrom(distribution, lowerBound) {
-  let total = 0
-  for (
-    let index = Math.max(0, lowerBound);
-    index < distribution.length;
-    index += 1
-  ) {
-    total += distribution[index]
-  }
-  return total
 }
 
 function sumProbabilities(values) {
@@ -861,15 +842,9 @@ export async function calculateDamageOnDemand(
   )
   const totalProbability =
     requested.failureProbability + requested.hitProbability
-  if (
-    plan.scorePropagation === 'published-bucket' &&
-    (
-      !Number.isFinite(totalProbability) ||
-      Math.abs(totalProbability - 1) > TOTAL_TOLERANCE
-    )
-  ) {
+  if (!Number.isFinite(totalProbability) || totalProbability < 0) {
     throw new RangeError(
-      'failure probability plus hit probability must be approximately one'
+      'failure probability plus hit probability must be finite and non-negative'
     )
   }
 
@@ -892,11 +867,9 @@ export async function calculateDamageOnDemand(
     kind: 'finite',
     max: modeledSupportMax,
   })
-  const sourceSupport = plan.scorePropagation === 'full-tail'
-    ? requested.sourceSupport
-    : Object.freeze({ kind: 'infinite' })
+  const sourceSupport = requested.sourceSupport
 
-  if (plan.scorePropagation === 'full-tail') {
+  {
     const explicitMax = Math.min(
       composed.plan.workingMax,
       modeledSupportMax
@@ -1006,7 +979,6 @@ export async function calculateDamageOnDemand(
     })
     const metadata = Object.freeze({
       modeledDistribution: true,
-      scorePropagation: 'full-tail',
       scoreTails: plan.scoreTails,
       scoreTailCertificates: requested.scoreTailCertificates,
       scoreTailMomentCertificates: requested.scoreTailMomentCertificates,
@@ -1025,61 +997,6 @@ export async function calculateDamageOnDemand(
 
     return Object.freeze({ result, metadata })
   }
-
-  let explicitMax = Math.min(
-    composed.plan.workingMax,
-    modeledSupportMax
-  )
-  let overflow = null
-  if (modeledSupportMax <= composed.plan.workingMax) {
-    if (composed.overflowProbability > TOTAL_TOLERANCE) {
-      throw new RangeError(
-        'planned damage overflow must be zero within finite modeled support'
-      )
-    }
-  } else {
-    const finalOverflowLowerBound = getFinalOverflowLowerBound(
-      composed.plan,
-      attack,
-      defence
-    )
-    const explicitMaxBeforeOverflow = Math.min(
-      modeledSupportMax,
-      finalOverflowLowerBound - 1
-    )
-    const knownFinalOverflowProbability = sumDistributionFrom(
-      composed.distribution,
-      finalOverflowLowerBound
-    )
-    const exactOverflowProbability =
-      composed.overflowProbability + knownFinalOverflowProbability
-    explicitMax = explicitMaxBeforeOverflow
-    overflow = {
-      kind: 'exact',
-      lowerBound: finalOverflowLowerBound,
-      probability: exactOverflowProbability,
-      errorBound: TOTAL_TOLERANCE,
-    }
-  }
-
-  const result = createDistributionResult({
-    values: explicitMax < 0
-      ? []
-      : composed.distribution.slice(0, explicitMax + 1),
-    offset: 0,
-    support: modeledSupport,
-    overflow,
-  })
-  const metadata = Object.freeze({
-    modeledDistribution: true,
-    scorePropagation: 'published-bucket',
-    scoreTails: plan.scoreTails,
-    damageExpectationCertificate: null,
-    modeledSupport,
-    sourceSupport,
-  })
-
-  return Object.freeze({ result, metadata })
 }
 
 function isDamageEnvelope(value) {
