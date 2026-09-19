@@ -8,11 +8,17 @@ import type {
   RuntimeDamageRollWorkerResponse,
 } from '../../src/runtime/RuntimeDamageRollProtocol'
 import type {
+  CalculationCancellationContext,
   CalculationFeedbackState,
   CalculationRequestCoordinator,
+  CalculationRequestStatus,
+  CalculationRunnerContext,
   LatestCalculationRunner,
 } from '../../src/runtime/CalculationFeedbackTypes'
-import { createLatestCalculationRunner } from '../../src/runtime/CalculationFeedback'
+import {
+  createCalculationRequestCoordinator,
+  createLatestCalculationRunner,
+} from '../../src/runtime/CalculationFeedback'
 import type {
   ResourceGuard,
   ResourceReservationPlan,
@@ -80,12 +86,70 @@ void coordinator.run({ value: 1 })
 void runner.run({ value: 1 })
 void reservationPlan
 
+const requestStatus: CalculationRequestStatus = coordinator.snapshot().status
+void requestStatus
+// @ts-expect-error: request status is a closed runtime union.
+const invalidRequestStatus: CalculationRequestStatus = 'unknown'
+void invalidRequestStatus
+
+const typedCoordinator = createCalculationRequestCoordinator<
+  { value: number },
+  { result: number },
+  { id: string },
+  { tag: string }
+>({
+  execute: (request, context: CalculationRunnerContext<
+    { value: number },
+    { id: string },
+    { tag: string }
+  >) => {
+    request.value
+    context.revision
+    context.options.tag
+    context.options.signal
+    context.onRangePlan({ id: 'plan' })
+    return { result: request.value }
+  },
+  onStart: (_request, context) => {
+    context.options.tag
+    context.signal
+    // @ts-expect-error: onStart has no range-plan callback of its own.
+    context.onRangePlan
+  },
+  onCancelled: (context: CalculationCancellationContext<
+    { value: number },
+    { id: string },
+    { tag: string }
+  >) => {
+    if (context.request === null) {
+      context.signal
+      context.options
+    } else {
+      context.request.value
+      context.signal
+      context.options.tag
+    }
+  },
+  onError: (_error, context) => {
+    if ('onRangePlan' in context) {
+      context.onRangePlan({ id: 'plan' })
+    } else {
+      context.request.value
+      // @ts-expect-error: a snapshot-error context has no runner signal.
+      context.signal
+    }
+  },
+})
+
+void typedCoordinator.run({ value: 1 }, { tag: 'typed' })
+
 const inferredRunner = createLatestCalculationRunner({
   feedback,
   snapshotRequest: (request: { value: number }) => request,
   calculate: async (request) => {
     request.value
     request.signal
+    request.onRangePlan
     // @ts-expect-error: factory callback request must not be implicitly any.
     request.missing
     return { result: request.value }

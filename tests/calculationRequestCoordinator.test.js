@@ -78,6 +78,53 @@ describe('CalculationRequestCoordinator', () => {
     })
   })
 
+  it('deep-clones structured request values without cloning signals or promises', async () => {
+    const controller = new AbortController()
+    const promise = Promise.resolve('unchanged')
+    const cycle = { label: 'cycle' }
+    cycle.self = cycle
+    const mapKey = { key: 'map' }
+    const request = {
+      date: new Date('2026-09-20T00:00:00.000Z'),
+      regexp: /request/gi,
+      buffer: new ArrayBuffer(8),
+      view: new Uint16Array([1, 2, 3]),
+      dataView: new DataView(new ArrayBuffer(4)),
+      map: new Map([[mapKey, cycle]]),
+      set: new Set([cycle]),
+      signal: controller.signal,
+      promise,
+      cycle,
+    }
+    let snapshot
+    const coordinator = createCalculationRequestCoordinator({
+      execute: (value) => {
+        snapshot = value
+        return Promise.resolve('done')
+      },
+    })
+
+    await expect(coordinator.run(request)).resolves.toBe(true)
+
+    expect(snapshot).not.toBe(request)
+    expect(snapshot.date).not.toBe(request.date)
+    expect(snapshot.date).toEqual(request.date)
+    expect(snapshot.regexp).not.toBe(request.regexp)
+    expect(snapshot.regexp.source).toBe(request.regexp.source)
+    expect(snapshot.buffer).not.toBe(request.buffer)
+    expect(snapshot.view).not.toBe(request.view)
+    expect(snapshot.view).toEqual(request.view)
+    expect(snapshot.dataView).not.toBe(request.dataView)
+    expect(snapshot.dataView.byteLength).toBe(request.dataView.byteLength)
+    expect(snapshot.map).not.toBe(request.map)
+    expect(snapshot.set).not.toBe(request.set)
+    expect(snapshot.signal).toBe(controller.signal)
+    expect(snapshot.promise).toBe(promise)
+    expect(snapshot.cycle).toBe(snapshot.cycle.self)
+    expect([...snapshot.map.values()][0]).toBe(snapshot.cycle)
+    expect([...snapshot.set][0]).toBe(snapshot.cycle)
+  })
+
   it('suppresses stale plans, results, and errors after a newer request is queued', async () => {
     const first = createDeferred()
     let firstContext
@@ -257,6 +304,7 @@ describe('CalculationRequestCoordinator', () => {
     const externalController = new AbortController()
     const first = createDeferred()
     const commit = vi.fn()
+    const onCancelled = vi.fn()
     let receivedSignal
     const coordinator = createCalculationRequestCoordinator({
       execute: (_snapshot, context) => {
@@ -264,6 +312,7 @@ describe('CalculationRequestCoordinator', () => {
         return first.promise
       },
       commit,
+      onCancelled,
     })
 
     const request = coordinator.run(
@@ -279,6 +328,11 @@ describe('CalculationRequestCoordinator', () => {
     expect(coordinator.snapshot().status).toBe(
       CALCULATION_REQUEST_STATUS.CANCELLED
     )
+    expect(onCancelled).toHaveBeenCalledWith(expect.objectContaining({
+      request: { id: 'aborted' },
+      signal: receivedSignal,
+      options: { signal: externalController.signal },
+    }))
 
     const deferred = createDeferred()
     const disposedCoordinator = createCalculationRequestCoordinator({
@@ -298,6 +352,82 @@ describe('CalculationRequestCoordinator', () => {
       status: CALCULATION_REQUEST_STATUS.CANCELLED,
       disposed: true,
     })
+  })
+
+  it('uses a null request and signal for synthetic invalidate/dispose cancellation', () => {
+    const onCancelled = vi.fn()
+    const coordinator = createCalculationRequestCoordinator({
+      execute: () => new Promise(() => {}),
+      onCancelled,
+    })
+
+    coordinator.run({ id: 'running' })
+    coordinator.invalidate()
+
+    expect(onCancelled).toHaveBeenLastCalledWith({
+      revision: 2,
+      request: null,
+      signal: null,
+      options: {},
+    })
+
+    const disposedCoordinator = createCalculationRequestCoordinator({
+      execute: () => new Promise(() => {}),
+      onCancelled,
+    })
+    disposedCoordinator.run({ id: 'running' })
+    disposedCoordinator.dispose()
+
+    expect(onCancelled).toHaveBeenLastCalledWith({
+      revision: 2,
+      request: null,
+      signal: null,
+      options: {},
+    })
+  })
+
+  it('reports snapshot failures with a distinct context and drops stale work', async () => {
+    const first = createDeferred()
+    const activeSignal = { current: null }
+    const onError = vi.fn()
+    const execute = vi.fn((_request, context) => {
+      activeSignal.current = context.signal
+      return first.promise
+    })
+    const snapshotRequest = (request) => {
+      if (request.id === 'failed') {
+        throw new Error('snapshot failed')
+      }
+      return request
+    }
+    const coordinator = createCalculationRequestCoordinator({
+      snapshotRequest,
+      execute,
+      onError,
+    })
+
+    const activeRequest = coordinator.run({ id: 'active' })
+    const queuedRequest = coordinator.run({ id: 'queued' })
+    const failedRequest = coordinator.run({ id: 'failed' })
+
+    await expect(failedRequest).resolves.toBe(false)
+    await expect(queuedRequest).resolves.toBe(false)
+    expect(activeSignal.current.aborted).toBe(true)
+    expect(execute).toHaveBeenCalledOnce()
+    expect(onError).toHaveBeenCalledOnce()
+    const [error, context] = onError.mock.calls[0]
+    expect(error).toEqual(new Error('snapshot failed'))
+    expect(context).toEqual({
+      revision: 3,
+      request: { id: 'failed' },
+      options: {},
+    })
+    expect(context).not.toHaveProperty('signal')
+    expect(context).not.toHaveProperty('onRangePlan')
+
+    first.resolve({ id: 'stale result' })
+    await expect(activeRequest).resolves.toBe(false)
+    expect(coordinator.snapshot().status).toBe(CALCULATION_REQUEST_STATUS.ERROR)
   })
 
   it('exposes defensive state snapshots and resource-rejected status', async () => {
