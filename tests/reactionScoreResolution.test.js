@@ -193,6 +193,11 @@ describe('resolution-aware score planning and production', () => {
       {},
       rolledPlan,
     )).toThrow(/does not match plan kind/)
+    expect(() => calculateScoreResolution(
+      { kind: 'fixed-score', value: 10 },
+      {},
+      { value: 10 },
+    )).toThrow(/does not match plan kind/)
   })
 
   it('accepts a terminal MAX_SAFE one-point distribution only', () => {

@@ -575,10 +575,7 @@ function validateScoreResolutionPlan(resolution, scoreRangePlan) {
   if (scoreRangePlan === undefined || scoreRangePlan === null) {
     throw new TypeError('deterministic score calculation requires a score range plan')
   }
-  if (
-    scoreRangePlan.kind !== undefined
-    && scoreRangePlan.kind !== resolution.kind
-  ) {
+  if (scoreRangePlan.kind !== resolution.kind) {
     throw new TypeError(
       `score resolution kind ${resolution.kind} does not match plan kind ${scoreRangePlan.kind}`
     )

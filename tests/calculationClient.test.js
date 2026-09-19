@@ -86,7 +86,7 @@ function checkParams() {
 function createPlannedDependencies() {
   const plan = {
     accepted: true,
-    scores: [{}, {}],
+    scores: [{}, { kind: 'fixed-score', value: 2 }],
   }
   const planCalculationRanges = vi.fn(() => plan)
   return {
