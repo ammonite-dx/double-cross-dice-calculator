@@ -58,11 +58,10 @@ import type {
   CheckAdvancedSettingsEnabled,
   CheckScoreSide,
 } from './CheckAdvancedSettings'
-
-interface CheckScoreParams {
-  action: Partial<ScoreInput>
-  reaction: Partial<ScoreInput>
-}
+import type {
+  CheckController,
+  CheckScoreParams,
+} from './CheckControllerTypes'
 
 interface CheckState {
   difficulty: DifficultyInput
@@ -102,7 +101,7 @@ export interface UseCheckOptions {
 
 export async function useCheck({
   calculationClient,
-}: UseCheckOptions) {
+}: UseCheckOptions): Promise<CheckController> {
   if (
     calculationClient === null
     || typeof calculationClient !== 'object'

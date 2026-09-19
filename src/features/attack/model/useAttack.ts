@@ -66,31 +66,14 @@ import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
 import {
   cloneAttackCombo,
   createAttackCombo,
-  type AttackCombo,
 } from './AttackComboState'
+import type {
+  AttackController,
+  AttackUiCombo,
+  ComboSideValidation,
+} from './AttackControllerTypes'
 
-export interface AttackUiCombo {
-  id: number | string
-  name: string
-  show: boolean
-  advancedSettingsEnabled: {
-    action: boolean
-    reaction: boolean
-  }
-  params: AttackCombo['data']['params']
-}
-
-export type ComboSideValidation =
-  | {
-      id: number | string
-      side: 'action'
-      snapshot: AttackCombo['data']['params']['action']
-    }
-  | {
-      id: number | string
-      side: 'reaction'
-      snapshot: AttackCombo['data']['params']['reaction']
-    }
+export type { AttackUiCombo, ComboSideValidation } from './AttackControllerTypes'
 
 export interface UseAttackOptions {
   calculationClient: CalculationClient
@@ -121,7 +104,7 @@ function toUiCombos(state: AttackState): AttackUiCombo[] {
   }))
 }
 
-export function useAttack({ calculationClient }: UseAttackOptions) {
+export function useAttack({ calculationClient }: UseAttackOptions): AttackController {
   const client = calculationClient
   const supportsIncrementalExecution = client !== null
     && typeof client === 'object'

@@ -14,12 +14,7 @@ import {
 import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'
-
-interface BacktrackChartData {
-  single: readonly number[]
-  double: readonly number[]
-  second: readonly number[]
-}
+import type { BacktrackController, BacktrackChartData } from './BacktrackControllerTypes'
 
 interface BacktrackState {
   params: Partial<BacktrackParams>
@@ -43,7 +38,7 @@ export interface UseBacktrackOptions {
 
 export function useBacktrack({
   calculationClient,
-}: UseBacktrackOptions) {
+}: UseBacktrackOptions): BacktrackController {
   const initialSnapshot = createBacktrackInputSnapshot({
     params: INITIAL_PARAMS,
   })
