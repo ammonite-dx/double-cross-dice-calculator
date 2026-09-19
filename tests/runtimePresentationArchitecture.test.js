@@ -83,7 +83,7 @@ describe('runtime and shared presentation architecture', () => {
         /(?:from|import\s*\()\s*['"][^'"]*(?:calculation\/(?!DistributionResult(?:\.js)?['"]))/,
       )
       expect(contents, path).not.toMatch(
-        /(?:from|import\s*\()\s*['"][^'"]*(?:core|domain|shared\/(?:chart|theme|validation))\//,
+        /(?:from|import\s*\()\s*['"][^'"]*(?:core|domain\/(?!CertifiedValue|DistributionResultTypes|ScoreResultTypes|DamageResultTypes|CalculationResultTypes|BacktrackResultTypes)|shared\/(?:chart|theme|validation))\//,
       )
       expect(contents, path).not.toMatch(
         /(?:from|import\s*\()\s*['"](?:\.\.\/)+(?:chart|theme|validation)(?:\/|['"])/,

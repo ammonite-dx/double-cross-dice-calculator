@@ -6,7 +6,7 @@
 
 - `src/features/`: Check、Attack、Backtrackの入力snapshot、runner、画面状態、Vue UI
 - `src/runtime/`: `CalculationClient`、latest-wins、Abort、`ResourceGuard`、DR Workerの非同期境界
-- `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア
+- `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア。汎用結果契約は`src/domain/`に置き、各計算の意味論はScore/Damageの境界モジュールに分ける
 - `src/core/probability/`: 配列分布、上側確率、FFTなどのVue非依存primitive
 - `src/domain/`: 入力domain、Backtrack rules、`CertifiedValue`などの共有契約
 - `src/shared/`: validation、presentation、Chart.js adapter、themeなどの横断処理
@@ -35,11 +35,17 @@ validated input
 
 `CalculationClient`は、操作ごとに次の依存を組み立てます。
 
-- Check: `DxCalculator`でDXを生成し、`ScoreCalculator`で技能値、ファンブル、自動失敗、成功率、対決を処理する
+- Check: `DxCalculator`でDXを生成し、`ScoreCalculator`でScoreを生成する。ファンブル・自動失敗の分解と対決成功率は`ScoreOutcome`、期待値・成功率の統計値は`ScoreStatistics`が処理する
 - Attack: Scoreと防御側D10をメインスレッドで計算し、DRの畳み込みを常駐`RuntimeDamageRollClient`へ渡す
 - Backtrack: `BacktrackCalculator`が通常D10または《屍人》の分布をon-demand生成し、侵蝕率区分を計算する
 
 Attackのリアクションは、入力モードを計算方法へ解決してからplannerとproducerへ同じresolutionを渡します。ドッジは`rolled-score`、《イベイジョン》は`fixed-score`、ガード・リアクション放棄は`forced-failure`です。固定値と強制失敗はDXのworking rangeやFFTを持たず、`offset`付き1点分布を生成するため、固定値の大きさに比例した配列を確保しません。
+
+Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`、Scoreの出目結果分解と対決の疎なbucket走査は`ScoreOutcome`、表示用の統計値構築は`ScoreStatistics`に分離しています。`ScoreCalculator`はScoreのproducerとresolution dispatchだけを担当します。
+
+Damageでは、Scoreの明示範囲を命中・失敗の重みへ変換する処理を`DamageRollRequest`、DamageおよびTotal Damageの統計値を`DamageStatistics`、Score tailからDamage期待値certificateを組み立てる処理を`DamageExpectationCertificate`が担当します。`DistributionResult`はこれらのDamage固有の意味論を持たず、分布の生成・検証・汎用統計だけを提供します。
+
+DXのYousei作業ブロック数とFFT長は`DxWorkingShape`で共有します。Scoreのrange plannerが`DxCalculator`をimportすることはなく、producerとplannerが同じ作業形状規則を参照します。
 
 DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Workerは一度に1つのactive jobを処理し、同じ入力のsubscriberを共有します。最後のsubscriberが離脱したjobだけを停止し、遅延した旧Workerのイベントはidentity guardで無視します。
 

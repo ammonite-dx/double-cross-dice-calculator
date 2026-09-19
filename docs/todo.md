@@ -14,7 +14,7 @@
 
 ## 次に行う作業
 
-1. **R12: 計算coreの責務分割**: R25-LとR25-Mで確定した動的range、`DistributionResult`境界、Score resolutionを前提に、Score、Damage、Backtrack、結果契約の依存方向を再評価する。
+1. **R26-B: 残存core/application境界の整理**: R26-Aで確定したdomain result contractとScore/Damage境界を前提に、残るruntime/application adapterの依存方向と公開型を再評価する。数値計算、UI、Worker protocol、resource policyは変更しない。
 2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
 3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
@@ -27,3 +27,4 @@
 ## 完了した直近の作業
 
 - **R25-M: reaction score resolution separation**: 防御入力のraw snapshot、`rolled-score`／`fixed-score`／`forced-failure`のplanner・producer分離、BigIntによる《イベイジョン》固定値導出、疎な固定点分布、safe-integer終端境界を実装した。詳細は[`archive/r25-m-reaction-score-resolution-separation.md`](./archive/r25-m-reaction-score-resolution-separation.md)を参照する。
+- **R26-A: result contracts and calculation semantic boundaries**: 汎用の`DistributionResult`、Score、Damage、Calculationのresult contractを`src/domain/`へ集約し、Scoreのcertificate・outcome・statistics、Damageのrequest・statistics・expectation certificate、DXのworking shapeを責務ごとに分離した。数値計算、UI、advanced settings、Worker protocol、resource policy、schema versionは変更していない。詳細は[`archive/r26-a-result-contracts-calculation-semantic-boundaries.md`](./archive/r26-a-result-contracts-calculation-semantic-boundaries.md)を参照する。

@@ -4,7 +4,7 @@
 
 ## DistributionResult
 
-確率分布は`DistributionResult`として返します。`src/calculation/DistributionResultTypes.ts`が型の正本です。
+確率分布は`DistributionResult`として返します。`src/domain/DistributionResultTypes.ts`が型の正本です。計算coreはこの汎用契約を生成・検証し、ScoreやDamageに固有の意味論はそれぞれの境界モジュールで解釈します。
 
 ```ts
 type DistributionResult = {
