@@ -31,8 +31,8 @@ describe('runtime and shared presentation architecture', () => {
     for (const path of [
       'src/runtime/CalculationClient.js',
       'src/runtime/CalculationClientTypes.ts',
-      'src/runtime/CalculationFeedback.js',
-      'src/runtime/CalculationRequestCoordinator.js',
+      'src/runtime/CalculationFeedback.ts',
+      'src/runtime/CalculationRequestCoordinator.ts',
       'src/runtime/CheckRangePolicy.js',
       'src/runtime/ResourceGuard.js',
       'src/runtime/RuntimeDamageRollClient.js',
@@ -47,6 +47,8 @@ describe('runtime and shared presentation architecture', () => {
     ]) {
       expect(existsSync(`${repositoryRoot}/${path}`), path).toBe(true)
     }
+    expect(existsSync(`${repositoryRoot}/src/runtime/CalculationFeedback.js`)).toBe(false)
+    expect(existsSync(`${repositoryRoot}/src/runtime/CalculationRequestCoordinator.js`)).toBe(false)
     expect(existsSync(`${repositoryRoot}/src/application`)).toBe(false)
     expect(existsSync(`${repositoryRoot}/src/presentation`)).toBe(false)
   })

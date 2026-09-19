@@ -6,10 +6,18 @@ import {
   CALCULATION_REQUEST_STATUS,
   createCalculationRequestCoordinator,
 } from './CalculationRequestCoordinator'
+import type {
+  CalculationCancellationContext,
+  CalculationFeedbackPlan,
+  CalculationFeedbackState,
+  CalculationRangeFeedbackDisplay,
+  CalculationRunnerContext,
+  LatestCalculationRunner,
+  LatestCalculationRunnerOptions,
+} from './CalculationFeedbackTypes'
+import type { CalculationRangePlan } from '../calculation/planning/RangePlannerTypes'
 
-/** @typedef {import('./CalculationFeedbackTypes').CalculationFeedbackState} CalculationFeedbackState */
-
-const RANGE_REASON_BY_CODE = Object.freeze({
+const RANGE_REASON_BY_CODE: Readonly<Record<string, string>> = Object.freeze({
   'display-points': '表示する点数が多すぎるため、計算結果を表示できません。',
   'display-point-count': '表示する点数が多すぎるため、計算結果を表示できません。',
   'display-float64-memory': '表示用メモリの見積りが大きすぎるため、計算結果を表示できません。',
@@ -22,7 +30,7 @@ const RANGE_REASON_BY_CODE = Object.freeze({
   'attack-display-not-projectable': 'Attackの計算結果を指定の表示範囲へ安全に投影できません。',
   'attack-score-display-recalculate': 'AttackのScoreに指定表示範囲のcoverageがないため、表示できません。表示範囲を狭めて再入力してください。',
   'attack-score-display-resource-rejected': 'AttackのScore表示範囲が資源上限を超えているため、表示できません。表示範囲を狭めて再入力してください。',
-  'attack-score-display-not-projectable': 'AttackのScore計算結果を指定の表示範囲へ安全に投影できません。表示範囲を狭めて再入力してください。',
+  'attack-score-display-not-projectable': 'AttackのScore計算結果を指定表示範囲へ安全に投影できません。表示範囲を狭めて再入力してください。',
   'attack-summary-not-projectable': '期待値が正確値でないため、サマリーの数値を表示できません。',
   'incompatible-input': '《妖精の手》と《支配の領域》は同時に使用できません。',
   'score-working-length': '判定計算の作業範囲が上限を超えています。',
@@ -41,18 +49,33 @@ const RANGE_REASON_BY_CODE = Object.freeze({
   'tail-error': '判定の末尾誤差が許容値を超えています。',
 })
 
-const OVERFLOW_LABEL_BY_TYPE = Object.freeze({
+const OVERFLOW_LABEL_BY_TYPE: Readonly<Record<string, string>> = Object.freeze({
   score: '判定の計算範囲',
   damage: 'ダメージの計算範囲',
   display: '表示範囲',
   backtrack: 'バックトラックの計算範囲',
 })
 
-function isFiniteNumber(value) {
+type RecordValue = Record<PropertyKey, unknown>
+
+interface FeedbackWarning {
+  readonly code: string
+  readonly severity?: string
+}
+
+function isRecord(value: unknown): value is RecordValue {
+  return value !== null && typeof value === 'object'
+}
+
+function isFeedbackWarning(value: unknown): value is FeedbackWarning {
+  return isRecord(value) && typeof value.code === 'string'
+}
+
+function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function formatNumber(value, maximumFractionDigits = 1) {
+function formatNumber(value: unknown, maximumFractionDigits = 1): string | null {
   if (!isFiniteNumber(value)) {
     return null
   }
@@ -61,7 +84,7 @@ function formatNumber(value, maximumFractionDigits = 1) {
   }).format(value)
 }
 
-function formatMemory(value) {
+function formatMemory(value: unknown): string | null {
   if (!isFiniteNumber(value)) {
     return null
   }
@@ -74,10 +97,7 @@ function formatMemory(value) {
   return `${formatNumber(value, 0)} bytes`
 }
 
-function formatWarningReason(warning) {
-  if (!warning || typeof warning !== 'object') {
-    return '計算範囲の制限により、計算を続けられません。'
-  }
+function formatWarningReason(warning: FeedbackWarning): string {
   const reason = RANGE_REASON_BY_CODE[warning.code]
   if (reason) {
     return reason
@@ -87,35 +107,61 @@ function formatWarningReason(warning) {
     : '計算範囲の制限により、計算できる範囲を調整しています。'
 }
 
-function formatResourceGuardReason(error) {
-  const details = error?.details ?? {}
+function formatResourceGuardReason(error: unknown): string {
+  const details = isRecord(error) && isRecord(error.details)
+    ? error.details
+    : {}
   const requestedBytes = details.reservedBytes ?? details.float64Bytes
   const requested = formatMemory(requestedBytes)
   const capacity = formatMemory(details.capacityBytes)
-  if (error?.code === RESOURCE_GUARD_ERROR_CODES.OVERSIZE) {
+  if (isRecord(error) && error.code === RESOURCE_GUARD_ERROR_CODES.OVERSIZE) {
     return requested && capacity
       ? `この計算の予約量（${requested}）が上限（${capacity}）を超えています。`
       : 'この計算の予約量が設定された上限を超えています。'
   }
-  if (error?.code === RESOURCE_GUARD_ERROR_CODES.QUEUE_FULL) {
+  if (isRecord(error) && error.code === RESOURCE_GUARD_ERROR_CODES.QUEUE_FULL) {
     const queued = details.queuedCount
     const maxQueued = details.maxQueued
-    return Number.isFinite(queued) && Number.isFinite(maxQueued)
+    return isFiniteNumber(queued) && isFiniteNumber(maxQueued)
       ? `計算待ち行列が満杯です（${queued}/${maxQueued}）。しばらく待ってから再試行してください。`
       : '計算待ち行列が満杯です。しばらく待ってから再試行してください。'
   }
   return '計算資源の予約に失敗しました。入力を確認して再試行してください。'
 }
 
-function collectWarnings(plan, feedback) {
-  const warnings = Array.isArray(plan?.warnings)
-    ? plan.warnings.filter((warning) => warning && typeof warning === 'object')
-    : []
+function planWarnings(plan: CalculationFeedbackPlan | null | undefined): FeedbackWarning[] {
+  if (!isRecord(plan) || !Array.isArray(plan.warnings)) {
+    return []
+  }
+  return plan.warnings.filter(isFeedbackWarning)
+}
+
+function errorRejectionReasons(error: unknown): string[] {
+  if (!isRecord(error) || !Array.isArray(error.rejectionReasons)) {
+    return []
+  }
+  return error.rejectionReasons.filter(
+    (code): code is string => typeof code === 'string',
+  )
+}
+
+function planRejectionReasons(plan: CalculationFeedbackPlan | null | undefined): string[] {
+  if (!isRecord(plan) || !Array.isArray(plan.rejectionReasons)) {
+    return []
+  }
+  return plan.rejectionReasons.filter(
+    (code): code is string => typeof code === 'string',
+  )
+}
+
+function collectWarnings(
+  plan: CalculationFeedbackPlan | null | undefined,
+  feedback: CalculationFeedbackState<CalculationFeedbackPlan> | null | undefined,
+): FeedbackWarning[] {
+  const warnings = planWarnings(plan)
   const rejectionReasons = [
-    ...(Array.isArray(plan?.rejectionReasons) ? plan.rejectionReasons : []),
-    ...(Array.isArray(feedback?.error?.rejectionReasons)
-      ? feedback.error.rejectionReasons
-      : []),
+    ...planRejectionReasons(plan),
+    ...errorRejectionReasons(feedback?.error),
   ]
   const knownCodes = new Set(warnings.map((warning) => warning.code))
   for (const code of rejectionReasons) {
@@ -127,20 +173,29 @@ function collectWarnings(plan, feedback) {
   return warnings
 }
 
-function collectOverflowMessages(plan) {
-  return Object.entries(plan?.overflowInfo ?? {})
-    .map(([type, info]) => ({
-      label: OVERFLOW_LABEL_BY_TYPE[type],
-      lowerBound: info?.lowerBound,
-    }))
+function collectOverflowMessages(
+  plan: CalculationFeedbackPlan | null | undefined,
+): string[] {
+  const overflowInfo = isRecord(plan?.overflowInfo)
+    ? plan.overflowInfo
+    : {}
+  return Object.entries(overflowInfo)
+    .map(([type, info]) => {
+      const lowerBound = isRecord(info) ? info.lowerBound : undefined
+      return {
+        label: OVERFLOW_LABEL_BY_TYPE[type],
+        lowerBound,
+      }
+    })
     .filter(({ label, lowerBound }) => label && isFiniteNumber(lowerBound))
     .map(({ label, lowerBound }) =>
-      `${label}: ${formatNumber(lowerBound, 0)}以上の値をまとめて扱います。`
+      `${label}: ${formatNumber(lowerBound, 0)}以上の値をまとめて扱います。`,
     )
 }
 
-/** @returns {CalculationFeedbackState} */
-export function createCalculationFeedbackState() {
+export function createCalculationFeedbackState<
+  TPlan extends CalculationFeedbackPlan = CalculationRangePlan,
+>(): CalculationFeedbackState<TPlan> {
   return {
     status: 'idle',
     plan: null,
@@ -148,7 +203,9 @@ export function createCalculationFeedbackState() {
   }
 }
 
-export function copyCalculationFeedback(feedback) {
+export function copyCalculationFeedback<TPlan extends CalculationFeedbackPlan>(
+  feedback: CalculationFeedbackState<TPlan> | null | undefined,
+): CalculationFeedbackState<TPlan> {
   return {
     status: feedback?.status ?? 'idle',
     plan: feedback?.plan ?? null,
@@ -156,59 +213,78 @@ export function copyCalculationFeedback(feedback) {
   }
 }
 
-export function beginCalculation(feedback) {
+export function beginCalculation<TPlan extends CalculationFeedbackPlan>(
+  feedback: CalculationFeedbackState<TPlan>,
+): void {
   feedback.status = 'loading'
   feedback.plan = null
   feedback.error = null
 }
 
-export function publishRangePlan(feedback, plan) {
+export function publishRangePlan<TPlan extends CalculationFeedbackPlan>(
+  feedback: CalculationFeedbackState<TPlan>,
+  plan: TPlan | null | undefined,
+): void {
   feedback.plan = plan ?? null
   feedback.error = null
 }
 
-export function completeCalculation(feedback) {
+export function completeCalculation<TPlan extends CalculationFeedbackPlan>(
+  feedback: CalculationFeedbackState<TPlan>,
+): void {
   feedback.status = 'ready'
   feedback.error = null
 }
 
-export function markCalculationAborted(feedback) {
+export function markCalculationAborted<TPlan extends CalculationFeedbackPlan>(
+  feedback: CalculationFeedbackState<TPlan>,
+): void {
   feedback.status = 'idle'
   feedback.plan = null
   feedback.error = null
 }
 
-export function isAbortError(error) {
-  return error?.name === 'AbortError'
+export function isAbortError(error: unknown): boolean {
+  return isRecord(error) && error.name === 'AbortError'
 }
 
-export function isCalculationRangeError(error) {
-  return error?.name === 'CalculationRangeError'
+export function isCalculationRangeError(error: unknown): boolean {
+  return isRecord(error) && error.name === 'CalculationRangeError'
 }
 
-export function recordCalculationError(feedback, error) {
+export function recordCalculationError<TPlan extends CalculationFeedbackPlan>(
+  feedback: CalculationFeedbackState<TPlan>,
+  error: unknown,
+): void {
   if (isAbortError(error)) {
     markCalculationAborted(feedback)
     return
   }
   feedback.status = isCalculationRangeError(error) ? 'rejected' : 'error'
-  feedback.plan = error?.plan ?? feedback.plan
-  feedback.error = error ?? null
+  if (isRecord(error) && isRecord(error.plan)) {
+    feedback.plan = error.plan as TPlan
+  }
+  feedback.error = error
 }
 
-export function formatRangeFeedback(feedback) {
-  if (feedback?.error?.name === 'AbortError') {
+export function formatRangeFeedback<TPlan extends CalculationFeedbackPlan>(
+  feedback: CalculationFeedbackState<TPlan>,
+): CalculationRangeFeedbackDisplay | null {
+  if (isAbortError(feedback?.error)) {
     return null
   }
   const plan = feedback?.plan
-  const warnings = collectWarnings(plan, feedback)
+  const warnings = collectWarnings(
+    plan,
+    feedback as CalculationFeedbackState<CalculationFeedbackPlan>,
+  )
   const rejected = feedback?.status === 'rejected'
     || plan?.accepted === false
     || warnings.some((warning) => warning.severity === 'reject')
   const hasResourceError = isResourceGuardError(feedback?.error)
   const hasGenericError = feedback?.status === 'error' && !hasResourceError
   const visibleWarnings = warnings.filter((warning) =>
-    rejected || warning.severity === 'warning'
+    rejected || warning.severity === 'warning',
   )
 
   if (!hasGenericError && !hasResourceError && visibleWarnings.length === 0) {
@@ -234,7 +310,9 @@ export function formatRangeFeedback(feedback) {
       ...visibleWarnings.map(formatWarningReason),
     ],
     metrics: {
-      memory: formatMemory(plan?.estimates?.float64Bytes),
+      memory: formatMemory(
+        isRecord(plan?.estimates) ? plan.estimates.float64Bytes : undefined,
+      ),
     },
     overflow: collectOverflowMessages(plan),
     action: hasResourceError
@@ -247,7 +325,20 @@ export function formatRangeFeedback(feedback) {
   }
 }
 
-export async function runInitialCalculation({ feedback, calculate, onError }) {
+export async function runInitialCalculation<
+  TPlan extends CalculationFeedbackPlan,
+  TResult,
+>({
+  feedback,
+  calculate,
+  onError,
+}: {
+  feedback: CalculationFeedbackState<TPlan>
+  calculate: (context: {
+    onRangePlan: (plan: TPlan) => void
+  }) => TResult | Promise<TResult>
+  onError?: (error: unknown) => void
+}): Promise<TResult | null> {
   beginCalculation(feedback)
   try {
     const result = await calculate({
@@ -255,7 +346,7 @@ export async function runInitialCalculation({ feedback, calculate, onError }) {
     })
     completeCalculation(feedback)
     return result
-  } catch (error) {
+  } catch (error: unknown) {
     if (isAbortError(error)) {
       markCalculationAborted(feedback)
       return null
@@ -272,30 +363,32 @@ export async function runInitialCalculation({ feedback, calculate, onError }) {
  * Compatibility adapter for existing feedback-aware callers. New request
  * lanes can use createCalculationRequestCoordinator directly; this adapter
  * preserves the existing run(options)/invalidate() contract while sharing
- * the same one-running-plus-one-pending coordinator. The caller signal is
- * composed with the coordinator-owned signal, so neither source is
- * overwritten.
+ * the same one-running-plus-one-pending coordinator.
  */
-/**
- * @template {object} TRequest
- * @template TResult
- * @template TPlan
- * @param {import('./CalculationFeedbackTypes').LatestCalculationRunnerOptions<TRequest, TResult, TPlan>} options
- * @returns {import('./CalculationFeedbackTypes').LatestCalculationRunner<TRequest, TResult, TPlan>}
- */
-export function createLatestCalculationRunner({
-  feedback,
-  calculate,
-  clearResult,
-  commitResult,
-  onError,
-  onCancelled,
-  snapshotRequest,
-}) {
-  const coordinator = createCalculationRequestCoordinator({
+export function createLatestCalculationRunner<
+  TRequest extends object,
+  TResult,
+  TPlan extends CalculationFeedbackPlan = CalculationRangePlan,
+>(
+  {
+    feedback,
+    calculate,
+    clearResult,
+    commitResult,
+    onError,
+    onCancelled,
+    snapshotRequest,
+  }: LatestCalculationRunnerOptions<TRequest, TResult, TPlan>,
+): LatestCalculationRunner<TRequest, TResult, TPlan> {
+  const coordinator = createCalculationRequestCoordinator<
+    TRequest,
+    TResult,
+    TPlan,
+    TRequest
+  >({
     snapshotRequest,
     execute: (request, context) => calculate({
-      ...(request ?? {}),
+      ...request,
       signal: context.signal,
       onRangePlan: context.onRangePlan,
     }),
@@ -308,7 +401,9 @@ export function createLatestCalculationRunner({
     onCommitted: () => completeCalculation(feedback),
     onCancelled: (context) => {
       markCalculationAborted(feedback)
-      onCancelled?.(context)
+      onCancelled?.(
+        context as CalculationCancellationContext<TRequest, TPlan, TRequest>,
+      )
     },
     onError: (error) => {
       recordCalculationError(feedback, error)
@@ -321,8 +416,9 @@ export function createLatestCalculationRunner({
   })
 
   return {
-    run(options = {}) {
-      return coordinator.run(options, options)
+    run(request?: TRequest) {
+      const actualRequest = request ?? {} as TRequest
+      return coordinator.run(actualRequest, actualRequest)
     },
     invalidate: coordinator.invalidate,
     dispose: coordinator.dispose,
