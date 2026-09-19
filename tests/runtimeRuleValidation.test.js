@@ -11,8 +11,8 @@ import {
 } from '../src/calculation/DistributionResult'
 import {
   calculateScore,
-  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
+import { getScoreStatistics } from '../src/calculation/ScoreStatistics'
 import {
   generateMixedDamageDistribution,
 } from '../src/calculation/RuntimeDamageRollCalculator'

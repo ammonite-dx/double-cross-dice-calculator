@@ -54,4 +54,14 @@ describe('calculation core planning boundaries', () => {
     expect(rangePlanner).not.toContain('oneDieTail')
     expect(rangePlanner).not.toContain('maxTailBound')
   })
+
+  it('keeps score production, outcome semantics, and statistics separate', () => {
+    const scoreCalculator = source('src/calculation/ScoreCalculator.js')
+    const scoreOutcome = source('src/calculation/ScoreOutcome.ts')
+    const scoreStatistics = source('src/calculation/ScoreStatistics.ts')
+
+    expect(scoreCalculator).not.toMatch(/export function (getScoreStatistics|getScoreOutcomePartition|calculateScoreSuccessProbability)/)
+    expect(scoreOutcome).not.toMatch(/from ['"].*ScoreCalculator['"]|export function calculateScore\b/)
+    expect(scoreStatistics).not.toMatch(/DamageCalculator|DamageStatistics|DamageRollRequest/)
+  })
 })

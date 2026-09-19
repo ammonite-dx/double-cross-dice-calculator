@@ -16,9 +16,7 @@ import {
   DAMAGE_EXPECTATION_CERTIFICATE_VERSION,
   getCertifiedDamageExpectation,
 } from './DamageExpectationCertificate'
-import {
-  getScoreOutcomePartition,
-} from './ScoreCalculator'
+import { getScoreOutcomePartition } from './ScoreOutcome'
 
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8

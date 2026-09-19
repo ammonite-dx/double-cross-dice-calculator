@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
-  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
+import { getScoreStatistics } from '../src/calculation/ScoreStatistics'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   SUMMARY_UNAVAILABLE,

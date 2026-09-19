@@ -34,7 +34,7 @@ import {
 import {
   calculateScoreSuccessProbabilityInterval,
   calculateScoreSuccessProbability,
-} from '../src/calculation/ScoreCalculator'
+} from '../src/calculation/ScoreOutcome'
 import {
   calculateScore,
 } from '../src/calculation/ScoreCalculator'

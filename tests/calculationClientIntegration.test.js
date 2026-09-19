@@ -18,8 +18,8 @@ import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import {
   calculateScore,
-  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
+import { getScoreStatistics } from '../src/calculation/ScoreStatistics'
 import { createD10DistributionProvider } from '../src/calculation/D10Calculator'
 
 function calculateScoreWithProvider(

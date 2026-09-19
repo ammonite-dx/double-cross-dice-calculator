@@ -23,8 +23,8 @@ import {
 import {
   calculateScore as calculateCoreScore,
   calculateScoreResolution as calculateCoreScoreResolution,
-  getScoreStatistics,
 } from '../calculation/ScoreCalculator'
+import { getScoreStatistics } from '../calculation/ScoreStatistics'
 import { planCalculationRanges } from '../calculation/RangePlanner'
 import {
   normalizeAttackCalculationInput,

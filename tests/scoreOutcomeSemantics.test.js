@@ -8,8 +8,8 @@ import {
 } from '../src/calculation/DistributionResult'
 import {
   getScoreOutcomePartition,
-  getScoreStatistics,
-} from '../src/calculation/ScoreCalculator'
+} from '../src/calculation/ScoreOutcome'
+import { getScoreStatistics } from '../src/calculation/ScoreStatistics'
 
 function scoreEnvelope(entries, forcedFailureProbability = 0) {
   const maxValue = Math.max(...entries.map(([value]) => value))

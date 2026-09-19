@@ -4,8 +4,8 @@ import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
   calculateScoreResolution,
-  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
+import { getScoreStatistics } from '../src/calculation/ScoreStatistics'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import {
   createDistributionResult,

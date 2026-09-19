@@ -6,8 +6,8 @@ import {
 } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
-  getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
+import { getScoreStatistics } from '../src/calculation/ScoreStatistics'
 
 function calculateScoreWithProvider(
   params,
