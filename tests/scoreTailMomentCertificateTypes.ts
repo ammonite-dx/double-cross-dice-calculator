@@ -2,7 +2,7 @@ import type {
   AnalyticScoreTailMomentCertificate,
   FiniteSupportScoreTailMomentCertificate,
   ScoreTailMomentCertificate,
-} from '../src/calculation/DistributionResultTypes'
+} from '../src/domain/ScoreResultTypes'
 
 const finiteCertificate = {
   version: 1,

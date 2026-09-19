@@ -1504,7 +1504,7 @@ export function validateDamageAggregationOptions(options = {}) {
  * pass it back to sumDamage to execute the exact planned work.
  */
 /**
- * @param {readonly import('./DistributionResultTypes').DistributionEnvelope[]} Damages
+ * @param {readonly import('../domain/DistributionResultTypes').DistributionEnvelope[]} Damages
  * @param {TotalDamageCalculationOptions} [options]
  * @returns {DamageAggregationPlan}
  */
@@ -1699,10 +1699,10 @@ function executeDamagePlan(planRecord, normalizedOptions) {
  * repeated: the approved immutable plan is executed directly.
  */
 /**
- * @param {readonly import('./DistributionResultTypes').DistributionEnvelope[]} Damages
+ * @param {readonly import('../domain/DistributionResultTypes').DistributionEnvelope[]} Damages
  * @param {TotalDamageCalculationOptions & { plan?: DamageAggregationPlan }} [options]
  * @param {DamageAggregationPlan} [explicitPlan]
- * @returns {import('./DistributionResultTypes').DistributionEnvelope}
+ * @returns {import('../domain/DistributionResultTypes').DistributionEnvelope}
  */
 export function sumDamage(
   Damages,

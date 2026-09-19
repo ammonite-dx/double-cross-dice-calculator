@@ -1,7 +1,7 @@
 import type {
   DistributionEnvelope,
   DistributionSupport,
-} from './DistributionResultTypes'
+} from '../domain/DistributionResultTypes'
 
 export interface TotalDamageCalculationOptions {
   readonly maxValuesLength?: number

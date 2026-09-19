@@ -97,10 +97,16 @@ const sharedPresentationCalculationPattern = {
   message: 'Shared presentation may read only the canonical DistributionResult contract from calculation.',
 }
 
-const sharedPresentationCorePattern = internalPattern(
-  ['core', 'domain'],
-  'Shared presentation must remain independent of calculation core and domain layers.',
-)
+const sharedPresentationCorePattern = {
+  regex: `^${relativeOrAlias}(?:core|domain/(?!CertifiedValue|DistributionResultTypes|ScoreResultTypes|DamageResultTypes|CalculationResultTypes|BacktrackResultTypes)(?:[^/]+))(?:/|$)`,
+  message: 'Shared presentation must remain independent of calculation core and non-contract domain layers.',
+}
+
+const sharedPresentationResultContractPattern = {
+  regex: `^${relativeOrAlias}domain/(?:CertifiedValue|DistributionResultTypes|ScoreResultTypes|DamageResultTypes|CalculationResultTypes|BacktrackResultTypes)(?:\\.ts)?(?:/|$)`,
+  allowTypeImports: true,
+  message: 'Shared presentation may import domain result contracts only as types.',
+}
 
 const sharedPresentationSharedPattern = {
   regex: `^${relativeOrAlias}shared/(?:chart|theme|validation)(?:/|$)`,
@@ -267,6 +273,7 @@ export default [
         patterns: [
           sharedPresentationInternalPattern,
           sharedPresentationCalculationPattern,
+          sharedPresentationResultContractPattern,
           sharedPresentationCorePattern,
           sharedPresentationSharedPattern,
           sharedPresentationSiblingPattern,

@@ -8,9 +8,11 @@ import type {
 import type {
   DamageEnvelope,
   DamageStatistics,
+} from '../../../domain/DamageResultTypes'
+import type {
   ScorePair,
   ScoreStatistics,
-} from '../../../calculation/DistributionResultTypes'
+} from '../../../domain/ScoreResultTypes'
 import type {
   ChartJsData,
   DisplayWarning,

@@ -3,9 +3,9 @@ import type {
 } from '../../../domain/CalculationInputs'
 import type {
   AttackCalculationResult,
-  DamageEnvelope,
   TotalDamageResult,
-} from '../../../calculation/DistributionResultTypes'
+} from '../../../domain/CalculationResultTypes'
+import type { DamageEnvelope } from '../../../domain/DamageResultTypes'
 import type { AttackRangePlanReference } from './AttackPresentationTypes'
 
 export interface AttackCalculationRecord {

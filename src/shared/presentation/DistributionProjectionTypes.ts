@@ -9,62 +9,20 @@ export interface DisplayWarning {
   readonly [field: string]: unknown
 }
 
-// These small structural aliases intentionally live in the presentation
-// layer. The shared adapter must not depend on domain or calculation modules;
-// runtime validation remains owned by DistributionResult.js.
+import type { CertifiedValue } from '../../domain/CertifiedValue'
+import type {
+  DistributionEnvelope,
+  DistributionOverflow,
+  DistributionResult,
+  DistributionSupport,
+  ProbabilityMassSummary,
+} from '../../domain/DistributionResultTypes'
+
 export type DisplayMode = 'pmf' | 'upper-tail'
 
-export type CertifiedValue =
-  | Readonly<{ kind: 'exact'; value: number }>
-  | Readonly<{ kind: 'bounded'; lowerBound: number; upperBound: number }>
-  | Readonly<{ kind: 'lower-bound'; lowerBound: number }>
-
-export type DistributionSupport =
-  | Readonly<{ kind: 'finite'; max: number }>
-  | Readonly<{ kind: 'infinite' }>
-
-export type DistributionOverflow =
-  | Readonly<{
-      readonly kind: 'exact'
-      readonly lowerBound: number
-      readonly probability: number
-      readonly errorBound: number
-    }>
-  | Readonly<{
-      readonly kind: 'upper-bound'
-      readonly lowerBound: number
-      readonly probabilityUpperBound: number
-      readonly errorBound: number
-    }>
-
-export interface ProbabilityMassSummary {
-  readonly explicitMass: number
-  readonly overflowMass: number | null
-  readonly overflowMassUpperBound: number
-  readonly totalMass: number | null
-  readonly totalMassUpperBound: number
-  readonly unrepresentedMass: number | null
-  readonly unrepresentedMassUpperBound: number
-  readonly errorBound: number
-  readonly isExact: boolean
-}
-
-/** The calculation-owned result shape consumed by the shared validator. */
-export interface CanonicalDistributionResult {
-  readonly version: number
-  readonly values: Float64Array
-  readonly offset: number
-  readonly support: DistributionSupport
-  readonly overflow: DistributionOverflow | null
-}
-
-export interface CanonicalDistributionEnvelope {
-  readonly result: CanonicalDistributionResult
-  readonly metadata: Readonly<{
-    readonly modeledDistribution: true
-    readonly [field: string]: unknown
-  }>
-}
+/** Compatibility names for the shared presentation boundary. */
+export type CanonicalDistributionResult = DistributionResult
+export type CanonicalDistributionEnvelope = DistributionEnvelope
 
 /** A closed, inclusive display interval and its derived number of points. */
 export interface DisplayWindow {

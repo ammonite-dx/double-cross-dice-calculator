@@ -9,11 +9,10 @@ import type { ScoreInput } from '../domain/InputDomain'
 import type {
   AttackCalculationResult,
   BacktrackCalculationResult,
-  ScorePair,
-  ScoreStatistics,
   TotalDamageResult,
-  DistributionEnvelope,
-} from '../calculation/DistributionResultTypes'
+} from '../domain/CalculationResultTypes'
+import type { DistributionEnvelope } from '../domain/DistributionResultTypes'
+import type { ScorePair, ScoreStatistics } from '../domain/ScoreResultTypes'
 import type {
   TotalDamageCalculationOptions,
 } from '../calculation/DamageAggregationTypes'

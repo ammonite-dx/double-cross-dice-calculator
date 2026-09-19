@@ -35,7 +35,7 @@ import type {
 import type {
   ScorePair,
   ScoreStatistics,
-} from '../../../calculation/DistributionResultTypes'
+} from '../../../domain/ScoreResultTypes'
 import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type {
   CheckCalculationRangePlan,
