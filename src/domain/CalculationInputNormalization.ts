@@ -170,37 +170,6 @@ export function normalizeReactionResolution(
   }
 }
 
-/**
- * Legacy-shaped reaction snapshot for callers that still consume a score
- * coordinate object directly. Production CalculationClient code uses the
- * resolution-shaped normalizer below instead.
- */
-export function normalizeReactionInput(input: unknown, label = 'reaction') {
-  const normalized = normalizeReactionResolution(input, label)
-  const score = normalized.score.kind === 'rolled-score'
-    ? normalized.score.params
-    : normalized.score.kind === 'fixed-score'
-      ? {
-          dice: 0,
-          critical: 10,
-          skill: normalized.score.value,
-          yousei: 0,
-          shihai: 0,
-        }
-      : {
-          dice: 0,
-          critical: 10,
-          skill: 0,
-          yousei: 0,
-          shihai: 0,
-        }
-  return {
-    mode: normalized.mode,
-    score,
-    damage: normalized.damage,
-  }
-}
-
 export interface NormalizedBacktrackParams {
   readonly encroachment: number
   readonly lois: number

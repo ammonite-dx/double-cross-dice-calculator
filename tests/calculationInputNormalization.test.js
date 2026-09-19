@@ -6,7 +6,7 @@ import {
   normalizeBacktrackParams,
   normalizeDefenceDamageInput,
   normalizeDifficultyInput,
-  normalizeReactionInput,
+  normalizeReactionResolution,
   normalizeScoreInput,
 } from '../src/domain/CalculationInputNormalization'
 import {
@@ -78,47 +78,38 @@ describe('calculation input normalization', () => {
 
   it('normalizes all reaction modes', () => {
     const damage = { dice: 1, value: 2 }
-    expect(normalizeReactionInput({
+    expect(normalizeReactionResolution({
       mode: 'ドッジ',
       score: { dice: 1, critical: 9, skill: 2 },
       damage,
-    })).toMatchObject({
+    })).toEqual({
       mode: 'ドッジ',
-      score: { dice: 1, critical: 9, skill: 2, yousei: 0, shihai: 0 },
+      score: {
+        kind: 'rolled-score',
+        params: { dice: 1, critical: 9, skill: 2, yousei: 0, shihai: 0 },
+      },
       damage,
     })
-    expect(normalizeReactionInput({
+    expect(normalizeReactionResolution({
       mode: '《イベイジョン》',
       score: { dice: 3, skill: 4 },
       damage,
-    })).toMatchObject({
+    })).toEqual({
       mode: '《イベイジョン》',
-      score: { dice: 0, critical: 10, skill: 10 },
+      score: { kind: 'fixed-score', value: 10 },
+      damage,
     })
-    expect(normalizeReactionInput({
+    expect(normalizeReactionResolution({
       mode: 'ガード・リアクション放棄',
       score: { dice: 99, skill: 999 },
       damage,
-    })).toMatchObject({
+    })).toEqual({
       mode: 'ガード・リアクション放棄',
-      score: { dice: 0, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      score: { kind: 'forced-failure' },
+      damage,
     })
-    expect(() => normalizeReactionInput({ mode: 'unknown', score: {}, damage }))
+    expect(() => normalizeReactionResolution({ mode: 'unknown', score: {}, damage }))
       .toThrow()
-  })
-
-  it('keeps evasion normalization idempotent and guards derived skill overflow', () => {
-    const canonical = normalizeReactionInput({
-      mode: '《イベイジョン》',
-      score: { dice: 0, critical: 10, skill: 23, yousei: 0, shihai: 0 },
-      damage: { dice: 0, value: 0 },
-    })
-    expect(normalizeReactionInput(canonical)).toEqual(canonical)
-    expect(() => normalizeReactionInput({
-      mode: '《イベイジョン》',
-      score: { dice: Number.MAX_SAFE_INTEGER, skill: 0 },
-      damage: { dice: 0, value: 0 },
-    })).toThrow()
   })
 
   it('normalizes backtrack defaults and the remaining Lois domain', () => {

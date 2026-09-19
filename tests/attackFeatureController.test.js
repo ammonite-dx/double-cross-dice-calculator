@@ -181,6 +181,48 @@ describe('Attack feature controller', () => {
     controller.dispose()
   })
 
+  it('duplicates Evasion reaction state without converting editable coordinates', () => {
+    const { controller, client } = createController()
+    const snapshot = {
+      mode: '《イベイジョン》',
+      score: {
+        dice: 3,
+        critical: 9,
+        skill: 4,
+        yousei: 1,
+        shihai: 1,
+      },
+      damage: {
+        dice: 2,
+        value: 5,
+      },
+    }
+
+    controller.onComboSideValidated({
+      id: 0,
+      side: 'reaction',
+      snapshot,
+    })
+    controller.duplicateCombo(0)
+
+    const source = controller.combos.value[0]
+    const duplicate = controller.combos.value[1]
+    expect(duplicate.params.reaction).toEqual(snapshot)
+    expect(duplicate.params.reaction.score).toMatchObject({
+      dice: 3,
+      skill: 4,
+      yousei: 1,
+      shihai: 1,
+    })
+
+    source.params.reaction.score.dice = 0
+    source.params.reaction.score.skill = 0
+    expect(duplicate.params.reaction.score.dice).toBe(3)
+    expect(duplicate.params.reaction.score.skill).toBe(4)
+    expect(client.calculateAttack).toHaveBeenCalledTimes(1)
+    controller.dispose()
+  })
+
   it('routes validated side snapshots through the controller boundary', () => {
     const { controller, client } = createController()
     const snapshot = createActionSnapshot(4)

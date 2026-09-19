@@ -1,7 +1,3 @@
-import {
-  normalizeReactionInput,
-} from '../../../domain/CalculationInputNormalization'
-
 const SCORE_FIELDS = Object.freeze([
   'dice',
   'critical',
@@ -84,30 +80,9 @@ export function createDefenceInputSnapshot(draft = {}) {
 }
 
 /**
- * Compatibility helper for callers that still request the historical
- * coordinate-normalized reaction object.  Production UI uses
- * createDefenceInputSnapshot() and never installs this result in state.
- */
-export function normalizeDefenceInputDraft(draft = {}) {
-  const source = draft ?? {}
-  if (
-    source.mode !== 'ドッジ'
-    && source.mode !== '《イベイジョン》'
-    && source.mode !== 'ガード・リアクション放棄'
-  ) {
-    return null
-  }
-  return normalizeReactionInput({
-    mode: source.mode,
-    score: source.score ?? {},
-    damage: source.damage ?? {},
-  })
-}
-
-/**
  * Clone a validated side snapshot before installing it in combo params.
- * Defence snapshots are already normalized, so this deliberately copies
- * rather than normalizes them a second time.
+ * Defence snapshots remain in raw editable coordinates, so this deliberately
+ * copies rather than normalizes them at the feature-state boundary.
  */
 export function cloneAttackSideSnapshot(side, snapshot) {
   if (side === 'action') {

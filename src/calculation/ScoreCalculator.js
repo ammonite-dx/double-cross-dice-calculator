@@ -573,7 +573,7 @@ export function calculateScore(
 
 function validateScoreResolutionPlan(resolution, scoreRangePlan) {
   if (scoreRangePlan === undefined || scoreRangePlan === null) {
-    throw new TypeError('deterministic score calculation requires a score range plan')
+    throw new TypeError('score resolution calculation requires a score range plan')
   }
   if (scoreRangePlan.kind !== resolution.kind) {
     throw new TypeError(
@@ -582,7 +582,13 @@ function validateScoreResolutionPlan(resolution, scoreRangePlan) {
   }
   if (
     resolution.kind === 'fixed-score'
-    && scoreRangePlan.value !== undefined
+    && (!Number.isSafeInteger(scoreRangePlan.value)
+      || scoreRangePlan.value < 0)
+  ) {
+    throw new TypeError('fixed score plan must include a non-negative safe integer value')
+  }
+  if (
+    resolution.kind === 'fixed-score'
     && scoreRangePlan.value !== resolution.value
   ) {
     throw new RangeError('fixed score plan value does not match resolution value')
@@ -626,20 +632,23 @@ export function calculateScoreResolution(
   dependencies,
   scoreRangePlan
 ) {
-  if (resolution?.kind === 'rolled-score') {
-    validateScoreRangePlan(scoreRangePlan)
+  if (
+    resolution?.kind !== 'fixed-score'
+    && resolution?.kind !== 'rolled-score'
+    && resolution?.kind !== 'forced-failure'
+  ) {
+    throw new TypeError('score resolution must be rolled-score, fixed-score, or forced-failure')
+  }
+
+  if (resolution.kind === 'rolled-score') {
+    validateScoreResolutionPlan(resolution, scoreRangePlan)
     return calculateScore(
       resolution.params,
       dependencies,
       scoreRangePlan
     )
   }
-  if (
-    resolution?.kind !== 'fixed-score'
-    && resolution?.kind !== 'forced-failure'
-  ) {
-    throw new TypeError('score resolution must be rolled-score, fixed-score, or forced-failure')
-  }
+
   validateScoreResolutionPlan(resolution, scoreRangePlan)
   return createDeterministicScoreEnvelope(
     resolution.kind,

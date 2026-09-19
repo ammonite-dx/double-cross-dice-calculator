@@ -93,7 +93,7 @@ function createHarness() {
       operation: 'attack',
       scores: [
         {},
-        { kind: 'forced-failure', value: 0 },
+        { kind: 'forced-failure' },
       ],
     })),
     planDamageAggregation: vi.fn(() => ({

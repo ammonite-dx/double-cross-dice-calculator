@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { createCalculationClient } from '../src/runtime/CalculationClient'
+import {
+  createCalculationClient,
+  createCalculationDependencies,
+} from '../src/runtime/CalculationClient'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
@@ -360,6 +363,74 @@ describe('canonical CalculationClient surface', () => {
       },
     })).rejects.toThrow(/safe integer/)
     expect(planCalculationRanges).not.toHaveBeenCalled()
+  })
+
+  it('calculates MAX_SAFE Evasion as a sparse fixed score end to end', async () => {
+    const calculateDxDistribution = vi.fn((_params, options) => {
+      const values = new Float64Array(options.workingLength)
+      values[0] = 1
+      return values
+    })
+    const calculateDamageOnDemand = vi.fn(async () => createDamage())
+    const dependencies = createCalculationDependencies({
+      calculateDxDistribution,
+      calculateDamageOnDemand,
+      getScoreStatistics: vi.fn(() => 'canonical score summary'),
+      getDamageStatistics: vi.fn(() => 'canonical damage summary'),
+    })
+    const client = createCalculationClient(dependencies)
+    const plans = []
+    const maxSafe = Number.MAX_SAFE_INTEGER
+
+    const result = await client.calculateAttack({
+      action: {
+        score: {
+          dice: 0,
+          critical: 11,
+          skill: 0,
+          yousei: 0,
+          shihai: 0,
+        },
+        damage: { dice: 0, value: 0, kazanari: 0 },
+      },
+      reaction: {
+        mode: '《イベイジョン》',
+        score: {
+          dice: maxSafe,
+          critical: 2,
+          skill: -maxSafe,
+          yousei: 99,
+          shihai: 99,
+        },
+        damage: { dice: 0, value: 0 },
+      },
+    }, {
+      onRangePlan: (plan) => plans.push(plan),
+    })
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0]).toMatchObject({
+      accepted: true,
+      scores: {
+        1: {
+          kind: 'fixed-score',
+          value: maxSafe,
+          outputMax: maxSafe,
+          finiteSupport: true,
+        },
+      },
+    })
+    expect(plans[0].estimates.float64Bytes).toBeLessThan(1_000_000)
+    expect(result.score.reaction.result).toMatchObject({
+      offset: maxSafe,
+      support: { kind: 'finite', max: maxSafe },
+      overflow: null,
+    })
+    expect(result.score.reaction.result.values).toHaveLength(1)
+    expect(result.score.reaction.metadata.scoreTailMomentCertificate)
+      .toMatchObject({ modeledMax: maxSafe })
+    expect(calculateDxDistribution).toHaveBeenCalledOnce()
+    expect(calculateDamageOnDemand).toHaveBeenCalledOnce()
   })
 
   it('keeps incompatible score effects on the range rejection path', async () => {

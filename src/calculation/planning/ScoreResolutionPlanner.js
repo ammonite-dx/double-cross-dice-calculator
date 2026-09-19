@@ -6,7 +6,7 @@ function deterministicPlan(kind, value, display, tailBudget) {
   }
   return {
     kind,
-    value,
+    ...(kind === 'fixed-score' ? { value } : {}),
     // Deterministic scores intentionally have no DX params or dense working
     // range. They are represented by an offset one-point distribution.
     display,

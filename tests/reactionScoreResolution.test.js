@@ -141,6 +141,7 @@ describe('resolution-aware score planning and production', () => {
 
     expect(plan.accepted).toBe(true)
     expect(reaction.kind).toBe('forced-failure')
+    expect(reaction).not.toHaveProperty('value')
     expect(reaction.outputMax).toBe(0)
     expect(reaction.operations).toBe(0)
     expect(reaction.fftOperations).toBe(0)
@@ -197,6 +198,26 @@ describe('resolution-aware score planning and production', () => {
       { kind: 'fixed-score', value: 10 },
       {},
       { value: 10 },
+    )).toThrow(/does not match plan kind/)
+    expect(() => calculateScoreResolution(
+      { kind: 'rolled-score', params: rolledScore() },
+      { getDxDistribution: () => new Float64Array([1, 0]) },
+      { workingLength: 2, fftLength: 0 },
+    )).toThrow(/does not match plan kind/)
+    expect(() => calculateScoreResolution(
+      { kind: 'fixed-score', value: 10 },
+      {},
+      { kind: 'fixed-score' },
+    )).toThrow(/must include/)
+    expect(() => calculateScoreResolution(
+      { kind: 'fixed-score', value: 10 },
+      {},
+      { kind: 'fixed-score', value: 9 },
+    )).toThrow(/does not match resolution value/)
+    expect(() => calculateScoreResolution(
+      { kind: 'forced-failure' },
+      {},
+      { kind: 'fixed-score', value: 0 },
     )).toThrow(/does not match plan kind/)
   })
 

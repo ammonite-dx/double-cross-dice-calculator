@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createAttackInputSnapshot,
+  createDefenceInputSnapshot,
   createDefenceInputDraftSnapshot,
   normalizeAttackInputDraft,
-  normalizeDefenceInputDraft,
   replaceAttackSideSnapshot,
 } from '../src/features/attack/model/AttackInputSnapshot'
 import { createLatestValidationGate } from '../src/shared/validation/LatestValidationGate'
@@ -75,38 +75,18 @@ describe('AttackInputSnapshot', () => {
     expect(draft.score.skill).toBe(3)
   })
 
-  it('preserves Defence mode normalization and effective score values', () => {
-    const dodge = normalizeDefenceInputDraft(createDefenceDraft('ドッジ'))
-    const evasion = normalizeDefenceInputDraft(
-      createDefenceDraft('《イベイジョン》')
-    )
-    const guard = normalizeDefenceInputDraft(
-      createDefenceDraft('ガード・リアクション放棄')
-    )
-
-    expect(dodge).toEqual(createDefenceDraft('ドッジ'))
-    expect(evasion).toEqual({
-      mode: '《イベイジョン》',
-      score: {dice: 0, critical: 10, skill: 10, yousei: 0, shihai: 0},
-      damage: {dice: 2, value: 5},
-    })
-    expect(guard).toEqual({
-      mode: 'ガード・リアクション放棄',
-      score: {dice: 0, critical: 10, skill: 0, yousei: 0, shihai: 0},
-      damage: {dice: 2, value: 5},
-    })
-    expect(normalizeDefenceInputDraft(createDefenceDraft('unknown'))).toBeNull()
-  })
-
-  it('rejects an Evasion draft whose derived skill would exceed safe integers', () => {
-    expect(() => normalizeDefenceInputDraft({
-      mode: '《イベイジョン》',
-      score: {
-        dice: Number.MAX_SAFE_INTEGER,
-        skill: Number.MAX_SAFE_INTEGER,
-      },
-      damage: { dice: 0, value: 0 },
-    })).toThrow('exceeds the safe integer range')
+  it('keeps Defence snapshots in raw editable coordinates', () => {
+    for (const mode of [
+      'ドッジ',
+      '《イベイジョン》',
+      'ガード・リアクション放棄',
+    ]) {
+      const draft = createDefenceDraft(mode)
+      const snapshot = createDefenceInputSnapshot(draft)
+      expect(snapshot).toEqual(draft)
+      expect(snapshot.score.dice).toBe(3)
+      expect(snapshot.score.skill).toBe(4)
+    }
   })
 
   it('replaces one side with a second alias-free snapshot', () => {
@@ -131,17 +111,11 @@ describe('AttackInputSnapshot', () => {
     expect(nextAction.score.dice).toBe(99)
     expect(params.action.damage.value).toBe(99)
 
-    const effectiveReaction = normalizeDefenceInputDraft(
+    const reactionSnapshot = createDefenceInputSnapshot(
       createDefenceDraft('《イベイジョン》')
     )
-    replaceAttackSideSnapshot(params, 'reaction', effectiveReaction)
-    expect(params.reaction.score).toEqual({
-      dice: 0,
-      critical: 10,
-      skill: 10,
-      yousei: 0,
-      shihai: 0,
-    })
+    replaceAttackSideSnapshot(params, 'reaction', reactionSnapshot)
+    expect(params.reaction.score).toEqual(reactionSnapshot.score)
   })
 
   it('keeps Defence draft snapshots in the editable coordinate system', () => {
