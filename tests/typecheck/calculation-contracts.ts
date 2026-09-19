@@ -23,7 +23,10 @@ const checkOptions: CheckCalculationOptions = {
   rangePolicy: policy,
   onRangePlan: (plan: CheckCalculationRangePlan) => {
     plan.operation satisfies 'check'
-    plan.scores[0].workingLength
+    const score = plan.scores[0]
+    if (score.kind === 'rolled-score') {
+      score.workingLength
+    }
   },
 }
 

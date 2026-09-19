@@ -247,7 +247,9 @@ describe('canonical CalculationClient surface', () => {
     })
     expect(result.damage).toBe(damage)
     expect(result.damageStatistics).toBe('canonical damage summary')
-    expect(dependencies.calculateScore).toHaveBeenCalledTimes(2)
+    // Evasion is a deterministic fixed-score resolution, so only the action
+    // lane invokes the rolled-score provider.
+    expect(dependencies.calculateScore).toHaveBeenCalledTimes(1)
     expect(dependencies.calculateDamageOnDemand).toHaveBeenCalledOnce()
     expect(dependencies.getScoreStatistics).toHaveBeenCalledOnce()
     expect(planCalculationRangesSpy.mock.calls[0][1]).toBeUndefined()
@@ -330,8 +332,12 @@ describe('canonical CalculationClient surface', () => {
 
     expect(rawSetup.planCalculationRanges.mock.calls[0][0])
       .toEqual(normalizedSetup.planCalculationRanges.mock.calls[0][0])
-    expect(rawDependencies.calculateScore.mock.calls[1][0])
-      .toEqual(normalizedDependencies.calculateScore.mock.calls[1][0])
+    expect(rawSetup.planCalculationRanges.mock.calls[0][0].score.reaction)
+      .toEqual({ kind: 'fixed-score', value: 2 })
+    expect(normalizedSetup.planCalculationRanges.mock.calls[0][0].score.reaction)
+      .toEqual({ kind: 'fixed-score', value: 2 })
+    expect(rawDependencies.calculateScore).toHaveBeenCalledTimes(1)
+    expect(normalizedDependencies.calculateScore).toHaveBeenCalledTimes(1)
   })
 
   it('rejects invalid reaction modes and Evasion skill conversion overflow at the public boundary', async () => {

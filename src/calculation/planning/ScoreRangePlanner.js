@@ -177,6 +177,7 @@ export function planScore(params, display, tailBudget) {
   }
 
   return {
+    kind: 'rolled-score',
     params: normalized,
     display,
     support: {

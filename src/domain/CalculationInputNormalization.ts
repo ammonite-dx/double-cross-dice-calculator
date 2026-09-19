@@ -1,10 +1,8 @@
 import type {
-  AttackCalculationInput,
-  DamageInput,
   DefenceDamageInput,
-  DifficultyInput,
   ReactionMode,
 } from './CalculationInputs'
+import type { ScoreResolution } from './ScoreResolution'
 import type { BacktrackParams } from './BacktrackRules'
 import {
   assertCriticalValue,
@@ -24,12 +22,20 @@ function object(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
-function safeDoubledSkill(dice: number, skill: number, label: string): number {
-  const converted = dice * 2 + skill
-  if (!Number.isSafeInteger(converted)) {
+export function deriveEvasionScoreValue(
+  dice: number,
+  skill: number,
+  label = 'evasion.score',
+): number {
+  // Do the arithmetic in BigInt.  Two individually safe operands can have an
+  // unsafe intermediate product while their mathematical sum is safe.
+  const converted = BigInt(dice) * 2n + BigInt(skill)
+  const min = BigInt(Number.MIN_SAFE_INTEGER)
+  const max = BigInt(Number.MAX_SAFE_INTEGER)
+  if (converted < min || converted > max) {
     throw new RangeError(`${label} exceeds the safe integer range`)
   }
-  return converted
+  return Math.max(0, Number(converted))
 }
 
 export interface NormalizedScoreInput {
@@ -120,41 +126,24 @@ export function normalizeDefenceDamageInput(
 
 export interface NormalizedReactionInput {
   readonly mode: ReactionMode
-  readonly score: NormalizedScoreInput
+  readonly score: ScoreResolution
   readonly damage: DefenceDamageInput
 }
 
-function normalizeEvasionScore(
+function normalizeReactionScore(
   input: unknown,
   label: string,
-): NormalizedScoreInput {
+): ScoreResolution {
   const source = object(input, label)
   const dice = assertNonNegativeSafeInteger(source.dice, `${label}.dice`)
   const skill = assertSafeInteger(source.skill ?? 0, `${label}.skill`)
-
-  // A canonical evasion score has no remaining dice and explicitly carries
-  // the critical-10 coordinate. Raw UI input omits critical and may retain
-  // the previous score's value, so only this complete marker selects the
-  // idempotent path.
-  if (
-    dice === 0
-    && source.critical === 10
-    && (source.yousei ?? 0) === 0
-    && (source.shihai ?? 0) === 0
-  ) {
-    return normalizeScoreInput(source, label)
-  }
-
   return {
-    dice: 0,
-    critical: 10,
-    skill: safeDoubledSkill(dice, skill, `${label}.skill`),
-    yousei: 0,
-    shihai: 0,
+    kind: 'fixed-score',
+    value: deriveEvasionScoreValue(dice, skill, `${label}.skill`),
   }
 }
 
-export function normalizeReactionInput(
+export function normalizeReactionResolution(
   input: unknown,
   label = 'reaction',
 ): NormalizedReactionInput {
@@ -166,9 +155,38 @@ export function normalizeReactionInput(
   const normalizedMode = mode as ReactionMode
 
   const score = normalizedMode === DODGE_MODE
-    ? normalizeScoreInput(source.score, `${label}.score`)
+    ? {
+        kind: 'rolled-score' as const,
+        params: normalizeScoreInput(source.score, `${label}.score`),
+      }
     : normalizedMode === EVASION_MODE
-      ? normalizeEvasionScore(source.score, `${label}.score`)
+      ? normalizeReactionScore(source.score, `${label}.score`)
+      : { kind: 'forced-failure' as const }
+
+  return {
+    mode: normalizedMode,
+    score,
+    damage: normalizeDefenceDamageInput(source.damage, `${label}.damage`),
+  }
+}
+
+/**
+ * Legacy-shaped reaction snapshot for callers that still consume a score
+ * coordinate object directly. Production CalculationClient code uses the
+ * resolution-shaped normalizer below instead.
+ */
+export function normalizeReactionInput(input: unknown, label = 'reaction') {
+  const normalized = normalizeReactionResolution(input, label)
+  const score = normalized.score.kind === 'rolled-score'
+    ? normalized.score.params
+    : normalized.score.kind === 'fixed-score'
+      ? {
+          dice: 0,
+          critical: 10,
+          skill: normalized.score.value,
+          yousei: 0,
+          shihai: 0,
+        }
       : {
           dice: 0,
           critical: 10,
@@ -176,11 +194,10 @@ export function normalizeReactionInput(
           yousei: 0,
           shihai: 0,
         }
-
   return {
-    mode: normalizedMode,
+    mode: normalized.mode,
     score,
-    damage: normalizeDefenceDamageInput(source.damage, `${label}.damage`),
+    damage: normalized.damage,
   }
 }
 
@@ -222,12 +239,15 @@ export function normalizeAttackInput(
   input: unknown,
   label = 'action',
 ): {
-  readonly score: NormalizedScoreInput
+  readonly score: ScoreResolution
   readonly damage: NormalizedAttackDamageInput
 } {
   const source = object(input, label)
   return {
-    score: normalizeScoreInput(source.score, `${label}.score`),
+    score: {
+      kind: 'rolled-score',
+      params: normalizeScoreInput(source.score, `${label}.score`),
+    },
     damage: normalizeAttackDamageInput(source.damage, `${label}.damage`),
   }
 }
@@ -235,11 +255,17 @@ export function normalizeAttackInput(
 export function normalizeAttackCalculationInput(
   input: unknown,
   label = 'attack',
-): AttackCalculationInput {
+): {
+  readonly action: {
+    readonly score: ScoreResolution
+    readonly damage: NormalizedAttackDamageInput
+  }
+  readonly reaction: NormalizedReactionInput
+} {
   const source = object(input, label)
   return {
     action: normalizeAttackInput(source.action, `${label}.action`),
-    reaction: normalizeReactionInput(source.reaction, `${label}.reaction`),
+    reaction: normalizeReactionResolution(source.reaction, `${label}.reaction`),
   }
 }
 

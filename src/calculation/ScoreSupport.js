@@ -19,14 +19,7 @@ export function getFiniteRawSupportMax(params) {
   return null
 }
 
-export function getScoreSupport(params, alreadyShifted = false) {
-  if (alreadyShifted) {
-    return {
-      kind: 'finite',
-      max: Math.max(0, params.skill),
-    }
-  }
-
+export function getScoreSupport(params) {
   const finiteRawSupportMax = getFiniteRawSupportMax(params)
   if (finiteRawSupportMax === null) {
     return { kind: 'infinite' }
@@ -48,16 +41,12 @@ export function getScoreSupport(params, alreadyShifted = false) {
   }
 }
 
-export function getScoreOutputMax(
-  params,
-  workingMax,
-  alreadyShifted = false
-) {
+export function getScoreOutputMax(params, workingMax) {
   if (!Number.isSafeInteger(workingMax) || workingMax < 0) {
     throw new RangeError('workingMax must be a non-negative safe integer')
   }
 
-  const support = getScoreSupport(params, alreadyShifted)
+  const support = getScoreSupport(params)
   if (support.kind === 'finite') {
     return support.max
   }
@@ -67,13 +56,9 @@ export function getScoreOutputMax(
   )
 }
 
-export function getScoreOutputBufferLength(
-  params,
-  workingMax,
-  alreadyShifted = false
-) {
+export function getScoreOutputBufferLength(params, workingMax) {
   return addSafe(
-    getScoreOutputMax(params, workingMax, alreadyShifted),
+    getScoreOutputMax(params, workingMax),
     1,
     'score output array size'
   )

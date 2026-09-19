@@ -31,6 +31,7 @@ function validateScoreRangePlan(scoreRangePlan) {
   }
   if (
     typeof scoreRangePlan !== 'object' ||
+    (scoreRangePlan.kind !== undefined && scoreRangePlan.kind !== 'rolled-score') ||
     !Number.isSafeInteger(scoreRangePlan.workingLength) ||
     scoreRangePlan.workingLength < 2
   ) {
@@ -89,29 +90,9 @@ function validateProbabilityDistribution(distribution, label) {
 function calculateScoreWorking(
   params,
   { getDxDistribution },
-  fix = false,
   scoreRangePlan
 ) {
   const plan = validateScoreRangePlan(scoreRangePlan)
-
-  if (fix) {
-    const fixedScore = Math.max(0, params.skill)
-    if (!Number.isSafeInteger(fixedScore)) {
-      throw new RangeError('fixed score must be a safe integer')
-    }
-    // Keep the fixed-score path sparse.  A fixed evasion value may be much
-    // larger than the historical 1023 published bucket, and allocating a
-    // dense array up to that value would turn a valid input into an
-    // accidental memory spike.  The score producer below represents the
-    // same point mass with an offset of `fixedScore`.
-    return {
-      workingDistribution: [1],
-      forcedFailureProbability: 0,
-      alreadyShifted: true,
-      fixedScore,
-      plan,
-    }
-  }
 
   if (plan === null) {
     throw new TypeError(
@@ -171,7 +152,6 @@ function calculateScoreWorking(
   return {
     workingDistribution: diceResult,
     forcedFailureProbability,
-    alreadyShifted: false,
     plan,
   }
 }
@@ -180,34 +160,15 @@ function createScoreResult(
   params,
   workingDistribution,
   forcedFailureProbability,
-  scoreRangePlan,
-  alreadyShifted = false,
-  fixedScore = null
+  scoreRangePlan
 ) {
-  if (alreadyShifted) {
-    const point = fixedScore ?? Math.max(0, params.skill)
-    if (!Number.isSafeInteger(point) || point < 0) {
-      throw new RangeError('fixed score must be a non-negative safe integer')
-    }
-    return createDistributionResult({
-      values: [1],
-      offset: point,
-      support: { kind: 'finite', max: point },
-      overflow: null,
-    })
-  }
-
   const workingMax = scoreRangePlan?.workingLength !== undefined
     ? scoreRangePlan.workingLength - 2
     : workingDistribution.length - 2
   const overflowIndex = workingDistribution.length - 1
-  const support = getScoreSupport(params, alreadyShifted)
+  const support = getScoreSupport(params)
   const finiteSupport = support.kind === 'finite'
-  const explicitMax = getScoreOutputMax(
-    params,
-    workingMax,
-    alreadyShifted
-  )
+  const explicitMax = getScoreOutputMax(params, workingMax)
   const values = new Float64Array(explicitMax + 1)
 
   for (let rawValue = 0; rawValue < overflowIndex; rawValue += 1) {
@@ -215,9 +176,7 @@ function createScoreResult(
     if (probability === 0) {
       continue
     }
-    const scoreValue = alreadyShifted
-      ? rawValue
-      : Math.max(0, rawValue + params.skill)
+    const scoreValue = Math.max(0, rawValue + params.skill)
     if (scoreValue <= explicitMax) {
       values[scoreValue] += probability
     }
@@ -381,10 +340,9 @@ function createScoreTailMomentCertificate(
   params,
   result,
   scoreRangePlan,
-  scoreTailCertificate,
-  alreadyShifted
+  scoreTailCertificate
 ) {
-  const support = getScoreSupport(params, alreadyShifted)
+  const support = getScoreSupport(params)
   if (support.kind === 'finite') {
     const modeledMax = Number.isSafeInteger(scoreRangePlan?.workingMax)
       ? scoreRangePlan.workingMax
@@ -396,8 +354,7 @@ function createScoreTailMomentCertificate(
   }
 
   if (
-    alreadyShifted
-    || scoreRangePlan === undefined
+    scoreRangePlan === undefined
     || scoreRangePlan === null
   ) {
     return null
@@ -514,12 +471,10 @@ function createScoreTailMomentCertificate(
  */
 function createScoreExpectationCertificate(
   params,
-  scoreRangePlan,
-  alreadyShifted
+  scoreRangePlan
 ) {
   if (
-    alreadyShifted
-    || params.dice <= 0
+    params.dice <= 0
     || params.critical === 11
     || params.shihai !== 0
     || params.yousei !== 0
@@ -572,27 +527,21 @@ function createScoreExpectationCertificate(
 export function calculateScore(
   params,
   dependencies,
-  scoreRangePlan,
-  fix = false
+  scoreRangePlan
 ) {
   const {
     workingDistribution,
     forcedFailureProbability,
-    alreadyShifted,
-    fixedScore,
   } = calculateScoreWorking(
     params,
     dependencies,
-    fix,
     scoreRangePlan
   )
   const result = createScoreResult(
     params,
     workingDistribution,
     forcedFailureProbability,
-    scoreRangePlan,
-    alreadyShifted,
-    fixedScore
+    scoreRangePlan
   )
   const scoreTailCertificate = createScoreTailCertificate(
     result,
@@ -602,14 +551,12 @@ export function calculateScore(
     params,
     result,
     scoreRangePlan,
-    scoreTailCertificate,
-    alreadyShifted
+    scoreTailCertificate
   )
   const scoreExpectationCertificate =
     createScoreExpectationCertificate(
       params,
-      scoreRangePlan,
-      alreadyShifted
+      scoreRangePlan
     )
   const metadata = Object.freeze({
     modeledDistribution: true,
@@ -622,6 +569,85 @@ export function calculateScore(
   })
 
   return Object.freeze({ result, metadata })
+}
+
+function validateScoreResolutionPlan(resolution, scoreRangePlan) {
+  if (scoreRangePlan === undefined || scoreRangePlan === null) {
+    throw new TypeError('deterministic score calculation requires a score range plan')
+  }
+  if (
+    scoreRangePlan.kind !== undefined
+    && scoreRangePlan.kind !== resolution.kind
+  ) {
+    throw new TypeError(
+      `score resolution kind ${resolution.kind} does not match plan kind ${scoreRangePlan.kind}`
+    )
+  }
+  if (
+    resolution.kind === 'fixed-score'
+    && scoreRangePlan.value !== undefined
+    && scoreRangePlan.value !== resolution.value
+  ) {
+    throw new RangeError('fixed score plan value does not match resolution value')
+  }
+}
+
+function createDeterministicScoreEnvelope(kind, value) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError('deterministic score value must be a non-negative safe integer')
+  }
+  const forcedFailureProbability = kind === 'forced-failure' ? 1 : 0
+  const result = createDistributionResult({
+    values: [1],
+    offset: value,
+    support: { kind: 'finite', max: value },
+    overflow: null,
+  })
+  const scoreTailCertificate = createScoreTailCertificate(result, null)
+  const scoreTailMomentCertificate = createFiniteScoreTailMomentCertificate(
+    value,
+    'finite-support'
+  )
+  return Object.freeze({
+    result,
+    metadata: Object.freeze({
+      modeledDistribution: true,
+      forcedFailureProbability,
+      scoreTailCertificate,
+      scoreTailMomentCertificate,
+    }),
+  })
+}
+
+/**
+ * Execute a rolled, fixed, or forced score using the same resolution that was
+ * passed to the range planner.  Deterministic scores stay sparse regardless
+ * of their coordinate, so a large fixed value never allocates a dense array.
+ */
+export function calculateScoreResolution(
+  resolution,
+  dependencies,
+  scoreRangePlan
+) {
+  if (resolution?.kind === 'rolled-score') {
+    validateScoreRangePlan(scoreRangePlan)
+    return calculateScore(
+      resolution.params,
+      dependencies,
+      scoreRangePlan
+    )
+  }
+  if (
+    resolution?.kind !== 'fixed-score'
+    && resolution?.kind !== 'forced-failure'
+  ) {
+    throw new TypeError('score resolution must be rolled-score, fixed-score, or forced-failure')
+  }
+  validateScoreResolutionPlan(resolution, scoreRangePlan)
+  return createDeterministicScoreEnvelope(
+    resolution.kind,
+    resolution.kind === 'fixed-score' ? resolution.value : 0
+  )
 }
 
 function createScoreProbability(kind, details = {}) {

@@ -3,7 +3,7 @@
     import { onUnmounted, reactive, ref, useId, watch } from 'vue';
     import {
         createDefenceInputDraftSnapshot,
-        normalizeDefenceInputDraft,
+        createDefenceInputSnapshot,
     } from '@/features/attack/model/AttackInputSnapshot';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
     import {
@@ -52,11 +52,7 @@
         if (!validResult?.valid) {
             return;
         }
-        const snapshot = normalizeDefenceInputDraft(draft);
-        if (snapshot === null) {
-            console.log('防御の種別が確定できません。');
-            return;
-        }
+        const snapshot = createDefenceInputSnapshot(draft);
         emit('validated', snapshot);
     });
     watch(showDetails, (value) => {

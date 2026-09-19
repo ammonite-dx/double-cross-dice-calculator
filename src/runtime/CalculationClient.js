@@ -22,6 +22,7 @@ import {
 } from '../calculation/D10Calculator'
 import {
   calculateScore as calculateCoreScore,
+  calculateScoreResolution as calculateCoreScoreResolution,
   getScoreStatistics,
 } from '../calculation/ScoreCalculator'
 import { planCalculationRanges } from '../calculation/RangePlanner'
@@ -43,8 +44,7 @@ const defaultResourceGuard = createResourceGuard()
 function calculateScoreAdapter(
   params,
   getDistribution,
-  scoreRangePlan,
-  fix = false
+  scoreRangePlan
 ) {
   if (typeof getDistribution !== 'function') {
     throw new TypeError(
@@ -55,7 +55,25 @@ function calculateScoreAdapter(
     params,
     { getDxDistribution: getDistribution },
     scoreRangePlan,
-    fix
+  )
+}
+
+function calculateScoreResolutionAdapter(
+  resolution,
+  getDistribution,
+  scoreRangePlan
+) {
+  if (resolution?.kind === 'rolled-score') {
+    return calculateScoreAdapter(
+      resolution.params,
+      getDistribution,
+      scoreRangePlan
+    )
+  }
+  return calculateCoreScoreResolution(
+    resolution,
+    { getDxDistribution: getDistribution },
+    scoreRangePlan
   )
 }
 
@@ -88,6 +106,7 @@ const defaultDependencies = {
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore: calculateScoreAdapter,
+  calculateScoreResolution: calculateScoreResolutionAdapter,
   getScoreStatistics,
   getDamageStatistics,
   getTotalDamageStatistics,
@@ -99,8 +118,6 @@ const defaultDependencies = {
   resourceGuard: defaultResourceGuard,
   sumDamage,
 }
-
-const EVASION_MODE = '《イベイジョン》'
 
 export const CALCULATION_CLIENT_KEY = Symbol('calculationClient')
 
@@ -122,6 +139,10 @@ function snapshotScoreParams(params, label = 'score') {
   return normalizeScoreInput(params, label)
 }
 
+function rolledScoreResolution(params) {
+  return { kind: 'rolled-score', params }
+}
+
 function snapshotAttackParams(params) {
   return normalizeAttackCalculationInput(params)
 }
@@ -130,25 +151,12 @@ function snapshotBacktrackParams(params) {
   return normalizeBacktrackParams(params)
 }
 
-function fixedReactionScoreForPlanning(request) {
-  if (request.mode !== EVASION_MODE) {
-    return request.score
-  }
-  return {
-    ...request.score,
-    dice: 0,
-    critical: 11,
-    shihai: 0,
-    yousei: 0,
-  }
-}
-
 function createCheckRangeParams(request, displayRequest) {
   const params = {
     operation: 'check',
     score: {
-      action: request.action,
-      reaction: request.reaction,
+      action: rolledScoreResolution(request.action),
+      reaction: rolledScoreResolution(request.reaction),
     },
   }
   if (displayRequest !== undefined) {
@@ -171,7 +179,7 @@ function createAttackRangeParams(request, scoreDisplayRequest) {
     operation: 'attack',
     score: {
       action: request.action.score,
-      reaction: fixedReactionScoreForPlanning(request.reaction),
+      reaction: request.reaction.score,
     },
     attack: { ...request.action.damage },
     defence: { ...request.reaction.damage },
@@ -363,57 +371,49 @@ export function createCalculationClient(
   const getDxDistribution = hasRuntimeDxDependency
     ? createRuntimeDxProvider(dependencies.calculateDxDistribution)
     : null
-  const scoreCalculator = (() => {
-    if (typeof dependencies.calculateScore === 'function') {
-      if (getDxDistribution === null) {
-        return (params, scoreRangePlan, fix = false) => {
-          if (!fix) {
-            return dependencies.calculateScore(
-              params,
-              undefined,
-              scoreRangePlan
-            )
-          }
-          return dependencies.calculateScore(
-            params,
-            undefined,
-            scoreRangePlan,
-            true
-          )
-        }
-      }
-      return (params, scoreRangePlan, fix = false) => {
-        if (!fix) {
-          return dependencies.calculateScore(
-            params,
-            getDxDistribution,
-            scoreRangePlan
-          )
-        }
+  const scoreResolutionCalculator = (() => {
+    const calculateRolled = (params, scoreRangePlan) => {
+      if (typeof dependencies.calculateScore === 'function') {
         return dependencies.calculateScore(
           params,
-          getDxDistribution,
-          scoreRangePlan,
-          true
+          getDxDistribution ?? undefined,
+          scoreRangePlan
         )
       }
+      if (getDxDistribution !== null) {
+        return calculateScoreAdapter(
+          params,
+          getDxDistribution,
+          scoreRangePlan
+        )
+      }
+      return null
     }
-    if (getDxDistribution !== null) {
-      return (params, scoreRangePlan, fix = false) =>
-        fix
-          ? calculateScoreAdapter(
-              params,
-              getDxDistribution,
-              scoreRangePlan,
-              true
-            )
-          : calculateScoreAdapter(
-              params,
-              getDxDistribution,
-              scoreRangePlan
-            )
+
+    return (resolution, scoreRangePlan) => {
+      if (resolution?.kind === 'rolled-score') {
+        const result = calculateRolled(resolution.params, scoreRangePlan)
+        if (result === null) {
+          throw new Error(
+            'CalculationClient requires calculateScore or runtime score dependencies'
+          )
+        }
+        return result
+      }
+
+      if (typeof dependencies.calculateScoreResolution === 'function') {
+        return dependencies.calculateScoreResolution(
+          resolution,
+          getDxDistribution ?? undefined,
+          scoreRangePlan
+        )
+      }
+      return calculateCoreScoreResolution(
+        resolution,
+        { getDxDistribution: getDxDistribution ?? undefined },
+        scoreRangePlan
+      )
     }
-    return null
   })()
 
   const scoreStatisticsCalculator =
@@ -441,20 +441,14 @@ export function createCalculationClient(
     try {
       throwIfAborted(options, 'Attack')
 
-      if (scoreCalculator === null) {
-        throw new Error(
-          'CalculationClient requires calculateScore or runtime score dependencies'
-        )
-      }
       const score = {
-        action: scoreCalculator(
+        action: scoreResolutionCalculator(
           request.action.score,
           plan.scores?.[0]
         ),
-        reaction: scoreCalculator(
+        reaction: scoreResolutionCalculator(
           request.reaction.score,
-          plan.scores?.[1],
-          request.reaction.mode === EVASION_MODE
+          plan.scores?.[1]
         ),
       }
       const finalizedDamage = await dependencies.calculateDamageOnDemand(
@@ -580,18 +574,13 @@ export function createCalculationClient(
 
       try {
         throwIfAborted(options, 'check')
-        if (scoreCalculator === null) {
-          throw new Error(
-            'CalculationClient requires calculateScore or runtime score dependencies'
-          )
-        }
         const score = {
-          action: scoreCalculator(
-            request.action,
+          action: scoreResolutionCalculator(
+            rolledScoreResolution(request.action),
             plan.scores?.[0]
           ),
-          reaction: scoreCalculator(
-            request.reaction,
+          reaction: scoreResolutionCalculator(
+            rolledScoreResolution(request.reaction),
             plan.scores?.[1]
           ),
         }

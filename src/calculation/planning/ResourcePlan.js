@@ -133,7 +133,10 @@ export function applyLimits(plan, policy) {
   }
 
   for (const score of plan.scores) {
-    if (!isSupportedScoreFeatureCombination(score.params)) {
+    if (
+      score.kind === 'rolled-score'
+      && !isSupportedScoreFeatureCombination(score.params)
+    ) {
       addWarning(
         warnings,
         'incompatible-input',
@@ -147,22 +150,24 @@ export function applyLimits(plan, policy) {
       )
       accepted = false
     }
-    accepted = rejectMetric(
-      warnings,
-      accepted,
-      'score-working-length',
-      score.workingLength,
-      limits.workingLength,
-      'elements'
-    )
-    accepted = rejectMetric(
-      warnings,
-      accepted,
-      'score-fft-length',
-      score.fftLength,
-      limits.fftLength,
-      'elements'
-    )
+    if (score.kind === 'rolled-score') {
+      accepted = rejectMetric(
+        warnings,
+        accepted,
+        'score-working-length',
+        score.workingLength,
+        limits.workingLength,
+        'elements'
+      )
+      accepted = rejectMetric(
+        warnings,
+        accepted,
+        'score-fft-length',
+        score.fftLength,
+        limits.fftLength,
+        'elements'
+      )
+    }
   }
 
   if (plan.backtrack) {
@@ -253,6 +258,9 @@ export function applyLimits(plan, policy) {
   )
 
   for (const score of plan.scores) {
+    if (score.kind !== 'rolled-score') {
+      continue
+    }
     if (!score.tail.reachable) {
       addWarning(
         warnings,

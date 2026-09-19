@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
+  calculateScoreResolution,
   getScoreStatistics,
 } from '../src/calculation/ScoreCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
@@ -162,11 +163,10 @@ describe('canonical normal check score producer', () => {
 
   it('keeps a large fixed score as a sparse canonical point mass', () => {
     const fixedScore = 10_000
-    const envelope = calculateScore(
-      scoreParams({ skill: fixedScore }),
+    const envelope = calculateScoreResolution(
+      { kind: 'fixed-score', value: fixedScore },
       { getDxDistribution: vi.fn() },
-      { workingLength: 4, fftLength: 0 },
-      true
+      { kind: 'fixed-score', value: fixedScore }
     )
 
     expect(envelope.result.offset).toBe(fixedScore)
@@ -576,8 +576,14 @@ describe('CalculationClient canonical normal check API', () => {
     expect(dependencies.planCalculationRanges).toHaveBeenCalledWith({
       operation: 'check',
       score: {
-        action: scoreParams({ skill: 2 }),
-        reaction: scoreParams({ skill: -1 }),
+        action: {
+          kind: 'rolled-score',
+          params: scoreParams({ skill: 2 }),
+        },
+        reaction: {
+          kind: 'rolled-score',
+          params: scoreParams({ skill: -1 }),
+        },
       },
     }, options.rangePolicy)
     expect(onRangePlan).toHaveBeenCalledWith(dependencies.plan)

@@ -150,15 +150,14 @@ describe('calculation input normalization', () => {
       },
     })
     expect(normalized.action).toEqual({
-      score: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      score: {
+        kind: 'rolled-score',
+        params: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      },
       damage: { dice: 2, value: 3, kazanari: 0 },
     })
     expect(normalized.reaction.score).toEqual({
-      dice: 0,
-      critical: 10,
-      skill: 0,
-      yousei: 0,
-      shihai: 0,
+      kind: 'forced-failure',
     })
   })
 })

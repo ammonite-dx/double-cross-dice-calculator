@@ -2,8 +2,8 @@ import { planBacktrack } from './planning/BacktrackRangePlanner'
 import { planDamage } from './planning/DamageRangePlanner'
 import {
   getScoreValueUpperBound,
-  planScore,
 } from './planning/ScoreRangePlanner'
+import { planScoreResolution } from './planning/ScoreResolutionPlanner'
 import {
   applyLimits,
   backtrackResources,
@@ -40,8 +40,11 @@ export { DEFAULT_POLICY }
  * @returns {Object}
  */
 function makeOverflowInfo(plan) {
+  const tailScores = plan.scores.filter(
+    (item) => item.kind === 'rolled-score' && !item.finiteSupport
+  )
   const score = plan.scores.length > 0
-    ? plan.scores.every((item) => item.finiteSupport)
+    ? tailScores.length === 0
       ? {
           type: 'finite-support',
           finiteSupport: true,
@@ -52,14 +55,16 @@ function makeOverflowInfo(plan) {
       : {
           type: 'dx-tail',
           finiteSupport: false,
-          lowerBound: plan.scores.length === 1
-            ? plan.scores[0].workingMax + 1
+          lowerBound: tailScores.length === 1
+            ? tailScores[0].workingMax + 1
             : null,
-          bound: plan.scores.reduce(
+          bound: tailScores.reduce(
             (sum, item) => sum + item.tail.bound,
             0
           ),
-          meaning: 'DX values above each modeled range are represented by tail certificates; for multiple scores, bound is the sum and lowerBound is null because each score has its own boundary',
+          meaning: tailScores.length === 1
+            ? 'DX values above the modeled range are represented by a tail certificate'
+            : 'DX values above each modeled range are represented by tail certificates; for multiple scores, bound is the sum and lowerBound is null because each score has its own boundary',
         }
     : null
   const damage = plan.damage
@@ -135,9 +140,12 @@ export function planCalculationRanges(params, policy = {}) {
       throw new TypeError('score parameters are required')
     }
     tailBudget = effectivePolicy.errorBudget.scoreTail / scoreParams.length
-    scores = scoreParams.map((score) =>
-      planScore(score, display, tailBudget)
-    )
+    scores = scoreParams.map((score) => {
+      const resolution = score?.kind
+        ? score
+        : { kind: 'rolled-score', params: score }
+      return planScoreResolution(resolution, display, tailBudget)
+    })
 
     if (operation === 'attack') {
       damage = planDamage(

@@ -5,6 +5,7 @@ import type {
   from '../../domain/CalculationInputs'
 import type { BacktrackParams } from '../../domain/BacktrackRules'
 import type { ScoreInput } from '../../domain/InputDomain'
+import type { ScoreResolution } from '../../domain/ScoreResolution'
 
 export interface RangeErrorBudget {
   readonly total: number
@@ -95,22 +96,41 @@ export interface ScoreTailPlan {
   readonly meaning: string
 }
 
-export interface ScoreRangePlan {
-  readonly params: ScoreInput
+interface ScoreRangePlanBase {
   readonly display: RangeDisplayPlan
   readonly support: ScoreSupportPlan
   readonly tail: ScoreTailPlan
-  readonly workingMax: number
-  readonly workingLength: number
   readonly outputMax: number
-  readonly oneDieCutoff: number
-  readonly fftLength: number
-  readonly dxBlockLength: number
   readonly operations: number
   readonly fftOperations: number
   readonly float64Bytes: number
   readonly finiteSupport: boolean
 }
+
+export interface RolledScoreRangePlan extends ScoreRangePlanBase {
+  readonly kind: 'rolled-score'
+  readonly params: ScoreInput
+  readonly workingMax: number
+  readonly workingLength: number
+  readonly oneDieCutoff: number
+  readonly fftLength: number
+  readonly dxBlockLength: number
+}
+
+export interface FixedScoreRangePlan extends ScoreRangePlanBase {
+  readonly kind: 'fixed-score'
+  /** Fixed-score plans expose their sparse point coordinate. */
+  readonly value: number
+}
+
+export interface ForcedFailureScoreRangePlan extends ScoreRangePlanBase {
+  readonly kind: 'forced-failure'
+}
+
+export type ScoreRangePlan =
+  | RolledScoreRangePlan
+  | FixedScoreRangePlan
+  | ForcedFailureScoreRangePlan
 
 export interface DamageSupportPlan {
   readonly kind: 'finite-support'
@@ -258,12 +278,12 @@ export type CalculationRangePlanOperation = CalculationRangePlan['operation']
 /** Input used by the public planner façade. */
 export interface RangePlannerParams {
   readonly operation?: CalculationRangePlanOperation
-  readonly score?: ScoreInput | {
-    readonly action: ScoreInput
-    readonly reaction: ScoreInput
+  readonly score?: ScoreInput | ScoreResolution | {
+    readonly action: ScoreInput | ScoreResolution
+    readonly reaction: ScoreInput | ScoreResolution
   }
-  readonly action?: ScoreInput
-  readonly reaction?: ScoreInput
+  readonly action?: ScoreInput | ScoreResolution
+  readonly reaction?: ScoreInput | ScoreResolution
   readonly attack?: AttackCalculationInput['action']['damage']
   readonly defence?: AttackCalculationInput['reaction']['damage']
   readonly backtrack?: BacktrackParams

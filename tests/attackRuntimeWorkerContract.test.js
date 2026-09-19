@@ -91,6 +91,10 @@ function createHarness() {
     planCalculationRanges: vi.fn(() => ({
       accepted: true,
       operation: 'attack',
+      scores: [
+        {},
+        { kind: 'forced-failure', value: 0 },
+      ],
     })),
     planDamageAggregation: vi.fn(() => ({
       operation: 'damage-aggregation',

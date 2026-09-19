@@ -256,7 +256,7 @@ describe('production range planner', () => {
     expect(score.tail.bound).toBe(0)
   })
 
-  it('summarizes multiple DX tail certificates without a shared boundary', () => {
+  it('summarizes one DX tail with its shared boundary beside a finite score', () => {
     const plan = planCalculationRanges(attackParams({
       score: {
         action: scoreParams({ dice: 99, critical: 2 }),
@@ -265,11 +265,11 @@ describe('production range planner', () => {
     }))
     const summary = plan.overflowInfo.score
 
-    expect(summary.lowerBound).toBeNull()
+    expect(summary.lowerBound).toBe(plan.scores[0].workingMax + 1)
     expect(summary.bound).toBeCloseTo(
       plan.scores.reduce((sum, score) => sum + score.tail.bound, 0)
     )
-    expect(summary.meaning).toContain('multiple scores')
+    expect(summary.meaning).toContain('tail certificate')
   })
 
   it('plans check action and reaction scores within the shared tail budget', () => {

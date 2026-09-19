@@ -63,8 +63,8 @@ export function createAttackInputSnapshot(draft = {}) {
 
 /**
  * Copy DefenceForm's editable draft. Its score is intentionally kept in the
- * UI coordinate system until normalizeDefenceInputDraft is called after
- * validation; this matters for 《イベイジョン》's dice-to-skill conversion.
+ * UI coordinate system.  Calculation normalization is deliberately deferred
+ * until the CalculationClient boundary.
  */
 export function createDefenceInputDraftSnapshot(draft = {}) {
   return {
@@ -75,8 +75,18 @@ export function createDefenceInputDraftSnapshot(draft = {}) {
 }
 
 /**
- * Convert a validated DefenceForm draft to the calculation coordinate system.
- * The switch preserves the existing mode-specific values and zeroing rules.
+ * Snapshot a validated DefenceForm value without converting its coordinates.
+ * Evasion's dice and skill remain user input until CalculationClient creates a
+ * fixed-score resolution.
+ */
+export function createDefenceInputSnapshot(draft = {}) {
+  return createDefenceInputDraftSnapshot(draft)
+}
+
+/**
+ * Compatibility helper for callers that still request the historical
+ * coordinate-normalized reaction object.  Production UI uses
+ * createDefenceInputSnapshot() and never installs this result in state.
  */
 export function normalizeDefenceInputDraft(draft = {}) {
   const source = draft ?? {}
@@ -87,7 +97,6 @@ export function normalizeDefenceInputDraft(draft = {}) {
   ) {
     return null
   }
-
   return normalizeReactionInput({
     mode: source.mode,
     score: source.score ?? {},
