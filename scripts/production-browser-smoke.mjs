@@ -601,8 +601,11 @@ async function runCheck(browser, baseUrl) {
       1,
     )
 
-    const advancedSwitch = page.locator('input[type="checkbox"]').last()
-    assertCondition('check advanced on', await advancedSwitch.count() === 1, 'advanced settings switch was not found')
+    const advancedSwitch = page.getByRole('checkbox', {
+      name: '高度な設定',
+      exact: true,
+    })
+    assertCondition('check advanced accessibility', await advancedSwitch.count() === 1, 'advanced settings checkbox was not accessible by name')
     await advancedSwitch.setChecked(true)
     const youseiInput = page.getByLabel('《妖精の手》等の回数')
     const shihaiInput = page.getByLabel('《支配の領域》の対象ダイス数')
@@ -619,10 +622,15 @@ async function runCheck(browser, baseUrl) {
     const advancedOffState = await captureResultState(page)
     await advancedSwitch.setChecked(false)
     await waitForResultCommit(page, advancedOffState)
+    assertCondition(
+      'check advanced fields hidden',
+      await youseiInput.isVisible() === false && await shihaiInput.isVisible() === false,
+      'advanced score fields remained visible after disabling advanced settings',
+    )
     await advancedSwitch.setChecked(true)
     await youseiInput.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
     assertCondition(
-      'check advanced off',
+      'check advanced hidden value reset',
       await youseiInput.inputValue() === '0' && await shihaiInput.inputValue() === '0',
       'advanced score fields were not reset when advanced settings were disabled',
     )
@@ -792,6 +800,15 @@ async function runAttack(browser, baseUrl) {
       '攻撃判定 達成値確率分布',
       '攻撃判定 ダメージ確率分布',
     ])
+    const advancedCheckboxes = page.getByRole('checkbox', {
+      name: '高度な設定',
+      exact: true,
+    })
+    assertCondition(
+      'attack advanced accessibility',
+      await advancedCheckboxes.count() === 2,
+      'initial action/reaction advanced settings checkboxes were not accessible by name',
+    )
     assertNoPrecomputedRequests('attack-initial', record)
     assertNoBrowserErrors('attack-initial', record)
     await assertCompoundD10Groups(page, 'attack default dodge compound inputs', [
@@ -1015,7 +1032,10 @@ async function runAttack(browser, baseUrl) {
     )
     assertNoPrecomputedRequests('attack-d10', record)
     assertNoBrowserErrors('attack-d10', record)
-    const attackAdvancedSwitch = page.locator('input[type="checkbox"]').first()
+    const attackAdvancedSwitch = page.getByRole('checkbox', {
+      name: '高度な設定',
+      exact: true,
+    }).first()
     await attackAdvancedSwitch.setChecked(true)
     await fillBoundaryInput(
       page,
@@ -1040,6 +1060,64 @@ async function runAttack(browser, baseUrl) {
       page.getByLabel('《妖精の手》等の回数').first(),
       1,
       2,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack kazanari=2',
+      page.getByLabel('振り直せるダメージダイスの数').first(),
+      2,
+      2,
+    )
+    const attackAdvancedOffState = await captureResultState(page)
+    await attackAdvancedSwitch.setChecked(false)
+    await waitForResultCommit(page, attackAdvancedOffState)
+    const attackYouseiInput = page.getByLabel('《妖精の手》等の回数').first()
+    const attackShihaiInput = page.getByLabel('《支配の領域》の対象ダイス数').first()
+    const attackKazanariInput = page.getByLabel('振り直せるダメージダイスの数').first()
+    assertCondition(
+      'attack advanced fields hidden',
+      await attackYouseiInput.isVisible() === false
+        && await attackShihaiInput.isVisible() === false
+        && await attackKazanariInput.isVisible() === false,
+      'attack advanced fields remained visible after disabling advanced settings',
+    )
+    await attackAdvancedSwitch.setChecked(true)
+    await attackYouseiInput.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'attack yousei/kazanari hidden value reset',
+      await attackYouseiInput.inputValue() === '0'
+        && await attackShihaiInput.inputValue() === '0'
+        && await attackKazanariInput.inputValue() === '0',
+      'attack yousei or kazanari was restored after re-enabling advanced settings',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack shihai=1',
+      attackShihaiInput,
+      1,
+      2,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack kazanari=3',
+      attackKazanariInput,
+      3,
+      2,
+    )
+    const attackShihaiOffState = await captureResultState(page)
+    await attackAdvancedSwitch.setChecked(false)
+    await waitForResultCommit(page, attackShihaiOffState)
+    await attackAdvancedSwitch.setChecked(true)
+    await attackYouseiInput.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'attack shihai/kazanari hidden value reset',
+      await attackYouseiInput.inputValue() === '0'
+        && await attackShihaiInput.inputValue() === '0'
+        && await attackKazanariInput.inputValue() === '0',
+      'attack shihai or kazanari was restored after re-enabling advanced settings',
     )
     await attackAdvancedSwitch.setChecked(false)
     await fillBoundaryInput(
