@@ -100,6 +100,10 @@ Scoreは、明示範囲外の質量を`scoreTailCertificate`、一次モーメ�
 
 複数コンボのTotal Damageは、各componentの期待値区間をsnapshotして加算します。FFTのmass driftや集約の診断値を意味論上の区間へ加えません。詳細な型とcertificateの関係は[`result-contract.md`](./result-contract.md)を参照してください。
 
+### 5.1 Total Damageの実行境界
+
+`DamageAggregation`は、入力envelopeの検査と係数列のsnapshot、FFT長・resource見積り、opaque planのregistry、FFT実行・正規化、metadataと期待値certificateの生成を別モジュールで行います。`planDamageAggregation`は畳み込みを実行せず、`sumDamage`は承認済みplanを受け取った場合に同じsnapshotと見積りを再利用します。したがってResourceGuardの待機中に呼び出し元が入力配列を変更しても、計画済みの計算内容は変わりません。planの形だけを複製したオブジェクトはprivate registryで拒否されます。
+
 ## 6. バックトラック
 
 `src/calculation/BacktrackCalculator.js`の`calculateFinalEncroachmentCanonical`は、通常D10または《屍人》の分布を完全supportで生成します。ロイス数$l$、Eロイス数$e_l$、画面の補正$b$、Dロイス補正$\delta$に対し、1倍・2倍・追加振りのダイス数は
@@ -109,6 +113,8 @@ n_1=\max(0,l+e_l+b+\delta),\quad n_2=\max(0,2l+e_l+b+\delta),\quad n_3=\max(0,3l
 $$
 
 負のダイス数は0個として扱います。現在侵蝕率を$e$、固定減少を$v$、ダイス合計を$S$とすると、最終値は$E=e-v-S$です。各振り方の区分は`dice-rules.md`の境界へ直接分類し、表示時だけ百分率へ丸めます。Backtrackは有限supportを完全に生成するため、静的livingdead assetのcoverage不足をproduction結果へ持ち込みません。
+
+通常D10の生成は共有D10計算器へ委譲します。《屍人》では、状態`states[max][value]`を使って「現在までの最大値が`max`、`sum - max + 1`が`value`」である確率を保持します。次の1D10の出目が現在の最大値以下なら`value`へ出目を加え、新しい最大値なら`value`へ旧最大値を加えます。各ダイス数で最大値を合計すれば、完全supportの《屍人》分布になります。`BacktrackPlanValidation`は、入力から期待されるダイス数・support・生成量と渡されたrange planが一致することを確認してから、この生成器を呼び出します。
 
 ## 7. 非同期実行と資源
 

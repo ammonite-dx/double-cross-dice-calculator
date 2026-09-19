@@ -6,7 +6,7 @@
 
 - `src/features/`: Check、Attack、Backtrackの入力snapshot、runner、画面状態、Vue UI
 - `src/runtime/`: `CalculationClient`、latest-wins、Abort、`ResourceGuard`、DR Workerの非同期境界
-- `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア。汎用結果契約は`src/domain/`に置き、各計算の意味論はScore/Damageの境界モジュールに分ける
+- `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア。汎用結果契約は`src/domain/`に置き、各計算の意味論はScore/Damageの境界モジュールに分ける。Damageの実行は`DamageAggregationCommon`、`DamageAggregationInspection`、`DamageAggregationPlanner`、`DamageAggregationExecutor`、`DamageAggregationMetadata`へ分離し、Backtrackは`BacktrackDistributionGenerator`、`BacktrackLivingdeadDistribution`、`BacktrackPlanValidation`と薄い`BacktrackCalculator`へ分ける
 - `src/core/probability/`: 配列分布、上側確率、FFTなどのVue非依存primitive
 - `src/domain/`: 入力domain、Backtrack rules、`CertifiedValue`などの共有契約
 - `src/shared/`: validation、presentation、Chart.js adapter、themeなどの横断処理
@@ -41,9 +41,9 @@ validated input
 
 Attackのリアクションは、入力モードを計算方法へ解決してからplannerとproducerへ同じresolutionを渡します。ドッジは`rolled-score`、《イベイジョン》は`fixed-score`、ガード・リアクション放棄は`forced-failure`です。固定値と強制失敗はDXのworking rangeやFFTを持たず、`offset`付き1点分布を生成するため、固定値の大きさに比例した配列を確保しません。
 
-Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`、Scoreの出目結果分解と対決の疎なbucket走査は`ScoreOutcome`、表示用の統計値構築は`ScoreStatistics`に分離しています。`ScoreCalculator`はScoreのproducerとresolution dispatchだけを担当します。
+Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`、Scoreの出目結果分解と対決の疎なbucket走査は`ScoreOutcome`、表示用の統計値構築は`ScoreStatistics`に分離しています。`ScoreCalculator`はScoreのproducerとresolution dispatchだけを担当します。Backtrackの通常D10は共有D10 primitiveへ委譲し、《屍人》は`BacktrackLivingdeadDistribution`の状態DPで完全supportを生成します。`BacktrackPlanValidation`はplannerを再実行せず、入力・support・生成量・generation modeの整合性だけを検証します。
 
-Damageでは、Scoreの明示範囲を命中・失敗の重みへ変換する処理を`DamageRollRequest`、DamageおよびTotal Damageの統計値を`DamageStatistics`、Score tailからDamage期待値certificateを組み立てる処理を`DamageExpectationCertificate`が担当します。`DistributionResult`はこれらのDamage固有の意味論を持たず、分布の生成・検証・汎用統計だけを提供します。
+Damageでは、Scoreの明示範囲を命中・失敗の重みへ変換する処理を`DamageRollRequest`、DamageおよびTotal Damageの統計値を`DamageStatistics`、Score tailからDamage期待値certificateを組み立てる処理を`DamageExpectationCertificate`が担当します。複数Damageの集約は、入力envelopeの検査とcaller-owned配列のsnapshotを`DamageAggregationInspection`、FFT長・畳み込み手順・resource estimateを`DamageAggregationPlanner`、承認済みopaque planのFFT実行と正規化を`DamageAggregationExecutor`、component descriptorと期待値certificateを`DamageAggregationMetadata`が担当します。`DistributionResult`はこれらのDamage固有の意味論を持たず、分布の生成・検証・汎用統計だけを提供します。
 
 DXのYousei作業ブロック数とFFT長は`DxWorkingShape`で共有します。Scoreのrange plannerが`DxCalculator`をimportすることはなく、producerとplannerが同じ作業形状規則を参照します。
 

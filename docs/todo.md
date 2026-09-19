@@ -14,10 +14,9 @@
 
 ## 次に行う作業
 
-1. **R26-B: Calculation execution decomposition**: R26-Aで確定したresult contractを前提に、`DamageAggregation`の入力検査・計画・実行・metadata/certificate生成を分離し、`BacktrackCalculator`から通常D10のwrapper、《屍人》分布生成、orchestrationを整理する。数値算法、resource policy、UI、Worker protocolは変更しない。
-2. **R27: Typed runtime / feature boundaries and UI semantics**: R26-B後に、runtime/application adapterの依存方向と公開型、feature controller、Vue props/emits、`showDetails`と計算条件の分離、アクセシビリティ境界を再評価する。
-3. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-4. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **R27: Typed runtime / feature boundaries and UI semantics**: runtime/application adapterの依存方向と公開型、feature controller、Vue props/emits、`showDetails`の名称と高度な設定の計算効果（OFF時に特殊効果を0へ戻す）を明確化し、アクセシビリティ境界を再評価する。
+2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -29,3 +28,4 @@
 
 - **R25-M: reaction score resolution separation**: 防御入力のraw snapshot、`rolled-score`／`fixed-score`／`forced-failure`のplanner・producer分離、BigIntによる《イベイジョン》固定値導出、疎な固定点分布、safe-integer終端境界を実装した。詳細は[`archive/r25-m-reaction-score-resolution-separation.md`](./archive/r25-m-reaction-score-resolution-separation.md)を参照する。
 - **R26-A: result contracts and calculation semantic boundaries**: 汎用の`DistributionResult`、Score、Damage、Calculationのresult contractを`src/domain/`へ集約し、Scoreのcertificate・outcome・statistics、Damageのrequest・statistics・expectation certificate、DXのworking shapeを責務ごとに分離した。closure follow-upで新設semantic moduleをdomain/planner contractへ型接続し、Damage expectation certificateのruntime shapeと型を一致させ、typecheck regressionを追加した。数値計算、UI、advanced settings、Worker protocol、resource policy、schema versionは変更していない。詳細は[`archive/r26-a-result-contracts-calculation-semantic-boundaries.md`](./archive/r26-a-result-contracts-calculation-semantic-boundaries.md)を参照する。
+- **R26-B: calculation execution decomposition**: `DamageAggregation`をcommon/error、envelope inspection、resource planning、opaque plan store、FFT execution、metadata/certificateへ分離し、`BacktrackCalculator`を通常D10・《屍人》生成器、計画検証、最終侵蝕率のorchestratorへ整理した。既存の公開export、位置引数互換性、計算式、resource estimate、Abort semantics、完全supportを維持し、型契約とarchitecture regressionを追加した。詳細は[`archive/r26-b-calculation-execution-decomposition.md`](./archive/r26-b-calculation-execution-decomposition.md)を参照する。
