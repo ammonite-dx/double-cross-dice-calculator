@@ -14,7 +14,7 @@
 
 ## 次に行う作業
 
-1. **R27-B: Typed runtime / feature boundaries**: runtime/application adapterの依存方向と公開型、feature controllerの公開契約を整理する。R27-Aで確定した高度な設定のsemantic stateは前提として維持する。
+1. **R27-B2: Typed runtime implementation**: R27-B1で確定したDIとfeature controllerの型境界を前提に、`CalculationClient.js`、`CalculationFeedback.js`、`CalculationRequestCoordinator.js`、`RuntimeDamageRollClient.js`を段階的に型チェック対象へ移す。計算結果、latest-wins、Worker protocol、resource policyは維持する。
 2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
 3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
@@ -32,3 +32,4 @@
 - **R26-C: shihai order-statistic simplification**: 正の`shihai`のruntime DXをダイス数状態DPから、完全な1DX結果の`(shihai + 1)`番目の順序統計量へ置き換えた。二項上側確率は短い側を対数空間で評価し、producerと`ScoreRangePlanner`が項数・CPU workを共有する。`dice <= shihai`、support、overflow、tail certificate、Python reference generatorと既存assetは維持し、ダイス数に依存しない作業配列へ整理した。詳細は[`archive/r26-c-shihai-order-statistic-simplification.md`](./archive/r26-c-shihai-order-statistic-simplification.md)を参照する。
 - **R26-D: shihai exact-tail closure**: 正の`shihai`の境界をraw DX値1のファンブルとしてScoreの強制失敗へ正しく伝え、planner・producer・tail certificate・期待値certificateをexact order-statistic tailへ統一した。旧max支配上界への暗黙fallbackは削除し、有限な一次モーメント上界を構成できない場合はcertificateを返さずfail-closedとする。通常DXのCPU見積りをworking length基準へ揃え、runtimeアルゴリズムと結果契約を更新した。詳細は[`archive/r26-d-shihai-exact-tail-closure.md`](./archive/r26-d-shihai-exact-tail-closure.md)を参照する。
 - **R27-A: advanced settings semantic boundary**: `showDetails`をfeature modelが所有する`advancedSettingsEnabled`へ置き換え、高度な設定がOFFのときに特殊効果が計算へ流れない不変条件をCheck・Attack双方へ導入した。OFF時のsanitizeと必要な再計算をmodel境界へ移し、OFFからONへ戻しても過去のhidden valueを復元しない。対象Vueコンポーネントのprops/emitsを型付き契約へ変更し、checkbox自身のaccessible labelとsemantic eventの回帰テストを追加した。詳細は[`archive/r27-a-advanced-settings-semantic-boundary.md`](./archive/r27-a-advanced-settings-semantic-boundary.md)を参照する。
+- **R27-B1: typed CalculationClient injection / feature controller contracts**: Vue固有のCalculationClient DI keyを`src/plugins/`へ移し、runtimeからframework依存とDI責務を除去した。bootstrapとCheck・Attack・Backtrack PageをTypeScriptへ移行し、3 feature controllerの名前付き公開契約とprovider/injectのcompile-time回帰テストを追加した。`checkJs:false`とfeature rootのpage-only surfaceは維持している。詳細は[`archive/r27-b1-typed-client-feature-boundaries.md`](./archive/r27-b1-typed-client-feature-boundaries.md)を参照する。
