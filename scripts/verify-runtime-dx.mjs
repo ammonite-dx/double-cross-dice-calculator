@@ -61,6 +61,16 @@ function publishedProbability(distribution, value) {
     : 0
 }
 
+function expectedReferenceProbability(distribution, value, params) {
+  // Revision-1 assets predate the raw fumble distinction and store the
+  // positive-dice `dice <= shihai` shortcut at index 0. Keep those historical
+  // files unchanged while comparing the current runtime rule (raw value 1).
+  if (params.shihai > 0 && params.dice > 0 && params.dice <= params.shihai) {
+    return value === 1 ? 1 : 0
+  }
+  return publishedProbability(distribution, value)
+}
+
 function benchmark(label, params, iterations = 10) {
   for (let iteration = 0; iteration < 3; iteration += 1) {
     calculateDxDistribution(params, RUNTIME_OPTIONS)
@@ -134,7 +144,11 @@ for (let shihai = 0; shihai <= ASSET_SHIHAI_MAX; shihai += 1) {
         }
 
         const difference = Math.abs(
-          probability - publishedProbability(published, value)
+          probability - expectedReferenceProbability(
+            published,
+            value,
+            { dice, shihai }
+          )
         )
         if (difference > maxAbsoluteDifference) {
           maxAbsoluteDifference = difference
