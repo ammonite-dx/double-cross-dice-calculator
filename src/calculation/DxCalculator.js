@@ -14,6 +14,10 @@ import {
   oneDieTail,
 } from './DxTailModel'
 import {
+  calculateDxOrderStatisticTail,
+  getDxOrderStatisticOperationEstimate,
+} from './DxOrderStatistic'
+import {
   DX_CRITICAL_MAX,
   DX_MIN_DISTRIBUTION_SIZE,
   getDxYouseiBlockLength,
@@ -37,7 +41,7 @@ export const DX_SHIHAI_MIN = 0
 // These are absolute implementation-safety limits, not game input limits.
 // The planner normally rejects much smaller requests based on the shared
 // CPU-work and memory policy, while direct callers still need a finite guard
-// before a quadratic DP or oversized typed-array allocation is attempted.
+// before an oversized typed-array allocation is attempted.
 export const DX_MAX_CALCULATION_OPERATIONS = 2_000_000_000
 export const DX_MAX_CALCULATION_BYTES = 512 * 1024 * 1024
 
@@ -69,30 +73,6 @@ function safeProduct(left, right, label) {
     throw new RangeError(`${label} exceeds the safe integer range`)
   }
   return product
-}
-
-function logBinomialPmf(dice, successes, probability) {
-  const failures = dice - successes
-  let logCoefficient = 0
-  for (let index = 1; index <= successes; index += 1) {
-    logCoefficient += Math.log(failures + index) - Math.log(index)
-  }
-  return logCoefficient +
-    successes * Math.log(probability) +
-    failures * Math.log1p(-probability)
-}
-
-function binomialPmfAt(dice, successes, probability) {
-  if (successes < 0 || successes > dice) {
-    return 0
-  }
-  if (probability === 0) {
-    return successes === 0 ? 1 : 0
-  }
-  if (probability === 1) {
-    return successes === dice ? 1 : 0
-  }
-  return Math.exp(logBinomialPmf(dice, successes, probability))
 }
 
 export function normalizeDxOptions(options) {
@@ -137,114 +117,6 @@ export function normalizeDxOptions(options) {
   }
 }
 
-function binomialTail(dice, required, probability) {
-  if (required <= 0) {
-    return 1
-  }
-  if (required > dice) {
-    return 0
-  }
-
-  if (probability === 0) {
-    return 0
-  }
-  if (probability === 1) {
-    return 1
-  }
-
-  // Start at the mode instead of at k=0.  For a large dice count, q^n can
-  // underflow even though the central mass is still representable; a
-  // mode-centred recurrence avoids losing the entire distribution in that
-  // case while retaining O(n) time and O(1) working memory.
-  const mode = Math.min(dice, Math.floor((dice + 1) * probability))
-  let mass = binomialPmfAt(dice, mode, probability)
-  if (mode >= required) {
-    let lowerTail = 0
-    for (let successes = mode; successes > 0; successes -= 1) {
-      if (successes < required) {
-        lowerTail += mass
-      }
-      mass *= successes /
-        (dice - successes + 1) *
-        (1 - probability) /
-        probability
-    }
-    lowerTail += mass
-    return Math.max(0, Math.min(1, 1 - lowerTail))
-  }
-
-  // required is above the mode, so walk upward and sum the requested tail.
-  for (let successes = mode; successes < required; successes += 1) {
-    mass *= (dice - successes) / (successes + 1) * probability / (1 - probability)
-  }
-  let result = mass
-  for (let successes = required; successes < dice; successes += 1) {
-    mass *= (dice - successes) / (successes + 1) * probability / (1 - probability)
-    result += mass
-  }
-  return Math.max(0, Math.min(1, result))
-}
-
-function binomialProbabilities(dice, probability) {
-  const result = new Float64Array(dice + 1)
-  if (probability === 0) {
-    result[0] = 1
-    return result
-  }
-  if (probability === 1) {
-    result[dice] = 1
-    return result
-  }
-
-  const mode = Math.min(dice, Math.floor((dice + 1) * probability))
-  result[mode] = binomialPmfAt(dice, mode, probability)
-  for (let successes = mode; successes > 0; successes -= 1) {
-    result[successes - 1] = result[successes] *
-      successes / (dice - successes + 1) *
-      (1 - probability) / probability
-  }
-  for (let successes = mode; successes < dice; successes += 1) {
-    result[successes + 1] = result[successes] *
-      (dice - successes) / (successes + 1) *
-      probability / (1 - probability)
-  }
-
-  let total = 0
-  for (const mass of result) {
-    total += mass
-  }
-  if (!Number.isFinite(total) || total <= 0) {
-    throw new RangeError('binomial probability calculation produced an invalid total')
-  }
-  if (Math.abs(total - 1) > Number.EPSILON) {
-    for (let successes = 0; successes <= dice; successes += 1) {
-      result[successes] /= total
-    }
-  }
-  return result
-}
-
-function getTerminalOrderStatistic(dice, shihai, critical, workingLength) {
-  const result = new Float64Array(workingLength)
-  const rankFromLargest = shihai + 1
-
-  for (let face = 1; face < critical; face += 1) {
-    const atLeastFace = binomialTail(
-      dice,
-      rankFromLargest,
-      (11 - face) / 10
-    )
-    const aboveFace = binomialTail(
-      dice,
-      rankFromLargest,
-      (10 - face) / 10
-    )
-    result[face] = atLeastFace - aboveFace
-  }
-
-  return result
-}
-
 function calculateShihaiZeroDistribution(
   dice,
   critical,
@@ -275,34 +147,6 @@ function calculateShihaiZeroDistribution(
   return result
 }
 
-function addShifted(target, source, shift, weight) {
-  for (let value = shift; value < target.length; value += 1) {
-    target[value] += weight * source[value - shift]
-  }
-}
-
-function solveSelfTransition(stage, criticalProbability, dice) {
-  const result = new Float64Array(stage.length)
-  const allCriticalProbability = criticalProbability ** dice
-  const overflowIndex = stage.length - 1
-
-  // d[x] = stage[x] + p_c^n * d[x-10].  The final bucket is replaced
-  // after the recurrence so all mass beyond the working range is absorbed.
-  for (let value = 0; value < stage.length; value += 1) {
-    result[value] =
-      stage[value] +
-      (value >= 10 ? allCriticalProbability * result[value - 10] : 0)
-  }
-
-  let total = 0
-  for (let value = 0; value < overflowIndex; value += 1) {
-    total += result[value]
-  }
-  result[overflowIndex] = 1 - total
-  assertFiniteProbabilityArray(result, true)
-  return result
-}
-
 function calculateShihaiPositiveDistribution(
   dice,
   critical,
@@ -315,16 +159,19 @@ function calculateShihaiPositiveDistribution(
     return result
   }
 
-  const stages = dice - shihai
-  const transitionCount = safeProduct(stages, stages + 1, 'DX transition count') / 2
-  const estimatedOperations = safeProduct(
+  const estimatedOperations = getDxOrderStatisticOperationEstimate(
     workingLength,
-    transitionCount + stages * 4,
-    'DX operation estimate'
+    dice,
+    shihai,
+    critical
   )
   const estimatedBytes = safeProduct(
-    dice + 1,
-    safeProduct(workingLength, Float64Array.BYTES_PER_ELEMENT, 'DX array size'),
+    2,
+    safeProduct(
+      workingLength,
+      Float64Array.BYTES_PER_ELEMENT,
+      'DX array size'
+    ),
     'DX array size'
   )
   if (estimatedOperations > DX_MAX_CALCULATION_OPERATIONS) {
@@ -338,53 +185,29 @@ function calculateShihaiPositiveDistribution(
     )
   }
 
-  const resultByDice = Array.from(
-    { length: dice + 1 },
-    () => new Float64Array(workingLength)
-  )
-
-  for (let currentDice = 0; currentDice <= Math.min(dice, shihai); currentDice += 1) {
-    resultByDice[currentDice][0] = 1
-  }
-
-  const criticalProbability = (11 - critical) / 10
-  for (let currentDice = shihai + 1; currentDice <= dice; currentDice += 1) {
-    const stage = getTerminalOrderStatistic(
-      currentDice,
-      shihai,
+  // A positive shihai result is the (shihai + 1)-th largest complete 1DX
+  // result. Build its PMF from adjacent exact tails; no dice-sized state table
+  // or critical-count transition recurrence is needed.
+  const result = new Float64Array(workingLength)
+  const overflowIndex = workingLength - 1
+  let previousTail = 1
+  for (let value = 0; value < overflowIndex; value += 1) {
+    const tail = calculateDxOrderStatisticTail(
+      value,
+      dice,
       critical,
-      workingLength
+      shihai
     )
-    const criticalCounts = binomialProbabilities(
-      currentDice,
-      criticalProbability
-    )
-
-    // A non-terminal roll with k critical dice continues from the already
-    // computed k-dice state.  The all-critical k=currentDice case is the
-    // self-transition handled by solveSelfTransition below.
-    for (
-      let criticalDice = shihai + 1;
-      criticalDice < currentDice;
-      criticalDice += 1
-    ) {
-      addShifted(
-        stage,
-        resultByDice[criticalDice],
-        10,
-        criticalCounts[criticalDice]
-      )
+    const mass = previousTail - tail
+    if (mass < -FULL_PRECISION_NEGATIVE_TOLERANCE) {
+      throw new RangeError('DX order-statistic calculation produced a negative probability')
     }
-
-    resultByDice[currentDice] = solveSelfTransition(
-      stage,
-      criticalProbability,
-      currentDice
-    )
-    assertFiniteProbabilityArray(resultByDice[currentDice], true)
+    result[value] = mass < 0 ? 0 : mass
+    previousTail = tail
   }
-
-  return resultByDice[dice]
+  result[overflowIndex] = previousTail
+  assertFiniteProbabilityArray(result, true)
+  return result
 }
 
 function clampMass(value, label = 'DX probability') {
