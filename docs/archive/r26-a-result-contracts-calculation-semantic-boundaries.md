@@ -18,8 +18,10 @@ R26-Aでは、canonical resultがproductionの唯一経路になったことを�
 
 ## 検証
 
-R26-Aの各実装単位で、`npm run typecheck`、`npm run lint`、Score関連テスト、Damage関連テスト、DX関連テスト、architecture testsを実行して成功した。最終closureでは`npm run verify:core`、`npm run verify:browser`、`npm run verify:reference`、`npm run benchmark:full-tail-attack`、`npm run verify:all`、`git diff --check`を実行し、既存のbenchmark digest `1245155.511306`を維持する。
+R26-Aのclosure follow-upでは、5つのsemantic moduleから暗黙の`any`を除去し、domain/planner contractへのtype-only dependencyを追加した。`DamageExpectationCertificate`のruntime生成項目も型へ反映し、`tests/typecheck/calculation-semantic-contracts.ts`でfactoryの戻り値、Score outcome/statistics、Damage request/statistics、malformed certificateのcompile-time契約を固定した。
+
+最終検証では、`npm run verify:all`、`npm run benchmark:full-tail-attack`、`git diff --check`を実行して成功した。Vitestは104 files / 1067 tests、generatorは通常18 tests・simulation 13 tests、runtime DXは20,000ケースで成功し、benchmark digestは`1245155.511306`を維持した。production browser smoke、typecheck、ESLint、Markdown lint、build、reference/generator検証も成功した。
 
 ## 次の作業
 
-R26-A後は、残存するruntime/application adapterの依存方向と公開型を整理するR26-Bへ進む。Cloudflare Worker、HTTP API、MCP化は引き続き将来目標であり、今回の作業には含めない。
+R26-A後は、`DamageAggregation`のplanner / executor / metadata-certificate分離と、`BacktrackCalculator`の通常D10 wrapper・《屍人》分布生成・orchestration分離を行うR26-Bへ進む。runtime/application adapterの依存方向と公開型、UI semanticsはR27へ回す。Cloudflare Worker、HTTP API、MCP化は引き続き将来目標であり、今回の作業には含めない。
