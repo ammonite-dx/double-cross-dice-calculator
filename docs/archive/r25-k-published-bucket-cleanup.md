@@ -15,8 +15,8 @@ R25-Kでは、productionの計算経路から`published-bucket`を選択する�
 
 ### production境界
 
-- `PUBLISHED_OVERFLOW_INDEX = 1023`は、旧形式との比較と`calculationMax=1022`の既定値を定義する境界として残した。
-- `calculationMax=1022`は今回の範囲では変更していない。これは入力上限や表示上限ではなく、既存比較と資源計画のcompatibility floorである。別タスクで実測に基づき再評価する。
+- R25-Kでは`PUBLISHED_OVERFLOW_INDEX = 1023`と`calculationMax=1022`を歴史的な比較形式として記録した。これらはR25-Lでproductionの計算範囲から撤去され、現在は参照adapterの境界だけに残る。
+- R25-K時点では、旧境界の撤去そのものは別作業として切り出した。R25-Lで有限support、tail certificate、resource guardを用いる動的計画へ移行した。
 - `ResourceGuard`、display window、latest-wins、Worker、FFT、certificateの意味論は変更していない。
 
 ### 参照境界
@@ -33,22 +33,22 @@ R25-Kでは、productionの計算経路から`published-bucket`を選択する�
 | `scoreValueMode` | production sourceから撤去済み。旧実験結果と履歴資料にのみ残る。 |
 | `published-bucket` | tooling、参照テスト、実験、履歴資料に限定したcompatibility語。productionの実行モードではない。 |
 | `PUBLISHED_BUCKET_LENGTH = 1024` | `tooling/reference-data/PublishedBucketCompatibility.js`だけで使用する旧配列長。 |
-| `PUBLISHED_OVERFLOW_INDEX = 1023` | productionの既定`calculationMax=1022`とCheck/Attackのlegacy floorの根拠、および参照adapterの境界。 |
-| `1022` | 既定のcalculationMaxと比較・coverage境界。入力・表示のsemantic capではない。 |
+| `PUBLISHED_OVERFLOW_INDEX = 1023` | 旧形式との比較・projectionを行う参照adapterの境界。productionの計算・表示境界ではない。 |
+| `1022` | R25-K当時の比較・coverage境界。R25-L後のproductionには存在しない。 |
 
 ## 検証
 
-R25-Kの実装後に次を実行した。
+R25-Kの実装後、productionと参照検証を分離した状態で次を確認した。
 
-- `npm test`: 103 files / 1051 tests passed
-- `npm run lint`: passed
-- `npm run typecheck`: passed
-- `git diff --check`: passed
+- `npm run verify:core`: passed
+- `npm run verify:browser`: passed
+- `npm run verify:reference`: passed
+- Markdown lint、typecheck、`git diff --check`: passed
 - production naming test: `src/`からpublished adapterのimport・定義を排除
 - reference adapter tests: legacy input、support、exact/upper-bound projection、unsafe projectionを確認
 
-最終release前には、`npm run verify:core`、`npm run verify:browser`、`npm run verify:reference`、可能なら`npm run verify:all`を最終HEADで実行する。これらはR25-Kのproduction変更を検証するが、参照資産をproduction bundleへ戻すものではない。
+これらはR25-Kのproduction変更を検証するが、参照資産をproduction bundleへ戻すものではない。R25-Lでは、旧1022/1023境界と固定配列長をproductionから撤去したうえで、同じ検証を最終HEADに対して再実行した。
 
 ## 次の判断
 
-R25-Kの後は、R12のcore module decompositionと、実測に基づく`calculationMax=1022`の再評価を別作業として扱う。1022境界を変更するときも、canonicalの表示範囲や入力可能範囲を同時に狭めない。
+R25-Kの後は、R12のcore module decompositionを別作業として扱い、旧1022境界の再評価はR25-Lで完了した。歴史的fixtureと参照adapterは、productionの表示範囲や入力可能範囲とは独立に保持する。
