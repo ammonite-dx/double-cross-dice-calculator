@@ -134,9 +134,10 @@ describe('Check input flow contracts', () => {
   })
 
   it('forwards only validated child events through the input components', () => {
-    expect(inputFormSource).toContain('props.difficulty')
-    expect(inputFormSource).toContain('props.scoreParams')
-    expect(inputFormSource).toContain("defineEmits(['dfclty-validated', 'score-validated'])")
+    expect(inputFormSource).toContain('difficulty: DifficultyInput')
+    expect(inputFormSource).toContain('scoreParams:')
+    expect(inputFormSource).toContain("'advanced-settings-changed'")
+    expect(inputFormSource).toContain('advancedSettingsEnabled')
     expect(inputFormSource).toContain('@validated="onDfcltyValidated"')
     expect(inputFormSource).toContain('@validated="(params) => onScoreValidated(')
     expect(inputPanelSource).toContain('@dfclty-validated="onDfcltyValidated"')

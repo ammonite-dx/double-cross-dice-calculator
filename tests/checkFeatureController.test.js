@@ -184,6 +184,42 @@ describe('useCheck', () => {
     )
   })
 
+  it('owns independent advanced settings state and enforces disabled values', async () => {
+    const { check, client } = await createController()
+
+    expect(check.advancedSettingsEnabled.value).toEqual({
+      action: false,
+      reaction: false,
+    })
+    check.onScoreValidated({
+      side: 'action',
+      params: { dice: 4, critical: 9, skill: 2, yousei: 3, shihai: 2 },
+    })
+    await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(2))
+    expect(check.scoreParams.value.action).toMatchObject({ yousei: 0, shihai: 0 })
+    expect(client.calculateCheck.mock.calls[1][0].action)
+      .toMatchObject({ yousei: 0, shihai: 0 })
+
+    check.onAdvancedSettingsChanged({ side: 'action', enabled: true })
+    expect(client.calculateCheck).toHaveBeenCalledTimes(2)
+    check.onScoreValidated({
+      side: 'action',
+      params: { dice: 4, critical: 9, skill: 2, yousei: 3, shihai: 0 },
+    })
+    await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(3))
+    expect(check.scoreParams.value.action.yousei).toBe(3)
+
+    check.onAdvancedSettingsChanged({ side: 'reaction', enabled: true })
+    expect(check.advancedSettingsEnabled.value).toEqual({ action: true, reaction: true })
+    check.onAdvancedSettingsChanged({ side: 'action', enabled: false })
+    await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(4))
+    expect(check.scoreParams.value.action).toMatchObject({ yousei: 0, shihai: 0 })
+    check.onAdvancedSettingsChanged({ side: 'action', enabled: true })
+    expect(client.calculateCheck).toHaveBeenCalledTimes(4)
+    expect(check.scoreParams.value.action).toMatchObject({ yousei: 0, shihai: 0 })
+    expect(check.scoreParams.value.reaction).toMatchObject({ yousei: 0, shihai: 0 })
+  })
+
   it('reuses the score when only the display mode changes', async () => {
     const { check, client } = await createController()
 

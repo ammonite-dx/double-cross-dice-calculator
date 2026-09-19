@@ -1,32 +1,58 @@
-<script setup>
+<script setup lang="ts">
+import DfcltyForm from './DfcltyForm.vue'
+import ScoreForm from './ScoreForm.vue'
+import type { DifficultyInput, ScoreInput } from '@/domain/CalculationInputs'
+import type {
+  CheckAdvancedSettingsChange,
+  CheckAdvancedSettingsEnabled,
+  CheckScoreSide,
+} from '../model/CheckAdvancedSettings'
 
-    import DfcltyForm from './DfcltyForm.vue';
-    import ScoreForm from './ScoreForm.vue';
+defineProps<{
+  difficulty: DifficultyInput
+  scoreParams: {
+    action: Partial<ScoreInput>
+    reaction: Partial<ScoreInput>
+  }
+  advancedSettingsEnabled: CheckAdvancedSettingsEnabled
+}>()
 
-    const props = defineProps({
-        difficulty: {
-            type: Object,
-            required: true,
-        },
-        scoreParams: {
-            type: Object,
-            required: true,
-        },
-    });
-    const emit = defineEmits(['dfclty-validated', 'score-validated']);
-    const onDfcltyValidated = (dfclty) => {
-        emit('dfclty-validated', dfclty);
-    };
-    const onScoreValidated = (side, params) => {
-        emit('score-validated', {side, params});
-    };
+const emit = defineEmits<{
+  'dfclty-validated': [difficulty: DifficultyInput]
+  'score-validated': [payload: { side: CheckScoreSide; params: Partial<ScoreInput> }]
+  'advanced-settings-changed': [change: CheckAdvancedSettingsChange]
+}>()
 
+const onDfcltyValidated = (difficulty: DifficultyInput) => {
+  emit('dfclty-validated', difficulty)
+}
+
+const onScoreValidated = (side: CheckScoreSide, params: Partial<ScoreInput>) => {
+  emit('score-validated', { side, params })
+}
+
+const onAdvancedSettingsChanged = (side: CheckScoreSide, enabled: boolean) => {
+  emit('advanced-settings-changed', { side, enabled })
+}
 </script>
 
 <template>
-    <v-container class="pa-4">
-        <DfcltyForm :dfclty="props.difficulty" @validated="onDfcltyValidated"/>
-        <ScoreForm :side="'action'" :params="props.scoreParams.action" @validated="(params) => onScoreValidated('action', params)"/>
-        <ScoreForm v-if="props.difficulty.opposed" :side="'reaction'" :params="props.scoreParams.reaction" @validated="(params) => onScoreValidated('reaction', params)"/>
-    </v-container>
+  <v-container class="pa-4">
+    <DfcltyForm :dfclty="difficulty" @validated="onDfcltyValidated" />
+    <ScoreForm
+      side="action"
+      :params="scoreParams.action"
+      :advanced-settings-enabled="advancedSettingsEnabled.action"
+      @validated="(params) => onScoreValidated('action', params)"
+      @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('action', enabled)"
+    />
+    <ScoreForm
+      v-if="difficulty.opposed"
+      side="reaction"
+      :params="scoreParams.reaction"
+      :advanced-settings-enabled="advancedSettingsEnabled.reaction"
+      @validated="(params) => onScoreValidated('reaction', params)"
+      @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('reaction', enabled)"
+    />
+  </v-container>
 </template>

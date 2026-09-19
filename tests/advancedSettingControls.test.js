@@ -10,11 +10,13 @@ describe('advanced-setting controls', () => {
     ['check', '../src/features/check/ui/ScoreForm.vue'],
     ['attack', '../src/features/attack/ui/AttackForm.vue'],
     ['defence', '../src/features/attack/ui/DefenceForm.vue'],
-  ])('declares the public inline prop for the %s checkbox', (_name, path) => {
+  ])('exposes a semantic and accessible control for the %s checkbox', (_name, path) => {
     const source = readSource(path)
 
-    expect(source).toMatch(
-      /<v-checkbox-btn v-model="showDetails" density="compact" inline class="h-50" \/>/,
-    )
+    expect(source).toContain('advancedSettingsEnabled')
+    expect(source).toContain('advanced-settings-changed')
+    expect(source).toContain('label="高度な設定"')
+    expect(source).not.toContain('showDetails')
+    expect(source).not.toContain('show-details')
   })
 })

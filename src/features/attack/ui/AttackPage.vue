@@ -32,7 +32,7 @@
         removeCombo,
         onComboNameChanged,
         onComboVisibilityChanged,
-        onComboDetailsChanged,
+        onComboAdvancedSettingsChanged,
         onComboSideValidated,
     } = useAttack({ calculationClient })
 </script>
@@ -46,7 +46,7 @@
             @combo-remove="removeCombo"
             @combo-name-changed="onComboNameChanged"
             @combo-visibility-changed="onComboVisibilityChanged"
-            @combo-details-changed="onComboDetailsChanged"
+            @combo-advanced-settings-changed="onComboAdvancedSettingsChanged"
             @combo-side-validated="onComboSideValidated"
         /></v-col></v-row>
         <v-row><v-col cols="12"><RangePlanNotice :feedback="feedbackNotice" /></v-col></v-row>

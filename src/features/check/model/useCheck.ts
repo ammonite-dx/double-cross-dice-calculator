@@ -48,6 +48,16 @@ import type {
   DisplayWarning,
   DisplayFeedbackPlan,
 } from '../../../shared/presentation/DistributionProjectionTypes'
+import {
+  applyCheckAdvancedSettingsPolicy,
+  createCheckAdvancedSettingsEnabled,
+  hasCheckAdvancedSettingsValue,
+} from './CheckAdvancedSettings'
+import type {
+  CheckAdvancedSettingsChange,
+  CheckAdvancedSettingsEnabled,
+  CheckScoreSide,
+} from './CheckAdvancedSettings'
 
 interface CheckScoreParams {
   action: Partial<ScoreInput>
@@ -57,6 +67,7 @@ interface CheckScoreParams {
 interface CheckState {
   difficulty: DifficultyInput
   scoreParams: CheckScoreParams
+  advancedSettingsEnabled: CheckAdvancedSettingsEnabled
   calculationRecord: CheckCalculationRecord | null
   displayRequest: DisplayRequestSnapshot
   rangeFeedback: CalculationFeedbackState<CheckCalculationRangePlan>
@@ -124,6 +135,7 @@ export async function useCheck({
       action: { ...initialInputSnapshot.params.action },
       reaction: { ...initialInputSnapshot.params.reaction },
     },
+    advancedSettingsEnabled: createCheckAdvancedSettingsEnabled(),
     calculationRecord: null,
     displayRequest: { ...initialDisplayRequest },
     rangeFeedback,
@@ -247,7 +259,16 @@ export async function useCheck({
   function currentCalculationInput() {
     return createCheckInputSnapshot({
       difficulty: state.difficulty,
-      params: state.scoreParams,
+      params: {
+        action: applyCheckAdvancedSettingsPolicy(
+          state.scoreParams.action,
+          state.advancedSettingsEnabled.action
+        ),
+        reaction: applyCheckAdvancedSettingsPolicy(
+          state.scoreParams.reaction,
+          state.advancedSettingsEnabled.reaction
+        ),
+      },
     })
   }
 
@@ -317,7 +338,7 @@ export async function useCheck({
     }
     const calculationRequest = createCheckCalculationRequestSnapshot({
       difficulty: state.difficulty,
-      params: state.scoreParams,
+      params: currentCalculationInput().params,
       displayRequest: request,
     })
     return calculationRunner.run(calculationRequest)
@@ -385,14 +406,41 @@ export async function useCheck({
     side,
     params,
   }: {
-    side: string
+    side: CheckScoreSide
     params: Partial<ScoreInput>
   }) => {
     if (side !== 'action' && side !== 'reaction') {
       return
     }
     invalidateInputCalculation()
-    state.scoreParams[side] = { ...params }
+    state.scoreParams[side] = applyCheckAdvancedSettingsPolicy(
+      params,
+      state.advancedSettingsEnabled[side]
+    )
+    displayRecalculationKey = null
+    void submitCheck()
+  }
+
+  const onAdvancedSettingsChanged = ({
+    side,
+    enabled,
+  }: CheckAdvancedSettingsChange) => {
+    if (side !== 'action' && side !== 'reaction') {
+      return
+    }
+    if (state.advancedSettingsEnabled[side] === enabled) {
+      return
+    }
+    state.advancedSettingsEnabled[side] = enabled
+    if (enabled || !hasCheckAdvancedSettingsValue(state.scoreParams[side])) {
+      return
+    }
+
+    invalidateInputCalculation()
+    state.scoreParams[side] = applyCheckAdvancedSettingsPolicy(
+      state.scoreParams[side],
+      false
+    )
     displayRecalculationKey = null
     void submitCheck()
   }
@@ -483,6 +531,7 @@ export async function useCheck({
   return {
     difficulty: stateRefs.difficulty,
     scoreParams: stateRefs.scoreParams,
+    advancedSettingsEnabled: stateRefs.advancedSettingsEnabled,
     calculationRecord: computed(() => state.calculationRecord),
     score,
     scoreStatistics,
@@ -493,6 +542,7 @@ export async function useCheck({
     displayFeedback: stateRefs.displayFeedback,
     onDifficultyValidated,
     onScoreValidated,
+    onAdvancedSettingsChanged,
     onDisplayValidated,
   }
 }

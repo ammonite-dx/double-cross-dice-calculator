@@ -1,6 +1,6 @@
-<script setup>
+<script setup lang="ts">
 
-    import { onUnmounted, reactive, ref, useId, watch } from 'vue';
+    import { nextTick, onUnmounted, reactive, ref, useId, watch } from 'vue';
     import {
         createDefenceInputDraftSnapshot,
         createDefenceInputSnapshot,
@@ -11,14 +11,22 @@
         createScoreFieldRules,
     } from '@/shared/validation/ScoreInputRules';
     import { createSafeIntegerRules } from '@/shared/validation/IntegerRules';
+    import type { AttackComboParams } from '../model/AttackComboState';
 
-    const props = defineProps(['params','comboColor','showDetails']);
-    const emit = defineEmits(['validated', 'show-details']);
-    const form = ref();
+    const props = defineProps<{
+        params: AttackComboParams['reaction'];
+        comboColor: string;
+        advancedSettingsEnabled: boolean;
+    }>();
+    const emit = defineEmits<{
+        validated: [snapshot: AttackComboParams['reaction']];
+        'advanced-settings-changed': [enabled: boolean];
+    }>();
+    const form = ref<{ validate?: () => Promise<{ valid?: boolean }> } | null>(null);
     const defenceReductionGroupId = useId();
-    const currentParams = reactive(createDefenceInputDraftSnapshot(props.params));
-    const showDetails = ref(props.showDetails ?? false);
+    const currentParams = reactive(createDefenceInputDraftSnapshot(props.params) as AttackComboParams['reaction']);
     const validationGate = createLatestValidationGate();
+    let syncingProps = false;
     const modeItem = ['ドッジ','《イベイジョン》','ガード・リアクション放棄']
     const scoreRules = createScoreFieldRules();
     const diceRule = scoreRules.dice;
@@ -42,9 +50,19 @@
         requiredMessage: 'ガード・装甲・軽減値(固定値)を入力して下さい。',
         integerMessage: 'ガード・装甲・軽減値(固定値)は整数値として下さい',
     });
+    watch(() => props.params, async (params) => {
+        validationGate.invalidate();
+        syncingProps = true;
+        Object.assign(currentParams, createDefenceInputDraftSnapshot(params));
+        await nextTick();
+        syncingProps = false;
+    }, { deep: true });
     watch(currentParams, async () => {
+        if (syncingProps) {
+            return;
+        }
         const ticket = validationGate.begin();
-        const draft = createDefenceInputDraftSnapshot(currentParams);
+        const draft = createDefenceInputDraftSnapshot(currentParams) as AttackComboParams['reaction'];
         const validResult = await form.value?.validate?.();
         if (!validationGate.canCommit(ticket)) {
             return;
@@ -52,20 +70,13 @@
         if (!validResult?.valid) {
             return;
         }
-        const snapshot = createDefenceInputSnapshot(draft);
+        const snapshot = createDefenceInputSnapshot(draft) as AttackComboParams['reaction'];
         emit('validated', snapshot);
     });
-    watch(showDetails, (value) => {
-        const ticket = validationGate.invalidate();
-        if (!validationGate.canCommit(ticket)) {
-            return;
-        }
-        emit('show-details', value);
-        if (!value) {
-            currentParams.score.yousei = 0;
-            currentParams.score.shihai = 0;
-        }
-    });
+    function onAdvancedSettingsChanged(value: boolean) {
+        validationGate.invalidate();
+        emit('advanced-settings-changed', Boolean(value));
+    }
     onUnmounted(() => validationGate.dispose());
 
 </script>
@@ -74,7 +85,7 @@
     <v-container class="px-0 pt-2 pb-0">
         <v-row class="ma-0 px-1 py-0" :style="{backgroundColor:props.comboColor}" style="color:white">
             <v-col md="8" cols="6" class="pa-0 d-flex align-center">防御側</v-col>
-            <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn v-model="showDetails" density="compact" inline class="h-50" />高度な設定</v-col>
+            <v-col md="4" cols="6" class="pa-0 d-flex align-center text-caption"><v-checkbox-btn :model-value="props.advancedSettingsEnabled" density="compact" inline class="h-50" label="高度な設定" @update:model-value="onAdvancedSettingsChanged" /></v-col>
         </v-row>
         <v-form ref="form" class="pa-1">
             <v-row dense class="pt-2 ma-0">
@@ -109,7 +120,7 @@
                     </div>
                 </v-col>
             </v-row>
-            <v-row v-if="currentParams.mode=='ドッジ' && showDetails" dense class="pt-2 ma-0">
+            <v-row v-if="currentParams.mode=='ドッジ' && props.advancedSettingsEnabled" dense class="pt-2 ma-0">
                 <v-col cols="6" class="pb-2"><v-text-field label="《妖精の手》等の回数" type="number" min=0 v-model.number="currentParams.score.yousei" :rules="youseiRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
                 <v-col cols="6" class="pb-2"><v-text-field label="《支配の領域》の対象ダイス数" type="number" min=0 v-model.number="currentParams.score.shihai" :rules="shihaiRule" variant="underlined" hide-details="auto" density="compact" class="pa-0 ma-0 text-md-body-1 text-caption"/></v-col>
             </v-row>

@@ -10,6 +10,12 @@ import {
   snapshotAttackParams,
 } from './AttackState'
 import type { AttackCalculationRecord } from './AttackCalculationRecord'
+import {
+  applyAttackAdvancedSettingsPolicy,
+  createAttackAdvancedSettingsEnabled,
+} from './AttackAdvancedSettings'
+
+export type AttackComboSide = 'action' | 'reaction'
 
 export interface AttackComboParams extends AttackCalculationInput {
   action: {
@@ -32,7 +38,7 @@ export interface AttackCombo {
   id: number | string
   name: string
   show: boolean
-  showDetails: {
+  advancedSettingsEnabled: {
     action: boolean
     reaction: boolean
   }
@@ -78,13 +84,6 @@ export function createAttackComboParams(): AttackComboParams {
   }
 }
 
-function createShowDetails() {
-  return {
-    action: false,
-    reaction: false,
-  }
-}
-
 export function createComboData(
   params: AttackComboParams = createAttackComboParams(),
 ): AttackComboData {
@@ -102,7 +101,7 @@ export function createAttackCombo(
     id,
     name,
     show: true,
-    showDetails: createShowDetails(),
+    advancedSettingsEnabled: createAttackAdvancedSettingsEnabled(),
     data: createComboData(),
   }
 }
@@ -111,16 +110,27 @@ export function cloneAttackCombo(
   source: AttackCombo,
   id: number | string,
 ): AttackCombo {
-  const params = snapshotAttackParams(
-    source.data.params
-  ) as AttackComboParams
+  const snapshot = snapshotAttackParams(source.data.params) as AttackComboParams
+  const params = {
+    ...snapshot,
+    action: applyAttackAdvancedSettingsPolicy(
+      'action',
+      snapshot.action,
+      source.advancedSettingsEnabled.action
+    ),
+    reaction: applyAttackAdvancedSettingsPolicy(
+      'reaction',
+      snapshot.reaction,
+      source.advancedSettingsEnabled.reaction
+    ),
+  }
   return {
     id,
     name: `${source.name}のコピー`,
     show: true,
-    showDetails: {
-      action: source.showDetails.action,
-      reaction: source.showDetails.reaction,
+    advancedSettingsEnabled: {
+      action: source.advancedSettingsEnabled.action,
+      reaction: source.advancedSettingsEnabled.reaction,
     },
     data: createComboData(params),
   }

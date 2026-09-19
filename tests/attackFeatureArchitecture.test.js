@@ -109,13 +109,14 @@ describe('Attack feature architecture', () => {
       'combo-remove',
       'combo-name-changed',
       'combo-visibility-changed',
-      'combo-details-changed',
+      'combo-advanced-settings-changed',
       'combo-side-validated',
     ]) {
       expect(inputForm).toContain(`'${event}'`)
     }
     const comboForm = source('src/features/attack/ui/ComboForm.vue')
-    expect(comboForm).toContain("defineEmits(['side-validated', 'show-details'])")
+    expect(comboForm).toContain("'advanced-settings-changed'")
+    expect(comboForm).toContain('advancedSettingsEnabled')
     expect(comboForm).not.toContain('replaceAttackSideSnapshot')
     expect(pageSource).toContain('@combo-side-validated="onComboSideValidated"')
   })

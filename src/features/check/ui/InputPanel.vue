@@ -1,45 +1,56 @@
-<script setup>
+<script setup lang="ts">
+import InputForm from './InputForm.vue'
+import RangePlanNotice from '@/components/RangePlanNotice.vue'
+import { mdiTuneVariant } from '@mdi/js'
+import type { DifficultyInput, ScoreInput } from '@/domain/CalculationInputs'
+import type {
+  CheckAdvancedSettingsChange,
+  CheckAdvancedSettingsEnabled,
+} from '../model/CheckAdvancedSettings'
 
-    import InputForm from './InputForm.vue';
-    import RangePlanNotice from '@/components/RangePlanNotice.vue';
-    import { mdiTuneVariant } from '@mdi/js'
+defineProps<{
+  difficulty: DifficultyInput
+  scoreParams: {
+    action: Partial<ScoreInput>
+    reaction: Partial<ScoreInput>
+  }
+  advancedSettingsEnabled: CheckAdvancedSettingsEnabled
+  rangeFeedback: Record<string, unknown>
+}>()
 
-    const props = defineProps({
-        difficulty: {
-            type: Object,
-            required: true,
-        },
-        scoreParams: {
-            type: Object,
-            required: true,
-        },
-        rangeFeedback: {
-            type: Object,
-            required: true,
-        },
-    });
-    const emit = defineEmits(['dfclty-validated', 'score-validated']);
-    const onDfcltyValidated = (dfclty) => {
-        emit('dfclty-validated', dfclty);
-    };
-    const onScoreValidated = (payload) => {
-        emit('score-validated', payload);
-    };
+const emit = defineEmits<{
+  'dfclty-validated': [difficulty: DifficultyInput]
+  'score-validated': [payload: { side: 'action' | 'reaction'; params: Partial<ScoreInput> }]
+  'advanced-settings-changed': [change: CheckAdvancedSettingsChange]
+}>()
 
+const onDfcltyValidated = (difficulty: DifficultyInput) => {
+  emit('dfclty-validated', difficulty)
+}
+
+const onScoreValidated = (payload: { side: 'action' | 'reaction'; params: Partial<ScoreInput> }) => {
+  emit('score-validated', payload)
+}
+
+const onAdvancedSettingsChanged = (change: CheckAdvancedSettingsChange) => {
+  emit('advanced-settings-changed', change)
+}
 </script>
 
 <template>
-    <v-card class="ma-0">
-        <v-card-title><v-icon :icon="mdiTuneVariant"/> 判定条件</v-card-title>
-        <v-divider class="mx-2" />
-        <v-card-text class="pa-0 text-md-body-1 text-caption">
-            <RangePlanNotice :feedback="props.rangeFeedback" />
-            <InputForm
-                :difficulty="props.difficulty"
-                :scoreParams="props.scoreParams"
-                @dfclty-validated="onDfcltyValidated"
-                @score-validated="onScoreValidated"
-            />
-        </v-card-text>
-    </v-card>
+  <v-card class="ma-0">
+    <v-card-title><v-icon :icon="mdiTuneVariant" /> 判定条件</v-card-title>
+    <v-divider class="mx-2" />
+    <v-card-text class="pa-0 text-md-body-1 text-caption">
+      <RangePlanNotice :feedback="rangeFeedback" />
+      <InputForm
+        :difficulty="difficulty"
+        :score-params="scoreParams"
+        :advanced-settings-enabled="advancedSettingsEnabled"
+        @dfclty-validated="onDfcltyValidated"
+        @score-validated="onScoreValidated"
+        @advanced-settings-changed="onAdvancedSettingsChanged"
+      />
+    </v-card-text>
+  </v-card>
 </template>

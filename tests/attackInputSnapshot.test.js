@@ -151,14 +151,15 @@ describe('AttackInputSnapshot', () => {
 describe('Attack input flow contracts', () => {
   it('guards asynchronous form validation and emits only validated snapshots', () => {
     for (const source of [attackFormSource, defenceFormSource]) {
-      expect(source).toContain("defineEmits(['validated', 'show-details'])")
+      expect(source).toContain("'advanced-settings-changed'")
+      expect(source).toContain('advancedSettingsEnabled')
       expect(source).toContain("@/shared/validation/LatestValidationGate")
       expect(source).toContain('const ticket = validationGate.begin()')
       expect(source).toContain('validationGate.canCommit(ticket)')
       expect(source).toContain('validationGate.dispose()')
       expect(source).toContain("emit('validated',")
       expect(source).not.toMatch(/props\.params\.[\w.]+\s*=/)
-      expect(source).not.toContain('props.showDetails.value =')
+      expect(source).not.toContain('props.advancedSettingsEnabled.value =')
     }
   })
 
@@ -183,15 +184,15 @@ describe('Attack input flow contracts', () => {
     expect(inputFormSource).not.toContain('calculateTotalDamage')
   })
 
-  it('passes explicit show-details events through InputForm', () => {
-    expect(attackFormSource).toContain("emit('show-details', value)")
-    expect(defenceFormSource).toContain("emit('show-details', value)")
+  it('passes explicit advanced-settings events through InputForm', () => {
+    expect(attackFormSource).toContain("emit('advanced-settings-changed'")
+    expect(defenceFormSource).toContain("emit('advanced-settings-changed'")
     expect(comboFormSource).toContain(
-      "@show-details=\"(value) => onShowDetails('action', value)\""
+      "@advanced-settings-changed=\"(enabled) => onAdvancedSettingsChanged('action', enabled)\""
     )
     expect(comboFormSource).toContain(
-      "@show-details=\"(value) => onShowDetails('reaction', value)\""
+      "@advanced-settings-changed=\"(enabled) => onAdvancedSettingsChanged('reaction', enabled)\""
     )
-    expect(inputFormSource).toContain('@show-details="(change) => onDetailsChanged(combo, change)"')
+    expect(inputFormSource).toContain('@advanced-settings-changed="(change) => onAdvancedSettingsChanged(combo, change)"')
   })
 })

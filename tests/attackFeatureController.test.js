@@ -132,7 +132,7 @@ describe('Attack feature controller', () => {
       id: 0,
       name: 'コンボ1',
       show: true,
-      showDetails: { action: false, reaction: false },
+      advancedSettingsEnabled: { action: false, reaction: false },
     })
     expect(controller.combos.value[0]).not.toHaveProperty('data')
     expect(controller.combos.value[0].params.action.score).toEqual({
@@ -172,7 +172,7 @@ describe('Attack feature controller', () => {
       id: 1,
       name: 'コンボ1のコピー',
       show: true,
-      showDetails: { action: false, reaction: false },
+      advancedSettingsEnabled: { action: false, reaction: false },
     })
     expect(duplicate.params.action.score.dice).toBe(6)
     source.params.action.score.dice = 99
@@ -183,6 +183,11 @@ describe('Attack feature controller', () => {
 
   it('duplicates Evasion reaction state without converting editable coordinates', () => {
     const { controller, client } = createController()
+    controller.onComboAdvancedSettingsChanged({
+      id: 0,
+      side: 'reaction',
+      enabled: true,
+    })
     const snapshot = {
       mode: '《イベイジョン》',
       score: {
@@ -220,6 +225,88 @@ describe('Attack feature controller', () => {
     expect(duplicate.params.reaction.score.dice).toBe(3)
     expect(duplicate.params.reaction.score.skill).toBe(4)
     expect(client.calculateAttack).toHaveBeenCalledTimes(1)
+    controller.dispose()
+  })
+
+  it('sanitizes disabled action advanced values at the feature boundary', () => {
+    const { controller, client } = createController()
+    const snapshot = createActionSnapshot()
+    snapshot.score.yousei = 3
+    snapshot.score.shihai = 2
+    snapshot.damage.kazanari = 4
+
+    controller.onComboSideValidated({
+      id: 0,
+      side: 'action',
+      snapshot,
+    })
+
+    expect(controller.combos.value[0].params.action).toMatchObject({
+      score: { yousei: 0, shihai: 0 },
+      damage: { kazanari: 0 },
+    })
+    expect(client.calculateAttack.mock.calls[0][0].action).toMatchObject({
+      score: { yousei: 0, shihai: 0 },
+      damage: { kazanari: 0 },
+    })
+    controller.dispose()
+  })
+
+  it('sanitizes disabled reaction advanced values without changing reaction damage', () => {
+    const { controller, client } = createController()
+    const snapshot = {
+      mode: 'ドッジ',
+      score: {
+        dice: 3,
+        critical: 10,
+        skill: 2,
+        yousei: 3,
+        shihai: 2,
+      },
+      damage: { dice: 4, value: 7 },
+    }
+
+    controller.onComboSideValidated({ id: 0, side: 'reaction', snapshot })
+
+    expect(controller.combos.value[0].params.reaction).toMatchObject({
+      score: { yousei: 0, shihai: 0 },
+      damage: { dice: 4, value: 7 },
+    })
+    expect(client.calculateAttack.mock.calls[0][0].reaction).toMatchObject({
+      score: { yousei: 0, shihai: 0 },
+      damage: { dice: 4, value: 7 },
+    })
+    controller.dispose()
+  })
+
+  it('recalculates once when disabling nonzero advanced action values and never restores them', async () => {
+    const client = createResolvedClient()
+    const { controller } = createController(client)
+    controller.onComboAdvancedSettingsChanged({ id: 0, side: 'action', enabled: true })
+    expect(client.calculateAttack).not.toHaveBeenCalled()
+
+    const snapshot = createActionSnapshot()
+    snapshot.score.yousei = 1
+    snapshot.damage.kazanari = 2
+    controller.onComboSideValidated({ id: 0, side: 'action', snapshot })
+    await waitForReady(controller)
+    const callsBeforeDisable = client.calculateAttack.mock.calls.length
+
+    controller.onComboAdvancedSettingsChanged({ id: 0, side: 'action', enabled: false })
+    await vi.waitFor(() => expect(
+      client.calculateAttack.mock.calls.length
+    ).toBe(callsBeforeDisable + 1))
+    expect(controller.combos.value[0].params.action).toMatchObject({
+      score: { yousei: 0, shihai: 0 },
+      damage: { kazanari: 0 },
+    })
+
+    controller.onComboAdvancedSettingsChanged({ id: 0, side: 'action', enabled: true })
+    expect(client.calculateAttack.mock.calls.length).toBe(callsBeforeDisable + 1)
+    expect(controller.combos.value[0].params.action).toMatchObject({
+      score: { yousei: 0, shihai: 0 },
+      damage: { kazanari: 0 },
+    })
     controller.dispose()
   })
 
@@ -588,23 +675,23 @@ describe('Attack feature controller', () => {
     expect(controller.displayPresentation.value).toBeNull()
   })
 
-  it('does not calculate for labels, visibility, or details-only changes', () => {
+  it('does not calculate for labels, visibility, or zero-valued advanced toggles', () => {
     const { controller, client } = createController()
     controller.onComboNameChanged({ id: 0, name: '新しい名前' })
     controller.onComboVisibilityChanged({ id: 0, show: false })
-    controller.onComboDetailsChanged({ id: 0, side: 'action', value: true })
+    controller.onComboAdvancedSettingsChanged({ id: 0, side: 'action', enabled: true })
     expect(controller.combos.value[0]).toMatchObject({
       name: '新しい名前',
       show: false,
-      showDetails: { action: true },
+      advancedSettingsEnabled: { action: true },
     })
     expect(client.calculateAttack).not.toHaveBeenCalled()
-    controller.onComboDetailsChanged({
+    controller.onComboAdvancedSettingsChanged({
       id: 0,
       side: 'unknown',
-      value: false,
+      enabled: false,
     })
-    expect(controller.combos.value[0].showDetails).not.toHaveProperty('unknown')
+    expect(controller.combos.value[0].advancedSettingsEnabled).not.toHaveProperty('unknown')
     controller.dispose()
   })
 

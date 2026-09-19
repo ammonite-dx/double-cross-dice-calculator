@@ -1,45 +1,52 @@
-<script setup>
-    import AttackForm from './AttackForm.vue';
-    import DefenceForm from './DefenceForm.vue';
+<script setup lang="ts">
+import AttackForm from './AttackForm.vue'
+import DefenceForm from './DefenceForm.vue'
+import type { AttackComboParams, AttackComboSide } from '../model/AttackComboState'
 
-    const props = defineProps({
-        params: {
-            type: Object,
-            required: true,
-        },
-        comboColor: {
-            type: String,
-            required: true,
-        },
-        showDetails: {
-            type: Object,
-            required: true,
-        },
-    });
-    const emit = defineEmits(['side-validated', 'show-details']);
-    const onSideValidated = (side, snapshot) => {
-        emit('side-validated', {side, snapshot});
-    };
-    const onShowDetails = (side, value) => {
-        emit('show-details', {side, value});
-    };
+defineProps<{
+  params: AttackComboParams
+  comboColor: string
+  advancedSettingsEnabled: {
+    action: boolean
+    reaction: boolean
+  }
+}>()
 
+type SideValidation =
+  | { side: 'action'; snapshot: AttackComboParams['action'] }
+  | { side: 'reaction'; snapshot: AttackComboParams['reaction'] }
+
+const emit = defineEmits<{
+  'side-validated': [change: SideValidation]
+  'advanced-settings-changed': [change: { side: AttackComboSide; enabled: boolean }]
+}>()
+
+const onSideValidated = (side: AttackComboSide, snapshot: SideValidation['snapshot']) => {
+  if (side === 'action') {
+    emit('side-validated', { side, snapshot: snapshot as AttackComboParams['action'] })
+  } else {
+    emit('side-validated', { side, snapshot: snapshot as AttackComboParams['reaction'] })
+  }
+}
+
+const onAdvancedSettingsChanged = (side: AttackComboSide, enabled: boolean) => {
+  emit('advanced-settings-changed', { side, enabled })
+}
 </script>
 
 <template>
-    <AttackForm
-        :params="props.params.action"
-        :comboColor="props.comboColor"
-        :showDetails="props.showDetails.action"
-        @validated="(snapshot) => onSideValidated('action', snapshot)"
-        @show-details="(value) => onShowDetails('action', value)"
-    />
-    <DefenceForm
-        :params="props.params.reaction"
-        :comboColor="props.comboColor"
-        :showDetails="props.showDetails.reaction"
-        @validated="(snapshot) => onSideValidated('reaction', snapshot)"
-        @show-details="(value) => onShowDetails('reaction', value)"
-    />
+  <AttackForm
+    :params="params.action"
+    :combo-color="comboColor"
+    :advanced-settings-enabled="advancedSettingsEnabled.action"
+    @validated="(snapshot) => onSideValidated('action', snapshot)"
+    @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('action', enabled)"
+  />
+  <DefenceForm
+    :params="params.reaction"
+    :combo-color="comboColor"
+    :advanced-settings-enabled="advancedSettingsEnabled.reaction"
+    @validated="(snapshot) => onSideValidated('reaction', snapshot)"
+    @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('reaction', enabled)"
+  />
 </template>
-

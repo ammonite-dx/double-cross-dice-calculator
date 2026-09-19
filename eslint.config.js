@@ -187,6 +187,15 @@ export default [
       // R2 parses TypeScript for architecture rules; type-aware lint is deferred.
       'no-undef': 'off',
       'no-unused-vars': 'off',
+      'no-redeclare': 'off',
+    },
+  },
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+      },
     },
   },
   {

@@ -44,6 +44,11 @@ import {
 import { executeAttackIncrementally } from './AttackIncrementalExecution'
 import { replaceAttackSideSnapshot } from './AttackInputSnapshot'
 import {
+  applyAttackAdvancedSettingsPolicy,
+  hasAttackAdvancedSettingsValue,
+} from './AttackAdvancedSettings'
+import type { AttackAdvancedSettingsChange } from './AttackAdvancedSettings'
+import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
   createAttackRangePolicy as createRawAttackRangePolicy,
   createAttackDisplayRequestSnapshot as createRawAttackDisplayRequestSnapshot,
@@ -68,7 +73,7 @@ export interface AttackUiCombo {
   id: number | string
   name: string
   show: boolean
-  showDetails: {
+  advancedSettingsEnabled: {
     action: boolean
     reaction: boolean
   }
@@ -86,12 +91,6 @@ export type ComboSideValidation =
       side: 'reaction'
       snapshot: AttackCombo['data']['params']['reaction']
     }
-
-export interface ComboDetailsChange {
-  id: number | string
-  side: 'action' | 'reaction'
-  value: boolean
-}
 
 export interface UseAttackOptions {
   calculationClient: CalculationClient
@@ -114,9 +113,9 @@ function toUiCombos(state: AttackState): AttackUiCombo[] {
     id: combo.id,
     name: combo.name,
     show: combo.show,
-    showDetails: {
-      action: combo.showDetails.action,
-      reaction: combo.showDetails.reaction,
+    advancedSettingsEnabled: {
+      action: combo.advancedSettingsEnabled.action,
+      reaction: combo.advancedSettingsEnabled.reaction,
     },
     params: combo.data.params,
   }))
@@ -392,14 +391,41 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     }
   }
 
-  function onComboDetailsChanged({ id, side, value }: ComboDetailsChange) {
+  function onComboAdvancedSettingsChanged({
+    id,
+    side,
+    enabled,
+  }: AttackAdvancedSettingsChange) {
     if (side !== 'action' && side !== 'reaction') {
       return
     }
     const combo = findCombo(id)
-    if (combo !== null) {
-      combo.showDetails[side] = value
+    if (combo === null || combo.advancedSettingsEnabled[side] === enabled) {
+      return
     }
+    combo.advancedSettingsEnabled[side] = enabled
+    const hasAdvancedValue = side === 'action'
+      ? hasAttackAdvancedSettingsValue('action', combo.data.params.action)
+      : hasAttackAdvancedSettingsValue('reaction', combo.data.params.reaction)
+    if (enabled || !hasAdvancedValue) {
+      return
+    }
+
+    const snapshot = side === 'action'
+      ? applyAttackAdvancedSettingsPolicy(
+        'action',
+        combo.data.params.action,
+        false
+      )
+      : applyAttackAdvancedSettingsPolicy(
+        'reaction',
+        combo.data.params.reaction,
+        false
+      )
+    replaceAttackSideSnapshot(combo.data.params, side, snapshot)
+    invalidateAttackComboCalculation(state, id)
+    invalidateAttackTotalCalculation(state)
+    void runCalculation()
   }
 
   function onComboSideValidated({ id, side, snapshot }: ComboSideValidation) {
@@ -412,7 +438,18 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     }
     // The UI sends a detached validated snapshot. The application snapshot
     // helper performs the second detached copy at the state boundary.
-    replaceAttackSideSnapshot(combo.data.params, side, snapshot)
+    const sanitizedSnapshot = side === 'action'
+      ? applyAttackAdvancedSettingsPolicy(
+        'action',
+        snapshot,
+        combo.advancedSettingsEnabled.action
+      )
+      : applyAttackAdvancedSettingsPolicy(
+        'reaction',
+        snapshot,
+        combo.advancedSettingsEnabled.reaction
+      )
+    replaceAttackSideSnapshot(combo.data.params, side, sanitizedSnapshot)
     invalidateAttackComboCalculation(state, id)
     invalidateAttackTotalCalculation(state)
     void runCalculation()
@@ -548,7 +585,7 @@ export function useAttack({ calculationClient }: UseAttackOptions) {
     removeCombo,
     onComboNameChanged,
     onComboVisibilityChanged,
-    onComboDetailsChanged,
+    onComboAdvancedSettingsChanged,
     onComboSideValidated,
     dispose,
   }

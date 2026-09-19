@@ -16,6 +16,7 @@
     const {
         difficulty,
         scoreParams,
+        advancedSettingsEnabled,
         scoreStatistics,
         resultReady,
         displayRequest,
@@ -24,6 +25,7 @@
         displayFeedback,
         onDifficultyValidated,
         onScoreValidated,
+        onAdvancedSettingsChanged,
         onDisplayValidated,
     } = await useCheck({ calculationClient })
 </script>
@@ -33,9 +35,11 @@
         <v-row><v-col cols="12"><InputPanel
             :difficulty="difficulty"
             :scoreParams="scoreParams"
+            :advanced-settings-enabled="advancedSettingsEnabled"
             :rangeFeedback="rangeFeedback"
             @dfclty-validated="onDifficultyValidated"
             @score-validated="onScoreValidated"
+            @advanced-settings-changed="onAdvancedSettingsChanged"
         /></v-col></v-row>
         <v-row><v-col cols="12"><ChartPanel
             :difficulty="difficulty"
