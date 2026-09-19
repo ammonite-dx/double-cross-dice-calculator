@@ -6,13 +6,14 @@
 
 - 公開サイトは静的SPAとして維持し、確率計算はブラウザ内のruntimeを正本とする。
 - 旧来の確率JSONは [`tooling/reference-data/assets/`](../tooling/reference-data/assets/) に参照用として保持し、公開成果物へは含めない。
-- `published-bucket` は既存表示との互換境界として当面維持する。削除・縮小はR25-Kで別途判断する。
+- `published-bucket` はproductionの計算・表示モードではなく、[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)に置く歴史的比較・互換adapterとして維持する。
+- `RangePlanner`の既定`calculationMax=1022`と`PUBLISHED_OVERFLOW_INDEX=1023`は、今回のR25-Kでは変更しない。これは入力・表示上限ではなく、既存比較と資源計画の境界である。
 - 結果契約、資源ガード、latest-wins、Worker境界、数値許容誤差を変更する場合は、先に対応するテストと文書を更新する。
 
 ## 次に行う作業
 
-1. **R25-Jの完了確認**: 履歴文書・参照アセットの分離、現行文書、生成ツール、リリース成果物の検証結果を [`archive/r25-j-historical-docs-assets-cleanup.md`](./archive/r25-j-historical-docs-assets-cleanup.md) に記録する。
-2. **R25-K: published-bucketの再評価**: 互換表示を維持したまま、必要な利用箇所・削除条件・移行手順を調査する。調査完了までは公開形式を変更しない。
+1. **R12: 計算coreの責務分割**: R25-Kで整理したcanonical result境界を前提に、Score、Damage、Backtrack、結果契約の依存方向を再評価する。
+2. **1022境界の再評価**: 実測した計算量・メモリと利用実態を確認し、`calculationMax`を維持するか、別の資源計画へ置き換えるかを決める。変更時は表示上限と混同しないようにする。
 3. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
 
 ## 保留

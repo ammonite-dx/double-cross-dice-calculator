@@ -12,7 +12,7 @@ TRPG『ダブルクロス The 3rd Edition』のダイスロールについて、
 - バックトラック後の侵蝕率分布の計算
 - 《妖精の手》《支配の領域》《絶対支配》《風鳴りの爪》、Dロイス《屍人》など、一部エフェクト・Dロイスの反映
 
-ダイスロールの解釈と対応する入力domainは[`docs/dice-rules.md`](./docs/dice-rules.md)に記載しています。計算結果は`DistributionResult`としてsupport、明示済み範囲、overflowを保持し、必要なworking rangeは`RangePlanner`と`ResourceGuard`で要求window・supportに応じて動的に計画します。互換用のpublished-bucket形式ではインデックス1023に1023以上を集約しますが、これは計算結果や最終表示の上限ではありません。中間計算は要求されたwindowとsupportに合わせたworking rangeを使い、published-bucketへ投影するのは互換比較が必要な場合だけです。
+ダイスロールの解釈と対応する入力domainは[`docs/dice-rules.md`](./docs/dice-rules.md)に記載しています。計算結果は`DistributionResult`としてsupport、明示済み範囲、overflowを保持し、必要なworking rangeは`RangePlanner`と`ResourceGuard`で要求window・supportに応じて動的に計画します。productionはcanonical full-tailだけを実行し、旧1024要素のpublished-bucket変換は[`tooling/reference-data/PublishedBucketCompatibility.js`](./tooling/reference-data/PublishedBucketCompatibility.js)に分離した比較・互換用です。インデックス1023への集約は計算結果や最終表示の上限ではありません。
 
 ## 技術構成
 
@@ -45,7 +45,7 @@ npm test
 
 `npm test`は本番計算とアプリケーションのテストだけを実行し、`tests/reference/`にある過去の公開データとの比較テストは除外します。参照テストは`npm run test:reference`で単独実行できます。リリース用のproduction gateは`npm run verify:release`（`verify:core`とproduction browser smoke）で、参照資産まで含めた全検証は`npm run verify:all`で実行します。`verify:reference`だけを実行する場合はuvとPython 3.12が必要です。
 
-`tooling/reference-data/assets/schema-v2/revision-1/`、`tooling/reference-data/`、`generator/`および`tests/reference/`は、現在のブラウザ実行経路そのものではなく、過去に生成した分布の再現性・生成器・互換境界を検証する参照領域です。R25-Jでrevision-1は新しいproduction deployから退役しましたが、これらの検証をproduction gateから分離しても、published-bucket互換の仕様とテストを削除したことにはなりません。
+`tooling/reference-data/assets/schema-v2/revision-1/`、`tooling/reference-data/`、`generator/`および`tests/reference/`は、現在のブラウザ実行経路そのものではなく、過去に生成した分布の再現性・生成器・互換境界を検証する参照領域です。R25-Jでrevision-1は新しいproduction deployから退役し、R25-Kでpublished-bucket adapterもこの参照領域へ分離しました。これらの検証をproduction gateから分離しても、歴史的な互換仕様とテストを削除したことにはなりません。
 
 実行時の判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。参照fixture自体の検証とproduction gateから分離した手順は[`docs/reference/precomputation-validation.md`](./docs/reference/precomputation-validation.md)を参照してください。CI分離の経緯は[`docs/archive/r25-i-test-ci-reference-decoupling.md`](./docs/archive/r25-i-test-ci-reference-decoupling.md)にあります。
 

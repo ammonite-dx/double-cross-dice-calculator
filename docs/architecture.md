@@ -59,7 +59,7 @@ DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Wor
 
 ## published-bucket互換
 
-1024要素のpublished-bucket形式とインデックス1023への集約は、過去データとの比較・互換性を必要とする境界だけに残します。`DistributionResult`のsupport、overflow、要求されたdisplay windowを置き換えるものではなく、productionの表示上限でもありません。この互換経路の撤去は、別途判断するR25-Kの対象です。
+1024要素のpublished-bucket形式とインデックス1023への集約は、過去データとの比較・互換性を必要とする境界だけに残します。adapterの実装は[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)にあり、productionの`src/`から参照しません。`DistributionResult`のsupport、overflow、要求されたdisplay windowを置き換えるものでも、productionの表示上限でもありません。productionのrange plannerとDamage計算はcanonical full-tailだけを受け付け、`scorePropagation`による旧モード選択は廃止しました。
 
 ## 検証
 

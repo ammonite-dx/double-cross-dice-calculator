@@ -3,7 +3,7 @@
 - 状態: Superseded（2026-09-18）
 - 決定日: 2026-07-30
 
-> このADRは、固定長の中間配列を採用していた時期の判断記録である。現在は動的な`RangePlanner`とfull-tail runtimeが中間範囲を決めるため、2048要素固定という決定は置き換えられている。`published-bucket`による互換表示はR25-Kで再評価するまで維持する。以下の測定値と背景は、当時の設計根拠を示す履歴資料として残す。
+> このADRは、固定長の中間配列を採用していた時期の判断記録である。現在は動的な`RangePlanner`とfull-tail runtimeが中間範囲を決めるため、2048要素固定という決定は置き換えられている。R25-Kではproductionのpublished-bucket実行モードを撤去し、歴史的な互換adapterを`tooling/reference-data/`へ分離した。以下の測定値と背景は、当時の設計根拠を示す履歴資料として残す。
 
 ## 背景
 

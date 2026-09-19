@@ -8,7 +8,7 @@ production runtimeはJSONを取得せず、入力に必要な範囲をruntime生
 
 ## 1. 分布の共通表現
 
-非負整数値を取る分布は、インデックスが値、要素が確率となる配列で表します。`DistributionResult`は配列の`offset`、数学的support、明示範囲外のoverflowを併せて返します。1024要素とインデックス1023への集約はpublished-bucket互換専用です。
+非負整数値を取る分布は、インデックスが値、要素が確率となる配列で表します。`DistributionResult`は配列の`offset`、数学的support、明示範囲外のoverflowを併せて返します。1024要素とインデックス1023への集約は、`tooling/reference-data/PublishedBucketCompatibility.js`が担うpublished-bucket互換専用です。
 
 定数$a$を加えるときは、配列の範囲内へ次のように移します。
 
@@ -86,7 +86,7 @@ $$
 
 で計画します。固定値差の正部分を$v_+$とすると、Damage作業上端は$W=R+v_+$、`workingLength`は$W+2$です。最後のsentinelはworking range外のoverflowを表します。Damage RollのFFT長、防御D10の畳み込み長、CPU work、メモリは同じplanから見積もります。
 
-1023を超えること自体は拒否理由ではありません。配列長、FFT長、CPU work、メモリがpolicy内に収まるかで判断し、過大な入力はsilent truncationせずresource rejectionにします。published-bucket projectionを使う比較経路だけは、1023以上を最後のバケットへ集約します。
+1023を超えること自体は拒否理由ではありません。配列長、FFT長、CPU work、メモリがpolicy内に収まるかで判断し、過大な入力はsilent truncationせずresource rejectionにします。productionはcanonical full-tailをそのまま伝播し、published-bucket projectionを使う参照・比較経路だけが1023以上を最後のバケットへ集約します。
 
 ## 5. Tailと期待値
 

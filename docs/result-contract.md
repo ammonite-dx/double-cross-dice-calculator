@@ -78,4 +78,4 @@ Backtrackは有限supportを完全に生成するため、通常はoverflowを�
 
 計算コアは確率を0から1の分数で返し、`CertifiedValue`と`CertifiedProbability`のkindを保持します。百分率への変換、丸め、単位表示、チャートのrequested windowへの投影はpresentation層の責務です。presentationが契約を満たさない場合は、旧結果へ黙ってfallbackせず、表示用の拒否または再計算を行います。
 
-`published-bucket`は、過去の1024要素形式との比較・互換性を保つための投影です。インデックス1023へ1023以上を集約する処理は、`DistributionResult`のsupportやoverflowを置き換えるものではなく、通常のproduction結果の最終表示上限でもありません。
+`published-bucket`は、過去の1024要素形式との比較・互換性を保つための投影です。実装は[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)に隔離され、production計算coreはこの投影を実行しません。インデックス1023へ1023以上を集約する処理は、`DistributionResult`のsupportやoverflowを置き換えるものではなく、通常のproduction結果の最終表示上限でもありません。
