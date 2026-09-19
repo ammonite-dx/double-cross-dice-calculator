@@ -35,8 +35,12 @@ function enumerateFaces(dice, visit) {
  */
 function directDxOracle({ dice, critical, shihai }) {
   const result = new Float64Array(WORKING_LENGTH)
-  if (dice === 0 || dice <= shihai) {
+  if (dice === 0) {
     result[0] = 1
+    return result
+  }
+  if (dice <= shihai) {
+    result[1] = 1
     return result
   }
 

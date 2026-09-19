@@ -20,6 +20,7 @@ import {
 import {
   DX_CRITICAL_MAX,
   DX_MIN_DISTRIBUTION_SIZE,
+  getDxOperationEstimate,
   getDxYouseiBlockLength,
   getDxYouseiFftLength,
 } from './DxWorkingShape'
@@ -27,6 +28,7 @@ import {
 export {
   DX_CRITICAL_MAX,
   DX_MIN_DISTRIBUTION_SIZE,
+  getDxOperationEstimate,
   getDxYouseiBlockLength,
   getDxYouseiFftLength,
 } from './DxWorkingShape'
@@ -154,8 +156,16 @@ function calculateShihaiPositiveDistribution(
   workingLength
 ) {
   if (dice <= shihai) {
+    if (dice > 0 && workingLength < 3) {
+      throw new RangeError(
+        'workingLength must include explicit raw value 1 and an overflow bucket'
+      )
+    }
     const result = new Float64Array(workingLength)
-    result[0] = 1
+    // A positive dice count whose every die is covered by 《支配の領域》
+    // becomes a fumble (raw DX value 1), not an automatic failure (raw 0).
+    // ScoreCalculator owns the subsequent fumble-to-zero conversion.
+    result[dice === 0 ? 0 : 1] = 1
     return result
   }
 
@@ -411,10 +421,9 @@ export function calculateDxDistribution(params, options) {
   }
   if (shihai === 0) {
     if (yousei === 0) {
-      const estimatedOperations = safeProduct(
-        dice + 1,
-        Math.max(1, critical - 1),
-        'DX operation estimate'
+      const estimatedOperations = getDxOperationEstimate(
+        normalizedOptions.workingLength,
+        critical
       )
       if (estimatedOperations > DX_MAX_CALCULATION_OPERATIONS) {
         throw new RangeError(

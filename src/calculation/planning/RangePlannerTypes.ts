@@ -80,8 +80,8 @@ export interface ScoreSupportPlan {
 export type ScoreTailModel =
   | 'exact-yousei'
   | 'exact-max'
+  | 'exact-order-statistic'
   | 'conservative-union-bound'
-  | 'conservative-max-bound'
   | 'finite-support'
 
 export interface ScoreTailPlan {

@@ -5,15 +5,17 @@ import {
 } from '../src/calculation/DxCalculator'
 import {
   calculateYouseiTailProbability,
-  findTailCutoff,
   maxTailBound,
   maxTailFirstMomentUpperBound,
   negativeBinomialPmf,
   oneDieCumulative,
   oneDieTail,
-  scoreTailBound,
   youseiTailFirstMomentUpperBound,
 } from '../src/calculation/DxTailModel'
+import {
+  findTailCutoff,
+  scoreTailBound,
+} from '../src/calculation/ScoreTailModel'
 
 describe('DxTailModel', () => {
   it('describes one-die cumulative and strict-tail probabilities at score boundaries', () => {

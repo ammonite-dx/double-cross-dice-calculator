@@ -1,42 +1,27 @@
 import {
   assertCriticalValue,
   assertNonNegativeSafeInteger,
-  assertSafeInteger,
 } from '../domain/InputDomain'
+import {
+  oneDieTail,
+} from './DxOneDieModel'
+
+export {
+  oneDieCumulative,
+  oneDieTail,
+} from './DxOneDieModel'
 
 /**
  * Shared numerical model for the unbounded DX tail.
  *
  * This module deliberately has no planner, runtime, UI, or resource
  * dependencies. `DxCalculator` uses the low-level helpers when it builds a
- * distribution, while `RangePlanner` and `ScoreCalculator` use the public
- * certificates to choose and describe a finite working range.
+ * distribution, while `ScoreTailModel` combines them with the exact
+ * order-statistic tail for planner and certificate decisions.
  */
-
-function object(value, name) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError(`${name} must be an object`)
-  }
-  return value
-}
 
 function nonNegativeInteger(value, name) {
   return assertNonNegativeSafeInteger(value, name)
-}
-
-function positiveInteger(value, name) {
-  assertSafeInteger(value, name)
-  if (value <= 0) {
-    throw new RangeError(`${name} must be positive`)
-  }
-  return value
-}
-
-function probability(value, name) {
-  if (!Number.isFinite(value) || value <= 0 || value >= 1) {
-    throw new RangeError(`${name} must be between 0 and 1`)
-  }
-  return value
 }
 
 function clampProbability(value) {
@@ -55,58 +40,6 @@ function clampProbability(value) {
     throw new RangeError('probability calculation produced a non-finite value')
   }
   return Math.max(0, Math.min(1, value))
-}
-
-function geometricSum(probabilityValue, terms) {
-  if (terms <= 0) {
-    return 0
-  }
-  if (probabilityValue === 1) {
-    return terms
-  }
-  return (1 - probabilityValue ** terms) / (1 - probabilityValue)
-}
-
-/** Cumulative probability for one DX die at an integer score boundary. */
-export function oneDieCumulative(value, critical) {
-  if (value <= 0) {
-    return 0
-  }
-  assertCriticalValue(critical)
-
-  const criticalProbability = (11 - critical) / 10
-  let result = 0
-  for (let face = 1; face < critical && face <= value; face += 1) {
-    const terms = Math.floor((value - face) / 10) + 1
-    result += 0.1 * geometricSum(criticalProbability, terms)
-  }
-  return Math.min(1, result)
-}
-
-/** Strict tail probability for one DX die at an integer score boundary. */
-export function oneDieTail(value, critical) {
-  if (value < 0) {
-    return 1
-  }
-  assertCriticalValue(critical)
-
-  const criticalProbability = (11 - critical) / 10
-  let result = 0
-  for (let face = 1; face < critical; face += 1) {
-    const firstExcludedRepeat =
-      value < face ? 0 : Math.floor((value - face) / 10) + 1
-    if (criticalProbability === 0) {
-      if (firstExcludedRepeat === 0) {
-        result += 0.1
-      }
-      continue
-    }
-    result +=
-      0.1 *
-      criticalProbability ** firstExcludedRepeat /
-      (1 - criticalProbability)
-  }
-  return Math.max(0, Math.min(1, result))
 }
 
 /** Tail of the maximum of `dice` independent critical chains. */
@@ -688,83 +621,4 @@ export function youseiTailFirstMomentUpperBound(
     throw new RangeError('Yousei tail first-moment bound is not finite')
   }
   return result
-}
-
-// For shihai>0, the maximum-of-all-dice tail is deliberately conservative.
-// It is independent of the finite work array and therefore suitable for a
-// planner certificate even though production DP uses an order statistic.
-export function scoreTailBound(value, params) {
-  object(params, 'score')
-  const { dice, critical, shihai = 0, yousei = 0 } = params
-  nonNegativeInteger(dice, 'score.dice')
-  nonNegativeInteger(shihai, 'score.shihai')
-  nonNegativeInteger(yousei, 'score.yousei')
-  assertCriticalValue(critical, 'score.critical')
-  if (Number.isNaN(value)) {
-    throw new RangeError('score.value must not be NaN')
-  }
-  if (yousei === 0) {
-    return maxTailBound(value, dice, critical)
-  }
-
-  if (shihai === 0) {
-    if (value === Infinity) {
-      return 0
-    }
-    if (value === -Infinity) {
-      return 1
-    }
-    return calculateYouseiTailProbability(value, dice, critical, yousei)
-  }
-
-  const adjusted = Math.floor((value - 9 * yousei) / (yousei + 1))
-  if (adjusted <= 0) {
-    return 1
-  }
-  return Math.min(
-    1,
-    maxTailBound(adjusted, dice, critical) +
-      yousei * maxTailBound(adjusted, 1, critical)
-  )
-}
-
-export function findTailCutoff(params, epsilon, maxSearch = 1 << 20) {
-  object(params, 'score')
-  probability(epsilon, 'epsilon')
-  positiveInteger(maxSearch, 'maxSearch')
-
-  const cache = new Map()
-  const evaluate = (value) => {
-    if (!cache.has(value)) {
-      cache.set(value, scoreTailBound(value, params))
-    }
-    return cache.get(value)
-  }
-
-  let high = 1
-  while (high < maxSearch && evaluate(high) > epsilon) {
-    high *= 2
-  }
-  if (evaluate(high) > epsilon) {
-    return {
-      reachable: false,
-      cutoff: high,
-      bound: evaluate(high),
-    }
-  }
-
-  let low = -1
-  while (high - low > 1) {
-    const middle = Math.floor((low + high) / 2)
-    if (evaluate(middle) <= epsilon) {
-      high = middle
-    } else {
-      low = middle
-    }
-  }
-  return {
-    reachable: true,
-    cutoff: high,
-    bound: evaluate(high),
-  }
 }

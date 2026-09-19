@@ -77,7 +77,7 @@ describe('runtime dx distribution with shihai>0', () => {
     expect(distribution.some((probability) => probability > 0)).toBe(true)
   })
 
-  it('returns automatic failure through and at the shihai boundary', () => {
+  it('distinguishes automatic failure from a shihai-induced fumble', () => {
     const belowBoundary = calculateDxDistribution({
       dice: COMPARISON_SHIHAI,
       critical: 7,
@@ -91,8 +91,9 @@ describe('runtime dx distribution with shihai>0', () => {
 
     assertDistribution(belowBoundary)
     assertDistribution(atBoundary)
-    expect(belowBoundary[0]).toBe(1)
-    expect(belowBoundary.slice(1).every((probability) => probability === 0)).toBe(true)
+    expect(belowBoundary[0]).toBe(0)
+    expect(belowBoundary[1]).toBe(1)
+    expect(belowBoundary.slice(2).every((probability) => probability === 0)).toBe(true)
     expect(atBoundary[0]).toBe(0)
     expect(atBoundary[1]).toBeGreaterThan(0)
   })

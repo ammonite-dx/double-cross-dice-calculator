@@ -1,11 +1,12 @@
 import {
+  getDxOperationEstimate,
   getDxYouseiBlockLength,
   getDxYouseiFftLength,
 } from '../DxWorkingShape'
 import {
   findTailCutoff,
   scoreTailBound,
-} from '../DxTailModel'
+} from '../ScoreTailModel'
 import { normalizeScoreInput } from '../../domain/CalculationInputNormalization'
 import {
   addSafe,
@@ -25,11 +26,7 @@ function scoreOperationCount(plan) {
   const dice = plan.params.dice
   const size = plan.workingLength
   if (plan.params.shihai === 0) {
-    return multiplySafe(
-      size,
-      Math.max(1, plan.params.critical - 1),
-      'score operation estimate'
-    )
+    return getDxOperationEstimate(size, plan.params.critical)
   }
   return getDxOrderStatisticOperationEstimate(
     size,
@@ -156,7 +153,7 @@ export function planScore(params, display, tailBudget) {
       : 'conservative-union-bound'
     : normalized.shihai === 0
       ? 'exact-max'
-      : 'conservative-max-bound'
+      : 'exact-order-statistic'
 
   const tail = {
     model: tailModel,

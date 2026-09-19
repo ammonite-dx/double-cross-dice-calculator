@@ -70,12 +70,14 @@ describe('calculation core planning boundaries', () => {
   it('centralizes planning arithmetic and the DX tail model', () => {
     const math = source('src/calculation/planning/PlanningMath.js')
     const tail = source('src/calculation/DxTailModel.js')
+    const scoreTail = source('src/calculation/ScoreTailModel.js')
     const rangePlanner = source('src/calculation/RangePlanner.js')
 
     expect(math).toContain('export function nextPowerOfTwo')
     expect(math).toContain('export function fftOperationCount')
-    expect(tail).toContain('export function oneDieTail')
-    expect(tail).toContain('export function scoreTailBound')
+    expect(tail).toContain("from './DxOneDieModel'")
+    expect(scoreTail).toContain('export function scoreTailBound')
+    expect(scoreTail).toContain('calculateDxOrderStatisticTail')
     expect(rangePlanner).not.toContain('oneDieTail')
     expect(rangePlanner).not.toContain('maxTailBound')
   })

@@ -8,6 +8,29 @@ export const DX_MIN_DISTRIBUTION_SIZE = 2
 export const DX_CRITICAL_MAX = 11
 
 /**
+ * Estimate the ordinary shihai=0, yousei=0 DX pass.
+ *
+ * The producer evaluates one-die tails for each explicit working boundary;
+ * its work therefore depends on the working length, not on the input dice
+ * count. Keeping this helper beside the shared working-shape rules lets the
+ * planner and direct calculator use the same estimate.
+ */
+export function getDxOperationEstimate(workingLength, critical) {
+  if (
+    !Number.isSafeInteger(workingLength)
+    || workingLength < DX_MIN_DISTRIBUTION_SIZE
+  ) {
+    throw new RangeError('workingLength must be at least 2')
+  }
+  assertCriticalValue(critical)
+  const estimate = workingLength * Math.max(1, critical - 1)
+  if (!Number.isSafeInteger(estimate)) {
+    throw new RangeError('DX operation estimate exceeds the safe integer range')
+  }
+  return estimate
+}
+
+/**
  * Return the number of critical blocks that can contribute to explicit score
  * buckets for the requested working array.
  */

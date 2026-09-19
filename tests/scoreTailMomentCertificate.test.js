@@ -4,7 +4,7 @@ import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
   calculateScore,
 } from '../src/calculation/ScoreCalculator'
-import { scoreTailBound } from '../src/calculation/DxTailModel'
+import { scoreTailBound } from '../src/calculation/ScoreTailModel'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 function calculatePlannedScore(params) {
@@ -35,7 +35,7 @@ function calculateScoreAtCutoff(params, workingMax) {
       model: params.yousei > 0
         ? 'exact-yousei'
         : params.shihai > 0
-          ? 'conservative-max-bound'
+          ? 'exact-order-statistic'
           : 'exact-max',
     },
   }
@@ -209,7 +209,7 @@ describe('Score tail first-moment certificate', () => {
     expect(certificate.firstMomentUpperBound).toBeGreaterThanOrEqual(0)
   })
 
-  it('uses maximum-DX domination for Shihai', () => {
+  it('uses the exact order-statistic tail for Shihai', () => {
     const { envelope } = calculatePlannedScore({
       dice: 5,
       critical: 8,
@@ -221,7 +221,7 @@ describe('Score tail first-moment certificate', () => {
 
     expect(certificate).toEqual(expect.objectContaining({
       kind: 'score-tail-moment-certificate',
-      model: 'dx-max-domination',
+      model: 'dx-order-statistic-tail',
     }))
   })
 

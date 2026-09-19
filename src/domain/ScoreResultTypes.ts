@@ -19,7 +19,7 @@ export interface ScoreTailCertificate {
 export interface ScoreExpectationCertificate {
   readonly version: number
   readonly kind: 'score-expectation-certificate'
-  readonly model: 'dx-max-tail'
+  readonly model: 'dx-max-tail' | 'dx-order-statistic-tail'
   readonly modeledMax: number
   readonly lowerBound: number
   readonly upperBound: number
@@ -43,7 +43,7 @@ export interface AnalyticScoreTailMomentCertificate
   extends ScoreTailMomentCertificateBase {
   readonly model:
     | 'dx-max-tail'
-    | 'dx-max-domination'
+    | 'dx-order-statistic-tail'
     | 'dx-yousei-tail'
   readonly boundaryContributionUpperBound: number
   readonly residualUpperBound: number

@@ -10,10 +10,12 @@ import {
 } from '../src/calculation/planning/PlanningMath'
 import {
   findTailCutoff,
-  maxTailFirstMomentUpperBound,
-  scoreTailBound,
-} from '../src/calculation/DxTailModel'
+} from '../src/calculation/ScoreTailModel'
+import { scoreTailBound } from '../src/calculation/ScoreTailModel'
+import { maxTailFirstMomentUpperBound } from '../src/calculation/DxTailModel'
+import { calculateDxOrderStatisticTail } from '../src/calculation/DxOrderStatistic'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
+import { getDxOperationEstimate } from '../src/calculation/DxWorkingShape'
 import {
   getDxOrderStatisticOperationEstimate,
   getDxOrderStatisticTermCount,
@@ -180,6 +182,19 @@ describe('production range planner', () => {
     }
   })
 
+  it('uses working length rather than dice count for ordinary DX operation estimates', () => {
+    const plan = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({ dice: 1_000_000, critical: 10 }),
+    }), { limits: PERMISSIVE_LIMITS }).scores[0]
+
+    expect(plan.operations).toBe(
+      getDxOperationEstimate(plan.workingLength, 10)
+    )
+    expect(plan.operations).toBeLessThan(
+      getDxOperationEstimate(plan.workingLength, 10) + 1
+    )
+  })
+
   it('bounds the DX first-moment residual with a ten-residue geometric tail', () => {
     const cases = [
       { dice: 1, critical: 10, cutoff: 20 },
@@ -306,7 +321,7 @@ describe('production range planner', () => {
       score: scoreParams({ dice: 10, critical: 2, shihai: 1, yousei: 1 }),
     }))
 
-    expect(shihai.scores[0].tail.model).toBe('conservative-max-bound')
+    expect(shihai.scores[0].tail.model).toBe('exact-order-statistic')
     expect(yousei.scores[0].tail.model).toBe('exact-yousei')
     expect(incompatible.accepted).toBe(false)
     expect(incompatible.scores[0].tail.model).toBe('conservative-union-bound')
@@ -316,6 +331,39 @@ describe('production range planner', () => {
         (warning) => warning.code === 'incompatible-input'
       ).severity
     ).toBe('reject')
+  })
+
+  it('uses the exact order-statistic tail and shrinks the modeled range as shihai grows', () => {
+    const params = scoreParams({ dice: 99, critical: 2, shihai: 19 })
+    const score = planCalculationRanges(scoreOnlyParams({ score: params }), {
+      errorBudget: { scoreTail: 1e-8 },
+      limits: PERMISSIVE_LIMITS,
+    }).scores[0]
+
+    expect(score.tail.model).toBe('exact-order-statistic')
+    expect(score.tail.bound).toBeCloseTo(
+      calculateDxOrderStatisticTail(
+        score.workingMax,
+        params.dice,
+        params.critical,
+        params.shihai
+      ),
+      14
+    )
+    expect(score.tail.bound).toBeLessThanOrEqual(1e-8)
+    expect(
+      calculateDxOrderStatisticTail(
+        score.workingMax - 1,
+        params.dice,
+        params.critical,
+        params.shihai
+      )
+    ).toBeGreaterThan(1e-8)
+
+    const lowerRank = planCalculationRanges(scoreOnlyParams({
+      score: { ...params, shihai: 1 },
+    }), { limits: PERMISSIVE_LIMITS }).scores[0]
+    expect(score.workingMax).toBeLessThan(lowerRank.workingMax)
   })
 
   it('models the deterministic shihai shortcut without a dice-sized DP table', () => {

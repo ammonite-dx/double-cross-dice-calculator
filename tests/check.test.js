@@ -340,7 +340,6 @@ describe('canonical normal check score producer', () => {
   it('keeps unsupported infinite score expectation summaries unavailable', () => {
     for (const params of [
       scoreParams({ skill: -1 }),
-      scoreParams({ dice: 2, critical: 2, shihai: 1 }),
       scoreParams({ yousei: 1 }),
     ]) {
       const calculated = calculate(params)
@@ -354,6 +353,11 @@ describe('canonical normal check score producer', () => {
       expect(calculated.envelope.metadata)
         .not.toHaveProperty('scoreExpectationCertificate')
     }
+
+    const shihai = calculate(scoreParams({ dice: 2, critical: 2, shihai: 1 }))
+    expect(shihai.envelope.metadata.scoreExpectationCertificate).toEqual(
+      expect.objectContaining({ model: 'dx-order-statistic-tail' })
+    )
   })
 
   it('keeps high-dice expectation certificates around a closed-form reference', () => {
@@ -471,6 +475,29 @@ describe('canonical normal check score producer', () => {
     expect(result.support).toEqual({ kind: 'finite', max: 0 })
     expect(result.overflow).toBeNull()
   })
+
+  it.each([-7, 0, 7])(
+    'keeps a positive-dice shihai boundary as a forced fumble for skill %s',
+    (skill) => {
+      const { plan, envelope, result } = calculate(
+        scoreParams({ dice: 1, critical: 8, shihai: 2, skill })
+      )
+
+      expect(plan.workingMax).toBe(1)
+      expect(envelope.metadata.forcedFailureProbability).toBe(1)
+      expect(result.values).toEqual(new Float64Array([1]))
+      expect(result.support).toEqual({ kind: 'finite', max: 0 })
+
+      const statistics = getScoreStatistics(
+        { action: envelope, reaction: envelope },
+        { opposed: false, target: 0 }
+      )
+      expect(statistics.action.successProbability).toEqual({
+        kind: 'exact',
+        value: 0,
+      })
+    }
+  )
 
   it('keeps fumble and both signs of skill in the canonical score coordinate', () => {
     for (const skill of [-7, 7]) {

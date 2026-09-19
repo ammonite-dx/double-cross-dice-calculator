@@ -10,8 +10,13 @@ import { addSafe } from './planning/PlanningMath'
  * producer's actual representation.
  */
 export function getFiniteRawSupportMax(params) {
-  if (params.dice === 0 || params.dice <= (params.shihai ?? 0)) {
+  if (params.dice === 0) {
     return 0
+  }
+  if (params.dice <= (params.shihai ?? 0)) {
+    // The raw DX result is a fumble (1). ScoreCalculator will move this
+    // bucket to score 0 and record it as forced failure.
+    return 1
   }
   if (params.critical === 11) {
     return 10
@@ -23,6 +28,9 @@ export function getScoreSupport(params) {
   const finiteRawSupportMax = getFiniteRawSupportMax(params)
   if (finiteRawSupportMax === null) {
     return { kind: 'infinite' }
+  }
+  if (params.dice > 0 && params.dice <= (params.shihai ?? 0)) {
+    return { kind: 'finite', max: 0 }
   }
   if (finiteRawSupportMax === 0) {
     return { kind: 'finite', max: 0 }

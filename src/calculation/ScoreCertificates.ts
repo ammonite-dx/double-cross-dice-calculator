@@ -3,10 +3,12 @@ import {
 } from './DistributionResult'
 import {
   maxTailFirstMomentUpperBound,
-  maxTailBound,
-  scoreTailBound,
   youseiTailFirstMomentUpperBound,
 } from './DxTailModel'
+import {
+  orderStatisticTailFirstMomentUpperBound,
+  scoreTailBound,
+} from './ScoreTailModel'
 import { getScoreSupport } from './ScoreSupport'
 import type { DistributionResult } from '../domain/DistributionResultTypes'
 import type { ScoreInput } from '../domain/InputDomain'
@@ -26,11 +28,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function sumDxTailThrough(cutoff: number, dice: number, critical: number) {
+function sumScoreTailThrough(
+  cutoff: number,
+  params: ScoreInput,
+) {
   let result = 0
   let compensation = 0
   for (let value = 0; value <= cutoff; value += 1) {
-    const term = maxTailBound(value, dice, critical)
+    const term = scoreTailBound(value, params)
     const correctedTerm = term - compensation
     const nextResult = result + correctedTerm
     compensation = (nextResult - result) - correctedTerm
@@ -252,6 +257,13 @@ export function createScoreTailMomentCertificate(
         params.critical,
         params.yousei,
       )
+    : params.shihai > 0
+      ? orderStatisticTailFirstMomentUpperBound(
+          modeledMax,
+          params.dice,
+          params.critical,
+          params.shihai,
+        )
     : maxTailFirstMomentUpperBound(
         modeledMax,
         params.dice,
@@ -280,7 +292,7 @@ export function createScoreTailMomentCertificate(
     model: hasExactYouseiTail
       ? 'dx-yousei-tail'
       : params.shihai > 0
-        ? 'dx-max-domination'
+        ? 'dx-order-statistic-tail'
         : 'dx-max-tail',
     modeledMax,
     massUpperBound,
@@ -292,8 +304,8 @@ export function createScoreTailMomentCertificate(
 }
 
 /**
- * Build a finite expected-value interval for the initial safe migration
- * slice: an infinite DX maximum with no Yousei/Shihai and non-negative skill.
+ * Build a finite expected-value interval for an infinite-support score with
+ * no Yousei, non-negative skill, and an exact max/order-statistic tail.
  */
 export function createScoreExpectationCertificate(
   params: ScoreInput,
@@ -302,29 +314,39 @@ export function createScoreExpectationCertificate(
   if (
     params.dice <= 0
     || params.critical === 11
-    || params.shihai !== 0
     || params.yousei !== 0
     || params.skill < 0
-    || scoreRangePlan?.tail?.model !== 'exact-max'
+    || !(
+      scoreRangePlan?.tail?.model === 'exact-max'
+      || scoreRangePlan?.tail?.model === 'exact-order-statistic'
+    )
   ) {
     return null
   }
 
   const modeledMax = scoreRangePlan.workingLength - 2
-  const oneScoreProbability = 0.1 ** params.dice
-  const partialRawExpectedValue = sumDxTailThrough(
+  const fumbleProbability =
+    scoreTailBound(0, params) - scoreTailBound(1, params)
+  const nonFumbleProbability = scoreTailBound(1, params)
+  const partialRawExpectedValue = sumScoreTailThrough(
     modeledMax,
-    params.dice,
-    params.critical,
+    params,
   )
-  const residualUpperBound = maxTailFirstMomentUpperBound(
-    modeledMax,
-    params.dice,
-    params.critical,
-  )
-  const skillContribution = params.skill * (1 - oneScoreProbability)
+  const residualUpperBound = params.shihai > 0
+    ? orderStatisticTailFirstMomentUpperBound(
+        modeledMax,
+        params.dice,
+        params.critical,
+        params.shihai,
+      )
+    : maxTailFirstMomentUpperBound(
+        modeledMax,
+        params.dice,
+        params.critical,
+      )
+  const skillContribution = params.skill * nonFumbleProbability
   const partialExpectedValue =
-    partialRawExpectedValue - oneScoreProbability + skillContribution
+    partialRawExpectedValue - fumbleProbability + skillContribution
   const lowerExpectedValue = partialExpectedValue
   const upperExpectedValue = partialExpectedValue + residualUpperBound
 
@@ -339,7 +361,9 @@ export function createScoreExpectationCertificate(
   return Object.freeze({
     version: SCORE_EXPECTATION_CERTIFICATE_VERSION,
     kind: 'score-expectation-certificate',
-    model: 'dx-max-tail',
+    model: params.shihai > 0
+      ? 'dx-order-statistic-tail'
+      : 'dx-max-tail',
     modeledMax,
     lowerBound: Math.max(0, lowerExpectedValue),
     upperBound: upperExpectedValue,
