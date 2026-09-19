@@ -111,7 +111,7 @@ export function copyProjectionUncertainty(value, index) {
     ) {
       fail(
         DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
-        'damage envelope output overflow lower bound must be null or a non-negative safe integer',
+        `damage envelope[${index}] output overflow lower bound must be null or a non-negative safe integer`,
         { index, outputOverflowLowerBound }
       )
     }

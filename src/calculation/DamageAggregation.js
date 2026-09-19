@@ -14,6 +14,7 @@ import {
   hasOwn,
   isDamageAggregationAbortError,
   isDamageAggregationError,
+  isRecord,
   normalizeOptions,
   DAMAGE_AGGREGATION_PLAN_VERSION,
 } from './DamageAggregationCommon'
@@ -259,7 +260,7 @@ export function planDamageAggregation(Damages, options = {}) {
 export function sumDamage(Damages, options = {}, explicitPlan = undefined) {
   let rawOptions = options
   if (explicitPlan !== undefined) {
-    if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+    if (!isRecord(options)) {
       fail(
         DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
         'damage aggregation options must be an object'
