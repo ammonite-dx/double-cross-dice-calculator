@@ -14,7 +14,7 @@
 
 ## 次に行う作業
 
-1. **R27-B2: Typed runtime implementation**: R27-B1で確定したDIとfeature controllerの型境界を前提に、`CalculationClient.js`、`CalculationFeedback.js`、`CalculationRequestCoordinator.js`、`RuntimeDamageRollClient.js`を段階的に型チェック対象へ移す。計算結果、latest-wins、Worker protocol、resource policyは維持する。
+1. **R27-B2b: Typed CalculationClient implementation**: R27-B2aで型付けしたrequest coordinatorとfeedback runtimeを前提に、`CalculationClient.js`を段階的に型チェック対象へ移す。planner、DX provider、damage aggregation、ResourceGuard、Backtrackの公開契約を確認し、計算結果、latest-wins、Worker protocol、resource policyは維持する。
 2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
 3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
@@ -33,3 +33,4 @@
 - **R26-D: shihai exact-tail closure**: 正の`shihai`の境界をraw DX値1のファンブルとしてScoreの強制失敗へ正しく伝え、planner・producer・tail certificate・期待値certificateをexact order-statistic tailへ統一した。旧max支配上界への暗黙fallbackは削除し、有限な一次モーメント上界を構成できない場合はcertificateを返さずfail-closedとする。通常DXのCPU見積りをworking length基準へ揃え、runtimeアルゴリズムと結果契約を更新した。詳細は[`archive/r26-d-shihai-exact-tail-closure.md`](./archive/r26-d-shihai-exact-tail-closure.md)を参照する。
 - **R27-A: advanced settings semantic boundary**: `showDetails`をfeature modelが所有する`advancedSettingsEnabled`へ置き換え、高度な設定がOFFのときに特殊効果が計算へ流れない不変条件をCheck・Attack双方へ導入した。OFF時のsanitizeと必要な再計算をmodel境界へ移し、OFFからONへ戻しても過去のhidden valueを復元しない。対象Vueコンポーネントのprops/emitsを型付き契約へ変更し、checkbox自身のaccessible labelとsemantic eventの回帰テストを追加した。詳細は[`archive/r27-a-advanced-settings-semantic-boundary.md`](./archive/r27-a-advanced-settings-semantic-boundary.md)を参照する。
 - **R27-B1: typed CalculationClient injection / feature controller contracts**: Vue固有のCalculationClient DI keyを`src/plugins/`へ移し、runtimeからframework依存とDI責務を除去した。bootstrapとCheck・Attack・Backtrack PageをTypeScriptへ移行し、3 feature controllerの名前付き公開契約とprovider/injectのcompile-time回帰テストを追加した。`checkJs:false`とfeature rootのpage-only surfaceは維持している。詳細は[`archive/r27-b1-typed-client-feature-boundaries.md`](./archive/r27-b1-typed-client-feature-boundaries.md)を参照する。
+- **R27-B2a: typed request coordination / feedback runtime**: `CalculationRequestCoordinator`と`CalculationFeedback`をTypeScriptへ移行し、one-running plus latest-queued、abort composition、stale suppression、feedback lifecycleを維持した。request、runner、snapshot failure、synthetic cancellationのcontextを実装形状に合わせて分離し、request status union、構造的なplan/error処理、genericなfeedback表示と初期計算の契約を追加した。`CalculationClient.js`、`ResourceGuard.js`、Worker実装、`checkJs:false`は変更していない。詳細は[`archive/r27-b2a-typed-request-coordination.md`](./archive/r27-b2a-typed-request-coordination.md)を参照する。
