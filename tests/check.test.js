@@ -11,10 +11,6 @@ import {
   validateDistributionResult,
 } from '../src/calculation/DistributionResult'
 import {
-  PUBLISHED_BUCKET_ERROR_CODES,
-  toPublishedBucketDistribution,
-} from '../tooling/reference-data/PublishedBucketCompatibility'
-import {
   CalculationRangeError,
   calculationClient,
   createCalculationClient,
@@ -23,6 +19,9 @@ import {
   CHECK_DISPLAY_MODES,
 } from '../src/features/check/model/CheckDisplayRequestSnapshot'
 import { createCheckRangePolicy } from '../src/runtime/CheckRangePolicy'
+import {
+  formatCertifiedProbabilityPercentDisplay,
+} from '../src/shared/presentation/SummaryFormatter'
 
 function scoreParams(overrides = {}) {
   return {
@@ -149,6 +148,18 @@ function expectedMaxReference(dice, critical, cutoff = 20000) {
 }
 
 describe('canonical normal check score producer', () => {
+  it.each([
+    { calculationMax: 1022 },
+    { display: { defaultMin: 0 } },
+    { display: { defaultMax: 999 } },
+  ])('rejects retired range policy fields: %o', (policy) => {
+    expect(() => createCheckRangePolicy({
+      min: 0,
+      max: 100,
+      mode: CHECK_DISPLAY_MODES.PMF,
+    }, policy)).toThrow('no longer supported')
+  })
+
   it('keeps a large fixed score as a sparse canonical point mass', () => {
     const fixedScore = 10_000
     const envelope = calculateScore(
@@ -214,24 +225,6 @@ describe('canonical normal check score producer', () => {
       { getDxDistribution: provider },
       { workingLength: 4, fftLength: 0 }
     )).toThrow('finite score support contains non-zero working tail')
-  })
-
-  it('rejects legacy projection when exact overflow may be below bucket 1023', () => {
-    const envelope = calculateScore(
-      scoreParams({ skill: 2 }),
-      { getDxDistribution: () => new Float64Array([0.1, 0.2, 0.3, 0.4]) },
-      { workingLength: 4, fftLength: 0 }
-    )
-
-    let error
-    try {
-      toPublishedBucketDistribution(envelope.result)
-    } catch (caught) {
-      error = caught
-    }
-    expect(error?.code).toBe(
-      PUBLISHED_BUCKET_ERROR_CODES.UNSAFE_PROJECTION
-    )
   })
 
   it('requires an explicit runtime distribution provider', () => {
@@ -325,6 +318,23 @@ describe('canonical normal check score producer', () => {
     expect(successProbability.upperBound).toBeLessThanOrEqual(1)
     expect(successProbability.upperBound - successProbability.lowerBound)
       .toBeLessThan(1)
+  })
+
+  it('formats a high-difficulty tail-only success rate as zero percent', () => {
+    const calculated = calculate(scoreParams({ dice: 1, critical: 10 }))
+    const target = calculated.plan.workingMax + 2
+    const summary = getScoreStatistics({
+      action: calculated.envelope,
+      reaction: calculated.envelope,
+    }, { opposed: false, target })
+    const successProbability = summary.action.successProbability
+
+    expect(calculated.plan.workingMax).toBeLessThan(target)
+    expect(successProbability.kind).toBe('bounded')
+    expect(successProbability.lowerBound).toBe(0)
+    expect(successProbability.upperBound).toBeLessThan(0.0005)
+    expect(formatCertifiedProbabilityPercentDisplay(successProbability))
+      .toBe('0%')
   })
 
   it('keeps unsupported infinite score expectation summaries unavailable', () => {

@@ -60,16 +60,15 @@ export function planScore(params, display, tailBudget) {
   const cutoffResult = finiteSupport
     ? { reachable: true, cutoff: finiteRawSupportMax, bound: 0 }
     : findTailCutoff(normalized, tailBudget)
-  const displaySourceMax = subtractSafe(
-    display.max,
-    normalized.skill,
-    'score display range'
-  )
   const workingMax = finiteSupport
     ? finiteRawSupportMax
     : Math.max(
         cutoffResult.cutoff,
-        displaySourceMax,
+        subtractSafe(
+          display.max,
+          normalized.skill,
+          'score display range'
+        ),
         0
       )
   const tailBound = finiteSupport

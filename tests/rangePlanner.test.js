@@ -150,6 +150,15 @@ function defendedOverflowLowerBound(damage, overflowLowerBound) {
 }
 
 describe('production range planner', () => {
+  it.each([
+    { calculationMax: 1022 },
+    { display: { defaultMin: 0 } },
+    { display: { defaultMax: 999 } },
+  ])('rejects retired fixed-boundary policy fields: %o', (policy) => {
+    expect(() => planCalculationRanges(scoreOnlyParams(), policy))
+      .toThrow('no longer supported')
+  })
+
   it('finds a cutoff boundary and preserves tail monotonicity', () => {
     const params = { dice: 99, critical: 2, shihai: 0, yousei: 0 }
     const epsilon = 1e-8
@@ -226,6 +235,25 @@ describe('production range planner', () => {
     expect(score.finiteSupport).toBe(true)
     expect(plan.overflowInfo.score.type).toBe('finite-support')
     expect(plan.overflowInfo.score.lowerBound).toBeNull()
+  })
+
+  it('does not derive display coverage for finite scores with extreme negative skill', () => {
+    const plan = planCalculationRanges({
+      operation: 'score',
+      score: scoreParams({
+        dice: 0,
+        critical: 11,
+        skill: -Number.MAX_SAFE_INTEGER,
+      }),
+      display: { min: 0, max: 100 },
+    })
+    const score = plan.scores[0]
+
+    expect(plan.accepted).toBe(true)
+    expect(score.finiteSupport).toBe(true)
+    expect(score.workingMax).toBe(0)
+    expect(score.outputMax).toBe(0)
+    expect(score.tail.bound).toBe(0)
   })
 
   it('summarizes multiple DX tail certificates without a shared boundary', () => {
