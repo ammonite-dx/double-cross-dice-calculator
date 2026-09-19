@@ -28,6 +28,8 @@ type DistributionResult = {
 
 `values[i]`が表す結果値は`offset + i`です。従って明示されている範囲は`offset`から`offset + values.length - 1`までであり、独立した`exactRange`フィールドは持ちません。値の配列は生成時にコピーされ、確率が負、非有限、1超過にならないことと、明示部分とoverflowを合わせた質量が契約に従うことを検証します。
 
+明示最大値の検証もこの式を使います。`offset`と`offset + values.length - 1`が安全な整数であれば、`offset=Number.MAX_SAFE_INTEGER`かつ`values=[1]`の1点分布は有効です。2点以上で明示最大値が安全な整数範囲を超える配列は拒否します。
+
 `support`は数学的に結果が取り得る範囲を表します。`finite`なら`max`が最大値であり、`infinite`なら入力に応じて上側へ続く可能性があります。これは今回の計算で配列に格納した範囲（computed range）とは別の情報です。
 
 `overflow`は明示範囲の外側を表します。`exact`はoverflowの確率質量を正確に知っている場合、`upper-bound`は残りの質量の上限しか証明できない場合に使います。どちらも`lowerBound`以上の値に対応し、`errorBound`は数値計算に由来する許容誤差です。overflowが`null`なら、有限support全体が明示されているか、外側の質量が契約上ゼロです。
@@ -67,6 +69,8 @@ Scoreの`metadata`には、明示範囲の外側について計算コアが証�
 - `scoreExpectationCertificate`: DXのtailモデルから得た期待値の下限・上限
 
 Damageの`damageExpectationCertificate`は、Scoreのtail、攻撃力、反応側のtailが期待値へ与える寄与を合成した区間を表します。Total Damageでは各コンボの期待値区間を独立に合計へ伝播します。明示配列の質量だけから期待値を計算して、未解決tailを無視してはいけません。
+
+固定Scoreのcertificateは、固定値と同じ`modeledMax`を持つ有限supportのtail certificateです。点分布のtail質量と一次モーメント上限は0です。強制失敗は同じ有限supportの分布に`forcedFailureProbability=1`を付けます。
 
 Backtrackは有限supportを完全に生成するため、通常はoverflowを持ちません。入力が大きい場合も、資源計画が許す範囲で完全supportを確保できなければ計算を拒否します。
 

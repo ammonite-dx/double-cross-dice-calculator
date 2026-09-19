@@ -14,7 +14,7 @@
 
 ## 次に行う作業
 
-1. **R12: 計算coreの責務分割**: R25-Lで確定した動的rangeと`DistributionResult`境界を前提に、Score、Damage、Backtrack、結果契約の依存方向を再評価する。
+1. **R12: 計算coreの責務分割**: R25-LとR25-Mで確定した動的range、`DistributionResult`境界、Score resolutionを前提に、Score、Damage、Backtrack、結果契約の依存方向を再評価する。
 2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
 3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
@@ -23,3 +23,7 @@
 - 実測に基づくruntimeの性能・メモリ上限の再調整。
 - Cloudflare Worker/API/MCP連携。canonical result contractが安定するまで着手しない。
 - 教科書の《支配の領域》関連章。runtimeの最終計算方式が確定してから本文を更新する。
+
+## 完了した直近の作業
+
+- **R25-M: reaction score resolution separation**: 防御入力のraw snapshot、`rolled-score`／`fixed-score`／`forced-failure`のplanner・producer分離、BigIntによる《イベイジョン》固定値導出、疎な固定点分布、safe-integer終端境界を実装した。詳細は[`archive/r25-m-reaction-score-resolution-separation.md`](./archive/r25-m-reaction-score-resolution-separation.md)を参照する。

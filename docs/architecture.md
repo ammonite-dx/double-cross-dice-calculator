@@ -20,7 +20,9 @@
 validated input
   -> feature snapshot / latest-wins request
   -> CalculationClient
+  -> reaction normalization: rolled / fixed / forced-failure Score resolution
   -> range preflight + ResourceGuard lease
+  -> resolution-aware Score planner / producer
   -> runtime DX / D10 / DR Worker + calculation core
   -> DistributionResult / statistics
   -> display projection
@@ -37,11 +39,15 @@ validated input
 - Attack: Scoreと防御側D10をメインスレッドで計算し、DRの畳み込みを常駐`RuntimeDamageRollClient`へ渡す
 - Backtrack: `BacktrackCalculator`が通常D10または《屍人》の分布をon-demand生成し、侵蝕率区分を計算する
 
+Attackのリアクションは、入力モードを計算方法へ解決してからplannerとproducerへ同じresolutionを渡します。ドッジは`rolled-score`、《イベイジョン》は`fixed-score`、ガード・リアクション放棄は`forced-failure`です。固定値と強制失敗はDXのworking rangeやFFTを持たず、`offset`付き1点分布を生成するため、固定値の大きさに比例した配列を確保しません。
+
 DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Workerは一度に1つのactive jobを処理し、同じ入力のsubscriberを共有します。最後のsubscriberが離脱したjobだけを停止し、遅延した旧Workerのイベントはidentity guardで無視します。
 
 ## 範囲計画と資源管理
 
 `ScoreRangePlanner`、`DamageRangePlanner`、`BacktrackRangePlanner`は、requested display window、数学的support、working length、FFT length、CPU work、メモリ見積りを計画します。`ResourceGuard`は計画済みメモリとactive/queued requestを管理します。CPU workと絶対上限の検査は配列確保・FFT・Worker jobの開始前に行い、過大な入力はsilent truncationではなくresource rejectionになります。
+
+Score planはresolutionのdiscriminated unionです。`rolled-score`だけが`workingLength`、`fftLength`、tail cutoff、DX feature compatibilityの制約を持ち、`fixed-score`と`forced-failure`は`operations=0`、`fftOperations=0`、有限supportの点分布として計画します。plannerとproducerのkindや固定値が一致しない要求は実行前に拒否します。
 
 productionの計算範囲には、事前計算asset由来の`calculationMax`や1022／1023の固定境界を使用しません。有限supportは数学的最大値まで、無限supportはtail certificateと要求されたdisplay windowを満たす範囲まで計画します。DXの直接APIは`workingLength`を明示し、DRの既定FFT・出力長は入力supportから導出します。1024／2048の参照値は歴史的assetの検証に限って`tooling/reference-data/`から明示的に使用します。
 
