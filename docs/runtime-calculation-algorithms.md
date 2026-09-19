@@ -48,7 +48,21 @@ $$
 P(V_{n,c}\le x)=F_c(x)^n
 $$
 
-で直接求めます。`shihai>0`では、最初のロールでクリティカルしたダイス数を状態として保持する動的計画法を使います。全ダイスがクリティカルする自己遷移は配列方向の漸化式で処理し、作業範囲を超える質量はoverflowへ記録します。
+で直接求めます。
+
+`shihai>0`のproduction計算は、ロールごとのダイス数を状態にするDPではなく、順序統計量として直接計算します。効果を適用せずに1個のダイスを最後まで振った完全な1DXの結果を$X$、そのtailを$q_c(x)=P(X>x)$とし、独立な`n`個の結果を大きい順に並べた`(m+1)`番目を$Y$とします。`n>m`なら、ルール上の最終結果は$Y$です。したがって、$K_x\sim\operatorname{Binomial}(n,q_c(x))$と置けば、
+
+$$
+P(Y>x)=P(K_x\ge m+1)
+$$
+
+であり、確率質量は隣り合うtailの差
+
+$$
+P(Y=x)=P(Y>x-1)-P(Y>x)
+$$
+
+で求められます。`n <= m`は最初のロールで全ダイスを1へ変更する点分布として先に処理します。各`x`について`oneDieTail`と二項上側確率を評価し、隣接差を明示配列へ置き、最後の要素へ作業範囲外のtailを保存します。二項上側確率は成功側と失敗側の短い方を対数空間で評価するため、必要な項数は$L=\min(m+1,n-m)$です。これによりダイス数に比例する状態表を持たずに、巨大な`n`も同じ作業配列で扱えます。
 
 `yousei>0`では、元の判定の連続クリティカル数と追加の1D10判定の連続クリティカル数をまとめ、必要な範囲だけを一度畳み込みます。これは「現在の達成値を10単位へ切り上げ、1D10を加える」操作を繰り返す手順と同値で、各回の分布を再取得しません。クリティカル値11では自然クリティカルが起こらず、正のダイス数に対する追加判定は達成値10の点分布になります。
 
@@ -130,7 +144,9 @@ Check、Attack、Backtrackはそれぞれのplannerでworking rangeとCPU work�
 
 - 配列のシフト、上側確率、範囲集計は$O(N)$です。
 - FFTによる畳み込みは$O(N\log N)$です。
-- DXの`shihai=0`は累積分布のべき乗、`shihai>0`は必要なダイス数のDPを使います。
+- DXの`shihai=0`は累積分布のべき乗で、作業長を$W$、1DXのtail評価に必要なクリティカル値依存の仕事量を$C$とすると$O(WC)$、メモリは$O(W)$です。
+- DXの`shihai>0`かつ`dice > shihai`は、順序統計量のtailを使い、$L=\min(shihai+1,dice-shihai)$として$O(W(C+L))$、メモリは$O(W)$です。旧方式のようなダイス数ごとのDP表は確保しません。
+- `ScoreRangePlanner`はproducerと同じ$L$を使ってCPU workを見積もり、正の`shihai`では作業配列数を定数として見積もります。
 - DRのFFT本体はWorkerで実行し、同一入力の重複要求を共有します。
 
 実装変更時は、ルールなら`dice-rules.md`と独立テスト、結果意味なら`result-contract.md`、参照fixtureなら[`reference/`](./reference/README.md)を同じ変更単位で更新します。production gateは`npm run verify:core`、browser smokeは`npm run verify:browser`、generatorとfixtureは`npm run verify:reference`で検証します。

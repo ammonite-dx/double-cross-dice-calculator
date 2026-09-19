@@ -35,7 +35,7 @@ validated input
 
 `CalculationClient`は、操作ごとに次の依存を組み立てます。
 
-- Check: `DxCalculator`でDXを生成し、`ScoreCalculator`でScoreを生成する。ファンブル・自動失敗の分解と対決成功率は`ScoreOutcome`、期待値・成功率の統計値は`ScoreStatistics`が処理する
+- Check: `DxCalculator`でDXを生成し、`ScoreCalculator`でScoreを生成する。`shihai=0`は最大値の累積分布、正の`shihai`は`DxOrderStatistic`の1DX tailと二項上側確率による順序統計量で生成する。ファンブル・自動失敗の分解と対決成功率は`ScoreOutcome`、期待値・成功率の統計値は`ScoreStatistics`が処理する
 - Attack: Scoreと防御側D10をメインスレッドで計算し、DRの畳み込みを常駐`RuntimeDamageRollClient`へ渡す
 - Backtrack: `BacktrackCalculator`が通常D10または《屍人》の分布をon-demand生成し、侵蝕率区分を計算する
 
@@ -45,7 +45,7 @@ Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`�
 
 Damageでは、Scoreの明示範囲を命中・失敗の重みへ変換する処理を`DamageRollRequest`、DamageおよびTotal Damageの統計値を`DamageStatistics`、Score tailからDamage期待値certificateを組み立てる処理を`DamageExpectationCertificate`が担当します。複数Damageの集約は、入力envelopeの検査とcaller-owned配列のsnapshotを`DamageAggregationInspection`、FFT長・畳み込み手順・resource estimateを`DamageAggregationPlanner`、承認済みopaque planのFFT実行と正規化を`DamageAggregationExecutor`、component descriptorと期待値certificateを`DamageAggregationMetadata`が担当します。`DistributionResult`はこれらのDamage固有の意味論を持たず、分布の生成・検証・汎用統計だけを提供します。
 
-DXのYousei作業ブロック数とFFT長は`DxWorkingShape`で共有します。Scoreのrange plannerが`DxCalculator`をimportすることはなく、producerとplannerが同じ作業形状規則を参照します。
+DXのYousei作業ブロック数とFFT長は`DxWorkingShape`で共有します。正の`shihai`で使う二項分布の項数とCPU work見積りは`DxOrderStatistic`が共有し、Scoreのrange plannerが`DxCalculator`をimportすることはありません。producerとplannerは同じ作業形状規則と順序統計量のコストモデルを参照します。
 
 DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Workerは一度に1つのactive jobを処理し、同じ入力のsubscriberを共有します。最後のsubscriberが離脱したjobだけを停止し、遅延した旧Workerのイベントはidentity guardで無視します。
 
