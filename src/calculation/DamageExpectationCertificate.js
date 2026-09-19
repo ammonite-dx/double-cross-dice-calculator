@@ -1,6 +1,7 @@
 import { createBoundedCertifiedValue } from '../domain/CertifiedValue'
 import {
   isValidScoreTailCertificate,
+  isValidScoreTailMomentCertificate,
 } from './ScoreCertificates'
 
 export const DAMAGE_EXPECTATION_CERTIFICATE_VERSION = 1
@@ -24,21 +25,6 @@ function isValidScoreTailMassCertificate(certificate) {
       certificate.massUpperBound === 0
       || Number.isFinite(certificate.lowerBound)
     )
-}
-
-function isValidScoreTailMomentCertificate(certificate) {
-  return certificate !== null
-    && typeof certificate === 'object'
-    && certificate.version === 1
-    && certificate.kind === 'score-tail-moment-certificate'
-    && typeof certificate.model === 'string'
-    && Number.isSafeInteger(certificate.modeledMax)
-    && certificate.modeledMax >= 0
-    && Number.isFinite(certificate.massUpperBound)
-    && certificate.massUpperBound >= 0
-    && certificate.massUpperBound <= 1
-    && Number.isFinite(certificate.firstMomentUpperBound)
-    && certificate.firstMomentUpperBound >= 0
 }
 
 /**

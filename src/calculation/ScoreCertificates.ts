@@ -113,6 +113,21 @@ export function isValidScoreTailCertificate(certificate: any) {
     && certificate.probabilityErrorBound >= 0
 }
 
+export function isValidScoreTailMomentCertificate(certificate: any) {
+  return certificate !== null
+    && typeof certificate === 'object'
+    && certificate.version === SCORE_TAIL_MOMENT_CERTIFICATE_VERSION
+    && certificate.kind === 'score-tail-moment-certificate'
+    && typeof certificate.model === 'string'
+    && Number.isSafeInteger(certificate.modeledMax)
+    && certificate.modeledMax >= 0
+    && Number.isFinite(certificate.massUpperBound)
+    && certificate.massUpperBound >= 0
+    && certificate.massUpperBound <= 1
+    && Number.isFinite(certificate.firstMomentUpperBound)
+    && certificate.firstMomentUpperBound >= 0
+}
+
 export function createFiniteScoreTailMomentCertificate(
   modeledMax: number,
   model: string,
