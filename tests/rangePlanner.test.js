@@ -15,6 +15,10 @@ import {
 } from '../src/calculation/DxTailModel'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import {
+  getDxOrderStatisticOperationEstimate,
+  getDxOrderStatisticTermCount,
+} from '../src/calculation/DxOrderStatistic'
+import {
   getRuntimeDamageRollOperationEstimate,
   RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
 } from '../src/calculation/RuntimeDamageRollLimits'
@@ -326,6 +330,44 @@ describe('production range planner', () => {
       2 * score.workingLength * Float64Array.BYTES_PER_ELEMENT
     )
     expect(score.float64Bytes).toBeLessThan(100_000 * score.workingLength)
+  })
+
+  it('uses constant-memory order-statistic estimates for large shihai inputs', () => {
+    const plan = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({ dice: 1_000_000, critical: 11, shihai: 1 }),
+    }), { limits: PERMISSIVE_LIMITS })
+    const score = plan.scores[0]
+
+    expect(plan.accepted).toBe(true)
+    expect(getDxOrderStatisticTermCount(1_000_000, 1)).toBe(2)
+    expect(score.operations).toBe(
+      getDxOrderStatisticOperationEstimate(
+        score.workingLength,
+        1_000_000,
+        1,
+        11
+      )
+    )
+    expect(score.float64Bytes).toBeLessThan(100 * score.workingLength)
+    expect(score.float64Bytes).toBeLessThan(1_000_000)
+
+    const minimumOrder = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({
+        dice: 1_000_000,
+        critical: 11,
+        shihai: 999_999,
+      }),
+    }), { limits: PERMISSIVE_LIMITS })
+    expect(minimumOrder.accepted).toBe(true)
+    expect(minimumOrder.scores[0].operations).toBe(
+      getDxOrderStatisticOperationEstimate(
+        minimumOrder.scores[0].workingLength,
+        1_000_000,
+        999_999,
+        11
+      )
+    )
+    expect(minimumOrder.scores[0].float64Bytes).toBeLessThan(1_000_000)
   })
 
   it('accounts for dense score output buffers when estimating memory', () => {

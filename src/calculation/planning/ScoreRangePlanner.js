@@ -19,6 +19,7 @@ import {
   getScoreOutputMax,
   getScoreSupport,
 } from '../ScoreSupport'
+import { getDxOrderStatisticOperationEstimate } from '../DxOrderStatistic'
 
 function scoreOperationCount(plan) {
   const dice = plan.params.dice
@@ -30,20 +31,11 @@ function scoreOperationCount(plan) {
       'score operation estimate'
     )
   }
-  const stages = Math.max(0, dice - plan.params.shihai)
-  const transitionCount = multiplySafe(
-    stages,
-    stages + 1,
-    'score transition estimate'
-  ) / 2
-  return multiplySafe(
+  return getDxOrderStatisticOperationEstimate(
     size,
-    addSafe(
-      transitionCount,
-      multiplySafe(stages, 4, 'score operation estimate'),
-      'score operation estimate'
-    ),
-    'score operation estimate'
+    dice,
+    plan.params.shihai,
+    plan.params.critical
   )
 }
 
@@ -137,11 +129,15 @@ export function planScore(params, display, tailBudget) {
         'score array size'
       )
     : null
+  // Positive shihai now uses a constant number of working buffers: the raw
+  // order-statistic result, its normalized copy, and ScoreCalculator's
+  // Array.from working representation. It no longer allocates dice-sized DP
+  // state arrays.
   const arrayCount = normalized.shihai === 0
     ? 4
     : shihaiShortcut
       ? 2
-      : addSafe(normalized.dice, 4, 'score array count')
+      : 3
   const baseArrayElements = arrayElements
     ?? multiplySafe(arrayCount, workingLength, 'score array size')
   const scoreArrayElements = shihaiShortcut

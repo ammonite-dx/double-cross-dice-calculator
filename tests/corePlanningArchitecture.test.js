@@ -80,6 +80,32 @@ describe('calculation core planning boundaries', () => {
     expect(rangePlanner).not.toContain('maxTailBound')
   })
 
+  it('keeps shihai order-statistic work in a shared low-level helper', () => {
+    const calculator = source('src/calculation/DxCalculator.js')
+    const planner = source('src/calculation/planning/ScoreRangePlanner.js')
+    const orderStatistic = source('src/calculation/DxOrderStatistic.js')
+
+    expect(importsFrom('src/calculation/DxCalculator.js'))
+      .toContain('./DxOrderStatistic')
+    expect(importsFrom('src/calculation/planning/ScoreRangePlanner.js'))
+      .toContain('../DxOrderStatistic')
+    for (const retiredOwner of [
+      'binomialProbabilities',
+      'getTerminalOrderStatistic',
+      'addShifted',
+      'solveSelfTransition',
+      'resultByDice',
+      'criticalCounts',
+      'transitionCount',
+      'allCriticalProbability',
+    ]) {
+      expect(calculator).not.toContain(retiredOwner)
+    }
+    expect(orderStatistic).not.toMatch(/from ['"].*(?:runtime|features|presentation|tooling)/)
+    expect(orderStatistic).not.toContain('RangePlanner')
+    expect(planner).not.toContain('../DxCalculator')
+  })
+
   it('keeps score production, outcome semantics, and statistics separate', () => {
     const scoreCalculator = source('src/calculation/ScoreCalculator.js')
     const scoreOutcome = source('src/calculation/ScoreOutcome.ts')
