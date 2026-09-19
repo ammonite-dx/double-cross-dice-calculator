@@ -14,7 +14,7 @@
 
 ## 次に行う作業
 
-1. **R27: Typed runtime / feature boundaries and UI semantics**: runtime/application adapterの依存方向と公開型、feature controller、Vue props/emits、`showDetails`の名称と高度な設定の計算効果（OFF時に特殊効果を0へ戻す）を明確化し、アクセシビリティ境界を再評価する。
+1. **R27-B: Typed runtime / feature boundaries**: runtime/application adapterの依存方向と公開型、feature controllerの公開契約を整理する。R27-Aで確定した高度な設定のsemantic stateは前提として維持する。
 2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
 3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
@@ -31,3 +31,4 @@
 - **R26-B: calculation execution decomposition**: `DamageAggregation`をcommon/error、envelope inspection、resource planning、opaque plan store、FFT execution、metadata/certificateへ分離し、`BacktrackCalculator`を通常D10・《屍人》生成器、計画検証、最終侵蝕率のorchestratorへ整理した。既存の公開export、位置引数互換性、計算式、resource estimate、Abort semantics、完全supportを維持し、型契約とarchitecture regressionを追加した。詳細は[`archive/r26-b-calculation-execution-decomposition.md`](./archive/r26-b-calculation-execution-decomposition.md)を参照する。
 - **R26-C: shihai order-statistic simplification**: 正の`shihai`のruntime DXをダイス数状態DPから、完全な1DX結果の`(shihai + 1)`番目の順序統計量へ置き換えた。二項上側確率は短い側を対数空間で評価し、producerと`ScoreRangePlanner`が項数・CPU workを共有する。`dice <= shihai`、support、overflow、tail certificate、Python reference generatorと既存assetは維持し、ダイス数に依存しない作業配列へ整理した。詳細は[`archive/r26-c-shihai-order-statistic-simplification.md`](./archive/r26-c-shihai-order-statistic-simplification.md)を参照する。
 - **R26-D: shihai exact-tail closure**: 正の`shihai`の境界をraw DX値1のファンブルとしてScoreの強制失敗へ正しく伝え、planner・producer・tail certificate・期待値certificateをexact order-statistic tailへ統一した。旧max支配上界への暗黙fallbackは削除し、有限な一次モーメント上界を構成できない場合はcertificateを返さずfail-closedとする。通常DXのCPU見積りをworking length基準へ揃え、runtimeアルゴリズムと結果契約を更新した。詳細は[`archive/r26-d-shihai-exact-tail-closure.md`](./archive/r26-d-shihai-exact-tail-closure.md)を参照する。
+- **R27-A: advanced settings semantic boundary**: `showDetails`をfeature modelが所有する`advancedSettingsEnabled`へ置き換え、高度な設定がOFFのときに特殊効果が計算へ流れない不変条件をCheck・Attack双方へ導入した。OFF時のsanitizeと必要な再計算をmodel境界へ移し、OFFからONへ戻しても過去のhidden valueを復元しない。対象Vueコンポーネントのprops/emitsを型付き契約へ変更し、checkbox自身のaccessible labelとsemantic eventの回帰テストを追加した。詳細は[`archive/r27-a-advanced-settings-semantic-boundary.md`](./archive/r27-a-advanced-settings-semantic-boundary.md)を参照する。
