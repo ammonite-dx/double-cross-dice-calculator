@@ -260,8 +260,11 @@ describe('Score tail first-moment certificate', () => {
       skill: 0,
     }
     const cutoff = 8
+    const planned = calculatePlannedScore(params)
     const { plan, envelope } = calculateScoreAtCutoff(params, cutoff)
 
+    expect(planned.plan.tail.model).toBe('exact-order-statistic')
+    expect(planned.envelope.metadata.scoreTailMomentCertificate).toBeNull()
     expect(plan.tail.model).toBe('exact-order-statistic')
     expect(envelope.result.support).toEqual({ kind: 'infinite' })
     expect(envelope.result.values.every(Number.isFinite)).toBe(true)

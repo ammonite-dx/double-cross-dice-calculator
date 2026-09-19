@@ -86,6 +86,12 @@ function benchmark(label, params, iterations = 10) {
   }
   elapsed.sort((left, right) => left - right)
 
+  // Calculator-level Float64 working buffers only: one raw distribution and
+  // one normalized copy. Caller copies, JS arrays, planner buffers, and
+  // object overhead are outside this metric.
+  const dxCalculatorFloat64WorkingBytes =
+    2 * REFERENCE_WORKING_DISTRIBUTION_SIZE * Float64Array.BYTES_PER_ELEMENT
+
   return {
     label,
     params,
@@ -95,11 +101,7 @@ function benchmark(label, params, iterations = 10) {
     maxMs: elapsed.at(-1),
     meanMs: elapsed.reduce((sum, value) => sum + value, 0) / elapsed.length,
     checksum,
-    float64WorkingBytes:
-      params.shihai === 0
-        ? REFERENCE_WORKING_DISTRIBUTION_SIZE * Float64Array.BYTES_PER_ELEMENT
-        : 2 * REFERENCE_WORKING_DISTRIBUTION_SIZE *
-          Float64Array.BYTES_PER_ELEMENT,
+    float64WorkingBytes: dxCalculatorFloat64WorkingBytes,
   }
 }
 
