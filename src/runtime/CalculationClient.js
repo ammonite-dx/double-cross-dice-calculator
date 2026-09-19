@@ -121,8 +121,6 @@ const defaultDependencies = {
   sumDamage,
 }
 
-export const CALCULATION_CLIENT_KEY = Symbol('calculationClient')
-
 export class CalculationRangeError extends Error {
   constructor(plan) {
     const rejectionReasons = plan?.rejectionReasons ?? []

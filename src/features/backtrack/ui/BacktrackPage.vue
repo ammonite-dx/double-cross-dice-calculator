@@ -1,17 +1,10 @@
-<script setup>
-    import { inject } from 'vue'
-    import {
-        CALCULATION_CLIENT_KEY,
-        calculationClient as defaultCalculationClient,
-    } from '@/runtime/CalculationClient'
+<script setup lang="ts">
+    import { useCalculationClient } from '@/plugins/calculationClient'
     import { useBacktrack } from '../model/useBacktrack'
     import InputPanel from './InputPanel.vue'
     import FinalEncroachmentChartPanel from './FinalEncroachmentChartPanel.vue'
 
-    const calculationClient = inject(
-        CALCULATION_CLIENT_KEY,
-        defaultCalculationClient
-    )
+    const calculationClient = useCalculationClient()
     const {
         params,
         finalEncroachment,
@@ -29,8 +22,8 @@
             @validated="onValidated"
         /></v-col></v-row>
         <v-row v-if="resultReady"><v-col cols="12"><FinalEncroachmentChartPanel
-            :dlois="params.dlois"
-            :finalEncroachment="finalEncroachment"
+            :dlois="params.dlois ?? 'なし'"
+            :finalEncroachment="finalEncroachment ?? { single: [], double: [], second: [] }"
         /></v-col></v-row>
     </v-container>
 </template>

@@ -71,6 +71,13 @@ describe('runtime and shared presentation architecture', () => {
     expect(source('src/runtime/CalculationClientTypes.ts')).not.toContain(
       'InjectionKey',
     )
+    expect(source('src/runtime/CalculationClient.js')).not.toContain(
+      'CALCULATION_CLIENT_KEY',
+    )
+    const clientAdapter = source('src/plugins/calculationClient.ts')
+    expect(clientAdapter).toContain('InjectionKey<CalculationClient>')
+    expect(clientAdapter).toContain('provideCalculationClient')
+    expect(clientAdapter).toContain('useCalculationClient')
   })
 
   it('keeps shared presentation pure except for DistributionResult validation', () => {

@@ -1,9 +1,5 @@
-<script setup>
-    import { inject } from 'vue'
-    import {
-        CALCULATION_CLIENT_KEY,
-        calculationClient as defaultCalculationClient,
-    } from '../../../runtime/CalculationClient'
+<script setup lang="ts">
+    import { useCalculationClient } from '@/plugins/calculationClient'
     import { useAttack } from '../model/useAttack'
     import InputPanel from './InputPanel.vue'
     import ScoreChartPanel from './ScoreChartPanel.vue'
@@ -11,10 +7,7 @@
     import SummaryPanel from './SummaryPanel.vue'
     import RangePlanNotice from '../../../components/RangePlanNotice.vue'
 
-    const calculationClient = inject(
-        CALCULATION_CLIENT_KEY,
-        defaultCalculationClient
-    )
+    const calculationClient = useCalculationClient()
     const {
         combos,
         displayRequest,
@@ -55,7 +48,7 @@
                 <ScoreChartPanel
                     :combos="combos"
                     :displayRequest="scoreDisplayRequest"
-                    :presentation="scoreDisplayPresentation"
+                    :presentation="scoreDisplayPresentation ?? undefined"
                     :displayFeedback="scoreDisplayFeedback"
                     @display-validated="onScoreDisplayValidated"
                 />
@@ -64,7 +57,7 @@
                 <DamageChartPanel
                     :combos="combos"
                     :displayRequest="displayRequest"
-                    :presentation="displayPresentation"
+                    :presentation="displayPresentation ?? undefined"
                     :displayFeedback="displayFeedback"
                     @display-validated="onDisplayValidated"
                 />
@@ -73,8 +66,8 @@
         <v-row v-if="summaryReady"><v-col cols="12">
             <SummaryPanel
                 :combos="combos"
-                :presentation="displayPresentation"
-                :scorePresentation="scoreDisplayPresentation"
+                :presentation="displayPresentation ?? undefined"
+                :scorePresentation="scoreDisplayPresentation ?? undefined"
             />
         </v-col></v-row>
     </v-container>

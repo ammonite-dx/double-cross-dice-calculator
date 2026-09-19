@@ -50,7 +50,7 @@ describe('Attack feature architecture', () => {
     }
   })
 
-  it('co-locates Attack canonical modules in the feature model and injects the client at Page', () => {
+  it('co-locates Attack canonical modules and uses the typed client adapter', () => {
     for (const path of [
       'src/features/attack/model/AttackDisplayFeedback.js',
       'src/features/attack/model/AttackPresentation.js',
@@ -71,7 +71,13 @@ describe('Attack feature architecture', () => {
     ]) {
       expect(existsSync(new URL(`../${path}`, import.meta.url))).toBe(false)
     }
-    expect(pageSource).toContain('CALCULATION_CLIENT_KEY')
+    expect(pageSource).toContain('<script setup lang="ts">')
+    expect(pageSource).toContain("import { useCalculationClient } from '@/plugins/calculationClient'")
+    expect(pageSource).toContain('const calculationClient = useCalculationClient()')
+    expect(pageSource).not.toContain('CALCULATION_CLIENT_KEY')
+    expect(pageSource).not.toContain('inject(')
+    expect(pageSource).not.toContain('defaultCalculationClient')
+    expect(pageSource).not.toContain('from \'../../../runtime/CalculationClient\'')
     expect(pageSource).toContain('useAttack({ calculationClient })')
     expect(modelSource).not.toContain('defaultCalculationClient')
     expect(modelSource).not.toContain('inject(')

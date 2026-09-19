@@ -25,6 +25,12 @@ describe('Backtrack feature architecture', () => {
     const page = source('src/features/backtrack/ui/BacktrackPage.vue')
     const composable = source('src/features/backtrack/model/useBacktrack.ts')
 
+    expect(page).toContain('<script setup lang="ts">')
+    expect(page).toContain("import { useCalculationClient } from '@/plugins/calculationClient'")
+    expect(page).toContain('const calculationClient = useCalculationClient()')
+    expect(page).not.toContain('CALCULATION_CLIENT_KEY')
+    expect(page).not.toContain('inject(')
+    expect(page).not.toContain('defaultCalculationClient')
     expect(page).toContain("import { useBacktrack } from '../model/useBacktrack'")
     expect(page).toContain('useBacktrack({ calculationClient })')
     expect(composable).toContain('createBacktrackRunner')

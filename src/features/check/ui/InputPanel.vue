@@ -3,6 +3,7 @@ import InputForm from './InputForm.vue'
 import RangePlanNotice from '@/components/RangePlanNotice.vue'
 import { mdiTuneVariant } from '@mdi/js'
 import type { DifficultyInput, ScoreInput } from '@/domain/CalculationInputs'
+import type { CalculationFeedbackState } from '@/runtime/CalculationFeedbackTypes'
 import type {
   CheckAdvancedSettingsChange,
   CheckAdvancedSettingsEnabled,
@@ -15,7 +16,7 @@ defineProps<{
     reaction: Partial<ScoreInput>
   }
   advancedSettingsEnabled: CheckAdvancedSettingsEnabled
-  rangeFeedback: Record<string, unknown>
+  rangeFeedback: CalculationFeedbackState
 }>()
 
 const emit = defineEmits<{

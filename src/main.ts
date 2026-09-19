@@ -6,14 +6,11 @@ import { createApp } from 'vue'
 
 // Plugins
 import { registerPlugins } from '@/plugins'
-import {
-  CALCULATION_CLIENT_KEY,
-  calculationClient,
-} from '@/runtime/CalculationClient'
+import { provideCalculationClient } from '@/plugins/calculationClient'
 
 const app = createApp(App)
 
 registerPlugins(app)
-app.provide(CALCULATION_CLIENT_KEY, calculationClient)
+provideCalculationClient(app)
 
 app.mount('#app')

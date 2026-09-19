@@ -27,6 +27,12 @@ describe('Check feature architecture', () => {
   it('keeps controller ownership and narrow composition in CheckPage', () => {
     const page = source('src/features/check/ui/CheckPage.vue')
 
+    expect(page).toContain('<script setup lang="ts">')
+    expect(page).toContain("import { useCalculationClient } from '@/plugins/calculationClient'")
+    expect(page).toContain('const calculationClient = useCalculationClient()')
+    expect(page).not.toContain('CALCULATION_CLIENT_KEY')
+    expect(page).not.toContain('inject(')
+    expect(page).not.toContain("from '@/runtime/CalculationClient'")
     expect(page).toContain("import { useCheck } from '../model/useCheck'")
     expect(page).toContain('await useCheck({ calculationClient })')
     expect(page).toContain('<InputPanel')
