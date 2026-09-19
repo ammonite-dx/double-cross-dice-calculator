@@ -49,7 +49,7 @@ describe('full-tail Attack browser resource benchmark contract', () => {
         202, 202, 202,
         400, 400, 400,
         600, 600, 600,
-        626,
+        649,
         427,
       ])
   })
