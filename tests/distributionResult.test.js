@@ -562,9 +562,15 @@ describe('canonical distribution result', () => {
       }),
       DISTRIBUTION_RESULT_ERROR_CODES.PROBABILITY_ABOVE_ONE
     )
+    expect(createDistributionResult({
+      values: [1],
+      offset: Number.MAX_SAFE_INTEGER,
+      support: { kind: 'finite', max: Number.MAX_SAFE_INTEGER },
+      overflow: null,
+    }).offset).toBe(Number.MAX_SAFE_INTEGER)
     expectTypedError(
       () => createDistributionResult({
-        values: [1],
+        values: [1, 0],
         offset: Number.MAX_SAFE_INTEGER,
         support: { kind: 'finite', max: Number.MAX_SAFE_INTEGER },
         overflow: null,

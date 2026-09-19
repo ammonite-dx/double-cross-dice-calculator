@@ -158,10 +158,18 @@ function validateOffset(offset, valuesLength) {
       { offset }
     )
   }
-  if (offset > MAX_SAFE_INTEGER - valuesLength) {
+  // The last explicit coordinate is offset + length - 1.  A one-point
+  // distribution at MAX_SAFE_INTEGER is therefore valid; only a second point
+  // would leave the safe-integer domain.
+  const explicitMax = BigInt(offset)
+    + BigInt(valuesLength === 0 ? 0 : valuesLength - 1)
+  if (
+    explicitMax < BigInt(Number.MIN_SAFE_INTEGER)
+    || explicitMax > BigInt(MAX_SAFE_INTEGER)
+  ) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INDEX_OVERFLOW,
-      'offset plus values.length must be a safe integer',
+      'offset plus values.length minus one must be a safe integer',
       { offset, valuesLength }
     )
   }
