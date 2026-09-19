@@ -157,6 +157,16 @@ export function scoreTailBound(value, params) {
   if (Number.isNaN(value)) {
     throw new RangeError('score.value must not be NaN')
   }
+  // These deterministic raw DX cases are resolved before selecting a tail
+  // model. A zero-dice check is an automatic failure (raw value 0), while a
+  // positive dice count fully covered by 《支配の領域》 is a fumble (raw value
+  // 1). ScoreCalculator performs the later fumble-to-zero conversion.
+  if (dice === 0) {
+    return value < 0 ? 1 : 0
+  }
+  if (shihai > 0 && dice <= shihai) {
+    return value < 1 ? 1 : 0
+  }
   if (yousei === 0) {
     return shihai === 0
       ? maxTailBound(value, dice, critical)

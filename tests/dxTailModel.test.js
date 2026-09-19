@@ -16,6 +16,7 @@ import {
   findTailCutoff,
   scoreTailBound,
 } from '../src/calculation/ScoreTailModel'
+import { calculateDxOrderStatisticTail } from '../src/calculation/DxOrderStatistic'
 
 describe('DxTailModel', () => {
   it('describes one-die cumulative and strict-tail probabilities at score boundaries', () => {
@@ -62,6 +63,29 @@ describe('DxTailModel', () => {
       .toBe(0)
     expect(scoreTailBound(9, { ...critical11, shihai: 0 })).toBe(1)
     expect(scoreTailBound(10, { ...critical11, shihai: 0 })).toBe(0)
+  })
+
+  it('keeps deterministic raw DX tails distinct at the Shihai boundary', () => {
+    const zeroDice = { dice: 0, critical: 8, shihai: 0, yousei: 0 }
+    expect(scoreTailBound(-1, zeroDice)).toBe(1)
+    expect(scoreTailBound(0, zeroDice)).toBe(0)
+    expect(scoreTailBound(1, zeroDice)).toBe(0)
+
+    const covered = { dice: 1, critical: 8, shihai: 2, yousei: 0 }
+    expect(scoreTailBound(0, covered)).toBe(1)
+    expect(scoreTailBound(1, covered)).toBe(0)
+    expect(scoreTailBound(2, covered)).toBe(0)
+    expect(findTailCutoff(covered, 1e-8)).toEqual({
+      reachable: true,
+      cutoff: 1,
+      bound: 0,
+    })
+
+    const exact = { dice: 3, critical: 8, shihai: 2, yousei: 0 }
+    expect(scoreTailBound(5, exact)).toBeCloseTo(
+      calculateDxOrderStatisticTail(5, 3, 8, 2),
+      14,
+    )
   })
 
   it('returns a minimal cutoff and a finite first-moment upper bound', () => {
