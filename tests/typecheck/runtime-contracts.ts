@@ -19,6 +19,7 @@ import {
   createCalculationRequestCoordinator,
   createLatestCalculationRunner,
 } from '../../src/runtime/CalculationFeedback'
+import { CALCULATION_REQUEST_STATUS } from '../../src/runtime/CalculationRequestStatus'
 import type {
   ResourceGuard,
   ResourceReservationPlan,
@@ -88,6 +89,10 @@ void reservationPlan
 
 const requestStatus: CalculationRequestStatus = coordinator.snapshot().status
 void requestStatus
+const statusValues: readonly CalculationRequestStatus[] = Object.values(
+  CALCULATION_REQUEST_STATUS,
+)
+void statusValues
 // @ts-expect-error: request status is a closed runtime union.
 const invalidRequestStatus: CalculationRequestStatus = 'unknown'
 void invalidRequestStatus

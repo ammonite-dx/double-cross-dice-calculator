@@ -32,6 +32,7 @@ describe('runtime and shared presentation architecture', () => {
       'src/runtime/CalculationClient.js',
       'src/runtime/CalculationClientTypes.ts',
       'src/runtime/CalculationFeedback.ts',
+      'src/runtime/CalculationRequestStatus.ts',
       'src/runtime/CalculationRequestCoordinator.ts',
       'src/runtime/CheckRangePolicy.js',
       'src/runtime/ResourceGuard.js',

@@ -84,12 +84,30 @@ describe('CalculationRequestCoordinator', () => {
     const cycle = { label: 'cycle' }
     cycle.self = cycle
     const mapKey = { key: 'map' }
+    const typedBuffer = new ArrayBuffer(12)
+    const offsetView = new Uint16Array(typedBuffer, 2, 3)
+    const dataBuffer = new ArrayBuffer(10)
+    const offsetDataView = new DataView(dataBuffer, 2, 4)
+    const sharedArrayBuffer = new ArrayBuffer(6)
+    const sharedDataView = new DataView(new ArrayBuffer(6), 1, 3)
+    const sharedDate = new Date('2026-09-20T00:00:00.000Z')
+    const sharedTypedArray = new Uint8Array([4, 5, 6])
     const request = {
       date: new Date('2026-09-20T00:00:00.000Z'),
       regexp: /request/gi,
       buffer: new ArrayBuffer(8),
       view: new Uint16Array([1, 2, 3]),
       dataView: new DataView(new ArrayBuffer(4)),
+      offsetView,
+      offsetDataView,
+      sharedArrayBufferA: sharedArrayBuffer,
+      sharedArrayBufferB: sharedArrayBuffer,
+      sharedDataViewA: sharedDataView,
+      sharedDataViewB: sharedDataView,
+      sharedDateA: sharedDate,
+      sharedDateB: sharedDate,
+      sharedTypedArrayA: sharedTypedArray,
+      sharedTypedArrayB: sharedTypedArray,
       map: new Map([[mapKey, cycle]]),
       set: new Set([cycle]),
       signal: controller.signal,
@@ -116,6 +134,22 @@ describe('CalculationRequestCoordinator', () => {
     expect(snapshot.view).toEqual(request.view)
     expect(snapshot.dataView).not.toBe(request.dataView)
     expect(snapshot.dataView.byteLength).toBe(request.dataView.byteLength)
+    expect(snapshot.offsetView.byteOffset).toBe(0)
+    expect(snapshot.offsetView.buffer.byteLength).toBe(6)
+    expect(snapshot.offsetView).toEqual(request.offsetView)
+    expect(snapshot.offsetDataView.byteOffset).toBe(0)
+    expect(snapshot.offsetDataView.byteLength).toBe(dataBuffer.byteLength)
+    expect(snapshot.offsetDataView.buffer.byteLength).toBe(dataBuffer.byteLength)
+    expect(snapshot.offsetDataView).not.toBe(request.offsetDataView)
+    expect(snapshot.sharedArrayBufferA).not.toBe(snapshot.sharedArrayBufferB)
+    expect(snapshot.sharedArrayBufferA).not.toBe(sharedArrayBuffer)
+    expect(snapshot.sharedDataViewA).not.toBe(snapshot.sharedDataViewB)
+    expect(snapshot.sharedDataViewA.byteOffset).toBe(0)
+    expect(snapshot.sharedDataViewA.byteLength).toBe(6)
+    expect(snapshot.sharedDateA).not.toBe(snapshot.sharedDateB)
+    expect(snapshot.sharedDateA).not.toBe(sharedDate)
+    expect(snapshot.sharedTypedArrayA).not.toBe(snapshot.sharedTypedArrayB)
+    expect(snapshot.sharedTypedArrayA).not.toBe(sharedTypedArray)
     expect(snapshot.map).not.toBe(request.map)
     expect(snapshot.set).not.toBe(request.set)
     expect(snapshot.signal).toBe(controller.signal)

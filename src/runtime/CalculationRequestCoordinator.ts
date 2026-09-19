@@ -5,21 +5,16 @@ import type {
   CalculationCoordinatorState,
   CalculationRequestContext,
   CalculationRequestCoordinator,
-  CalculationRequestStatus,
   CalculationRunnerContext,
   CalculationSnapshotErrorContext,
 } from './CalculationFeedbackTypes'
 import type { CalculationRangePlan } from '../calculation/planning/RangePlannerTypes'
+import {
+  CALCULATION_REQUEST_STATUS,
+} from './CalculationRequestStatus'
+import type { CalculationRequestStatus } from './CalculationRequestStatus'
 
-export const CALCULATION_REQUEST_STATUS = Object.freeze({
-  IDLE: 'idle',
-  PENDING: 'pending',
-  RUNNING: 'running',
-  SUCCESS: 'success',
-  ERROR: 'error',
-  CANCELLED: 'cancelled',
-  RESOURCE_REJECTED: 'resource-rejected',
-} as const)
+export { CALCULATION_REQUEST_STATUS } from './CalculationRequestStatus'
 
 type CoordinatorOptions<TPlan, TOptions extends object> =
   CalculationCoordinatorOptionsValue<TPlan, TOptions>
@@ -84,30 +79,19 @@ function cloneRequestValue<T>(
     return seen.get(value) as T
   }
   if (value instanceof Date) {
-    const clone = new Date(value.getTime())
-    seen.set(value, clone)
-    return clone as T
+    return new Date(value.getTime()) as T
   }
   if (value instanceof RegExp) {
-    const clone = new RegExp(value.source, value.flags)
-    seen.set(value, clone)
-    return clone as T
+    return new RegExp(value.source, value.flags) as T
   }
   if (value instanceof ArrayBuffer) {
-    const clone = value.slice(0)
-    seen.set(value, clone)
-    return clone as T
+    return value.slice(0) as T
   }
   if (ArrayBuffer.isView(value)) {
-    const buffer = value.buffer.slice(0)
-    const clone = value instanceof DataView
-      ? new DataView(buffer, value.byteOffset, value.byteLength)
-      : Reflect.construct(
-        value.constructor,
-        [buffer, value.byteOffset, Reflect.get(value, 'length')],
-      )
-    seen.set(value, clone)
-    return clone as T
+    if (value instanceof DataView) {
+      return new DataView(value.buffer.slice(0)) as T
+    }
+    return Reflect.construct(value.constructor, [value]) as T
   }
   if (value instanceof Map) {
     const clone = new Map<unknown, unknown>()

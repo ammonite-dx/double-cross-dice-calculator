@@ -1,4 +1,7 @@
 import type { CalculationRangePlan } from '../calculation/planning/RangePlannerTypes'
+import type { CalculationRequestStatus } from './CalculationRequestStatus'
+
+export type { CalculationRequestStatus } from './CalculationRequestStatus'
 
 export type CalculationStatus =
   | 'idle'
@@ -7,15 +10,6 @@ export type CalculationStatus =
   | 'warning'
   | 'rejected'
   | 'error'
-
-export type CalculationRequestStatus =
-  | 'idle'
-  | 'pending'
-  | 'running'
-  | 'success'
-  | 'error'
-  | 'cancelled'
-  | 'resource-rejected'
 
 /** The subset of a range/display plan consumed by the feedback formatter. */
 export interface CalculationFeedbackPlan {

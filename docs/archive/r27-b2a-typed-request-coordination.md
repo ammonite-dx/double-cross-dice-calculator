@@ -13,6 +13,8 @@ R27-B1で確定したDIとfeature controllerの型境界を利用し、計算要
 - `invalidate()`と`dispose()`のsynthetic cancellationは`request: null`、`signal: null`、`options: {}`として表現し、実要求由来のabortとは別のunion memberにした。
 - generic coordinator optionsへcustom fieldsと`signal`、`onRangePlan`を同時に持たせ、request statusを`idle`、`pending`、`running`、`success`、`error`、`cancelled`、`resource-rejected`のunionへ狭めた。
 - deep snapshotはJSON cloneへ置き換えず、AbortSignalとPromise-likeのidentityを保ち、Date、RegExp、ArrayBuffer、DataView、TypedArray、Map、Set、配列、enumerable object、循環参照を複製する型安全な実装を維持した。
+- deep snapshotのTypedArray／DataViewは旧JSと同じく、TypedArrayでは値だけをoffset 0の新しいviewへ複製し、DataViewでは元buffer全体をoffset 0のviewへ複製する。Date、RegExp、ArrayBuffer、TypedArray、DataViewの共有参照は旧挙動どおり個別に複製し、Map、Set、enumerable objectの循環参照だけを内部seen mapで保持する。
+- request statusの値とunionは`src/runtime/CalculationRequestStatus.ts`を単一source of truthとし、coordinatorの公開定数とfeedback typesの型が同じ定義から導出されるようにした。
 - `src/runtime/CalculationFeedback.js`を`CalculationFeedback.ts`へ移行した。公開export名とfeedback lifecycleを維持し、plan・warning・errorをstructural guardで処理するようにした。
 - `formatRangeFeedback()`はCalculationRangePlanに限定せず、display feedback planの共通形状も受け取り、戻り値の`type`、`title`、`reasons`、`metrics.memory`、`overflow`、`action`を明示契約にした。`runInitialCalculation()`はplan型と結果型をgenericに推論し、`Promise<TResult | null>`を返す。
 
@@ -24,10 +26,11 @@ R27-B1で確定したDIとfeature controllerの型境界を利用し、計算要
 
 - coordinatorのlatest-wins、stale suppression、external abort、dispose、resource-rejected、defensive snapshotの既存テストを維持した。
 - deep snapshotの特殊オブジェクト、`invalidate()`／`dispose()`のsynthetic cancellation、実要求abortのnon-null request、snapshot failure contextを追加検証した。
+- non-zero-offset TypedArray／DataViewと、旧挙動で個別に複製される共有Date／TypedArray参照を追加検証した。
 - `tests/typecheck/runtime-contracts.ts`へrequest status union、execute context、onStart、snapshot error、synthetic cancellation、latest runner inferenceのcompile-time検証を追加した。
 - runtime architecture testを新しい`.ts`パスへ更新し、旧`.js`ファイルが残らないことを確認する。
 
-最終検証は`npm run verify:all`、`npm run verify:browser`、`npm run benchmark:full-tail-attack`の全てで成功した。Vitestは104 files / 1099 tests、Markdown lintは86 files / 0 issues、production buildは458 modulesだった。production browser smokeはCheck、Attack、Backtrackの全経路で成功し、precomputed requests 0件、AttackのD10 requests 0件、browser diagnostics 0件を確認した。reference verificationは32 assets、reference Vitest 7 files / 53 tests、generator通常18 tests、simulation 13 tests、Ruff、runtime DX 20,000 casesが成功した。runtime DXの比較許容誤差は`0.000001000001`、最大絶対差は`8.999999999999999e-7`、最大総和誤差は`1.4432899320127035e-15`、非有限値と負値は0件だった。full-tail Attack benchmarkは全ケース成功し、result digestは`989000341.161962`、errorは全件`-`だった。
+最終検証は`npm run verify:all`、`npm run verify:browser`、`npm run benchmark:full-tail-attack`の全てで成功した。Vitestは104 files / 1099 tests、Markdown lintは86 files / 0 issues、production buildは459 modulesだった。production browser smokeはCheck、Attack、Backtrackの全経路で成功し、precomputed requests 0件、AttackのD10 requests 0件、browser diagnostics 0件を確認した。reference verificationは32 assets、reference Vitest 7 files / 53 tests、generator通常18 tests、simulation 13 tests、Ruff、runtime DX 20,000 casesが成功した。runtime DXの比較許容誤差は`0.000001000001`、最大絶対差は`8.999999999999999e-7`、最大総和誤差は`1.4432899320127035e-15`、非有限値と負値は0件だった。full-tail Attack benchmarkは全ケース成功し、result digestは`989000341.161962`、errorは全件`-`だった。
 
 検証後の作業ツリーはcleanである。
 
