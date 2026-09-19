@@ -19,7 +19,7 @@ import {
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
-import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import { executeAttackIncrementally } from '../src/features/attack/model/AttackIncrementalExecution'
 
 function createEnvelope(values, max = values.length - 1) {

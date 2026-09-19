@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import {
   createDistributionResult,
   getCertifiedExpectedValue,

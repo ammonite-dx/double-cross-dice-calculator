@@ -11,8 +11,8 @@ import {
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   calculateDamageOnDemand,
-  getDamageStatistics,
 } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'

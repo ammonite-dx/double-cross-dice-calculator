@@ -8,8 +8,8 @@ import {
 } from '../src/runtime/ResourceGuard'
 import {
   createDistributionResult,
-  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
+import { getTotalDamageStatistics } from '../src/calculation/DamageStatistics'
 import {
   DAMAGE_AGGREGATION_ERROR_CODES,
   planDamageAggregation,

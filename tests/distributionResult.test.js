@@ -7,11 +7,11 @@ import {
   copyDistributionValues,
   createDistributionResult,
   getExplicitMax,
-  getTotalDamageStatistics,
   getCertifiedExpectedValue,
   getProbabilityMassSummary,
   validateDistributionResult,
 } from '../src/calculation/DistributionResult'
+import { getTotalDamageStatistics } from '../src/calculation/DamageStatistics'
 function expectTypedError(callback, code) {
   let error
   try {

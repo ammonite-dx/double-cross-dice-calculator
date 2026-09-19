@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDistributionResult,
-  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
-import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import {
+  getDamageStatistics,
+  getTotalDamageStatistics,
+} from '../src/calculation/DamageStatistics'
 import {
   DISTRIBUTION_PRESENTATION_ERROR_CODES,
   DistributionPresentationError,

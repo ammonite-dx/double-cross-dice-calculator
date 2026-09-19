@@ -1,7 +1,7 @@
 import {
   getDxYouseiBlockLength,
   getDxYouseiFftLength,
-} from '../DxCalculator'
+} from '../DxWorkingShape'
 import {
   findTailCutoff,
   scoreTailBound,

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'
-import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import {
   DISTRIBUTION_DISPLAY_VERSION,
   DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,

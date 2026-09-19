@@ -3,12 +3,14 @@ import {
 } from '../calculation/BacktrackCalculator'
 import {
   calculateDamageOnDemand,
-  getDamageStatistics,
 } from '../calculation/DamageCalculator'
 import {
   createDistributionResult,
-  getTotalDamageStatistics,
 } from '../calculation/DistributionResult'
+import {
+  getDamageStatistics,
+  getTotalDamageStatistics,
+} from '../calculation/DamageStatistics'
 import {
   planDamageAggregation,
   sumDamage,

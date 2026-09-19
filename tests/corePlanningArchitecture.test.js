@@ -64,4 +64,29 @@ describe('calculation core planning boundaries', () => {
     expect(scoreOutcome).not.toMatch(/from ['"].*ScoreCalculator['"]|export function calculateScore\b/)
     expect(scoreStatistics).not.toMatch(/DamageCalculator|DamageStatistics|DamageRollRequest/)
   })
+
+  it('keeps damage request and statistics boundaries explicit', () => {
+    const damageCalculator = source('src/calculation/DamageCalculator.js')
+    const damageStatistics = source('src/calculation/DamageStatistics.ts')
+    const distributionResult = source('src/calculation/DistributionResult.js')
+
+    expect(damageCalculator).not.toMatch(/ScoreCalculator/)
+    expect(damageCalculator).not.toMatch(/function getDamageStatistics/)
+    expect(damageCalculator).toContain('./DamageRollRequest')
+    expect(damageCalculator).toContain('./DamageExpectationCertificate')
+    expect(damageStatistics).not.toMatch(/ScoreCalculator/)
+    expect(distributionResult).not.toMatch(/DamageExpectationCertificate|getTotalDamageStatistics/)
+  })
+
+  it('shares DX working-shape rules without a planner-to-calculator import', () => {
+    const planner = source('src/calculation/planning/ScoreRangePlanner.js')
+    const dxCalculator = source('src/calculation/DxCalculator.js')
+    const workingShape = source('src/calculation/DxWorkingShape.js')
+
+    expect(planner).toContain('../DxWorkingShape')
+    expect(planner).not.toContain('../DxCalculator')
+    expect(dxCalculator).toContain('./DxWorkingShape')
+    expect(workingShape).toContain('getDxYouseiBlockLength')
+    expect(workingShape).toContain('getDxYouseiFftLength')
+  })
 })

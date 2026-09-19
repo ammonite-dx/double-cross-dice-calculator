@@ -13,15 +13,26 @@ import {
   negativeBinomialPmf,
   oneDieTail,
 } from './DxTailModel'
+import {
+  DX_CRITICAL_MAX,
+  DX_MIN_DISTRIBUTION_SIZE,
+  getDxYouseiBlockLength,
+  getDxYouseiFftLength,
+} from './DxWorkingShape'
+
+export {
+  DX_CRITICAL_MAX,
+  DX_MIN_DISTRIBUTION_SIZE,
+  getDxYouseiBlockLength,
+  getDxYouseiFftLength,
+} from './DxWorkingShape'
 
 // The planner's default hard policy is deliberately lower than this direct
 // API safety ceiling. Keep the ceiling explicit so a future planner policy
 // can be changed without making an arbitrary array allocation safe by
 // accident.
-export const DX_MIN_DISTRIBUTION_SIZE = 2
 export const DX_MAX_DISTRIBUTION_SIZE = 1 << 16
 export const DX_CRITICAL_MIN = 2
-export const DX_CRITICAL_MAX = 11
 export const DX_SHIHAI_MIN = 0
 // These are absolute implementation-safety limits, not game input limits.
 // The planner normally rejects much smaller requests based on the shared
@@ -392,31 +403,6 @@ function clampMass(value, label = 'DX probability') {
  * overflow bucket, so t is explicit only while 10 * (yousei + t) + 1 is
  * smaller than workingLength - 1.
  */
-export function getDxYouseiBlockLength(workingLength, yousei) {
-  if (!Number.isSafeInteger(workingLength) || workingLength < DX_MIN_DISTRIBUTION_SIZE) {
-    throw new RangeError('workingLength must be at least 2')
-  }
-  assertNonNegativeSafeInteger(yousei, 'yousei')
-  const available = workingLength - 3
-  const minimumBlocks = Math.floor(available / 10)
-  if (yousei > minimumBlocks) {
-    return 0
-  }
-  return Math.floor((available - 10 * yousei) / 10) + 1
-}
-
-export function getDxYouseiFftLength(workingLength, critical, yousei) {
-  const blockLength = getDxYouseiBlockLength(workingLength, yousei)
-  assertCriticalValue(critical)
-  assertNonNegativeSafeInteger(yousei, 'yousei')
-  if (yousei === 0 || critical === DX_CRITICAL_MAX) {
-    return 0
-  }
-  return blockLength === 0
-    ? 0
-    : getConvolutionFftLength(blockLength, blockLength)
-}
-
 function calculateYouseiDistribution(
   dice,
   critical,

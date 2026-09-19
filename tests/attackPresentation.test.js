@@ -11,9 +11,11 @@ import {
 } from '../src/shared/presentation'
 import {
   createDistributionResult,
-  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
-import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import {
+  getDamageStatistics,
+  getTotalDamageStatistics,
+} from '../src/calculation/DamageStatistics'
 import {
   sumDamage,
 } from '../src/calculation/DamageAggregation'

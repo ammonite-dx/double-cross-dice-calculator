@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ATTACK_DISPLAY_MODES } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
-import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import { useAttack } from '../src/features/attack/model/useAttack'
 
 function createPendingClient() {

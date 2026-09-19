@@ -23,11 +23,11 @@ import {
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
-  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
 import {
   getDamageStatistics,
-} from '../src/calculation/DamageCalculator'
+  getTotalDamageStatistics,
+} from '../src/calculation/DamageStatistics'
 import {
   calculateDxDistribution,
 } from '../src/calculation/DxCalculator'

@@ -10,9 +10,11 @@ import {
 } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   createDistributionResult,
-  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
-import { getDamageStatistics } from '../src/calculation/DamageCalculator'
+import {
+  getDamageStatistics,
+  getTotalDamageStatistics,
+} from '../src/calculation/DamageStatistics'
 import { sumDamage } from '../src/calculation/DamageAggregation'
 import {
   DISTRIBUTION_PROJECTION_REASONS,

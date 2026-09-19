@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDamageRollRequest,
-} from '../src/calculation/DamageCalculator'
+} from '../src/calculation/DamageRollRequest'
 import {
   createDistributionResult,
 } from '../src/calculation/DistributionResult'

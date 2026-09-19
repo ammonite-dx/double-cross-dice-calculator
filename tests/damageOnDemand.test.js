@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   calculateDamageOnDemand,
-  getDamageStatistics,
 } from '../src/calculation/DamageCalculator'
+import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 import { calculateScore } from '../src/calculation/ScoreCalculator'

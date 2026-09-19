@@ -11,8 +11,8 @@ import { calculateScore } from '../src/calculation/ScoreCalculator'
 import { generateMixedDamageDistribution } from '../src/calculation/RuntimeDamageRollCalculator'
 import {
   createDistributionResult,
-  getTotalDamageStatistics,
 } from '../src/calculation/DistributionResult'
+import { getTotalDamageStatistics } from '../src/calculation/DamageStatistics'
 
 const DEDICATED_CERTIFICATE = Object.freeze({
   version: 1,
