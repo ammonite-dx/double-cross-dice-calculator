@@ -8,10 +8,23 @@ import {
   youseiTailFirstMomentUpperBound,
 } from './DxTailModel'
 import { getScoreSupport } from './ScoreSupport'
+import type { DistributionResult } from '../domain/DistributionResultTypes'
+import type { ScoreInput } from '../domain/InputDomain'
+import type {
+  FiniteSupportScoreTailMomentCertificate,
+  ScoreExpectationCertificate,
+  ScoreTailCertificate,
+  ScoreTailMomentCertificate,
+} from '../domain/ScoreResultTypes'
+import type { RolledScoreRangePlan } from './planning/RangePlannerTypes'
 
 export const SCORE_TAIL_CERTIFICATE_VERSION = 1
 export const SCORE_TAIL_MOMENT_CERTIFICATE_VERSION = 1
 export const SCORE_EXPECTATION_CERTIFICATE_VERSION = 1
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
 
 function sumDxTailThrough(cutoff: number, dice: number, critical: number) {
   let result = 0
@@ -32,9 +45,9 @@ function sumDxTailThrough(cutoff: number, dice: number, critical: number) {
  * interval without treating errorBound as probability mass.
  */
 export function createScoreTailCertificate(
-  result: any,
-  scoreRangePlan: any,
-) {
+  result: DistributionResult,
+  scoreRangePlan: RolledScoreRangePlan | null | undefined,
+): ScoreTailCertificate | null {
   const overflow = result.overflow
   if (overflow === null) {
     return Object.freeze({
@@ -49,10 +62,13 @@ export function createScoreTailCertificate(
 
   const probabilityErrorBound = overflow.errorBound ?? 0
   const plannedTailBound = scoreRangePlan?.tail?.bound
-  const hasPlannedTailBound = Number.isFinite(plannedTailBound)
+  const boundedPlannedTailBound = Number.isFinite(plannedTailBound)
+    ? plannedTailBound as number
+    : null
+  const hasPlannedTailBound = boundedPlannedTailBound !== null
   if (
     hasPlannedTailBound
-    && (plannedTailBound < 0 || plannedTailBound > 1)
+    && (boundedPlannedTailBound < 0 || boundedPlannedTailBound > 1)
   ) {
     return null
   }
@@ -64,7 +80,7 @@ export function createScoreTailCertificate(
       if (
         hasPlannedTailBound
         && overflow.probability
-          > plannedTailBound + DISTRIBUTION_RESULT_TOLERANCE
+          > boundedPlannedTailBound + DISTRIBUTION_RESULT_TOLERANCE
       ) {
         return null
       }
@@ -74,17 +90,17 @@ export function createScoreTailCertificate(
       if (!hasPlannedTailBound) {
         return null
       }
-      massUpperBound = plannedTailBound
+      massUpperBound = boundedPlannedTailBound
     }
   } else if (overflow.probabilityUpperBound > 0) {
     massUpperBound = hasPlannedTailBound
-      ? Math.min(overflow.probabilityUpperBound, plannedTailBound)
+      ? Math.min(overflow.probabilityUpperBound, boundedPlannedTailBound)
       : overflow.probabilityUpperBound
   } else if (probabilityErrorBound > 0) {
     if (!hasPlannedTailBound) {
       return null
     }
-    massUpperBound = plannedTailBound
+    massUpperBound = boundedPlannedTailBound
   }
 
   return Object.freeze({
@@ -99,39 +115,57 @@ export function createScoreTailCertificate(
   })
 }
 
-export function isValidScoreTailCertificate(certificate: any) {
-  return certificate !== null
-    && typeof certificate === 'object'
-    && certificate.version === SCORE_TAIL_CERTIFICATE_VERSION
-    && certificate.kind === 'score-tail-certificate'
-    && Number.isFinite(certificate.massLowerBound)
-    && Number.isFinite(certificate.massUpperBound)
-    && certificate.massLowerBound >= 0
-    && certificate.massUpperBound >= certificate.massLowerBound
-    && certificate.massUpperBound <= 1
-    && Number.isFinite(certificate.probabilityErrorBound)
-    && certificate.probabilityErrorBound >= 0
+export function isValidScoreTailCertificate(
+  certificate: unknown,
+): certificate is ScoreTailCertificate {
+  if (!isRecord(certificate)) {
+    return false
+  }
+  const candidate = certificate as unknown as ScoreTailCertificate
+  return (
+    candidate.version === SCORE_TAIL_CERTIFICATE_VERSION
+    && candidate.kind === 'score-tail-certificate'
+    && Number.isFinite(candidate.massLowerBound)
+    && Number.isFinite(candidate.massUpperBound)
+    && candidate.massLowerBound >= 0
+    && candidate.massUpperBound >= candidate.massLowerBound
+    && candidate.massUpperBound <= 1
+    && (candidate.lowerBound === null || Number.isFinite(candidate.lowerBound))
+    && Number.isFinite(
+      candidate.probabilityErrorBound,
+    )
+    && candidate.probabilityErrorBound >= 0
+  )
 }
 
-export function isValidScoreTailMomentCertificate(certificate: any) {
-  return certificate !== null
-    && typeof certificate === 'object'
-    && certificate.version === SCORE_TAIL_MOMENT_CERTIFICATE_VERSION
-    && certificate.kind === 'score-tail-moment-certificate'
-    && typeof certificate.model === 'string'
-    && Number.isSafeInteger(certificate.modeledMax)
-    && certificate.modeledMax >= 0
-    && Number.isFinite(certificate.massUpperBound)
-    && certificate.massUpperBound >= 0
-    && certificate.massUpperBound <= 1
-    && Number.isFinite(certificate.firstMomentUpperBound)
-    && certificate.firstMomentUpperBound >= 0
+export function isValidScoreTailMomentCertificate(
+  certificate: unknown,
+): certificate is ScoreTailMomentCertificate {
+  if (!isRecord(certificate)) {
+    return false
+  }
+  const candidate = certificate as unknown as ScoreTailMomentCertificate
+  if (
+    candidate.version !== SCORE_TAIL_MOMENT_CERTIFICATE_VERSION
+    || candidate.kind !== 'score-tail-moment-certificate'
+    || typeof candidate.model !== 'string'
+    || !Number.isSafeInteger(candidate.modeledMax)
+    || candidate.modeledMax < 0
+    || !Number.isFinite(candidate.massUpperBound)
+    || candidate.massUpperBound < 0
+    || candidate.massUpperBound > 1
+    || !Number.isFinite(candidate.firstMomentUpperBound)
+    || candidate.firstMomentUpperBound < 0
+  ) {
+    return false
+  }
+  return true
 }
 
 export function createFiniteScoreTailMomentCertificate(
   modeledMax: number,
-  model: string,
-) {
+  model: 'finite-support',
+): FiniteSupportScoreTailMomentCertificate {
   return Object.freeze({
     version: SCORE_TAIL_MOMENT_CERTIFICATE_VERSION,
     kind: 'score-tail-moment-certificate',
@@ -143,16 +177,17 @@ export function createFiniteScoreTailMomentCertificate(
 }
 
 export function createScoreTailMomentCertificate(
-  params: any,
-  result: any,
-  scoreRangePlan: any,
-  scoreTailCertificate: any,
-) {
+  params: ScoreInput,
+  result: DistributionResult,
+  scoreRangePlan: RolledScoreRangePlan | null | undefined,
+  scoreTailCertificate: ScoreTailCertificate | null,
+): ScoreTailMomentCertificate | null {
   const support = getScoreSupport(params)
   if (support.kind === 'finite') {
-    const modeledMax = Number.isSafeInteger(scoreRangePlan?.workingMax)
-      ? scoreRangePlan.workingMax
-      : support.max
+    const plannedWorkingMax = scoreRangePlan?.workingMax
+    const modeledMax: number = Number.isSafeInteger(plannedWorkingMax)
+      ? Number(plannedWorkingMax)
+      : Number(support.max ?? 0)
     return createFiniteScoreTailMomentCertificate(
       modeledMax,
       'finite-support',
@@ -261,9 +296,9 @@ export function createScoreTailMomentCertificate(
  * slice: an infinite DX maximum with no Yousei/Shihai and non-negative skill.
  */
 export function createScoreExpectationCertificate(
-  params: any,
-  scoreRangePlan: any,
-) {
+  params: ScoreInput,
+  scoreRangePlan: RolledScoreRangePlan | null | undefined,
+): ScoreExpectationCertificate | null {
   if (
     params.dice <= 0
     || params.critical === 11

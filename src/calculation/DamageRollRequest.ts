@@ -1,8 +1,54 @@
 import { validateDistributionResult } from './DistributionResult'
-import { getScoreOutcomePartition } from './ScoreOutcome'
+import {
+  getScoreOutcomePartition,
+} from './ScoreOutcome'
 import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from './RuntimeDamageRollLimits'
+import {
+  isValidScoreTailCertificate,
+  isValidScoreTailMomentCertificate,
+} from './ScoreCertificates'
+import type {
+  DistributionResult,
+  DistributionSupport,
+} from '../domain/DistributionResultTypes'
+import type { DamageInput } from '../domain/CalculationInputs'
+import type {
+  ScorePair,
+  ScoreTailCertificate,
+  ScoreTailMomentCertificate,
+} from '../domain/ScoreResultTypes'
+import type { DamageRangePlan } from './planning/RangePlannerTypes'
+import type { ScoreOutcomePartition } from './ScoreOutcome'
 
-function validateScoreEnvelope(envelope: any, label: string) {
+interface ValidatedScoreEnvelope {
+  readonly envelope: ScorePair['action']
+  readonly outcome: ScoreOutcomePartition
+  readonly result: DistributionResult
+  readonly explicitMass: number
+  readonly overflowMassUpperBound: number
+  readonly errorBound: number
+  readonly certificateErrorBound: number
+  readonly certificate: ScoreTailCertificate | null
+  readonly momentCertificate: ScoreTailMomentCertificate | null
+}
+
+export interface DamageRollRequest {
+  readonly failureProbability: number
+  readonly hitProbability: number
+  readonly weights: Float64Array
+  readonly unmodeledScoreProbabilityUpperBound: number
+  readonly scoreTailErrorBound: number
+  readonly scoreTailCertificates: readonly (ScoreTailCertificate | null)[]
+  readonly scoreTailMomentCertificates:
+    readonly (ScoreTailMomentCertificate | null)[]
+  readonly actionExplicitMax: number | null
+  readonly sourceSupport: DistributionSupport
+}
+
+function validateScoreEnvelope(
+  envelope: ScorePair['action'],
+  label: string,
+): ValidatedScoreEnvelope {
   if (
     envelope === null
     || typeof envelope !== 'object'
@@ -34,9 +80,9 @@ function validateScoreEnvelope(envelope: any, label: string) {
       : overflow.probabilityUpperBound
   const errorBound = overflow?.errorBound ?? 0
   const certificate = envelope.metadata?.scoreTailCertificate
-  const certificateErrorBound = Number.isFinite(
-    certificate?.probabilityErrorBound,
-  )
+  const certificateErrorBound = certificate !== null
+    && certificate !== undefined
+    && Number.isFinite(certificate.probabilityErrorBound)
     ? certificate.probabilityErrorBound
     : 0
 
@@ -48,24 +94,26 @@ function validateScoreEnvelope(envelope: any, label: string) {
     overflowMassUpperBound,
     errorBound,
     certificateErrorBound,
-    certificate: certificate === null || typeof certificate !== 'object'
-      ? null
-      : Object.freeze({ ...certificate }),
-    momentCertificate:
-      envelope.metadata?.scoreTailMomentCertificate === null
-      || typeof envelope.metadata?.scoreTailMomentCertificate !== 'object'
-        ? null
-        : Object.freeze({ ...envelope.metadata.scoreTailMomentCertificate }),
+    certificate: isValidScoreTailCertificate(certificate)
+      ? Object.freeze({ ...certificate })
+      : null,
+    momentCertificate: isValidScoreTailMomentCertificate(
+      envelope.metadata?.scoreTailMomentCertificate,
+    )
+      ? Object.freeze({ ...envelope.metadata.scoreTailMomentCertificate })
+      : null,
   }
 }
 
-function getScoreExplicitMax(score: any) {
+function getScoreExplicitMax(score: ValidatedScoreEnvelope): number | null {
   return score.result.values.length === 0
     ? null
     : score.result.offset + score.result.values.length - 1
 }
 
-function getReactionRegularBelowLookup(reactionOutcome: any) {
+function getReactionRegularBelowLookup(
+  reactionOutcome: ScoreOutcomePartition,
+): (scoreValue: number) => number {
   let index = 0
   let regularBelow = 0
 
@@ -81,7 +129,10 @@ function getReactionRegularBelowLookup(reactionOutcome: any) {
   }
 }
 
-function getScoreSourceSupport(action: any, reaction: any) {
+function getScoreSourceSupport(
+  action: ValidatedScoreEnvelope,
+  reaction: ValidatedScoreEnvelope,
+): DistributionSupport {
   if (
     action.result.support.kind === 'finite'
     && reaction.result.support.kind === 'finite'
@@ -100,10 +151,10 @@ function getScoreSourceSupport(action: any, reaction: any) {
  * unmodeled probability bounds rather than being folded into a last bucket.
  */
 export function createDamageRollRequest(
-  score: any,
-  attack: any,
-  damageRangePlan: any,
-) {
+  score: ScorePair,
+  attack: DamageInput,
+  damageRangePlan: DamageRangePlan | null | undefined,
+): DamageRollRequest {
   const action = validateScoreEnvelope(score?.action, 'score.action')
   const reaction = validateScoreEnvelope(score?.reaction, 'score.reaction')
   const reactionExplicitBelow = getReactionRegularBelowLookup(

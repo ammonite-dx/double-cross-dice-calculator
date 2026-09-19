@@ -3,6 +3,15 @@ import {
   createExactCertifiedValue,
   createLowerBoundCertifiedValue,
 } from '../domain/CertifiedValue'
+import type {
+  DamageEnvelope,
+  DamageMetadata,
+  DamageStatistics,
+} from '../domain/DamageResultTypes'
+import type {
+  DistributionOverflow,
+  DistributionSupport,
+} from '../domain/DistributionResultTypes'
 import {
   getCertifiedDamageExpectation,
 } from './DamageExpectationCertificate'
@@ -15,15 +24,36 @@ import {
   validateDistributionResult,
 } from './DistributionResult'
 
-function failTotalDamageValidation(code: string, message: string, details = {}) {
+interface TotalDamageMetadata extends DamageMetadata {
+  readonly overflowProbabilityLowerBound?: number
+}
+
+interface InspectedTotalDamageEnvelope {
+  readonly result: DamageEnvelope['result']
+  readonly values: Float64Array
+  readonly offset: number
+  readonly overflow: DistributionOverflow | null
+  readonly support: DistributionSupport
+  readonly metadata: TotalDamageMetadata
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function failTotalDamageValidation(
+  code: string,
+  message: string,
+  details: Record<string, unknown> = {},
+): never {
   throw new DistributionResultValidationError(code, message, details)
 }
 
-function isDamageEnvelope(value: any) {
-  return value !== null
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && Object.prototype.hasOwnProperty.call(value, 'result')
+function isDamageEnvelope(value: unknown): value is DamageEnvelope {
+  if (!isRecord(value) || !isRecord(value.metadata)) {
+    return false
+  }
+  return Object.prototype.hasOwnProperty.call(value, 'result')
     && value.metadata !== null
     && typeof value.metadata === 'object'
     && !Array.isArray(value.metadata)
@@ -42,15 +72,11 @@ function sumExplicitFirstMoment(values: Float64Array, offset: number) {
   return firstMoment
 }
 
-function validateTotalDamageEnvelope(totalDamage: any) {
+function validateTotalDamageEnvelope(
+  totalDamage: unknown,
+): InspectedTotalDamageEnvelope {
   if (
-    totalDamage === null
-    || typeof totalDamage !== 'object'
-    || Array.isArray(totalDamage)
-    || !Object.prototype.hasOwnProperty.call(totalDamage, 'result')
-    || totalDamage.metadata === null
-    || typeof totalDamage.metadata !== 'object'
-    || Array.isArray(totalDamage.metadata)
+    !isDamageEnvelope(totalDamage)
     || totalDamage.metadata.modeledDistribution !== true
   ) {
     failTotalDamageValidation(
@@ -60,10 +86,16 @@ function validateTotalDamageEnvelope(totalDamage: any) {
   }
 
   validateDistributionResult(totalDamage.result)
+  const metadata = totalDamage.metadata as TotalDamageMetadata
   const overflow = totalDamage.result.overflow
   if (overflow?.kind === 'upper-bound') {
-    const lowerBound = totalDamage.metadata.overflowProbabilityLowerBound
-    if (!Number.isFinite(lowerBound) || lowerBound < 0 || lowerBound > 1) {
+    const lowerBound = metadata.overflowProbabilityLowerBound
+    if (
+      typeof lowerBound !== 'number'
+      || !Number.isFinite(lowerBound)
+      || lowerBound < 0
+      || lowerBound > 1
+    ) {
       failTotalDamageValidation(
         DISTRIBUTION_RESULT_ERROR_CODES.INVALID_LOWER_BOUND,
         'total damage metadata.overflowProbabilityLowerBound must be a probability',
@@ -90,12 +122,12 @@ function validateTotalDamageEnvelope(totalDamage: any) {
     offset: totalDamage.result.offset,
     overflow,
     support: totalDamage.result.support,
-    metadata: totalDamage.metadata,
+    metadata,
   }
 }
 
 /** Summarize one canonical damage envelope. */
-export function getDamageStatistics(damage: any) {
+export function getDamageStatistics(damage: unknown): DamageStatistics {
   if (!isDamageEnvelope(damage)) {
     throw new TypeError(
       'damage summary expects an envelope with result and metadata',
@@ -112,7 +144,9 @@ export function getDamageStatistics(damage: any) {
 }
 
 /** Summarize an aggregated canonical damage envelope. */
-export function getTotalDamageStatistics(totalDamage: any) {
+export function getTotalDamageStatistics(
+  totalDamage: unknown,
+): DamageStatistics {
   const inspected = validateTotalDamageEnvelope(totalDamage)
   const { result, metadata } = inspected
 
@@ -138,7 +172,7 @@ export function getTotalDamageStatistics(totalDamage: any) {
     inspected.offset,
   )
   const overflowProbabilityLowerBound = Math.min(
-    metadata.overflowProbabilityLowerBound,
+    metadata.overflowProbabilityLowerBound as number,
     inspected.overflow.probabilityUpperBound,
   )
   const lowerExpectedValue = explicitFirstMoment

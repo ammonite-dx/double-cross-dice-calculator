@@ -13,6 +13,8 @@ export interface DamageExpectationCertificate {
   readonly explicitFirstMoment?: number
   readonly actionTailContributionUpperBound?: number
   readonly reactionTailContributionUpperBound?: number
+  readonly actionTailMassUpperBound?: number
+  readonly reactionTailMassUpperBound?: number
   readonly maxDamageConstant?: number
 }
 

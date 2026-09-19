@@ -5,8 +5,41 @@ import {
 import {
   isValidScoreTailCertificate,
 } from './ScoreCertificates'
+import type { DistributionResult } from '../domain/DistributionResultTypes'
+import type {
+  ScoreEnvelope,
+} from '../domain/ScoreResultTypes'
 
-function getScoreBuckets(envelope: any) {
+export interface ScoreBucket {
+  readonly value: number
+  readonly probability: number
+}
+
+export interface ScoreTailPartition {
+  readonly massLowerBound: number
+  readonly massUpperBound: number
+  readonly lowerBound: number | null
+  readonly probabilityErrorBound: number
+}
+
+interface ScorePartition {
+  readonly buckets: ScoreBucket[]
+  readonly tail: ScoreTailPartition
+}
+
+export interface ScoreOutcomePartition {
+  readonly buckets: readonly ScoreBucket[]
+  readonly regularBuckets: readonly ScoreBucket[]
+  readonly regularZeroProbability: number
+  readonly regularExplicitMass: number
+  readonly forcedFailureProbability: number
+  readonly tail: ScoreTailPartition
+}
+
+function getScoreBuckets(envelope: ScoreEnvelope): {
+  result: DistributionResult
+  buckets: ScoreBucket[]
+} | null {
   if (
     envelope === null
     || typeof envelope !== 'object'
@@ -32,7 +65,7 @@ function getScoreBuckets(envelope: any) {
   return { result, buckets }
 }
 
-function getExactScoreBuckets(envelope: any) {
+function getExactScoreBuckets(envelope: ScoreEnvelope): ScoreBucket[] | null {
   const inspected = getScoreBuckets(envelope)
   if (inspected === null) {
     return null
@@ -66,7 +99,7 @@ function getExactScoreBuckets(envelope: any) {
   return null
 }
 
-function getScorePartition(envelope: any) {
+function getScorePartition(envelope: ScoreEnvelope): ScorePartition | null {
   const inspected = getScoreBuckets(envelope)
   if (inspected === null) {
     return null
@@ -112,9 +145,9 @@ function getScorePartition(envelope: any) {
  * an ordinary result that is shifted or clamped to zero remains regular.
  */
 export function getScoreOutcomePartition(
-  envelope: any,
+  envelope: ScoreEnvelope,
   { allowUncertifiedTail = false }: { allowUncertifiedTail?: boolean } = {},
-) {
+): ScoreOutcomePartition | null {
   let partition = getScorePartition(envelope)
   if (partition === null && allowUncertifiedTail) {
     const inspected = getScoreBuckets(envelope)
@@ -201,10 +234,10 @@ export function getScoreOutcomePartition(
 
 /** Calculate P(action > reaction) for ascending sparse score buckets. */
 export function calculateScoreSuccessProbability(
-  actionBuckets: any[],
-  reactionBuckets: any[],
-  onReactionVisit?: (bucket: any, index: number) => void,
-) {
+  actionBuckets: readonly ScoreBucket[],
+  reactionBuckets: readonly ScoreBucket[],
+  onReactionVisit?: (bucket: ScoreBucket, index: number) => void,
+): number {
   let reactionIndex = 0
   let reactionBelow = 0
   let actionSuccessProbability = 0
@@ -228,9 +261,9 @@ export function calculateScoreSuccessProbability(
 
 /** Return a conservative interval for P(action > reaction). */
 export function calculateScoreSuccessProbabilityInterval(
-  action: any,
-  reaction: any,
-) {
+  action: ScoreEnvelope,
+  reaction: ScoreEnvelope,
+): { lowerBound: number; upperBound: number } | null {
   const actionPartition = getScoreOutcomePartition(action)
   const reactionPartition = getScoreOutcomePartition(reaction)
   if (actionPartition === null || reactionPartition === null) {
@@ -248,13 +281,19 @@ export function calculateScoreSuccessProbabilityInterval(
     * reactionPartition.forcedFailureProbability
   let reactionBelowActionTail = 0
   for (const bucket of reactionBuckets) {
-    if (bucket.value < actionTail.lowerBound) {
+    if (
+      actionTail.lowerBound !== null
+      && bucket.value < actionTail.lowerBound
+    ) {
       reactionBelowActionTail += bucket.probability
     }
   }
   let actionAboveReactionTail = 0
   for (const bucket of actionBuckets) {
-    if (bucket.value > reactionTail.lowerBound) {
+    if (
+      reactionTail.lowerBound !== null
+      && bucket.value > reactionTail.lowerBound
+    ) {
       actionAboveReactionTail += bucket.probability
     }
   }

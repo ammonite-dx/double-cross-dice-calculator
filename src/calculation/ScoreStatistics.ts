@@ -10,15 +10,53 @@ import {
   getScoreOutcomePartition,
 } from './ScoreOutcome'
 import { SCORE_EXPECTATION_CERTIFICATE_VERSION } from './ScoreCertificates'
+import type {
+  CertifiedProbability,
+  CertifiedValue,
+} from '../domain/CertifiedValue'
+import type { DifficultyInput } from '../domain/CalculationInputs'
+import type {
+  ScoreEnvelope,
+  ScorePair,
+  ScoreStatistics,
+} from '../domain/ScoreResultTypes'
 
-function createScoreProbability(kind: string, details: any = {}) {
+interface ExactProbabilityDetails {
+  readonly value: number
+}
+
+interface BoundedProbabilityDetails {
+  readonly lowerBound: number
+  readonly upperBound: number
+}
+
+interface ScoreSuccessProbabilities {
+  readonly action: CertifiedProbability
+  readonly reaction: CertifiedProbability
+}
+
+function createScoreProbability(
+  kind: 'exact' | 'bounded',
+  details: ExactProbabilityDetails | BoundedProbabilityDetails,
+): CertifiedProbability {
   if (kind === 'exact') {
+    if (!('value' in details)) {
+      throw new TypeError('exact probability details must include value')
+    }
     return createExactProbability(details.value)
+  }
+  if (!('lowerBound' in details) || !('upperBound' in details)) {
+    throw new TypeError(
+      'bounded probability details must include lowerBound and upperBound',
+    )
   }
   return createBoundedProbability(details.lowerBound, details.upperBound)
 }
 
-function getScoreSuccessProbability(action: any, reaction: any) {
+function getScoreSuccessProbability(
+  action: ScoreEnvelope,
+  reaction: ScoreEnvelope,
+): ScoreSuccessProbabilities {
   const actionPartition = getScoreOutcomePartition(action)
   const reactionPartition = getScoreOutcomePartition(reaction)
   if (actionPartition === null || reactionPartition === null) {
@@ -82,7 +120,7 @@ function getScoreSuccessProbability(action: any, reaction: any) {
   }
 }
 
-function getScoreExpectedValueStatistic(envelope: any) {
+function getScoreExpectedValueStatistic(envelope: ScoreEnvelope): CertifiedValue {
   const certificate = envelope?.metadata?.scoreExpectationCertificate
   if (
     certificate?.version === SCORE_EXPECTATION_CERTIFICATE_VERSION
@@ -100,7 +138,10 @@ function getScoreExpectedValueStatistic(envelope: any) {
   return getCertifiedExpectedValue(envelope.result)
 }
 
-function getFixedDifficultySuccessProbability(envelope: any, target: number) {
+function getFixedDifficultySuccessProbability(
+  envelope: ScoreEnvelope,
+  target: number,
+): CertifiedProbability {
   const partition = getScoreOutcomePartition(envelope)
   if (partition === null) {
     return createScoreProbability('bounded', {
@@ -111,9 +152,10 @@ function getFixedDifficultySuccessProbability(envelope: any, target: number) {
 
   const explicitSuccess = partition.regularBuckets
     .filter(({ value }: { value: number }) => value >= target)
-    .reduce((sum: number, bucket: any) => sum + bucket.probability, 0)
+    .reduce((sum, bucket) => sum + bucket.probability, 0)
   const tail = partition.tail
   const tailLowerBound = Number.isFinite(tail.lowerBound)
+    && tail.lowerBound !== null
     && target <= tail.lowerBound
     ? tail.massLowerBound
     : 0
@@ -142,9 +184,9 @@ function getFixedDifficultySuccessProbability(envelope: any, target: number) {
  * Summarize two score envelopes without projecting them into legacy buckets.
  */
 export function getScoreStatistics(
-  score: any,
-  dfclty: any = { opposed: true, target: 0 },
-) {
+  score: ScorePair,
+  dfclty: DifficultyInput = { opposed: true, target: 0 },
+): ScoreStatistics {
   if (
     score === null
     || typeof score !== 'object'
