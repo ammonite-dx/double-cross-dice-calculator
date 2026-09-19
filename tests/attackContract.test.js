@@ -42,8 +42,12 @@ describe('Attack canonical integration contract', () => {
     ]) {
       expect(attackTemplate).toContain(output)
     }
-    expect(attackTemplate).toContain(':presentation="displayPresentation"')
-    expect(attackTemplate).toContain(':presentation="scoreDisplayPresentation"')
+    expect(attackTemplate).toMatch(
+      /:presentation="displayPresentation(?: \?\? undefined)?"/,
+    )
+    expect(attackTemplate).toMatch(
+      /:presentation="scoreDisplayPresentation(?: \?\? undefined)?"/,
+    )
     expect(scoreChartSource).toContain('getAttackScoreChartData')
     expect(damageChartSource).toContain('getAttackDamageChartData')
     expect(summaryTableSource).toContain('getScoreStatisticsForCombo')
