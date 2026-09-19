@@ -192,7 +192,7 @@ describe('Check canonical summary formatter', () => {
       label: 'shihai tail',
       params: scoreParams({ dice: 2, critical: 2, shihai: 1 }),
       difficulty: { opposed: true, target: 0 },
-      expectedValueKind: 'lower-bound',
+      expectedValueKind: 'bounded',
       successProbabilityKind: 'bounded',
     },
   ])('keeps $label in the typed canonical summary contract', ({

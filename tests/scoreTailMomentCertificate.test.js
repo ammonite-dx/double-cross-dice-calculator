@@ -226,6 +226,28 @@ describe('Score tail first-moment certificate', () => {
   })
 
   it.each([
+    { critical: 2, dice: 99, shihai: 1, skill: 0 },
+    { critical: 5, dice: 12, shihai: 2, skill: 7 },
+    { critical: 8, dice: 8, shihai: 3, skill: 2 },
+    { critical: 10, dice: 5, shihai: 1, skill: 0 },
+  ])('bounds the exact Shihai tail moment ($critical, $dice D, m=$shihai)', ({ critical, dice, shihai, skill }) => {
+    const params = { critical, dice, shihai, yousei: 0, skill }
+    const cutoff = 80
+    const { envelope } = calculateScoreAtCutoff(params, cutoff)
+    const certificate = envelope.metadata.scoreTailMomentCertificate
+    const oracle = approximateTailFirstMoment(params, cutoff)
+
+    expect(certificate).toEqual(expect.objectContaining({
+      model: 'dx-order-statistic-tail',
+      residualUpperBound: expect.any(Number),
+    }))
+    expect(certificate.residualUpperBound).toBeGreaterThanOrEqual(0)
+    expect(oracle).toBeLessThanOrEqual(
+      certificate.firstMomentUpperBound + 1e-10
+    )
+  })
+
+  it.each([
     { critical: 10, yousei: 1 },
     { critical: 8, yousei: 1 },
     { critical: 5, yousei: 3 },

@@ -216,7 +216,15 @@ export function createScoreTailMomentCertificate(
     && params.shihai === 0
     && params.critical <= 10
     && scoreRangePlan.tail?.model === 'exact-yousei'
+  const hasExactShihaiTail =
+    params.shihai > 0
+    && params.yousei === 0
+    && params.critical <= 10
+    && scoreRangePlan.tail?.model === 'exact-order-statistic'
   if (params.yousei > 0 && !hasExactYouseiTail) {
+    return null
+  }
+  if (params.shihai > 0 && !hasExactShihaiTail) {
     return null
   }
 
@@ -250,25 +258,32 @@ export function createScoreTailMomentCertificate(
     return null
   }
 
-  const residualUpperBound = hasExactYouseiTail
-    ? youseiTailFirstMomentUpperBound(
-        modeledMax,
-        params.dice,
-        params.critical,
-        params.yousei,
-      )
-    : params.shihai > 0
-      ? orderStatisticTailFirstMomentUpperBound(
+  let residualUpperBound
+  try {
+    residualUpperBound = hasExactYouseiTail
+      ? youseiTailFirstMomentUpperBound(
           modeledMax,
           params.dice,
           params.critical,
-          params.shihai,
+          params.yousei,
         )
-    : maxTailFirstMomentUpperBound(
-        modeledMax,
-        params.dice,
-        params.critical,
-      )
+      : params.shihai > 0
+        ? orderStatisticTailFirstMomentUpperBound(
+            modeledMax,
+            params.dice,
+            params.critical,
+            params.shihai,
+          )
+        : maxTailFirstMomentUpperBound(
+            modeledMax,
+            params.dice,
+            params.critical,
+          )
+  } catch {
+    // A non-finite analytic bound makes the certificate unavailable. Never
+    // substitute the unrelated maximum-DX domination bound for Shihai.
+    return null
+  }
   const boundaryContributionUpperBound =
     (modeledMax + 1) * massUpperBound
   const skillContributionUpperBound = Math.max(params.skill, 0) * massUpperBound
@@ -332,18 +347,23 @@ export function createScoreExpectationCertificate(
     modeledMax,
     params,
   )
-  const residualUpperBound = params.shihai > 0
-    ? orderStatisticTailFirstMomentUpperBound(
-        modeledMax,
-        params.dice,
-        params.critical,
-        params.shihai,
-      )
-    : maxTailFirstMomentUpperBound(
-        modeledMax,
-        params.dice,
-        params.critical,
-      )
+  let residualUpperBound
+  try {
+    residualUpperBound = params.shihai > 0
+      ? orderStatisticTailFirstMomentUpperBound(
+          modeledMax,
+          params.dice,
+          params.critical,
+          params.shihai,
+        )
+      : maxTailFirstMomentUpperBound(
+          modeledMax,
+          params.dice,
+          params.critical,
+        )
+  } catch {
+    return null
+  }
   const skillContribution = params.skill * nonFumbleProbability
   const partialExpectedValue =
     partialRawExpectedValue - fumbleProbability + skillContribution

@@ -373,6 +373,29 @@ describe('canonical normal check score producer', () => {
     expect(certificate).not.toHaveProperty('numericalErrorBound')
   })
 
+  it.each([
+    { critical: 2, dice: 12, shihai: 1, skill: 0 },
+    { critical: 5, dice: 8, shihai: 2, skill: 7 },
+    { critical: 8, dice: 5, shihai: 1, skill: 3 },
+    { critical: 10, dice: 4, shihai: 1, skill: 0 },
+  ])('certifies Shihai expectation intervals ($critical, $dice D, m=$shihai)', ({ critical, dice, shihai, skill }) => {
+    const params = scoreParams({ critical, dice, shihai, skill })
+    const { envelope } = calculate(params)
+    const certificate = envelope.metadata.scoreExpectationCertificate
+    const direct = calculateDxDistribution(params, { workingLength: 8194 })
+    let expected = 0
+    for (let value = 0; value < direct.length - 1; value += 1) {
+      const score = value <= 1 ? 0 : value + skill
+      expected += Math.max(0, score) * direct[value]
+    }
+
+    expect(certificate).toEqual(expect.objectContaining({
+      model: 'dx-order-statistic-tail',
+    }))
+    expect(certificate.lowerBound).toBeLessThanOrEqual(expected + 1e-10)
+    expect(certificate.upperBound).toBeGreaterThanOrEqual(expected - 1e-10)
+  })
+
   it('keeps exact tail mass and isolates expectation from DP bucket drift', () => {
     const params = scoreParams()
     const provider = () => new Float64Array([0.1, 0.1, 0.2, 0.6])

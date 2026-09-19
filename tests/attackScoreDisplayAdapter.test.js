@@ -778,7 +778,6 @@ describe('Attack canonical score display adapter', () => {
     const unsupportedCases = [
       { label: 'negative skill', score: { skill: -1 } },
       { label: 'yousei', score: { yousei: 1 } },
-      { label: 'shihai', score: { dice: 2, critical: 2, shihai: 1 } },
     ]
 
     for (const { label, score: overrides } of unsupportedCases) {
@@ -854,6 +853,35 @@ describe('Attack canonical score display adapter', () => {
         { id: label, name: label },
       ]), label).not.toBeNull()
     }
+
+    const shihaiClient = createCalculationClient({
+      calculateDamageOnDemand: vi.fn(async () => createEnvelope([1], 0)),
+      calculateDxDistribution,
+      calculateScore: calculateScoreWithProvider,
+      getDamageStatistics,
+      getTotalDamageStatistics,
+      getDamageRollDistribution: vi.fn(),
+      getD10Distribution: vi.fn(),
+      sumDamage,
+    })
+    const shihai = await calculateSingleAttackResult(
+      shihaiClient,
+      'shihai',
+      {
+        action: {
+          score: { dice: 2, critical: 2, skill: 0, yousei: 0, shihai: 1 },
+          damage: { dice: 0, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: { dice: 2, critical: 2, skill: 0, yousei: 0, shihai: 1 },
+          damage: { dice: 0, value: 0 },
+        },
+      },
+      { onRangePlan: () => {} }
+    )
+    expect(shihai.result.combos[0].scoreStatistics.action.expectedValue.kind)
+      .toBe('bounded')
   })
 
   it('keeps finite critical-11 score expectation exact and numerically displayed', async () => {
