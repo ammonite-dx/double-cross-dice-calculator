@@ -142,7 +142,7 @@ describe('calculation core planning boundaries', () => {
     expect(importsFrom(metadata)).not.toContain('../core/probability/FFT')
     expect(importsFrom(metadata)).not.toContain('./DamageAggregationExecutor')
     expect(importsFrom(executor)).not.toContain('./DamageAggregationPlanner')
-    expect(executor).not.toMatch(/\binspectEnvelope\b/)
+    expect(source(executor)).not.toMatch(/\binspectEnvelope\b/)
     expect(source(planner)).not.toContain('convolveDistributions')
 
     const runtimeAndApplication = [
