@@ -14,7 +14,7 @@ import {
   ResourceGuardError,
   createResourceGuard,
 } from '../src/runtime/ResourceGuard'
-import { formatRangeFeedback } from '../src/runtime/CalculationFeedback'
+import { formatRangeFeedback } from '../src/components/RangePlanNoticeFormatter'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 
 function createDeferred() {

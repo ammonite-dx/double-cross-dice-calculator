@@ -8,8 +8,8 @@ import {
 } from '../src/features/backtrack/model/BacktrackInputSnapshot'
 import {
   createCalculationFeedbackState,
-  formatRangeFeedback,
 } from '../src/runtime/CalculationFeedback'
+import { formatRangeFeedback } from '../src/components/RangePlanNoticeFormatter'
 import {
   CalculationRangeError,
 } from '../src/runtime/CalculationClient'
