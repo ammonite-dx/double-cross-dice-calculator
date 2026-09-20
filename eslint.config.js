@@ -109,12 +109,12 @@ const sharedPresentationCalculationPattern = {
 }
 
 const sharedPresentationCorePattern = {
-  regex: `^${relativeOrAlias}(?:core|domain/(?!CertifiedValue|DistributionResultTypes|ScoreResultTypes|DamageResultTypes|CalculationResultTypes|BacktrackResultTypes)(?:[^/]+))(?:/|$)`,
+  regex: `^${relativeOrAlias}(?:core|domain/(?!CertifiedValue|DistributionResultTypes|ScoreResultTypes|DamageResultTypes|CalculationResultTypes)(?:[^/]+))(?:/|$)`,
   message: 'Shared presentation must remain independent of calculation core and non-contract domain layers.',
 }
 
 const sharedPresentationResultContractPattern = {
-  regex: `^${relativeOrAlias}domain/(?:CertifiedValue|DistributionResultTypes|ScoreResultTypes|DamageResultTypes|CalculationResultTypes|BacktrackResultTypes)(?:\\.ts)?(?:/|$)`,
+  regex: `^${relativeOrAlias}domain/(?:CertifiedValue|DistributionResultTypes|ScoreResultTypes|DamageResultTypes|CalculationResultTypes)(?:\\.ts)?(?:/|$)`,
   allowTypeImports: true,
   message: 'Shared presentation may import domain result contracts only as types.',
 }

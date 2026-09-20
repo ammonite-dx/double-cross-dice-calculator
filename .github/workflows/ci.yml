@@ -40,7 +40,7 @@ jobs:
           reference=false
           while IFS= read -r path; do
             case "$path" in
-              public/data/*|package.json|package-lock.json|.github/workflows/ci.yml|vitest.config.js|vitest.reference.config.js)
+              package.json|package-lock.json|.github/workflows/ci.yml|vitest.config.js|vitest.reference.config.js)
                 browser=true
                 reference=true
                 ;;

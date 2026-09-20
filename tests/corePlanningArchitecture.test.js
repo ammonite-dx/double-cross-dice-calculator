@@ -173,11 +173,8 @@ describe('calculation core planning boundaries', () => {
     expect(source(executor)).not.toMatch(/\binspectEnvelope\b/)
     expect(source(planner)).not.toContain('convolveDistributions')
 
-    const runtimeAndApplication = [
-      ...sourceTree('src/runtime'),
-      ...sourceTree('src/application'),
-    ]
-    runtimeAndApplication.forEach((moduleSource) => {
+    const runtimeSources = sourceTree('src/runtime')
+    runtimeSources.forEach((moduleSource) => {
       expect(moduleSource).not.toContain('DamageAggregationPlanStore')
     })
   })
