@@ -13,7 +13,7 @@
 canonical Attackページを起動するには、リポジトリルートで次を実行します。
 
 ```shell
-npm run benchmark:phase2h:browser:canonical-attack -- --host 127.0.0.1
+npm run benchmark:attack-worker:serve -- --host 127.0.0.1
 ```
 
 表示されたURLは次です。
@@ -27,20 +27,20 @@ http://127.0.0.1:3000/experiments/phase2h-browser/canonical-attack-worker-benchm
 Playwrightでcanonical Attackを実測するには、次を実行します。
 
 ```shell
-npm run benchmark:phase2h:browser:playwright:canonical-attack
-npm run benchmark:phase2h:browser:playwright:canonical-attack:short
+npm run benchmark:attack-worker
+npm run benchmark:attack-worker:short
 ```
 
 通常Chrome channelを追加する場合は`--include-chrome`を指定します。Firefox/WebKitの実行ファイルがない場合、runnerはインストールを行わず、該当engineのエラーをレポートして終了します。
 
 ```shell
-npm run benchmark:phase2h:browser:playwright:canonical-attack -- --include-chrome --iterations 1 --warmup 0
+npm run benchmark:attack-worker -- --include-chrome --iterations 1 --warmup 0
 ```
 
 full-tail resource benchmarkは次で実行します。
 
 ```shell
-npm run benchmark:phase2h:browser:playwright:full-tail-attack:short
+npm run benchmark:attack-resource:short
 ```
 
 ## 測定上の注意

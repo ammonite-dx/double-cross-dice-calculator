@@ -5,9 +5,9 @@
 ## 現行の監査・再現可能なbenchmark
 
 - `r23-damage-summary-precision/`: Damage/Totalのcertificateと表示丸めを監査する。package scriptは`npm run audit:damage-precision`と`npm run audit:damage-tail`
-- `r22-numerical-performance/`: 現行runtimeの数値・性能を同一条件で再測定する。必要な場合はREADMEのNode/Playwrightコマンドを直接実行する
-- `phase2h-browser/`: Attackのfull-tail resourceとWorker境界を測定する。canonical Attackの受入に必要なrunnerだけpackage scriptへ残している
-- `runtime-dr/`: DR reference/optimized実装を比較する。`npm run test:runtime-dr:full`から実行する
+- `r22-numerical-performance/`: 現行runtimeの数値・性能を同一条件で再測定する。`npm run benchmark:numerical:node`、`npm run benchmark:numerical:browser`、またはREADMEの短縮・cross-engineコマンドを使う
+- `phase2h-browser/`: Attackのfull-tail resourceとWorker境界を測定する。`npm run benchmark:attack-worker`、`npm run benchmark:attack-resource:short`などの目的名commandを使う
+- `runtime-dr/`: DR reference/optimized実装を比較する。`npm run verify:damage-roll-optimized`、`npm run verify:damage-roll-reference`、`npm run benchmark:damage-roll`から実行する
 
 ## 履歴実験
 
@@ -16,4 +16,4 @@
 - `r23-ui-review/`: Product Ownerのvisual reviewとprototype capture
 - `dynamic-distribution-ranges/`: 動的範囲plannerへ移行する前の設計・測定記録。現在のruntime契約は`docs/runtime-calculation-algorithms.md`を参照する
 
-履歴実験のrunnerは、現在のnpm command surfaceからは削除しています。再現する場合は各READMEに記載した`node experiments/...`コマンドを直接実行してください。履歴資料は[`docs/archive/`](../docs/archive/)にあり、当時のパス、入力範囲、測定値は現在のproduction仕様を定義しません。
+履歴実験のtest suiteは`npm run test:experiments`でproduction regression suiteと分離して実行します。履歴資料は[`docs/archive/`](../docs/archive/)にあり、当時のパス、入力範囲、測定値は現在のproduction仕様を定義しません。

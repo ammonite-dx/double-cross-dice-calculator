@@ -7,17 +7,17 @@
 リポジトリルートからNode.js 22.23.2で実行します。
 
 ```powershell
-npm run benchmark:r22:numerical:node
-npm run benchmark:r22:numerical:browser
+npm run benchmark:numerical:node
+npm run benchmark:numerical:browser
 ```
 
 短縮確認は次のコマンドです。
 
 ```powershell
-npm run benchmark:r22:numerical:browser:short
+npm run benchmark:numerical:browser:short
 ```
 
-通常のブラウザ測定はChromeとChrome CPU 4xを各3回実行し、`--iterations`と`--warmup`で各ページ内の反復回数を変更できます。FirefoxとWebKitが利用可能な環境では`npm run benchmark:r22:numerical:browser:cross-engine`で追加測定できます。未導入のブラウザは`unavailable`として記録し、インストールを自動では行いません。
+通常のブラウザ測定はChromeとChrome CPU 4xを各3回実行し、`--iterations`と`--warmup`で各ページ内の反復回数を変更できます。FirefoxとWebKitが利用可能な環境では`npm run benchmark:numerical:browser:cross-engine`で追加測定できます。未導入のブラウザは`unavailable`として記録し、インストールを自動では行いません。
 
 ## 測定対象
 

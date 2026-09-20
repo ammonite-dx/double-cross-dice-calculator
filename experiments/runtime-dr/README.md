@@ -45,9 +45,9 @@ $$
 npm test -- tests/runtimeDamageRollExperiment.test.js
 npm test -- tests/runtimeDamageRollClient.test.js
 npm test -- tests/damageOnDemand.test.js tests/runtimeDamageRollProduction.test.js
-npm run test:runtime-dr:full
-npm run test:runtime-dr:full:reference
-npm run benchmark:runtime-dr
+npm run verify:damage-roll-optimized
+npm run verify:damage-roll-reference
+npm run benchmark:damage-roll
 ```
 
 通常テストは代表ケースだけを扱います。全件比較は、最適化実装で約28秒、参照実装で約107秒を要したため、明示的なコマンドへ分離しています。
