@@ -15,11 +15,16 @@ R28-Cでは、R28-B2までに整理したproduction／reference／experimentの�
 
 ## 作業単位
 
-R28-Cは次の3コミットで構成する。
+R28-Cは実装、記録、最終整理を含む次の6コミットで完了した。
 
 1. `34c2838` `refactor: remove thin feature wrappers`
 2. `d97572b` `refactor: normalize check difficulty naming`
 3. `51f5a1d` `refactor: rename feature chart adapters`
+4. `6676e2b` `docs: record R28-C UI structure cleanup`
+5. `b8fc24c` `docs: update R28-C roadmap`
+6. `2f9abfd` `refactor: complete R28-C source cleanup`
+
+最後の`2f9abfd`では、旧`DfcltyForm.vue`と残存していたsource-test参照を除去し、R28-Cのproduction source整理を完了した。
 
 開始時点はR28-B2完了後の`19d7401`である。
 
@@ -28,8 +33,9 @@ R28-Cは次の3コミットで構成する。
 - Check／Backtrackの入力契約、各チャートアダプタ、既存の表示アダプタを含む対象テストを実行し、7 files／79 testsが成功した。
 - `src/**`から`Dfclty`、`dfclty`、`ChartSetter`を検索して該当なしであることを確認した。
 - 削除したview、feature barrel、Backtrack入力ラッパーへのテスト参照を更新した。
-
-R28-Cの最終gateでは、`npm test`、`npm run typecheck`、`npm run lint`、`npm run lint:markdown`、`npm run build`、`npm run verify:browser`、`git diff --check`を実行する。履歴実験suiteとreference suiteはこのgateの必須対象ではない。
+- 最終gateで`npm test`（86 files／1008 tests）、`npm run typecheck`、`npm run lint`、`npm run lint:markdown`（93 files／0 issues）、`npm run build`、`npm run verify:browser`、`git diff --check`を実行し、すべて成功した。
+- production browser smokeではCheck、Attack、Backtrackの各経路、動的表示範囲、latest-wins後の回復、事前計算assetへのリクエスト0件を確認した。
+- 最終検証後の作業ツリーはcleanである。履歴実験suiteとreference suiteはR28-Cの必須gate対象外として実行していない。
 
 ## 非対象と次の作業
 
