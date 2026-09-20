@@ -66,7 +66,8 @@ export interface DamageCalculationDependencies {
   readonly getDamageRollDistribution?: RuntimeDamageRollClient['calculate']
   readonly getD10Distribution?: (
     dice: number,
-    options?: Readonly<{ size?: number; signal?: AbortSignal }>,
+    size?: number,
+    runtimeOptions?: CalculationRuntimeOptions,
   ) => Float64Array
   readonly onFftLength?: (fftLength: number) => void
 }
@@ -114,7 +115,8 @@ export type GetFinalEncroachment = (
 
 export type GetD10Distribution = (
   dice: number,
-  options?: Readonly<{ size?: number; signal?: AbortSignal }>,
+  size?: number,
+  runtimeOptions?: CalculationRuntimeOptions,
 ) => Float64Array
 
 export type PlanDamageAggregation = (
