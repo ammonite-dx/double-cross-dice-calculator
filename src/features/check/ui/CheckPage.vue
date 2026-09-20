@@ -30,7 +30,7 @@
             :scoreParams="scoreParams"
             :advanced-settings-enabled="advancedSettingsEnabled"
             :rangeFeedback="rangeFeedback"
-            @dfclty-validated="onDifficultyValidated"
+            @difficulty-validated="onDifficultyValidated"
             @score-validated="onScoreValidated"
             @advanced-settings-changed="onAdvancedSettingsChanged"
         /></v-col></v-row>

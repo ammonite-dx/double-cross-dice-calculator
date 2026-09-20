@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import DfcltyForm from './DfcltyForm.vue'
+import DifficultyForm from './DifficultyForm.vue'
 import ScoreForm from './ScoreForm.vue'
 import type { DifficultyInput, ScoreInput } from '@/domain/CalculationInputs'
 import type {
@@ -18,13 +18,13 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'dfclty-validated': [difficulty: DifficultyInput]
+  'difficulty-validated': [difficulty: DifficultyInput]
   'score-validated': [payload: { side: CheckScoreSide; params: Partial<ScoreInput> }]
   'advanced-settings-changed': [change: CheckAdvancedSettingsChange]
 }>()
 
-const onDfcltyValidated = (difficulty: DifficultyInput) => {
-  emit('dfclty-validated', difficulty)
+const onDifficultyValidated = (difficulty: DifficultyInput) => {
+  emit('difficulty-validated', difficulty)
 }
 
 const onScoreValidated = (side: CheckScoreSide, params: Partial<ScoreInput>) => {
@@ -38,7 +38,7 @@ const onAdvancedSettingsChanged = (side: CheckScoreSide, enabled: boolean) => {
 
 <template>
   <v-container class="pa-4">
-    <DfcltyForm :dfclty="difficulty" @validated="onDfcltyValidated" />
+    <DifficultyForm :difficulty="difficulty" @validated="onDifficultyValidated" />
     <ScoreForm
       side="action"
       :params="scoreParams.action"

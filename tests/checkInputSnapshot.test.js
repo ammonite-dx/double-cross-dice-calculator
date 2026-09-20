@@ -6,10 +6,6 @@ import {
   normalizeCheckInputDraft,
 } from '../src/features/check/model/CheckInputSnapshot'
 
-const checkViewSource = readFileSync(
-  new URL('../src/views/Check.vue', import.meta.url),
-  'utf8'
-)
 const checkControllerSource = readFileSync(
   new URL('../src/features/check/model/useCheck.ts', import.meta.url),
   'utf8'
@@ -22,8 +18,8 @@ const scoreChartSource = readFileSync(
   new URL('../src/features/check/ui/ScoreChart.vue', import.meta.url),
   'utf8'
 )
-const chartSetterSource = readFileSync(
-  new URL('../src/features/check/ui/ChartSetter.js', import.meta.url),
+const chartConfigSource = readFileSync(
+  new URL('../src/features/check/ui/CheckChartConfig.js', import.meta.url),
   'utf8'
 )
 const inputFormSource = readFileSync(
@@ -35,7 +31,7 @@ const inputPanelSource = readFileSync(
   'utf8'
 )
 const difficultyFormSource = readFileSync(
-  new URL('../src/features/check/ui/DfcltyForm.vue', import.meta.url),
+  new URL('../src/features/check/ui/DifficultyForm.vue', import.meta.url),
   'utf8'
 )
 const scoreFormSource = readFileSync(
@@ -53,7 +49,7 @@ const chartPanelSource = readFileSync(
 
 function createDraft() {
   return {
-    dfclty: { opposed: true, target: 17 },
+    difficulty: { opposed: true, target: 17 },
     params: {
       action: { dice: 7, critical: 8, skill: 3, yousei: 1, shihai: 0 },
       reaction: { dice: 5, critical: 9, skill: -2, yousei: 0, shihai: 4 },
@@ -77,12 +73,12 @@ describe('CheckInputSnapshot', () => {
     const snapshot = createCheckInputSnapshot(draft)
 
     expect(snapshot).not.toBe(draft)
-    expect(snapshot.difficulty).not.toBe(draft.dfclty)
+    expect(snapshot.difficulty).not.toBe(draft.difficulty)
     expect(snapshot.params).not.toBe(draft.params)
     expect(snapshot.params.action).not.toBe(draft.params.action)
     expect(snapshot.params.reaction).not.toBe(draft.params.reaction)
 
-    draft.dfclty.target = 99
+    draft.difficulty.target = 99
     draft.params.action.dice = 99
     snapshot.params.reaction.skill = 99
 
@@ -104,10 +100,8 @@ describe('Check input flow contracts', () => {
     expect(checkControllerSource).toContain('displayRequest: initialCalculationRequest.displayRequest')
     expect(checkControllerSource).toContain('calculationRunner.dispose()')
     expect(checkPageSource).toContain('useCheck({ calculationClient })')
-    expect(checkPageSource).toContain('@dfclty-validated="onDifficultyValidated"')
+    expect(checkPageSource).toContain('@difficulty-validated="onDifficultyValidated"')
     expect(checkPageSource).toContain('@score-validated="onScoreValidated"')
-    expect(checkViewSource).not.toContain('calculationClient.calculateCheck(')
-    expect(checkViewSource).not.toContain('watch(props.checkData')
   })
 
   it('connects Check charts to canonical presentation without a legacy data path', () => {
@@ -126,11 +120,11 @@ describe('Check input flow contracts', () => {
     expect(scoreChartSource).not.toContain('chartjs-plugin-annotation')
     expect(scoreChartSource).not.toContain('useDisplay')
     expect(scoreChartSource).not.toContain('getCheckChartData')
-    expect(chartSetterSource).toContain('getCheckChartOptions')
-    expect(chartSetterSource).not.toContain('getCheckChartStyle')
-    expect(chartSetterSource).toContain('createProbabilityLineChartOptions')
-    expect(chartSetterSource).not.toContain('@/data/Distribution')
-    expect(chartSetterSource).not.toContain('getCheckChartData')
+    expect(chartConfigSource).toContain('getCheckChartOptions')
+    expect(chartConfigSource).not.toContain('getCheckChartStyle')
+    expect(chartConfigSource).toContain('createProbabilityLineChartOptions')
+    expect(chartConfigSource).not.toContain('@/data/Distribution')
+    expect(chartConfigSource).not.toContain('getCheckChartData')
   })
 
   it('forwards only validated child events through the input components', () => {
@@ -138,9 +132,9 @@ describe('Check input flow contracts', () => {
     expect(inputFormSource).toContain('scoreParams:')
     expect(inputFormSource).toContain("'advanced-settings-changed'")
     expect(inputFormSource).toContain('advancedSettingsEnabled')
-    expect(inputFormSource).toContain('@validated="onDfcltyValidated"')
+    expect(inputFormSource).toContain('@validated="onDifficultyValidated"')
     expect(inputFormSource).toContain('@validated="(params) => onScoreValidated(')
-    expect(inputPanelSource).toContain('@dfclty-validated="onDfcltyValidated"')
+    expect(inputPanelSource).toContain('@difficulty-validated="onDifficultyValidated"')
     expect(inputPanelSource).toContain('@score-validated="onScoreValidated"')
   })
 
@@ -154,7 +148,7 @@ describe('Check input flow contracts', () => {
   })
 
   it('does not let Check forms assign nested props', () => {
-    expect(difficultyFormSource).not.toMatch(/props\.dfclty\.[\w]+\s*=/)
+    expect(difficultyFormSource).not.toMatch(/props\.difficulty\.[\w]+\s*=/)
     expect(scoreFormSource).not.toMatch(/props\.params\.[\w]+\s*=/)
     expect(settingFormSource).not.toMatch(/props\.displayRequest\.[\w]+\s*=/)
     expect(settingFormSource).not.toContain('max=999')

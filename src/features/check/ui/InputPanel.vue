@@ -20,13 +20,13 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'dfclty-validated': [difficulty: DifficultyInput]
+  'difficulty-validated': [difficulty: DifficultyInput]
   'score-validated': [payload: { side: 'action' | 'reaction'; params: Partial<ScoreInput> }]
   'advanced-settings-changed': [change: CheckAdvancedSettingsChange]
 }>()
 
-const onDfcltyValidated = (difficulty: DifficultyInput) => {
-  emit('dfclty-validated', difficulty)
+const onDifficultyValidated = (difficulty: DifficultyInput) => {
+  emit('difficulty-validated', difficulty)
 }
 
 const onScoreValidated = (payload: { side: 'action' | 'reaction'; params: Partial<ScoreInput> }) => {
@@ -48,7 +48,7 @@ const onAdvancedSettingsChanged = (change: CheckAdvancedSettingsChange) => {
         :difficulty="difficulty"
         :score-params="scoreParams"
         :advanced-settings-enabled="advancedSettingsEnabled"
-        @dfclty-validated="onDfcltyValidated"
+        @difficulty-validated="onDifficultyValidated"
         @score-validated="onScoreValidated"
         @advanced-settings-changed="onAdvancedSettingsChanged"
       />

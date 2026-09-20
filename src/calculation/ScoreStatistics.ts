@@ -185,7 +185,7 @@ function getFixedDifficultySuccessProbability(
  */
 export function getScoreStatistics(
   score: ScorePair,
-  dfclty: DifficultyInput = { opposed: true, target: 0 },
+  difficulty: DifficultyInput = { opposed: true, target: 0 },
 ): ScoreStatistics {
   if (
     score === null
@@ -201,10 +201,10 @@ export function getScoreStatistics(
   const actionExpectedValue = getScoreExpectedValueStatistic(score.action)
   const reactionExpectedValue = getScoreExpectedValueStatistic(score.reaction)
   let rates
-  if (dfclty.opposed) {
+  if (difficulty.opposed) {
     rates = getScoreSuccessProbability(score.action, score.reaction)
   } else {
-    const target = dfclty.target ?? 0
+    const target = difficulty.target ?? 0
     rates = {
       action: getFixedDifficultySuccessProbability(score.action, target),
       reaction: createScoreProbability('exact', { value: 0 }),

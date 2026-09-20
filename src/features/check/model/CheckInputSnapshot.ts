@@ -14,7 +14,6 @@ const SCORE_FIELDS: readonly (keyof ScoreInput)[] = Object.freeze([
 
 type CheckInputDraft = {
   difficulty?: Partial<DifficultyInput>
-  dfclty?: Partial<DifficultyInput>
   params?: {
     action?: Partial<ScoreInput>
     reaction?: Partial<ScoreInput>
@@ -37,7 +36,7 @@ function copyScoreDraft(score: Partial<ScoreInput> = {}): Partial<ScoreInput> {
 export function normalizeCheckInputDraft(
   draft: CheckInputDraft = {},
 ): CheckInputSnapshot {
-  const difficulty = draft?.difficulty ?? draft?.dfclty ?? {}
+  const difficulty = draft?.difficulty ?? {}
   const params = draft?.params ?? {}
   return {
     difficulty: {
