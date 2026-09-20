@@ -146,6 +146,26 @@ describe('ResourceGuard', () => {
     })
   })
 
+  it('keeps acquire promise-based even when admission is immediate', async () => {
+    const guard = createResourceGuard()
+    const result = guard.acquire({ float64Bytes: 1 })
+
+    expect(result).toBeInstanceOf(Promise)
+    const lease = await result
+    lease.release()
+  })
+
+  it('rejects invalid acquireLease requests asynchronously', async () => {
+    const guard = createResourceGuard()
+    const result = guard.acquireLease({ float64Bytes: -1 })
+
+    expect(result).toBeInstanceOf(Promise)
+    await expect(result).rejects.toMatchObject({
+      name: 'ResourceGuardError',
+      code: 'invalid-request',
+    })
+  })
+
   it('admits requests in FIFO order under active and capacity limits', async () => {
     const guard = new ResourceGuard({
       capacityBytes: 10,

@@ -1,8 +1,19 @@
-const BYTES_PER_MIB = 1024 * 1024
+import type {
+  ResourceGuard as ResourceGuardContract,
+  ResourceGuardAbortSignal,
+  ResourceGuardAcquireOptions,
+  ResourceGuardPolicy,
+  ResourceGuardPolicyInput,
+  ResourceGuardRequest,
+  ResourceGuardSnapshot,
+  ResourceLease,
+  ResourceLeaseMetadata,
+  ResourceLeaseResult,
+  ResourceReservationEstimate,
+  ResourceReservationPlan,
+} from './ResourceGuardTypes'
 
-/** @typedef {import('./ResourceGuardTypes').ResourceGuard} ResourceGuardContract */
-/** @typedef {import('./ResourceGuardTypes').ResourceGuardPolicy} ResourceGuardPolicy */
-/** @typedef {import('./ResourceGuardTypes').ResourceReservationPlan} ResourceReservationPlan */
+const BYTES_PER_MIB = 1024 * 1024
 
 export const RESOURCE_GUARD_ERROR_CODES = Object.freeze({
   INVALID_POLICY: 'invalid-policy',
@@ -10,55 +21,102 @@ export const RESOURCE_GUARD_ERROR_CODES = Object.freeze({
   OVERSIZE: 'oversize',
   QUEUE_FULL: 'queue-full',
   ABORTED: 'aborted',
-})
+} as const)
 
-export const DEFAULT_RESOURCE_GUARD_POLICY = Object.freeze({
-  capacityBytes: 64 * BYTES_PER_MIB,
-  maxActive: 4,
-  maxQueued: 32,
-  reservationMultiplier: 1.5,
-})
+export const DEFAULT_RESOURCE_GUARD_POLICY: Readonly<ResourceGuardPolicy> =
+  Object.freeze({
+    capacityBytes: 64 * BYTES_PER_MIB,
+    maxActive: 4,
+    maxQueued: 32,
+    reservationMultiplier: 1.5,
+  })
 
-function hasOwn(object, property) {
-  return Object.prototype.hasOwnProperty.call(object, property)
+type UnknownRecord = Record<string, unknown>
+
+type NormalizedResourceRequest = {
+  readonly operation: string
+  readonly requestId: string | number | null
+  readonly float64Bytes: number
+  readonly reservedBytes: number
+  readonly signal: ResourceGuardAbortSignal | null
+  readonly estimateAvailable: boolean
 }
 
-function isObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
+interface ActiveEntry extends NormalizedResourceRequest {
+  state: 'active' | 'released'
+  admittedAt: number
 }
 
-function createDetails(details) {
-  return Object.freeze({ ...details })
+interface QueuedEntry extends NormalizedResourceRequest {
+  state: 'queued' | 'aborted' | 'active'
+  resolve: (lease: ResourceLease) => void
+  reject: (reason?: unknown) => void
+  removeAbortListener: (() => void) | null
 }
 
-export class ResourceGuardError extends Error {
-  constructor(code, message, details = {}) {
+export interface ResourceGuardErrorShape {
+  readonly resourceGuard: true
+  readonly code: string
+}
+
+export class ResourceGuardError extends Error
+  implements ResourceGuardErrorShape {
+  readonly code: string
+  readonly resourceGuard = true as const
+  readonly details: Readonly<UnknownRecord>
+
+  constructor(code: string, message: string, details: UnknownRecord = {}) {
     super(message)
     this.name = 'ResourceGuardError'
     this.code = code
-    this.resourceGuard = true
     this.details = createDetails(details)
   }
 }
 
 export class ResourceGuardAbortError extends ResourceGuardError {
-  constructor(message = 'The resource guard request was aborted', details = {}) {
+  constructor(
+    message = 'The resource guard request was aborted',
+    details: UnknownRecord = {},
+  ) {
     super(RESOURCE_GUARD_ERROR_CODES.ABORTED, message, details)
     this.name = 'AbortError'
   }
 }
 
-export function isResourceGuardError(error) {
-  return error?.resourceGuard === true
+function hasOwn(object: object, property: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(object, property)
+}
+
+function isObject(value: unknown): value is UnknownRecord {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function createDetails(details: UnknownRecord): Readonly<UnknownRecord> {
+  return Object.freeze({ ...details })
+}
+
+export function isResourceGuardError(
+  error: unknown,
+): error is ResourceGuardErrorShape {
+  return isObject(error)
+    && error.resourceGuard === true
     && typeof error.code === 'string'
 }
 
-export function isResourceGuardAbortError(error) {
+export function isResourceGuardAbortError(
+  error: unknown,
+): error is ResourceGuardErrorShape & {
+  readonly code: typeof RESOURCE_GUARD_ERROR_CODES.ABORTED
+} {
   return isResourceGuardError(error)
     && error.code === RESOURCE_GUARD_ERROR_CODES.ABORTED
 }
 
-function getPolicyValue(policy, key, alias) {
+function getPolicyValue(
+  policy: ResourceGuardPolicyInput,
+  key: keyof ResourceGuardPolicy,
+  alias?: 'capacity',
+): number | undefined {
   if (hasOwn(policy, key)) {
     return policy[key]
   }
@@ -68,15 +126,20 @@ function getPolicyValue(policy, key, alias) {
   return DEFAULT_RESOURCE_GUARD_POLICY[key]
 }
 
-function invalidPolicy(message, details = {}) {
+function invalidPolicy(
+  message: string,
+  details: UnknownRecord = {},
+): ResourceGuardError {
   return new ResourceGuardError(
     RESOURCE_GUARD_ERROR_CODES.INVALID_POLICY,
     message,
-    details
+    details,
   )
 }
 
-function normalizePolicy(policy = {}) {
+function normalizePolicy(
+  policy: ResourceGuardPolicyInput = {},
+): ResourceGuardPolicy {
   if (!isObject(policy)) {
     throw invalidPolicy('Resource guard policy must be an object')
   }
@@ -86,31 +149,47 @@ function normalizePolicy(policy = {}) {
   const maxQueued = getPolicyValue(policy, 'maxQueued')
   const reservationMultiplier = getPolicyValue(
     policy,
-    'reservationMultiplier'
+    'reservationMultiplier',
   )
 
-  if (!Number.isFinite(capacityBytes) || capacityBytes <= 0) {
+  if (
+    typeof capacityBytes !== 'number'
+    || !Number.isFinite(capacityBytes)
+    || capacityBytes <= 0
+  ) {
     throw invalidPolicy(
       'Resource guard capacityBytes must be a finite positive number',
-      { capacityBytes }
+      { capacityBytes },
     )
   }
-  if (!Number.isSafeInteger(maxActive) || maxActive < 1) {
+  if (
+    typeof maxActive !== 'number'
+    || !Number.isSafeInteger(maxActive)
+    || maxActive < 1
+  ) {
     throw invalidPolicy(
       'Resource guard maxActive must be a positive safe integer',
-      { maxActive }
+      { maxActive },
     )
   }
-  if (!Number.isSafeInteger(maxQueued) || maxQueued < 0) {
+  if (
+    typeof maxQueued !== 'number'
+    || !Number.isSafeInteger(maxQueued)
+    || maxQueued < 0
+  ) {
     throw invalidPolicy(
       'Resource guard maxQueued must be a non-negative safe integer',
-      { maxQueued }
+      { maxQueued },
     )
   }
-  if (!Number.isFinite(reservationMultiplier) || reservationMultiplier <= 0) {
+  if (
+    typeof reservationMultiplier !== 'number'
+    || !Number.isFinite(reservationMultiplier)
+    || reservationMultiplier <= 0
+  ) {
     throw invalidPolicy(
       'Resource guard reservationMultiplier must be a finite positive number',
-      { reservationMultiplier }
+      { reservationMultiplier },
     )
   }
 
@@ -122,34 +201,45 @@ function normalizePolicy(policy = {}) {
   })
 }
 
-function invalidRequest(message, details = {}) {
+function invalidRequest(
+  message: string,
+  details: UnknownRecord = {},
+): ResourceGuardError {
   return new ResourceGuardError(
     RESOURCE_GUARD_ERROR_CODES.INVALID_REQUEST,
     message,
-    details
+    details,
   )
 }
 
-function normalizeMetric(value, name, required = false) {
+function normalizeMetric(
+  value: unknown,
+  name: string,
+  required = false,
+): number | null {
   if (value === undefined || value === null) {
     if (required) {
       throw invalidRequest(
         `Resource guard ${name} must be a finite non-negative number`,
-        { [name]: value }
+        { [name]: value },
       )
     }
     return null
   }
-  if (!Number.isFinite(value) || value < 0) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     throw invalidRequest(
       `Resource guard ${name} must be a finite non-negative number`,
-      { [name]: value }
+      { [name]: value },
     )
   }
   return value
 }
 
-function getRequestValue(request, key, estimate) {
+function getRequestValue(
+  request: UnknownRecord,
+  key: 'float64Bytes',
+  estimate: UnknownRecord | null,
+): unknown {
   if (hasOwn(request, key)) {
     return request[key]
   }
@@ -159,21 +249,21 @@ function getRequestValue(request, key, estimate) {
   return undefined
 }
 
-function normalizeSignal(signal) {
+function normalizeSignal(signal: unknown): ResourceGuardAbortSignal | null {
   if (signal === undefined || signal === null) {
     return null
   }
   if (
-    typeof signal !== 'object'
+    !isObject(signal)
     || typeof signal.addEventListener !== 'function'
     || typeof signal.removeEventListener !== 'function'
   ) {
     throw invalidRequest('Resource guard signal must be an AbortSignal-like object')
   }
-  return signal
+  return signal as unknown as ResourceGuardAbortSignal
 }
 
-function normalizeOperation(operation) {
+function normalizeOperation(operation: unknown): string {
   if (operation === undefined || operation === null) {
     return 'calculation'
   }
@@ -183,7 +273,10 @@ function normalizeOperation(operation) {
   return operation
 }
 
-function normalizeRequest(request, policy) {
+function normalizeRequest(
+  request: unknown,
+  policy: ResourceGuardPolicy,
+): NormalizedResourceRequest {
   if (!isObject(request)) {
     throw invalidRequest('Resource guard request must be an object')
   }
@@ -209,11 +302,12 @@ function normalizeRequest(request, policy) {
   ) {
     throw invalidRequest(
       'Resource guard requestId must be a string or number when provided',
-      { requestId }
+      { requestId },
     )
   }
 
-  const scaledBytes = normalizedFloat64Bytes * policy.reservationMultiplier
+  const scaledBytes = (normalizedFloat64Bytes ?? 0)
+    * policy.reservationMultiplier
   if (!Number.isFinite(scaledBytes)) {
     throw new ResourceGuardError(
       RESOURCE_GUARD_ERROR_CODES.OVERSIZE,
@@ -224,7 +318,7 @@ function normalizeRequest(request, policy) {
         float64Bytes: normalizedFloat64Bytes,
         reservedBytes: null,
         capacityBytes: policy.capacityBytes,
-      }
+      },
     )
   }
   const reservedBytes = Math.ceil(scaledBytes)
@@ -238,21 +332,23 @@ function normalizeRequest(request, policy) {
         float64Bytes: normalizedFloat64Bytes,
         reservedBytes: null,
         capacityBytes: policy.capacityBytes,
-      }
+      },
     )
   }
 
   return {
     operation,
     requestId,
-    float64Bytes: normalizedFloat64Bytes,
+    float64Bytes: normalizedFloat64Bytes ?? 0,
     reservedBytes,
     signal: normalizeSignal(request.signal),
     estimateAvailable: hasFloat64Bytes,
   }
 }
 
-function getPlanEstimates(plan) {
+function getPlanEstimates(
+  plan: ResourceReservationPlan | unknown,
+): ResourceReservationEstimate | null {
   if (!isObject(plan)) {
     throw invalidRequest('Resource guard plan must be an object')
   }
@@ -262,11 +358,14 @@ function getPlanEstimates(plan) {
   if (!isObject(plan.estimates)) {
     throw invalidRequest('Resource guard plan.estimates must be an object')
   }
-  return plan.estimates
+  return plan.estimates as ResourceReservationEstimate
 }
 
-export function extractPlanResourceMetadata(plan, options = {}) {
-  if (!isObject(options)) {
+export function extractPlanResourceMetadata(
+  plan: ResourceReservationPlan,
+  options: ResourceGuardAcquireOptions = {},
+): ResourceGuardRequest {
+  if (!isObject(options as unknown)) {
     throw invalidRequest('Resource guard plan options must be an object')
   }
   const estimates = getPlanEstimates(plan)
@@ -277,14 +376,16 @@ export function extractPlanResourceMetadata(plan, options = {}) {
     estimateAvailable: estimates !== null
       && hasOwn(estimates, 'float64Bytes'),
     signal: options.signal,
-  }
-  if (metadata.estimateAvailable) {
-    metadata.float64Bytes = estimates.float64Bytes
+    ...(estimates !== null && hasOwn(estimates, 'float64Bytes')
+      ? { float64Bytes: estimates.float64Bytes }
+      : {}),
   }
   return metadata
 }
 
-function createAbortError(entry) {
+function createAbortError(
+  entry: NormalizedResourceRequest,
+): ResourceGuardAbortError {
   return new ResourceGuardAbortError(
     'The resource guard request was aborted while waiting',
     {
@@ -292,11 +393,14 @@ function createAbortError(entry) {
       requestId: entry.requestId,
       float64Bytes: entry.float64Bytes,
       reservedBytes: entry.reservedBytes,
-    }
+    },
   )
 }
 
-function copyMetadata(metadata, state) {
+function copyMetadata(
+  metadata: NormalizedResourceRequest,
+  state: ResourceLeaseMetadata['state'],
+): ResourceLeaseMetadata {
   return Object.freeze({
     operation: metadata.operation,
     requestId: metadata.requestId,
@@ -307,21 +411,33 @@ function copyMetadata(metadata, state) {
   })
 }
 
-export class ResourceGuard {
-  #policy
-  #reservedBytes = 0
-  #activeLeases = new Set()
-  #queue = []
+function isPromiseLike<T>(
+  value: ResourceLease | Promise<T>,
+): value is Promise<T> {
+  return typeof value === 'object'
+    && value !== null
+    && 'then' in value
+    && typeof (value as { readonly then?: unknown }).then === 'function'
+}
 
-  constructor(policy = {}) {
+export class ResourceGuard implements ResourceGuardContract {
+  #policy: ResourceGuardPolicy
+  #reservedBytes = 0
+  #activeLeases: Set<ActiveEntry> = new Set()
+  #queue: QueuedEntry[] = []
+
+  constructor(policy: ResourceGuardPolicyInput = {}) {
     this.#policy = normalizePolicy(policy)
   }
 
-  get policy() {
+  get policy(): ResourceGuardPolicy {
     return this.#policy
   }
 
-  acquireForPlan(plan, options = {}) {
+  acquireForPlan(
+    plan: ResourceReservationPlan,
+    options: ResourceGuardAcquireOptions = {},
+  ): ResourceLeaseResult {
     try {
       return this.#acquire(extractPlanResourceMetadata(plan, options))
     } catch (error) {
@@ -329,23 +445,28 @@ export class ResourceGuard {
     }
   }
 
-  acquirePlan(plan, options = {}) {
+  acquirePlan(
+    plan: ResourceReservationPlan,
+    options: ResourceGuardAcquireOptions = {},
+  ): ResourceLeaseResult {
     return this.acquireForPlan(plan, options)
   }
 
-  acquire(request = {}) {
+  acquire(request: ResourceGuardRequest = {}): Promise<ResourceLease> {
     const result = this.#acquire(request)
-    return result && typeof result.then === 'function'
+    return isPromiseLike(result)
       ? result
       : Promise.resolve(result)
   }
 
-  acquireLease(request = {}) {
+  acquireLease(
+    request: ResourceGuardRequest = {},
+  ): ResourceLeaseResult {
     return this.#acquire(request)
   }
 
-  #acquire(request = {}) {
-    let metadata
+  #acquire(request: ResourceGuardRequest = {}): ResourceLeaseResult {
+    let metadata: NormalizedResourceRequest
     try {
       metadata = normalizeRequest(request, this.#policy)
     } catch (error) {
@@ -362,7 +483,7 @@ export class ResourceGuard {
           float64Bytes: metadata.float64Bytes,
           reservedBytes: metadata.reservedBytes,
           capacityBytes: this.#policy.capacityBytes,
-        }
+        },
       ))
     }
 
@@ -374,11 +495,14 @@ export class ResourceGuard {
           requestId: metadata.requestId,
           float64Bytes: metadata.float64Bytes,
           reservedBytes: metadata.reservedBytes,
-        }
+        },
       ))
     }
 
-    if (this.#queue.length === 0 && this.#canAdmit(metadata.reservedBytes)) {
+    if (
+      this.#queue.length === 0
+      && this.#canAdmit(metadata.reservedBytes)
+    ) {
       return this.#admit(metadata)
     }
 
@@ -395,19 +519,19 @@ export class ResourceGuard {
           activeCount: this.#activeLeases.size,
           queuedCount: this.#queue.length,
           maxQueued: this.#policy.maxQueued,
-        }
+        },
       ))
     }
 
-    return new Promise((resolve, reject) => {
-      const entry = {
+    return new Promise<ResourceLease>((resolve, reject) => {
+      const entry: QueuedEntry = {
         ...metadata,
         state: 'queued',
         resolve,
         reject,
         removeAbortListener: null,
       }
-      const onAbort = () => {
+      const onAbort = (_event?: Event): void => {
         if (entry.state !== 'queued') {
           return
         }
@@ -420,7 +544,7 @@ export class ResourceGuard {
 
       if (metadata.signal) {
         entry.removeAbortListener = () => {
-          metadata.signal.removeEventListener('abort', onAbort)
+          metadata.signal?.removeEventListener('abort', onAbort)
         }
         metadata.signal.addEventListener('abort', onAbort, { once: true })
       }
@@ -435,14 +559,17 @@ export class ResourceGuard {
     })
   }
 
-  snapshot() {
+  snapshot(): ResourceGuardSnapshot {
     return {
       capacityBytes: this.#policy.capacityBytes,
       maxActive: this.#policy.maxActive,
       maxQueued: this.#policy.maxQueued,
       reservationMultiplier: this.#policy.reservationMultiplier,
       reservedBytes: this.#reservedBytes,
-      availableBytes: Math.max(0, this.#policy.capacityBytes - this.#reservedBytes),
+      availableBytes: Math.max(
+        0,
+        this.#policy.capacityBytes - this.#reservedBytes,
+      ),
       activeCount: this.#activeLeases.size,
       queuedCount: this.#queue.length,
       active: Array.from(this.#activeLeases, (entry) =>
@@ -451,33 +578,30 @@ export class ResourceGuard {
     }
   }
 
-  getSnapshot() {
+  getSnapshot(): ResourceGuardSnapshot {
     return this.snapshot()
   }
 
-  diagnostics() {
+  diagnostics(): ResourceGuardSnapshot {
     return this.snapshot()
   }
 
-  #canAdmit(reservedBytes) {
+  #canAdmit(reservedBytes: number): boolean {
     return this.#activeLeases.size < this.#policy.maxActive
       && this.#reservedBytes + reservedBytes <= this.#policy.capacityBytes
   }
 
-  #admit(metadata) {
-    const entry = {
+  #admit(metadata: NormalizedResourceRequest): ResourceLease {
+    const entry: ActiveEntry = {
       ...metadata,
       state: 'active',
       admittedAt: Date.now(),
-      resolve: null,
-      reject: null,
-      removeAbortListener: null,
     }
     this.#reservedBytes += metadata.reservedBytes
     this.#activeLeases.add(entry)
 
     let released = false
-    const lease = {
+    const lease: ResourceLease = {
       metadata: copyMetadata(entry, 'active'),
       get released() {
         return released
@@ -500,14 +624,14 @@ export class ResourceGuard {
     return lease
   }
 
-  #removeQueuedEntry(entry) {
+  #removeQueuedEntry(entry: QueuedEntry): void {
     const index = this.#queue.indexOf(entry)
     if (index >= 0) {
       this.#queue.splice(index, 1)
     }
   }
 
-  #drain() {
+  #drain(): void {
     while (this.#queue.length > 0) {
       const entry = this.#queue[0]
       if (entry.state !== 'queued') {
@@ -533,10 +657,8 @@ export class ResourceGuard {
   }
 }
 
-/**
- * @param {Partial<ResourceGuardPolicy>} [policy]
- * @returns {ResourceGuardContract}
- */
-export function createResourceGuard(policy = {}) {
+export function createResourceGuard(
+  policy: ResourceGuardPolicyInput = {},
+): ResourceGuardContract {
   return new ResourceGuard(policy)
 }

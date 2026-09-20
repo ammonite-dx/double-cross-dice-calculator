@@ -35,7 +35,7 @@ describe('runtime and shared presentation architecture', () => {
       'src/runtime/CalculationRequestStatus.ts',
       'src/runtime/CalculationRequestCoordinator.ts',
       'src/runtime/CheckRangePolicy.js',
-      'src/runtime/ResourceGuard.js',
+      'src/runtime/ResourceGuard.ts',
       'src/runtime/RuntimeDamageRollClient.js',
       'src/runtime/RuntimeDamageRollProtocol.ts',
       'src/runtime/RuntimeDamageRollWorker.js',

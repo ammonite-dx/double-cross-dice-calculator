@@ -21,13 +21,57 @@ import {
 } from '../../src/runtime/CalculationFeedback'
 import { CALCULATION_REQUEST_STATUS } from '../../src/runtime/CalculationRequestStatus'
 import type {
+  ResourceGuardAbortSignal,
+  ResourceGuardPolicyInput,
   ResourceGuard,
+  ResourceLease,
+  ResourceLeaseResult,
   ResourceReservationPlan,
 } from '../../src/runtime/ResourceGuardTypes'
+import {
+  createResourceGuard,
+  isResourceGuardError,
+} from '../../src/runtime/ResourceGuard'
 
 declare const damageClient: RuntimeDamageRollClient
 declare const worker: RuntimeDamageRollWorkerLike
 declare const guard: ResourceGuard
+
+const typedGuard: ResourceGuard = createResourceGuard({
+  capacity: 1024,
+  maxActive: 1,
+})
+const partialPolicy: ResourceGuardPolicyInput = {
+  capacityBytes: 1024,
+  maxQueued: 1,
+}
+// @ts-expect-error: unknown policy keys are not part of the public contract.
+const invalidPolicy: ResourceGuardPolicyInput = { unknown: 1 }
+void typedGuard
+void partialPolicy
+void invalidPolicy
+
+const fakeSignal: ResourceGuardAbortSignal = {
+  aborted: false,
+  addEventListener: (_type, _listener, _options) => {},
+  removeEventListener: (_type, _listener, _options) => {},
+}
+const immediateLease: Promise<ResourceLease> = guard.acquire({
+  signal: fakeSignal,
+  requestId: null,
+})
+const flexibleLease: ResourceLeaseResult = guard.acquireLease()
+const planLease: ResourceLeaseResult = guard.acquirePlan({
+  operation: 'check',
+})
+void immediateLease
+void flexibleLease
+void planLease
+
+const unknownError: unknown = {}
+if (isResourceGuardError(unknownError)) {
+  unknownError.code
+}
 
 void damageClient.calculate([1], 0, { signal: new AbortController().signal })
 void worker

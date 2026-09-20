@@ -106,7 +106,7 @@ async function loadProductionModules() {
       server.ssrLoadModule('/src/calculation/RangePlanner.js'),
       server.ssrLoadModule('/src/calculation/ScoreCalculator.js'),
       server.ssrLoadModule('/src/runtime/CalculationClient.ts'),
-      server.ssrLoadModule('/src/runtime/ResourceGuard.js'),
+      server.ssrLoadModule('/src/runtime/ResourceGuard.ts'),
       server.ssrLoadModule('/src/calculation/DistributionResult.js'),
       server.ssrLoadModule('/src/calculation/RuntimeDamageRollCalculator.js'),
     ])
