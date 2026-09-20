@@ -166,6 +166,22 @@ describe('ResourceGuard', () => {
     })
   })
 
+  it('rejects malformed AbortSignal-like requests', async () => {
+    const guard = createResourceGuard()
+    const result = guard.acquireLease({
+      signal: {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      },
+    })
+
+    expect(result).toBeInstanceOf(Promise)
+    await expect(result).rejects.toMatchObject({
+      name: 'ResourceGuardError',
+      code: 'invalid-request',
+    })
+  })
+
   it('admits requests in FIFO order under active and capacity limits', async () => {
     const guard = new ResourceGuard({
       capacityBytes: 10,

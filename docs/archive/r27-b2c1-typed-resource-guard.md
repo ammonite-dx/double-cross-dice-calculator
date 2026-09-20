@@ -16,7 +16,7 @@ R27-B2bで型付けした`CalculationClient`が利用するresource boundaryを�
 
 ## 回帰テスト
 
-- `tests/resourceGuard.test.js`へ、即時`acquire()`のPromise契約とinvalid`acquireLease()`のrejected Promise契約を追加した。
+- `tests/resourceGuard.test.js`へ、即時`acquire()`のPromise契約、invalid`acquireLease()`のrejected Promise契約、AbortSignal-like入力の`aborted` boolean検証を追加した。
 - `tests/typecheck/runtime-contracts.ts`へ、factory/class契約、partial policy、`capacity` alias、未知policy keyの拒否、native/fake signal、acquire return type、structural error predicateの型回帰を追加した。
 - architecture testとR22 benchmarkの明示`.js`参照を`.ts`へ更新した。
 
@@ -26,7 +26,7 @@ Runtime Damage Roll Client、Worker protocol、CheckRangePolicy、CalculationCli
 
 ## 検証
 
-対象テスト、TypeScript typecheck、ESLintは成功した。全体の`verify:all`、browser smoke、reference/generator/simulation、Ruff、runtime DX検証は最終コミット前に実行する。
+`verify:all`、`verify:browser`、full-tail benchmark、Vitest 104 files / 1103 tests、TypeScript typecheck、ESLint、Markdown lint、production build、browser smoke、reference/generator/simulation、Ruff、runtime DX 20,000 casesが成功した。full-tail benchmarkのresult digestは`989000341.161962`で、全ケースのerrorは`-`だった。follow-upではAbortSignal-like入力のsoundness回帰を追加し、対象テスト30件とtypecheck・lint・Markdown lintを再実行した。
 
 ## 次の作業
 

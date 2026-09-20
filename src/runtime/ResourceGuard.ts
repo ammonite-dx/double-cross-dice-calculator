@@ -255,6 +255,7 @@ function normalizeSignal(signal: unknown): ResourceGuardAbortSignal | null {
   }
   if (
     !isObject(signal)
+    || typeof signal.aborted !== 'boolean'
     || typeof signal.addEventListener !== 'function'
     || typeof signal.removeEventListener !== 'function'
   ) {
