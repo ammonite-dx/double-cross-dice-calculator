@@ -14,8 +14,9 @@
 
 ## 次に行う作業
 
-1. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-2. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **R28-B: Test / tooling surface cleanup**: ESLintとVitestのarchitecture enforcementを責務ごとに整理し、historical experimentをproduction regression suiteから分離する。各review gateで停止する。
+2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -37,3 +38,4 @@
 - **R27-B2c1: typed ResourceGuard runtime**: `ResourceGuard.ts`へ移行し、partial policyと`capacity` alias、AbortSignal-like入力、policy/request normalization、reservation計算、FIFO queue、queued abort、active lease ownership、snapshot契約を明示型へ接続した。`acquire()`の常時Promise、`acquireLease()`／`acquirePlan()`の即時lease、invalid requestのrejected Promiseを維持し、`ResourceGuard.js`は削除した。詳細は[`archive/r27-b2c1-typed-resource-guard.md`](./archive/r27-b2c1-typed-resource-guard.md)を参照する。
 - **R27-B2c2: typed RuntimeDamageRollClient**: productionのRuntime Damage Roll clientを`RuntimeDamageRollClient.ts`へ移行し、Worker本体はJSのまま維持した。production lifecycle suiteを正本として1 active + FIFO queue、pending/queued dedup、subscriber単位Abort、Worker tokenによるstale event抑制、Worker再生成、LRU cache、defensive copy、caller optionsとWorker wire optionsの分離を回帰テストと型で固定した。旧実装と重複するexperiment client testは削除し、ResourceGuardのlease所有権と既存Worker protocolは変更していない。詳細は[`archive/r27-b2c2-typed-runtime-damage-roll-client.md`](./archive/r27-b2c2-typed-runtime-damage-roll-client.md)を参照する。
 - **R27-B2c3: typed CheckRangePolicy**: Checkのrange policy snapshotを`CheckRangePolicy.ts`へ移行し、display requestのown-property・座標・mode検証、policyのcycle-safe clone／deep freeze、retired key拒否、malformed root拒否を既存のruntime error contractのまま型付けした。表示座標はpolicyへコピーせずplanner requestとして分離し、CalculationClientのdisplay request有無による既存の伝播意味論を維持した。詳細は[`archive/r27-b2c3-typed-check-range-policy.md`](./archive/r27-b2c3-typed-check-range-policy.md)を参照する。
+- **R28-A: mechanical repository cleanup**: SummaryTableのbasename collision、Vite custom extension resolution、空のagent instruction、重複project config、空のSass override、Webpack残骸、未使用設定・assetを整理した。計算・結果契約・runtime semanticsは変更せず、独立レビューをarchiveへ移動した。詳細は[`archive/r28-a-mechanical-repository-cleanup.md`](./archive/r28-a-mechanical-repository-cleanup.md)を参照する。
