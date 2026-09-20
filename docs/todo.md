@@ -14,9 +14,8 @@
 
 ## 次に行う作業
 
-1. **R28-F: repository cleanup closure audit**: R28のproduction/reference境界、依存方向、命名、意図的に保留した資産を監査し、公開準備へ進める残件を確定する。
-2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+2. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -45,3 +44,4 @@
 - **R28-D: display-form style ownership**: Checkの`SettingForm`、Attackの`ScoreSettingForm`、`DamageSettingForm`が共有表示範囲CSSをそれぞれ明示的にimportし、`display-range-form` root class配下でのみVuetify内部selectorを適用するよう整理した。既存のフォームロジック、表示範囲契約、チャート、計算は変更していない。desktopと390x844のmobileで各フォーム数とcomputed styleをbrowser smokeから検証した。詳細は[`archive/r28-d-display-style-ownership.md`](./archive/r28-d-display-style-ownership.md)を参照する。次はR28-E1のpresentation分離である。
 - **R28-E1: CalculationFeedback presentation separation**: `CalculationFeedback`からユーザー向け表示文言、数値・メモリ整形、overflow表示、ResourceGuardの表示分類を`RangePlanNoticeFormatter`へ分離した。`RangePlanNotice`は新formatterを直接利用し、runtimeはfeedback stateのライフサイクル・エラー分類・latest runnerだけを担う。表示文言、表示DTO、計算・入力の意味論は変更していない。詳細は[`archive/r28-e1-feedback-presentation-separation.md`](./archive/r28-e1-feedback-presentation-separation.md)を参照する。次はR28-E2のBacktrack chart presentation cleanupである。
 - **R28-E2: Backtrack chart presentation cleanup**: Backtrackのカテゴリ集約、ラベル、色、タイトル、アクセシブル名を`BacktrackPresentation` v2の完全な型付きpresentationとして生成し、UIが`dlois`や表示modeを再解釈しない構造へ移行した。旧`finalEncroachment` payload、`BacktrackChartData`、mode別チャートアダプタを削除し、runnerのstate・error lifecycleと型境界を`presentation`へ統一した。カテゴリ境界、丸め、符号付き座標、確率値、チャートの見た目は変更していない。詳細は[`archive/r28-e2-backtrack-chart-presentation-cleanup.md`](./archive/r28-e2-backtrack-chart-presentation-cleanup.md)を参照する。次はR28-Fのrepository cleanup closure auditである。
+- **R28-F: repository cleanup closure audit**: 旧データディレクトリのCI scope条件、存在しない`src/application`のarchitecture scan、存在しない`BacktrackResultTypes`のESLint allowlist例外を削除した。production/reference境界、retired naming、依存方向、normal/reference/experimentsのsuite分離、production bundleからのreference asset除外を再確認した。`wrangler.toml`、Home page、shared presentation barrel、歴史的experiment directory、`checkJs:false`、Worker JS、reference assetは意図的な保持として変更していない。詳細は[`archive/r28-f-repository-cleanup-closure.md`](./archive/r28-f-repository-cleanup-closure.md)を参照する。公開準備へ進む。
