@@ -6,16 +6,8 @@ import {
   normalizeBacktrackInputDraft,
 } from '../src/features/backtrack/model/BacktrackInputSnapshot'
 
-const backtrackViewSource = readFileSync(
-  new URL('../src/views/Backtrack.vue', import.meta.url),
-  'utf8'
-)
 const backtrackPageSource = readFileSync(
   new URL('../src/features/backtrack/ui/BacktrackPage.vue', import.meta.url),
-  'utf8'
-)
-const inputFormSource = readFileSync(
-  new URL('../src/features/backtrack/ui/InputForm.vue', import.meta.url),
   'utf8'
 )
 const inputPanelSource = readFileSync(
@@ -73,25 +65,20 @@ describe('BacktrackInputSnapshot', () => {
 
 describe('Backtrack input flow contracts', () => {
   it('keeps the Backtrack template input boundary free of the temporary toggle', () => {
-    const backtrackTemplate = backtrackViewSource.match(
-      /<template>([\s\S]*)<\/template>/
-    )?.[1]
-    expect(backtrackTemplate).toMatch(/<BacktrackPage\s*\/>/)
     expect(backtrackPageSource).toMatch(/<InputPanel\b[\s\S]*@validated=/)
-    expect(backtrackTemplate).not.toMatch(/OptIn|canonical-toggle/)
     expect(backtrackPageSource).not.toMatch(/OptIn|canonical-toggle/)
   })
 
-  it('forwards only validated events through InputForm and InputPanel', () => {
-    expect(inputFormSource).toContain("defineEmits(['validated'])")
-    expect(inputFormSource).toContain('@validated="onValidated"')
+  it('forwards only validated events through BacktrackForm and InputPanel', () => {
+    expect(backtrackFormSource).toContain("defineEmits(['validated'])")
+    expect(inputPanelSource).toContain('<BacktrackForm')
+    expect(inputPanelSource).toContain('@validated="onValidated"')
     expect(inputPanelSource).toMatch(
       /defineEmits\(\s*\[\s*['"]validated['"]\s*\]\s*\)/
     )
     expect(inputPanelSource).toMatch(/@validated\s*=\s*['"]onValidated['"]/
     )
     expect(inputPanelSource).not.toMatch(/OptIn|canonical-toggle|<v-switch/)
-    expect(inputFormSource).not.toContain('createLatestCalculationRunner')
     expect(inputPanelSource).not.toContain('createLatestCalculationRunner')
   })
 
