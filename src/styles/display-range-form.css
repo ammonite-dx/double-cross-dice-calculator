@@ -1,0 +1,14 @@
+.display-range-form .v-select__selection {
+  margin-bottom: 0;
+}
+
+.display-range-form .v-select__selection-text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  align-content: center;
+}
+
+.display-range-form .v-field__input {
+  height: 40px;
+}

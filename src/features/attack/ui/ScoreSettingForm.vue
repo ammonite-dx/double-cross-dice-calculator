@@ -7,6 +7,7 @@
     } from '@/features/attack/model/AttackDisplayRequestSnapshot';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
     import { createDisplayRangeRules } from '@/shared/validation/DisplayRangeRules';
+    import '@/styles/display-range-form.css';
 
     const props = defineProps({
         displayRequest: {
@@ -71,7 +72,7 @@
 </script>
 
 <template>
-    <v-form ref="form">
+    <v-form ref="form" class="display-range-form">
         <v-row dense class="pt-2 ma-0">
             <v-col cols="6" class="pb-2"><v-text-field label="最小値" type="number" min="0" v-model.number="currentRequest.min" :rules="minRule" variant="underlined" hide-details="auto" density="comfortable"/></v-col>
             <v-col cols="6" class="pb-2"><v-text-field label="最大値" type="number" min="0" v-model.number="currentRequest.max" :rules="maxRule" variant="underlined" hide-details="auto" density="comfortable"/></v-col>
@@ -79,18 +80,3 @@
         </v-row>
     </v-form>
 </template>
-
-<style>
-div.v-select__selection {
-    margin-bottom: 0;
-}
-span.v-select__selection-text {
-    display: inline-flex;
-    flex-wrap: wrap;
-    font-size: 12px;
-    align-content: center;
-}
-div.v-field__input {
-    height: 40px;
-}
-</style>

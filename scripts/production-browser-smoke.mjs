@@ -280,6 +280,112 @@ function assertNoPrecomputedRequests(caseId, record) {
   )
 }
 
+async function assertDisplayRangeFormStyles(page, caseId, expectedCount) {
+  await page.waitForFunction(
+    (expected) => {
+      const forms = [...document.querySelectorAll('.display-range-form')]
+      return forms.length === expected
+        && forms.every((form) => (
+          (() => {
+            const selection = form.querySelector('.v-select__selection')
+            const selectionText = form.querySelector('.v-select__selection-text')
+            const fieldInput = form.querySelector('.v-field__input')
+            if (!selection || !selectionText || !fieldInput) {
+              return false
+            }
+            const selectionStyle = getComputedStyle(selection)
+            const selectionTextStyle = getComputedStyle(selectionText)
+            const fieldInputStyle = getComputedStyle(fieldInput)
+            return selectionStyle.marginBottom === '0px'
+              // The inline-flex declaration is blockified to flex because the
+              // selection text is a child of Vuetify's flex selection wrapper.
+              && selectionTextStyle.display === 'flex'
+              && selectionTextStyle.flexWrap === 'wrap'
+              && selectionTextStyle.fontSize === '12px'
+              && selectionTextStyle.alignContent === 'center'
+              && fieldInputStyle.height === '40px'
+          })()
+        ))
+    },
+    expectedCount,
+    { timeout: PAGE_TIMEOUT_MILLISECONDS },
+  )
+
+  const forms = page.locator('.display-range-form')
+  assertCondition(
+    caseId,
+    await forms.count() === expectedCount,
+    `expected ${expectedCount} display range forms`,
+  )
+
+  for (let index = 0; index < expectedCount; index += 1) {
+    const styles = await forms.nth(index).evaluate((form) => {
+      const readStyle = (selector, properties) => {
+        const element = form.querySelector(selector)
+        if (!element) {
+          return null
+        }
+        const computed = getComputedStyle(element)
+        return Object.fromEntries(
+          properties.map((property) => [property, computed[property]]),
+        )
+      }
+      const readAuthoredDisplay = () => {
+        let display = null
+        const visitRules = (rules) => {
+          for (const rule of rules) {
+            if (rule.selectorText === '.display-range-form .v-select__selection-text') {
+              display = rule.style.display
+            }
+            if (rule.cssRules) {
+              visitRules(rule.cssRules)
+            }
+          }
+        }
+        for (const sheet of document.styleSheets) {
+          try {
+            visitRules(sheet.cssRules)
+          } catch {
+            // Cross-origin font stylesheets cannot be inspected.
+          }
+        }
+        return display
+      }
+      return {
+        selection: readStyle('.v-select__selection', ['marginBottom']),
+        selectionText: readStyle(
+          '.v-select__selection-text',
+          ['display', 'flexWrap', 'fontSize', 'alignContent'],
+        ),
+        selectionTextDisplayDeclaration: readAuthoredDisplay(),
+        fieldInput: readStyle('.v-field__input', ['height']),
+      }
+    })
+
+    const expectedStyles = [
+      ['selection', 'marginBottom', '0px'],
+      ['selectionText', 'display', 'flex'],
+      ['selectionText', 'flexWrap', 'wrap'],
+      ['selectionText', 'fontSize', '12px'],
+      ['selectionText', 'alignContent', 'center'],
+      ['fieldInput', 'height', '40px'],
+    ]
+    for (const [element, property, expected] of expectedStyles) {
+      const actual = styles[element]?.[property] ?? 'missing'
+      assertCondition(
+        caseId,
+        actual === expected,
+        `form index ${index} ${element}.${property}: expected ${expected}, actual ${actual}`,
+      )
+    }
+    assertCondition(
+      caseId,
+      styles.selectionTextDisplayDeclaration === 'inline-flex',
+      `form index ${index} selectionText.display declaration: expected inline-flex, actual ${styles.selectionTextDisplayDeclaration ?? 'missing'}`,
+    )
+  }
+}
+
 async function waitForCanvases(page, expectedCount, { exact = false } = {}) {
   await page.waitForFunction(
     ({ expectedCount: expected, exact: shouldBeExact }) => {
@@ -507,6 +613,7 @@ async function runCheck(browser, baseUrl) {
     await navigateTo(page, record, baseUrl, '/check')
     const canvases = await waitForCanvases(page, 1)
     await settlePage(page)
+    const displayForms = await assertDisplayRangeFormStyles(page, 'check display styles', 1)
     await assertAccessibleChartNames(page, 'check accessible chart name', [
       '一般判定 達成値確率分布',
     ])
@@ -523,7 +630,7 @@ async function runCheck(browser, baseUrl) {
     )
     assertNoPrecomputedRequests('check-dice=100', record)
     const summaries = [
-      { canvases, id: 'check', precomputed: 0 },
+      { canvases, displayForms, id: 'check', precomputed: 0 },
       { canvases: 1, id: 'check dice=100', precomputed: 0 },
     ]
 
@@ -796,6 +903,7 @@ async function runAttack(browser, baseUrl) {
     await navigateTo(page, record, baseUrl, '/attack')
     const initialCanvases = await waitForCanvases(page, 2, { exact: true })
     await settlePage(page)
+    const displayForms = await assertDisplayRangeFormStyles(page, 'attack display styles', 2)
     await assertAccessibleChartNames(page, 'attack accessible chart names', [
       '攻撃判定 達成値確率分布',
       '攻撃判定 ダメージ確率分布',
@@ -1189,6 +1297,7 @@ async function runAttack(browser, baseUrl) {
     return [
       {
         canvases: initialCanvases,
+        displayForms,
         d10Requests: 0,
         id: 'attack defence=0',
         precomputed: 0,
@@ -1220,6 +1329,47 @@ async function runAttack(browser, baseUrl) {
     ]
   } catch (error) {
     throw enrichCaseError('attack', error, record)
+  } finally {
+    await page.unroute('https://fonts.googleapis.com/**', fontStub).catch(() => {})
+    await page.unroute('https://fonts.gstatic.com/**', fontStub).catch(() => {})
+    await context.close().catch(() => {})
+  }
+}
+
+async function runDisplayRangeStyleSmoke(browser, baseUrl) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  })
+  const page = await context.newPage()
+  const record = createNetworkRecorder(page, baseUrl)
+  const fontStub = await stubExternalFonts(page)
+  try {
+    await navigateTo(page, record, baseUrl, '/check')
+    await assertDisplayRangeFormStyles(page, 'mobile check display styles', 1)
+    assertNoPrecomputedRequests('mobile check display styles', record)
+    assertNoBrowserErrors('mobile check display styles', record)
+
+    await navigateTo(page, record, baseUrl, '/attack')
+    await assertDisplayRangeFormStyles(page, 'mobile attack display styles', 2)
+    assertNoPrecomputedRequests('mobile attack display styles', record)
+    assertNoBrowserErrors('mobile attack display styles', record)
+
+    return [
+      {
+        canvases: 0,
+        displayForms: 1,
+        id: 'mobile check display styles',
+        precomputed: 0,
+      },
+      {
+        canvases: 0,
+        displayForms: 2,
+        id: 'mobile attack display styles',
+        precomputed: 0,
+      },
+    ]
+  } catch (error) {
+    throw enrichCaseError('mobile display styles', error, record)
   } finally {
     await page.unroute('https://fonts.googleapis.com/**', fontStub).catch(() => {})
     await page.unroute('https://fonts.gstatic.com/**', fontStub).catch(() => {})
@@ -1289,6 +1439,9 @@ function printSummary(summaries) {
   for (const summary of summaries) {
     console.log(summary.id)
     console.log(`  canvases: ${summary.canvases}`)
+    if (summary.displayForms !== undefined) {
+      console.log(`  display range forms: ${summary.displayForms}`)
+    }
     console.log(`  precomputed requests: ${summary.precomputed}`)
     if (summary.d10Requests !== undefined) {
       console.log(`  d10 requests: ${summary.d10Requests}`)
@@ -1315,6 +1468,7 @@ async function main() {
     const summaries = []
     summaries.push(...await runCheck(browser, server.baseUrl))
     summaries.push(...await runAttack(browser, server.baseUrl))
+    summaries.push(...await runDisplayRangeStyleSmoke(browser, server.baseUrl))
     summaries.push(...await runBacktrack(browser, server.baseUrl))
     printSummary(summaries)
   } finally {
