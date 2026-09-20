@@ -35,7 +35,7 @@ describe('Backtrack chart adapter', () => {
     expect(options.plugins.title.text).toBe('一倍振り')
     expect(options.plugins.title.display).toBe(true)
     expect(options.plugins.legend.display).toBe(false)
-    expect(options.plugins.tooltip.callbacks.title()).toBeUndefined()
+    expect(options.plugins.tooltip.callbacks.title()).toBeNull()
     expect(options.plugins.tooltip.callbacks.label({
       label: '100%〜',
       formattedValue: '90',

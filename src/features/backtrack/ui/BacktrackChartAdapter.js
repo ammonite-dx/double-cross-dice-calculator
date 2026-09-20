@@ -18,7 +18,7 @@ export function getBacktrackChartOptions(chart, smAndUp) {
   }
   const tooltip = {
     callbacks: {
-      title: () => undefined,
+      title: /** @type {() => void} */ (() => null),
       label: (tooltipItem) => `${tooltipItem.label}: ${tooltipItem.formattedValue}%`,
     },
   }
