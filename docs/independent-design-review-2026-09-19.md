@@ -46,7 +46,7 @@
 
 ### 1. 型検査が実装全体の契約を保証していない — A
 
-根拠: `tsconfig.json:7`の`checkJs: false`、`src/runtime/CalculationClient.js`と`CalculationClientTypes.ts`、`tests/typecheck/calculation-contracts.ts`、Vue UI各ファイル。
+根拠: `tsconfig.json:7`の`checkJs: false`、`src/runtime/CalculationClient.ts`と`CalculationClientTypes.ts`、`tests/typecheck/calculation-contracts.ts`、Vue UI各ファイル。
 
 型の導入は進んでいるが、計算とruntimeの中心はJavaScriptのままで、47個のVue SFCにも`lang="ts"`がない。JSDocによって呼び出し側の型情報が得られる箇所はあるものの、JavaScript実装内部の整合性を型検査する設定ではない。型テストにある`declare const client: CalculationClient`はインターフェースの使い方を検査するもので、その実装がインターフェースどおりの値を返すことまで保証しない。
 
