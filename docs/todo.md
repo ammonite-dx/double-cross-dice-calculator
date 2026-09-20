@@ -14,7 +14,7 @@
 
 ## 次に行う作業
 
-1. **R28-C: Thin UI structure / naming cleanup**: R28-B2までに整理したproduction／reference／experimentの境界を前提に、UIの薄型化と残存する命名の整理を行う。R28はreview gateごとに停止し、R28-Cの着手前に別途レビューする。
+1. **R28-D: CSS ownership and visual contract cleanup**: R28-Cで薄型化したfeature UIについて、スタイルの所有箇所と視覚的な契約を整理する。R28はreview gateごとに停止し、計算・入力・表示の意味論は変更しない。
 2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
 3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
@@ -41,3 +41,4 @@
 - **R28-A: mechanical repository cleanup**: SummaryTableのbasename collision、Vite custom extension resolution、空のagent instruction、重複project config、空のSass override、Webpack残骸、未使用設定・assetを整理した。計算・結果契約・runtime semanticsは変更せず、独立レビューをarchiveへ移動した。詳細は[`archive/r28-a-mechanical-repository-cleanup.md`](./archive/r28-a-mechanical-repository-cleanup.md)を参照する。
 - **R28-B1: ESLint / architecture enforcement cleanup**: production sourceのBrowser／Worker／Node globalsを責務ごとに分離し、source path・import文字列・retired name・ESLint fixtureの重複検査を削除した。planner／executor、Worker／request lifecycle、state semantics、production/reference separation、numerical oracleのsemantic／contract testsは維持し、Chart.js共有runtimeの契約だけを`chartPresentationContract.test.js`へ移した。詳細は[`archive/r28-b1-architecture-enforcement-cleanup.md`](./archive/r28-b1-architecture-enforcement-cleanup.md)を参照する。
 - **R28-B2: historical experiment test isolation / command cleanup**: 履歴的な11テストを`tests/experiments/`へ移し、通常のVitest suiteから除外した。`npm run test:experiments`で明示的に実行でき、現行のbenchmark・audit・verification commandは目的を表す名前へ整理した。現行の実験READMEとcommand contract testを更新し、production sourceとreference suiteは変更していない。詳細は[`archive/r28-b2-historical-test-isolation.md`](./archive/r28-b2-historical-test-isolation.md)を参照する。次はR28-CのUI構造・命名整理である。
+- **R28-C: thin UI structure / naming cleanup**: feature routeを各feature pageへ直接接続し、薄いview・feature barrel・Backtrack入力ラッパーを削除した。Checkの難易度フォームとイベントを`Difficulty`へ統一し、残存していた`Dfclty`／`dfclty`表記をproduction sourceから除去した。Check、Attack、Backtrackのチャートアダプタを責務ごとの名前へ変更し、チャートのデータ・表示意味論は維持した。詳細は[`archive/r28-c-thin-ui-structure-cleanup.md`](./archive/r28-c-thin-ui-structure-cleanup.md)を参照する。次はR28-DのCSS責務整理である。
