@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  getFinalEncroachmentChartOptions,
+  getBacktrackChartOptions,
 } from '../src/features/backtrack/ui/BacktrackChartAdapter'
 
+const chart = {
+  key: 'single',
+  labels: ['100%〜'],
+  probabilities: [10],
+  backgroundColors: ['#EC1D2C'],
+  title: '一倍振り',
+  accessibleName: '最終侵蝕率分布 一倍振り',
+}
+
 function getDatalabels(smAndUp) {
-  return getFinalEncroachmentChartOptions('single', smAndUp)
+  return getBacktrackChartOptions(chart, smAndUp)
     .plugins.datalabels
 }
 

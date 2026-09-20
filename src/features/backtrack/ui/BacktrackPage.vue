@@ -7,7 +7,7 @@
     const calculationClient = useCalculationClient()
     const {
         params,
-        finalEncroachment,
+        presentation,
         resultReady,
         rangeFeedback,
         onValidated,
@@ -21,9 +21,8 @@
             :rangeFeedback="rangeFeedback"
             @validated="onValidated"
         /></v-col></v-row>
-        <v-row v-if="resultReady"><v-col cols="12"><FinalEncroachmentChartPanel
-            :dlois="params.dlois ?? 'なし'"
-            :finalEncroachment="finalEncroachment ?? { single: [], double: [], second: [] }"
+        <v-row v-if="resultReady && presentation"><v-col cols="12"><FinalEncroachmentChartPanel
+            :presentation="presentation"
         /></v-col></v-row>
     </v-container>
 </template>

@@ -50,5 +50,13 @@ attackController.onComboSideValidated({
 
 declare const backtrackController: BacktrackController
 backtrackController.onValidated({ encroachment: 100 })
+if (backtrackController.presentation.value) {
+  const probability: number =
+    backtrackController.presentation.value.charts.single.probabilities[0]!
+  const label: string =
+    backtrackController.presentation.value.charts.single.labels[0]!
+  void probability
+  void label
+}
 // @ts-expect-error: Backtrack handlers accept only BacktrackParams fields.
 backtrackController.onValidated({ unsupported: true })

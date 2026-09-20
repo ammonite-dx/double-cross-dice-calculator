@@ -1,18 +1,10 @@
-<script setup>
+<script setup lang="ts">
 
     import FinalEncroachmentChart from './FinalEncroachmentChart.vue';
+    import type { BacktrackPresentation } from '../model/BacktrackPresentation'
     import { mdiChartLine } from '@mdi/js'
 
-    const props = defineProps({
-        dlois: {
-            type: String,
-            required: true,
-        },
-        finalEncroachment: {
-            type: Object,
-            required: true,
-        },
-    });
+    const props = defineProps<{ presentation: BacktrackPresentation }>();
 
 </script>
 
@@ -23,10 +15,9 @@
         <v-container class="pa-0">
             <v-card-text class="text-md-body-1 text-caption">
                 <v-row class="ma-0">
-                    <v-col v-if="props.dlois=='不死者・悪夢'" md="4" cols="6" class="px-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="undead"/></v-col>
-                    <v-col v-else md="4" cols="6" class="px-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="single"/></v-col>
-                    <v-col md="4" cols="6" class="pa-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="double"/></v-col>
-                    <v-col md="4" cols="6" class="pa-1 py-2"><FinalEncroachmentChart :finalEncroachment="props.finalEncroachment" mode="second"/></v-col>
+                    <v-col md="4" cols="6" class="px-1 py-2"><FinalEncroachmentChart :chart="props.presentation.charts.single"/></v-col>
+                    <v-col md="4" cols="6" class="pa-1 py-2"><FinalEncroachmentChart :chart="props.presentation.charts.double"/></v-col>
+                    <v-col md="4" cols="6" class="pa-1 py-2"><FinalEncroachmentChart :chart="props.presentation.charts.second"/></v-col>
                 </v-row>
             </v-card-text>
         </v-container>

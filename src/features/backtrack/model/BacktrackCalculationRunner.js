@@ -56,20 +56,20 @@ export function createBacktrackRunner({
       ).then((result) => createCalculationEnvelope(params, result))
     },
     clearResult: () => {
-      state.finalEncroachment = null
+      state.presentation = null
       state.resultReady = false
     },
     commitResult: (envelope) => {
-      state.finalEncroachment = createPresentation(
+      state.presentation = createPresentation(
         envelope.result,
         envelope.params
-      ).finalEncroachment
+      )
       state.resultReady = true
     },
     onError: (error) => {
       //  errors must not leave the previous chart visible or fall
       // back to the legacy calculation. A later run can retry normally.
-      state.finalEncroachment = null
+      state.presentation = null
       state.resultReady = false
       onError?.(error)
     },

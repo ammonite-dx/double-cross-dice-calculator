@@ -14,11 +14,12 @@ import {
 import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'
-import type { BacktrackController, BacktrackChartData } from './BacktrackControllerTypes'
+import type { BacktrackController } from './BacktrackControllerTypes'
+import type { BacktrackPresentation } from './BacktrackPresentation'
 
 interface BacktrackState {
   params: Partial<BacktrackParams>
-  finalEncroachment: BacktrackChartData | null
+  presentation: BacktrackPresentation | null
   resultReady: boolean
   rangeFeedback: CalculationFeedbackState<BacktrackCalculationRangePlan>
 }
@@ -47,7 +48,7 @@ export function useBacktrack({
   ) as CalculationFeedbackState<BacktrackCalculationRangePlan>
   const state = reactive<BacktrackState>({
     params: { ...initialSnapshot.params },
-    finalEncroachment: null,
+    presentation: null,
     resultReady: false,
     rangeFeedback,
   })
@@ -75,7 +76,7 @@ export function useBacktrack({
   const stateRefs = toRefs(state)
   return {
     params: stateRefs.params,
-    finalEncroachment: stateRefs.finalEncroachment,
+    presentation: stateRefs.presentation,
     resultReady: stateRefs.resultReady,
     rangeFeedback: stateRefs.rangeFeedback,
     onValidated,

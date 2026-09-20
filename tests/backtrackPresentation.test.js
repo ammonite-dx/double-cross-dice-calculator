@@ -9,9 +9,6 @@ import {
   createBacktrackPresentation,
   isBacktrackPresentationError,
 } from '../src/features/backtrack/model/BacktrackPresentation'
-import {
-  getFinalEncroachmentChartData,
-} from '../src/features/backtrack/ui/BacktrackChartAdapter'
 const RESULT_KEYS = ['single', 'double', 'second']
 
 function createPointResult(finalEncroachment) {
@@ -100,11 +97,11 @@ describe('backtrack canonical presentation adapter', () => {
 
     const expected = Array(5).fill(0)
     expected[bucket] = 100
-    expect(presentation.finalEncroachment.single).toEqual(expected)
-    expect(presentation.finalEncroachment.double).toEqual(
+    expect(presentation.charts.single.probabilities).toEqual(expected)
+    expect(presentation.charts.double.probabilities).toEqual(
       finalEncroachment >= 100 ? [100, 0] : [0, 100]
     )
-    expect(presentation.finalEncroachment.second).toEqual(
+    expect(presentation.charts.second.probabilities).toEqual(
       finalEncroachment >= 100 ? [100, 0] : [0, 100]
     )
   })
@@ -128,7 +125,7 @@ describe('backtrack canonical presentation adapter', () => {
 
     const expected = Array(6).fill(0)
     expected[bucket] = 100
-    expect(presentation.finalEncroachment.single).toEqual(expected)
+    expect(presentation.charts.single.probabilities).toEqual(expected)
   })
 
   it.each([
@@ -142,8 +139,8 @@ describe('backtrack canonical presentation adapter', () => {
       { encroachment: 100, value: 0, dlois }
     )
 
-    expect(presentation.finalEncroachment.double).toEqual(expected)
-    expect(presentation.finalEncroachment.second).toEqual(expected)
+    expect(presentation.charts.double.probabilities).toEqual(expected)
+    expect(presentation.charts.second.probabilities).toEqual(expected)
   })
 
   it('walks signed coordinates and keeps negative final encroachment in the lowest category', () => {
@@ -158,16 +155,16 @@ describe('backtrack canonical presentation adapter', () => {
       { encroachment: 100, value: 0, dlois: 'なし' }
     )
 
-    expect(presentation.finalEncroachment.single).toEqual([
+    expect(presentation.charts.single.probabilities).toEqual([
       25,
       0,
       0,
       25,
       50,
     ])
-    expect(presentation.finalEncroachment.double).toEqual([25, 75])
-    expect(presentation.finalEncroachment.second).toEqual([25, 75])
-    expect(presentation.finalEncroachment.single.some((value) =>
+    expect(presentation.charts.double.probabilities).toEqual([25, 75])
+    expect(presentation.charts.second.probabilities).toEqual([25, 75])
+    expect(presentation.charts.single.probabilities.some((value) =>
       Object.is(value, -0)
     )).toBe(false)
   })
@@ -183,7 +180,7 @@ describe('backtrack canonical presentation adapter', () => {
       { encroachment: 100, value: 0, dlois: 'なし' }
     )
 
-    expect(presentation.finalEncroachment.single).toEqual([
+    expect(presentation.charts.single.probabilities).toEqual([
       99.9,
       0,
       0,
@@ -192,7 +189,7 @@ describe('backtrack canonical presentation adapter', () => {
     ])
   })
 
-  it('supports zero-dice producer output and preserves chart adapter payload shape', () => {
+  it('supports zero-dice producer output and preserves chart presentation metadata', () => {
     const params = {
       encroachment: 100,
       lois: 0,
@@ -208,48 +205,50 @@ describe('backtrack canonical presentation adapter', () => {
 
     expect(presentation).toMatchObject({
       kind: 'backtrack-canonical-presentation',
-      version: 1,
+      version: 2,
     })
     expect(Object.isFrozen(presentation)).toBe(true)
-    expect(Object.isFrozen(presentation.finalEncroachment)).toBe(true)
-    expect(Object.keys(presentation.finalEncroachment)).toEqual(RESULT_KEYS)
-    expect(presentation.finalEncroachment).toEqual({
-      single: [100, 0, 0, 0, 0],
-      double: [100, 0],
-      second: [100, 0],
+    expect(Object.isFrozen(presentation.charts)).toBe(true)
+    expect(Object.keys(presentation.charts)).toEqual(RESULT_KEYS)
+    for (const chart of Object.values(presentation.charts)) {
+      expect(Object.isFrozen(chart)).toBe(true)
+      expect(Object.isFrozen(chart.labels)).toBe(true)
+      expect(Object.isFrozen(chart.probabilities)).toBe(true)
+      expect(Object.isFrozen(chart.backgroundColors)).toBe(true)
+    }
+    expect(presentation.charts.single).toMatchObject({
+      key: 'single',
+      labels: ['100%〜', '71〜99%', '51〜70%', '31〜50%', '0〜30%'],
+      probabilities: [100, 0, 0, 0, 0],
+      backgroundColors: ['#EC1D2C', '#FE6F2F', '#F9A829', '#FAD23C', '#5EBB68'],
+      title: '一倍振り',
+      accessibleName: '最終侵蝕率分布 一倍振り',
+    })
+    expect(presentation.charts.double).toMatchObject({
+      key: 'double',
+      labels: ['失敗', '成功'],
+      probabilities: [100, 0],
+      backgroundColors: ['#EC1D2C', '#5EBB68'],
+      title: '二倍振り',
+      accessibleName: '最終侵蝕率分布 二倍振り',
+    })
+    expect(presentation.charts.second).toMatchObject({
+      key: 'second',
+      labels: ['失敗', '成功'],
+      probabilities: [100, 0],
+      backgroundColors: ['#EC1D2C', '#5EBB68'],
+      title: '二倍振り+追加振り',
+      accessibleName: '最終侵蝕率分布 二倍振りと追加振り',
     })
 
-    const standardChart = getFinalEncroachmentChartData(
-      presentation.finalEncroachment,
-      'single'
-    )
-    const doubleChart = getFinalEncroachmentChartData(
-      presentation.finalEncroachment,
-      'double'
-    )
-    expect(standardChart.labels).toEqual([
-      '100%〜',
-      '71〜99%',
-      '51〜70%',
-      '31〜50%',
-      '0〜30%',
-    ])
-    expect(standardChart.datasets[0].data)
-      .toBe(presentation.finalEncroachment.single)
-    expect(doubleChart.labels).toEqual(['失敗', '成功'])
-    expect(doubleChart.datasets[0].data)
-      .toBe(presentation.finalEncroachment.double)
   })
 
-  it('uses the undead chart adapter mode for the six-category payload', () => {
+  it('provides nightmare chart metadata without a visual title', () => {
     const presentation = createBacktrackPresentation(
       createResultsFromPoint(120),
       { encroachment: 120, value: 0, dlois: '不死者・悪夢' }
     )
-    const chart = getFinalEncroachmentChartData(
-      presentation.finalEncroachment,
-      'undead'
-    )
+    const chart = presentation.charts.single
 
     expect(chart.labels).toEqual([
       '120%～',
@@ -259,8 +258,16 @@ describe('backtrack canonical presentation adapter', () => {
       '31〜50%',
       '0〜30%',
     ])
-    expect(chart.datasets[0].data)
-      .toBe(presentation.finalEncroachment.single)
+    expect(chart.backgroundColors).toEqual([
+      '#EC1D2C',
+      '#ED551B',
+      '#FE6F2F',
+      '#F9A829',
+      '#FAD23C',
+      '#5EBB68',
+    ])
+    expect(chart).not.toHaveProperty('title')
+    expect(chart.accessibleName).toBe('最終侵蝕率分布 一倍振り（屍人・悪夢）')
   })
 
   it('rejects missing result keys as a typed presentation error', () => {

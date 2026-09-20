@@ -492,7 +492,12 @@ describe('runtime backtrack rules', () => {
       )
 
       expectPercentagesClose(
-        presentation.finalEncroachment,
+        Object.fromEntries(
+          Object.entries(presentation.charts).map(([key, chart]) => [
+            key,
+            chart.probabilities,
+          ])
+        ),
         independentBacktrack(params, rule)
       )
     }

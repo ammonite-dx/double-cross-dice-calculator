@@ -40,26 +40,52 @@ function createDeferred() {
   return { promise, resolve, reject }
 }
 
+function createPresentationFixture(overrides = {}) {
+  return {
+    version: 2,
+    kind: 'backtrack-canonical-presentation',
+    charts: {
+      single: {
+        key: 'single',
+        labels: ['100%〜'],
+        probabilities: [11, 22],
+        backgroundColors: ['#EC1D2C'],
+        title: '一倍振り',
+        accessibleName: '最終侵蝕率分布 一倍振り',
+      },
+      double: {
+        key: 'double',
+        labels: ['失敗', '成功'],
+        probabilities: [33, 44],
+        backgroundColors: ['#EC1D2C', '#5EBB68'],
+        title: '二倍振り',
+        accessibleName: '最終侵蝕率分布 二倍振り',
+      },
+      second: {
+        key: 'second',
+        labels: ['失敗', '成功'],
+        probabilities: [55, 66],
+        backgroundColors: ['#EC1D2C', '#5EBB68'],
+        title: '二倍振り+追加振り',
+        accessibleName: '最終侵蝕率分布 二倍振りと追加振り',
+      },
+    },
+    ...overrides,
+  }
+}
+
 function createRunner({
   Result = {
     single: 'canonical-single',
     double: 'canonical-double',
     second: 'canonical-second',
   },
-  createPresentation = vi.fn(() => ({
-    version: 1,
-    kind: 'backtrack-canonical-presentation',
-    finalEncroachment: {
-      single: [10, 20],
-      double: [30, 40],
-      second: [50, 60],
-    },
-  })),
+  createPresentation = vi.fn(() => createPresentationFixture()),
   Calculate = vi.fn(async () => Result),
   onError = vi.fn(),
 } = {}) {
   const state = {
-    finalEncroachment: { old: true },
+    presentation: { old: true },
     resultReady: true,
   }
   const feedback = createCalculationFeedbackState()
@@ -90,15 +116,7 @@ describe('Backtrack canonical integration', () => {
       double: 'canonical-double',
       second: 'canonical-second',
     }
-    const presentation = {
-      version: 1,
-      kind: 'backtrack-canonical-presentation',
-      finalEncroachment: {
-        single: [11, 22],
-        double: [33, 44],
-        second: [55, 66],
-      },
-    }
+    const presentation = createPresentationFixture()
     const createPresentation = vi.fn(() => presentation)
     const setup = createRunner({ Result, createPresentation })
     const params = createParams({ dlois: '屍人' })
@@ -119,9 +137,8 @@ describe('Backtrack canonical integration', () => {
       Result,
       params
     )
-    expect(setup.state.finalEncroachment)
-      .toBe(presentation.finalEncroachment)
-    expect(setup.state.finalEncroachment).not.toBe(Result)
+    expect(setup.state.presentation).toBe(presentation)
+    expect(setup.state.presentation).not.toBe(Result)
     expect(setup.state.resultReady).toBe(true)
     expect(setup.feedback.status).toBe('ready')
   })
@@ -154,13 +171,7 @@ describe('Backtrack canonical integration', () => {
         options.onRangePlan({id: 'second-plan', accepted: true})
         return second.promise
       })
-    const presentation = {
-      finalEncroachment: {
-        single: [1],
-        double: [2],
-        second: [3],
-      },
-    }
+    const presentation = createPresentationFixture()
     const setup = createRunner({
       Calculate,
       createPresentation: vi.fn(() => presentation),
@@ -187,8 +198,8 @@ describe('Backtrack canonical integration', () => {
 
     second.resolve({current: true})
     await expect(secondRun).resolves.toBe(true)
-    expect(setup.state.finalEncroachment).toBe(presentation.finalEncroachment)
-    expect(setup.state.finalEncroachment).not.toEqual({stale: true})
+    expect(setup.state.presentation).toBe(presentation)
+    expect(setup.state.presentation).not.toEqual({stale: true})
   })
 
   it('clears the result on abort and dispose without allowing a late commit', async () => {
@@ -202,14 +213,14 @@ describe('Backtrack canonical integration', () => {
       signal: controller.signal,
     })
 
-    expect(setup.state.finalEncroachment).toBeNull()
+    expect(setup.state.presentation).toBeNull()
     controller.abort()
     await expect(request).resolves.toBe(false)
     expect(setup.feedback.status).toBe('idle')
 
     deferred.resolve({late: true})
     await Promise.resolve()
-    expect(setup.state.finalEncroachment).toBeNull()
+    expect(setup.state.presentation).toBeNull()
 
     const secondDeferred = createDeferred()
     setup.calculationClient.calculateBacktrack
@@ -221,7 +232,7 @@ describe('Backtrack canonical integration', () => {
     await expect(secondRequest).resolves.toBe(false)
     secondDeferred.resolve({afterDispose: true})
     await Promise.resolve()
-    expect(setup.state.finalEncroachment).toBeNull()
+    expect(setup.state.presentation).toBeNull()
   })
 
   it('shows resource rejection, clears without fallback, and recovers on retry', async () => {
@@ -239,15 +250,7 @@ describe('Backtrack canonical integration', () => {
       double: 'canonical-double-after-retry',
       second: 'canonical-second-after-retry',
     }
-    const presentation = {
-      version: 1,
-      kind: 'backtrack-canonical-presentation',
-      finalEncroachment: {
-        single: [11, 22],
-        double: [33, 44],
-        second: [55, 66],
-      },
-    }
+    const presentation = createPresentationFixture()
     const Calculate = vi.fn()
       .mockRejectedValueOnce(resourceError)
       .mockResolvedValueOnce(Result)
@@ -260,7 +263,7 @@ describe('Backtrack canonical integration', () => {
       .resolves.toBe(false)
 
     expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledOnce()
-    expect(setup.state.finalEncroachment).toBeNull()
+    expect(setup.state.presentation).toBeNull()
     expect(setup.state.resultReady).toBe(false)
     expect(setup.feedback.status).toBe('error')
     expect(setup.onError).toHaveBeenCalledWith(resourceError)
@@ -280,23 +283,14 @@ describe('Backtrack canonical integration', () => {
 
     expect(Calculate).toHaveBeenCalledTimes(2)
     expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledTimes(2)
-    expect(setup.state.finalEncroachment)
-      .toBe(presentation.finalEncroachment)
+    expect(setup.state.presentation).toBe(presentation)
     expect(setup.feedback.status).toBe('ready')
     expect(formatRangeFeedback(setup.feedback)).toBeNull()
   })
 
   it('clears presentation errors without fallback and commits on retry', async () => {
     const presentationError = new Error('presentation failed')
-    const presentation = {
-      version: 1,
-      kind: 'backtrack-canonical-presentation',
-      finalEncroachment: {
-        single: [11, 22],
-        double: [33, 44],
-        second: [55, 66],
-      },
-    }
+    const presentation = createPresentationFixture()
     const createPresentation = vi.fn()
       .mockImplementationOnce(() => {
         throw presentationError
@@ -310,7 +304,7 @@ describe('Backtrack canonical integration', () => {
       .resolves.toBe(false)
 
     expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledOnce()
-    expect(setup.state.finalEncroachment).toBeNull()
+    expect(setup.state.presentation).toBeNull()
     expect(setup.state.resultReady).toBe(false)
     expect(setup.feedback.status).toBe('error')
     expect(setup.onError).toHaveBeenCalledWith(presentationError)
@@ -326,8 +320,7 @@ describe('Backtrack canonical integration', () => {
     expect(Calculate).toHaveBeenCalledTimes(2)
     expect(createPresentation).toHaveBeenCalledTimes(2)
     expect(setup.calculationClient.calculateBacktrack).toHaveBeenCalledTimes(2)
-    expect(setup.state.finalEncroachment)
-      .toBe(presentation.finalEncroachment)
+    expect(setup.state.presentation).toBe(presentation)
     expect(setup.state.resultReady).toBe(true)
     expect(setup.feedback.status).toBe('ready')
     expect(formatRangeFeedback(setup.feedback)).toBeNull()
@@ -350,7 +343,7 @@ describe('Backtrack canonical integration', () => {
     await expect(setup.runner.run({params: createParams()}))
       .resolves.toBe(false)
 
-    expect(setup.state.finalEncroachment).toBeNull()
+    expect(setup.state.presentation).toBeNull()
     expect(setup.feedback.status).toBe('rejected')
     expect(formatRangeFeedback(setup.feedback)).toMatchObject({
       type: 'error',

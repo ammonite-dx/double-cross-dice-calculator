@@ -1,33 +1,25 @@
-<script setup>
+<script setup lang="ts">
 
     import { computed } from 'vue';
     import { useDisplay } from 'vuetify'
     import { Chart,ArcElement,Tooltip,Title,Legend } from 'chart.js';
     import { Doughnut } from 'vue-chartjs';
     import ChartDataLabels from 'chartjs-plugin-datalabels';
-    import { getFinalEncroachmentChartData,getFinalEncroachmentChartOptions,getFinalEncroachmentChartStyle } from './BacktrackChartAdapter';
+    import type { BacktrackChartPresentation } from '../model/BacktrackPresentation'
+    import { getBacktrackChartData,getBacktrackChartOptions,getBacktrackChartStyle } from './BacktrackChartAdapter';
 
     Chart.register(ArcElement,Tooltip,Title,Legend,ChartDataLabels);
 
-    const props = defineProps(['finalEncroachment','mode']);
+    const props = defineProps<{ chart: BacktrackChartPresentation }>();
     const { mdAndUp,smAndUp } = useDisplay()
-    const data = computed(() => getFinalEncroachmentChartData(props.finalEncroachment,props.mode));
-    const options = computed(() => getFinalEncroachmentChartOptions(props.mode,smAndUp.value));
-    const style = computed(() => getFinalEncroachmentChartStyle(mdAndUp.value))
-    const accessibleName = computed(() => {
-        const titles = {
-            single: '一倍振り',
-            undead: '一倍振り（屍人・悪夢）',
-            double: '二倍振り',
-            second: '二倍振りと追加振り',
-        }
-        return `最終侵蝕率分布 ${titles[props.mode] ?? ''}`.trim()
-    })
+    const data = computed(() => getBacktrackChartData(props.chart));
+    const options = computed(() => getBacktrackChartOptions(props.chart,smAndUp.value));
+    const style = computed(() => getBacktrackChartStyle(mdAndUp.value))
 
 </script>
 
 <template>
     <div class="ma-0">
-        <Doughnut :data="data" :options="options" :style="style" :aria-label="accessibleName" />
+        <Doughnut :data="data" :options="options" :style="style" :aria-label="props.chart.accessibleName" />
     </div>
 </template>
