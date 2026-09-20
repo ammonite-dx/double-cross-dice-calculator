@@ -14,9 +14,8 @@
 
 ## 次に行う作業
 
-1. **R27-B2c2: Typed RuntimeDamageRollClient**: productionの`RuntimeDamageRollClient.js`を直接検証する回帰テストを先に整備し、Worker protocol、Abort、cache、resource leaseの境界を固定してからTypeScript化する。`ResourceGuard.ts`との同期・非同期契約と、full-tailの数値結果を維持する。
-2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+2. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -36,3 +35,4 @@
 - **R27-B2a: typed request coordination / feedback runtime**: `CalculationRequestCoordinator`と`CalculationFeedback`をTypeScriptへ移行し、one-running plus latest-queued、abort composition、stale suppression、feedback lifecycleを維持した。request、runner、snapshot failure、synthetic cancellationのcontextを実装形状に合わせて分離し、request status union、構造的なplan/error処理、genericなfeedback表示と初期計算の契約を追加した。当時のCalculationClient実装、ResourceGuard実装、Worker実装、`checkJs:false`は変更していない。詳細は[`archive/r27-b2a-typed-request-coordination.md`](./archive/r27-b2a-typed-request-coordination.md)を参照する。
 - **R27-B2b: typed CalculationClient implementation**: `CalculationClient.ts`へ移行し、raw inputとnormalized input、operation別range plan、partial dependency injection、runtime DX LRU cache、sync/async ResourceLease、Total Damageのsnapshotとplan identity、Backtrackの歴史的位置引数を明示型へ接続した。既存の計算式、range policy、resource policy、latest-wins、Worker境界、`checkJs:false`、JS計算依存は変更していない。詳細は[`archive/r27-b2b-typed-calculation-client.md`](./archive/r27-b2b-typed-calculation-client.md)を参照する。
 - **R27-B2c1: typed ResourceGuard runtime**: `ResourceGuard.ts`へ移行し、partial policyと`capacity` alias、AbortSignal-like入力、policy/request normalization、reservation計算、FIFO queue、queued abort、active lease ownership、snapshot契約を明示型へ接続した。`acquire()`の常時Promise、`acquireLease()`／`acquirePlan()`の即時lease、invalid requestのrejected Promiseを維持し、`ResourceGuard.js`は削除した。詳細は[`archive/r27-b2c1-typed-resource-guard.md`](./archive/r27-b2c1-typed-resource-guard.md)を参照する。
+- **R27-B2c2: typed RuntimeDamageRollClient**: productionのRuntime Damage Roll clientを`RuntimeDamageRollClient.ts`へ移行し、Worker本体はJSのまま維持した。production lifecycle suiteを正本として1 active + FIFO queue、pending/queued dedup、subscriber単位Abort、Worker tokenによるstale event抑制、Worker再生成、LRU cache、defensive copy、caller optionsとWorker wire optionsの分離を回帰テストと型で固定した。旧実装と重複するexperiment client testは削除し、ResourceGuardのlease所有権と既存Worker protocolは変更していない。詳細は[`archive/r27-b2c2-typed-runtime-damage-roll-client.md`](./archive/r27-b2c2-typed-runtime-damage-roll-client.md)を参照する。
