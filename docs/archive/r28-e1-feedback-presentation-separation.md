@@ -22,9 +22,13 @@ R28-E1は、表示責務の分離、テスト境界の分離、TODOと本アー�
 - `b9c20f7` `test: separate feedback presentation contracts`
 - `d0a62c6` `docs: record R28-E1 feedback presentation separation`
 
+その後のclosure follow-upで、AbortError分類をruntimeの正本へ統一し、実際のResourceGuardErrorによるOVERSIZE／QUEUE_FULL表示回帰を追加した。最終的な作業単位は次の4コミットである。
+
+- `6f95128` `fix: close R28-E1 presentation boundary`
+
 ## 検証
 
-- Vitest: 87 files／1011 testsが成功した。
+- Vitest: 87 files／1013 testsが成功した。
 - `npm run typecheck`、`npm run lint`、`npm run lint:markdown`が成功した。
 - `formatRangeFeedback`のruntime exportと`CalculationRangeFeedbackDisplay`のruntime typeは削除され、formatterとRangePlanNoticeだけが表示整形を参照する。
 - `git diff --check`、`npm run build`、`npm run verify:browser`が成功した。
