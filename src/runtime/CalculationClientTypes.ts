@@ -63,8 +63,8 @@ export interface CheckCalculationResult {
 
 export interface CalculationClient {
   planCheck(
-    params: { action: ScoreInput; reaction: ScoreInput },
-    difficulty?: DifficultyInput,
+    params: CheckInputSnapshot['params'],
+    difficulty?: Partial<DifficultyInput>,
     policy?: RangePolicyInput,
   ): CheckCalculationRangePlan
   planAttackCombo(
@@ -72,12 +72,12 @@ export interface CalculationClient {
     policy?: RangePolicyInput,
   ): AttackCalculationRangePlan
   planBacktrack(
-    params: BacktrackParams,
+    params: Partial<BacktrackParams>,
     policy?: RangePolicyInput,
   ): BacktrackCalculationRangePlan
   calculateCheck(
     params: CheckInputSnapshot['params'],
-    difficulty: DifficultyInput,
+    difficulty?: Partial<DifficultyInput>,
     options?: CheckCalculationOptions,
   ): Promise<CheckCalculationResult>
   calculateAttack(
@@ -89,7 +89,7 @@ export interface CalculationClient {
     options?: TotalDamageClientOptions,
   ): Promise<TotalDamageResult>
   calculateBacktrack(
-    params: BacktrackParams,
+    params: Partial<BacktrackParams>,
     options?: BacktrackCalculationOptions,
   ): Promise<BacktrackCalculationResult>
 }

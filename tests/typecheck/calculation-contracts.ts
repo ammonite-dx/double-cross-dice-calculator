@@ -19,6 +19,13 @@ import type {
   BacktrackDistributionGenerationRequest,
   ValidatedBacktrackExecutionPlan,
 } from '../../src/calculation/BacktrackCalculationTypes'
+import {
+  createCalculationClient,
+  createCalculationDependencies,
+} from '../../src/runtime/CalculationClient'
+import type {
+  CalculationClientDependencyOverrides,
+} from '../../src/runtime/CalculationClientDependencyTypes'
 
 declare const client: CalculationClient
 
@@ -146,3 +153,53 @@ const validatedBacktrackPlan: ValidatedBacktrackExecutionPlan = {
   diceCounts: generationRequest.diceCounts,
 }
 void validatedBacktrackPlan
+
+// R27-B2b runtime/public-contract regressions.
+const concreteClient: CalculationClient = createCalculationClient()
+const completeDependencies = createCalculationDependencies()
+const rawCheckParams = {
+  action: { dice: 1, critical: 10, skill: 0 },
+  reaction: { dice: 1, critical: 10, skill: 0 },
+}
+
+void concreteClient.calculateCheck(rawCheckParams, undefined)
+void concreteClient.calculateCheck(rawCheckParams, { opposed: true })
+// @ts-expect-error: difficulty opposed must be boolean.
+void concreteClient.calculateCheck(rawCheckParams, { opposed: 'false' })
+
+void concreteClient.planBacktrack({ lois: 2, dlois: '屍人' })
+void concreteClient.calculateBacktrack({ lois: 2 })
+
+const concreteCheckPlan = concreteClient.planCheck(rawCheckParams)
+concreteCheckPlan.operation satisfies 'check'
+const concreteAttackPlan = concreteClient.planAttackCombo({
+  action: {
+    score: { dice: 1, critical: 10, skill: 0 },
+    damage: { dice: 0, value: 0 },
+  },
+  reaction: {
+    mode: 'ドッジ',
+    score: { dice: 1, critical: 10, skill: 0 },
+    damage: { dice: 0, value: 0 },
+  },
+})
+concreteAttackPlan.operation satisfies 'attack'
+
+const dependencyOverrides: CalculationClientDependencyOverrides = {
+  calculateDxDistribution: (input, options) => {
+    input.dice
+    options?.workingLength
+    return new Float64Array([1])
+  },
+}
+const overriddenClient: CalculationClient = createCalculationClient(
+  dependencyOverrides,
+)
+void overriddenClient
+void completeDependencies
+
+const invalidDependencyOverrides: CalculationClientDependencyOverrides = {
+  // @ts-expect-error: score dependency must return a score envelope.
+  calculateScore: () => 1,
+}
+void invalidDependencyOverrides
