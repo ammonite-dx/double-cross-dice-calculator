@@ -14,10 +14,9 @@
 
 ## 次に行う作業
 
-1. **R28-E1: CalculationFeedback presentation separation**: runtimeに残るユーザー向け表示文言とformatterをpresentation側へ分離する。R28はreview gateごとに停止し、計算・入力・表示の意味論は変更しない。
-2. **R28-E2: Backtrack chart presentation cleanup**: Backtrackのチャート用カテゴリpresentationを意味に合う型と責務へ整理する。カテゴリ境界、ラベル、色、確率値は変更しない。
-3. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-4. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **R28-E2: Backtrack chart presentation cleanup**: Backtrackのチャート用カテゴリpresentationを意味に合う型と責務へ整理する。カテゴリ境界、ラベル、色、確率値は変更しない。
+2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -44,3 +43,4 @@
 - **R28-B2: historical experiment test isolation / command cleanup**: 履歴的な11テストを`tests/experiments/`へ移し、通常のVitest suiteから除外した。`npm run test:experiments`で明示的に実行でき、現行のbenchmark・audit・verification commandは目的を表す名前へ整理した。現行の実験READMEとcommand contract testを更新し、production sourceとreference suiteは変更していない。詳細は[`archive/r28-b2-historical-test-isolation.md`](./archive/r28-b2-historical-test-isolation.md)を参照する。次はR28-CのUI構造・命名整理である。
 - **R28-C: thin UI structure / naming cleanup**: feature routeを各feature pageへ直接接続し、薄いview・feature barrel・Backtrack入力ラッパーを削除した。Checkの難易度フォームとイベントを`Difficulty`へ統一し、残存していた`Dfclty`／`dfclty`表記をproduction sourceから除去した。Check、Attack、Backtrackのチャートアダプタを責務ごとの名前へ変更し、チャートのデータ・表示意味論は維持した。詳細は[`archive/r28-c-thin-ui-structure-cleanup.md`](./archive/r28-c-thin-ui-structure-cleanup.md)を参照する。次はR28-DのCSS責務整理である。
 - **R28-D: display-form style ownership**: Checkの`SettingForm`、Attackの`ScoreSettingForm`、`DamageSettingForm`が共有表示範囲CSSをそれぞれ明示的にimportし、`display-range-form` root class配下でのみVuetify内部selectorを適用するよう整理した。既存のフォームロジック、表示範囲契約、チャート、計算は変更していない。desktopと390x844のmobileで各フォーム数とcomputed styleをbrowser smokeから検証した。詳細は[`archive/r28-d-display-style-ownership.md`](./archive/r28-d-display-style-ownership.md)を参照する。次はR28-E1のpresentation分離である。
+- **R28-E1: CalculationFeedback presentation separation**: `CalculationFeedback`からユーザー向け表示文言、数値・メモリ整形、overflow表示、ResourceGuardの表示分類を`RangePlanNoticeFormatter`へ分離した。`RangePlanNotice`は新formatterを直接利用し、runtimeはfeedback stateのライフサイクル・エラー分類・latest runnerだけを担う。表示文言、表示DTO、計算・入力の意味論は変更していない。詳細は[`archive/r28-e1-feedback-presentation-separation.md`](./archive/r28-e1-feedback-presentation-separation.md)を参照する。次はR28-E2のBacktrack chart presentation cleanupである。
