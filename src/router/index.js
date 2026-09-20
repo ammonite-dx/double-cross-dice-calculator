@@ -2,10 +2,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
-    {path: '/', component: () => import('@/views/Home.vue')},
-    {path: '/check', component: () => import('@/views/Check.vue')},
-    {path: '/attack', component: () => import('@/views/Attack.vue')},
-    {path: '/backtrack', component: () => import('@/views/Backtrack.vue')}
+    { path: '/', component: () => import('@/views/Home.vue') },
+    { path: '/check', component: () => import('@/features/check/ui/CheckPage.vue') },
+    { path: '/attack', component: () => import('@/features/attack/ui/AttackPage.vue') },
+    { path: '/backtrack', component: () => import('@/features/backtrack/ui/BacktrackPage.vue') },
 ]
 
 const router = createRouter({
