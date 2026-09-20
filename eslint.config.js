@@ -152,6 +152,7 @@ export default [
       '.wrangler/**',
       'coverage/**',
       'dist/**',
+      'dist-dynamic-distribution-ranges/**',
       'dist-phase2h-browser/**',
       'generator/.pytest_cache/**',
       'generator/.ruff_cache/**',
@@ -163,15 +164,38 @@ export default [
   ...pluginVue.configs['flat/essential'],
   {
     files: ['**/*.{js,mjs,vue}'],
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.node,
-      },
-    },
     rules: {
       'vue/multi-word-component-names': 'off',
       'vue/no-mutating-props': ['error', { shallowOnly: true }],
+    },
+  },
+  {
+    files: ['src/**/*.{js,mjs,ts,vue}'],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+  {
+    files: ['src/runtime/RuntimeDamageRollWorker.js'],
+    languageOptions: {
+      globals: globals.worker,
+    },
+  },
+  {
+    files: [
+      'tests/**/*.{js,mjs,ts}',
+      'scripts/**/*.{js,mjs,ts}',
+      'tooling/**/*.{js,mjs,ts}',
+      'experiments/**/*.{js,mjs,ts}',
+      '*.config.{js,mjs,ts}',
+      'eslint.config.js',
+      'vite.config.js',
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
     },
   },
   {
