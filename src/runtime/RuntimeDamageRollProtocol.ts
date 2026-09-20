@@ -1,8 +1,8 @@
 /**
- * Typed protocol for the browser runtime damage-roll Worker. The JavaScript
- * client and Worker remain the runtime implementation; this module records
- * the message boundary for future migration without changing transfer or
- * validation behavior.
+ * Typed protocol for the browser runtime damage-roll Worker. The client is
+ * implemented in TypeScript while the Worker remains JavaScript; this module
+ * records their message boundary without changing transfer or validation
+ * behavior.
  */
 
 export interface RuntimeDamageRollOptions {

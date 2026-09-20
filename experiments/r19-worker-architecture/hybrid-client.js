@@ -2,7 +2,7 @@ import {
   createCalculationClient,
   createCalculationDependencies,
 } from '../../src/runtime/CalculationClient.ts'
-import { createRuntimeDamageRollClient } from '../../src/runtime/RuntimeDamageRollClient.js'
+import { createRuntimeDamageRollClient } from '../../src/runtime/RuntimeDamageRollClient.ts'
 
 /**
  * Creates an experiment-local hybrid client with an independently owned

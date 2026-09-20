@@ -3,27 +3,66 @@ import {
   normalizeRuntimeDamageRollOptions,
   validateRuntimeDamageRollInputs,
 } from '../calculation/RuntimeDamageRollLimits'
+import type {
+  RuntimeDamageRollCalculateOptions,
+  RuntimeDamageRollClient,
+  RuntimeDamageRollClientOptions,
+  RuntimeDamageRollWorkerEvent,
+  RuntimeDamageRollWorkerLike,
+  RuntimeDamageRollWeights,
+} from './RuntimeDamageRollClientTypes'
+import type {
+  RuntimeDamageRollOptions,
+  RuntimeDamageRollWorkerResponse,
+} from './RuntimeDamageRollProtocol'
 
 const DEFAULT_CACHE_SIZE = 8
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
 
-/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollClientOptions} RuntimeDamageRollClientOptions */
-/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollWorkerLike} RuntimeDamageRollWorkerLike */
-/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollCalculateOptions} RuntimeDamageRollCalculateOptions */
-/** @typedef {import('./RuntimeDamageRollClientTypes').RuntimeDamageRollClient} RuntimeDamageRollClient */
+type RuntimeDamageRollJobStatus = 'queued' | 'active' | 'settled'
 
-function createAbortError(message = 'The calculation was aborted') {
+interface RuntimeDamageRollRequestIdentity {
+  readonly kazanari: number
+  readonly weights: Float64Array
+  readonly options: RuntimeDamageRollOptions
+}
+
+interface RuntimeDamageRollSubscriber {
+  readonly job: RuntimeDamageRollJob
+  readonly signal?: AbortSignal
+  abortListener: (() => void) | null
+  settled: boolean
+  readonly resolve: (value: Float64Array) => void
+  readonly reject: (reason?: unknown) => void
+}
+
+interface RuntimeDamageRollJob extends RuntimeDamageRollRequestIdentity {
+  readonly id: number
+  readonly subscribers: Set<RuntimeDamageRollSubscriber>
+  status: RuntimeDamageRollJobStatus
+  settled: boolean
+}
+
+interface RuntimeDamageRollCacheEntry extends RuntimeDamageRollRequestIdentity {
+  readonly distribution: Float64Array
+}
+
+interface RuntimeDamageRollWorkerToken {
+  readonly worker: RuntimeDamageRollWorkerLike
+}
+
+function createAbortError(message = 'The calculation was aborted'): Error {
   const error = new Error(message)
   error.name = 'AbortError'
   return error
 }
 
 function validateDistribution(
-  distribution,
-  expectedTotal,
-  expectedLength
-) {
+  distribution: unknown,
+  expectedTotal: number,
+  expectedLength: number,
+): asserts distribution is Float64Array {
   if (
     !(distribution instanceof Float64Array) ||
     distribution.length !== expectedLength
@@ -47,7 +86,12 @@ function validateDistribution(
   }
 }
 
-function requestsEqual(entry, weights, kazanari, options) {
+function requestsEqual(
+  entry: RuntimeDamageRollRequestIdentity,
+  weights: RuntimeDamageRollWeights,
+  kazanari: number,
+  options: RuntimeDamageRollOptions,
+): boolean {
   if (
     entry.kazanari !== kazanari ||
     entry.weights.length !== weights.length ||
@@ -66,7 +110,10 @@ function requestsEqual(entry, weights, kazanari, options) {
   return true
 }
 
-function waitWithSignal(promise, signal) {
+function waitWithSignal(
+  promise: Promise<Float64Array>,
+  signal: AbortSignal | undefined,
+): Promise<Float64Array> {
   if (!signal) {
     return promise
   }
@@ -74,7 +121,7 @@ function waitWithSignal(promise, signal) {
     return Promise.reject(createAbortError())
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise<Float64Array>((resolve, reject) => {
     const abort = () => {
       signal.removeEventListener('abort', abort)
       reject(createAbortError())
@@ -85,59 +132,60 @@ function waitWithSignal(promise, signal) {
         signal.removeEventListener('abort', abort)
         resolve(value)
       },
-      (error) => {
+      (error: unknown) => {
         signal.removeEventListener('abort', abort)
         reject(error)
-      }
+      },
     )
   })
 }
 
-function defaultWorkerFactory() {
+function defaultWorkerFactory(): RuntimeDamageRollWorkerLike {
   return new Worker(new URL('./RuntimeDamageRollWorker.js', import.meta.url), {
     type: 'module',
   })
 }
 
-/**
- * @param {RuntimeDamageRollClientOptions} [options]
- * @returns {RuntimeDamageRollClient}
- */
 export function createRuntimeDamageRollClient({
   workerFactory = defaultWorkerFactory,
   cacheSize = DEFAULT_CACHE_SIZE,
-} = {}) {
+}: RuntimeDamageRollClientOptions = {}): RuntimeDamageRollClient {
   if (!Number.isInteger(cacheSize) || cacheSize < 0) {
     throw new RangeError('cacheSize must be a non-negative integer')
   }
 
-  let worker = null
-  let workerToken = null
+  let worker: RuntimeDamageRollWorkerLike | null = null
+  let workerToken: RuntimeDamageRollWorkerToken | null = null
   let nextRequestId = 0
   let disposed = false
-  let activeJob = null
-  const queuedJobs = []
-  const cache = []
+  let activeJob: RuntimeDamageRollJob | null = null
+  const queuedJobs: RuntimeDamageRollJob[] = []
+  const cache: RuntimeDamageRollCacheEntry[] = []
 
-  function settleSubscriber(subscriber, error, distribution) {
+  function settleSubscriber(
+    subscriber: RuntimeDamageRollSubscriber,
+    error: unknown,
+    distribution: Float64Array | null,
+  ): void {
     if (subscriber.settled) {
       return
     }
     subscriber.settled = true
     if (subscriber.signal && subscriber.abortListener) {
-      subscriber.signal.removeEventListener(
-        'abort',
-        subscriber.abortListener
-      )
+      subscriber.signal.removeEventListener('abort', subscriber.abortListener)
     }
     if (error) {
       subscriber.reject(error)
     } else {
-      subscriber.resolve(distribution.slice())
+      subscriber.resolve(distribution!.slice())
     }
   }
 
-  function settleJob(job, error, distribution) {
+  function settleJob(
+    job: RuntimeDamageRollJob,
+    error: unknown,
+    distribution: Float64Array | null = null,
+  ): void {
     if (job.settled) {
       return
     }
@@ -149,18 +197,18 @@ export function createRuntimeDamageRollClient({
     job.subscribers.clear()
   }
 
-  function isCurrentWorker(token) {
+  function isCurrentWorker(token: RuntimeDamageRollWorkerToken): boolean {
     return workerToken === token && worker === token.worker
   }
 
-  function terminateCurrentWorker() {
+  function terminateCurrentWorker(): void {
     const currentWorker = worker
     worker = null
     workerToken = null
     currentWorker?.terminate()
   }
 
-  function removeQueuedJob(job) {
+  function removeQueuedJob(job: RuntimeDamageRollJob): boolean {
     const index = queuedJobs.indexOf(job)
     if (index >= 0) {
       queuedJobs.splice(index, 1)
@@ -169,7 +217,7 @@ export function createRuntimeDamageRollClient({
     return false
   }
 
-  function cancelQueuedJob(job) {
+  function cancelQueuedJob(job: RuntimeDamageRollJob): void {
     if (job.settled || job.status !== 'queued') {
       return
     }
@@ -177,13 +225,13 @@ export function createRuntimeDamageRollClient({
     settleJob(job, createAbortError())
   }
 
-  function startNextJob() {
+  function startNextJob(): void {
     if (disposed || activeJob !== null) {
       return
     }
 
     while (queuedJobs.length > 0) {
-      const job = queuedJobs.shift()
+      const job = queuedJobs.shift()!
       if (job.settled) {
         continue
       }
@@ -204,9 +252,9 @@ export function createRuntimeDamageRollClient({
             kazanari: job.kazanari,
             options: job.options,
           },
-          [transmittedWeights.buffer]
+          [transmittedWeights.buffer],
         )
-      } catch (error) {
+      } catch (error: unknown) {
         activeJob = null
         settleJob(job, error)
         continue
@@ -215,7 +263,11 @@ export function createRuntimeDamageRollClient({
     }
   }
 
-  function finishActiveJob(job, error, distribution = null) {
+  function finishActiveJob(
+    job: RuntimeDamageRollJob,
+    error: unknown,
+    distribution: Float64Array | null = null,
+  ): void {
     if (activeJob !== job || job.settled) {
       return
     }
@@ -224,7 +276,7 @@ export function createRuntimeDamageRollClient({
     startNextJob()
   }
 
-  function abortActiveJob(job) {
+  function abortActiveJob(job: RuntimeDamageRollJob): void {
     if (activeJob !== job || job.settled) {
       return
     }
@@ -234,18 +286,22 @@ export function createRuntimeDamageRollClient({
     startNextJob()
   }
 
-  function handleMessage(token, event) {
+  function handleMessage(
+    token: RuntimeDamageRollWorkerToken,
+    event: RuntimeDamageRollWorkerEvent,
+  ): void {
     if (!isCurrentWorker(token) || activeJob === null) {
       return
     }
     const job = activeJob
-    if (event.data?.id !== job.id) {
+    const response: RuntimeDamageRollWorkerResponse | undefined = event.data
+    if (response?.id !== job.id) {
       return
     }
 
-    if (event.data.error) {
-      const error = new Error(event.data.error.message)
-      error.name = event.data.error.name || 'Error'
+    if ('error' in response) {
+      const error = new Error(response.error.message)
+      error.name = response.error.name || 'Error'
       finishActiveJob(job, error)
       return
     }
@@ -253,14 +309,14 @@ export function createRuntimeDamageRollClient({
     try {
       const expectedTotal = job.weights.reduce(
         (total, weight) => total + weight,
-        0
+        0,
       )
       validateDistribution(
-        event.data.distribution,
+        response.distribution,
         expectedTotal,
-        job.options.distributionLength
+        job.options.distributionLength,
       )
-      const distribution = event.data.distribution
+      const distribution = response.distribution
 
       if (cacheSize > 0) {
         cache.unshift({
@@ -272,22 +328,25 @@ export function createRuntimeDamageRollClient({
         cache.splice(cacheSize)
       }
       finishActiveJob(job, null, distribution)
-    } catch (error) {
+    } catch (error: unknown) {
       finishActiveJob(job, error)
     }
   }
 
-  function rejectQueuedJobs(error) {
+  function rejectQueuedJobs(error: unknown): void {
     while (queuedJobs.length > 0) {
-      settleJob(queuedJobs.shift(), error)
+      settleJob(queuedJobs.shift()!, error)
     }
   }
 
-  function handleWorkerError(token, event) {
+  function handleWorkerError(
+    token: RuntimeDamageRollWorkerToken,
+    event: RuntimeDamageRollWorkerEvent,
+  ): void {
     if (!isCurrentWorker(token)) {
       return
     }
-    const error = new Error(event?.message || 'Runtime damage Worker failed')
+    const error = new Error(event.message || 'Runtime damage Worker failed')
     const job = activeJob
     activeJob = null
     terminateCurrentWorker()
@@ -297,43 +356,45 @@ export function createRuntimeDamageRollClient({
     rejectQueuedJobs(error)
   }
 
-  function getWorker() {
+  function getWorker(): RuntimeDamageRollWorkerLike {
     if (!worker) {
       const createdWorker = workerFactory()
-      const token = { worker: createdWorker }
+      const token: RuntimeDamageRollWorkerToken = { worker: createdWorker }
       worker = createdWorker
       workerToken = token
-      createdWorker.addEventListener(
-        'message',
-        (event) => handleMessage(token, event)
-      )
-      createdWorker.addEventListener(
-        'error',
-        (event) => handleWorkerError(token, event)
-      )
-      createdWorker.addEventListener(
-        'messageerror',
-        (event) => handleWorkerError(token, event)
-      )
+      createdWorker.addEventListener('message', (event) => {
+        handleMessage(token, event)
+      })
+      createdWorker.addEventListener('error', (event) => {
+        handleWorkerError(token, event)
+      })
+      createdWorker.addEventListener('messageerror', (event) => {
+        handleWorkerError(token, event)
+      })
     }
     return worker
   }
 
-  function findPending(weights, kazanari, options) {
-    if (
-      activeJob &&
-      requestsEqual(activeJob, weights, kazanari, options)
-    ) {
+  function findPending(
+    weights: RuntimeDamageRollWeights,
+    kazanari: number,
+    options: RuntimeDamageRollOptions,
+  ): RuntimeDamageRollJob | null {
+    if (activeJob && requestsEqual(activeJob, weights, kazanari, options)) {
       return activeJob
     }
     return queuedJobs.find((job) =>
-      requestsEqual(job, weights, kazanari, options)
+      requestsEqual(job, weights, kazanari, options),
     ) ?? null
   }
 
-  function takeCached(weights, kazanari, options) {
+  function takeCached(
+    weights: RuntimeDamageRollWeights,
+    kazanari: number,
+    options: RuntimeDamageRollOptions,
+  ): Float64Array | null {
     const index = cache.findIndex((entry) =>
-      requestsEqual(entry, weights, kazanari, options)
+      requestsEqual(entry, weights, kazanari, options),
     )
     if (index < 0) {
       return null
@@ -344,14 +405,17 @@ export function createRuntimeDamageRollClient({
     return entry.distribution.slice()
   }
 
-  function subscribe(job, signal) {
-    let resolveSubscriber
-    let rejectSubscriber
-    const promise = new Promise((resolve, reject) => {
+  function subscribe(
+    job: RuntimeDamageRollJob,
+    signal: AbortSignal | undefined,
+  ): Promise<Float64Array> {
+    let resolveSubscriber!: (value: Float64Array) => void
+    let rejectSubscriber!: (reason?: unknown) => void
+    const promise = new Promise<Float64Array>((resolve, reject) => {
       resolveSubscriber = resolve
       rejectSubscriber = reject
     })
-    const subscriber = {
+    const subscriber: RuntimeDamageRollSubscriber = {
       job,
       signal,
       abortListener: null,
@@ -364,7 +428,7 @@ export function createRuntimeDamageRollClient({
       if (subscriber.settled) {
         return
       }
-      settleSubscriber(subscriber, createAbortError())
+      settleSubscriber(subscriber, createAbortError(), null)
       job.subscribers.delete(subscriber)
       if (job.subscribers.size !== 0 || job.settled) {
         return
@@ -388,15 +452,19 @@ export function createRuntimeDamageRollClient({
     return promise
   }
 
-  function calculate(weights, kazanari, options = {}) {
+  function calculate(
+    weights: RuntimeDamageRollWeights,
+    kazanari: number,
+    options: RuntimeDamageRollCalculateOptions = {},
+  ): Promise<Float64Array> {
     if (disposed) {
       return Promise.reject(new Error('Runtime damage client is disposed'))
     }
     validateRuntimeDamageRollInputs(weights, kazanari)
     const normalizedOptions = normalizeRuntimeDamageRollOptions(
       options,
-      getRuntimeDamageRollRawSupportMax(weights)
-    )
+      getRuntimeDamageRollRawSupportMax(weights),
+    ) as RuntimeDamageRollOptions
     const signal = options?.signal
     if (signal?.aborted) {
       return Promise.reject(createAbortError())
@@ -408,11 +476,7 @@ export function createRuntimeDamageRollClient({
       return waitWithSignal(settled, signal)
     }
 
-    const existing = findPending(
-      weights,
-      kazanari,
-      normalizedOptions
-    )
+    const existing = findPending(weights, kazanari, normalizedOptions)
     if (existing) {
       return subscribe(existing, signal)
     }
@@ -420,7 +484,7 @@ export function createRuntimeDamageRollClient({
     const id = nextRequestId
     nextRequestId += 1
     const storedWeights = Float64Array.from(weights)
-    const job = {
+    const job: RuntimeDamageRollJob = {
       id,
       kazanari,
       weights: storedWeights,
@@ -435,11 +499,11 @@ export function createRuntimeDamageRollClient({
     return request
   }
 
-  function clearCache() {
+  function clearCache(): void {
     cache.length = 0
   }
 
-  function dispose() {
+  function dispose(): void {
     if (disposed) {
       return
     }

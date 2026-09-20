@@ -28,7 +28,7 @@ import {
   createCalculationDependencies,
 } from '../../src/runtime/CalculationClient.ts'
 import { createResourceGuard } from '../../src/runtime/ResourceGuard.ts'
-import { createRuntimeDamageRollClient } from '../../src/runtime/RuntimeDamageRollClient.js'
+import { createRuntimeDamageRollClient } from '../../src/runtime/RuntimeDamageRollClient.ts'
 import { generateMixedDamageDistribution } from '../../src/calculation/RuntimeDamageRollCalculator.js'
 
 import { createInstrumentedRuntime } from './instrumented-runtime.js'
