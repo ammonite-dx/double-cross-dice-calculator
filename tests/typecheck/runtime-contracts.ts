@@ -1,6 +1,7 @@
 import type {
   RuntimeDamageRollClient,
   RuntimeDamageRollWorkerLike,
+  RuntimeDamageRollWeights,
 } from '../../src/runtime/RuntimeDamageRollClientTypes'
 import type {
   RuntimeDamageRollWorkerEnvelope,
@@ -36,6 +37,12 @@ import {
 declare const damageClient: RuntimeDamageRollClient
 declare const worker: RuntimeDamageRollWorkerLike
 declare const guard: ResourceGuard
+declare const browserWorker: Worker
+
+const browserWorkerLike: RuntimeDamageRollWorkerLike = browserWorker
+const readonlyWeights: RuntimeDamageRollWeights = [1, 0]
+void browserWorkerLike
+void readonlyWeights
 
 const typedGuard: ResourceGuard = createResourceGuard({
   capacity: 1024,
@@ -74,6 +81,12 @@ if (isResourceGuardError(unknownError)) {
 }
 
 void damageClient.calculate([1], 0, { signal: new AbortController().signal })
+void damageClient.calculate(readonlyWeights, 0, {
+  requestId: 'request-id',
+  requestMetadata: { source: 'typecheck' },
+})
+// @ts-expect-error: typed-array weight vectors other than Float64Array are rejected at runtime.
+void damageClient.calculate(new Uint8Array([1]), 0)
 void worker
 void guard.acquireForPlan({
   operation: 'damage',

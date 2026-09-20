@@ -236,6 +236,51 @@ describe('production runtime damage roll Worker client', () => {
     expect(firstResult).not.toBe(secondResult)
   })
 
+  it('deduplicates identical requests while they are queued', async () => {
+    const { client, workers } = createHarness()
+    const active = client.calculate([1], 0)
+    const firstQueued = client.calculate([0, 1], 1)
+    const secondQueued = client.calculate(new Float64Array([0, 1]), 1)
+    const worker = workers[0]
+
+    expect(worker.messages).toHaveLength(1)
+    worker.respond(0, distributionAt(1))
+    await expect(active).resolves.toEqual(distributionAt(1))
+
+    expect(worker.messages).toHaveLength(2)
+    worker.respond(1, distributionAt(11))
+    const [firstResult, secondResult] = await Promise.all([
+      firstQueued,
+      secondQueued,
+    ])
+    expect(firstResult).toEqual(distributionAt(11))
+    expect(secondResult).toEqual(distributionAt(11))
+    expect(worker.messages).toHaveLength(2)
+  })
+
+  it('does not share requests with different FFT lengths', async () => {
+    const { client, workers } = createHarness()
+    const first = client.calculate([0, 1], 0, {
+      fftLength: 16,
+      distributionLength: 8,
+    })
+    const second = client.calculate([0, 1], 0, {
+      fftLength: 32,
+      distributionLength: 8,
+    })
+    const worker = workers[0]
+
+    expect(worker.messages).toHaveLength(1)
+    expect(worker.messages[0].message.options.fftLength).toBe(16)
+    worker.respond(0, distributionAt(1, 8))
+    await expect(first).resolves.toEqual(distributionAt(1, 8))
+
+    expect(worker.messages).toHaveLength(2)
+    expect(worker.messages[1].message.options.fftLength).toBe(32)
+    worker.respond(1, distributionAt(2, 8))
+    await expect(second).resolves.toEqual(distributionAt(2, 8))
+  })
+
   it('does not share requests with different weights or kazanari', async () => {
     const { client, workers } = createHarness()
     const requests = [

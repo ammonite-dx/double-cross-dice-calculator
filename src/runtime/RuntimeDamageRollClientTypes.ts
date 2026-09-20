@@ -10,7 +10,12 @@ export interface RuntimeDamageRollCalculateOptions {
   readonly distributionLength?: number
   readonly rawSupportMax?: number
   readonly signal?: AbortSignal
+  readonly requestId?: string | number
+  readonly requestMetadata?: Readonly<Record<string, unknown>>
 }
+
+/** Weight vectors accepted by the runtime validator. */
+export type RuntimeDamageRollWeights = readonly number[] | Float64Array
 
 export type RuntimeDamageRollWorkerEvent = Readonly<{
   readonly data?: RuntimeDamageRollWorkerResponse
@@ -26,12 +31,13 @@ export type RuntimeDamageRollWorkerEventType =
 export interface RuntimeDamageRollWorkerLike {
   postMessage(
     message: RuntimeDamageRollWorkerRequest,
-    transfer?: readonly Transferable[],
+    transfer?: Transferable[],
   ): void
   terminate(): void
   addEventListener(
     type: RuntimeDamageRollWorkerEventType,
     listener: (event: RuntimeDamageRollWorkerEvent) => void,
+    options?: boolean | AddEventListenerOptions,
   ): void
 }
 
@@ -42,7 +48,7 @@ export interface RuntimeDamageRollClientOptions {
 
 export interface RuntimeDamageRollClient {
   calculate(
-    weights: ArrayLike<number>,
+    weights: RuntimeDamageRollWeights,
     kazanari: number,
     options?: RuntimeDamageRollCalculateOptions,
   ): Promise<Float64Array>
