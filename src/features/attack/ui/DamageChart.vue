@@ -4,7 +4,7 @@
     import {
         getAttackDamageChartData,
         getAttackDamageChartOptions,
-    } from './ChartSetter';
+    } from './AttackChartAdapter';
 
     const props = defineProps({
         combos: {

@@ -41,7 +41,7 @@ import {
 import { sumDamage } from '../src/calculation/DamageAggregation'
 import {
   getAttackScoreChartData,
-} from '../src/features/attack/ui/ChartSetter'
+} from '../src/features/attack/ui/AttackChartAdapter'
 import {
   SUMMARY_UNAVAILABLE,
   formatSummaryExpectedValue,

@@ -2,7 +2,7 @@
 
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
-    import { getCheckChartOptions } from './ChartSetter';
+    import { getCheckChartOptions } from './CheckChartConfig';
 
     const props = defineProps({
         difficulty: {

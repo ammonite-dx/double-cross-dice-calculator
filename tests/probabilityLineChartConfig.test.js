@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   getCheckChartOptions,
-} from '../src/features/check/ui/ChartSetter'
+} from '../src/features/check/ui/CheckChartConfig'
 import {
   getAttackDamageChartOptions,
   getAttackScoreChartOptions,
-} from '../src/features/attack/ui/ChartSetter'
+} from '../src/features/attack/ui/AttackChartAdapter'
 import { getProbabilityLineChartStyle } from '../src/shared/chart/ProbabilityLineChartConfig'
 import {
   toChartPercentage,

@@ -5,7 +5,7 @@
     import { Chart,ArcElement,Tooltip,Title,Legend } from 'chart.js';
     import { Doughnut } from 'vue-chartjs';
     import ChartDataLabels from 'chartjs-plugin-datalabels';
-    import { getFinalEncroachmentChartData,getFinalEncroachmentChartOptions,getFinalEncroachmentChartStyle } from './ChartSetter';
+    import { getFinalEncroachmentChartData,getFinalEncroachmentChartOptions,getFinalEncroachmentChartStyle } from './BacktrackChartAdapter';
 
     Chart.register(ArcElement,Tooltip,Title,Legend,ChartDataLabels);
 

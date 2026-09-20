@@ -4,7 +4,7 @@
     import {
         getAttackScoreChartData,
         getAttackScoreChartOptions,
-    } from './ChartSetter';
+    } from './AttackChartAdapter';
 
     const props = defineProps({
         combos: {

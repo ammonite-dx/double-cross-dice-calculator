@@ -1,13 +1,13 @@
 import { getChartColor } from '@/shared/theme/ChartPalette';
 import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 
-export function getCheckChartOptions (dfclty) {
+export function getCheckChartOptions (difficulty) {
 
     /*
     概要:
         一般判定のスコアチャート描画用のオプションを作成する。
     input:
-        dfclty: {
+        difficulty: {
             opposed (boolean): 対決判定ならtrue。
             target (number): 判定難易度。
         }
@@ -63,20 +63,20 @@ export function getCheckChartOptions (dfclty) {
     */
 
     let annotations = {};
-    if (dfclty.opposed) {
+    if (difficulty.opposed) {
         return createProbabilityLineChartOptions({
             xAxisTitle: '達成値',
             tooltipTitlePrefix: '達成値',
-            distributionMode: dfclty.mode,
+            distributionMode: difficulty.mode,
             annotations,
         });
     } else {
-        const content = '難易度: ' + String(dfclty.target);
+        const content = '難易度: ' + String(difficulty.target);
         annotations = {
             line1: {
                 type: 'line',
                 scaleID: 'x',
-                value: dfclty.target,
+                value: difficulty.target,
                 borderColor: getChartColor(1),
                 borderWidth: 3,
                 label: {
@@ -93,7 +93,7 @@ export function getCheckChartOptions (dfclty) {
         return createProbabilityLineChartOptions({
             xAxisTitle: '達成値',
             tooltipTitlePrefix: '達成値',
-            distributionMode: dfclty.mode,
+            distributionMode: difficulty.mode,
             annotations,
         });
     }

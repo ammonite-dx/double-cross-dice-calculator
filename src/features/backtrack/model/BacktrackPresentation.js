@@ -237,7 +237,7 @@ function createChartPayload(results, params) {
 }
 
 /**
- * Convert complete backtrack PMFs into the legacy ChartSetter
+ * Convert complete backtrack PMFs into the chart adapter payload
  * payload. The result's `finalEncroachment` field intentionally has the
  * existing `{ single, double, second }` array shape; callers pass that field
  * to `getFinalEncroachmentChartData` without sending signed results through a

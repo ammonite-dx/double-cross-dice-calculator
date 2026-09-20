@@ -11,7 +11,7 @@ import {
 } from '../src/features/backtrack/model/BacktrackPresentation'
 import {
   getFinalEncroachmentChartData,
-} from '../src/features/backtrack/ui/ChartSetter'
+} from '../src/features/backtrack/ui/BacktrackChartAdapter'
 const RESULT_KEYS = ['single', 'double', 'second']
 
 function createPointResult(finalEncroachment) {
@@ -192,7 +192,7 @@ describe('backtrack canonical presentation adapter', () => {
     ])
   })
 
-  it('supports zero-dice producer output and preserves ChartSetter payload shape', () => {
+  it('supports zero-dice producer output and preserves chart adapter payload shape', () => {
     const params = {
       encroachment: 100,
       lois: 0,
@@ -241,7 +241,7 @@ describe('backtrack canonical presentation adapter', () => {
       .toBe(presentation.finalEncroachment.double)
   })
 
-  it('uses the undead ChartSetter mode for the six-category payload', () => {
+  it('uses the undead chart adapter mode for the six-category payload', () => {
     const presentation = createBacktrackPresentation(
       createResultsFromPoint(120),
       { encroachment: 120, value: 0, dlois: '不死者・悪夢' }

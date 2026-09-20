@@ -9,7 +9,7 @@ import {
 import { ATTACK_DISPLAY_MODES } from '../src/features/attack/model/AttackDisplayRequestSnapshot'
 import {
   getAttackDamageChartData,
-} from '../src/features/attack/ui/ChartSetter'
+} from '../src/features/attack/ui/AttackChartAdapter'
 import {
   SUMMARY_UNAVAILABLE,
   findComboPresentation,

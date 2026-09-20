@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   getFinalEncroachmentChartOptions,
-} from '../src/features/backtrack/ui/ChartSetter'
+} from '../src/features/backtrack/ui/BacktrackChartAdapter'
 
 function getDatalabels(smAndUp) {
   return getFinalEncroachmentChartOptions('single', smAndUp)
