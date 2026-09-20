@@ -3,7 +3,7 @@
   import { ref } from 'vue';
   import AppBarArea from '@/layouts/AppBarArea.vue';
   import MainArea from '@/layouts/MainArea.vue';
-  import NavigationDrawerArea from '@/layouts//NavigationDrawerArea.vue';
+  import NavigationDrawerArea from '@/layouts/NavigationDrawerArea.vue';
 
   const drawer = ref(false);
 

@@ -31,9 +31,11 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
+    "src/**/*.js",
     "src/**/*.vue",
     "tests/**/*.ts",
-    "tests/**/*.d.ts"
+    "tests/**/*.d.ts",
+    "tests/**/*.js"
   ],
   "exclude": [
     "node_modules",
