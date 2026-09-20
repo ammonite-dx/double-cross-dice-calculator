@@ -16,12 +16,18 @@ R28-E1では、計算フィードバックの状態管理と、ユーザー向�
 
 R28-E1は、表示責務の分離、テスト境界の分離、TODOと本アーカイブの更新を同一作業単位として実施した。R28-E2のBacktrack chart presentation cleanupは着手していない。
 
+実装は次の3コミットで構成した。
+
+- `8d0f8a3` `refactor: separate feedback presentation formatter`
+- `b9c20f7` `test: separate feedback presentation contracts`
+- `d0a62c6` `docs: record R28-E1 feedback presentation separation`
+
 ## 検証
 
 - Vitest: 87 files／1011 testsが成功した。
 - `npm run typecheck`、`npm run lint`、`npm run lint:markdown`が成功した。
 - `formatRangeFeedback`のruntime exportと`CalculationRangeFeedbackDisplay`のruntime typeは削除され、formatterとRangePlanNoticeだけが表示整形を参照する。
-- `git diff --check`、`npm run build`、`npm run verify:browser`はコミット前の最終検証で実行する。
+- `git diff --check`、`npm run build`、`npm run verify:browser`が成功した。
 
 ## 非対象と次の作業
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { formatRangeFeedback } from '../src/components/RangePlanNoticeFormatter'
+import {
+  ResourceGuardError,
+  RESOURCE_GUARD_ERROR_CODES,
+} from '../src/runtime/ResourceGuard'
 
 const warningPlan = {
   accepted: true,
@@ -124,6 +128,55 @@ describe('RangePlanNoticeFormatter', () => {
       '表示用メモリの見積りが大きすぎるため、計算結果を表示できません。',
       'チャートへ描画する点数が多すぎるため、計算結果を表示できません。',
     ])
+  })
+
+  it('formats a real ResourceGuard oversize error with reservation details', () => {
+    const display = formatRangeFeedback({
+      status: 'error',
+      plan: null,
+      error: new ResourceGuardError(
+        RESOURCE_GUARD_ERROR_CODES.OVERSIZE,
+        'internal oversize detail',
+        {
+          reservedBytes: 96 * 1024 * 1024,
+          capacityBytes: 64 * 1024 * 1024,
+        },
+      ),
+    })
+
+    expect(display).toMatchObject({
+      type: 'error',
+      title: '計算資源の制約により計算できません',
+      action: '同時実行中の計算が終わるのを待つか、入力を小さくして再試行してください。',
+    })
+    expect(display.reasons).toContain(
+      'この計算の予約量（96 MiB）が上限（64 MiB）を超えています。',
+    )
+    expect(display.reasons.join(' ')).not.toContain('internal oversize detail')
+  })
+
+  it('formats a real ResourceGuard queue-full error with queue details', () => {
+    const display = formatRangeFeedback({
+      status: 'error',
+      plan: null,
+      error: new ResourceGuardError(
+        RESOURCE_GUARD_ERROR_CODES.QUEUE_FULL,
+        'internal queue detail',
+        {
+          queuedCount: 32,
+          maxQueued: 32,
+        },
+      ),
+    })
+
+    expect(display).toMatchObject({
+      type: 'error',
+      title: '計算資源の制約により計算できません',
+    })
+    expect(display.reasons).toContain(
+      '計算待ち行列が満杯です（32/32）。しばらく待ってから再試行してください。',
+    )
+    expect(display.reasons.join(' ')).not.toContain('internal queue detail')
   })
 
   it('does not expose AbortError as a display', () => {

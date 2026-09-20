@@ -2,6 +2,7 @@ import {
   isResourceGuardError,
   RESOURCE_GUARD_ERROR_CODES,
 } from '../runtime/ResourceGuard'
+import { isAbortError } from '../runtime/CalculationFeedback'
 import type {
   CalculationFeedbackPlan,
   CalculationFeedbackState,
@@ -250,8 +251,4 @@ export function formatRangeFeedback<TPlan extends CalculationFeedbackPlan = Calc
       ? '入力値を下げるか、表示範囲を狭めて再試行してください。'
       : 'このまま計算します。',
   }
-}
-
-function isAbortError(error: unknown): boolean {
-  return isRecord(error) && error.name === 'AbortError'
 }
