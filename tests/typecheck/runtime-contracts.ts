@@ -33,6 +33,9 @@ import {
   createResourceGuard,
   isResourceGuardError,
 } from '../../src/runtime/ResourceGuard'
+import { createCheckRangePolicy } from '../../src/runtime/CheckRangePolicy'
+import type { DisplayRequestSnapshot } from '../../src/domain/CalculationInputs'
+import type { RangePolicyInput } from '../../src/calculation/planning/RangePlannerTypes'
 
 declare const damageClient: RuntimeDamageRollClient
 declare const worker: RuntimeDamageRollWorkerLike
@@ -57,6 +60,26 @@ const invalidPolicy: ResourceGuardPolicyInput = { unknown: 1 }
 void typedGuard
 void partialPolicy
 void invalidPolicy
+
+const typedCheckDisplay: DisplayRequestSnapshot = {
+  min: 0,
+  max: 30,
+  mode: 'pmf',
+}
+const typedCheckPolicy: RangePolicyInput = createCheckRangePolicy(
+  typedCheckDisplay,
+  {
+    display: { maxPoints: 100 },
+    limits: { workingLength: 4096 },
+  },
+)
+void typedCheckPolicy
+
+const invalidCheckRangePolicy: RangePolicyInput = {
+  // @ts-expect-error: retired calculationMax is not part of the public contract.
+  calculationMax: 1022,
+}
+void invalidCheckRangePolicy
 
 const fakeSignal: ResourceGuardAbortSignal = {
   aborted: false,

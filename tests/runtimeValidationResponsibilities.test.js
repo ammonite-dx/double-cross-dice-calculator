@@ -13,7 +13,7 @@ import { createCheckRangePolicy } from '../src/runtime/CheckRangePolicy'
 const targetModules = [
   'src/features/attack/model/AttackDisplayRequestSnapshot.js',
   'src/features/check/model/CheckDisplayRequestSnapshot.js',
-  'src/runtime/CheckRangePolicy.js',
+  'src/runtime/CheckRangePolicy.ts',
 ]
 
 const forbiddenReflectionPatterns = [
