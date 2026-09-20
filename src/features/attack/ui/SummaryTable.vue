@@ -6,7 +6,7 @@
         formatCertifiedProbabilityPercentDisplay,
         formatScoreStatisticsExpectedValue,
         getScoreStatisticsForCombo,
-    } from './SummaryTable';
+    } from './SummaryTableHelpers';
 
     const props = defineProps({
         combos: {

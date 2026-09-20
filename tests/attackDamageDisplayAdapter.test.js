@@ -14,7 +14,7 @@ import {
   SUMMARY_UNAVAILABLE,
   findComboPresentation,
   formatSummaryExpectedValue,
-} from '../src/features/attack/ui/SummaryTable'
+} from '../src/features/attack/ui/SummaryTableHelpers'
 
 function createLegacyAttackData() {
   return {

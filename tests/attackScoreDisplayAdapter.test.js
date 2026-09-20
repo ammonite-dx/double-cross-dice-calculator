@@ -49,7 +49,7 @@ import {
   formatCertifiedProbabilityPercentDisplay,
   formatScoreStatisticsExpectedValue,
   getScoreStatisticsForCombo,
-} from '../src/features/attack/ui/SummaryTable'
+} from '../src/features/attack/ui/SummaryTableHelpers'
 
 function calculateScoreWithProvider(
   params,
