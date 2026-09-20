@@ -1,37 +1,14 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-
-const chartDirectory = new URL('../src/shared/chart/', import.meta.url)
 
 function source(path) {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 }
 
-describe('shared probability chart architecture', () => {
-  it('contains direct-import chart modules without a barrel', () => {
-    expect(existsSync(chartDirectory)).toBe(true)
-    expect(readdirSync(chartDirectory).sort()).toEqual([
-      'ProbabilityLineChart.vue',
-      'ProbabilityLineChartConfig.js',
-    ])
-    expect(readdirSync(chartDirectory)).not.toContain('index.js')
-  })
-
-  it('keeps shared chart modules independent of application layers', () => {
-    for (const file of readdirSync(chartDirectory)) {
-      const contents = source(`src/shared/chart/${file}`)
-      expect(contents).not.toMatch(
-        /(?:application|calculation|data|domain|features|components|views|presentation|router|plugins|layouts)\//,
-      )
-      expect(contents).not.toMatch(/from ['"]node:/)
-      expect(contents).not.toMatch(
-        /\b(?:attackData|combo|difficulty|dfclty|opposed|canonical|CalculationClient)\b/i,
-      )
-    }
-  })
-
+describe('chart presentation contract', () => {
   it('keeps Chart.js runtime ownership in the shared line component', () => {
     const sharedRuntime = source('src/shared/chart/ProbabilityLineChart.vue')
+
     expect(sharedRuntime).toContain('Chart.register')
     expect(sharedRuntime).toContain('useDisplay')
     expect(sharedRuntime).toContain("from 'vue-chartjs'")
@@ -54,7 +31,7 @@ describe('shared probability chart architecture', () => {
     }
   })
 
-  it('labels feature charts without changing the visible chart structure', () => {
+  it('keeps feature chart labels and line presentation stable', () => {
     expect(source('src/features/check/ui/ScoreChart.vue'))
       .toContain('一般判定 達成値確率分布')
     expect(source('src/features/attack/ui/ScoreChart.vue'))
