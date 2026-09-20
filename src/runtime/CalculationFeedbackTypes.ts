@@ -191,14 +191,3 @@ export interface LatestCalculationRunner<
   dispose(): void
   snapshot(): CalculationCoordinatorState
 }
-
-export interface CalculationRangeFeedbackDisplay {
-  readonly type: 'error' | 'warning'
-  readonly title: string
-  readonly reasons: readonly string[]
-  readonly metrics: {
-    readonly memory: string | null
-  }
-  readonly overflow: readonly string[]
-  readonly action: string
-}

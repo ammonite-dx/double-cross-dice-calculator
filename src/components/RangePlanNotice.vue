@@ -1,7 +1,7 @@
 <script setup>
 
     import { computed } from 'vue';
-    import { formatRangeFeedback } from '@/runtime/CalculationFeedback';
+    import { formatRangeFeedback } from './RangePlanNoticeFormatter';
 
     const props = defineProps({
         feedback: {
