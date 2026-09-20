@@ -5,6 +5,17 @@ import globals from 'globals'
 
 const relativeOrAlias = '(?:@/|\\.\\.?/)+'
 
+const productionNodeGlobalRestrictions = [
+  { name: 'process', message: 'Production source must not use the Node process global.' },
+  { name: 'Buffer', message: 'Production source must not use the Node Buffer global.' },
+  { name: '__dirname', message: 'Production source must not use the Node __dirname global.' },
+  { name: '__filename', message: 'Production source must not use the Node __filename global.' },
+  { name: 'require', message: 'Production source must use ESM imports instead of the Node require global.' },
+  { name: 'module', message: 'Production source must use ESM exports instead of the Node module global.' },
+  { name: 'exports', message: 'Production source must use ESM exports instead of the Node exports global.' },
+  { name: 'global', message: 'Production source must not use the Node global global.' },
+]
+
 function internalPattern(layers, message) {
   return {
     regex: `^${relativeOrAlias}(?:${layers.join('|')})(?:/|$)`,
@@ -174,6 +185,9 @@ export default [
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      'no-restricted-globals': ['error', ...productionNodeGlobalRestrictions],
+    },
   },
   {
     files: ['src/runtime/RuntimeDamageRollWorker.js'],
@@ -253,6 +267,7 @@ export default [
       }],
       'no-restricted-globals': [
         'error',
+        ...productionNodeGlobalRestrictions,
         { name: 'window', message: 'Core modules must not access the browser window directly.' },
         { name: 'document', message: 'Core modules must not access the browser document directly.' },
         { name: 'fetch', message: 'Core modules must not perform network requests directly.' },
@@ -273,6 +288,7 @@ export default [
       }],
       'no-restricted-globals': [
         'error',
+        ...productionNodeGlobalRestrictions,
         { name: 'window', message: 'Shared validation must not access the browser window directly.' },
         { name: 'document', message: 'Shared validation must not access the browser document directly.' },
         { name: 'fetch', message: 'Shared validation must not perform network requests directly.' },
@@ -293,6 +309,7 @@ export default [
       }],
       'no-restricted-globals': [
         'error',
+        ...productionNodeGlobalRestrictions,
         { name: 'window', message: 'Runtime modules must not access the browser window directly.' },
         { name: 'document', message: 'Runtime modules must not access the browser document directly.' },
         { name: 'fetch', message: 'Runtime modules must not perform network requests directly.' },
@@ -318,6 +335,7 @@ export default [
       }],
       'no-restricted-globals': [
         'error',
+        ...productionNodeGlobalRestrictions,
         { name: 'window', message: 'Shared presentation must not access the browser window directly.' },
         { name: 'document', message: 'Shared presentation must not access the browser document directly.' },
         { name: 'fetch', message: 'Shared presentation must not perform network requests directly.' },
@@ -351,6 +369,7 @@ export default [
       }],
       'no-restricted-globals': [
         'error',
+        ...productionNodeGlobalRestrictions,
         { name: 'window', message: 'Shared theme utilities must not access the browser window directly.' },
         { name: 'document', message: 'Shared theme utilities must not access the browser document directly.' },
         { name: 'fetch', message: 'Shared theme utilities must not perform network requests directly.' },

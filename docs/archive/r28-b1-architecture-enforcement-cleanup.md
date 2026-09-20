@@ -19,7 +19,7 @@ R28-B1では、production sourceの実行環境をESLint上で明示し、Vitest
 
 - `npm test`: Vitest 97 files／1073 testsが成功した。
 - `npm run typecheck`: 成功した。
-- `npm run lint`: 成功した。production sourceのNode globals誤導入は検出されない。
+- `npm run lint`: 成功した。production sourceへのNode globals誤導入をESLintで検出する設定になっている。
 - `npm run lint:markdown`: 90 files／0 issuesだった。
 - `npm run build`: 459 modulesで成功した。
 - `git diff --check`: 成功した。
