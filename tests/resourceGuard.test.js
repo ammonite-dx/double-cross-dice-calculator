@@ -331,6 +331,38 @@ describe('CalculationClient resource guard integration', () => {
       .toBe(injected)
   })
 
+  it('keeps required dependencies defined when overrides explicitly pass undefined', () => {
+    const dependencies = createCalculationDependencies({
+      calculateDamageOnDemand: undefined,
+      calculateDxDistribution: undefined,
+      calculateScore: undefined,
+      calculateScoreResolution: undefined,
+      getScoreStatistics: undefined,
+      getDamageStatistics: undefined,
+      getTotalDamageStatistics: undefined,
+      getDamageRollDistribution: undefined,
+      getFinalEncroachment: undefined,
+      getD10Distribution: undefined,
+      planDamageAggregation: undefined,
+      planCalculationRanges: undefined,
+      sumDamage: undefined,
+    })
+
+    expect(typeof dependencies.calculateDamageOnDemand).toBe('function')
+    expect(typeof dependencies.calculateDxDistribution).toBe('function')
+    expect(typeof dependencies.calculateScore).toBe('function')
+    expect(typeof dependencies.calculateScoreResolution).toBe('function')
+    expect(typeof dependencies.getScoreStatistics).toBe('function')
+    expect(typeof dependencies.getDamageStatistics).toBe('function')
+    expect(typeof dependencies.getTotalDamageStatistics).toBe('function')
+    expect(typeof dependencies.getDamageRollDistribution).toBe('function')
+    expect(typeof dependencies.getFinalEncroachment).toBe('function')
+    expect(typeof dependencies.getD10Distribution).toBe('function')
+    expect(typeof dependencies.planDamageAggregation).toBe('function')
+    expect(typeof dependencies.planCalculationRanges).toBe('function')
+    expect(typeof dependencies.sumDamage).toBe('function')
+  })
+
   it('accepts sync or Promise leases and releases canonical routes exactly once', async () => {
     const leases = []
     let planCallCount = 0

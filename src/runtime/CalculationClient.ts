@@ -830,11 +830,36 @@ export function createCalculationClient(
 export function createCalculationDependencies(
   overrides: CalculationClientDependencies = {},
 ): CompleteCalculationClientDependencies {
+  const onFftLength = overrides.onFftLength
+
   return {
-    ...defaultDependencies,
-    ...overrides,
+    calculateDamageOnDemand:
+      overrides.calculateDamageOnDemand ?? defaultDependencies.calculateDamageOnDemand,
+    calculateDxDistribution:
+      overrides.calculateDxDistribution ?? defaultDependencies.calculateDxDistribution,
+    calculateScore: overrides.calculateScore ?? defaultDependencies.calculateScore,
+    calculateScoreResolution:
+      overrides.calculateScoreResolution ?? defaultDependencies.calculateScoreResolution,
+    getScoreStatistics:
+      overrides.getScoreStatistics ?? defaultDependencies.getScoreStatistics,
+    getDamageStatistics:
+      overrides.getDamageStatistics ?? defaultDependencies.getDamageStatistics,
+    getTotalDamageStatistics:
+      overrides.getTotalDamageStatistics ?? defaultDependencies.getTotalDamageStatistics,
+    getDamageRollDistribution:
+      overrides.getDamageRollDistribution ?? defaultDependencies.getDamageRollDistribution,
+    getFinalEncroachment:
+      overrides.getFinalEncroachment ?? defaultDependencies.getFinalEncroachment,
+    getD10Distribution:
+      overrides.getD10Distribution ?? defaultDependencies.getD10Distribution,
+    planDamageAggregation:
+      overrides.planDamageAggregation ?? defaultDependencies.planDamageAggregation,
+    planCalculationRanges:
+      overrides.planCalculationRanges ?? defaultDependencies.planCalculationRanges,
     resourceGuard: overrides.resourceGuard ?? createResourceGuard(),
-  } as CompleteCalculationClientDependencies
+    sumDamage: overrides.sumDamage ?? defaultDependencies.sumDamage,
+    ...(typeof onFftLength === 'function' ? { onFftLength } : {}),
+  }
 }
 
 export const calculationDependencies = defaultDependencies

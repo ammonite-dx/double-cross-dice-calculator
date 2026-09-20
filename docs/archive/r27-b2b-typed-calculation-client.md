@@ -31,3 +31,7 @@ DX、Score、Damage、Backtrackの計算式、tail certificate、表示projectio
 ## 次の作業
 
 次はR27-B2cとして、実測した依存状況に応じて`RuntimeDamageRollClient.js`、`ResourceGuard.js`、`CheckRangePolicy.js`のうち最も境界効果の大きいruntime moduleを一つずつ型付けする。今回の依存契約と同様、実装を変更する前に既存の同期性、cache、lease、Worker protocolを回帰テストで固定する。
+
+## follow-up: 依存バンドルの定義済み契約
+
+`createCalculationDependencies()`は、required dependencyへ`undefined`を明示指定された場合もproduction defaultへ戻して、完全な依存バンドルを返す。`resourceGuard`だけは従来どおり呼び出しごとに新しいguardを生成し、明示されたguardはそのまま利用する。required dependencyの定義性を確認する回帰テストを追加した。
