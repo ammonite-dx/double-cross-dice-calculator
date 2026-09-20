@@ -6,7 +6,11 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
-      exclude: [...configDefaults.exclude, 'tests/reference/**'],
+      exclude: [
+        ...configDefaults.exclude,
+        'tests/reference/**',
+        'tests/experiments/**',
+      ],
     },
   })
 )

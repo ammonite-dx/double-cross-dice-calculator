@@ -175,8 +175,7 @@ export function getFixturePlan(modules, fixture) {
   }
   if (fixture.operation === 'attack') {
     return modules.planCalculationRanges(
-      createAttackPlannerParams(fixture.params),
-      { scorePropagation: 'full-tail' }
+      createAttackPlannerParams(fixture.params)
     )
   }
   if (fixture.operation === 'backtrack') {

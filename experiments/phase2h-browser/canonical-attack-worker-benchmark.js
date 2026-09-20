@@ -2,6 +2,13 @@ import {
   calculationClient,
 } from '../../src/runtime/CalculationClient.ts'
 import { createAttackRunner } from '../../src/features/attack/model/AttackRunner.js'
+import { executeAttackIncrementally } from '../../src/features/attack/model/AttackIncrementalExecution.js'
+import {
+  createAttackDisplayPresentation,
+} from '../../src/features/attack/model/AttackPresentation.js'
+import {
+  DEFAULT_ATTACK_DISPLAY_REQUEST,
+} from '../../src/features/attack/model/AttackDisplayRequestSnapshot.js'
 import {
   createAttackState,
   createComboDataState,
@@ -753,7 +760,35 @@ async function runStaleProbe() {
   const runnerErrors = []
   const runner = createAttackRunner({
     state,
+    executeCalculation: ({
+      entries,
+      calculationOptions,
+      signal,
+      onRangePlan,
+      forceAll,
+    }) => executeAttackIncrementally({
+      entries,
+      calculationClient,
+      options: {
+        ...calculationOptions,
+        signal,
+      },
+      onRangePlan,
+      forceAll,
+    }),
     calculationClient,
+    createPresentation: (
+      batchResult,
+      rangePlans = [],
+      displayRequest,
+      scoreDisplayRequest,
+    ) => createAttackDisplayPresentation(batchResult, {
+      displayRequest: displayRequest ?? DEFAULT_ATTACK_DISPLAY_REQUEST,
+      scoreDisplayRequest: scoreDisplayRequest
+        ?? displayRequest
+        ?? DEFAULT_ATTACK_DISPLAY_REQUEST,
+      rangePlans,
+    }),
     onError: (error) => runnerErrors.push(serializeError(error)),
   })
   const before = snapshotCounters()

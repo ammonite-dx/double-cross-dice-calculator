@@ -14,7 +14,7 @@ function makeAttackEntry(
         damage: { ...attack },
       },
       reaction: {
-        mode: 'guard',
+        mode: 'ガード・リアクション放棄',
         score: { ...reactionScore },
         damage: { ...defence },
       },

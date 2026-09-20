@@ -10,12 +10,12 @@ import {
   readPrototypeSources,
   restorePrototypeSources,
   withTemporarySourcePrototype,
-} from '../experiments/r23-ui-review/source-prototype-harness.mjs'
+} from '../../experiments/r23-ui-review/source-prototype-harness.mjs'
 import {
   SOURCE_PROTOTYPE_VARIANTS,
   getSourcePrototypeVariant,
   validateSourcePrototypeDefinitions,
-} from '../experiments/r23-ui-review/source-prototype-definitions.js'
+} from '../../experiments/r23-ui-review/source-prototype-definitions.js'
 
 function transformArchivedTarget(variant) {
   const [target] = variant.targets

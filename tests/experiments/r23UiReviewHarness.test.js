@@ -4,11 +4,11 @@ import {
   SCENARIOS,
   VIEWPORTS,
   validateScenarioDefinitions,
-} from '../experiments/r23-ui-review/scenarios.js'
+} from '../../experiments/r23-ui-review/scenarios.js'
 import {
   STYLE_METRIC_SCENARIOS,
   createMetricDelta,
-} from '../experiments/r23-ui-review/style-metrics.js'
+} from '../../experiments/r23-ui-review/style-metrics.js'
 
 describe('R23 UI review scenario definitions', () => {
   it('has no definition errors', () => {

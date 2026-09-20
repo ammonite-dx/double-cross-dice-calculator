@@ -554,11 +554,6 @@ function validateCanonicalAttackReport(report, capturedPageErrors) {
   const workerCounters = workerSummary.counters
   const timingSummary = summarizeCanonicalTimings(report)
   const assetSummary = summarizeCanonicalAssets(report)
-  const d10Successes = assetSummary.d10Fetches.filter((entry) => (
-    entry?.status === 200
-      && entry?.error === null
-      && isFiniteNonNegative(entry?.elapsedMs)
-  ))
   const cancel = report?.diagnostics?.cancel
   const stale = report?.diagnostics?.stale
   const checks = {
@@ -597,7 +592,9 @@ function validateCanonicalAttackReport(report, capturedPageErrors) {
       && stale.secondCommit === true
       && Array.isArray(stale.runnerErrors)
       && stale.runnerErrors.length === 0,
-    d10Fetch: d10Successes.length > 0,
+    // Canonical Attack calculates defence D10 distributions on demand; the
+    // production path must not request the historical static asset.
+    d10Fetch: assetSummary.d10Fetches.length === 0,
     fetchDiagnostics: report?.diagnostics?.fetchInstallError === null,
   }
   return {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { validateDomPreparationResult } from '../experiments/r23-ui-review/prototype-contracts.mjs'
+import { validateDomPreparationResult } from '../../experiments/r23-ui-review/prototype-contracts.mjs'
 
 describe('R23 prototype semantic DOM contracts', () => {
   it('accepts the Check marker counts', () => {

@@ -116,9 +116,9 @@ describe('full-tail Attack browser resource benchmark contract', () => {
       "'__phase2hFullTailAttackBrowserResourceResult'"
     )
     expect(runnerSource).toContain("chromeOnly: true")
-    expect(packageJson.scripts['benchmark:phase2h:browser:playwright:full-tail-attack'])
+    expect(packageJson.scripts['benchmark:attack-resource'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource')
-    expect(packageJson.scripts['benchmark:phase2h:browser:playwright:full-tail-attack:short'])
+    expect(packageJson.scripts['benchmark:attack-resource:short'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource --iterations 1 --warmup 0')
   })
 

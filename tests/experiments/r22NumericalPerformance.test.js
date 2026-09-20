@@ -11,27 +11,27 @@ import {
   YOUSEI_STRESS_CANDIDATES,
   createFixtureSet,
   selectFirstAcceptedCandidate,
-} from '../experiments/r22-numerical-performance/fixtures.js'
+} from '../../experiments/r22-numerical-performance/fixtures.js'
 import {
   evaluatePotentialTriggers,
   getFixturePlan,
   invokeFixture,
   summarizeSamples,
   validateMeasurementOptions,
-} from '../experiments/r22-numerical-performance/measurement.js'
-import { createResultDigest } from '../experiments/r22-numerical-performance/result-digest.js'
-import { createTraceRecorder } from '../experiments/r22-numerical-performance/trace-dependencies.js'
-import { parseArgs } from '../experiments/r22-numerical-performance/node-benchmark.mjs'
+} from '../../experiments/r22-numerical-performance/measurement.js'
+import { createResultDigest } from '../../experiments/r22-numerical-performance/result-digest.js'
+import { createTraceRecorder } from '../../experiments/r22-numerical-performance/trace-dependencies.js'
+import { parseArgs } from '../../experiments/r22-numerical-performance/node-benchmark.mjs'
 import {
   parseArgs as parseBrowserArgs,
   repeatableTriggers,
-} from '../experiments/r22-numerical-performance/playwright-runner.mjs'
+} from '../../experiments/r22-numerical-performance/playwright-runner.mjs'
 
 const packageJson = JSON.parse(
-  readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
 )
 const browserBenchmarkSource = readFileSync(
-  new URL('../experiments/r22-numerical-performance/benchmark.js', import.meta.url),
+  new URL('../../experiments/r22-numerical-performance/benchmark.js', import.meta.url),
   'utf8'
 )
 
@@ -144,11 +144,11 @@ describe('R22 numerical performance experiment contract', () => {
   it('keeps browser experiments outside UI and chart layers', () => {
     expect(browserBenchmarkSource).not.toMatch(/src\/(features|shared\/chart|components|views)/)
     expect(browserBenchmarkSource).not.toMatch(/from ['"](?:vue|chart\.js|vue-chartjs)/)
-    expect(packageJson.scripts['benchmark:r22:numerical:node'])
+    expect(packageJson.scripts['benchmark:numerical:node'])
       .toBe('node experiments/r22-numerical-performance/node-benchmark.mjs')
-    expect(packageJson.scripts['benchmark:r22:numerical:browser'])
+    expect(packageJson.scripts['benchmark:numerical:browser'])
       .toBe('node experiments/r22-numerical-performance/playwright-runner.mjs')
-    expect(packageJson.scripts['benchmark:r22:numerical:browser:short'])
+    expect(packageJson.scripts['benchmark:numerical:browser:short'])
       .toBe('node experiments/r22-numerical-performance/playwright-runner.mjs --iterations 1 --warmup 0 --runs 1')
   })
 

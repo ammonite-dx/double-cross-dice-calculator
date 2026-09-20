@@ -5,10 +5,11 @@ import {
   calculateD10Distribution,
   createD10DistributionProvider,
 } from '../../src/calculation/D10Calculator.js'
+import { calculateDamageOnDemand } from '../../src/calculation/DamageCalculator.js'
 import {
-  calculateDamageOnDemand,
   getDamageStatistics,
-} from '../../src/calculation/DamageCalculator.js'
+  getTotalDamageStatistics,
+} from '../../src/calculation/DamageStatistics.ts'
 import {
   planDamageAggregation,
   sumDamage,
@@ -18,11 +19,8 @@ import { convolveDistributions } from '../../src/core/probability/FFT.js'
 import {
   planCalculationRanges,
 } from '../../src/calculation/RangePlanner.js'
-import {
-  calculateScore,
-  getScoreStatistics,
-} from '../../src/calculation/ScoreCalculator.js'
-import { getTotalDamageStatistics } from '../../src/calculation/DistributionResult.js'
+import { calculateScore } from '../../src/calculation/ScoreCalculator.js'
+import { getScoreStatistics } from '../../src/calculation/ScoreStatistics.ts'
 import {
   createCalculationClient,
   createCalculationDependencies,

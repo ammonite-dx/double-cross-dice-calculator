@@ -18,10 +18,8 @@ describe('canonical Attack Playwright runner contract', () => {
     expect(runnerSource).toContain("target: 'canonical-attack'")
     expect(runnerSource).toContain("--target NAME")
     expect(runnerSource).toContain('--target must be one of:')
-    expect(packageJson.scripts['benchmark:phase2h:browser:playwright'])
-      .toBeUndefined()
-    expect(packageJson.scripts['benchmark:phase2h:browser:playwright:short'])
-      .toBeUndefined()
+    expect(packageJson.scripts['benchmark:attack-worker:serve'])
+      .toBe('vite --config experiments/phase2h-browser/vite.config.mjs')
   })
 
   it('routes the canonical target to its page and result globals', () => {
@@ -35,9 +33,9 @@ describe('canonical Attack Playwright runner contract', () => {
     expect(runnerSource).toContain(
       "'__phase2hCanonicalAttackWorkerBenchmarkError'"
     )
-    expect(packageJson.scripts['benchmark:phase2h:browser:playwright:canonical-attack'])
+    expect(packageJson.scripts['benchmark:attack-worker'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack')
-    expect(packageJson.scripts['benchmark:phase2h:browser:playwright:canonical-attack:short'])
+    expect(packageJson.scripts['benchmark:attack-worker:short'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack --iterations 1 --warmup 0')
   })
 
@@ -59,7 +57,7 @@ describe('canonical Attack Playwright runner contract', () => {
     expect(runnerSource).toContain("cancel.result?.error?.name === 'AbortError'")
     expect(runnerSource).toContain('stale.firstCommit === false')
     expect(runnerSource).toContain('stale.secondCommit === true')
-    expect(runnerSource).toContain('d10Successes.length > 0')
+    expect(runnerSource).toContain('assetSummary.d10Fetches.length === 0')
     expect(runnerSource).toContain('timingSummary')
   })
 })

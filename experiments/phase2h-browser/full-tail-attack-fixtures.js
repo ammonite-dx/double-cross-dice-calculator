@@ -30,7 +30,7 @@ function makeEntry(id, {
         },
       },
       reaction: {
-        mode: 'guard',
+        mode: 'ガード・リアクション放棄',
         score: { ...reactionScore },
         damage: {
           dice: defenceDice,

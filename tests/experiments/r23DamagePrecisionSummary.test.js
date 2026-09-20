@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { summarizeRecords } from '../experiments/r23-damage-summary-precision/summary.mjs'
+import { summarizeRecords } from '../../experiments/r23-damage-summary-precision/summary.mjs'
 
 function record(id, kind, { halfWidth = null, stableRoundedDisplay = false } = {}) {
   return {

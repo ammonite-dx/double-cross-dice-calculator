@@ -6,8 +6,8 @@ import {
   sumExplicitFirstMoment,
   sumExplicitMass,
   summarizeDistributionResult,
-} from '../experiments/r23-damage-summary-precision/tail-attribution.mjs'
-import { DAMAGE_PRECISION_FIXTURES } from '../experiments/r23-damage-summary-precision/fixtures.js'
+} from '../../experiments/r23-damage-summary-precision/tail-attribution.mjs'
+import { DAMAGE_PRECISION_FIXTURES } from '../../experiments/r23-damage-summary-precision/fixtures.js'
 
 function distribution(values, offset = 0, overflow = null) {
   return {

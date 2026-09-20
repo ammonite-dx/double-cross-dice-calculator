@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyBundleReplacement,
   validateBundleReplacementStats,
-} from '../experiments/r23-ui-review/bundle-replacement.mjs'
+} from '../../experiments/r23-ui-review/bundle-replacement.mjs'
 
 describe('R23 prototype bundle replacement contract', () => {
   it('replaces one target occurrence and reports count', () => {

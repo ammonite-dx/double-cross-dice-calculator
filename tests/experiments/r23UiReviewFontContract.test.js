@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const runnerSource = readFileSync(
-  new URL('../experiments/r23-ui-review/playwright-runner.mjs', import.meta.url),
+  new URL('../../experiments/r23-ui-review/playwright-runner.mjs', import.meta.url),
   'utf8',
 )
 

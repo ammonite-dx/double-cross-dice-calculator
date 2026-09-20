@@ -4,10 +4,10 @@ import {
   BACKTRACK_LABEL_STRESS_SEARCH_DOMAIN,
   enumerateBacktrackStressInputs,
   selectBacktrackStressSlice,
-} from '../experiments/r23-ui-review/backtrack-label-stress.mjs'
+} from '../../experiments/r23-ui-review/backtrack-label-stress.mjs'
 import {
   BACKTRACK_LABEL_STRESS_FIXTURES,
-} from '../experiments/r23-ui-review/backtrack-label-stress-fixtures.js'
+} from '../../experiments/r23-ui-review/backtrack-label-stress-fixtures.js'
 
 describe('R23 Backtrack label stress selection', () => {
   it('selects an exact threshold before farther slices', () => {

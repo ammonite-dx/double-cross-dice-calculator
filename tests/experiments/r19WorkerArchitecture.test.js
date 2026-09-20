@@ -7,18 +7,18 @@ import {
   createWorkerCalculationClient,
   R19_WORKER_OPERATIONS,
   serializeError,
-} from '../experiments/r19-worker-architecture/worker-client.js'
+} from '../../experiments/r19-worker-architecture/worker-client.js'
 import {
   CHECK_FIXTURES,
   R19_SUPERSESSION_SCENARIOS,
   R19_FIXTURE_IDS,
   R19_FIXTURES,
-} from '../experiments/r19-worker-architecture/fixtures.js'
-import { createHybridBenchmarkClient } from '../experiments/r19-worker-architecture/hybrid-client.js'
+} from '../../experiments/r19-worker-architecture/fixtures.js'
+import { createHybridBenchmarkClient } from '../../experiments/r19-worker-architecture/hybrid-client.js'
 import {
   createResultDigest,
   estimateValueBytes,
-} from '../experiments/r19-worker-architecture/result-digest.js'
+} from '../../experiments/r19-worker-architecture/result-digest.js'
 
 class FakeWorker {
   constructor() {
@@ -254,7 +254,7 @@ describe('R19 generalized Worker protocol', () => {
 
   it('uses firstMeasured instead of the misleading cold metric', () => {
     const source = readFileSync(
-      new URL('../experiments/r19-worker-architecture/benchmark.js', import.meta.url),
+      new URL('../../experiments/r19-worker-architecture/benchmark.js', import.meta.url),
       'utf8'
     )
     expect(source).toContain('firstMeasured')
