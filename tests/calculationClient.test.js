@@ -10,7 +10,7 @@ import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 const calculationClientSource = readFileSync(
-  new URL('../src/runtime/CalculationClient.js', import.meta.url),
+  new URL('../src/runtime/CalculationClient.ts', import.meta.url),
   'utf8'
 )
 

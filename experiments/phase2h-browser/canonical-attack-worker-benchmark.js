@@ -1,6 +1,6 @@
 import {
   calculationClient,
-} from '../../src/runtime/CalculationClient.js'
+} from '../../src/runtime/CalculationClient.ts'
 import { createAttackRunner } from '../../src/features/attack/model/AttackRunner.js'
 import {
   createAttackState,

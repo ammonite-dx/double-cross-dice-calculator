@@ -105,7 +105,7 @@ async function loadProductionModules() {
       server.ssrLoadModule('/src/core/probability/FFT.js'),
       server.ssrLoadModule('/src/calculation/RangePlanner.js'),
       server.ssrLoadModule('/src/calculation/ScoreCalculator.js'),
-      server.ssrLoadModule('/src/runtime/CalculationClient.js'),
+      server.ssrLoadModule('/src/runtime/CalculationClient.ts'),
       server.ssrLoadModule('/src/runtime/ResourceGuard.js'),
       server.ssrLoadModule('/src/calculation/DistributionResult.js'),
       server.ssrLoadModule('/src/calculation/RuntimeDamageRollCalculator.js'),

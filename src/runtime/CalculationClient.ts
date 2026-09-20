@@ -37,6 +37,60 @@ import {
 import { createCheckRangePolicy } from './CheckRangePolicy'
 import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 import { createResourceGuard } from './ResourceGuard'
+import type {
+  AttackCalculationInput,
+  CheckInputSnapshot,
+  DisplayRequestSnapshot,
+  DifficultyInput,
+} from '../domain/CalculationInputs'
+import type { BacktrackParams } from '../domain/BacktrackRules'
+import type {
+  NormalizedBacktrackParams,
+  NormalizedScoreInput,
+} from '../domain/CalculationInputNormalization'
+import type { ScoreResolution } from '../domain/ScoreResolution'
+import type {
+  AggregatedDamageEnvelope,
+  TotalDamageCalculationOptions,
+} from '../calculation/DamageAggregationTypes'
+import type {
+  AttackCalculationRangePlan,
+  BacktrackCalculationRangePlan,
+  BacktrackRangePlan,
+  CalculationRangePlan,
+  RangePlannerParams,
+  RangePolicyInput,
+  RolledScoreRangePlan,
+  ScoreRangePlan,
+} from '../calculation/planning/RangePlannerTypes'
+import type {
+  DistributionEnvelope,
+} from '../domain/DistributionResultTypes'
+import type {
+  AttackCalculationResult,
+  BacktrackCalculationResult,
+  TotalDamageResult,
+} from '../domain/CalculationResultTypes'
+import type {
+  ScoreEnvelope,
+  ScorePair,
+} from '../domain/ScoreResultTypes'
+import type { ResourceGuard, ResourceLease, ResourceLeaseResult, ResourceReservationPlan } from './ResourceGuardTypes'
+import type {
+  AttackCalculationOptions,
+  BacktrackCalculationOptions,
+  CalculationClient,
+  CalculationRequestOptions,
+  CheckCalculationOptions,
+  TotalDamageClientOptions,
+} from './CalculationClientTypes'
+import type {
+  CalculationClientDependencies,
+  CompleteCalculationClientDependencies,
+  CalculationRuntimeOptions,
+  NormalizedDxOptions,
+  PositionalDxDistributionProvider,
+} from './CalculationClientDependencyTypes'
 
 const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
@@ -44,10 +98,10 @@ const runtimeD10DistributionProvider = createD10DistributionProvider()
 const defaultResourceGuard = createResourceGuard()
 
 function calculateScoreAdapter(
-  params,
-  getDistribution,
-  scoreRangePlan
-) {
+  params: NormalizedScoreInput,
+  getDistribution: PositionalDxDistributionProvider | undefined,
+  scoreRangePlan?: RolledScoreRangePlan,
+): ScoreEnvelope {
   if (typeof getDistribution !== 'function') {
     throw new TypeError(
       'calculateScore requires a runtime distribution provider'
@@ -61,15 +115,20 @@ function calculateScoreAdapter(
 }
 
 function calculateScoreResolutionAdapter(
-  resolution,
-  getDistribution,
-  scoreRangePlan
-) {
+  resolution: ScoreResolution,
+  getDistribution: PositionalDxDistributionProvider | undefined,
+  scoreRangePlan?: ScoreRangePlan,
+): ScoreEnvelope {
   if (resolution?.kind === 'rolled-score') {
+    if (getDistribution === undefined) {
+      throw new TypeError(
+        'calculateScore requires a runtime distribution provider',
+      )
+    }
     return calculateScoreAdapter(
       resolution.params,
       getDistribution,
-      scoreRangePlan
+      scoreRangePlan as RolledScoreRangePlan | undefined,
     )
   }
   return calculateCoreScoreResolution(
@@ -80,10 +139,10 @@ function calculateScoreResolutionAdapter(
 }
 
 function getFinalEncroachmentAdapter(
-  params,
-  runtimeOptions = {},
-  backtrackRangePlan
-) {
+  params: BacktrackParams,
+  runtimeOptions: CalculationRuntimeOptions = {},
+  backtrackRangePlan?: BacktrackRangePlan,
+): BacktrackCalculationResult {
   return calculateCoreFinalEncroachment(
     params,
     undefined,
@@ -98,13 +157,16 @@ function createAbortError(operation = 'Calculation') {
   return error
 }
 
-function throwIfAborted(options, operation = 'Calculation') {
+function throwIfAborted(
+  options: Pick<CalculationRequestOptions, 'signal'> | undefined,
+  operation = 'Calculation',
+): void {
   if (options?.signal?.aborted) {
     throw createAbortError(operation)
   }
 }
 
-const defaultDependencies = {
+const defaultDependencies: CompleteCalculationClientDependencies = {
   calculateDamageOnDemand,
   calculateDxDistribution,
   calculateScore: calculateScoreAdapter,
@@ -118,11 +180,14 @@ const defaultDependencies = {
   planDamageAggregation,
   planCalculationRanges,
   resourceGuard: defaultResourceGuard,
-  sumDamage,
+  sumDamage: sumDamage as unknown as CompleteCalculationClientDependencies['sumDamage'],
 }
 
 export class CalculationRangeError extends Error {
-  constructor(plan) {
+  readonly plan: CalculationRangePlan
+  readonly rejectionReasons: readonly string[]
+
+  constructor(plan: CalculationRangePlan) {
     const rejectionReasons = plan?.rejectionReasons ?? []
     super(
       rejectionReasons.length > 0
@@ -135,48 +200,69 @@ export class CalculationRangeError extends Error {
   }
 }
 
-function snapshotScoreParams(params, label = 'score') {
+function snapshotScoreParams(
+  params: unknown,
+  label = 'score',
+): NormalizedScoreInput {
   return normalizeScoreInput(params, label)
 }
 
-function rolledScoreResolution(params) {
+function rolledScoreResolution(params: NormalizedScoreInput): ScoreResolution {
   return { kind: 'rolled-score', params }
 }
 
-function snapshotAttackParams(params) {
+type NormalizedAttackCalculationInput = ReturnType<
+  typeof normalizeAttackCalculationInput
+>
+
+function snapshotAttackParams(params: unknown): NormalizedAttackCalculationInput {
   return normalizeAttackCalculationInput(params)
 }
 
-function snapshotBacktrackParams(params) {
+function snapshotBacktrackParams(params: unknown): NormalizedBacktrackParams {
   return normalizeBacktrackParams(params)
 }
 
-function createCheckRangeParams(request, displayRequest) {
+function createCheckRangeParams(
+  request: Readonly<{
+    action: NormalizedScoreInput
+    reaction: NormalizedScoreInput
+  }>,
+  displayRequest?: DisplayRequestSnapshot,
+): RangePlannerParams {
   const params = {
-    operation: 'check',
+    operation: 'check' as const,
     score: {
       action: rolledScoreResolution(request.action),
       reaction: rolledScoreResolution(request.reaction),
     },
   }
   if (displayRequest !== undefined) {
-    params.display = {
-      min: displayRequest.min,
-      max: displayRequest.max,
+    return {
+      ...params,
+      display: {
+        min: displayRequest.min,
+        max: displayRequest.max,
+      },
     }
   }
   return params
 }
 
-function getCheckRangePolicy(options) {
+function getCheckRangePolicy(
+  options: CheckCalculationOptions,
+): RangePolicyInput | undefined {
   return options.displayRequest === undefined
     ? options.rangePolicy
     : createCheckRangePolicy(options.displayRequest, options.rangePolicy)
 }
 
-function createAttackRangeParams(request, scoreDisplayRequest) {
+function createAttackRangeParams(
+  request: NormalizedAttackCalculationInput,
+  scoreDisplayRequest?: DisplayRequestSnapshot | null,
+): RangePlannerParams {
   const params = {
-    operation: 'attack',
+    operation: 'attack' as const,
     score: {
       action: request.action.score,
       reaction: request.reaction.score,
@@ -185,38 +271,51 @@ function createAttackRangeParams(request, scoreDisplayRequest) {
     defence: { ...request.reaction.damage },
   }
   if (scoreDisplayRequest !== undefined && scoreDisplayRequest !== null) {
-    params.display = {
-      min: scoreDisplayRequest.min,
-      max: scoreDisplayRequest.max,
+    return {
+      ...params,
+      display: {
+        min: scoreDisplayRequest.min,
+        max: scoreDisplayRequest.max,
+      },
     }
   }
   return params
 }
 
-function createBacktrackRangeParams(request) {
-  const params = {
-    operation: 'backtrack',
+function createBacktrackRangeParams(
+  request: NormalizedBacktrackParams,
+): RangePlannerParams {
+  const params: RangePlannerParams = {
+    operation: 'backtrack' as const,
     backtrack: { ...request },
   }
   return params
 }
 
-function getRuntimeOptions(options) {
+function getRuntimeOptions(
+  options: object,
+): CalculationRuntimeOptions {
+  const source = options as Record<string, unknown>
   if (
-    !('rangePolicy' in options) &&
-    !('onRangePlan' in options)
+    !('rangePolicy' in source) &&
+    !('onRangePlan' in source)
   ) {
-    return options
+    return source as CalculationRuntimeOptions
   }
 
-  const runtimeOptions = { ...options }
+  const runtimeOptions: Record<string, unknown> = { ...source }
   delete runtimeOptions.rangePolicy
   delete runtimeOptions.onRangePlan
   delete runtimeOptions.scoreDisplayRequest
   return runtimeOptions
 }
 
-function acquirePlanLease(resourceGuard, plan, options, operation) {
+function acquirePlanLease(
+  resourceGuard: ResourceGuard,
+  plan: ResourceReservationPlan,
+  options: CalculationRequestOptions,
+  operation: string,
+): ResourceLeaseResult {
   return resourceGuard.acquirePlan(plan, {
     signal: options.signal,
     requestId: options.requestId,
@@ -224,13 +323,15 @@ function acquirePlanLease(resourceGuard, plan, options, operation) {
   })
 }
 
-function isPromiseLike(value) {
-  return value !== null
-    && value !== undefined
-    && typeof value.then === 'function'
+function isPromiseLike<T>(value: T | Promise<T>): value is Promise<T> {
+  if (value === null || value === undefined || typeof value !== 'object') {
+    return false
+  }
+  const candidate = value as { then?: unknown }
+  return typeof candidate.then === 'function'
 }
 
-function hasOwn(object, property) {
+function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
 
@@ -241,32 +342,50 @@ const TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES = Object.freeze([
   'maxComponents',
   'signal',
   'onFftLength',
-])
+] as const satisfies readonly (keyof TotalDamageCalculationOptions)[])
 
 function createTotalDamageAggregationOptions(
-  options,
-  defaultOnFftLength
-) {
-  const aggregationOptions = {}
-  for (const name of TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES) {
-    if (hasOwn(options, name)) {
-      aggregationOptions[name] = options[name]
-    }
+  options: TotalDamageClientOptions,
+  defaultOnFftLength?: (fftLength: number) => void,
+): TotalDamageCalculationOptions {
+  const aggregationOptions: {
+    maxValuesLength?: number
+    maxFftLength?: number
+    maxResourceBytes?: number
+    maxComponents?: number
+    signal?: AbortSignal
+    onFftLength?: (fftLength: number) => void
+  } = {}
+  if (hasOwn(options, 'maxValuesLength')) {
+    aggregationOptions.maxValuesLength = options.maxValuesLength
   }
-  if (
-    !hasOwn(aggregationOptions, 'onFftLength')
-    && typeof defaultOnFftLength === 'function'
-  ) {
+  if (hasOwn(options, 'maxFftLength')) {
+    aggregationOptions.maxFftLength = options.maxFftLength
+  }
+  if (hasOwn(options, 'maxResourceBytes')) {
+    aggregationOptions.maxResourceBytes = options.maxResourceBytes
+  }
+  if (hasOwn(options, 'maxComponents')) {
+    aggregationOptions.maxComponents = options.maxComponents
+  }
+  if (hasOwn(options, 'signal')) {
+    aggregationOptions.signal = options.signal
+  }
+  if (hasOwn(options, 'onFftLength')) {
+    aggregationOptions.onFftLength = options.onFftLength
+  } else if (typeof defaultOnFftLength === 'function') {
     aggregationOptions.onFftLength = defaultOnFftLength
   }
   return aggregationOptions
 }
 
-function copyTotalDamageEnvelope(totalDamage) {
-  const result = totalDamage?.result
+function copyTotalDamageEnvelope<T>(totalDamage: T): T {
+  const candidate = totalDamage !== null && typeof totalDamage === 'object'
+    ? totalDamage as Record<string, unknown>
+    : null
+  const result = candidate?.result
   if (
-    totalDamage === null
-    || typeof totalDamage !== 'object'
+    candidate === null
     || result === null
     || typeof result !== 'object'
     || !hasOwn(result, 'values')
@@ -279,14 +398,14 @@ function copyTotalDamageEnvelope(totalDamage) {
 
   try {
     return Object.freeze({
-      ...totalDamage,
+      ...candidate,
       result: createDistributionResult({
-        values: result.values,
-        offset: result.offset,
-        support: result.support,
-        overflow: result.overflow,
+        values: (result as Record<string, unknown>).values,
+        offset: (result as Record<string, unknown>).offset,
+        support: (result as Record<string, unknown>).support,
+        overflow: (result as Record<string, unknown>).overflow,
       }),
-    })
+    }) as T
   } catch {
     // A dependency-injected test double or an invalid upstream result should
     // be reported by its summary/aggregation dependency, not hidden here.
@@ -295,29 +414,36 @@ function copyTotalDamageEnvelope(totalDamage) {
 }
 
 /**
- * Plans a request and publishes the plan before any calculation starts.
+ * Plans a request and publishes the plan before calculation starts.
  *
  * `onRangePlan` is a synchronous notification. Its return value is ignored;
  * asynchronous callbacks are not part of the CalculationClient contract.
  */
-function runRangePreflight(
-  planner,
-  plannerParams,
-  rangePolicy,
-  onRangePlan
-) {
+function runRangePreflight<TPlan extends CalculationRangePlan>(
+  planner: (params: RangePlannerParams, policy?: RangePolicyInput) => CalculationRangePlan,
+  plannerParams: RangePlannerParams,
+  rangePolicy: RangePolicyInput | undefined,
+  onRangePlan?: (plan: TPlan) => void,
+): TPlan {
   const plan = planner(plannerParams, rangePolicy)
   if (typeof onRangePlan === 'function') {
-    onRangePlan(plan)
+    onRangePlan(plan as TPlan)
   }
   if (!plan.accepted) {
     throw new CalculationRangeError(plan)
   }
-  return plan
+  return plan as TPlan
 }
 
-function createRuntimeDxProvider(calculateDistribution) {
-  const cache = new Map()
+function createRuntimeDxProvider(
+  calculateDistribution: CalculationClientDependencies['calculateDxDistribution'],
+): PositionalDxDistributionProvider {
+  if (typeof calculateDistribution !== 'function') {
+    throw new TypeError('createRuntimeDxProvider requires a distribution provider')
+  }
+  const cache = new Map<string, ReturnType<NonNullable<
+    CalculationClientDependencies['calculateDxDistribution']
+  >>>()
 
   return (shihai, dice, critical, options, yousei = 0) => {
     const normalizedOptions = normalizeDxOptions(options)
@@ -329,8 +455,9 @@ function createRuntimeDxProvider(calculateDistribution) {
       normalizedOptions.workingLength,
       normalizedOptions.fftLength ?? '',
     ].join(':')
-    if (cache.has(key)) {
-      const distribution = cache.get(key)
+    const cached = cache.get(key)
+    if (cached !== undefined) {
+      const distribution = cached
       cache.delete(key)
       cache.set(key, distribution)
       return distribution
@@ -342,27 +469,28 @@ function createRuntimeDxProvider(calculateDistribution) {
     )
     cache.set(key, distribution)
     while (cache.size > RUNTIME_DX_CACHE_SIZE) {
-      cache.delete(cache.keys().next().value)
+      const oldest = cache.keys().next().value
+      if (oldest !== undefined) {
+        cache.delete(oldest)
+      }
     }
     return distribution
   }
 }
 
-/**
- * @param {Object} [dependencies]
- * @returns {import('./CalculationClientTypes').CalculationClient}
- */
 export function createCalculationClient(
-  dependencies = defaultDependencies
-) {
+  dependencies: CalculationClientDependencies = defaultDependencies,
+): CalculationClient {
   const resourceGuard = dependencies.resourceGuard ?? defaultResourceGuard
   const planner = dependencies.planCalculationRanges ?? planCalculationRanges
   const damagePlan =
     dependencies.planDamageAggregation
     ?? planDamageAggregation
-  const damageSum =
+  const damageSum: NonNullable<CalculationClientDependencies['sumDamage']> =
     dependencies.sumDamage
-    ?? sumDamage
+    ?? (sumDamage as unknown as NonNullable<
+      CalculationClientDependencies['sumDamage']
+    >)
   const totalDamageStatistics =
     dependencies.getTotalDamageStatistics
     ?? getTotalDamageStatistics
@@ -372,7 +500,10 @@ export function createCalculationClient(
     ? createRuntimeDxProvider(dependencies.calculateDxDistribution)
     : null
   const scoreResolutionCalculator = (() => {
-    const calculateRolled = (params, scoreRangePlan) => {
+    const calculateRolled = (
+      params: NormalizedScoreInput,
+      scoreRangePlan?: RolledScoreRangePlan,
+    ): ScoreEnvelope | null => {
       if (typeof dependencies.calculateScore === 'function') {
         return dependencies.calculateScore(
           params,
@@ -390,9 +521,15 @@ export function createCalculationClient(
       return null
     }
 
-    return (resolution, scoreRangePlan) => {
+    return (
+      resolution: ScoreResolution,
+      scoreRangePlan?: ScoreRangePlan,
+    ): ScoreEnvelope => {
       if (resolution?.kind === 'rolled-score') {
-        const result = calculateRolled(resolution.params, scoreRangePlan)
+        const result = calculateRolled(
+          resolution.params,
+          scoreRangePlan as RolledScoreRangePlan | undefined,
+        )
         if (result === null) {
           throw new Error(
             'CalculationClient requires calculateScore or runtime score dependencies'
@@ -419,7 +556,21 @@ export function createCalculationClient(
   const scoreStatisticsCalculator =
     dependencies.getScoreStatistics ?? getScoreStatistics
 
-  async function runAttackCalculation(params, options) {
+  const getDamageStatisticsForClient = (
+    damage: unknown,
+  ) => {
+    if (typeof dependencies.getDamageStatistics !== 'function') {
+      throw new TypeError(
+        'CalculationClient requires getDamageStatistics for attack calculations',
+      )
+    }
+    return dependencies.getDamageStatistics(damage)
+  }
+
+  async function runAttackCalculation(
+    params: AttackCalculationInput,
+    options: AttackCalculationOptions,
+  ): Promise<AttackCalculationResult> {
     const request = snapshotAttackParams(params)
     const plan = runRangePreflight(
       planner,
@@ -451,6 +602,11 @@ export function createCalculationClient(
           plan.scores?.[1]
         ),
       }
+      if (typeof dependencies.calculateDamageOnDemand !== 'function') {
+        throw new TypeError(
+          'CalculationClient requires calculateDamageOnDemand for attack calculations',
+        )
+      }
       const finalizedDamage = await dependencies.calculateDamageOnDemand(
         score,
         request.action.damage,
@@ -471,25 +627,28 @@ export function createCalculationClient(
         scoreStatistics,
         damage: finalizedDamage,
         damageStatistics:
-          dependencies.getDamageStatistics(finalizedDamage),
+          getDamageStatisticsForClient(finalizedDamage),
       }
     } finally {
       lease.release()
     }
   }
 
-  async function calculateAttack(params, options = {}) {
+  async function calculateAttack(
+    params: AttackCalculationInput,
+    options: AttackCalculationOptions = {},
+  ): Promise<AttackCalculationResult> {
     return runAttackCalculation(params, options)
   }
 
   async function runTotalDamage(
-    damages,
-    options = {},
-    aggregationOptionsOverride = null
-  ) {
+    damages: readonly DistributionEnvelope[],
+    options: TotalDamageClientOptions = {},
+    aggregationOptionsOverride: TotalDamageCalculationOptions | null = null,
+  ): Promise<TotalDamageResult> {
     // Snapshot the caller's array before planning or waiting for a resource
     // lease. The aggregation plan is then tied to this private snapshot.
-    const damageSnapshot = Array.isArray(damages)
+    const damageSnapshot: readonly DistributionEnvelope[] = Array.isArray(damages)
       ? damages.map(copyTotalDamageEnvelope)
       : damages
     const calculationOptions = options ?? {}
@@ -513,7 +672,7 @@ export function createCalculationClient(
 
     try {
       throwIfAborted(calculationOptions, 'total damage')
-      const aggregate = damageSum(
+      const aggregate: AggregatedDamageEnvelope = damageSum(
         damageSnapshot,
         { ...aggregationOptions, plan },
       )
@@ -529,28 +688,44 @@ export function createCalculationClient(
   }
 
   return {
-    planCheck(params, _difficulty, policy = {}) {
+    planCheck(
+      params: CheckInputSnapshot['params'],
+      _difficulty?: Partial<DifficultyInput>,
+      policy: RangePolicyInput = {},
+    ): ReturnType<CalculationClient['planCheck']> {
       const request = {
         action: snapshotScoreParams(params.action, 'check.action'),
         reaction: snapshotScoreParams(params.reaction, 'check.reaction'),
       }
-      return planner(createCheckRangeParams(request), policy)
+      return planner(createCheckRangeParams(request), policy) as
+        ReturnType<CalculationClient['planCheck']>
     },
 
-    planAttackCombo(params, policy = {}) {
+    planAttackCombo(
+      params: AttackCalculationInput,
+      policy: RangePolicyInput = {},
+    ): AttackCalculationRangePlan {
       const request = snapshotAttackParams(params)
       return planner(
         createAttackRangeParams(request),
         policy
-      )
+      ) as AttackCalculationRangePlan
     },
 
-    planBacktrack(params, policy = {}) {
+    planBacktrack(
+      params: Partial<BacktrackParams>,
+      policy: RangePolicyInput = {},
+    ): BacktrackCalculationRangePlan {
       const request = snapshotBacktrackParams(params)
-      return planner(createBacktrackRangeParams(request), policy)
+      return planner(createBacktrackRangeParams(request), policy) as
+        BacktrackCalculationRangePlan
     },
 
-    async calculateCheck(params, difficulty, options = {}) {
+    async calculateCheck(
+      params: CheckInputSnapshot['params'],
+      difficulty?: Partial<DifficultyInput>,
+      options: CheckCalculationOptions = {},
+    ) {
       const request = {
         action: snapshotScoreParams(params.action, 'check.action'),
         reaction: snapshotScoreParams(params.reaction, 'check.reaction'),
@@ -597,19 +772,28 @@ export function createCalculationClient(
       }
     },
 
-    async calculateAttack(params, options = {}) {
+    async calculateAttack(
+      params: AttackCalculationInput,
+      options: AttackCalculationOptions = {},
+    ): Promise<AttackCalculationResult> {
       return calculateAttack(params, options)
     },
 
-    async calculateTotalDamage(damages, options = {}) {
+    async calculateTotalDamage(
+      damages: readonly DistributionEnvelope[],
+      options: TotalDamageClientOptions = {},
+    ): Promise<TotalDamageResult> {
       return runTotalDamage(damages, options)
     },
 
-    async calculateBacktrack(params, options = {}) {
+    async calculateBacktrack(
+      params: Partial<BacktrackParams>,
+      options: BacktrackCalculationOptions = {},
+    ): Promise<BacktrackCalculationResult> {
       const request = snapshotBacktrackParams(params)
       const plan = runRangePreflight(
         planner,
-        createBacktrackRangeParams(request, true),
+        createBacktrackRangeParams(request),
         options.rangePolicy,
         options.onRangePlan
       )
@@ -624,6 +808,11 @@ export function createCalculationClient(
         : leaseRequest
       try {
         throwIfAborted(options, 'backtrack')
+        if (typeof dependencies.getFinalEncroachment !== 'function') {
+          throw new TypeError(
+            'CalculationClient requires getFinalEncroachment for backtrack calculations',
+          )
+        }
         const result = await dependencies.getFinalEncroachment(
           request,
           getRuntimeOptions(options),
@@ -638,12 +827,14 @@ export function createCalculationClient(
   }
 }
 
-export function createCalculationDependencies(overrides = {}) {
+export function createCalculationDependencies(
+  overrides: CalculationClientDependencies = {},
+): CompleteCalculationClientDependencies {
   return {
     ...defaultDependencies,
     ...overrides,
     resourceGuard: overrides.resourceGuard ?? createResourceGuard(),
-  }
+  } as CompleteCalculationClientDependencies
 }
 
 export const calculationDependencies = defaultDependencies

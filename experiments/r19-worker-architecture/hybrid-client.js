@@ -1,7 +1,7 @@
 import {
   createCalculationClient,
   createCalculationDependencies,
-} from '../../src/runtime/CalculationClient.js'
+} from '../../src/runtime/CalculationClient.ts'
 import { createRuntimeDamageRollClient } from '../../src/runtime/RuntimeDamageRollClient.js'
 
 /**

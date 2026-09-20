@@ -34,7 +34,7 @@ async function loadProductionModules() {
       server.ssrLoadModule('/src/calculation/DistributionResult.js'),
       server.ssrLoadModule('/src/domain/BacktrackRules.ts'),
       server.ssrLoadModule('/src/features/backtrack/model/BacktrackPresentation.js'),
-      server.ssrLoadModule('/src/runtime/CalculationClient.js'),
+      server.ssrLoadModule('/src/runtime/CalculationClient.ts'),
     ])
     return {
       server,

@@ -5,4 +5,4 @@ export {
 } from '../../src/calculation/DamageCalculator.js'
 export { generateMixedDamageDistribution } from '../../src/calculation/RuntimeDamageRollCalculator.js'
 export { calculateDxDistribution } from '../../src/calculation/DxCalculator.js'
-export { createCalculationClient } from '../../src/runtime/CalculationClient.js'
+export { createCalculationClient } from '../../src/runtime/CalculationClient.ts'

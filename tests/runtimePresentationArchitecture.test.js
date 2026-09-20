@@ -29,7 +29,7 @@ async function lintText(filePath, text) {
 describe('runtime and shared presentation architecture', () => {
   it('keeps runtime and shared presentation at their owning paths', () => {
     for (const path of [
-      'src/runtime/CalculationClient.js',
+      'src/runtime/CalculationClient.ts',
       'src/runtime/CalculationClientTypes.ts',
       'src/runtime/CalculationFeedback.ts',
       'src/runtime/CalculationRequestStatus.ts',
@@ -65,7 +65,7 @@ describe('runtime and shared presentation architecture', () => {
       )
       expect(contents, path).not.toMatch(/(?:from|import\s*\()\s*['"]node:/)
     }
-    expect(source('src/runtime/CalculationClient.js')).not.toContain(
+    expect(source('src/runtime/CalculationClient.ts')).not.toContain(
       '../features/',
     )
     expect(source('src/runtime/CalculationClientTypes.ts')).not.toContain(
@@ -74,7 +74,7 @@ describe('runtime and shared presentation architecture', () => {
     expect(source('src/runtime/CalculationClientTypes.ts')).not.toContain(
       'InjectionKey',
     )
-    expect(source('src/runtime/CalculationClient.js')).not.toContain(
+    expect(source('src/runtime/CalculationClient.ts')).not.toContain(
       'CALCULATION_CLIENT_KEY',
     )
     const clientAdapter = source('src/plugins/calculationClient.ts')

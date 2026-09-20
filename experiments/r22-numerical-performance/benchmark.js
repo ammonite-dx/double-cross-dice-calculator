@@ -26,7 +26,7 @@ import { getTotalDamageStatistics } from '../../src/calculation/DistributionResu
 import {
   createCalculationClient,
   createCalculationDependencies,
-} from '../../src/runtime/CalculationClient.js'
+} from '../../src/runtime/CalculationClient.ts'
 import { createResourceGuard } from '../../src/runtime/ResourceGuard.js'
 import { createRuntimeDamageRollClient } from '../../src/runtime/RuntimeDamageRollClient.js'
 import { generateMixedDamageDistribution } from '../../src/calculation/RuntimeDamageRollCalculator.js'
