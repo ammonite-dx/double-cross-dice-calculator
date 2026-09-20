@@ -25,12 +25,13 @@ R28-E2は、presentation modelの型付き移行、UI／adapterの責務縮小�
 - `npm run typecheck`、`npm run lint`、`npm run lint:markdown`（96 files／0 issues）、`npm run build`が成功した。production buildは457 modulesを変換した。
 - `npm run verify:browser`が成功した。Check、Attack、Backtrackのon-demand計算、表示範囲のreject／recovery、mobile styleを検証し、Backtrackは3 canvases、precomputed requests 0、console warnings/errors 0、same-origin HTTP errors 0だった。
 - Backtrack presentationのカテゴリ境界、metadata、immutability、adapter mapping、runnerのabort／error／retry lifecycle、runtime rule validationを回帰テストで検証した。
-- `git diff --check`を実行し、コミット後の作業ツリーがcleanであることを確認する。
+- `git diff --check`を実行し、コミット後の作業ツリーがcleanであることを確認した。
 
 ## コミット
 
 - `4a7d222` `refactor: complete backtrack chart presentation`
-- `fix: preserve backtrack tooltip presentation`（このclosure commit）: tooltipのtitle callbackが`null`を返す契約と、実績ベースの検証記録を確定する。
+- `91a9345` `fix: preserve backtrack tooltip presentation`: tooltipのtitle callbackが`null`を返す契約を確定した。
+- このdocs-only closure commit: 検証結果と上記2コミットの構成を最終記録した。
 
 ## 非対象と次の作業
 
