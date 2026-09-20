@@ -299,7 +299,7 @@ export function createRuntimeDamageRollClient({
       return
     }
 
-    if ('error' in response) {
+    if ('error' in response && response.error) {
       const error = new Error(response.error.message)
       error.name = response.error.name || 'Error'
       finishActiveJob(job, error)
@@ -307,16 +307,19 @@ export function createRuntimeDamageRollClient({
     }
 
     try {
+      const responseDistribution = 'distribution' in response
+        ? response.distribution
+        : undefined
       const expectedTotal = job.weights.reduce(
         (total, weight) => total + weight,
         0,
       )
       validateDistribution(
-        response.distribution,
+        responseDistribution,
         expectedTotal,
         job.options.distributionLength,
       )
-      const distribution = response.distribution
+      const distribution = responseDistribution
 
       if (cacheSize > 0) {
         cache.unshift({
@@ -346,7 +349,7 @@ export function createRuntimeDamageRollClient({
     if (!isCurrentWorker(token)) {
       return
     }
-    const error = new Error(event.message || 'Runtime damage Worker failed')
+    const error = new Error(event?.message || 'Runtime damage Worker failed')
     const job = activeJob
     activeJob = null
     terminateCurrentWorker()
