@@ -27,10 +27,14 @@ production sourceに重複していたradix-2 FFTのtransform kernelを一つの
 
 既存のRuntime DR oracleとsupport・overflow・可変FFT長のテストは変更していない。
 
+## Abort semantics follow-up
+
+初回のkernel統合後に、`convolveDistributions()`の高位Abort checkpointが失われていたため、R29-Aのclosure follow-upで復元した。Abort判定を`throwIfFftAborted()`として共有primitiveからexportし、入力検証後、FFT長callback後、周波数領域の乗算後、inverse FFT後に従来のcheckpointを置いた。これにより、pre-aborted requestでは`onFftLength`を呼ばず、不正な`fftLength`より`AbortError`を優先する。
+
 ## 検証結果
 
-- focused Vitest: 4 files／86 tests passed
-- `npm run verify:all`: 通常Vitest 88 files／1020 tests、production build 458 modules、browser smoke PASS
+- focused FFT Vitest: 16 tests passed
+- `npm run verify:all`: 通常Vitest 88 files／1022 tests、production build 458 modules、browser smoke PASS
 - browser smoke: Check／Attack／Backtrackのprecomputed requests 0、console warnings/errors 0、same-origin HTTP errors 0
 - reference gate: 32 assets、reference Vitest 7 files／53 tests、generator通常18 tests、simulation 13 tests、ruff、runtime DX 20,000 cases passed
 - `npm run test:experiments`: 11 files／65 tests passed
@@ -43,7 +47,9 @@ production sourceに重複していたradix-2 FFTのtransform kernelを一つの
 ## コミット
 
 - `ffe7422` `refactor: consolidate production FFT primitive`
-- `docs: record R29-A FFT consolidation`
+- `bfc3e4c` `docs: record R29-A FFT consolidation`
+- `0baf565` `fix: preserve FFT convolution abort checkpoints`
+- docs follow-up: `docs: close R29-A abort follow-up`
 
 ## 次の作業
 
