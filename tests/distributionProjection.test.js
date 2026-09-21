@@ -52,6 +52,7 @@ describe('projectDistribution', () => {
       decision: DISTRIBUTION_PROJECTION_DECISIONS.REUSE,
       mode: DISTRIBUTION_PROJECTION_MODES.PMF,
     })
+    expect(canonical.displayWindow).toBe(canonical.plan.displayWindow)
     expect(Array.from(canonical.values)).toEqual([0.2, 0.3, 0.5])
 
     const upperTailDisplay = makeDisplay({
@@ -250,6 +251,7 @@ describe('projectDistribution', () => {
       decision: DISTRIBUTION_PROJECTION_DECISIONS.RECALCULATE,
       reason: DISTRIBUTION_PROJECTION_REASONS.RECALCULATE,
     })
+    expect(result.displayWindow).toBe(result.plan.displayWindow)
     expect(result.plan.coverage.missingSegments)
       .toEqual([{ min: 4, max: 4, pointCount: 1 }])
     expect(result).not.toHaveProperty('values')

@@ -163,11 +163,10 @@ function getOverflowLowerBound(overflow, uncertainty) {
 }
 
 function makeWindow(plan) {
-  return Object.freeze({
-    min: plan.displayWindow.min,
-    max: plan.displayWindow.max,
-    pointCount: plan.displayWindow.pointCount,
-  })
+  // DisplayRangePlanner owns and freezes this value. Reuse it instead of
+  // creating another structurally identical window for every projection
+  // status.
+  return plan.displayWindow
 }
 
 /** @returns {DistributionProjection} */
@@ -419,7 +418,8 @@ function classifyDecision(display, plan, mode) {
  * The returned `values` buffer is present only for ready projections and is
  * an owned Float64Array independent of the display's explicit coefficients.
  *
- * @param {Object} display A canonical distribution display payload.
+ * @param {Object} display A trusted display payload from
+ * `presentDistribution`.
  * @param {Object} [options] Projection mode, display window, and policy.
  * @returns {DistributionProjection}
  */
