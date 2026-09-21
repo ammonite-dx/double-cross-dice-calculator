@@ -116,7 +116,7 @@ Scoreは、明示範囲外の質量を`scoreTailCertificate`、一次モーメ�
 
 ### 5.1 Total Damageの実行境界
 
-`DamageAggregation`は、入力envelopeの検査と係数列のsnapshot、FFT長・resource見積り、opaque planのregistry、FFT実行・正規化、metadataと期待値certificateの生成を別モジュールで行います。`planDamageAggregation`は畳み込みを実行せず、`sumDamage`は承認済みplanを受け取った場合に同じsnapshotと見積りを再利用します。したがってResourceGuardの待機中に呼び出し元が入力配列を変更しても、計画済みの計算内容は変わりません。planの形だけを複製したオブジェクトはprivate registryで拒否されます。
+`DamageAggregation`は、入力envelopeの検査と係数列のsnapshot、FFT長・resource見積り、FFT実行・正規化、metadataと期待値certificateの生成を別モジュールで行います。`prepareDamageAggregation`は畳み込みを実行せず、凍結された構造的な`plan`と、検査済みsnapshotを閉じ込めた`execute`関数を返します。ResourceGuardの待機中に呼び出し元が入力配列を変更しても、準備済みの計算内容は変わりません。`execute`には実行時のAbortSignalとFFT長通知だけを渡せます。`sumDamage`はこの準備と実行を一度に行うone-shot APIであり、resource limitやplanを実行時に渡すことはできません。
 
 ## 6. バックトラック
 
