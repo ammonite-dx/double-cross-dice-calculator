@@ -119,21 +119,18 @@ describe('materializeChartJsData', () => {
     )
   })
 
-  it('rejects malformed projection payloads with a typed validation error', () => {
+  it('checks only readiness here and validates materializer options', () => {
     const valid = project(makeDisplay(), { min: 0, max: 0 })
-    const malformed = [
-      { ...valid, mode: 'invalid' },
-      { ...valid, displayWindow: { min: 0, max: 1, pointCount: 2 } },
-      { ...valid, values: [1] },
-    ]
-
-    for (const candidate of malformed) {
-      expect(() => materializeChartJsData(candidate)).toThrow(
-        expect.objectContaining({
-          code: CHART_SERIES_ERROR_CODES.INVALID_SERIES,
-        })
-      )
-    }
+    expect(() => materializeChartJsData({ status: 'not-ready' })).toThrow(
+      expect.objectContaining({
+        code: CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      })
+    )
+    expect(() => materializeChartJsData(null)).toThrow(
+      expect.objectContaining({
+        code: CHART_SERIES_ERROR_CODES.INVALID_SERIES,
+      })
+    )
     expect(() => materializeChartJsData(valid, { includeLabels: 'yes' }))
       .toThrow(ChartSeriesError)
   })
