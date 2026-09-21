@@ -1,10 +1,8 @@
-import {
-  DISTRIBUTION_DISPLAY_VERSION,
-  DISPLAY_PROBABILITY_TOLERANCE,
-} from './DistributionPresenter'
+import { DISPLAY_PROBABILITY_TOLERANCE } from './DistributionPresenter'
 
 /** @typedef {import('./DistributionProjectionTypes').DisplayRangePlan} DisplayRangePlan */
 /** @typedef {import('./DistributionProjectionTypes').DisplayWindowResourcePlan} DisplayWindowResourcePlan */
+/** @typedef {import('./DistributionProjectionTypes').DistributionDisplay} DistributionDisplay */
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const FLOAT64_BYTES_PER_POINT = Float64Array.BYTES_PER_ELEMENT
@@ -124,160 +122,6 @@ function requireNonNegativeSafeInteger(value, code, message, path) {
   return value
 }
 
-function requireFiniteNonNegativeNumber(value, code, message, path) {
-  if (!Number.isFinite(value) || value < 0) {
-    fail(code, message, { path, value })
-  }
-  return value
-}
-
-function requireProbability(value, path) {
-  if (!Number.isFinite(value) || value < 0 || value > 1) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      `${path} must be a finite probability between 0 and 1`,
-      { path, value }
-    )
-  }
-  return value
-}
-
-// `presentDistribution` validates every coefficient before exposing
-// this versioned display contract. Planning a new window must therefore stay
-// O(1) in explicit.length: verify only the container kind, its length, and
-// the derived endpoint. Do not inspect coefficient values or array density.
-function validateExplicitProbabilityContainer(values) {
-  const isArray = Array.isArray(values)
-  const isFloat64Array = values instanceof Float64Array
-  if (!isArray && !isFloat64Array) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.explicit.probabilities must be an Array or Float64Array',
-      { path: 'display.explicit.probabilities' }
-    )
-  }
-
-  const valuesLength = values.length
-  if (!Number.isSafeInteger(valuesLength) || valuesLength < 0) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.explicit.probabilities.length must be a safe non-negative integer',
-      { path: 'display.explicit.probabilities.length', value: valuesLength }
-    )
-  }
-  return valuesLength
-}
-
-function copySupport(support) {
-  const kind = getOwnDataProperty(
-    support,
-    'kind',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.support'
-  )
-  if (kind === 'finite') {
-    const max = getOwnDataProperty(
-      support,
-      'max',
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.support'
-    )
-    requireNonNegativeSafeInteger(
-      max,
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.support.max must be a non-negative safe integer',
-      'display.support.max'
-    )
-    return { kind, max }
-  }
-  if (kind === 'infinite') {
-    if (hasOwn(support, 'max')) {
-      fail(
-        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-        'infinite display.support must not contain max',
-        { path: 'display.support.max' }
-      )
-    }
-    return { kind }
-  }
-  fail(
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.support.kind must be finite or infinite',
-    { path: 'display.support.kind', kind }
-  )
-}
-
-function copyOverflow(overflow) {
-  if (overflow === null) {
-    return null
-  }
-  requirePlainRecord(
-    overflow,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.overflow',
-    'display.overflow must be null or a plain record'
-  )
-  const kind = getOwnDataProperty(
-    overflow,
-    'kind',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.overflow'
-  )
-  const lowerBound = getOwnDataProperty(
-    overflow,
-    'lowerBound',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.overflow'
-  )
-  const errorBound = getOwnDataProperty(
-    overflow,
-    'errorBound',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.overflow'
-  )
-  requireNonNegativeSafeInteger(
-    lowerBound,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.overflow.lowerBound must be a non-negative safe integer',
-    'display.overflow.lowerBound'
-  )
-  requireFiniteNonNegativeNumber(
-    errorBound,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.overflow.errorBound must be a finite non-negative number',
-    'display.overflow.errorBound'
-  )
-
-  if (kind === 'exact') {
-    const probability = getOwnDataProperty(
-      overflow,
-      'probability',
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.overflow'
-    )
-    requireProbability(probability, 'display.overflow.probability')
-    return { kind, lowerBound, probability, errorBound }
-  }
-  if (kind === 'upper-bound') {
-    const probabilityUpperBound = getOwnDataProperty(
-      overflow,
-      'probabilityUpperBound',
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.overflow'
-    )
-    requireProbability(
-      probabilityUpperBound,
-      'display.overflow.probabilityUpperBound'
-    )
-    return { kind, lowerBound, probabilityUpperBound, errorBound }
-  }
-  fail(
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.overflow.kind must be exact or upper-bound',
-    { path: 'display.overflow.kind', kind }
-  )
-}
-
 function hasPotentialOverflowMass(overflow) {
   return overflow !== null
     && (
@@ -288,221 +132,6 @@ function hasPotentialOverflowMass(overflow) {
           : overflow.probabilityUpperBound > 0
       )
   )
-}
-
-function copyProjectionUncertainty(display) {
-  if (!hasOwn(display, 'projectionUncertainty')) {
-    return null
-  }
-
-  const value = getOwnDataProperty(
-    display,
-    'projectionUncertainty',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display'
-  )
-  requirePlainRecord(
-    value,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.projectionUncertainty',
-    'display.projectionUncertainty must be a plain record'
-  )
-  const positionUnknownProbabilityUpperBound = getOwnDataProperty(
-    value,
-    'positionUnknownProbabilityUpperBound',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.projectionUncertainty'
-  )
-  if (
-    !Number.isFinite(positionUnknownProbabilityUpperBound)
-    || positionUnknownProbabilityUpperBound < 0
-    || positionUnknownProbabilityUpperBound > 1
-  ) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.projectionUncertainty.positionUnknownProbabilityUpperBound must be between 0 and 1',
-      { path: 'display.projectionUncertainty.positionUnknownProbabilityUpperBound' }
-    )
-  }
-
-  const copied = { positionUnknownProbabilityUpperBound }
-  if (hasOwn(value, 'outputOverflowLowerBound')) {
-    const outputOverflowLowerBound = getOwnDataProperty(
-      value,
-      'outputOverflowLowerBound',
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.projectionUncertainty'
-    )
-    if (
-      outputOverflowLowerBound !== null
-      && (!Number.isSafeInteger(outputOverflowLowerBound)
-        || outputOverflowLowerBound < 0)
-    ) {
-      fail(
-        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-        'display.projectionUncertainty.outputOverflowLowerBound must be null or a non-negative safe integer',
-        { path: 'display.projectionUncertainty.outputOverflowLowerBound' }
-      )
-    }
-    copied.outputOverflowLowerBound = outputOverflowLowerBound
-  }
-  return copied
-}
-
-function normalizeDisplay(display) {
-  requirePlainRecord(
-    display,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display',
-    'display must be a plain distribution display record'
-  )
-
-  const displayKind = getOwnDataProperty(
-    display,
-    'kind',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display'
-  )
-  if (displayKind !== 'canonical-distribution-display') {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.kind must be canonical-distribution-display',
-      { path: 'display.kind', kind: displayKind }
-    )
-  }
-
-  const displayVersion = getOwnDataProperty(
-    display,
-    'version',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display'
-  )
-  if (displayVersion !== DISTRIBUTION_DISPLAY_VERSION) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      `display.version must be ${DISTRIBUTION_DISPLAY_VERSION}`,
-      {
-        path: 'display.version',
-        version: displayVersion,
-        expected: DISTRIBUTION_DISPLAY_VERSION,
-      }
-    )
-  }
-
-  const explicit = getOwnDataProperty(
-    display,
-    'explicit',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display'
-  )
-  requirePlainRecord(
-    explicit,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.explicit',
-    'display.explicit must be a plain record'
-  )
-  const offset = getOwnDataProperty(
-    explicit,
-    'offset',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.explicit'
-  )
-  requireNonNegativeSafeInteger(
-    offset,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.explicit.offset must be a non-negative safe integer',
-    'display.explicit.offset'
-  )
-  const values = getOwnDataProperty(
-    explicit,
-    'probabilities',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.explicit'
-  )
-  const valuesLength = validateExplicitProbabilityContainer(values)
-  if (valuesLength > MAX_SAFE_INTEGER - offset) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.RANGE_OVERFLOW,
-      'display explicit coverage index would exceed the safe integer range',
-      { offset, valuesLength }
-    )
-  }
-  const derivedExplicitMax = valuesLength === 0
-    ? null
-    : offset + valuesLength - 1
-
-  const explicitMax = getOwnDataProperty(
-    display,
-    'explicitMax',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display'
-  )
-  if (
-    explicitMax !== null
-    && (!Number.isSafeInteger(explicitMax) || explicitMax < 0)
-  ) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.explicitMax must be null or a non-negative safe integer',
-      { path: 'display.explicitMax', explicitMax }
-    )
-  }
-  if (explicitMax !== derivedExplicitMax) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.explicitMax must match explicit.offset and probabilities.length',
-      { explicitMax, derivedExplicitMax }
-    )
-  }
-
-  const supportInput = getOwnDataProperty(
-    display,
-    'support',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display'
-  )
-  requirePlainRecord(
-    supportInput,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display.support',
-    'display.support must be a plain record'
-  )
-  const support = copySupport(supportInput)
-  if (support.kind === 'finite' && explicitMax !== null) {
-    if (support.max < explicitMax) {
-      fail(
-        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-        'display.support.max must not be below display.explicitMax',
-        { supportMax: support.max, explicitMax }
-      )
-    }
-  }
-
-  const overflow = copyOverflow(getOwnDataProperty(
-    display,
-    'overflow',
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-    'display'
-  ))
-  if (
-    support.kind === 'finite'
-    && hasPotentialOverflowMass(overflow)
-    && support.max < overflow.lowerBound
-  ) {
-    fail(
-      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY,
-      'display.support.max must contain the potential overflow lower bound',
-      { supportMax: support.max, lowerBound: overflow.lowerBound }
-    )
-  }
-
-  return {
-    offset,
-    explicitMax,
-    support,
-    overflow,
-    projectionUncertainty: copyProjectionUncertainty(display),
-  }
 }
 
 function normalizeDisplayWindow(windowInput) {
@@ -656,14 +285,7 @@ function normalizePolicy(policy) {
 function getInvocationOptions(display, options, policyOverride) {
   if (options === undefined) {
     return {
-      displayWindow: hasOwn(display, 'displayWindow')
-        ? getOwnDataProperty(
-            display,
-            'displayWindow',
-            DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
-            'display'
-          )
-        : undefined,
+      displayWindow: display.displayWindow,
       policy: policyOverride,
     }
   }
@@ -686,14 +308,7 @@ function getInvocationOptions(display, options, policyOverride) {
       )
     : isDirectWindow
       ? options
-      : hasOwn(display, 'displayWindow')
-        ? getOwnDataProperty(
-            display,
-            'displayWindow',
-            DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
-            'display'
-          )
-        : undefined
+      : display.displayWindow
   const policy = policyOverride !== undefined
     ? policyOverride
     : hasOwn(options, 'policy')
@@ -718,10 +333,13 @@ function makeSegment(min, max) {
   }
 }
 
-function classifyCoverage(
-  { offset, explicitMax, support, overflow, projectionUncertainty },
-  displayWindow
-) {
+function classifyCoverage(display, displayWindow) {
+  // The display has already crossed the validation/copy boundary in
+  // `presentDistribution`. Keep this stage O(1) in explicit coverage: use the
+  // trusted metadata and validate only the new window and resource policy.
+  const { offset } = display.explicit
+  const { explicitMax, support, overflow } = display
+  const projectionUncertainty = display.projectionUncertainty ?? null
   const { min, max } = displayWindow
   const finiteSupport = support.kind === 'finite'
   const entirelyAboveFiniteSupport = finiteSupport && min > support.max
@@ -888,7 +506,8 @@ function deepFreeze(value, seen = new WeakSet()) {
  * `{ displayWindow, policy }`, as `{ min, max, policy }`, or use the
  * `displayWindow` retained by `presentDistribution`.
  *
- * @param {Object} display A distribution-display payload.
+ * @param {DistributionDisplay} display A trusted display payload from
+ * `presentDistribution`.
  * @param {Object} [options]
  * @param {{ min: number, max: number }} [options.displayWindow]
  * @param {Object} [options.policy]
@@ -896,11 +515,10 @@ function deepFreeze(value, seen = new WeakSet()) {
  * @returns {DisplayRangePlan} A frozen coverage and resource plan.
  */
 export function planDisplayRange(display, options, policyOverride) {
-  const normalizedDisplay = normalizeDisplay(display)
   const invocation = getInvocationOptions(display, options, policyOverride)
   const displayWindow = normalizeDisplayWindow(invocation.displayWindow)
   const policy = normalizePolicy(invocation.policy)
-  const coverage = classifyCoverage(normalizedDisplay, displayWindow)
+  const coverage = classifyCoverage(display, displayWindow)
   const estimates = {
     pointCount: displayWindow.pointCount,
     float64Bytes: displayWindow.float64Bytes,
@@ -924,19 +542,15 @@ export function planDisplayRange(display, options, policyOverride) {
     },
     coverage: {
       explicit: {
-        offset: normalizedDisplay.offset,
-        max: normalizedDisplay.explicitMax,
+        offset: display.explicit.offset,
+        max: display.explicitMax,
       },
-      support: { ...normalizedDisplay.support },
-      overflow: normalizedDisplay.overflow === null
-        ? null
-        : { ...normalizedDisplay.overflow },
-      ...(normalizedDisplay.projectionUncertainty === null
+      support: display.support,
+      overflow: display.overflow,
+      ...(display.projectionUncertainty === undefined
         ? {}
         : {
-            projectionUncertainty: {
-              ...normalizedDisplay.projectionUncertainty,
-            },
+            projectionUncertainty: display.projectionUncertainty,
           }),
       missingSegments: coverage.missingSegments,
       knownZero: coverage.knownZero,

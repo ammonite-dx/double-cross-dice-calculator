@@ -547,12 +547,10 @@ describe('DisplayRangePlanner', () => {
     }))
   })
 
-  it('does not alias input objects and freezes the complete result', () => {
-    const display = {
-      kind: 'canonical-distribution-display',
-      version: DISTRIBUTION_DISPLAY_VERSION,
-      explicit: { offset: 2, probabilities: [1] },
-      explicitMax: 2,
+  it('owns planning structures while reusing trusted immutable coverage records', () => {
+    const display = createDisplay({
+      values: [1],
+      offset: 2,
       support: { kind: 'finite', max: 4 },
       overflow: {
         kind: 'exact',
@@ -560,22 +558,19 @@ describe('DisplayRangePlanner', () => {
         probability: 0,
         errorBound: 0,
       },
-    }
+    })
     const displayWindow = { min: 2, max: 3 }
     const result = planDisplayRange(display, { displayWindow })
 
     expect(result.displayWindow).not.toBe(displayWindow)
     expect(result.coverage.explicit).not.toBe(display.explicit)
-    expect(result.coverage.support).not.toBe(display.support)
-    expect(result.coverage.overflow).not.toBe(display.overflow)
+    expect(result.coverage.support).toBe(display.support)
+    expect(result.coverage.overflow).toBe(display.overflow)
     expect(result).not.toHaveProperty('action')
     expect(result).not.toHaveProperty('resource')
     expect(result).not.toHaveProperty('explicit')
 
     displayWindow.min = 0
-    display.explicit.offset = 99
-    display.support.max = 99
-    display.overflow.lowerBound = 99
     expect(result.displayWindow).toEqual({
       min: 2,
       max: 3,
@@ -592,7 +587,7 @@ describe('DisplayRangePlanner', () => {
     expect(Object.isFrozen(result.coverage.knownZero)).toBe(true)
   })
 
-  it('rejects malformed displays, windows, and policies before planning', () => {
+  it('validates requested windows and policies before planning', () => {
     const display = createDisplay()
     expect(() => planDisplayRange(display, {
       displayWindow: { min: 2, max: 1 },
@@ -600,63 +595,10 @@ describe('DisplayRangePlanner', () => {
     expect(() => planDisplayRange(display, {
       displayWindow: { min: -1, max: 1 },
     })).toThrow(DisplayRangePlannerError)
-    expect(() => planDisplayRange({
-      explicit: { offset: 0, probabilities: [1] },
-      explicitMax: 1,
-      support: { kind: 'finite', max: 1 },
-      overflow: null,
-    }, { min: 0, max: 0 })).toThrow(DisplayRangePlannerError)
-    expect(() => planDisplayRange({
-      kind: 'canonical-distribution-display',
-      version: DISTRIBUTION_DISPLAY_VERSION,
-      explicit: { offset: -1, probabilities: [1] },
-      explicitMax: -1,
-      support: { kind: 'finite', max: -1 },
-      overflow: null,
-    }, { displayWindow: { min: 0, max: 0 } })).toThrow(DisplayRangePlannerError)
     expect(() => planDisplayRange(display, {
       displayWindow: { min: 0, max: 0 },
       policy: { warning: { pointCount: 2 } },
     })).toThrow(DisplayRangePlannerError)
-  })
-
-  it('requires the canonical display kind and version own data properties', () => {
-    const display = createDisplay()
-    const missingKind = { ...display }
-    delete missingKind.kind
-    const missingVersion = { ...display }
-    delete missingVersion.version
-    const wrongKind = { ...display, kind: 'other-display' }
-    const wrongVersion = { ...display, version: 999 }
-    const accessorKind = { ...display }
-    Object.defineProperty(accessorKind, 'kind', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        return display.kind
-      },
-    })
-    const accessorVersion = { ...display }
-    Object.defineProperty(accessorVersion, 'version', {
-      configurable: true,
-      enumerable: true,
-      get() {
-        return display.version
-      },
-    })
-
-    expect(() => plan(missingKind, { min: 0, max: 0 }))
-      .toThrow(DisplayRangePlannerError)
-    expect(() => plan(missingVersion, { min: 0, max: 0 }))
-      .toThrow(DisplayRangePlannerError)
-    expect(() => plan(wrongKind, { min: 0, max: 0 }))
-      .toThrow(DisplayRangePlannerError)
-    expect(() => plan(wrongVersion, { min: 0, max: 0 }))
-      .toThrow(DisplayRangePlannerError)
-    expect(() => plan(accessorKind, { min: 0, max: 0 }))
-      .toThrow(DisplayRangePlannerError)
-    expect(() => plan(accessorVersion, { min: 0, max: 0 }))
-      .toThrow(DisplayRangePlannerError)
   })
 
   it('exposes an immutable policy-bound planner without reusing legacy limits', () => {
