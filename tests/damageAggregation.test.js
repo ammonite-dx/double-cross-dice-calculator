@@ -518,6 +518,40 @@ describe('canonical damage aggregation', () => {
     ])
   })
 
+  it('keeps execution options separate from preparation limits', () => {
+    const plannedCallback = vi.fn()
+    const executionCallback = vi.fn()
+    const prepared = prepareDamageAggregation([
+      createEnvelope({ values: [0.5, 0.5] }),
+      createEnvelope({ values: [0.25, 0.75] }),
+    ], { onFftLength: plannedCallback })
+
+    expect(plannedCallback).not.toHaveBeenCalled()
+    prepared.execute({ onFftLength: executionCallback })
+    expect(plannedCallback).not.toHaveBeenCalled()
+    expect(executionCallback).toHaveBeenCalledOnce()
+    prepared.execute()
+    expect(plannedCallback).toHaveBeenCalledOnce()
+
+    for (const options of [
+      { maxFftLength: 16 },
+      { plan: prepared.plan },
+      { unknownOption: true },
+    ]) {
+      expectAggregationError(
+        () => prepared.execute(options),
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+      )
+    }
+
+    const controller = new AbortController()
+    controller.abort()
+    expectAggregationError(
+      () => prepared.execute({ signal: controller.signal }),
+      DAMAGE_AGGREGATION_ERROR_CODES.ABORTED
+    )
+  })
+
   it('uses the shared three-transform FFT cost and publishes CPU work', () => {
     const prepared = prepareDamageAggregation([
       createEnvelope({ values: [0.5, 0.5] }),

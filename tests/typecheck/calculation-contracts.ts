@@ -28,6 +28,7 @@ import {
 import type {
   CalculationClientDependencyOverrides,
 } from '../../src/runtime/CalculationClientDependencyTypes'
+import type { ResourceReservationPlan } from '../../src/runtime/ResourceGuardTypes'
 
 declare const client: CalculationClient
 
@@ -137,6 +138,7 @@ aggregatePlan.steps.forEach((step) => {
 
 declare const preparedAggregation: PreparedDamageAggregation
 preparedAggregation.plan.estimates.float64Bytes
+const resourcePlan: ResourceReservationPlan = preparedAggregation.plan
 preparedAggregation.execute()
 const executionOptions: DamageAggregationExecutionOptions = {
   signal: new AbortController().signal,
@@ -218,3 +220,4 @@ const invalidDependencyOverrides: CalculationClientDependencyOverrides = {
   calculateScore: () => 1,
 }
 void invalidDependencyOverrides
+void resourcePlan
