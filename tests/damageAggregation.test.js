@@ -6,7 +6,7 @@ import {
   DAMAGE_AGGREGATION_MAX_FFT_LENGTH,
   DAMAGE_AGGREGATION_MAX_RESOURCE_BYTES,
   DamageAggregationError,
-  planDamageAggregation,
+  prepareDamageAggregation,
   sumDamage,
 } from '../src/calculation/DamageAggregation'
 import {
@@ -496,8 +496,10 @@ describe('canonical damage aggregation', () => {
     const second = createEnvelope({ values: [0.25, 0.75] })
     const Damages = [first, second]
     const onFftLength = vi.fn()
-    const plan = planDamageAggregation(Damages)
+    const prepared = prepareDamageAggregation(Damages)
+    const plan = prepared.plan
 
+    expect(Object.isFrozen(prepared)).toBe(true)
     expect(Object.isFrozen(plan)).toBe(true)
     expect(Object.isFrozen(plan.estimates)).toBe(true)
     expect(Object.isFrozen(plan.steps)).toBe(true)
@@ -505,10 +507,7 @@ describe('canonical damage aggregation', () => {
     expect(plan.estimates.fftLengths).toEqual([4])
     expect(onFftLength).not.toHaveBeenCalled()
 
-    const aggregate = sumDamage(Damages, {
-      plan,
-      onFftLength,
-    })
+    const aggregate = prepared.execute({ onFftLength })
 
     expect(onFftLength).toHaveBeenCalledOnce()
     expect(onFftLength).toHaveBeenCalledWith(plan.steps[0].fftLength)
@@ -520,10 +519,11 @@ describe('canonical damage aggregation', () => {
   })
 
   it('uses the shared three-transform FFT cost and publishes CPU work', () => {
-    const plan = planDamageAggregation([
+    const prepared = prepareDamageAggregation([
       createEnvelope({ values: [0.5, 0.5] }),
       createEnvelope({ values: [0.25, 0.75] }),
     ])
+    const plan = prepared.plan
     const expectedOperations = fftOperationCount(plan.steps[0].fftLength)
 
     expect(plan.estimates.operations).toBe(expectedOperations)
@@ -540,7 +540,7 @@ describe('canonical damage aggregation', () => {
     )
 
     const error = expectAggregationError(
-      () => planDamageAggregation(damages),
+      () => prepareDamageAggregation(damages),
       DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT
     )
 
@@ -565,7 +565,7 @@ describe('canonical damage aggregation', () => {
         sourceSupport: { kind: 'finite', max: 1 },
       })
     )
-    const plan = planDamageAggregation(damages)
+    const plan = prepareDamageAggregation(damages).plan
 
     expect(plan.componentCount).toBe(DAMAGE_AGGREGATION_MAX_COMPONENTS)
     expect(plan.estimates.cpuWork).toBeGreaterThan(0)
@@ -579,12 +579,11 @@ describe('canonical damage aggregation', () => {
     const first = createEnvelope({ values: [0.5, 0.5] })
     const second = createEnvelope({ values: [0.25, 0.75] })
     const Damages = [first, second]
-    const plan = planDamageAggregation(Damages)
+    const prepared = prepareDamageAggregation(Damages)
 
     first.result.values[0] = 1
     first.result.values[1] = 0
-    const aggregate = sumDamage(Damages, {
-      plan,
+    const aggregate = prepared.execute({
       onFftLength: () => {
         second.result.values[0] = 1
         second.result.values[1] = 0
@@ -600,16 +599,22 @@ describe('canonical damage aggregation', () => {
 
   it('rejects forged or mismatched plans before execution', () => {
     const Damages = [createEnvelope({ values: [1] })]
-    const plan = planDamageAggregation(Damages)
-    const forgedPlan = { ...plan, estimates: { ...plan.estimates } }
+    const prepared = prepareDamageAggregation(Damages)
 
     expectAggregationError(
-      () => sumDamage(Damages, { plan: forgedPlan }),
+      () => sumDamage(Damages, { plan: prepared.plan }),
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
     )
     expectAggregationError(
-      () => sumDamage([...Damages], { plan }),
+      () => sumDamage(Damages, {}, prepared.plan),
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS
+    )
+
+    const first = prepared.execute()
+    Damages[0].result.values[0] = 0
+    const second = prepared.execute()
+    expect(Array.from(second.result.values)).toEqual(
+      Array.from(first.result.values)
     )
   })
 

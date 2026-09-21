@@ -13,6 +13,8 @@ import type {
 import type {
   AggregatedDamageEnvelope,
   DamageAggregationPlan,
+  PreparedDamageAggregation,
+  DamageAggregationExecutionOptions,
   TotalDamageCalculationOptions,
 } from '../../src/calculation/DamageAggregationTypes'
 import type {
@@ -132,6 +134,19 @@ aggregatePlan.steps.forEach((step) => {
   // @ts-expect-error: runtime step operations belong to plan.estimates.
   step.operations
 })
+
+declare const preparedAggregation: PreparedDamageAggregation
+preparedAggregation.plan.estimates.float64Bytes
+preparedAggregation.execute()
+const executionOptions: DamageAggregationExecutionOptions = {
+  signal: new AbortController().signal,
+  onFftLength: (length) => length,
+}
+preparedAggregation.execute(executionOptions)
+// @ts-expect-error: resource limits belong to preparation, not execution.
+preparedAggregation.execute({ maxFftLength: 1024 })
+// @ts-expect-error: the public plan is metadata and has no execution method.
+preparedAggregation.plan.execute()
 
 declare const aggregateEnvelope: AggregatedDamageEnvelope
 aggregateEnvelope.metadata.componentDescriptors[0]?.sourceSupport

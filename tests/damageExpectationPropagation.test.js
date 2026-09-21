@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  planDamageAggregation,
+  prepareDamageAggregation,
   sumDamage,
 } from '../src/calculation/DamageAggregation'
 import { calculateDamageOnDemand } from '../src/calculation/DamageCalculator'
@@ -224,12 +224,12 @@ describe('Total Damage expected-value certificate propagation', () => {
     const first = dedicatedEnvelope(1, 2)
     const second = createEnvelope({ value: 3 })
     const damages = [first, second]
-    const plan = planDamageAggregation(damages)
+    const prepared = prepareDamageAggregation(damages)
 
     first.metadata.damageExpectationCertificate.lowerBound = 100
     first.metadata.damageExpectationCertificate.upperBound = 200
 
-    const total = sumDamage(damages, { plan })
+    const total = prepared.execute()
     expect(total.metadata.damageExpectationCertificate).toMatchObject({
       lowerBound: 4,
       upperBound: 5,

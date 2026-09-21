@@ -18,6 +18,11 @@ export interface TotalDamageCalculationOptions {
   readonly onFftLength?: (fftLength: number) => void
 }
 
+export interface DamageAggregationExecutionOptions {
+  readonly signal?: AbortSignal
+  readonly onFftLength?: (fftLength: number) => void
+}
+
 export interface DamageAggregationPlanStep {
   readonly index: number
   readonly leftLength: number
@@ -91,6 +96,13 @@ export interface AggregatedDamageEnvelope {
   readonly metadata: AggregatedDamageMetadata
 }
 
+export interface PreparedDamageAggregation {
+  readonly plan: DamageAggregationPlan
+  readonly execute: (
+    options?: DamageAggregationExecutionOptions,
+  ) => AggregatedDamageEnvelope
+}
+
 export interface InspectedDamageComponent {
   readonly index: number
   readonly result: DistributionResult
@@ -128,18 +140,12 @@ export interface DamageAggregationInternalPlan {
   readonly steps: readonly DamageAggregationPlanStep[]
 }
 
-export interface DamageAggregationPlanRecord {
-  readonly Damages: readonly DistributionEnvelope[]
+export interface PreparedDamageAggregationState {
   readonly inspected: readonly InspectedDamageComponent[]
   readonly plan: DamageAggregationInternalPlan
-  readonly normalizedOptions: Readonly<{
-    maxValuesLength: number
-    maxFftLength: number
-    maxResourceBytes: number
-    maxComponents: number
+  readonly executionDefaults: Readonly<{
     signal: AbortSignal | null
     onFftLength?: (fftLength: number) => void
-    plan: null
   }>
 }
 

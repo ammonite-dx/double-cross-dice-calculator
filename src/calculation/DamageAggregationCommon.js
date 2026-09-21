@@ -123,7 +123,7 @@ function validateOptionLimit(value, name, absolute, allowZero = true) {
   return value
 }
 
-export function normalizeOptions(options, allowPlan = false) {
+export function normalizeOptions(options) {
   if (options === undefined) {
     options = {}
   }
@@ -142,9 +142,6 @@ export function normalizeOptions(options, allowPlan = false) {
     'signal',
     'onFftLength',
   ])
-  if (allowPlan) {
-    allowedOptionNames.add('plan')
-  }
   for (const name of Reflect.ownKeys(options)) {
     if (typeof name !== 'string' || !allowedOptionNames.has(name)) {
       const displayName = typeof name === 'symbol' ? name.toString() : name
@@ -212,8 +209,56 @@ export function normalizeOptions(options, allowPlan = false) {
     maxComponents,
     signal,
     onFftLength,
-    plan: allowPlan && hasOwn(options, 'plan') ? options.plan : null,
   })
 }
 
 export { DAMAGE_AGGREGATION_PLAN_VERSION, MAX_SAFE_INTEGER }
+
+export function normalizeExecutionOptions(options) {
+  if (options === undefined) {
+    options = {}
+  }
+  if (!isRecord(options)) {
+    fail(
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'damage aggregation execution options must be an object'
+    )
+  }
+
+  const allowedOptionNames = new Set(['signal', 'onFftLength'])
+  for (const name of Reflect.ownKeys(options)) {
+    if (typeof name !== 'string' || !allowedOptionNames.has(name)) {
+      const displayName = typeof name === 'symbol' ? name.toString() : name
+      fail(
+        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+        'unknown damage aggregation execution option: ' + displayName,
+        { name: displayName }
+      )
+    }
+  }
+
+  const signal = options.signal ?? null
+  if (
+    signal !== null
+    && (typeof signal !== 'object' || typeof signal.aborted !== 'boolean')
+  ) {
+    fail(
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'execution options.signal must be an AbortSignal-like object',
+      { signal }
+    )
+  }
+
+  const onFftLength = options.onFftLength
+  if (onFftLength !== undefined && typeof onFftLength !== 'function') {
+    fail(
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'execution options.onFftLength must be a function when supplied'
+    )
+  }
+
+  return Object.freeze({
+    signal,
+    onFftLength,
+  })
+}

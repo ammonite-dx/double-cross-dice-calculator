@@ -11,11 +11,10 @@ import {
   checkAbort,
   fail,
   failResource,
-  hasOwn,
   isDamageAggregationAbortError,
   isDamageAggregationError,
-  isRecord,
   normalizeOptions,
+  normalizeExecutionOptions,
   DAMAGE_AGGREGATION_PLAN_VERSION,
 } from './DamageAggregationCommon'
 import {
@@ -30,11 +29,18 @@ import {
   estimatePersistentBytes,
   getSourceValuesLength,
 } from './DamageAggregationPlanner'
-import {
-  getDamageAggregationPlanRecord,
-  registerDamageAggregationPlan,
-} from './DamageAggregationPlanStore'
-import { executeDamageAggregationPlan } from './DamageAggregationExecutor'
+import { executePreparedDamageAggregation } from './DamageAggregationExecutor'
+import type {
+  DamageAggregationExecutionOptions,
+  DamageAggregationInput,
+  DamageAggregationInternalPlan,
+  DamageAggregationPlan,
+  InspectedDamageComponent,
+  PreparedDamageAggregation,
+  PreparedDamageAggregationState,
+  TotalDamageCalculationOptions,
+} from './DamageAggregationTypes'
+import type { DistributionEnvelope } from '../domain/DistributionResultTypes'
 
 export {
   DAMAGE_AGGREGATION_ERROR_CODES,
@@ -50,10 +56,28 @@ export {
   isDamageAggregationError,
 }
 
-/** @typedef {import('./DamageAggregationTypes').TotalDamageCalculationOptions} TotalDamageCalculationOptions */
-/** @typedef {import('./DamageAggregationTypes').DamageAggregationPlan} DamageAggregationPlan */
+interface NormalizedAggregationOptions {
+  readonly maxValuesLength: number
+  readonly maxFftLength: number
+  readonly maxResourceBytes: number
+  readonly maxComponents: number
+  readonly signal: AbortSignal | null
+  readonly onFftLength?: (fftLength: number) => void
+}
 
-function createPlanContract(Damages, inspected, plan, normalizedOptions) {
+interface NormalizedExecutionOptions {
+  readonly signal: AbortSignal | null
+  readonly onFftLength?: (fftLength: number) => void
+}
+
+type InternalAggregationPlan = DamageAggregationInternalPlan & {
+  readonly steps: readonly DamageAggregationInternalPlan['steps'][number][]
+}
+
+function createPlanContract(
+  componentCount: number,
+  plan: InternalAggregationPlan,
+): DamageAggregationPlan {
   const steps = Object.freeze(plan.steps.map((step) => Object.freeze({ ...step })))
   const estimates = Object.freeze({
     float64Bytes: plan.peakResourceBytes,
@@ -66,7 +90,7 @@ function createPlanContract(Damages, inspected, plan, normalizedOptions) {
   const publicPlan = Object.freeze({
     version: DAMAGE_AGGREGATION_PLAN_VERSION,
     operation: 'damage-aggregation',
-    componentCount: Damages.length,
+    componentCount,
     outputLength: plan.outputLength,
     offset: plan.offset,
     modeledSupport: copySupport(plan.modeledSupport),
@@ -75,15 +99,38 @@ function createPlanContract(Damages, inspected, plan, normalizedOptions) {
     estimates,
   })
 
-  return registerDamageAggregationPlan(publicPlan, {
-    Damages,
-    inspected,
+  return publicPlan
+}
+
+function createPreparedDamageAggregation(
+  componentCount: number,
+  inspected: readonly InspectedDamageComponent[],
+  plan: InternalAggregationPlan,
+  normalizedOptions: NormalizedAggregationOptions,
+): PreparedDamageAggregation {
+  const publicPlan = createPlanContract(componentCount, plan)
+  const preparedState: PreparedDamageAggregationState = Object.freeze({
+    inspected: Object.freeze([...inspected]),
     plan,
-    normalizedOptions,
+    executionDefaults: Object.freeze({
+      signal: normalizedOptions.signal,
+      onFftLength: normalizedOptions.onFftLength,
+    }),
+  })
+
+  return Object.freeze({
+    plan: publicPlan,
+    execute(options: DamageAggregationExecutionOptions = {}) {
+      const normalizedOptions = normalizeExecutionOptions(options) as NormalizedExecutionOptions
+      return executePreparedDamageAggregation(preparedState, normalizedOptions)
+    },
   })
 }
 
-function createDamagePlan(Damages, normalizedOptions) {
+function createDamagePlan(
+  Damages: DamageAggregationInput,
+  normalizedOptions: NormalizedAggregationOptions,
+): PreparedDamageAggregation {
   checkAbort(normalizedOptions.signal)
 
   if (!Array.isArray(Damages)) {
@@ -122,8 +169,8 @@ function createDamagePlan(Damages, normalizedOptions) {
         { length: 1, limit: normalizedOptions.maxValuesLength }
       )
     }
-    return createPlanContract(
-      Damages,
+    return createPreparedDamageAggregation(
+      Damages.length,
       [],
       {
         offset: 0,
@@ -144,7 +191,7 @@ function createDamagePlan(Damages, normalizedOptions) {
         cpuWork: 0,
         steps: [],
       },
-      normalizedOptions
+      normalizedOptions,
     )
   }
 
@@ -190,45 +237,12 @@ function createDamagePlan(Damages, normalizedOptions) {
     persistentBytes
   )
   checkAbort(normalizedOptions.signal)
-  return createPlanContract(
-    Damages,
+  return createPreparedDamageAggregation(
+    Damages.length,
     ownedInspected,
-    plan,
-    normalizedOptions
+    plan as InternalAggregationPlan,
+    normalizedOptions,
   )
-}
-
-function getPlanRecord(plan) {
-  return getDamageAggregationPlanRecord(plan)
-}
-
-function assertPlanMatchesInput(planRecord, Damages) {
-  if (planRecord.Damages !== Damages) {
-    fail(
-      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-      'damage aggregation plan does not match the input snapshot'
-    )
-  }
-}
-
-function assertPlanLimitsMatch(planRecord, options) {
-  for (const name of [
-    'maxValuesLength',
-    'maxFftLength',
-    'maxResourceBytes',
-    'maxComponents',
-  ]) {
-    if (
-      hasOwn(options, name)
-      && options[name] !== planRecord.normalizedOptions[name]
-    ) {
-      fail(
-        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-        `damage aggregation plan does not match ${name}`,
-        { name, planned: planRecord.normalizedOptions[name], value: options[name] }
-      )
-    }
-  }
 }
 
 /** Validate aggregation options without inspecting or planning envelopes. */
@@ -236,50 +250,25 @@ export function validateDamageAggregationOptions(options = {}) {
   return normalizeOptions(options)
 }
 
-/** Validate and plan an independent damage sum without allocating FFT buffers. */
-/**
- * @param {readonly import('../domain/DistributionResultTypes').DistributionEnvelope[]} Damages
- * @param {TotalDamageCalculationOptions} [options]
- * @returns {DamageAggregationPlan}
- */
-export function planDamageAggregation(Damages, options = {}) {
-  const normalizedOptions = normalizeOptions(options)
+/** Validate and prepare an independent damage sum without allocating FFT buffers. */
+export function prepareDamageAggregation(
+  Damages: readonly DistributionEnvelope[],
+  options: TotalDamageCalculationOptions = {},
+): PreparedDamageAggregation {
+  const normalizedOptions = normalizeOptions(options) as NormalizedAggregationOptions
   return createDamagePlan(Damages, normalizedOptions)
 }
 
-/**
- * Execute a damage sum. When a plan is supplied, no envelope validation or
- * resource planning is repeated: the approved immutable plan is executed.
- */
-/**
- * @param {readonly import('../domain/DistributionResultTypes').DistributionEnvelope[]} Damages
- * @param {TotalDamageCalculationOptions & { plan?: DamageAggregationPlan }} [options]
- * @param {DamageAggregationPlan} [explicitPlan]
- * @returns {import('../domain/DistributionResultTypes').DistributionEnvelope}
- */
-export function sumDamage(Damages, options = {}, explicitPlan = undefined) {
-  let rawOptions = options
-  if (explicitPlan !== undefined) {
-    if (!isRecord(options)) {
-      fail(
-        DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
-        'damage aggregation options must be an object'
-      )
-    }
-    rawOptions = { ...options, plan: explicitPlan }
+/** Execute a one-shot damage sum by preparing and immediately executing it. */
+export function sumDamage(
+  Damages: readonly DistributionEnvelope[],
+  options: TotalDamageCalculationOptions = {},
+) {
+  if (arguments.length > 2) {
+    fail(
+      DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
+      'sumDamage accepts only damages and one-shot options'
+    )
   }
-
-  const normalizedOptions = normalizeOptions(rawOptions, true)
-  let planRecord
-  if (normalizedOptions.plan === null) {
-    const publicPlan = createDamagePlan(Damages, normalizedOptions)
-    planRecord = getPlanRecord(publicPlan)
-  } else {
-    planRecord = getPlanRecord(normalizedOptions.plan)
-    assertPlanMatchesInput(planRecord, Damages)
-    assertPlanLimitsMatch(planRecord, rawOptions)
-    checkAbort(normalizedOptions.signal)
-  }
-
-  return executeDamageAggregationPlan(planRecord, normalizedOptions)
+  return prepareDamageAggregation(Damages, options).execute()
 }

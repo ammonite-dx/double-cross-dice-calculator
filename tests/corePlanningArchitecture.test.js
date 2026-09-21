@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 function source(path) {
@@ -10,24 +10,6 @@ function importsFrom(path) {
     /\bimport\s+(?:[\s\S]*?\sfrom\s+)?['"]([^'"]+)['"]/g
   )
   return Array.from(matches, (match) => match[1])
-}
-
-function sourceTree(path) {
-  let entries
-  try {
-    entries = readdirSync(new URL(`../${path}/`, import.meta.url), {
-      withFileTypes: true,
-    })
-  } catch {
-    return []
-  }
-  return entries.flatMap((entry) => {
-    const child = `${path}/${entry.name}`
-    if (entry.isDirectory()) {
-      return sourceTree(child)
-    }
-    return /\.(?:js|ts)$/.test(entry.name) ? [source(child)] : []
-  })
 }
 
 describe('calculation core planning boundaries', () => {
@@ -144,12 +126,11 @@ describe('calculation core planning boundaries', () => {
   })
 
   it('keeps damage aggregation execution responsibilities in dedicated modules', () => {
-    const facade = source('src/calculation/DamageAggregation.js')
+    const facade = source('src/calculation/DamageAggregation.ts')
     expect(facade).toContain('./DamageAggregationCommon')
     expect(facade).toContain('./DamageAggregationInspection')
     expect(facade).toContain('./DamageAggregationPlanner')
     expect(facade).toContain('./DamageAggregationExecutor')
-    expect(facade).toContain('./DamageAggregationPlanStore')
 
     const planner = source('src/calculation/DamageAggregationPlanner.js')
     expect(planner).toContain('buildDamageAggregationPlan')
@@ -157,7 +138,7 @@ describe('calculation core planning boundaries', () => {
     expect(planner).not.toContain('convolveDistributions')
 
     const executor = source('src/calculation/DamageAggregationExecutor.js')
-    expect(executor).toContain('executeDamageAggregationPlan')
+    expect(executor).toContain('executePreparedDamageAggregation')
     expect(executor).toContain('convolveDistributions')
     expect(executor).toContain('./DamageAggregationMetadata')
   })
@@ -173,10 +154,6 @@ describe('calculation core planning boundaries', () => {
     expect(source(executor)).not.toMatch(/\binspectEnvelope\b/)
     expect(source(planner)).not.toContain('convolveDistributions')
 
-    const runtimeSources = sourceTree('src/runtime')
-    runtimeSources.forEach((moduleSource) => {
-      expect(moduleSource).not.toContain('DamageAggregationPlanStore')
-    })
   })
 
   it('keeps Backtrack generation and plan validation outside the orchestrator', () => {

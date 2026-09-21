@@ -218,13 +218,12 @@ function createOutputResult(values, plan, overflow, singleResult, signal) {
   }
 }
 
-function getExecutionOptions(planRecord, normalizedOptions) {
+function getExecutionOptions(preparedState, normalizedOptions) {
   return Object.freeze({
-    ...planRecord.normalizedOptions,
-    signal: normalizedOptions.signal ?? planRecord.normalizedOptions.signal,
+    signal: normalizedOptions.signal ?? preparedState.executionDefaults.signal,
     onFftLength:
-      normalizedOptions.onFftLength ?? planRecord.normalizedOptions.onFftLength,
-    plan: null,
+      normalizedOptions.onFftLength
+      ?? preparedState.executionDefaults.onFftLength,
   })
 }
 
@@ -236,10 +235,13 @@ function addFiniteNumbers(left, right, field) {
   return value
 }
 
-/** Execute an approved private plan; no inspection or replanning occurs here. */
-export function executeDamageAggregationPlan(planRecord, normalizedOptions) {
-  const { inspected, plan } = planRecord
-  const executionOptions = getExecutionOptions(planRecord, normalizedOptions)
+/** Execute prepared private state; no inspection or replanning occurs here. */
+export function executePreparedDamageAggregation(
+  preparedState,
+  normalizedOptions = {}
+) {
+  const { inspected, plan } = preparedState
+  const executionOptions = getExecutionOptions(preparedState, normalizedOptions)
   checkAbort(executionOptions.signal)
 
   if (inspected.length === 0) {
