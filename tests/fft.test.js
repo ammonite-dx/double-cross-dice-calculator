@@ -6,6 +6,7 @@ import {
   subDistribution,
   sumDistribution,
 } from '../src/core/probability/FFT'
+import { transformRadix2FftInPlace } from '../src/core/probability/Radix2FFT'
 import * as FFT from '../src/core/probability/FFT'
 
 function pointMass(size, value) {
@@ -15,6 +16,62 @@ function pointMass(size, value) {
 }
 
 describe('FFT distribution operations', () => {
+  it('transforms an impulse with the shared radix-2 primitive', () => {
+    const real = new Float64Array([1, 0, 0, 0])
+    const imaginary = new Float64Array(4)
+
+    transformRadix2FftInPlace(real, imaginary)
+
+    expect(Array.from(real)).toEqual([1, 1, 1, 1])
+    expect(Array.from(imaginary)).toEqual([0, 0, 0, 0])
+  })
+
+  it('round-trips a non-trivial vector through the shared primitive', () => {
+    const originalReal = [1.5, -2, 0.25, 3, -1, 0.5, 2.25, -0.75]
+    const originalImaginary = [0.5, 1, -0.25, 2, 1.5, -1, 0.75, 0]
+    const real = new Float64Array(originalReal)
+    const imaginary = new Float64Array(originalImaginary)
+
+    transformRadix2FftInPlace(real, imaginary)
+    transformRadix2FftInPlace(real, imaginary, true)
+
+    expect(Array.from(real)).toEqual(
+      originalReal.map((value) => expect.closeTo(value, 12))
+    )
+    expect(Array.from(imaginary)).toEqual(
+      originalImaginary.map((value) => expect.closeTo(value, 12))
+    )
+  })
+
+  it('preserves AbortError semantics in the shared primitive', () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    expect(() => transformRadix2FftInPlace(
+      new Float64Array([1, 0]),
+      new Float64Array(2),
+      false,
+      controller.signal,
+    )).toThrowError(expect.objectContaining({
+      name: 'AbortError',
+      message: 'The FFT convolution was aborted',
+    }))
+  })
+
+  it('preserves AbortError semantics for convolution', () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    expect(() => convolveDistributions(
+      [0.5, 0.5],
+      [0.5, 0.5],
+      { signal: controller.signal },
+    )).toThrowError(expect.objectContaining({
+      name: 'AbortError',
+      message: 'The FFT convolution was aborted',
+    }))
+  })
+
   it('exposes only the canonical complete-convolution helper name', () => {
     expect(FFT.convolveDistributions).toBeTypeOf('function')
     expect(FFT.convolve).toBeUndefined()

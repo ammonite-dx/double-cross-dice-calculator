@@ -1,4 +1,4 @@
-import { transform } from './RuntimeDamageRollFFT'
+import { transformRadix2FftInPlace } from '../core/probability/Radix2FFT'
 import {
   getRuntimeDamageRollOperationEstimate,
   normalizeRuntimeDamageRollOptions,
@@ -315,7 +315,7 @@ function spectrumToDistribution(
   actualSupportMax,
   expectedTotal
 ) {
-  transform(real, imaginary, true)
+  transformRadix2FftInPlace(real, imaginary, true)
   const distribution = new Float64Array(distributionLength)
 
   for (let value = 0; value < real.length; value += 1) {

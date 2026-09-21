@@ -1,5 +1,19 @@
-export function transform(real, imaginary, inverse = false) {
+function throwIfAborted(signal) {
+  if (signal?.aborted) {
+    const error = new Error('The FFT convolution was aborted')
+    error.name = 'AbortError'
+    throw error
+  }
+}
+
+export function transformRadix2FftInPlace(
+  real,
+  imaginary,
+  inverse = false,
+  signal
+) {
   const size = real.length
+  throwIfAborted(signal)
 
   for (let index = 1, reversed = 0; index < size; index += 1) {
     let bit = size >> 1
@@ -18,8 +32,10 @@ export function transform(real, imaginary, inverse = false) {
       imaginary[reversed] = currentImaginary
     }
   }
+  throwIfAborted(signal)
 
   for (let width = 2; width <= size; width *= 2) {
+    throwIfAborted(signal)
     const angle = (inverse ? 2 : -2) * Math.PI / width
     const baseReal = Math.cos(angle)
     const baseImaginary = Math.sin(angle)
@@ -51,6 +67,7 @@ export function transform(real, imaginary, inverse = false) {
         factorReal = nextFactorReal
       }
     }
+    throwIfAborted(signal)
   }
 
   if (inverse) {
@@ -59,4 +76,5 @@ export function transform(real, imaginary, inverse = false) {
       imaginary[index] /= size
     }
   }
+  throwIfAborted(signal)
 }

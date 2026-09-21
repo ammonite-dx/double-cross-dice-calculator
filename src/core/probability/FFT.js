@@ -1,3 +1,5 @@
+import { transformRadix2FftInPlace } from './Radix2FFT'
+
 function assertCompatibleDistributions(distribution1, distribution2) {
   if (
     distribution1.length === 0 ||
@@ -34,14 +36,6 @@ export function getConvolutionFftLength(length, otherLength = length) {
   return result
 }
 
-function throwIfAborted(signal) {
-  if (signal?.aborted) {
-    const error = new Error('The FFT convolution was aborted')
-    error.name = 'AbortError'
-    throw error
-  }
-}
-
 // FFT round-off can leave a tiny negative coefficient even when both input
 // distributions are non-negative.  Treat only that bounded numerical noise
 // as cleanup; a larger negative is a failed calculation and must not be
@@ -68,74 +62,6 @@ export function sanitizeFftCoefficients(values) {
   return values
 }
 
-function transform(real, imaginary, inverse = false, signal) {
-  const size = real.length
-  throwIfAborted(signal)
-
-  for (let index = 1, reversed = 0; index < size; index += 1) {
-    let bit = size >> 1
-    while (reversed & bit) {
-      reversed ^= bit
-      bit >>= 1
-    }
-    reversed ^= bit
-
-    if (index < reversed) {
-      const currentReal = real[index]
-      const currentImaginary = imaginary[index]
-      real[index] = real[reversed]
-      imaginary[index] = imaginary[reversed]
-      real[reversed] = currentReal
-      imaginary[reversed] = currentImaginary
-    }
-  }
-  throwIfAborted(signal)
-
-  for (let width = 2; width <= size; width *= 2) {
-    throwIfAborted(signal)
-    const angle = (inverse ? 2 : -2) * Math.PI / width
-    const baseReal = Math.cos(angle)
-    const baseImaginary = Math.sin(angle)
-
-    for (let offset = 0; offset < size; offset += width) {
-      let factorReal = 1
-      let factorImaginary = 0
-      const halfWidth = width / 2
-
-      for (let index = 0; index < halfWidth; index += 1) {
-        const even = offset + index
-        const odd = even + halfWidth
-        const oddReal =
-          real[odd] * factorReal - imaginary[odd] * factorImaginary
-        const oddImaginary =
-          real[odd] * factorImaginary + imaginary[odd] * factorReal
-        const evenReal = real[even]
-        const evenImaginary = imaginary[even]
-
-        real[even] = evenReal + oddReal
-        imaginary[even] = evenImaginary + oddImaginary
-        real[odd] = evenReal - oddReal
-        imaginary[odd] = evenImaginary - oddImaginary
-
-        const nextFactorReal =
-          factorReal * baseReal - factorImaginary * baseImaginary
-        factorImaginary =
-          factorReal * baseImaginary + factorImaginary * baseReal
-        factorReal = nextFactorReal
-      }
-    }
-    throwIfAborted(signal)
-  }
-
-  if (inverse) {
-    for (let index = 0; index < size; index += 1) {
-      real[index] /= size
-      imaginary[index] /= size
-    }
-  }
-  throwIfAborted(signal)
-}
-
 /**
  * Compute the complete linear convolution of two non-empty distributions.
  * Unlike sumDistribution, this helper keeps every coefficient and accepts
@@ -146,7 +72,6 @@ export function convolveDistributions(distribution1, distribution2, options = {}
     ? { fftLength: options }
     : options ?? {}
   assertNonEmptyDistributions(distribution1, distribution2)
-  throwIfAborted(normalizedOptions.signal)
 
   const resultLength = distribution1.length + distribution2.length - 1
   const requiredFftLength = getConvolutionFftLength(
@@ -162,7 +87,6 @@ export function convolveDistributions(distribution1, distribution2, options = {}
   if (typeof normalizedOptions.onFftLength === 'function') {
     normalizedOptions.onFftLength(transformSize)
   }
-  throwIfAborted(normalizedOptions.signal)
   const firstReal = new Float64Array(transformSize)
   const firstImaginary = new Float64Array(transformSize)
   const secondReal = new Float64Array(transformSize)
@@ -170,8 +94,18 @@ export function convolveDistributions(distribution1, distribution2, options = {}
 
   firstReal.set(distribution1)
   secondReal.set(distribution2)
-  transform(firstReal, firstImaginary, false, normalizedOptions.signal)
-  transform(secondReal, secondImaginary, false, normalizedOptions.signal)
+  transformRadix2FftInPlace(
+    firstReal,
+    firstImaginary,
+    false,
+    normalizedOptions.signal,
+  )
+  transformRadix2FftInPlace(
+    secondReal,
+    secondImaginary,
+    false,
+    normalizedOptions.signal,
+  )
 
   for (let index = 0; index < transformSize; index += 1) {
     const real =
@@ -183,10 +117,13 @@ export function convolveDistributions(distribution1, distribution2, options = {}
     firstReal[index] = real
     firstImaginary[index] = imaginary
   }
-  throwIfAborted(normalizedOptions.signal)
 
-  transform(firstReal, firstImaginary, true, normalizedOptions.signal)
-  throwIfAborted(normalizedOptions.signal)
+  transformRadix2FftInPlace(
+    firstReal,
+    firstImaginary,
+    true,
+    normalizedOptions.signal,
+  )
   return sanitizeFftCoefficients(firstReal.slice(0, resultLength))
 }
 
