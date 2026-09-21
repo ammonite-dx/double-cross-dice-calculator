@@ -1,4 +1,7 @@
-import { transformRadix2FftInPlace } from './Radix2FFT'
+import {
+  throwIfFftAborted,
+  transformRadix2FftInPlace,
+} from './Radix2FFT'
 
 function assertCompatibleDistributions(distribution1, distribution2) {
   if (
@@ -72,6 +75,7 @@ export function convolveDistributions(distribution1, distribution2, options = {}
     ? { fftLength: options }
     : options ?? {}
   assertNonEmptyDistributions(distribution1, distribution2)
+  throwIfFftAborted(normalizedOptions.signal)
 
   const resultLength = distribution1.length + distribution2.length - 1
   const requiredFftLength = getConvolutionFftLength(
@@ -87,6 +91,7 @@ export function convolveDistributions(distribution1, distribution2, options = {}
   if (typeof normalizedOptions.onFftLength === 'function') {
     normalizedOptions.onFftLength(transformSize)
   }
+  throwIfFftAborted(normalizedOptions.signal)
   const firstReal = new Float64Array(transformSize)
   const firstImaginary = new Float64Array(transformSize)
   const secondReal = new Float64Array(transformSize)
@@ -117,6 +122,7 @@ export function convolveDistributions(distribution1, distribution2, options = {}
     firstReal[index] = real
     firstImaginary[index] = imaginary
   }
+  throwIfFftAborted(normalizedOptions.signal)
 
   transformRadix2FftInPlace(
     firstReal,
@@ -124,6 +130,7 @@ export function convolveDistributions(distribution1, distribution2, options = {}
     true,
     normalizedOptions.signal,
   )
+  throwIfFftAborted(normalizedOptions.signal)
   return sanitizeFftCoefficients(firstReal.slice(0, resultLength))
 }
 

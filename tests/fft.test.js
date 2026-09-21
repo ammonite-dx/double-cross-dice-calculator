@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   convolveDistributions,
@@ -66,6 +66,35 @@ describe('FFT distribution operations', () => {
       [0.5, 0.5],
       [0.5, 0.5],
       { signal: controller.signal },
+    )).toThrowError(expect.objectContaining({
+      name: 'AbortError',
+      message: 'The FFT convolution was aborted',
+    }))
+  })
+
+  it('does not invoke the FFT length callback when already aborted', () => {
+    const controller = new AbortController()
+    const onFftLength = vi.fn()
+    controller.abort()
+
+    expect(() => convolveDistributions(
+      [0.5, 0.5],
+      [0.5, 0.5],
+      { signal: controller.signal, onFftLength },
+    )).toThrowError(expect.objectContaining({
+      name: 'AbortError',
+    }))
+    expect(onFftLength).not.toHaveBeenCalled()
+  })
+
+  it('prioritizes an aborted signal over invalid FFT length', () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    expect(() => convolveDistributions(
+      [0.5, 0.5],
+      [0.5, 0.5],
+      { signal: controller.signal, fftLength: 2 },
     )).toThrowError(expect.objectContaining({
       name: 'AbortError',
       message: 'The FFT convolution was aborted',
