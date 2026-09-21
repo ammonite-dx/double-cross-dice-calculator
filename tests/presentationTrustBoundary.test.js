@@ -40,6 +40,23 @@ function createScoreEnvelope() {
 }
 
 describe('presentation trust boundary', () => {
+  it('revalidates a calculation result when it crosses into presentation', () => {
+    const envelope = createEnvelope({ values: [0.25, 0.75] })
+    const summary = getDamageStatistics(envelope)
+
+    // DistributionResult exposes its calculation-owned buffer as read-only by
+    // convention, so a hostile or accidental mutation must still be caught at
+    // the presentation boundary before a display snapshot is published.
+    envelope.result.values[0] = Number.NaN
+
+    expect(() => presentDistribution(envelope, { summary })).toThrow(
+      expect.objectContaining({
+        name: 'DistributionPresentationValidationError',
+        code: 'invalid-envelope',
+      })
+    )
+  })
+
   it('reuses certified summaries while owning explicit display probabilities', () => {
     const envelope = createEnvelope({
       values: new Float64Array([0.25, 0.75]),
@@ -122,6 +139,7 @@ describe('presentation trust boundary', () => {
 
     expect(series.status).toBe('ready')
     expect(series.values).toEqual(new Float64Array([0.25, 0.75]))
+    expect(series.values).not.toBe(envelope.result.values)
     expect(series.values).not.toBe(display.explicit.probabilities)
     expect(Object.isFrozen(series)).toBe(true)
   })
