@@ -379,9 +379,8 @@ describe('CalculationClient resource guard integration', () => {
       getDamageRollDistribution: undefined,
       getFinalEncroachment: undefined,
       getD10Distribution: undefined,
-      planDamageAggregation: undefined,
+      prepareDamageAggregation: undefined,
       planCalculationRanges: undefined,
-      sumDamage: undefined,
     })
 
     expect(typeof dependencies.calculateDamageOnDemand).toBe('function')
@@ -394,9 +393,8 @@ describe('CalculationClient resource guard integration', () => {
     expect(typeof dependencies.getDamageRollDistribution).toBe('function')
     expect(typeof dependencies.getFinalEncroachment).toBe('function')
     expect(typeof dependencies.getD10Distribution).toBe('function')
-    expect(typeof dependencies.planDamageAggregation).toBe('function')
+    expect(typeof dependencies.prepareDamageAggregation).toBe('function')
     expect(typeof dependencies.planCalculationRanges).toBe('function')
-    expect(typeof dependencies.sumDamage).toBe('function')
   })
 
   it('accepts sync or Promise leases and releases canonical routes exactly once', async () => {

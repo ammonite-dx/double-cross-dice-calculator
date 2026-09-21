@@ -1,5 +1,6 @@
 import type {
   DamageAggregationPlan,
+  PreparedDamageAggregation,
   TotalDamageCalculationOptions,
 } from '../calculation/DamageAggregationTypes'
 import type {
@@ -26,7 +27,6 @@ import type {
 } from '../domain/CalculationInputNormalization'
 import type { DefenceDamageInput } from '../domain/CalculationInputs'
 import type { BacktrackParams } from '../domain/BacktrackRules'
-import type { AggregatedDamageEnvelope } from '../calculation/DamageAggregationTypes'
 import type { DamageEnvelope, DamageStatistics } from '../domain/DamageResultTypes'
 import type { DistributionEnvelope } from '../domain/DistributionResultTypes'
 import type {
@@ -119,18 +119,10 @@ export type GetD10Distribution = (
   runtimeOptions?: CalculationRuntimeOptions,
 ) => Float64Array
 
-export type PlanDamageAggregation = (
+export type PrepareDamageAggregation = (
   damages: readonly DistributionEnvelope[],
   options?: TotalDamageCalculationOptions,
-) => DamageAggregationPlan
-
-export type SumDamage = (
-  damages: readonly DistributionEnvelope[],
-  options?: TotalDamageCalculationOptions & Readonly<{
-    plan?: DamageAggregationPlan
-  }>,
-  explicitPlan?: DamageAggregationPlan,
-) => AggregatedDamageEnvelope
+) => PreparedDamageAggregation
 
 export type PlanCalculationRanges = (
   params: RangePlannerParams,
@@ -148,10 +140,9 @@ export interface CalculationClientDependencies {
   readonly getDamageRollDistribution?: RuntimeDamageRollClient['calculate']
   readonly getFinalEncroachment?: GetFinalEncroachment
   readonly getD10Distribution?: GetD10Distribution
-  readonly planDamageAggregation?: PlanDamageAggregation
+  readonly prepareDamageAggregation?: PrepareDamageAggregation
   readonly planCalculationRanges?: PlanCalculationRanges
   readonly resourceGuard?: ResourceGuard
-  readonly sumDamage?: SumDamage
   readonly onFftLength?: (fftLength: number) => void
 }
 
@@ -171,10 +162,9 @@ export interface CompleteCalculationClientDependencies
   readonly getDamageRollDistribution: RuntimeDamageRollClient['calculate']
   readonly getFinalEncroachment: GetFinalEncroachment
   readonly getD10Distribution: GetD10Distribution
-  readonly planDamageAggregation: PlanDamageAggregation
+  readonly prepareDamageAggregation: PrepareDamageAggregation
   readonly planCalculationRanges: PlanCalculationRanges
   readonly resourceGuard: ResourceGuard
-  readonly sumDamage: SumDamage
 }
 
 export type CalculationClientResourcePlan =

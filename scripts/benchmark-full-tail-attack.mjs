@@ -851,7 +851,7 @@ async function runAttackCase(testCase, dependencies, runtimeDx) {
       {},
       plan
     )
-    const total = dependencies.sumDamage([damage])
+    const total = dependencies.prepareDamageAggregation([damage]).execute()
     return {
       score,
       damage,
@@ -936,7 +936,7 @@ async function loadDependencies() {
         '/src/calculation/RuntimeDamageRollCalculator.js'
       ),
       server.ssrLoadModule('/src/calculation/RangePlanner.js'),
-      server.ssrLoadModule('/src/calculation/DamageAggregation.js'),
+        server.ssrLoadModule('/src/calculation/DamageAggregation.ts'),
       server.ssrLoadModule('/src/calculation/D10Calculator.js'),
     ])
     return {
@@ -953,7 +953,8 @@ async function loadDependencies() {
           ...options,
         }),
       planCalculationRanges: rangePlanner.planCalculationRanges,
-      sumDamage: canonicalDamageAggregation.sumDamage,
+      prepareDamageAggregation:
+        canonicalDamageAggregation.prepareDamageAggregation,
     }
   } catch (error) {
     await server.close()

@@ -12,8 +12,7 @@ import {
   getTotalDamageStatistics,
 } from '../calculation/DamageStatistics'
 import {
-  planDamageAggregation,
-  sumDamage,
+  prepareDamageAggregation,
 } from '../calculation/DamageAggregation'
 import {
   calculateDxDistribution,
@@ -177,10 +176,9 @@ const defaultDependencies: CompleteCalculationClientDependencies = {
   getDamageRollDistribution: runtimeDamageRollClient.calculate,
   getFinalEncroachment: getFinalEncroachmentAdapter,
   getD10Distribution: runtimeD10DistributionProvider,
-  planDamageAggregation,
+  prepareDamageAggregation,
   planCalculationRanges,
   resourceGuard: defaultResourceGuard,
-  sumDamage: sumDamage as unknown as CompleteCalculationClientDependencies['sumDamage'],
 }
 
 export class CalculationRangeError extends Error {
@@ -483,14 +481,9 @@ export function createCalculationClient(
 ): CalculationClient {
   const resourceGuard = dependencies.resourceGuard ?? defaultResourceGuard
   const planner = dependencies.planCalculationRanges ?? planCalculationRanges
-  const damagePlan =
-    dependencies.planDamageAggregation
-    ?? planDamageAggregation
-  const damageSum: NonNullable<CalculationClientDependencies['sumDamage']> =
-    dependencies.sumDamage
-    ?? (sumDamage as unknown as NonNullable<
-      CalculationClientDependencies['sumDamage']
-    >)
+  const damagePreparation =
+    dependencies.prepareDamageAggregation
+    ?? prepareDamageAggregation
   const totalDamageStatistics =
     dependencies.getTotalDamageStatistics
     ?? getTotalDamageStatistics
@@ -657,10 +650,11 @@ export function createCalculationClient(
         calculationOptions,
         dependencies.onFftLength
       )
-    const plan = damagePlan(
+    const prepared = damagePreparation(
       damageSnapshot,
       aggregationOptions
     )
+    const plan = prepared.plan
     const leaseRequest = resourceGuard.acquirePlan(plan, {
       signal: calculationOptions.signal,
       requestId: calculationOptions.requestId,
@@ -672,10 +666,7 @@ export function createCalculationClient(
 
     try {
       throwIfAborted(calculationOptions, 'total damage')
-      const aggregate: AggregatedDamageEnvelope = damageSum(
-        damageSnapshot,
-        { ...aggregationOptions, plan },
-      )
+      const aggregate: AggregatedDamageEnvelope = prepared.execute()
       throwIfAborted(calculationOptions, 'total damage')
       const summary = totalDamageStatistics(aggregate)
       return {
@@ -852,12 +843,12 @@ export function createCalculationDependencies(
       overrides.getFinalEncroachment ?? defaultDependencies.getFinalEncroachment,
     getD10Distribution:
       overrides.getD10Distribution ?? defaultDependencies.getD10Distribution,
-    planDamageAggregation:
-      overrides.planDamageAggregation ?? defaultDependencies.planDamageAggregation,
+    prepareDamageAggregation:
+      overrides.prepareDamageAggregation
+      ?? defaultDependencies.prepareDamageAggregation,
     planCalculationRanges:
       overrides.planCalculationRanges ?? defaultDependencies.planCalculationRanges,
     resourceGuard: overrides.resourceGuard ?? createResourceGuard(),
-    sumDamage: overrides.sumDamage ?? defaultDependencies.sumDamage,
     ...(typeof onFftLength === 'function' ? { onFftLength } : {}),
   }
 }

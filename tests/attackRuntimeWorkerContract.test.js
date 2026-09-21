@@ -96,13 +96,13 @@ function createHarness() {
         { kind: 'forced-failure' },
       ],
     })),
-    planDamageAggregation: vi.fn(() => ({
-      operation: 'damage-aggregation',
+    prepareDamageAggregation: vi.fn(() => ({
+      plan: { operation: 'damage-aggregation' },
+      execute: vi.fn(() => Envelope()),
     })),
     resourceGuard: {
       acquirePlan: vi.fn(() => ({ release })),
     },
-    sumDamage: vi.fn(() => Envelope()),
   })
   return {
     calculateDamageOnDemand,
