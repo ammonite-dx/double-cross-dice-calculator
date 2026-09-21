@@ -14,8 +14,16 @@
 
 ## 次に行う作業
 
-1. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-2. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **R29-B: DamageAggregation plan contract convergence**: Damage aggregationの計画契約と実行境界を整理する。
+2. **R29-C: presentation trust-boundary simplification**: presentation生成と表示adapterの信頼境界を整理する。
+3. **R29-D: Attack lifecycle convergence**: Attackの計算ライフサイクルと状態コミットを整理する。
+4. **R29-E: compatibility surface cleanup**: 移行期の互換surfaceを監査し、現行契約に不要なものを削除する。
+5. **R29-F: production TypeScript convergence**: production sourceのTypeScript移行を進める。
+6. **R29-G: architecture/source-text test cleanup**: 残る構造テストを意味論に合わせて整理する。
+7. **R29-H: active documentation/naming cleanup**: 現行ドキュメントと命名を整理する。
+8. **R29-I: architecture convergence closure**: R29全体の境界と検証を閉じる。
+9. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+10. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -45,3 +53,4 @@
 - **R28-E1: CalculationFeedback presentation separation**: `CalculationFeedback`からユーザー向け表示文言、数値・メモリ整形、overflow表示、ResourceGuardの表示分類を`RangePlanNoticeFormatter`へ分離した。`RangePlanNotice`は新formatterを直接利用し、runtimeはfeedback stateのライフサイクル・エラー分類・latest runnerだけを担う。表示文言、表示DTO、計算・入力の意味論は変更していない。詳細は[`archive/r28-e1-feedback-presentation-separation.md`](./archive/r28-e1-feedback-presentation-separation.md)を参照する。次はR28-E2のBacktrack chart presentation cleanupである。
 - **R28-E2: Backtrack chart presentation cleanup**: Backtrackのカテゴリ集約、ラベル、色、タイトル、アクセシブル名を`BacktrackPresentation` v2の完全な型付きpresentationとして生成し、UIが`dlois`や表示modeを再解釈しない構造へ移行した。旧`finalEncroachment` payload、`BacktrackChartData`、mode別チャートアダプタを削除し、runnerのstate・error lifecycleと型境界を`presentation`へ統一した。カテゴリ境界、丸め、符号付き座標、確率値、チャートの見た目は変更していない。詳細は[`archive/r28-e2-backtrack-chart-presentation-cleanup.md`](./archive/r28-e2-backtrack-chart-presentation-cleanup.md)を参照する。次はR28-Fのrepository cleanup closure auditである。
 - **R28-F: repository cleanup closure audit**: 旧データディレクトリのCI scope条件、存在しない`src/application`のarchitecture scan、存在しない`BacktrackResultTypes`のESLint allowlist例外を削除した。production/reference境界、retired naming、依存方向、normal/reference/experimentsのsuite分離、production bundleからのreference asset除外を再確認した。`wrangler.toml`、Home page、shared presentation barrel、歴史的experiment directory、`checkJs:false`、Worker JS、reference assetは意図的な保持として変更していない。詳細は[`archive/r28-f-repository-cleanup-closure.md`](./archive/r28-f-repository-cleanup-closure.md)を参照する。公開準備へ進む。
+- **R29-A: production FFT primitive consolidation**: radix-2 FFTのin-place transformを`src/core/probability/Radix2FFT.js`へ集約し、distribution convolutionとRuntime DRが同じ低位primitiveを利用するようにした。`FFT.js`のconvolution・係数cleanup、Runtime DRのspectrum生成・support・mass検証、Abort semantics、数値許容誤差、resource estimate、Worker protocolは変更していない。旧`RuntimeDamageRollFFT.js`は削除し、歴史的experimentのFFTは保持した。詳細は[`archive/r29-a-fft-primitive-consolidation.md`](./archive/r29-a-fft-primitive-consolidation.md)を参照する。次はR29-Bへ進む。
