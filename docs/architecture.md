@@ -61,7 +61,7 @@ productionの計算範囲には、事前計算asset由来の`calculationMax`や1
 
 ## 表示と結果契約
 
-`src/shared/presentation/`は、計算結果を要求されたwindowへ投影し、coverage、overflow、再計算要否を判定します。readyなprojectionだけをChart.js adapterへ渡します。百分率、桁丸め、チャートdatasetの生成はpresentationの責務であり、計算coreの確率値を変更しません。
+`presentDistribution`は、計算coreの`DistributionResult`を検証し、可変な確率配列をpresentation所有のsnapshotへコピーする計算結果と表示の境界です。以降の`DistributionDisplay`、`DisplayRangePlan`、readyな`DistributionProjection`は、その境界を通過した内部DTOとして扱います。表示範囲・mode・policy・resource見積りの入力は各段階で検証しますが、下流で表示DTO全体を再検証・再コピーしません。readyなprojectionだけをChart.js adapterへ渡し、adapterはChart.js用オプションを検証してprojectionの値をdatasetへ借用します。百分率、桁丸め、チャートdatasetの生成はpresentationの責務であり、計算coreの確率値を変更しません。
 
 期待値と成功率は`exact`、`bounded`、`lower-bound`などの証明状態を保持します。自動失敗・ファンブルの強制失敗確率と、通常の達成値0は別の意味を持ちます。詳細は[`result-contract.md`](./result-contract.md)を参照してください。
 
