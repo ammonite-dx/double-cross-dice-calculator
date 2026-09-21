@@ -631,7 +631,7 @@ describe('canonical damage aggregation', () => {
     ])
   })
 
-  it('rejects forged or mismatched plans before execution', () => {
+  it('rejects retired planned-execution arguments and keeps prepared execution snapshot-stable', () => {
     const Damages = [createEnvelope({ values: [1] })]
     const prepared = prepareDamageAggregation(Damages)
 

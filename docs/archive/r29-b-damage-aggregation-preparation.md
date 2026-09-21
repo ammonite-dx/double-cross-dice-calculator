@@ -20,6 +20,28 @@ Damage aggregationのresource計画とFFT実行の境界を、公開される構
 
 `sumDamage`は計画を公開せず、その場でprepareとexecuteを行う。実行時の計算オプションに`maxFftLength`などを渡す設計は採用せず、resource制約は準備時に確定する。AbortやFFT長通知のような実行中の制御だけを`execute`へ渡せる。
 
-## 検証
+## 検証実績
 
-`npm run typecheck`、Damage aggregation・CalculationClient・ResourceGuard・architectureのfocused tests、通常のVitest suite、lint、Markdown lint、buildを実行する。R29-Cのpresentation整理は本作業に含めない。
+- 通常Vitest: 88 files / 1023 tests
+- Typecheck: 成功
+- ESLint: 成功
+- Markdown lint: 成功
+- Production build: 成功
+- Production browser smoke: 成功
+- Reference Vitest: 7 files / 53 tests
+- Generator tests: 18 tests
+- Generator simulation: 13 tests
+- Runtime DX verification: 20,000 cases
+- Damage precision audit: 成功（15 records、bounded 14件、exact 1件、stable rounded 14件）
+- `git diff --check`: 成功
+- 作業ツリー: clean
+
+R29-Bのコミット:
+
+- `2fcc65a4608ec211017fb50c13efe3203356cbfd` `refactor: separate damage aggregation preparation`
+- `71bcb2bd37cbcee4212ea833ef3ff6c37c7c0c04` `refactor: use prepared aggregation in calculation client`
+- `41ef591bb5b4abd3c6e14c6de844a1b1db99802e` `docs: record R29-B preparation convergence`
+- `5e37ca3ecdc13442859ef665ada63f41ad671a23` `test: repair damage precision audit entrypoint`
+- `579ea69c21024fa2ab08ddffc414a30187bb0bf4` `test: cover prepared aggregation execution contract`
+
+R29-Cのpresentation整理は本作業に含めない。

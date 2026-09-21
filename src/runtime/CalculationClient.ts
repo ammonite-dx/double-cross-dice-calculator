@@ -639,8 +639,9 @@ export function createCalculationClient(
     options: TotalDamageClientOptions = {},
     aggregationOptionsOverride: TotalDamageCalculationOptions | null = null,
   ): Promise<TotalDamageResult> {
-    // Snapshot the caller's array before planning or waiting for a resource
-    // lease. The aggregation plan is then tied to this private snapshot.
+    // Snapshot the caller's array before preparation or waiting for a resource
+    // lease. The prepared execution keeps its own coefficient snapshot while
+    // exposing only resource metadata through prepared.plan.
     const damageSnapshot: readonly DistributionEnvelope[] = Array.isArray(damages)
       ? damages.map(copyTotalDamageEnvelope)
       : damages
