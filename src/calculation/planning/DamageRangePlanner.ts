@@ -18,19 +18,31 @@ import {
   subtractSafe,
   fftOperationCount,
 } from './PlanningMath'
+import type { DamageInput, DefenceDamageInput } from '../../domain/CalculationInputs'
+import type { DamageRangePlan, RangeDisplayPlan } from './RangePlannerTypes'
 
-export function normalizeAttack(params) {
+interface DamagePlannerParams {
+  readonly attack: DamageInput
+  readonly defence: DefenceDamageInput
+}
+
+export function normalizeAttack(params: unknown): DamageInput {
   return normalizeAttackDamageInput(params, 'attack')
 }
 
-export function normalizeDefence(params) {
+export function normalizeDefence(params: unknown): DefenceDamageInput {
   return normalizeDefenceDamageInput(params, 'defence')
 }
 
 /** Plan the finite damage-roll and defence-convolution ranges. */
-export function planDamage(params, display, maxScoreForDamage) {
+export function planDamage(
+  params: DamagePlannerParams,
+  display: RangeDisplayPlan,
+  maxScoreForDamage: number,
+): DamageRangePlan {
   const attack = normalizeAttack(params.attack)
   const defence = normalizeDefence(params.defence)
+  const kazanari = attack.kazanari ?? 0
   const maxDamageDice = Math.max(
     0,
     addSafe(
@@ -87,7 +99,7 @@ export function planDamage(params, display, maxScoreForDamage) {
   const defenceFftLength = defence.dice > 0
     ? nextPowerOfTwo(addSafe(workingLength, defenceMax, 'defence FFT range'))
     : 0
-  const effectiveKazanari = Math.min(attack.kazanari, maxDamageDice)
+  const effectiveKazanari = Math.min(kazanari, maxDamageDice)
   const damageOperations = getRuntimeDamageRollOperationEstimate(
     maxDamageDice + 1,
     effectiveKazanari,
@@ -103,6 +115,7 @@ export function planDamage(params, display, maxScoreForDamage) {
 
   return {
     ...attack,
+    kazanari,
     attackDice: attack.dice,
     attackValue: attack.value,
     defenceDice: defence.dice,

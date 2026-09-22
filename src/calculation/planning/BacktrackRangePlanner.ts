@@ -5,9 +5,13 @@ import {
   getBacktrackSupportMax,
 } from '../../domain/BacktrackRules'
 import { normalizeBacktrackParams } from '../../domain/CalculationInputNormalization'
+import type { RangeDisplayPlan, BacktrackRangePlan } from './RangePlannerTypes'
 
 /** Plan the finite support and source buffers for a backtrack calculation. */
-export function planBacktrack(params, display) {
+export function planBacktrack(
+  params: unknown,
+  display: RangeDisplayPlan,
+): BacktrackRangePlan {
   const normalized = normalizeBacktrackParams(params)
   const rule = getBacktrackRule(normalized.dlois)
   const diceModifier = rule.diceModifier ?? 0
@@ -31,7 +35,7 @@ export function planBacktrack(params, display) {
   const generationOperations = getBacktrackGenerationOperationEstimate(
     maxDice,
     workingLength,
-    rule.livingdead
+    rule.livingdead === true
   )
   const operations = workingLength * 3 + generationOperations
   const generationFloat64Arrays = rule.livingdead ? 22 : 2
@@ -40,7 +44,7 @@ export function planBacktrack(params, display) {
   ) * workingLength * Float64Array.BYTES_PER_ELEMENT
   const resultFloat64Bytes = 3 * workingLength * Float64Array.BYTES_PER_ELEMENT
 
-  const plan = {
+  const plan: BacktrackRangePlan = {
     params: normalized,
     display,
     rule: normalized.dlois,
