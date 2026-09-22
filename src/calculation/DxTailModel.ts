@@ -20,11 +20,11 @@ export {
  * order-statistic tail for planner and certificate decisions.
  */
 
-function nonNegativeInteger(value, name) {
+function nonNegativeInteger(value: unknown, name: string): number {
   return assertNonNegativeSafeInteger(value, name)
 }
 
-function clampProbability(value) {
+function clampProbability(value: number): number {
   // NaN means the certificate calculation failed; endpoint infinities are
   // explicit probability limits rather than errors.
   if (Number.isNaN(value)) {
@@ -43,7 +43,7 @@ function clampProbability(value) {
 }
 
 /** Tail of the maximum of `dice` independent critical chains. */
-export function maxTailBound(value, dice, critical) {
+export function maxTailBound(value: number, dice: number, critical: number): number {
   nonNegativeInteger(dice, 'dice')
   assertCriticalValue(critical)
   if (Number.isNaN(value)) {
@@ -70,7 +70,11 @@ export function maxTailBound(value, dice, critical) {
  * Grouping the union bound by residue modulo ten lets us evaluate the
  * infinite geometric tail without allocating an unbounded array.
  */
-export function maxTailFirstMomentUpperBound(cutoff, dice, critical) {
+export function maxTailFirstMomentUpperBound(
+  cutoff: number,
+  dice: number,
+  critical: number,
+): number {
   nonNegativeInteger(cutoff, 'cutoff')
   nonNegativeInteger(dice, 'dice')
   assertCriticalValue(critical)
@@ -98,7 +102,11 @@ export function maxTailFirstMomentUpperBound(cutoff, dice, critical) {
   return result
 }
 
-export function maxGeometricTail(maxCriticalCount, dice, criticalProbability) {
+export function maxGeometricTail(
+  maxCriticalCount: number,
+  dice: number,
+  criticalProbability: number,
+): number {
   if (maxCriticalCount < 0) {
     return 1
   }
@@ -112,7 +120,12 @@ export function maxGeometricTail(maxCriticalCount, dice, criticalProbability) {
   )
 }
 
-function negativeBinomialLogStep(logPmf, sum, yousei, criticalProbability) {
+function negativeBinomialLogStep(
+  logPmf: number,
+  sum: number,
+  yousei: number,
+  criticalProbability: number,
+): number {
   return logPmf +
     Math.log(criticalProbability) +
     Math.log(sum + yousei) -
@@ -120,11 +133,11 @@ function negativeBinomialLogStep(logPmf, sum, yousei, criticalProbability) {
 }
 
 function negativeBinomialTailFrom(
-  logPmf,
-  sum,
-  yousei,
-  criticalProbability,
-) {
+  logPmf: number,
+  sum: number,
+  yousei: number,
+  criticalProbability: number,
+): number {
   let result = 0
   let compensation = 0
   const logMinimum = Math.log(Number.MIN_VALUE)
@@ -170,11 +183,11 @@ function negativeBinomialTailFrom(
 // their y-term negative-binomial sum. Evaluate the tail directly to avoid
 // subtracting a near-one CDF when the requested error is very small.
 function maxPlusNegativeBinomialTail(
-  threshold,
-  dice,
-  yousei,
-  criticalProbability,
-) {
+  threshold: number,
+  dice: number,
+  yousei: number,
+  criticalProbability: number,
+): number {
   if (threshold < 0) {
     return 1
   }
@@ -217,11 +230,11 @@ function maxPlusNegativeBinomialTail(
  * The value is P(score > value), including the finite critical=11 shortcut.
  */
 export function calculateYouseiTailProbability(
-  value,
-  dice,
-  critical,
-  yousei,
-) {
+  value: number,
+  dice: number,
+  critical: number,
+  yousei: number,
+): number {
   if (dice === 0) {
     return 0
   }
@@ -289,7 +302,7 @@ const LOG_GAMMA_COEFFICIENTS = [
 // Lanczos approximation for log(Gamma(z)). All callers use positive integer
 // arguments, but the reflection branch keeps this helper useful for
 // diagnostics without factorial-sized intermediate values.
-function logGamma(value) {
+function logGamma(value: number): number {
   if (value < 0.5) {
     return Math.log(Math.PI) -
       Math.log(Math.sin(Math.PI * value)) -
@@ -310,7 +323,11 @@ function logGamma(value) {
 }
 
 /** PMF of the negative-binomial number of natural criticals before Yousei. */
-export function negativeBinomialPmf(sum, yousei, criticalProbability) {
+export function negativeBinomialPmf(
+  sum: number,
+  yousei: number,
+  criticalProbability: number,
+): number {
   if (yousei === 0) {
     return sum === 0 ? 1 : 0
   }
@@ -340,10 +357,10 @@ export function negativeBinomialPmf(sum, yousei, criticalProbability) {
  * returning one is the safe (and inexpensive) bound.
  */
 function negativeBinomialTailUpperBound(
-  threshold,
-  yousei,
-  criticalProbability,
-) {
+  threshold: number,
+  yousei: number,
+  criticalProbability: number,
+): number {
   if (threshold < 0) {
     return 1
   }
@@ -421,7 +438,10 @@ function negativeBinomialTailUpperBound(
   }
 }
 
-function maxCriticalCountMeanUpperBound(dice, criticalProbability) {
+function maxCriticalCountMeanUpperBound(
+  dice: number,
+  criticalProbability: number,
+): number {
   if (dice === 0 || criticalProbability === 0) {
     return 0
   }
@@ -446,11 +466,11 @@ function maxCriticalCountMeanUpperBound(dice, criticalProbability) {
 }
 
 function maxCriticalCountResidualUpperBound(
-  cutoff,
-  dice,
-  criticalProbability,
-  meanUpperBound,
-) {
+  cutoff: number,
+  dice: number,
+  criticalProbability: number,
+  meanUpperBound: number,
+): number {
   if (dice === 0) {
     return 0
   }
@@ -466,11 +486,11 @@ function maxCriticalCountResidualUpperBound(
 }
 
 function maxPlusNegativeBinomialResidualUpperBound(
-  threshold,
-  dice,
-  yousei,
-  criticalProbability,
-) {
+  threshold: number,
+  dice: number,
+  yousei: number,
+  criticalProbability: number,
+): number {
   const maximumMeanUpperBound = maxCriticalCountMeanUpperBound(
     dice,
     criticalProbability,
@@ -501,7 +521,7 @@ function maxPlusNegativeBinomialResidualUpperBound(
 
   let convolutionUpperBound = 0
   let pmfMass = 0
-  const addPmfTerm = (sum, pmf) => {
+  const addPmfTerm = (sum: number, pmf: number): boolean => {
     if (!Number.isFinite(pmf) || pmf < 0) {
       return false
     }
@@ -578,11 +598,11 @@ function maxPlusNegativeBinomialResidualUpperBound(
  * the caller, exactly as it is for `maxTailFirstMomentUpperBound`.
  */
 export function youseiTailFirstMomentUpperBound(
-  cutoff,
-  dice,
-  critical,
-  yousei,
-) {
+  cutoff: number,
+  dice: number,
+  critical: number,
+  yousei: number,
+): number {
   nonNegativeInteger(cutoff, 'cutoff')
   nonNegativeInteger(dice, 'dice')
   assertCriticalValue(critical)

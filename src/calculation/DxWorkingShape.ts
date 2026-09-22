@@ -15,7 +15,7 @@ export const DX_CRITICAL_MAX = 11
  * count. Keeping this helper beside the shared working-shape rules lets the
  * planner and direct calculator use the same estimate.
  */
-export function getDxOperationEstimate(workingLength, critical) {
+export function getDxOperationEstimate(workingLength: number, critical: number): number {
   if (
     !Number.isSafeInteger(workingLength)
     || workingLength < DX_MIN_DISTRIBUTION_SIZE
@@ -34,7 +34,7 @@ export function getDxOperationEstimate(workingLength, critical) {
  * Return the number of critical blocks that can contribute to explicit score
  * buckets for the requested working array.
  */
-export function getDxYouseiBlockLength(workingLength, yousei) {
+export function getDxYouseiBlockLength(workingLength: number, yousei: number): number {
   if (
     !Number.isSafeInteger(workingLength)
     || workingLength < DX_MIN_DISTRIBUTION_SIZE
@@ -50,7 +50,11 @@ export function getDxYouseiBlockLength(workingLength, yousei) {
   return Math.floor((available - 10 * yousei) / 10) + 1
 }
 
-export function getDxYouseiFftLength(workingLength, critical, yousei) {
+export function getDxYouseiFftLength(
+  workingLength: number,
+  critical: number,
+  yousei: number,
+): number {
   const blockLength = getDxYouseiBlockLength(workingLength, yousei)
   assertCriticalValue(critical)
   assertNonNegativeSafeInteger(yousei, 'yousei')

@@ -6,7 +6,7 @@ import { oneDieTail } from './DxTailModel'
 
 const PROBABILITY_TOLERANCE = 1e-12
 
-function clampProbability(value, label = 'probability') {
+function clampProbability(value: number, label = 'probability'): number {
   if (!Number.isFinite(value) || Number.isNaN(value)) {
     throw new RangeError(`${label} calculation produced NaN or infinity`)
   }
@@ -16,7 +16,7 @@ function clampProbability(value, label = 'probability') {
   return Math.min(1, Math.max(0, value))
 }
 
-function logAddExp(left, right) {
+function logAddExp(left: number, right: number): number {
   if (left === -Infinity) {
     return right
   }
@@ -29,7 +29,11 @@ function logAddExp(left, right) {
 }
 
 /** Return log P(Binomial(dice, probability) <= maximumSuccesses). */
-function logBinomialLowerCdf(dice, maximumSuccesses, probability) {
+function logBinomialLowerCdf(
+  dice: number,
+  maximumSuccesses: number,
+  probability: number,
+): number {
   if (maximumSuccesses < 0) {
     return -Infinity
   }
@@ -63,7 +67,11 @@ function logBinomialLowerCdf(dice, maximumSuccesses, probability) {
  * is evaluated in log-space. This keeps the work proportional to the order
  * statistic rank rather than to the dice count.
  */
-export function binomialSurvivalProbability(dice, required, probability) {
+export function binomialSurvivalProbability(
+  dice: number,
+  required: number,
+  probability: number,
+): number {
   assertNonNegativeSafeInteger(dice, 'dice')
   assertNonNegativeSafeInteger(required, 'required')
   if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
@@ -109,7 +117,7 @@ export function binomialSurvivalProbability(dice, required, probability) {
 }
 
 /** Return the number of binomial terms needed for shihai=m. */
-export function getDxOrderStatisticTermCount(dice, shihai) {
+export function getDxOrderStatisticTermCount(dice: number, shihai: number): number {
   assertNonNegativeSafeInteger(dice, 'dice')
   assertNonNegativeSafeInteger(shihai, 'shihai')
   if (dice <= shihai) {
@@ -124,11 +132,11 @@ export function getDxOrderStatisticTermCount(dice, shihai) {
  * and the short binomial side without allocating a dice-sized table.
  */
 export function getDxOrderStatisticOperationEstimate(
-  workingLength,
-  dice,
-  shihai,
-  critical,
-) {
+  workingLength: number,
+  dice: number,
+  shihai: number,
+  critical: number,
+): number {
   assertNonNegativeSafeInteger(workingLength, 'workingLength')
   assertNonNegativeSafeInteger(dice, 'dice')
   assertNonNegativeSafeInteger(shihai, 'shihai')
@@ -147,11 +155,11 @@ export function getDxOrderStatisticOperationEstimate(
 
 /** Return P(X_(m+1) > value) for complete independent 1DX results. */
 export function calculateDxOrderStatisticTail(
-  value,
-  dice,
-  critical,
-  shihai,
-) {
+  value: number,
+  dice: number,
+  critical: number,
+  shihai: number,
+): number {
   if (Number.isNaN(value)) {
     throw new RangeError('score.value must not be NaN')
   }

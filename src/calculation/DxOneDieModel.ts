@@ -1,6 +1,6 @@
 import { assertCriticalValue } from '../domain/InputDomain'
 
-function geometricSum(probabilityValue, terms) {
+function geometricSum(probabilityValue: number, terms: number): number {
   if (terms <= 0) {
     return 0
   }
@@ -11,7 +11,7 @@ function geometricSum(probabilityValue, terms) {
 }
 
 /** Cumulative probability for one DX die at an integer score boundary. */
-export function oneDieCumulative(value, critical) {
+export function oneDieCumulative(value: number, critical: number): number {
   if (value <= 0) {
     return 0
   }
@@ -27,7 +27,7 @@ export function oneDieCumulative(value, critical) {
 }
 
 /** Strict tail probability for one DX die at an integer score boundary. */
-export function oneDieTail(value, critical) {
+export function oneDieTail(value: number, critical: number): number {
   if (value < 0) {
     return 1
   }
