@@ -20,7 +20,7 @@ Attack の計算結果と表示結果を同じ runner 内のキャッシュで�
 
 ## 検証
 
-Attack の state、incremental execution/runner、feature controller、display integration/presentation、score/damage adapter の回帰テストを実行した。`npm run typecheck`、`npm run lint`、`git diff --check` も成功した。全体の release gate とブラウザ smoke は最終 closure で再実行する。
+Attack の state、incremental execution/runner、feature controller、display integration/presentation、score/damage adapter の回帰テストを実行した。最終 HEAD `11a1fbf`（`fix: tie attack presentation errors to coordinator revision`）では、Vitest 88 files / 1025 tests、typecheck、ESLint、Markdown lint、build、`verify:release`、production browser smoke、`git diff --check` がすべて成功し、作業ツリーも clean である。
 
 ## 次の作業
 
