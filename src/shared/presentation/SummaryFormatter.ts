@@ -1,12 +1,20 @@
 export const SUMMARY_UNAVAILABLE = '—'
 
-function isExactFiniteExpectedValue(expectedValue) {
-  return expectedValue?.kind === 'exact'
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isExactFiniteExpectedValue(expectedValue: unknown): expectedValue is {
+  readonly kind: 'exact'
+  readonly value: number
+} {
+  return isRecord(expectedValue)
+    && expectedValue.kind === 'exact'
     && typeof expectedValue.value === 'number'
     && Number.isFinite(expectedValue.value)
 }
 
-function roundScoreValue(value) {
+function roundScoreValue(value: number): number | null {
   const rounded = Math.round(value * 10) / 10
   if (!Number.isFinite(rounded)) {
     return null
@@ -14,9 +22,13 @@ function roundScoreValue(value) {
   return Object.is(rounded, -0) ? 0 : rounded
 }
 
-function getStableBoundedDisplayValue(value, scale = 1) {
+function getStableBoundedDisplayValue(
+  value: unknown,
+  scale = 1,
+): number | null {
   if (
-    value?.kind !== 'bounded'
+    !isRecord(value)
+    || value.kind !== 'bounded'
     || typeof value.lowerBound !== 'number'
     || typeof value.upperBound !== 'number'
     || !Number.isFinite(value.lowerBound)
@@ -38,7 +50,9 @@ function getStableBoundedDisplayValue(value, scale = 1) {
  * A bounded value is displayed only when both certified bounds round to the
  * same number; a lower-bound value never becomes a misleading point estimate.
  */
-export function formatCertifiedExpectedValue(expectedValue) {
+export function formatCertifiedExpectedValue(
+  expectedValue: unknown,
+): number | typeof SUMMARY_UNAVAILABLE {
   if (isExactFiniteExpectedValue(expectedValue)) {
     return roundScoreValue(expectedValue.value)
       ?? SUMMARY_UNAVAILABLE
@@ -47,19 +61,25 @@ export function formatCertifiedExpectedValue(expectedValue) {
     ?? SUMMARY_UNAVAILABLE
 }
 
-export function formatSummaryExpectedValue(expectedValue) {
+export function formatSummaryExpectedValue(
+  expectedValue: unknown,
+): number | typeof SUMMARY_UNAVAILABLE {
   return formatCertifiedExpectedValue(expectedValue)
 }
 
-export function formatScoreStatisticsExpectedValue(expectedValue) {
+export function formatScoreStatisticsExpectedValue(
+  expectedValue: unknown,
+): number | typeof SUMMARY_UNAVAILABLE {
   return formatCertifiedExpectedValue(expectedValue)
 }
 
-export function formatCertifiedProbabilityPercent(successProbability) {
-  if (successProbability?.kind === 'exact') {
+export function formatCertifiedProbabilityPercent(
+  successProbability: unknown,
+): number | typeof SUMMARY_UNAVAILABLE {
+  if (isRecord(successProbability) && successProbability.kind === 'exact') {
     return typeof successProbability.value === 'number'
       && Number.isFinite(successProbability.value)
-      ? roundScoreValue(successProbability.value * 100)
+      ? roundScoreValue(successProbability.value * 100) ?? SUMMARY_UNAVAILABLE
       : SUMMARY_UNAVAILABLE
   }
   return getStableBoundedDisplayValue(successProbability, 100)
@@ -71,7 +91,9 @@ export function formatCertifiedProbabilityPercent(successProbability) {
  * Numeric values retain the published percent suffix; unavailable values are
  * represented by the neutral dash without a misleading suffix.
  */
-export function formatCertifiedProbabilityPercentDisplay(successProbability) {
+export function formatCertifiedProbabilityPercentDisplay(
+  successProbability: unknown,
+): string | typeof SUMMARY_UNAVAILABLE {
   const formatted = formatCertifiedProbabilityPercent(successProbability)
   return typeof formatted === 'number' && Number.isFinite(formatted)
     ? `${formatted}%`

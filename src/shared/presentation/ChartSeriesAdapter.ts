@@ -1,3 +1,9 @@
+import type {
+  ChartJsData,
+  ChartMaterializerOptions,
+  ReadyDistributionProjection,
+} from './DistributionProjectionTypes'
+
 // This module is deliberately limited to the Chart.js boundary. Projection
 // decisions and window allocation belong to DistributionProjection.
 /** @typedef {import('./DistributionProjectionTypes').ReadyDistributionProjection} ReadyDistributionProjection */
@@ -10,37 +16,47 @@ export const CHART_SERIES_ERROR_CODES = Object.freeze({
   RANGE_OVERFLOW: 'range-overflow',
 })
 
-function hasOwn(value, property) {
+function hasOwn(value: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(value, property)
 }
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function freezeDetails(details) {
+function freezeDetails(details: unknown): Readonly<Record<string, unknown>> {
   return Object.freeze(isRecord(details) ? { ...details } : {})
 }
 
 export class ChartSeriesError extends Error {
-  constructor(code, message, details = {}) {
+  readonly code: string
+  readonly details: Readonly<Record<string, unknown>>
+  readonly chartSeries = true
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(message)
     this.name = 'ChartSeriesError'
     this.code = code
     this.details = freezeDetails(details)
-    this.chartSeries = true
   }
 }
 
-export function isChartSeriesError(error) {
-  return error?.chartSeries === true && typeof error.code === 'string'
+export function isChartSeriesError(error: unknown): error is ChartSeriesError {
+  return isRecord(error)
+    && error.chartSeries === true
+    && typeof error.code === 'string'
 }
 
-function fail(code, message, details = {}) {
+function fail(code: string, message: string, details: unknown = {}): never {
   throw new ChartSeriesError(code, message, details)
 }
 
-function getOwnDataProperty(value, property, code, path) {
+function getOwnDataProperty(
+  value: Record<string, unknown>,
+  property: string,
+  code: string,
+  path: string,
+): unknown {
   if (!hasOwn(value, property)) {
     fail(code, `${path}.${property} must be an own data property`, {
       path: `${path}.${property}`,
@@ -50,38 +66,46 @@ function getOwnDataProperty(value, property, code, path) {
   return value[property]
 }
 
-function requireRecord(value, code, path, message) {
+function requireRecord(
+  value: unknown,
+  code: string,
+  path: string,
+  message: string,
+): Record<string, unknown> {
   if (!isRecord(value)) {
     fail(code, message ?? `${path} must be an object`, { path })
   }
   return value
 }
 
-function requireReadySeries(series) {
+function requireReadySeries(series: unknown): ReadyDistributionProjection {
   // ReadyDistributionProjection is produced by the trusted projection stage.
   // The Chart.js boundary only needs to reject an unavailable result; schema
   // and numeric validation belong to the earlier presentation boundaries.
-  if (series?.status !== 'ready') {
+  if (!isRecord(series) || series.status !== 'ready') {
     fail(
       CHART_SERIES_ERROR_CODES.INVALID_SERIES,
       'only ready projections can be materialized',
-      { path: 'series.status', status: series?.status }
+      { path: 'series.status', status: isRecord(series) ? series.status : undefined }
     )
   }
-  return series
+  return series as unknown as ReadyDistributionProjection
 }
 
-function normalizeMaterializerOptions(options) {
-  const supplied = options === undefined ? {} : options
-  requireRecord(
+function normalizeMaterializerOptions(
+  options: ChartMaterializerOptions | undefined,
+): Required<Pick<ChartMaterializerOptions, 'includeLabels'>>
+  & Omit<ChartMaterializerOptions, 'includeLabels'> {
+  const supplied: unknown = options === undefined ? {} : options
+  const suppliedRecord = requireRecord(
     supplied,
     CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
     'options',
     'Chart.js materializer options must be an object'
   )
-  const includeLabels = hasOwn(supplied, 'includeLabels')
+  const includeLabels = hasOwn(suppliedRecord, 'includeLabels')
     ? getOwnDataProperty(
-        supplied,
+        suppliedRecord,
         'includeLabels',
         CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
@@ -94,9 +118,9 @@ function normalizeMaterializerOptions(options) {
       { includeLabels }
     )
   }
-  const label = hasOwn(supplied, 'label')
+  const label = hasOwn(suppliedRecord, 'label')
     ? getOwnDataProperty(
-        supplied,
+        suppliedRecord,
         'label',
         CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
@@ -109,17 +133,17 @@ function normalizeMaterializerOptions(options) {
       { label }
     )
   }
-  const backgroundColor = hasOwn(supplied, 'backgroundColor')
+  const backgroundColor = hasOwn(suppliedRecord, 'backgroundColor')
     ? getOwnDataProperty(
-        supplied,
+        suppliedRecord,
         'backgroundColor',
         CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
       )
     : undefined
-  const borderColor = hasOwn(supplied, 'borderColor')
+  const borderColor = hasOwn(suppliedRecord, 'borderColor')
     ? getOwnDataProperty(
-        supplied,
+        suppliedRecord,
         'borderColor',
         CHART_SERIES_ERROR_CODES.INVALID_MATERIALIZER_OPTIONS,
         'options'
@@ -137,10 +161,19 @@ function normalizeMaterializerOptions(options) {
  * @param {ChartMaterializerOptions} [options]
  * @returns {ChartJsData}
  */
-export function materializeChartJsData(series, options = {}) {
+export function materializeChartJsData(
+  series: ReadyDistributionProjection,
+  options: ChartMaterializerOptions = {},
+): ChartJsData {
   const readySeries = requireReadySeries(series)
   const materializerOptions = normalizeMaterializerOptions(options)
-  const dataset = {
+  const dataset: {
+    data: Float64Array
+    parsing: true
+    label?: string
+    backgroundColor?: unknown
+    borderColor?: unknown
+  } = {
     data: readySeries.values,
     parsing: true,
   }
@@ -154,7 +187,14 @@ export function materializeChartJsData(series, options = {}) {
     dataset.borderColor = materializerOptions.borderColor
   }
 
-  const result = { datasets: Object.freeze([Object.freeze(dataset)]) }
+  const result: {
+    datasets: readonly [typeof dataset]
+    labels?: readonly number[]
+  } = {
+    datasets: Object.freeze([
+      Object.freeze(dataset),
+    ] as [typeof dataset]),
+  }
   if (materializerOptions.includeLabels) {
     const labels = Array.from(
       { length: readySeries.displayWindow.pointCount },
