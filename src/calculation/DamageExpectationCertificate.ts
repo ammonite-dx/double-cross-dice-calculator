@@ -3,10 +3,30 @@ import {
   isValidScoreTailCertificate,
   isValidScoreTailMomentCertificate,
 } from './ScoreCertificates'
+import type { DamageInput, DefenceDamageInput } from '../domain/CalculationInputs'
+import type { DamageExpectationCertificate } from '../domain/DamageResultTypes'
+import type { ScoreTailCertificate, ScoreTailMomentCertificate } from '../domain/ScoreResultTypes'
+import type { CertifiedValueBounded } from '../domain/CertifiedValue'
+
+interface ComposedDamage {
+  readonly overflowProbability: number
+}
+
+interface DamageExpectationRequest {
+  readonly scoreTailCertificates?: readonly (ScoreTailCertificate | null)[]
+  readonly scoreTailMomentCertificates?: readonly (ScoreTailMomentCertificate | null)[]
+  readonly actionExplicitMax: number | null
+}
+
+interface DamageExpectationInterval {
+  readonly lowerBound: number
+  readonly upperBound: number
+  readonly source: string
+}
 
 export const DAMAGE_EXPECTATION_CERTIFICATE_VERSION = 1
 
-function sumExplicitFirstMoment(values) {
+function sumExplicitFirstMoment(values: ArrayLike<number>): number {
   let total = 0
   let compensation = 0
   for (let index = 0; index < values.length; index += 1) {
@@ -19,7 +39,9 @@ function sumExplicitFirstMoment(values) {
   return total
 }
 
-function isValidScoreTailMassCertificate(certificate) {
+function isValidScoreTailMassCertificate(
+  certificate: unknown,
+): certificate is ScoreTailCertificate {
   return isValidScoreTailCertificate(certificate)
     && (
       certificate.massUpperBound === 0
@@ -33,12 +55,12 @@ function isValidScoreTailMassCertificate(certificate) {
  * coverage is translated into damage expectation semantics.
  */
 export function createDamageExpectationCertificate(
-  composed,
-  values,
-  requested,
-  attack,
-  defence,
-) {
+  composed: ComposedDamage,
+  values: ArrayLike<number>,
+  requested: DamageExpectationRequest,
+  attack: DamageInput,
+  defence: DefenceDamageInput,
+): DamageExpectationCertificate | null {
   if (composed.overflowProbability !== 0) {
     return null
   }
@@ -57,16 +79,20 @@ export function createDamageExpectationCertificate(
   const reactionTailMass = reactionMassCertificate.massUpperBound
 
   let actionTailContributionUpperBound = 0
+  const validatedActionMomentCertificate =
+    isValidScoreTailMomentCertificate(actionMomentCertificate)
+      ? actionMomentCertificate
+      : null
   if (actionTailMass > 0) {
-    if (!isValidScoreTailMomentCertificate(actionMomentCertificate)) {
+    if (validatedActionMomentCertificate === null) {
       return null
     }
-    if (actionMomentCertificate.massUpperBound < actionTailMass) {
+    if (validatedActionMomentCertificate.massUpperBound < actionTailMass) {
       return null
     }
   } else if (
-    isValidScoreTailMomentCertificate(actionMomentCertificate)
-    && actionMomentCertificate.firstMomentUpperBound !== 0
+    validatedActionMomentCertificate !== null
+    && validatedActionMomentCertificate.firstMomentUpperBound !== 0
   ) {
     return null
   }
@@ -81,10 +107,10 @@ export function createDamageExpectationCertificate(
   if (actionTailMass > 0) {
     const actionMomentMass = Math.max(
       actionTailMass,
-      actionMomentCertificate.massUpperBound,
+      validatedActionMomentCertificate?.massUpperBound ?? 0,
     )
     actionTailContributionUpperBound =
-      actionMomentCertificate.firstMomentUpperBound
+      (validatedActionMomentCertificate?.firstMomentUpperBound ?? 0)
       + maxDamageConstant * actionMomentMass
   }
 
@@ -94,8 +120,12 @@ export function createDamageExpectationCertificate(
     return null
   }
   if (reactionTailMass > 0) {
+    if (actionExplicitMax === null) {
+      return null
+    }
     const reactionTailLowerBound = reactionMassCertificate.lowerBound
-    const cannotWin = Number.isFinite(reactionTailLowerBound)
+    const cannotWin = reactionTailLowerBound !== null
+      && Number.isFinite(reactionTailLowerBound)
       && actionExplicitMax <= reactionTailLowerBound
     if (!cannotWin) {
       reactionTailContributionUpperBound =
@@ -149,12 +179,12 @@ export function createDamageExpectationCertificate(
   })
 }
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isFiniteNonNegative(value) {
-  return Number.isFinite(value) && value >= 0
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
 /**
@@ -165,14 +195,17 @@ function isFiniteNonNegative(value) {
  * older producers are deliberately ignored so a stale certificate can still
  * fall back safely to the generic result summary.
  */
-export function isValidDamageExpectationCertificate(certificate) {
+export function isValidDamageExpectationCertificate(
+  certificate: unknown,
+): certificate is DamageExpectationCertificate {
+  const candidate = certificate as unknown as DamageExpectationCertificate
   if (
     !isRecord(certificate)
     || certificate.version !== DAMAGE_EXPECTATION_CERTIFICATE_VERSION
     || certificate.kind !== 'damage-expectation-certificate'
     || !isFiniteNonNegative(certificate.lowerBound)
     || !Number.isFinite(certificate.upperBound)
-    || certificate.upperBound < certificate.lowerBound
+    || candidate.upperBound < candidate.lowerBound
   ) {
     return false
   }
@@ -187,7 +220,7 @@ export function isValidDamageExpectationCertificate(certificate) {
   ]) {
     if (
       Object.prototype.hasOwnProperty.call(certificate, field)
-      && !isFiniteNonNegative(certificate[field])
+      && !isFiniteNonNegative((candidate as unknown as Record<string, unknown>)[field])
     ) {
       return false
     }
@@ -197,7 +230,9 @@ export function isValidDamageExpectationCertificate(certificate) {
 }
 
 /** Convert a valid dedicated certificate into the shared CertifiedValue type. */
-export function getCertifiedDamageExpectation(certificate) {
+export function getCertifiedDamageExpectation(
+  certificate: unknown,
+): CertifiedValueBounded | null {
   if (!isValidDamageExpectationCertificate(certificate)) {
     return null
   }
@@ -214,11 +249,11 @@ export function getCertifiedDamageExpectation(certificate) {
   }
 }
 
-function intervalFromGenericValue(value) {
+function intervalFromGenericValue(value: unknown): DamageExpectationInterval | null {
   if (!isRecord(value) || typeof value.kind !== 'string') {
     return null
   }
-  if (value.kind === 'exact' && Number.isFinite(value.value)) {
+  if (value.kind === 'exact' && typeof value.value === 'number' && Number.isFinite(value.value)) {
     return Object.freeze({
       lowerBound: value.value,
       upperBound: value.value,
@@ -227,6 +262,8 @@ function intervalFromGenericValue(value) {
   }
   if (
     value.kind === 'bounded'
+    && typeof value.lowerBound === 'number'
+    && typeof value.upperBound === 'number'
     && Number.isFinite(value.lowerBound)
     && Number.isFinite(value.upperBound)
     && value.upperBound >= value.lowerBound
@@ -246,15 +283,16 @@ function intervalFromGenericValue(value) {
  * independent from DistributionResult and avoid an import cycle.
  */
 export function getFiniteDamageExpectationInterval(
-  envelope,
-  getGenericExpectedValue
-) {
+  envelope: unknown,
+  getGenericExpectedValue: ((result: unknown) => unknown) | undefined,
+): DamageExpectationInterval | null {
   if (!isRecord(envelope)) {
     return null
   }
 
+  const metadata = isRecord(envelope.metadata) ? envelope.metadata : null
   const dedicated = getCertifiedDamageExpectation(
-    envelope.metadata?.damageExpectationCertificate
+    metadata?.damageExpectationCertificate,
   )
   if (dedicated !== null) {
     return Object.freeze({
