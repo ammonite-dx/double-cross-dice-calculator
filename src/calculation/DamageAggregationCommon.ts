@@ -1,6 +1,11 @@
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const DAMAGE_AGGREGATION_PLAN_VERSION = 1
 
+import type {
+  DamageAggregationExecutionOptions,
+  TotalDamageCalculationOptions,
+} from './DamageAggregationTypes'
+
 // Values and FFT length share the existing runtime ceiling. The aggregation
 // options may lower these values for a caller, but never raise any absolute
 // safety ceiling.
@@ -27,55 +32,60 @@ export const DAMAGE_AGGREGATION_ERROR_CODES = Object.freeze({
   ABORTED: 'aborted',
 })
 
-export function hasOwn(object, property) {
+export function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
 
-export function isRecord(value) {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function freezeDetails(details) {
+function freezeDetails(details: unknown): Readonly<Record<string, unknown>> {
   return Object.freeze(isRecord(details) ? { ...details } : {})
 }
 
 export class DamageAggregationError extends Error {
-  constructor(code, message, details = {}) {
+  readonly code: string
+  readonly details: Readonly<Record<string, unknown>>
+  readonly DamageAggregation = true
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(message)
     this.name = 'DamageAggregationError'
     this.code = code
     this.details = freezeDetails(details)
-    this.DamageAggregation = true
   }
 }
 
 export class DamageAggregationAbortError extends DamageAggregationError {
-  constructor(message = ' damage aggregation was aborted', details = {}) {
+  readonly aborted = true
+
+  constructor(message = ' damage aggregation was aborted', details: unknown = {}) {
     super(
       DAMAGE_AGGREGATION_ERROR_CODES.ABORTED,
       message,
       details
     )
     this.name = 'AbortError'
-    this.aborted = true
   }
 }
 
-export function isDamageAggregationError(error) {
-  return error?.DamageAggregation === true
+export function isDamageAggregationError(error: unknown): error is DamageAggregationError {
+  return isRecord(error)
+    && error.DamageAggregation === true
     && typeof error.code === 'string'
 }
 
-export function isDamageAggregationAbortError(error) {
+export function isDamageAggregationAbortError(error: unknown): error is DamageAggregationAbortError {
   return isDamageAggregationError(error)
     && error.code === DAMAGE_AGGREGATION_ERROR_CODES.ABORTED
 }
 
-export function fail(code, message, details = {}) {
+export function fail(code: string, message: string, details: unknown = {}): never {
   throw new DamageAggregationError(code, message, details)
 }
 
-export function failIndex(message, details = {}) {
+export function failIndex(message: string, details: unknown = {}): never {
   fail(
     DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW,
     message,
@@ -83,7 +93,7 @@ export function failIndex(message, details = {}) {
   )
 }
 
-export function failResource(message, details = {}) {
+export function failResource(message: string, details: unknown = {}): never {
   fail(
     DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT,
     message,
@@ -91,7 +101,7 @@ export function failResource(message, details = {}) {
   )
 }
 
-export function failNumerical(message, details = {}) {
+export function failNumerical(message: string, details: unknown = {}): never {
   fail(
     DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE,
     message,
@@ -99,14 +109,23 @@ export function failNumerical(message, details = {}) {
   )
 }
 
-export function checkAbort(signal) {
+export function checkAbort(signal: AbortSignal | null | undefined): void {
   if (signal?.aborted) {
     throw new DamageAggregationAbortError()
   }
 }
 
-function validateOptionLimit(value, name, absolute, allowZero = true) {
-  if (!Number.isSafeInteger(value) || (allowZero ? value < 0 : value <= 0)) {
+function validateOptionLimit(
+  value: unknown,
+  name: string,
+  absolute: number,
+  allowZero = true,
+): number {
+  if (
+    typeof value !== 'number'
+    || !Number.isSafeInteger(value)
+    || (allowZero ? value < 0 : value <= 0)
+  ) {
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
       `${name} must be a ${allowZero ? 'non-negative' : 'positive'} safe integer`,
@@ -123,7 +142,12 @@ function validateOptionLimit(value, name, absolute, allowZero = true) {
   return value
 }
 
-export function normalizeOptions(options) {
+export function normalizeOptions(
+  options: TotalDamageCalculationOptions | undefined,
+): Readonly<Required<Omit<TotalDamageCalculationOptions, 'signal' | 'onFftLength'>> & {
+  signal: AbortSignal | null
+  onFftLength?: (fftLength: number) => void
+}> {
   if (options === undefined) {
     options = {}
   }
@@ -182,10 +206,11 @@ export function normalizeOptions(options) {
     DAMAGE_AGGREGATION_MAX_COMPONENTS
   )
 
-  const signal = options.signal ?? null
+  const typedOptions = options as TotalDamageCalculationOptions
+  const signal = typedOptions.signal ?? null
   if (
     signal !== null
-    && (typeof signal !== 'object' || typeof signal.aborted !== 'boolean')
+    && typeof (signal as AbortSignal).aborted !== 'boolean'
   ) {
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
@@ -194,7 +219,7 @@ export function normalizeOptions(options) {
     )
   }
 
-  const onFftLength = options.onFftLength
+  const onFftLength = typedOptions.onFftLength
   if (onFftLength !== undefined && typeof onFftLength !== 'function') {
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
@@ -214,7 +239,9 @@ export function normalizeOptions(options) {
 
 export { DAMAGE_AGGREGATION_PLAN_VERSION, MAX_SAFE_INTEGER }
 
-export function normalizeExecutionOptions(options) {
+export function normalizeExecutionOptions(
+  options: DamageAggregationExecutionOptions | undefined,
+): Readonly<Omit<DamageAggregationExecutionOptions, 'signal'> & { signal: AbortSignal | null }> {
   if (options === undefined) {
     options = {}
   }
@@ -237,10 +264,11 @@ export function normalizeExecutionOptions(options) {
     }
   }
 
-  const signal = options.signal ?? null
+  const typedOptions = options as DamageAggregationExecutionOptions
+  const signal = typedOptions.signal ?? null
   if (
     signal !== null
-    && (typeof signal !== 'object' || typeof signal.aborted !== 'boolean')
+    && typeof (signal as AbortSignal).aborted !== 'boolean'
   ) {
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
@@ -249,7 +277,7 @@ export function normalizeExecutionOptions(options) {
     )
   }
 
-  const onFftLength = options.onFftLength
+  const onFftLength = typedOptions.onFftLength
   if (onFftLength !== undefined && typeof onFftLength !== 'function') {
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_OPTIONS,
