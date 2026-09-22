@@ -13,16 +13,28 @@ export const RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH =
 // requests from its application-wide resource policy.
 export const RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE = 2_000_000_000
 
+export interface RuntimeDamageRollOptions {
+  readonly fftLength?: number
+  readonly distributionLength?: number
+  readonly rawSupportMax?: number
+}
+
+export interface NormalizedRuntimeDamageRollOptions {
+  readonly fftLength: number
+  readonly distributionLength: number
+  readonly rawSupportMax: number
+}
+
 /**
  * Estimate the mixed damage-roll kernel work using device-independent units.
  * The planner and runtime must use this exact formula so admission cannot
  * disagree with the absolute runtime safety check.
  */
 export function getRuntimeDamageRollOperationEstimate(
-  weightLength,
-  effectiveKazanari,
-  fftLength
-) {
+  weightLength: number,
+  effectiveKazanari: number,
+  fftLength: number,
+): number {
   if (!Number.isFinite(weightLength) || weightLength < 0) {
     throw new RangeError('weightLength must be a non-negative finite number')
   }
@@ -44,11 +56,11 @@ export function getRuntimeDamageRollOperationEstimate(
   return estimate
 }
 
-function isPowerOfTwo(value) {
+function isPowerOfTwo(value: number): boolean {
   return (value & (value - 1)) === 0
 }
 
-function nextPowerOfTwoAtLeast(value) {
+function nextPowerOfTwoAtLeast(value: number): number {
   let result = 1
   while (result < value) {
     result *= 2
@@ -56,7 +68,7 @@ function nextPowerOfTwoAtLeast(value) {
   return Math.max(RUNTIME_DAMAGE_MIN_FFT_SIZE, result)
 }
 
-export function getRuntimeDamageRollRawSupportMax(weights) {
+export function getRuntimeDamageRollRawSupportMax(weights: ArrayLike<number>): number {
   for (let damageDice = weights.length - 1; damageDice >= 0; damageDice -= 1) {
     if (weights[damageDice] !== 0) {
       return damageDice * 10
@@ -66,11 +78,11 @@ export function getRuntimeDamageRollRawSupportMax(weights) {
 }
 
 export function normalizeRuntimeDamageRollOptions(
-  options,
-  requiredRawSupportMax = 0
-) {
+  options: RuntimeDamageRollOptions | undefined,
+  requiredRawSupportMax = 0,
+): NormalizedRuntimeDamageRollOptions {
   if (options === undefined) {
-    options = {}
+  options = {}
   }
   if (!options || typeof options !== 'object' || Array.isArray(options)) {
     throw new TypeError(
@@ -147,7 +159,10 @@ export function normalizeRuntimeDamageRollOptions(
   }
 }
 
-export function validateRuntimeDamageRollInputs(weights, kazanari) {
+export function validateRuntimeDamageRollInputs(
+  weights: ArrayLike<number>,
+  kazanari: number,
+): { rawSupportMax: number; total: number; effectiveKazanari: number } {
   if (
     !Array.isArray(weights) &&
     !(weights instanceof Float64Array)
@@ -165,7 +180,8 @@ export function validateRuntimeDamageRollInputs(weights, kazanari) {
     )
   }
   let total = 0
-  for (const weight of weights) {
+  for (let index = 0; index < weights.length; index += 1) {
+    const weight = weights[index]
     if (!Number.isFinite(weight) || weight < 0) {
       throw new RangeError('weights must contain finite non-negative values')
     }
