@@ -24,6 +24,10 @@ import {
   getDxYouseiBlockLength,
   getDxYouseiFftLength,
 } from './DxWorkingShape'
+import type {
+  DxDistributionInput,
+  DxDistributionOptions,
+} from './DxProviderTypes'
 
 export {
   DX_CRITICAL_MAX,
@@ -49,7 +53,7 @@ export const DX_MAX_CALCULATION_BYTES = 512 * 1024 * 1024
 
 const FULL_PRECISION_NEGATIVE_TOLERANCE = 1e-12
 
-function validateInput(params) {
+function validateInput(params: DxDistributionInput): void {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     throw new TypeError(
       'calculateDxDistribution expects { dice, critical, shihai, yousei }'
@@ -69,7 +73,7 @@ function validateInput(params) {
   assertSupportedScoreFeatures({ shihai, yousei })
 }
 
-function safeProduct(left, right, label) {
+function safeProduct(left: number, right: number, label: string): number {
   const product = left * right
   if (!Number.isSafeInteger(product) || product < 0) {
     throw new RangeError(`${label} exceeds the safe integer range`)
@@ -77,7 +81,12 @@ function safeProduct(left, right, label) {
   return product
 }
 
-export function normalizeDxOptions(options) {
+export function normalizeDxOptions(
+  options: DxDistributionOptions | undefined,
+): Readonly<{
+  workingLength: number
+  fftLength?: number
+}> {
   if (!options || typeof options !== 'object' || Array.isArray(options)) {
     throw new TypeError(
       'calculateDxDistribution options must be an object with an explicit workingLength'
@@ -120,10 +129,10 @@ export function normalizeDxOptions(options) {
 }
 
 function calculateShihaiZeroDistribution(
-  dice,
-  critical,
-  workingLength
-) {
+  dice: number,
+  critical: number,
+  workingLength: number,
+): Float64Array {
   const result = new Float64Array(workingLength)
   if (dice === 0) {
     result[0] = 1
@@ -150,11 +159,11 @@ function calculateShihaiZeroDistribution(
 }
 
 function calculateShihaiPositiveDistribution(
-  dice,
-  critical,
-  shihai,
-  workingLength
-) {
+  dice: number,
+  critical: number,
+  shihai: number,
+  workingLength: number,
+): Float64Array {
   if (dice <= shihai) {
     if (dice > 0 && workingLength < 3) {
       throw new RangeError(
@@ -220,7 +229,7 @@ function calculateShihaiPositiveDistribution(
   return result
 }
 
-function clampMass(value, label = 'DX probability') {
+function clampMass(value: number, label = 'DX probability'): number {
   if (!Number.isFinite(value) || Number.isNaN(value)) {
     throw new RangeError(`${label} calculation produced NaN or infinity`)
   }
@@ -237,12 +246,12 @@ function clampMass(value, label = 'DX probability') {
  * smaller than workingLength - 1.
  */
 function calculateYouseiDistribution(
-  dice,
-  critical,
-  yousei,
-  workingLength,
-  requestedFftLength
-) {
+  dice: number,
+  critical: number,
+  yousei: number,
+  workingLength: number,
+  requestedFftLength: number | undefined,
+): Float64Array {
   const result = new Float64Array(workingLength)
   const overflowIndex = workingLength - 1
   const blockLength = getDxYouseiBlockLength(workingLength, yousei)
@@ -346,14 +355,17 @@ function calculateYouseiDistribution(
   return result
 }
 
-function createPointDistribution(length, value) {
+function createPointDistribution(length: number, value: number): Float64Array {
   const result = new Float64Array(length)
   const overflowIndex = length - 1
   result[value < overflowIndex ? value : overflowIndex] = 1
   return result
 }
 
-function assertFiniteProbabilityArray(distribution, requireTotal = false) {
+function assertFiniteProbabilityArray(
+  distribution: ArrayLike<number>,
+  requireTotal = false,
+): number {
   let total = 0
   for (let index = 0; index < distribution.length; index += 1) {
     const probability = distribution[index]
@@ -371,7 +383,9 @@ function assertFiniteProbabilityArray(distribution, requireTotal = false) {
   return total
 }
 
-function normalizeFullPrecisionProbabilities(distribution) {
+function normalizeFullPrecisionProbabilities(
+  distribution: ArrayLike<number>,
+): Float64Array {
   const normalized = new Float64Array(distribution.length)
   let total = 0
   for (let index = 0; index < distribution.length; index += 1) {
@@ -396,7 +410,10 @@ function normalizeFullPrecisionProbabilities(distribution) {
   return normalized
 }
 
-export function calculateDxDistribution(params, options) {
+export function calculateDxDistribution(
+  params: DxDistributionInput,
+  options: DxDistributionOptions | undefined,
+): Float64Array {
   validateInput(params)
   const normalizedOptions = normalizeDxOptions(options)
   const {
