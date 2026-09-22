@@ -17,7 +17,7 @@ R29-D完了時点でproductionの正本になっていたAPIへ、残存して�
 - Range policyのroot・nested schemaをallowlistで検証し、未知fieldをgeneric errorでfail-closedにした。旧field名専用の拒否分岐は残していない。
 - `DistributionResult`は`DISTRIBUTION_RESULT_TOLERANCE`、`copyDistributionValues()`、`getProbabilityMassSummary()`とobject-form factoryへ収束した。presentation typeも`DistributionResult`／`DistributionEnvelope`を直接参照する。
 - Attack display sideの重複`projection`／`series` surfaceから`projection`だけを残した。
-- DX providerを入力オブジェクトとoptionsの2引数形式へ統一し、`DxDistribution`を`Float64Array`へ収束させた。Scoreのsparse expansion fallbackと未使用helperを削除した。
+- DX providerを入力オブジェクトとoptionsの2引数形式へ統一し、`DxDistribution`を`Float64Array`へ収束させた。Scoreのsparse expansion fallbackを削除した一方、歴史的reference repositoryが使う`expandSparseDistribution` helperは保持した。
 - Backtrack calculatorを`calculateFinalEncroachment(params, runtimeOptions, backtrackRangePlan)`へ統一し、未使用dependency引数と第三引数planの互換判定を削除した。
 
 ## 意図的に残したもの
