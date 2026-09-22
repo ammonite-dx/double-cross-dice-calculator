@@ -14,17 +14,26 @@ import {
 import {
   getFiniteDamageExpectationInterval,
 } from './DamageExpectationCertificate'
+import type {
+  DistributionEnvelope,
+  DistributionOverflow,
+  DistributionSupport,
+} from '../domain/DistributionResultTypes'
+import type {
+  DamageProjectionUncertainty,
+  InspectedDamageComponent,
+} from './DamageAggregationTypes'
 
 const ABORT_CHECK_INTERVAL = 4_096
 
-export function copySupport(support) {
+export function copySupport(support: DistributionSupport): DistributionSupport {
   if (support.kind === 'finite') {
     return Object.freeze({ kind: 'finite', max: support.max })
   }
   return Object.freeze({ kind: 'infinite' })
 }
 
-export function copyOverflow(overflow) {
+export function copyOverflow(overflow: DistributionOverflow | null): DistributionOverflow | null {
   if (overflow === null) {
     return null
   }
@@ -44,7 +53,7 @@ export function copyOverflow(overflow) {
   })
 }
 
-export function validateSourceSupport(sourceSupport, index) {
+export function validateSourceSupport(sourceSupport: unknown, index: number): DistributionSupport {
   if (!isRecord(sourceSupport) || typeof sourceSupport.kind !== 'string') {
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
@@ -64,6 +73,7 @@ export function validateSourceSupport(sourceSupport, index) {
   }
   if (
     sourceSupport.kind !== 'finite'
+    || typeof sourceSupport.max !== 'number'
     || !Number.isSafeInteger(sourceSupport.max)
     || sourceSupport.max < 0
   ) {
@@ -76,7 +86,10 @@ export function validateSourceSupport(sourceSupport, index) {
   return Object.freeze({ kind: 'finite', max: sourceSupport.max })
 }
 
-export function copyProjectionUncertainty(value, index) {
+export function copyProjectionUncertainty(
+  value: unknown,
+  index: number,
+): DamageProjectionUncertainty | null {
   if (value === undefined) {
     return null
   }
@@ -101,12 +114,15 @@ export function copyProjectionUncertainty(value, index) {
       { index, positionUnknownProbabilityUpperBound }
     )
   }
-  const copied = { positionUnknownProbabilityUpperBound }
+  const copied: DamageProjectionUncertainty = {
+    positionUnknownProbabilityUpperBound,
+  }
   if (hasOwn(value, 'outputOverflowLowerBound')) {
     const outputOverflowLowerBound = value.outputOverflowLowerBound
     if (
       outputOverflowLowerBound !== null
-      && (!Number.isSafeInteger(outputOverflowLowerBound)
+      && (typeof outputOverflowLowerBound !== 'number'
+        || !Number.isSafeInteger(outputOverflowLowerBound)
         || outputOverflowLowerBound < 0)
     ) {
       fail(
@@ -115,12 +131,15 @@ export function copyProjectionUncertainty(value, index) {
         { index, outputOverflowLowerBound }
       )
     }
-    copied.outputOverflowLowerBound = outputOverflowLowerBound
+    return Object.freeze({
+      ...copied,
+      outputOverflowLowerBound,
+    })
   }
   return Object.freeze(copied)
 }
 
-export function sumValues(values, signal) {
+export function sumValues(values: ArrayLike<number>, signal?: AbortSignal | null): number {
   let total = 0
   for (let index = 0; index < values.length; index += 1) {
     if (index % ABORT_CHECK_INTERVAL === 0) {
@@ -135,12 +154,12 @@ export function sumValues(values, signal) {
 }
 
 export function inspectEnvelope(
-  envelope,
-  index,
-  signal,
-  validateResult = validateDistributionResult,
-  certifiedExpectedValue = getCertifiedExpectedValue
-) {
+  envelope: DistributionEnvelope,
+  index: number,
+  signal?: AbortSignal | null,
+  validateResult: (result: unknown) => unknown = validateDistributionResult,
+  certifiedExpectedValue: (result: unknown) => unknown = getCertifiedExpectedValue,
+): InspectedDamageComponent {
   checkAbort(signal)
   if (!isRecord(envelope) || !hasOwn(envelope, 'result')) {
     fail(
@@ -164,14 +183,15 @@ export function inspectEnvelope(
 
   try {
     validateResult(envelope.result)
-  } catch (error) {
+  } catch (error: unknown) {
+    const details = isRecord(error) ? error : {}
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
       `damage envelope[${index}] result failed validation`,
       {
         index,
-        causeCode: error?.code,
-        causeName: error?.name,
+        causeCode: details.code,
+        causeName: details.name,
       }
     )
   }
@@ -208,7 +228,7 @@ export function inspectEnvelope(
   }
 }
 
-export function hasPotentialTail(overflow) {
+export function hasPotentialTail(overflow: DistributionOverflow | null): boolean {
   if (overflow === null) {
     return false
   }
@@ -218,7 +238,7 @@ export function hasPotentialTail(overflow) {
       : overflow.probabilityUpperBound > 0)
 }
 
-export function getTailProbability(overflow) {
+export function getTailProbability(overflow: DistributionOverflow | null): number {
   if (overflow === null) {
     return 0
   }
@@ -227,7 +247,7 @@ export function getTailProbability(overflow) {
     : overflow.probabilityUpperBound
 }
 
-export function unionProbability(probabilities) {
+export function unionProbability(probabilities: readonly number[]): number {
   let logComplement = 0
   for (const probability of probabilities) {
     if (probability === 1) {
@@ -251,7 +271,7 @@ export function unionProbability(probabilities) {
   return Math.min(1, Math.max(0, union))
 }
 
-export function probabilityFromExplicitMass(explicitMass) {
+export function probabilityFromExplicitMass(explicitMass: number): number {
   if (!Number.isFinite(explicitMass)) {
     failNumerical('final explicit probability mass is not finite', {
       explicitMass,
@@ -260,7 +280,10 @@ export function probabilityFromExplicitMass(explicitMass) {
   return Math.min(1, Math.max(0, 1 - explicitMass))
 }
 
-export function snapshotInspectedComponents(inspected, signal) {
+export function snapshotInspectedComponents(
+  inspected: readonly InspectedDamageComponent[],
+  signal?: AbortSignal | null,
+): readonly InspectedDamageComponent[] {
   return inspected.map((component) => {
     checkAbort(signal)
     let result
@@ -271,14 +294,15 @@ export function snapshotInspectedComponents(inspected, signal) {
         support: component.support,
         overflow: component.overflow,
       })
-    } catch (error) {
+    } catch (error: unknown) {
+      const details = isRecord(error) ? error : {}
       fail(
         DAMAGE_AGGREGATION_ERROR_CODES.INVALID_ENVELOPE,
         `damage envelope[${component.index}] changed while planning`,
         {
           index: component.index,
-          causeCode: error?.code,
-          causeName: error?.name,
+          causeCode: details.code,
+          causeName: details.name,
         }
       )
     }
