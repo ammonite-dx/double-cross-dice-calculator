@@ -486,7 +486,6 @@ describe('runtime backtrack rules', () => {
       const canonical = calculateFinalEncroachment(
         params,
         {},
-        {},
         plan.backtrack
       )
       const presentation = createBacktrackPresentation(

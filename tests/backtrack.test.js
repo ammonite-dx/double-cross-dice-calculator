@@ -13,8 +13,6 @@ import {
   calculateLivingdeadDistributions,
 } from '../src/calculation/BacktrackLivingdeadDistribution'
 import { createCalculationClient } from '../src/runtime/CalculationClient'
-const backtrackDependencies = {}
-
 function getFinalEncroachment(
   params,
   runtimeOptions = {},
@@ -22,7 +20,6 @@ function getFinalEncroachment(
 ) {
   return calculateFinalEncroachment(
     params,
-    backtrackDependencies,
     runtimeOptions,
     backtrackRangePlan
   )
@@ -135,7 +132,6 @@ describe('backtrack canonical producer', () => {
     const plan = createBacktrackPlan(params)
     const canonical = calculateFinalEncroachment(
       params,
-      backtrackDependencies,
       {},
       plan
     )
@@ -160,7 +156,6 @@ describe('backtrack canonical producer', () => {
     const plan = createBacktrackPlan(params)
     const canonical = calculateFinalEncroachment(
       params,
-      backtrackDependencies,
       {},
       plan
     )
@@ -186,7 +181,6 @@ describe('backtrack canonical producer', () => {
     })
     const canonical = calculateFinalEncroachment(
       params,
-      { getD10Distribution: getD10 },
       {},
       plan
     )
@@ -211,7 +205,6 @@ describe('backtrack canonical producer', () => {
     })
     const canonical = calculateFinalEncroachment(
       params,
-      { getD10Distribution: getD10 },
       {},
       plan
     )
@@ -243,7 +236,6 @@ describe('backtrack canonical producer', () => {
     })
     const canonical = calculateFinalEncroachment(
       params,
-      { getLivingdeadDistribution: getLivingdead },
       {},
       plan
     )

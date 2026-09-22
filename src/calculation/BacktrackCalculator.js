@@ -18,28 +18,6 @@ export {
   calculateLivingdeadDistributions,
 }
 
-function normalizeBacktrackCalculationArguments(
-  runtimeOptions,
-  backtrackRangePlan
-) {
-  // Accepting a plan as the third argument keeps a small compatibility path
-  // for direct callers while the public client passes runtime options and
-  // the plan as separate arguments.
-  if (
-    backtrackRangePlan === undefined
-    && runtimeOptions
-    && typeof runtimeOptions === 'object'
-    && Number.isSafeInteger(runtimeOptions.workingLength)
-    && Number.isSafeInteger(runtimeOptions.workingMax)
-  ) {
-    return {
-      runtimeOptions: {},
-      backtrackRangePlan: runtimeOptions,
-    }
-  }
-  return { runtimeOptions, backtrackRangePlan }
-}
-
 function subtractSafeInteger(left, right, label) {
   const result = left - right
   if (!Number.isSafeInteger(result)) {
@@ -151,19 +129,9 @@ function createFinalEncroachmentDistributionResult(
  */
 export function calculateFinalEncroachment(
   params,
-  dependencies,
   runtimeOptions = {},
   backtrackRangePlan
 ) {
-  // Keep the positional dependency argument for the data-layer adapter. The
-  // production calculation intentionally does not inspect asset providers.
-  void dependencies
-  const normalizedArguments = normalizeBacktrackCalculationArguments(
-    runtimeOptions,
-    backtrackRangePlan
-  )
-  runtimeOptions = normalizedArguments.runtimeOptions
-  backtrackRangePlan = normalizedArguments.backtrackRangePlan
   throwIfAborted(runtimeOptions)
 
   const {

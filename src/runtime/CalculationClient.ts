@@ -144,7 +144,6 @@ function getFinalEncroachmentAdapter(
 ): BacktrackCalculationResult {
   return calculateCoreFinalEncroachment(
     params,
-    undefined,
     runtimeOptions,
     backtrackRangePlan
   )

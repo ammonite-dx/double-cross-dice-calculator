@@ -60,7 +60,6 @@ function createFromProducer(params) {
   return calculateFinalEncroachment(
     params,
     {},
-    {},
     plan.backtrack
   )
 }
