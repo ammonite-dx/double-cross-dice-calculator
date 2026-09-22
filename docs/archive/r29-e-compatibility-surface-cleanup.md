@@ -6,7 +6,7 @@ R29-D完了時点でproductionの正本になっていたAPIへ、残存して�
 
 ## 対象と基準
 
-基準HEADは`11a1fbff44c3e874d09d4711f2b63d62ce9874ce`（R29-Dのpresentation error provenance follow-up）である。R29-Eの最終HEADは`c79291e`である。
+基準HEADは`11a1fbff44c3e874d09d4711f2b63d62ce9874ce`（R29-Dのpresentation error provenance follow-up）である。R29-Eのproduction cleanupは`c79291e`で完了し、reference repositoryが使うsparse helperを保持するfollow-upを`f6a4bd9`で追加した。
 
 ## 削除・収束したsurface
 
@@ -30,7 +30,7 @@ feature runnerはcoordinatorで最新要求を管理し、`CalculationClient`は
 
 ## 検証
 
-最終HEADで次を実行し、すべて成功した。
+最終HEAD`f6a4bd9`で次を実行し、すべて成功した。
 
 - Vitest: 88 files / 1025 tests
 - `npm run typecheck`
