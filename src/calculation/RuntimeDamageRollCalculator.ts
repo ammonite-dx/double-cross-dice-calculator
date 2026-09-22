@@ -5,6 +5,20 @@ import {
   RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE,
   validateRuntimeDamageRollInputs,
 } from './RuntimeDamageRollLimits'
+import type { RuntimeDamageRollOptions } from './RuntimeDamageRollLimits'
+
+interface ComplexScratch {
+  readonly powerReal: Float64Array
+  readonly powerImaginary: Float64Array
+  readonly suffixReal: Float64Array
+  readonly suffixImaginary: Float64Array
+  readonly highDerivativeReal: Float64Array
+  readonly highDerivativeImaginary: Float64Array
+  readonly atLeastDerivativeReal: Float64Array
+  readonly atLeastDerivativeImaginary: Float64Array
+  readonly aboveDerivativeReal: Float64Array
+  readonly aboveDerivativeImaginary: Float64Array
+}
 
 export {
   getRuntimeDamageRollOperationEstimate,
@@ -23,7 +37,11 @@ export {
 // it removes that noise while remaining far below any material probability.
 const NUMERICAL_EPSILON = 1e-12
 
-function evaluatePolynomial(weights, valueReal, valueImaginary) {
+function evaluatePolynomial(
+  weights: ArrayLike<number>,
+  valueReal: number,
+  valueImaginary: number,
+): [number, number] {
   let resultReal = 0
   let resultImaginary = 0
 
@@ -40,13 +58,13 @@ function evaluatePolynomial(weights, valueReal, valueImaginary) {
 }
 
 function evaluateNormalizedDerivatives(
-  weights,
-  valueReal,
-  valueImaginary,
-  maxOrder,
-  resultReal,
-  resultImaginary
-) {
+  weights: ArrayLike<number>,
+  valueReal: number,
+  valueImaginary: number,
+  maxOrder: number,
+  resultReal: Float64Array,
+  resultImaginary: Float64Array,
+): void {
   resultReal.fill(0)
   resultImaginary.fill(0)
 
@@ -72,7 +90,11 @@ function evaluateNormalizedDerivatives(
   }
 }
 
-function integerPower(valueReal, valueImaginary, exponent) {
+function integerPower(
+  valueReal: number,
+  valueImaginary: number,
+  exponent: number,
+): [number, number] {
   let resultReal = 1
   let resultImaginary = 0
   let factorReal = valueReal
@@ -98,7 +120,7 @@ function integerPower(valueReal, valueImaginary, exponent) {
   return [resultReal, resultImaginary]
 }
 
-function createScratch(maxOrder) {
+function createScratch(maxOrder: number): ComplexScratch {
   return {
     powerReal: new Float64Array(11),
     powerImaginary: new Float64Array(11),
@@ -114,12 +136,12 @@ function createScratch(maxOrder) {
 }
 
 function evaluateSpectrumAt(
-  weights,
-  kazanari,
-  frequency,
-  fftLength,
-  scratch
-) {
+  weights: ArrayLike<number>,
+  kazanari: number,
+  frequency: number,
+  fftLength: number,
+  scratch: ComplexScratch,
+): [number, number] {
   const angle = -2 * Math.PI * frequency / fftLength
   const rootReal = Math.cos(angle)
   const rootImaginary = Math.sin(angle)
@@ -293,7 +315,7 @@ function evaluateSpectrumAt(
   return [resultReal, resultImaginary]
 }
 
-function normalizeInverseProbability(probability) {
+function normalizeInverseProbability(probability: number): number {
   if (!Number.isFinite(probability)) {
     throw new RangeError('inverse FFT produced a non-finite probability')
   }
@@ -309,12 +331,12 @@ function normalizeInverseProbability(probability) {
 }
 
 function spectrumToDistribution(
-  real,
-  imaginary,
-  distributionLength,
-  actualSupportMax,
-  expectedTotal
-) {
+  real: Float64Array,
+  imaginary: Float64Array,
+  distributionLength: number,
+  actualSupportMax: number,
+  expectedTotal: number,
+): Float64Array {
   transformRadix2FftInPlace(real, imaginary, true)
   const distribution = new Float64Array(distributionLength)
 
@@ -391,10 +413,10 @@ function spectrumToDistribution(
 }
 
 export function generateMixedDamageDistribution(
-  weights,
-  kazanari,
-  options
-) {
+  weights: ArrayLike<number>,
+  kazanari: number,
+  options?: RuntimeDamageRollOptions,
+): Float64Array {
   const {
     rawSupportMax: actualSupportMax,
     total,
