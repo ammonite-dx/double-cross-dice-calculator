@@ -3,12 +3,8 @@ import {
   createCalculationRequestCoordinator,
 } from './CalculationRequestCoordinator'
 import type {
-  CalculationCancellationContext,
   CalculationFeedbackPlan,
   CalculationFeedbackState,
-  CalculationRunnerContext,
-  LatestCalculationRunner,
-  LatestCalculationRunnerOptions,
 } from './CalculationFeedbackTypes'
 import type { CalculationRangePlan } from '../calculation/planning/RangePlannerTypes'
 
@@ -123,73 +119,6 @@ export async function runInitialCalculation<
       onError?.(error)
     }
     return null
-  }
-}
-
-/**
- * Compatibility adapter for existing feedback-aware callers. New request
- * lanes can use createCalculationRequestCoordinator directly; this adapter
- * preserves the existing run(options)/invalidate() contract while sharing
- * the same one-running-plus-one-pending coordinator.
- */
-export function createLatestCalculationRunner<
-  TRequest extends object,
-  TResult,
-  TPlan extends CalculationFeedbackPlan = CalculationRangePlan,
->(
-  {
-    feedback,
-    calculate,
-    clearResult,
-    commitResult,
-    onError,
-    onCancelled,
-    snapshotRequest,
-  }: LatestCalculationRunnerOptions<TRequest, TResult, TPlan>,
-): LatestCalculationRunner<TRequest, TResult, TPlan> {
-  const coordinator = createCalculationRequestCoordinator<
-    TRequest,
-    TResult,
-    TPlan,
-    TRequest
-  >({
-    snapshotRequest,
-    execute: (request, context) => calculate({
-      ...request,
-      signal: context.signal,
-      onRangePlan: context.onRangePlan,
-    }),
-    onStart: () => {
-      beginCalculation(feedback)
-      clearResult?.()
-    },
-    onPlan: (plan) => publishRangePlan(feedback, plan),
-    commit: (result) => commitResult?.(result),
-    onCommitted: () => completeCalculation(feedback),
-    onCancelled: (context) => {
-      markCalculationAborted(feedback)
-      onCancelled?.(
-        context as CalculationCancellationContext<TRequest, TPlan, TRequest>,
-      )
-    },
-    onError: (error) => {
-      recordCalculationError(feedback, error)
-      if (isCalculationRangeError(error)) {
-        clearResult?.()
-      } else {
-        onError?.(error)
-      }
-    },
-  })
-
-  return {
-    run(request?: TRequest) {
-      const actualRequest = request ?? {} as TRequest
-      return coordinator.run(actualRequest, actualRequest)
-    },
-    invalidate: coordinator.invalidate,
-    dispose: coordinator.dispose,
-    snapshot: coordinator.snapshot,
   }
 }
 

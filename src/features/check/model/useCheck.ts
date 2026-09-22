@@ -2,7 +2,14 @@ import { computed, onMounted, onUnmounted, reactive, toRefs } from 'vue'
 
 import {
   createCalculationFeedbackState,
-  createLatestCalculationRunner,
+  createCalculationRequestCoordinator,
+  isAbortError,
+  isCalculationRangeError,
+  markCalculationAborted,
+  recordCalculationError,
+  beginCalculation,
+  completeCalculation,
+  publishRangePlan,
   runInitialCalculation,
 } from '../../../runtime/CalculationFeedback'
 import type {
@@ -343,20 +350,29 @@ export async function useCheck({
     return calculationRunner.run(calculationRequest)
   }
 
-  const calculationRunner = createLatestCalculationRunner({
-    feedback: rangeFeedback,
+  const calculationRunner = createCalculationRequestCoordinator<
+    ReturnType<typeof createCheckCalculationRequestSnapshot>,
+    CheckCalculationResult,
+    CheckCalculationRangePlan
+  >({
     snapshotRequest: createCheckCalculationRequestSnapshot,
-    calculate: (snapshot: ReturnType<typeof createCheckCalculationRequestSnapshot>) =>
+    execute: (snapshot, context) =>
       calculationClient.calculateCheck(
         snapshot.params,
         snapshot.difficulty,
-        snapshot
+        {
+          ...snapshot,
+          signal: context.signal,
+          onRangePlan: context.onRangePlan,
+        }
       ),
-    clearResult: () => {
+    onStart: () => {
+      beginCalculation(rangeFeedback)
       state.calculationRecord = null
       resetDisplayFeedback()
     },
-    commitResult: (result: CheckCalculationResult) => {
+    onPlan: (plan) => publishRangePlan(rangeFeedback, plan),
+    commit: (result: CheckCalculationResult) => {
       const record = createCheckCalculationRecord(
         currentCalculationInput(),
         result
@@ -380,10 +396,17 @@ export async function useCheck({
       displayRecalculationKey = null
       updateDisplayFeedback(committedPresentation)
     },
+    onCommitted: () => completeCalculation(rangeFeedback),
+    onCancelled: () => markCalculationAborted(rangeFeedback),
     onError: (error: unknown) => {
-      console.error('Failed to update check', error)
+      recordCalculationError(rangeFeedback, error)
+      if (isCalculationRangeError(error)) {
+        state.calculationRecord = null
+        resetDisplayFeedback()
+      } else if (!isAbortError(error)) {
+        console.error('Failed to update check', error)
+      }
     },
-    onCancelled: undefined,
   })
 
   function invalidateInputCalculation() {

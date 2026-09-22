@@ -208,10 +208,10 @@ describe('Backtrack canonical integration', () => {
       Calculate: vi.fn(() => deferred.promise),
     })
     const controller = new AbortController()
-    const request = setup.runner.run({
-      params: createParams(),
-      signal: controller.signal,
-    })
+    const request = setup.runner.run(
+      { params: createParams() },
+      { signal: controller.signal },
+    )
 
     expect(setup.state.presentation).toBeNull()
     controller.abort()

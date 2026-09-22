@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  beginCalculation,
+  completeCalculation,
   createCalculationFeedbackState,
-  createLatestCalculationRunner,
+  createCalculationRequestCoordinator,
+  isCalculationRangeError,
+  markCalculationAborted,
+  publishRangePlan,
+  recordCalculationError,
   runInitialCalculation,
 } from '../src/runtime/CalculationFeedback'
 
@@ -53,6 +59,50 @@ function createRangeError(plan) {
   return error
 }
 
+function createFeedbackCoordinator({
+  feedback,
+  calculate,
+  clearResult,
+  commitResult,
+  onError,
+  onCancelled,
+  snapshotRequest,
+}) {
+  const coordinator = createCalculationRequestCoordinator({
+    snapshotRequest,
+    execute: (request, context) => calculate({
+      ...request,
+      signal: context.signal,
+      onRangePlan: context.onRangePlan,
+    }),
+    onStart: () => {
+      beginCalculation(feedback)
+      clearResult?.()
+    },
+    onPlan: (plan) => publishRangePlan(feedback, plan),
+    commit: (result) => commitResult?.(result),
+    onCommitted: () => completeCalculation(feedback),
+    onCancelled: (context) => {
+      markCalculationAborted(feedback)
+      onCancelled?.(context)
+    },
+    onError: (error) => {
+      recordCalculationError(feedback, error)
+      if (isCalculationRangeError(error)) {
+        clearResult?.()
+      } else {
+        onError?.(error)
+      }
+    },
+  })
+  return {
+    ...coordinator,
+    run(request = {}) {
+      return coordinator.run(request, request)
+    },
+  }
+}
+
 describe('CalculationFeedback', () => {
   it.each(['check', 'attack', 'backtrack'])(
     'ignores stale range plans and stale errors for the %s request path',
@@ -63,7 +113,7 @@ describe('CalculationFeedback', () => {
       const onError = vi.fn()
       const commitResult = vi.fn()
       let callCount = 0
-      const runner = createLatestCalculationRunner({
+      const runner = createFeedbackCoordinator({
         feedback,
         calculate: (options) => {
           callCount += 1
@@ -95,7 +145,7 @@ describe('CalculationFeedback', () => {
     const first = createDeferred()
     const receivedOptions = []
     let callCount = 0
-    const runner = createLatestCalculationRunner({
+    const runner = createFeedbackCoordinator({
       feedback,
       calculate: (options) => {
         callCount += 1
@@ -135,7 +185,7 @@ describe('CalculationFeedback', () => {
     let visibleResult = null
     let latestRequest
     let runner
-    runner = createLatestCalculationRunner({
+    runner = createFeedbackCoordinator({
       feedback,
       calculate: ({ phase }) => phase === 'first'
         ? first.promise
@@ -172,7 +222,7 @@ describe('CalculationFeedback', () => {
     const feedback = createCalculationFeedbackState()
     const onError = vi.fn()
     const commitResult = vi.fn()
-    const runner = createLatestCalculationRunner({
+    const runner = createFeedbackCoordinator({
       feedback,
       calculate: async (options) => {
         options.onRangePlan(warningPlan)
@@ -199,7 +249,7 @@ describe('CalculationFeedback', () => {
     const onError = vi.fn()
     const commitResult = vi.fn()
     let callCount = 0
-    const runner = createLatestCalculationRunner({
+    const runner = createFeedbackCoordinator({
       feedback,
       calculate: async () => {
         callCount += 1
@@ -268,7 +318,7 @@ describe('CalculationFeedback', () => {
     const feedback = createCalculationFeedbackState()
     const deferred = createDeferred()
     const commitResult = vi.fn()
-    const runner = createLatestCalculationRunner({
+    const runner = createFeedbackCoordinator({
       feedback,
       calculate: () => deferred.promise,
       commitResult,
@@ -289,7 +339,7 @@ describe('CalculationFeedback', () => {
     const first = createDeferred()
     let receivedSignal
     let callCount = 0
-    const runner = createLatestCalculationRunner({
+    const runner = createFeedbackCoordinator({
       feedback,
       calculate: (options) => {
         callCount += 1

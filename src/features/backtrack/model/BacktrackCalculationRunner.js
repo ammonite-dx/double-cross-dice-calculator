@@ -2,7 +2,13 @@ import {
   createBacktrackPresentation,
 } from './BacktrackPresentation'
 import {
-  createLatestCalculationRunner,
+  beginCalculation,
+  completeCalculation,
+  createCalculationRequestCoordinator,
+  isCalculationRangeError,
+  markCalculationAborted,
+  publishRangePlan,
+  recordCalculationError,
 } from '../../../runtime/CalculationFeedback'
 import {
   createBacktrackInputSnapshot,
@@ -17,8 +23,8 @@ function createCalculationEnvelope(params, result) {
 
 /**
  * Connect one Backtrack request lane to the calculation client API and the
- * Backtrack-specific presentation adapter. The shared runner owns feedback,
- * preflight, abort, latest-wins, and disposal behavior.
+ * Backtrack-specific presentation adapter. The request coordinator owns
+ * feedback, abort, latest-wins, and disposal behavior.
  */
 export function createBacktrackRunner({
   state,
@@ -43,35 +49,45 @@ export function createBacktrackRunner({
     )
   }
 
-  return createLatestCalculationRunner({
-    feedback,
+  return createCalculationRequestCoordinator({
     snapshotRequest: createBacktrackInputSnapshot,
-    calculate: (snapshot) => {
+    execute: (snapshot, context) => {
       const { params, ...calculationOptions } = snapshot
       return Promise.resolve(
         calculationClient.calculateBacktrack(
           params,
-          calculationOptions
+          {
+            ...calculationOptions,
+            signal: context.signal,
+            onRangePlan: context.onRangePlan,
+          }
         )
       ).then((result) => createCalculationEnvelope(params, result))
     },
-    clearResult: () => {
+    onStart: () => {
+      beginCalculation(feedback)
       state.presentation = null
       state.resultReady = false
     },
-    commitResult: (envelope) => {
+    onPlan: (plan) => publishRangePlan(feedback, plan),
+    commit: (envelope) => {
       state.presentation = createPresentation(
         envelope.result,
         envelope.params
       )
       state.resultReady = true
     },
+    onCommitted: () => completeCalculation(feedback),
+    onCancelled: () => markCalculationAborted(feedback),
     onError: (error) => {
       //  errors must not leave the previous chart visible or fall
       // back to the legacy calculation. A later run can retry normally.
+      recordCalculationError(feedback, error)
       state.presentation = null
       state.resultReady = false
-      onError?.(error)
+      if (!isCalculationRangeError(error)) {
+        onError?.(error)
+      }
     },
   })
 }

@@ -6,8 +6,7 @@ import {
   createCheckDisplayRequestSnapshot,
 } from '../src/features/check/model/CheckDisplayRequestSnapshot'
 import {
-  createCalculationFeedbackState,
-  createLatestCalculationRunner,
+  createCalculationRequestCoordinator,
 } from '../src/runtime/CalculationFeedback'
 import { planDisplayWindowResources } from '../src/shared/presentation'
 
@@ -127,16 +126,14 @@ describe('Check display request latest-wins boundary', () => {
     const received = []
     const committed = []
     let callCount = 0
-    const runner = createLatestCalculationRunner({
-      feedback: createCalculationFeedbackState(),
+    const runner = createCalculationRequestCoordinator({
       snapshotRequest: createCheckCalculationRequestSnapshot,
-      calculate: (request) => {
+      execute: (request) => {
         received.push(request)
         callCount += 1
         return callCount === 1 ? first : Promise.resolve('latest')
       },
-      clearResult: () => {},
-      commitResult: (result) => committed.push(result),
+      commit: (result) => committed.push(result),
     })
     const firstRequest = createCheckCalculationRequestSnapshot({
       ...createInput(),
