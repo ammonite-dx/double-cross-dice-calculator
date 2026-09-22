@@ -21,8 +21,17 @@ import {
   getScoreSupport,
 } from '../ScoreSupport'
 import { getDxOrderStatisticOperationEstimate } from '../DxOrderStatistic'
+import type { ScoreInput } from '../../domain/InputDomain'
+import type {
+  RangeDisplayPlan,
+  RolledScoreRangePlan,
+  ScoreRangePlan,
+  ScoreTailPlan,
+} from './RangePlannerTypes'
 
-function scoreOperationCount(plan) {
+function scoreOperationCount(
+  plan: Pick<RolledScoreRangePlan, 'params' | 'workingLength'>,
+): number {
   const dice = plan.params.dice
   const size = plan.workingLength
   if (plan.params.shihai === 0) {
@@ -36,21 +45,26 @@ function scoreOperationCount(plan) {
   )
 }
 
-export function normalizeScore(params, name = 'score') {
+export function normalizeScore(params: unknown, name = 'score'): ScoreInput {
   return normalizeScoreInput(params, name)
 }
 
 /** Plan the score distribution and its DX tail certificate. */
-export function planScore(params, display, tailBudget) {
+export function planScore(
+  params: unknown,
+  display: RangeDisplayPlan,
+  tailBudget: number,
+): RolledScoreRangePlan {
   const normalized = normalizeScore(params)
   const support = getScoreSupport(normalized)
   const finiteRawSupportMax = getFiniteRawSupportMax(normalized)
+  const finiteRawMax = finiteRawSupportMax ?? 0
   const finiteSupport = support.kind === 'finite'
-  const cutoffResult = finiteSupport
-    ? { reachable: true, cutoff: finiteRawSupportMax, bound: 0 }
+  const cutoffResult: { reachable: boolean; cutoff: number; bound: number } = finiteSupport
+    ? { reachable: true, cutoff: finiteRawMax, bound: 0 }
     : findTailCutoff(normalized, tailBudget)
   const workingMax = finiteSupport
-    ? finiteRawSupportMax
+    ? finiteRawMax
     : Math.max(
         cutoffResult.cutoff,
         subtractSafe(
@@ -145,7 +159,7 @@ export function planScore(params, display, tailBudget) {
     Float64Array.BYTES_PER_ELEMENT,
     'score array size'
   )
-  const tailModel = finiteSupport
+  const tailModel: ScoreTailPlan['model'] = finiteSupport
     ? 'finite-support'
     : normalized.yousei > 0
     ? normalized.shihai === 0
@@ -155,9 +169,9 @@ export function planScore(params, display, tailBudget) {
       ? 'exact-max'
       : 'exact-order-statistic'
 
-  const tail = {
+  const tail: RolledScoreRangePlan['tail'] = {
     model: tailModel,
-    kind: 'dx-tail',
+    kind: finiteSupport ? 'finite-support' : 'dx-tail',
     finiteSupport,
     requested: tailBudget,
     cutoff: cutoffResult.cutoff,
@@ -169,17 +183,19 @@ export function planScore(params, display, tailBudget) {
       : 'Probability of a score above the modeled cutoff before fixed skill shift',
   }
 
+  const scoreSupport: RolledScoreRangePlan['support'] = {
+    kind: finiteSupport ? 'finite-support' : 'dx-tail',
+    finiteSupport,
+    min: 0,
+    max: workingMax,
+    cutoff: cutoffResult.cutoff,
+  }
+
   return {
     kind: 'rolled-score',
     params: normalized,
     display,
-    support: {
-      kind: finiteSupport ? 'finite-support' : 'dx-tail',
-      finiteSupport,
-      min: 0,
-      max: workingMax,
-      cutoff: cutoffResult.cutoff,
-    },
+    support: scoreSupport,
     tail,
     workingMax,
     workingLength,
@@ -194,7 +210,7 @@ export function planScore(params, display, tailBudget) {
   }
 }
 
-export function getScoreValueUpperBound(scorePlans) {
+export function getScoreValueUpperBound(scorePlans: readonly ScoreRangePlan[]): number {
   return scorePlans[0].outputMax
 }
 
