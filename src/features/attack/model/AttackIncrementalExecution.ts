@@ -3,6 +3,16 @@ import {
   createAttackCalculationRecord,
   createAttackTotalCalculationRecord,
 } from './AttackCalculationRecord'
+import type {
+  AttackExecutionEntry,
+  AttackCommittedRecord,
+  AttackExecutionPlanItem,
+  AttackIncrementalExecutionRequest,
+  AttackIncrementalExecution,
+} from './AttackIncrementalExecutionTypes'
+import type { AttackCalculationOptions } from '../../../runtime/CalculationClientTypes'
+import type { CalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
+import type { AttackRangePlanFallback } from './AttackPresentationTypes'
 
 /** @typedef {import('./AttackIncrementalExecutionTypes').AttackExecutionEntry} AttackExecutionEntry */
 /** @typedef {import('./AttackIncrementalExecutionTypes').AttackCommittedRecord} AttackCommittedRecord */
@@ -10,11 +20,11 @@ import {
 /** @typedef {import('./AttackIncrementalExecutionTypes').AttackIncrementalExecutionRequest} AttackIncrementalExecutionRequest */
 /** @typedef {import('./AttackIncrementalExecutionTypes').AttackIncrementalExecution} AttackIncrementalExecution */
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function sameId(left, right) {
+function sameId(left: unknown, right: unknown): boolean {
   return left === right
     || (typeof left === 'number'
       && typeof right === 'number'
@@ -26,7 +36,10 @@ function sameId(left, right) {
       && Object.is(right, -0))
 }
 
-function findCommittedRecord(committedRecords, id) {
+function findCommittedRecord(
+  committedRecords: readonly AttackCommittedRecord[],
+  id: string | number,
+) {
   return committedRecords.find((entry) =>
     isRecord(entry)
     && sameId(entry.id, id)
@@ -45,10 +58,10 @@ function findCommittedRecord(committedRecords, id) {
  * @returns {ReadonlyArray<AttackExecutionPlanItem>}
  */
 export function planAttackExecution(
-  requestedEntries,
-  committedRecords = [],
-  { forceAll = false } = {}
-) {
+  requestedEntries: readonly AttackExecutionEntry[],
+  committedRecords: readonly AttackCommittedRecord[] = [],
+  { forceAll = false }: { forceAll?: boolean } = {},
+): readonly AttackExecutionPlanItem[] {
   if (!Array.isArray(requestedEntries)) {
     throw new TypeError('requestedEntries must be an array')
   }
@@ -60,22 +73,27 @@ export function planAttackExecution(
     if (!isRecord(entry)) {
       throw new TypeError(`requestedEntries[${index}] must be an object`)
     }
+    const requestedEntry = entry as unknown as AttackExecutionEntry
     const record = forceAll ? null : findCommittedRecord(
       committedRecords,
-      entry.id
+      requestedEntry.id
     )
     const reusable = record !== null
-      && areAttackCalculationInputsEqual(record.input, entry.params)
+      && areAttackCalculationInputsEqual(record.input, requestedEntry.params)
     return Object.freeze({
-      id: entry.id,
-      entry,
+      id: requestedEntry.id,
+      entry: requestedEntry,
       action: reusable ? 'reuse' : 'calculate',
-      record: reusable ? record : null,
+      record: reusable ? record as NonNullable<typeof record> : null,
     })
   })
 }
 
-function withExecutionContext(error, entryId, stage) {
+function withExecutionContext(
+  error: unknown,
+  entryId: string | number | null,
+  stage: 'combo' | 'total',
+): unknown {
   if (error === null || typeof error !== 'object') {
     return error
   }
@@ -103,11 +121,14 @@ function withExecutionContext(error, entryId, stage) {
   return error
 }
 
-function createFallbackRangePlan() {
+function createFallbackRangePlan(): AttackRangePlanFallback {
   return Object.freeze({ warnings: Object.freeze([]) })
 }
 
-function assembleBatch(records, totalResult) {
+function assembleBatch(
+  records: readonly AttackCommittedRecord[],
+  totalResult: Awaited<ReturnType<AttackIncrementalExecutionRequest['calculationClient']['calculateTotalDamage']>>,
+) {
   return {
     combos: records.map(({ id, record }) => ({
       ...record.result,
@@ -137,7 +158,7 @@ export async function executeAttackIncrementally({
   options = {},
   onRangePlan,
   forceAll = false,
-}) {
+}: AttackIncrementalExecutionRequest): Promise<AttackIncrementalExecution> {
   if (!isRecord(calculationClient)
     || typeof calculationClient.calculateAttack !== 'function'
     || typeof calculationClient.calculateTotalDamage !== 'function') {
@@ -151,20 +172,24 @@ export async function executeAttackIncrementally({
     committedRecords,
     { forceAll }
   )
-  const records = []
+  const records: AttackCommittedRecord[] = []
   const rangePlans = []
 
   for (const item of executionPlan) {
     if (item.action === 'reuse') {
-      records.push({ id: item.id, record: item.record })
-      rangePlans.push(item.record.rangePlan)
+      const record = item.record
+      if (record === null) {
+        throw new Error('reuse execution item is missing its record')
+      }
+      records.push({ id: item.id, record })
+      rangePlans.push(record.rangePlan)
       continue
     }
 
     let rangePlan = null
-    const calculateOptions = {
+    const calculateOptions: AttackCalculationOptions = {
       ...options,
-      onRangePlan: (plan) => {
+      onRangePlan: (plan: CalculationRangePlan) => {
         rangePlan = plan
         onRangePlan?.(plan, { entryId: item.id })
       },
