@@ -12,8 +12,26 @@ import {
   createScoreTailCertificate,
   createScoreTailMomentCertificate,
 } from './ScoreCertificates'
+import type { ScoreInput } from '../domain/InputDomain'
+import type { ScoreResolution } from '../domain/ScoreResolution'
+import type {
+  FixedScoreRangePlan,
+  RolledScoreRangePlan,
+  ScoreRangePlan,
+} from './planning/RangePlannerTypes'
+import type { DxDistributionProvider } from './DxProviderTypes'
 
-function validateScoreRangePlan(scoreRangePlan) {
+interface ScoreDependencies {
+  readonly getDxDistribution?: DxDistributionProvider
+}
+
+interface RequiredScoreDependencies {
+  readonly getDxDistribution: DxDistributionProvider
+}
+
+function validateScoreRangePlan(
+  scoreRangePlan: RolledScoreRangePlan | null | undefined,
+): RolledScoreRangePlan | null {
   if (scoreRangePlan === undefined || scoreRangePlan === null) {
     return null
   }
@@ -36,10 +54,10 @@ function validateScoreRangePlan(scoreRangePlan) {
 }
 
 function expandDxDistribution(
-  distribution,
-  expectedLength,
-  label
-) {
+  distribution: Float64Array,
+  expectedLength: number | undefined,
+  label: string,
+): number[] {
   if (!(distribution instanceof Float64Array)) {
     throw new TypeError(`${label} provider must return a Float64Array`)
   }
@@ -51,7 +69,7 @@ function expandDxDistribution(
   return Array.from(distribution)
 }
 
-function validateProbabilityDistribution(distribution, label) {
+function validateProbabilityDistribution(distribution: readonly number[], label: string): void {
   let total = 0
   for (const probability of distribution) {
     if (!Number.isFinite(probability) || Number.isNaN(probability)) {
@@ -68,10 +86,14 @@ function validateProbabilityDistribution(distribution, label) {
 }
 
 function calculateScoreWorking(
-  params,
-  { getDxDistribution },
-  scoreRangePlan
-) {
+  params: ScoreInput,
+  { getDxDistribution }: RequiredScoreDependencies,
+  scoreRangePlan: RolledScoreRangePlan | null | undefined,
+): {
+  workingDistribution: number[]
+  forcedFailureProbability: number
+  plan: RolledScoreRangePlan
+} {
   const plan = validateScoreRangePlan(scoreRangePlan)
 
   if (plan === null) {
@@ -86,7 +108,7 @@ function calculateScoreWorking(
       ? { fftLength: plan.fftLength }
       : {}),
   }
-  const getDistribution = (input) => getDxDistribution(
+  const getDistribution = (input: Omit<ScoreInput, 'skill' | 'yousei'>) => getDxDistribution(
     { ...input, yousei: params.yousei },
     dxOptions,
   )
@@ -120,10 +142,10 @@ function calculateScoreWorking(
 }
 
 function createScoreResult(
-  params,
-  workingDistribution,
-  forcedFailureProbability,
-  scoreRangePlan
+  params: ScoreInput,
+  workingDistribution: readonly number[],
+  forcedFailureProbability: number,
+  scoreRangePlan: RolledScoreRangePlan | null | undefined,
 ) {
   const workingMax = scoreRangePlan?.workingLength !== undefined
     ? scoreRangePlan.workingLength - 2
@@ -178,16 +200,22 @@ function createScoreResult(
 }
 
 export function calculateScore(
-  params,
-  dependencies,
-  scoreRangePlan
+  params: ScoreInput,
+  dependencies: ScoreDependencies,
+  scoreRangePlan: RolledScoreRangePlan | null | undefined,
 ) {
+  if (typeof dependencies.getDxDistribution !== 'function') {
+    throw new TypeError('calculateScore requires a runtime distribution provider')
+  }
+  const requiredDependencies: RequiredScoreDependencies = {
+    getDxDistribution: dependencies.getDxDistribution,
+  }
   const {
     workingDistribution,
     forcedFailureProbability,
   } = calculateScoreWorking(
     params,
-    dependencies,
+    requiredDependencies,
     scoreRangePlan
   )
   const result = createScoreResult(
@@ -224,7 +252,10 @@ export function calculateScore(
   return Object.freeze({ result, metadata })
 }
 
-function validateScoreResolutionPlan(resolution, scoreRangePlan) {
+function validateScoreResolutionPlan(
+  resolution: ScoreResolution,
+  scoreRangePlan: ScoreRangePlan | null | undefined,
+): void {
   if (scoreRangePlan === undefined || scoreRangePlan === null) {
     throw new TypeError('score resolution calculation requires a score range plan')
   }
@@ -235,20 +266,23 @@ function validateScoreResolutionPlan(resolution, scoreRangePlan) {
   }
   if (
     resolution.kind === 'fixed-score'
-    && (!Number.isSafeInteger(scoreRangePlan.value)
-      || scoreRangePlan.value < 0)
+    && (!Number.isSafeInteger((scoreRangePlan as FixedScoreRangePlan).value)
+      || (scoreRangePlan as FixedScoreRangePlan).value < 0)
   ) {
     throw new TypeError('fixed score plan must include a non-negative safe integer value')
   }
   if (
     resolution.kind === 'fixed-score'
-    && scoreRangePlan.value !== resolution.value
+    && (scoreRangePlan as FixedScoreRangePlan).value !== resolution.value
   ) {
     throw new RangeError('fixed score plan value does not match resolution value')
   }
 }
 
-function createDeterministicScoreEnvelope(kind, value) {
+function createDeterministicScoreEnvelope(
+  kind: 'fixed-score' | 'forced-failure',
+  value: number,
+) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new RangeError('deterministic score value must be a non-negative safe integer')
   }
@@ -281,9 +315,9 @@ function createDeterministicScoreEnvelope(kind, value) {
  * of their coordinate, so a large fixed value never allocates a dense array.
  */
 export function calculateScoreResolution(
-  resolution,
-  dependencies,
-  scoreRangePlan
+  resolution: ScoreResolution,
+  dependencies: ScoreDependencies,
+  scoreRangePlan: ScoreRangePlan | null | undefined,
 ) {
   if (
     resolution?.kind !== 'fixed-score'
@@ -298,7 +332,7 @@ export function calculateScoreResolution(
     return calculateScore(
       resolution.params,
       dependencies,
-      scoreRangePlan
+      scoreRangePlan as RolledScoreRangePlan
     )
   }
 
