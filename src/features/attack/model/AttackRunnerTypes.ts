@@ -15,6 +15,7 @@ import type {
 } from './AttackPresentationTypes'
 import type {
   AttackExecutionEntry,
+  AttackCommittedRecord,
   AttackIncrementalExecution,
 } from './AttackIncrementalExecutionTypes'
 import type { AttackState } from './AttackStateTypes'
@@ -25,11 +26,24 @@ export type AttackRunnerPresentation =
 
 export interface AttackRunnerCalculationRequest {
   readonly entries: readonly AttackExecutionEntry[]
+  readonly committedRecords: readonly AttackCommittedRecord[]
   readonly calculationOptions: AttackCalculationOptions
   readonly signal?: AbortSignal
   readonly scoreDisplayRequest?: DisplayRequestSnapshot | null
   readonly onRangePlan?: (plan: CalculationRangePlan) => void
   readonly forceAll?: boolean
+}
+
+/** Immutable request data captured before a coordinator lane starts work. */
+export interface AttackRunnerRequestSnapshot
+  extends AttackRunnerCalculationRequest {
+  readonly displayRequest: DisplayRequestSnapshot | null
+  readonly displayRequestGeneration: number | null
+  readonly scoreDisplayRequest: DisplayRequestSnapshot | null
+  readonly scoreDisplayRequestGeneration: number | null
+  readonly scoreDisplayEnabled: boolean
+  readonly preservePresentation: boolean
+  readonly generation?: number
 }
 
 export interface AttackRunnerDisplayContext {

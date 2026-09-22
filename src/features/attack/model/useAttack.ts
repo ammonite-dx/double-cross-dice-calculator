@@ -36,7 +36,6 @@ import {
   clearAttackState,
   createAttackState,
   ensureComboData,
-  getAttackCalculationRecords,
   invalidateAttackComboCalculation,
   invalidateAttackTotalCalculation,
   isAttackCalculationReady,
@@ -160,6 +159,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     state,
     executeCalculation: ({
         entries,
+        committedRecords,
         calculationOptions,
         signal,
         onRangePlan,
@@ -167,7 +167,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
         forceAll,
       }: AttackRunnerCalculationRequest) => executeAttackIncrementally({
         entries,
-        committedRecords: getAttackCalculationRecords(state.combos),
+        committedRecords,
         calculationClient: client,
         options: {
           ...calculationOptions,

@@ -10,6 +10,7 @@ import {
 /** @typedef {import('./AttackIncrementalExecutionTypes').AttackCommittedRecord} AttackCommittedRecord */
 /** @typedef {import('./AttackCalculationRecord').AttackTotalCalculationRecord} AttackTotalCalculationRecord */
 /** @typedef {import('./AttackIncrementalExecutionTypes').AttackIncrementalExecution} AttackIncrementalExecution */
+/** @typedef {import('./AttackStateTypes').AttackCommittedCalculationSnapshot} AttackCommittedCalculationSnapshot */
 /** @typedef {import('./AttackPresentationTypes').AttackPresentation} AttackPresentation */
 /** @typedef {import('./AttackPresentationTypes').AttackDisplayPresentation} AttackDisplayPresentation */
 
@@ -334,6 +335,86 @@ export function getAttackCalculationRecords(combos) {
       record: combo.data.calculation ?? null,
     }))
     .filter(({ record }) => record !== null)
+}
+
+/**
+ * Reconstruct the complete calculation view from state-owned records.
+ *
+ * The runner intentionally does not retain a second copy of the batch or
+ * range plans. A snapshot is complete only when every current combo has a
+ * record for the current input and the aggregate records those same objects
+ * in the current order. The returned batch reuses result objects; it does
+ * not clone probability data.
+ *
+ * @param {AttackState} state
+ * @returns {AttackCommittedCalculationSnapshot|null}
+ */
+export function getCommittedAttackCalculationSnapshot(state) {
+  if (!isRecord(state) || !Array.isArray(state.combos)) {
+    return null
+  }
+  const totalCalculation = state.totalCalculation
+  if (!isRecord(totalCalculation)
+    || !Array.isArray(totalCalculation.sources)
+    || !isRecord(totalCalculation.result)) {
+    return null
+  }
+
+  let entries
+  try {
+    entries = snapshotAttackEntries(state.combos)
+  } catch {
+    return null
+  }
+
+  if (totalCalculation.sources.length !== state.combos.length) {
+    return null
+  }
+
+  const records = []
+  const rangePlans = []
+  const batchCombos = []
+  for (let index = 0; index < state.combos.length; index += 1) {
+    const combo = state.combos[index]
+    const source = totalCalculation.sources[index]
+    const record = combo?.data?.calculation ?? null
+    const entry = entries[index]
+    if (!isRecord(combo)
+      || !isRecord(source)
+      || !isRecord(record)
+      || !isRecord(record.input)
+      || !isRecord(record.result)
+      || !hasOwn(record, 'rangePlan')
+      || !sameId(combo.id, entry.id)
+      || !sameId(source.id, entry.id)
+      || source.record !== record
+      || !areAttackEntriesEqual(
+        [{ id: entry.id, params: entry.params }],
+        [{ id: entry.id, params: record.input }]
+      )) {
+      return null
+    }
+    records.push({ id: entry.id, record })
+    rangePlans.push(record.rangePlan)
+    batchCombos.push({ ...record.result, id: entry.id })
+  }
+
+  const totalResult = totalCalculation.result
+  if (!hasOwn(totalResult, 'totalDamage')
+    || !hasOwn(totalResult, 'totalDamageStatistics')) {
+    return null
+  }
+  return {
+    entries,
+    records,
+    rangePlans,
+    totalCalculation,
+    batchResult: {
+      combos: batchCombos,
+      totalDamage: totalResult.totalDamage,
+      totalDamageStatistics: totalResult.totalDamageStatistics,
+    },
+  }
 }
 
 export function invalidateAttackComboCalculation(state, id) {

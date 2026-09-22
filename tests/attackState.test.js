@@ -9,6 +9,7 @@ import {
   createComboDataState,
   ensureComboData,
   getAttackCalculationRecords,
+  getCommittedAttackCalculationSnapshot,
   invalidateAttackComboCalculation,
   invalidateAttackTotalCalculation,
   isAttackCalculationReady,
@@ -189,6 +190,43 @@ describe('AttackState', () => {
     expect(state.basePresentation).toBeNull()
     expect(state.displayPresentation).toBeNull()
     expect(isAttackCalculationReady(state)).toBe(true)
+  })
+
+  it('reconstructs a complete batch from committed records without cloning results', () => {
+    const state = createState()
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, state.generation, execution)
+
+    const snapshot = getCommittedAttackCalculationSnapshot(state)
+
+    expect(areAttackEntriesEqual(
+      snapshotAttackEntries(state.combos),
+      execution.records.map(({ id, record }) => ({ id, params: record.input }))
+    )).toBe(true)
+    expect(snapshot).not.toBeNull()
+    expect(snapshot.records.map(({ id }) => id)).toEqual(['first', 'second'])
+    expect(snapshot.rangePlans.map((plan) => plan.id))
+      .toEqual(['first-plan', 'second-plan'])
+    expect(snapshot.batchResult.combos[0].damage)
+      .toBe(execution.records[0].record.result.damage)
+    expect(snapshot.batchResult.totalDamage)
+      .toBe(execution.totalCalculation.result.totalDamage)
+    expect(snapshot.totalCalculation).toBe(execution.totalCalculation)
+  })
+
+  it('rejects a snapshot when records, source order, or inputs are incomplete', () => {
+    const state = createState()
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, state.generation, execution)
+
+    state.totalCalculation = {
+      ...state.totalCalculation,
+      sources: [
+        { ...state.totalCalculation.sources[0], record: {} },
+        state.totalCalculation.sources[1],
+      ],
+    }
+    expect(getCommittedAttackCalculationSnapshot(state)).toBeNull()
   })
 
   it('rejects stale or malformed executions before writing records', () => {
