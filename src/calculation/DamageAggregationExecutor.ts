@@ -10,25 +10,53 @@ import {
   checkAbort,
   fail,
   failNumerical,
+  isRecord,
 } from './DamageAggregationCommon'
 import { probabilityFromExplicitMass } from './DamageAggregationInspection'
 import { createDamageAggregationMetadata } from './DamageAggregationMetadata'
+import type {
+  DamageAggregationExecutionOptions,
+  DamageAggregationInternalPlan,
+  PreparedDamageAggregationState,
+  AggregatedDamageEnvelope,
+} from './DamageAggregationTypes'
+import type {
+  DistributionOverflow,
+  DistributionResult,
+} from '../domain/DistributionResultTypes'
+
+type NormalizedExecutionOptions = Readonly<{
+  signal: AbortSignal | null
+  onFftLength?: (fftLength: number) => void
+}>
+type ExecutionOptionsInput = DamageAggregationExecutionOptions | NormalizedExecutionOptions
 
 const ABORT_CHECK_INTERVAL = 4_096
 
-function allocateValues(length, details = {}) {
+function allocateValues(
+  length: number,
+  details: Record<string, unknown> = {},
+): Float64Array {
   try {
     return new Float64Array(length)
-  } catch (error) {
+  } catch (error: unknown) {
     fail(
       DAMAGE_AGGREGATION_ERROR_CODES.RESOURCE_LIMIT,
       'unable to allocate damage aggregation values',
-      { ...details, length, causeName: error?.name, causeMessage: error?.message }
+      {
+        ...details,
+        length,
+        causeName: error instanceof Error ? error.name : undefined,
+        causeMessage: error instanceof Error ? error.message : undefined,
+      }
     )
   }
 }
 
-function sanitizeConvolvedValues(values, signal) {
+function sanitizeConvolvedValues(
+  values: Float64Array,
+  signal: AbortSignal | null | undefined,
+): number {
   let total = 0
   for (let index = 0; index < values.length; index += 1) {
     if (index % ABORT_CHECK_INTERVAL === 0) {
@@ -60,7 +88,11 @@ function sanitizeConvolvedValues(values, signal) {
   return total
 }
 
-function adjustMass(values, target, signal) {
+function adjustMass(
+  values: Float64Array,
+  target: number,
+  signal: AbortSignal | null | undefined,
+): void {
   let total = 0
   let largestIndex = -1
   let largestValue = -1
@@ -108,7 +140,12 @@ function adjustMass(values, target, signal) {
   }
 }
 
-function normalizeValuesToMass(values, target, rawMass, signal) {
+function normalizeValuesToMass(
+  values: Float64Array,
+  target: number,
+  rawMass: number,
+  signal: AbortSignal | null | undefined,
+): number {
   if (target < 0 || target > 1 || !Number.isFinite(target)) {
     failNumerical('target explicit probability mass is invalid', { target })
   }
@@ -154,22 +191,34 @@ function normalizeValuesToMass(values, target, rawMass, signal) {
   return total
 }
 
-function overflowsEqual(left, right) {
+function overflowsEqual(
+  left: DistributionOverflow | null,
+  right: DistributionOverflow | null,
+): boolean {
   if (left === null || right === null) {
     return left === right
   }
   if (left.kind !== right.kind || left.lowerBound !== right.lowerBound) {
     return false
   }
-  if (left.kind === 'exact') {
+  if (left.kind === 'exact' && right.kind === 'exact') {
     return left.probability === right.probability
       && left.errorBound === right.errorBound
+  }
+  if (left.kind !== 'upper-bound' || right.kind !== 'upper-bound') {
+    return false
   }
   return left.probabilityUpperBound === right.probabilityUpperBound
     && left.errorBound === right.errorBound
 }
 
-function createOutputResult(values, plan, overflow, singleResult, signal) {
+function createOutputResult(
+  values: Float64Array,
+  plan: DamageAggregationInternalPlan,
+  overflow: DistributionOverflow | null,
+  singleResult: DistributionResult | null,
+  signal: AbortSignal | null | undefined,
+): DistributionResult {
   if (singleResult !== null) {
     if (
       Object.isFrozen(singleResult)
@@ -189,11 +238,12 @@ function createOutputResult(values, plan, overflow, singleResult, signal) {
         support: plan.modeledSupport,
         overflow,
       })
-    } catch (error) {
+    } catch (error: unknown) {
+      const details = isRecord(error) ? error : {}
       fail(
         DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE,
         'single damage result could not be safely reused',
-        { causeCode: error?.code, causeName: error?.name }
+        { causeCode: details.code, causeName: details.name }
       )
     }
   }
@@ -206,19 +256,23 @@ function createOutputResult(values, plan, overflow, singleResult, signal) {
       support: plan.modeledSupport,
       overflow,
     })
-  } catch (error) {
-    const code = error?.code === 'index-overflow'
+  } catch (error: unknown) {
+    const details = isRecord(error) ? error : {}
+    const code = details.code === 'index-overflow'
       ? DAMAGE_AGGREGATION_ERROR_CODES.INDEX_OVERFLOW
       : DAMAGE_AGGREGATION_ERROR_CODES.NUMERICAL_FAILURE
     fail(
       code,
       'aggregated damage result failed validation',
-      { causeCode: error?.code, causeName: error?.name }
+      { causeCode: details.code, causeName: details.name }
     )
   }
 }
 
-function getExecutionOptions(preparedState, normalizedOptions) {
+function getExecutionOptions(
+  preparedState: PreparedDamageAggregationState,
+  normalizedOptions: ExecutionOptionsInput,
+): NormalizedExecutionOptions {
   return Object.freeze({
     signal: normalizedOptions.signal ?? preparedState.executionDefaults.signal,
     onFftLength:
@@ -227,7 +281,7 @@ function getExecutionOptions(preparedState, normalizedOptions) {
   })
 }
 
-function addFiniteNumbers(left, right, field) {
+function addFiniteNumbers(left: number, right: number, field: string): number {
   const value = left + right
   if (!Number.isFinite(value)) {
     failNumerical(`${field} is not finite`, { left, right })
@@ -237,9 +291,9 @@ function addFiniteNumbers(left, right, field) {
 
 /** Execute prepared private state; no inspection or replanning occurs here. */
 export function executePreparedDamageAggregation(
-  preparedState,
-  normalizedOptions = {}
-) {
+  preparedState: PreparedDamageAggregationState,
+  normalizedOptions: ExecutionOptionsInput = {},
+): AggregatedDamageEnvelope {
   const { inspected, plan } = preparedState
   const executionOptions = getExecutionOptions(preparedState, normalizedOptions)
   checkAbort(executionOptions.signal)
@@ -261,8 +315,8 @@ export function executePreparedDamageAggregation(
     return Object.freeze({ result, metadata })
   }
 
-  let values
-  let singleResult = null
+  let values: Float64Array
+  let singleResult: DistributionResult | null = null
   if (inspected.length === 1) {
     singleResult = inspected[0].result
     values = inspected[0].values
@@ -273,15 +327,17 @@ export function executePreparedDamageAggregation(
     for (const step of plan.steps) {
       checkAbort(executionOptions.signal)
       try {
-        values = convolveDistributions(values, inspected[step.index].values, {
-          fftLength: step.fftLength,
-          signal: executionOptions.signal,
-          onFftLength: executionOptions.onFftLength,
-        })
-      } catch (error) {
+        values = new Float64Array(
+          convolveDistributions(values, inspected[step.index].values, {
+            fftLength: step.fftLength,
+            signal: executionOptions.signal ?? undefined,
+            onFftLength: executionOptions.onFftLength,
+          })
+        )
+      } catch (error: unknown) {
         if (
           executionOptions.signal?.aborted
-          || error?.name === 'AbortError'
+          || (error instanceof Error && error.name === 'AbortError')
         ) {
           throw new DamageAggregationAbortError()
         }
@@ -291,11 +347,11 @@ export function executePreparedDamageAggregation(
     }
   }
 
-  let rawExplicitMass
-  let explicitMass
+  let rawExplicitMass = 0
+  let explicitMass = 0
   let fftMassDrift = 0
   let sourceMassDrift = 0
-  let outputExactProbability = null
+  let outputExactProbability = 0
   if (singleResult !== null) {
     rawExplicitMass = inspected[0].explicitMass
     explicitMass = rawExplicitMass
@@ -369,7 +425,7 @@ export function executePreparedDamageAggregation(
     'aggregation error bound'
   )
 
-  let outputOverflow
+  let outputOverflow: DistributionOverflow | null
   if (plan.hasUpperBound) {
     const coverageUpperBound = Math.max(0, 1 - explicitMass)
     const probabilityUpperBound = Math.min(
