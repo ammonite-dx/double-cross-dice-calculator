@@ -12,6 +12,26 @@ import {
   createAttackDisplayRequestSnapshot,
   DEFAULT_ATTACK_DISPLAY_REQUEST,
 } from './AttackDisplayRequestSnapshot'
+import type { DisplayMode, DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
+import type { DistributionEnvelope } from '../../../domain/DistributionResultTypes'
+import type { DamageEnvelope, DamageStatistics } from '../../../domain/DamageResultTypes'
+import type { ScorePair, ScoreStatistics } from '../../../domain/ScoreResultTypes'
+import type {
+  DisplayWarning,
+  DistributionDisplay,
+  DistributionProjection,
+  DistributionProjectionDecision,
+  DisplayRangePlan,
+} from '../../../shared/presentation/DistributionProjectionTypes'
+import type {
+  AttackBatchResult,
+  AttackDisplayPresentation,
+  AttackDisplaySide,
+  AttackPresentation,
+  AttackRangePlanReference,
+  AttackScorePresentation,
+  AttackScoreDisplaySidePresentation,
+} from './AttackPresentationTypes'
 
 /** @typedef {import('./AttackPresentationTypes').AttackPresentation} AttackPresentation */
 /** @typedef {import('./AttackPresentationTypes').AttackBatchResult} AttackBatchResult */
@@ -28,7 +48,7 @@ export const ATTACK_PRESENTATION_ERROR_CODES = Object.freeze({
   RANGE_PLAN_COUNT_MISMATCH: 'range-plan-count-mismatch',
 })
 
-export const ATTACK_DISPLAY_PRESENTATION_VERSION = 1
+export const ATTACK_DISPLAY_PRESENTATION_VERSION: 1 = 1
 
 export const ATTACK_DISPLAY_PRESENTATION_DECISIONS =
   DISTRIBUTION_PROJECTION_DECISIONS
@@ -37,47 +57,62 @@ export const ATTACK_SCORE_DISPLAY_PRESENTATION_DECISIONS =
   ATTACK_DISPLAY_PRESENTATION_DECISIONS
 
 export class AttackPresentationError extends Error {
-  constructor(code, message, details = {}) {
+  readonly code: string
+  readonly details: Readonly<Record<string, unknown>>
+  readonly attackPresentation = true
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(message)
     this.name = 'AttackPresentationError'
     this.code = code
-    this.details = Object.freeze({ ...details })
-    this.attackPresentation = true
+    this.details = Object.freeze(
+      isRecord(details) ? { ...details } : {}
+    )
   }
 }
 
-export function isAttackPresentationError(error) {
-  return error?.attackPresentation === true
+export function isAttackPresentationError(error: unknown): error is AttackPresentationError {
+  return isRecord(error)
+    && error.attackPresentation === true
     && typeof error.code === 'string'
 }
 
-function hasOwn(value, property) {
+function hasOwn(value: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(value, property)
 }
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function fail(code, message, details = {}) {
+function fail(code: string, message: string, details: unknown = {}): never {
   throw new AttackPresentationError(code, message, details)
 }
 
-function requireRecord(value, path, code) {
+function requireRecord(
+  value: unknown,
+  path: string,
+  code: string,
+): Record<string, unknown> {
   if (!isRecord(value)) {
     fail(code, `${path} must be an object`, { path })
   }
   return value
 }
 
-function requireArray(value, path, code) {
+function requireArray(value: unknown, path: string, code: string): unknown[] {
   if (!Array.isArray(value)) {
     fail(code, `${path} must be an array`, { path })
   }
   return value
 }
 
-function requireField(value, property, path, code) {
+function requireField(
+  value: Record<string, unknown>,
+  property: string,
+  path: string,
+  code: string,
+): unknown {
   if (!hasOwn(value, property)) {
     fail(code, `${path}.${property} is required`, {
       path: `${path}.${property}`,
@@ -86,11 +121,14 @@ function requireField(value, property, path, code) {
   return value[property]
 }
 
-function readOptionalField(value, property) {
+function readOptionalField(
+  value: Record<string, unknown>,
+  property: string,
+): unknown {
   return hasOwn(value, property) ? value[property] : undefined
 }
 
-function validateId(id, path) {
+function validateId(id: unknown, path: string): asserts id is string | number {
   if (
     typeof id !== 'string'
     && !(typeof id === 'number' && Number.isFinite(id))
@@ -103,7 +141,7 @@ function validateId(id, path) {
   }
 }
 
-function snapshotBatchResult(batchResult) {
+function snapshotBatchResult(batchResult: unknown): AttackBatchResult {
   const source = requireRecord(
     batchResult,
     'batchResult',
@@ -147,42 +185,45 @@ function snapshotBatchResult(batchResult) {
     )
     validateId(id, `${path}.id`)
     return {
-      id,
+      id: id as string | number,
       score: requireField(
         value,
         'score',
         path,
         ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
-      ),
+      ) as ScorePair,
       scoreStatistics: requireField(
         value,
         'scoreStatistics',
         path,
         ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
-      ),
+      ) as ScoreStatistics,
       damage: requireField(
         value,
         'damage',
         path,
         ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
-      ),
+      ) as DamageEnvelope,
       damageStatistics: requireField(
         value,
         'damageStatistics',
         path,
         ATTACK_PRESENTATION_ERROR_CODES.INVALID_COMBO
-      ),
+      ) as DamageStatistics,
     }
   })
 
   return {
     combos: comboSnapshots,
-    totalDamage,
-    totalDamageStatistics,
+    totalDamage: totalDamage as DamageEnvelope,
+    totalDamageStatistics: totalDamageStatistics as DamageStatistics,
   }
 }
 
-function snapshotRangePlans(rangePlans, comboCount) {
+function snapshotRangePlans(
+  rangePlans: unknown,
+  comboCount: number,
+): readonly { plan: AttackRangePlanReference; warnings: readonly DisplayWarning[] }[] {
   const plans = requireArray(
     rangePlans,
     'rangePlans',
@@ -212,27 +253,32 @@ function snapshotRangePlans(rangePlans, comboCount) {
       )
     }
     return {
-      plan,
-      warnings: warnings ?? [],
+      plan: plan as unknown as AttackRangePlanReference,
+      warnings: (warnings ?? []) as DisplayWarning[],
     }
   })
 }
 
-function addEntryId(warning, entryId) {
+function addEntryId(
+  warning: DisplayWarning,
+  entryId: string | number,
+): DisplayWarning {
   return {
     ...warning,
     entryId,
   }
 }
 
-function isScoreEnvelope(value) {
+function isScoreEnvelope(value: unknown): value is DistributionEnvelope {
   return isRecord(value)
     && isRecord(value.result)
     && isRecord(value.metadata)
     && value.metadata.modeledDistribution === true
 }
 
-function createScoreSidePresentation(envelope) {
+function createScoreSidePresentation(
+  envelope: unknown,
+): DistributionDisplay | null {
   if (!isScoreEnvelope(envelope)) {
     return null
   }
@@ -250,7 +296,9 @@ function createScoreSidePresentation(envelope) {
  * reaction side is retained for the same batch and future consumers.
  */
 /** @returns {AttackScorePresentation|null} */
-function createScorePresentation(score) {
+function createScorePresentation(
+  score: unknown,
+): AttackScorePresentation | null {
   if (!isRecord(score)) {
     return null
   }
@@ -268,7 +316,16 @@ function createScorePresentation(score) {
 
 export const createAttackScorePresentation = createScorePresentation
 
-function normalizeAttackDisplayOptions(options) {
+interface NormalizedAttackDisplayOptions {
+  readonly displayRequest: DisplayRequestSnapshot
+  readonly scoreDisplayRequest: DisplayRequestSnapshot
+  readonly rangePlans: readonly unknown[]
+  readonly policy?: unknown
+}
+
+function normalizeAttackDisplayOptions(
+  options: unknown,
+): NormalizedAttackDisplayOptions {
   const source = requireRecord(
     options,
     'options',
@@ -324,12 +381,14 @@ function normalizeAttackDisplayOptions(options) {
     scoreDisplayRequest: createAttackDisplayRequestSnapshot(
       scoreDisplayRequest
     ),
-    rangePlans: rangePlans === undefined ? [] : rangePlans,
+    rangePlans: rangePlans === undefined ? [] : rangePlans as unknown[],
     policy,
   }
 }
 
-function getAttackDisplayStatus(sides) {
+function getAttackDisplayStatus(
+  sides: readonly AttackDisplaySide[],
+): AttackDisplaySide['status'] {
   if (sides.some(({ projection }) => projection.status === 'not-projectable')) {
     return 'not-projectable'
   }
@@ -339,7 +398,9 @@ function getAttackDisplayStatus(sides) {
   return 'ready'
 }
 
-function getAttackDisplayDecision(sides) {
+function getAttackDisplayDecision(
+  sides: readonly AttackDisplaySide[],
+): DistributionProjectionDecision {
   const decisions = sides.map(({ projection }) => projection.decision)
   if (decisions.includes(
     ATTACK_DISPLAY_PRESENTATION_DECISIONS.NOT_PROJECTABLE
@@ -366,12 +427,16 @@ function getAttackDisplayDecision(sides) {
 
 /** @returns {import('./AttackPresentationTypes').AttackDisplaySide} */
 function createAttackDisplaySide(
-  display,
-  displayRequest,
-  policy,
-  id
-) {
-  const projectionOptions = {
+  display: DistributionDisplay,
+  displayRequest: DisplayRequestSnapshot,
+  policy?: unknown,
+  id?: string | number,
+): AttackDisplaySide {
+  const projectionOptions: {
+    displayWindow: { min: number; max: number }
+    mode: DisplayMode
+    policy?: unknown
+  } = {
     displayWindow: {
       min: displayRequest.min,
       max: displayRequest.max,
@@ -403,10 +468,10 @@ function createAttackDisplaySide(
 
 /** @returns {AttackScoreDisplaySidePresentation|null} */
 function createAttackScoreDisplayPresentation(
-  scorePresentation,
-  displayRequest,
-  policy
-) {
+  scorePresentation: AttackScorePresentation | null,
+  displayRequest: DisplayRequestSnapshot,
+  policy?: unknown,
+): AttackScoreDisplaySidePresentation | null {
   if (
     !isRecord(scorePresentation)
     || !isRecord(scorePresentation.action)
@@ -445,7 +510,10 @@ function createAttackScoreDisplayPresentation(
   })
 }
 
-function copyRangePlan(rangePlan, warnings) {
+function copyRangePlan(
+  rangePlan: AttackRangePlanReference,
+  warnings: readonly DisplayWarning[],
+): AttackRangePlanReference {
   return Object.freeze({
     ...rangePlan,
     warnings,
@@ -461,9 +529,9 @@ function copyRangePlan(rangePlan, warnings) {
  * @returns {AttackPresentation}
  */
 export function createAttackPresentation(
-  batchResult,
-  rangePlans = []
-) {
+  batchResult: AttackBatchResult,
+  rangePlans: readonly unknown[] = [],
+): AttackPresentation {
   const snapshot = snapshotBatchResult(batchResult)
   const planSnapshots = snapshotRangePlans(rangePlans, snapshot.combos.length)
   const combos = []
@@ -521,9 +589,9 @@ export function createAttackPresentation(
  * No calculation, legacy projection, or fallback is performed here.
  */
 function buildAttackDisplayPresentationFrom(
-  presentation,
-  normalized
-) {
+  presentation: AttackPresentation,
+  normalized: NormalizedAttackDisplayOptions,
+): AttackDisplayPresentation {
   const scoreCombos = presentation.combos.map((combo) => {
     const scorePresentation = createAttackScoreDisplayPresentation(
       combo.scorePresentation,
@@ -548,6 +616,7 @@ function buildAttackDisplayPresentationFrom(
     )
     return Object.freeze({
       ...side,
+      id: combo.id,
       // Keep the calculation plan available to the application feedback lane
       // while `plan` remains the display-window plan.
       rangePlan: combo.rangePlan,
@@ -605,9 +674,9 @@ function buildAttackDisplayPresentationFrom(
  * @returns {AttackDisplayPresentation}
  */
 export function createAttackDisplayPresentationFrom(
-  presentation,
-  options = {}
-) {
+  presentation: AttackPresentation,
+  options: unknown = {},
+): AttackDisplayPresentation {
   const normalized = normalizeAttackDisplayOptions(options)
   if (
     !isRecord(presentation)
@@ -638,9 +707,9 @@ export function createAttackDisplayPresentationFrom(
  * @returns {AttackDisplayPresentation}
  */
 export function createAttackDisplayPresentation(
-  batchResult,
-  options = {}
-) {
+  batchResult: AttackBatchResult,
+  options: unknown = {},
+): AttackDisplayPresentation {
   const normalized = normalizeAttackDisplayOptions(options)
   const presentation = createAttackPresentation(
     batchResult,
