@@ -33,7 +33,7 @@ function getSummary(params, difficulty) {
   const envelope = calculateScore(
     params,
     {
-      getDxDistribution: (shihai, dice, critical, options, yousei = 0) =>
+      getDxDistribution: ({ shihai, dice, critical, yousei = 0 }, options) =>
         calculateDxDistribution({ dice, critical, shihai, yousei }, options),
     },
     plan

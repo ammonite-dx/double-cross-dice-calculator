@@ -13,7 +13,7 @@ function calculateScoreEnvelope(params) {
     score: params,
   }).scores[0]
   return calculateScore(params, {
-    getDxDistribution: (shihai, dice, critical, options, yousei = 0) =>
+    getDxDistribution: ({ shihai, dice, critical, yousei = 0 }, options) =>
       calculateDxDistribution({ dice, critical, shihai, yousei }, options),
   }, plan)
 }

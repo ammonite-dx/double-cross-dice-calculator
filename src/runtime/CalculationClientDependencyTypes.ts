@@ -7,6 +7,7 @@ import type {
   DxDistribution,
   DxDistributionInput,
   DxDistributionOptions,
+  DxDistributionProvider,
 } from '../calculation/DxProviderTypes'
 import type {
   AttackCalculationRangePlan,
@@ -47,15 +48,6 @@ export interface CalculationRuntimeOptions {
   readonly [key: string]: unknown
 }
 
-/** The historical positional provider consumed by ScoreCalculator. */
-export type PositionalDxDistributionProvider = (
-  shihai: number,
-  dice: number,
-  critical: number,
-  options: NormalizedDxOptions,
-  yousei?: number,
-) => DxDistribution
-
 /** normalizeDxOptions() guarantees these fields for the cache/provider boundary. */
 export interface NormalizedDxOptions {
   readonly workingLength: number
@@ -88,13 +80,13 @@ export type CalculateDxDistribution = (
 
 export type CalculateScore = (
   params: NormalizedScoreInput,
-  getDistribution?: PositionalDxDistributionProvider,
+  getDistribution?: DxDistributionProvider,
   scoreRangePlan?: RolledScoreRangePlan,
 ) => ScoreEnvelope
 
 export type CalculateScoreResolution = (
   resolution: ScoreResolution,
-  getDistribution?: PositionalDxDistributionProvider,
+  getDistribution?: DxDistributionProvider,
   scoreRangePlan?: ScoreRangePlan,
 ) => ScoreEnvelope
 

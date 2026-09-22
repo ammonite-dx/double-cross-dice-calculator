@@ -29,16 +29,15 @@ const SCORE_PARAMS = {
   shihai: 0,
 }
 
-function sparseDistribution(entries) {
-  const first = Math.min(...entries.map(([value]) => value))
+function denseDistribution(entries, size) {
   const last = Math.max(...entries.map(([value]) => value))
-  const values = Array(last - first + 1).fill(0)
+  const values = new Float64Array(Math.max(size, last + 1))
 
   for (const [value, probability] of entries) {
-    values[value - first] = probability
+    values[value] = probability
   }
 
-  return { offset: first, values }
+  return values
 }
 
 function ScoreEnvelope(entries, forcedFailureProbability = 0) {
@@ -293,14 +292,18 @@ function independentBacktrack(params, rule) {
 
 describe('runtime score rules', () => {
   it('does not apply the skill value to automatic failure or fumble', () => {
-    const distribution = sparseDistribution([
+    const distribution = denseDistribution([
       [0, 0.25],
       [1, 0.25],
       [2, 0.5],
-    ])
+    ], 3)
     const result = calculateRuleScore(
       { ...SCORE_PARAMS, skill: 5 },
-      () => distribution
+      (_input, options) => {
+        const result = new Float64Array(options.workingLength)
+        result.set(distribution)
+        return result
+      }
     )
 
     expect(result.result.values[0]).toBe(0.5)
@@ -311,7 +314,7 @@ describe('runtime score rules', () => {
   it('retains a non-fumble score clamped to zero as a successful result', () => {
     const result = calculateRuleScore(
       { ...SCORE_PARAMS, critical: 11, skill: -3 },
-      () => sparseDistribution([[2, 1]])
+      (_input, options) => denseDistribution([[2, 1]], options.workingLength)
     )
     const summary = getScoreStatistics(
       {
@@ -329,11 +332,11 @@ describe('runtime score rules', () => {
   it('excludes automatic failure and fumble from difficulty zero success', () => {
     const result = calculateRuleScore(
       { ...SCORE_PARAMS, critical: 11 },
-      () => sparseDistribution([
+      (_input, options) => denseDistribution([
         [0, 0.2],
         [1, 0.3],
         [2, 0.5],
-      ])
+      ], options.workingLength)
     )
     const summary = getScoreStatistics(
       {
@@ -350,10 +353,10 @@ describe('runtime score rules', () => {
   })
 
   it('keeps zero dice as automatic failure when yousei is specified', () => {
-    const getDistribution = (shihai, dice) =>
+    const getDistribution = ({ dice }, options) =>
       dice === 0
-        ? sparseDistribution([[0, 1]])
-        : sparseDistribution([[3, 1]])
+        ? denseDistribution([[0, 1]], options.workingLength)
+        : denseDistribution([[3, 1]], options.workingLength)
     const result = calculateRuleScore(
       { ...SCORE_PARAMS, dice: 0, skill: 999, yousei: 9 },
       getDistribution
@@ -364,7 +367,7 @@ describe('runtime score rules', () => {
   })
 
   it('consumes one complete DX distribution when yousei is present', () => {
-    const getDistribution = vi.fn((shihai, dice, critical, options, yousei) => {
+    const getDistribution = vi.fn(({ shihai, dice, critical, yousei }, options) => {
       expect(shihai).toBe(0)
       expect(dice).toBe(4)
       expect(critical).toBe(10)
@@ -373,7 +376,7 @@ describe('runtime score rules', () => {
         fftLength: expect.any(Number),
       }))
       expect(yousei).toBe(2)
-      return sparseDistribution([[23, 1]])
+      return denseDistribution([[23, 1]], options.workingLength)
     })
     const result = calculateRuleScore(
       { ...SCORE_PARAMS, dice: 4, yousei: 2 },

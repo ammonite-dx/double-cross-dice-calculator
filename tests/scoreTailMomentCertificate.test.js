@@ -18,7 +18,7 @@ function calculatePlannedScore(params) {
   const envelope = calculateScore(
     params,
     {
-      getDxDistribution: (shihai, dice, critical, options, yousei = 0) =>
+      getDxDistribution: ({ shihai, dice, critical, yousei = 0 }, options) =>
         calculateDxDistribution(
           { shihai, dice, critical, yousei },
           options
@@ -45,7 +45,7 @@ function calculateScoreAtCutoff(params, workingMax) {
   const envelope = calculateScore(
     params,
     {
-      getDxDistribution: (shihai, dice, critical, options, yousei = 0) =>
+      getDxDistribution: ({ shihai, dice, critical, yousei = 0 }, options) =>
         calculateDxDistribution(
           { shihai, dice, critical, yousei },
           options

@@ -10,18 +10,8 @@ export interface DxDistributionOptions {
   readonly fftLength?: number
 }
 
-export interface SparseDxDistribution {
-  readonly offset: number
-  readonly values: ArrayLike<number>
-}
+export type DxDistribution = Float64Array
 
-export type DxDistribution = Float64Array | SparseDxDistribution
-
-/**
- * Object-shaped contract for new callers. The current positional provider is
- * retained for compatibility and can be adapted at this boundary in a later
- * phase without changing cache identity or calculation semantics.
- */
 export type DxDistributionProvider = (
   input: DxDistributionInput,
   options?: DxDistributionOptions,

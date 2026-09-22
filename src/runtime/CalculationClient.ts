@@ -88,8 +88,8 @@ import type {
   CompleteCalculationClientDependencies,
   CalculationRuntimeOptions,
   NormalizedDxOptions,
-  PositionalDxDistributionProvider,
 } from './CalculationClientDependencyTypes'
+import type { DxDistributionProvider } from '../calculation/DxProviderTypes'
 
 const RUNTIME_DX_CACHE_SIZE = 32
 const runtimeDamageRollClient = createRuntimeDamageRollClient()
@@ -98,7 +98,7 @@ const defaultResourceGuard = createResourceGuard()
 
 function calculateScoreAdapter(
   params: NormalizedScoreInput,
-  getDistribution: PositionalDxDistributionProvider | undefined,
+  getDistribution: DxDistributionProvider | undefined,
   scoreRangePlan?: RolledScoreRangePlan,
 ): ScoreEnvelope {
   if (typeof getDistribution !== 'function') {
@@ -115,7 +115,7 @@ function calculateScoreAdapter(
 
 function calculateScoreResolutionAdapter(
   resolution: ScoreResolution,
-  getDistribution: PositionalDxDistributionProvider | undefined,
+  getDistribution: DxDistributionProvider | undefined,
   scoreRangePlan?: ScoreRangePlan,
 ): ScoreEnvelope {
   if (resolution?.kind === 'rolled-score') {
@@ -435,7 +435,7 @@ function runRangePreflight<TPlan extends CalculationRangePlan>(
 
 function createRuntimeDxProvider(
   calculateDistribution: CalculationClientDependencies['calculateDxDistribution'],
-): PositionalDxDistributionProvider {
+): DxDistributionProvider {
   if (typeof calculateDistribution !== 'function') {
     throw new TypeError('createRuntimeDxProvider requires a distribution provider')
   }
@@ -443,7 +443,7 @@ function createRuntimeDxProvider(
     CalculationClientDependencies['calculateDxDistribution']
   >>>()
 
-  return (shihai, dice, critical, options, yousei = 0) => {
+  return ({ shihai, dice, critical, yousei = 0 }, options = {}) => {
     const normalizedOptions = normalizeDxOptions(options)
     const key = [
       dice,

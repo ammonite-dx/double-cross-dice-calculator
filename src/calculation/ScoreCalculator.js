@@ -1,4 +1,3 @@
-import { expandSparseDistribution } from '../core/probability/Distribution'
 import {
   DISTRIBUTION_RESULT_TOLERANCE,
   createDistributionResult,
@@ -38,26 +37,18 @@ function validateScoreRangePlan(scoreRangePlan) {
 
 function expandDxDistribution(
   distribution,
-  fallbackLength,
   expectedLength,
   label
 ) {
-  if (distribution instanceof Float64Array) {
-    if (expectedLength !== undefined && distribution.length !== expectedLength) {
-      throw new RangeError(
-        `${label} length must equal scoreRangePlan.workingLength`
-      )
-    }
-    return Array.from(distribution)
+  if (!(distribution instanceof Float64Array)) {
+    throw new TypeError(`${label} provider must return a Float64Array`)
   }
-
-  const expanded = expandSparseDistribution(distribution, fallbackLength)
-  if (expectedLength !== undefined && expanded.length !== expectedLength) {
+  if (expectedLength !== undefined && distribution.length !== expectedLength) {
     throw new RangeError(
       `${label} length must equal scoreRangePlan.workingLength`
     )
   }
-  return expanded
+  return Array.from(distribution)
 }
 
 function validateProbabilityDistribution(distribution, label) {
@@ -95,20 +86,16 @@ function calculateScoreWorking(
       ? { fftLength: plan.fftLength }
       : {}),
   }
-  const getDistribution = (shihai, dice, critical) => {
-    return params.yousei === 0
-      ? getDxDistribution(shihai, dice, critical, dxOptions)
-      : getDxDistribution(
-          shihai,
-          dice,
-          critical,
-          dxOptions,
-          params.yousei
-        )
-  }
+  const getDistribution = (input) => getDxDistribution(
+    { ...input, yousei: params.yousei },
+    dxOptions,
+  )
   let diceResult = expandDxDistribution(
-    getDistribution(params.shihai, params.dice, params.critical),
-    requestedLength,
+    getDistribution({
+      shihai: params.shihai,
+      dice: params.dice,
+      critical: params.critical,
+    }),
     plan?.workingLength,
     'DX distribution'
   )

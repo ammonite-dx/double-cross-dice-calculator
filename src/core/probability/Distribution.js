@@ -1,20 +1,3 @@
-export function expandSparseDistribution(
-  sparseDistribution,
-  size
-) {
-  if (!Number.isSafeInteger(size) || size <= 0) {
-    throw new TypeError('distribution expansion size must be a positive safe integer')
-  }
-  const distribution = Array(size).fill(0)
-  const { offset, values } = sparseDistribution
-
-  for (let index = 0; index < values.length; index += 1) {
-    distribution[offset + index] = values[index]
-  }
-
-  return distribution
-}
-
 export function shiftDistribution(distribution, amount) {
   const size = distribution.length
   const shifted = Array(size).fill(0)

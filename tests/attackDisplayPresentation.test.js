@@ -106,13 +106,9 @@ describe('createAttackDisplayPresentation', () => {
         kind: 'canonical-distribution-projection',
         status: 'ready',
         decision: 'reuse',
-      },
-      plan: { decision: 'reuse' },
-      projection: {
-        kind: 'canonical-distribution-projection',
-        status: 'ready',
         displayWindow: { min: 0, max: 1, pointCount: 2 },
       },
+      plan: { decision: 'reuse' },
     })
     expect(Array.from(presentation.combos[0].projection.values))
       .toEqual([0.25, 0.75])

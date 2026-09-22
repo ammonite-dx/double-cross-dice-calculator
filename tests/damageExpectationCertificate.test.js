@@ -73,7 +73,7 @@ function calculateScoreForPlan(params, plan) {
   return calculateScore(
     params,
     {
-      getDxDistribution: (shihai, dice, critical, options, yousei = 0) =>
+      getDxDistribution: ({ shihai, dice, critical, yousei = 0 }, options) =>
         calculateDxDistribution(
           { shihai, dice, critical, yousei },
           options

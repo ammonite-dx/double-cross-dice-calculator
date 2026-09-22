@@ -92,7 +92,7 @@ function getScorePlan(params, policy) {
   }, plannerPolicy).scores[0]
 }
 
-function getDxDistribution(shihai, dice, critical, options, yousei = 0) {
+function getDxDistribution({ shihai, dice, critical, yousei = 0 }, options) {
   return calculateDxDistribution({ dice, critical, shihai, yousei }, options)
 }
 
@@ -191,9 +191,12 @@ describe('canonical normal check score producer', () => {
     const result = envelope.result
 
     expect(provider).toHaveBeenCalledWith(
-      params.shihai,
-      params.dice,
-      params.critical,
+      {
+        shihai: params.shihai,
+        dice: params.dice,
+        critical: params.critical,
+        yousei: params.yousei,
+      },
       { workingLength: 4 }
     )
     expect(result.offset).toBe(0)

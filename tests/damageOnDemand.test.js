@@ -106,7 +106,7 @@ function calculatePlannedScore(params, scoreRangePlan) {
   return calculateScore(
     params,
     {
-      getDxDistribution: (shihai, dice, critical, options) =>
+      getDxDistribution: ({ shihai, dice, critical }, options) =>
         calculateDxDistribution({ shihai, dice, critical }, options),
     },
     scoreRangePlan
