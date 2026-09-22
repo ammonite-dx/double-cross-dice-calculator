@@ -14,6 +14,7 @@ export const RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH =
 export const RUNTIME_DAMAGE_MAX_OPERATION_ESTIMATE = 2_000_000_000
 
 export interface RuntimeDamageRollOptions {
+  readonly signal?: AbortSignal
   readonly fftLength?: number
   readonly distributionLength?: number
   readonly rawSupportMax?: number

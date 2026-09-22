@@ -10,22 +10,69 @@ import {
   createDamageExpectationCertificate,
 } from './DamageExpectationCertificate'
 import { createDamageRollRequest } from './DamageRollRequest'
+import type { DefenceDamageInput } from '../domain/CalculationInputs'
+import type { ScorePair } from '../domain/ScoreResultTypes'
+import type { DistributionSupport } from '../domain/DistributionResultTypes'
+import type {
+  AttackCalculationRangePlan,
+  DamageRangePlan,
+  ScoreTailPlan,
+} from './planning/RangePlannerTypes'
+import type { RuntimeDamageRollCalculateOptions } from '../runtime/RuntimeDamageRollClientTypes'
+import type {
+  CalculationRuntimeOptions,
+  DamageCalculationDependencies,
+} from '../runtime/CalculationClientDependencyTypes'
+import type { NormalizedAttackDamageInput } from '../domain/CalculationInputNormalization'
+
+type ProbabilityArray = number[] | Float64Array
+type D10DistributionProvider = NonNullable<DamageCalculationDependencies['getD10Distribution']>
+type DamageRollDistributionProvider = NonNullable<DamageCalculationDependencies['getDamageRollDistribution']>
+
+interface ComposedDamage {
+  readonly distribution: number[]
+  readonly overflowProbability: number
+  readonly plan: DamageRangePlan
+}
+
+interface RequestedDamageRoll {
+  readonly damageRollDistribution: Float64Array
+  readonly failureProbability: number
+  readonly hitProbability: number
+  readonly normalizedPlan: DamageRangePlan
+  readonly unmodeledScoreProbabilityUpperBound: number
+  readonly scoreTailErrorBound: number
+  readonly scoreTailCertificates: DamageRollRequest['scoreTailCertificates']
+  readonly scoreTailMomentCertificates: DamageRollRequest['scoreTailMomentCertificates']
+  readonly actionExplicitMax: number | null
+  readonly sourceSupport: DistributionSupport
+}
+
+import type { DamageRollRequest } from './DamageRollRequest'
 
 const PROBABILITY_TOLERANCE = 1e-10
 const TOTAL_TOLERANCE = 1e-8
 
-function getRuntimeD10Distribution(dice, size, runtimeOptions = {}) {
+function getRuntimeD10Distribution(
+  dice: number,
+  size?: number,
+  runtimeOptions: CalculationRuntimeOptions = {},
+): Float64Array {
   return calculateD10Distribution(dice, {
     size,
     signal: runtimeOptions.signal,
   })
 }
 
-function isProbabilityArray(value) {
+function isProbabilityArray(value: unknown): value is ProbabilityArray {
   return Array.isArray(value) || value instanceof Float64Array
 }
 
-function validateDamageRangePlan(plan, attack, defence) {
+function validateDamageRangePlan(
+  plan: DamageRangePlan,
+  attack: NormalizedAttackDamageInput,
+  defence: DefenceDamageInput,
+): DamageRangePlan {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
     throw new TypeError('damageRangePlan must be an object')
   }
@@ -39,7 +86,7 @@ function validateDamageRangePlan(plan, attack, defence) {
     'defenceFftLength',
   ]
   for (const field of requiredFields) {
-    if (!Number.isSafeInteger(plan[field])) {
+    if (!Number.isSafeInteger((plan as unknown as Record<string, unknown>)[field])) {
       throw new TypeError(`damageRangePlan.${field} must be a safe integer`)
     }
   }
@@ -77,7 +124,10 @@ function validateDamageRangePlan(plan, attack, defence) {
   return plan
 }
 
-function getPlannedRawDistributionLength(plan, fixedValueDifference) {
+function getPlannedRawDistributionLength(
+  plan: DamageRangePlan,
+  fixedValueDifference: number,
+): number {
   const requiredRawMax = fixedValueDifference >= 0
     ? Math.max(0, plan.workingMax - fixedValueDifference)
     : plan.workingMax
@@ -97,10 +147,10 @@ function getPlannedRawDistributionLength(plan, fixedValueDifference) {
 }
 
 function validateDamageRollDistribution(
-  distribution,
-  expectedLength,
-  expectedTotal
-) {
+  distribution: ProbabilityArray,
+  expectedLength: number,
+  expectedTotal?: number,
+): Float64Array {
   if (!isProbabilityArray(distribution) || distribution.length !== expectedLength) {
     throw new RangeError(
       `damage distribution must have ${expectedLength} entries`
@@ -141,11 +191,11 @@ function validateDamageRollDistribution(
 }
 
 function getFiniteDefenceDistribution(
-  getD10Distribution,
-  defence,
-  damageRangePlan,
-  runtimeOptions = {}
-) {
+  getD10Distribution: D10DistributionProvider | undefined,
+  defence: DefenceDamageInput,
+  damageRangePlan: DamageRangePlan,
+  runtimeOptions: CalculationRuntimeOptions = {},
+): number[] {
   const provider = getD10Distribution ?? getRuntimeD10Distribution
   if (typeof provider !== 'function') {
     throw new TypeError('getD10Distribution must provide a function')
@@ -181,15 +231,15 @@ function getFiniteDefenceDistribution(
 }
 
 function composePlannedDamage(
-  damageRollDistribution,
-  failureProbability,
-  attack,
-  defence,
-  getD10Distribution,
-  damageRangePlan,
-  onFftLength,
-  runtimeOptions = {}
-) {
+  damageRollDistribution: ProbabilityArray,
+  failureProbability: number,
+  attack: NormalizedAttackDamageInput,
+  defence: DefenceDamageInput,
+  getD10Distribution: D10DistributionProvider | undefined,
+  damageRangePlan: DamageRangePlan,
+  onFftLength: ((length: number) => void) | undefined,
+  runtimeOptions: CalculationRuntimeOptions = {},
+): ComposedDamage {
   const fixedValueDifference = attack.value - defence.value
   const plan = validateDamageRangePlan(
     damageRangePlan,
@@ -269,14 +319,18 @@ function composePlannedDamage(
   }
 }
 
-function validateRangePlan(rangePlan, attack, defence) {
+function validateRangePlan(
+  rangePlan: AttackCalculationRangePlan | undefined,
+  attack: NormalizedAttackDamageInput,
+  defence: DefenceDamageInput,
+): { damage: DamageRangePlan; scoreTails: readonly ScoreTailPlan[] } {
   if (!rangePlan || typeof rangePlan !== 'object' || Array.isArray(rangePlan)) {
     throw new TypeError('rangePlan must be a top-level range plan object')
   }
   if (rangePlan.operation !== 'attack' || rangePlan.accepted !== true) {
     throw new TypeError('rangePlan must be an accepted top-level attack plan')
   }
-  if (!Array.isArray(rangePlan.scores) || rangePlan.scores.length === 0) {
+  if (!Array.isArray(rangePlan.scores)) {
     throw new TypeError('rangePlan.scores must contain score plans')
   }
 
@@ -293,7 +347,11 @@ function validateRangePlan(rangePlan, attack, defence) {
   }
 }
 
-function getModeledDamageSupportMax(plan, attack, defence) {
+function getModeledDamageSupportMax(
+  plan: DamageRangePlan,
+  attack: NormalizedAttackDamageInput,
+  defence: DefenceDamageInput,
+): number {
   const fixedValueDifference = attack.value - defence.value
   if (!Number.isSafeInteger(fixedValueDifference)) {
     throw new RangeError('attack and defence fixed difference must be a safe integer')
@@ -309,7 +367,11 @@ function getModeledDamageSupportMax(plan, attack, defence) {
   return Math.max(0, defendedSupportMax)
 }
 
-function getFinalOverflowLowerBound(plan, attack, defence) {
+function getFinalOverflowLowerBound(
+  plan: DamageRangePlan,
+  attack: NormalizedAttackDamageInput,
+  defence: DefenceDamageInput,
+): number {
   const fixedValueDifference = attack.value - defence.value
   if (!Number.isSafeInteger(fixedValueDifference)) {
     throw new RangeError('attack and defence fixed difference must be a safe integer')
@@ -327,10 +389,11 @@ function getFinalOverflowLowerBound(plan, attack, defence) {
   return Math.max(0, shiftedLowerBound)
 }
 
-function sumProbabilities(values) {
+function sumProbabilities(values: ArrayLike<number>): number {
   let total = 0
   let compensation = 0
-  for (const probability of values) {
+  for (let index = 0; index < values.length; index += 1) {
+    const probability = values[index]
     const corrected = probability - compensation
     const next = total + corrected
     compensation = (next - total) - corrected
@@ -340,43 +403,41 @@ function sumProbabilities(values) {
 }
 
 async function requestDamageRollDistribution(
-  score,
-  attack,
-  defence,
-  getDamageRollDistribution,
-  runtimeOptions,
-  damageRangePlan
-) {
+  score: ScorePair,
+  attack: NormalizedAttackDamageInput,
+  defence: DefenceDamageInput,
+  getDamageRollDistribution: DamageRollDistributionProvider,
+  runtimeOptions: RuntimeDamageRollCalculateOptions,
+  damageRangePlan: DamageRangePlan,
+): Promise<RequestedDamageRoll> {
   const request = createDamageRollRequest(
     score,
     attack,
     damageRangePlan
   )
-  const planned = damageRangePlan !== undefined && damageRangePlan !== null
-  const normalizedPlan = planned
-    ? validateDamageRangePlan(damageRangePlan, attack, defence)
-    : null
-  const providerOptions = planned
-    ? {
-        ...runtimeOptions,
-        fftLength: Math.max(
-          RUNTIME_DAMAGE_MIN_FFT_SIZE,
-          normalizedPlan.fftLength
-        ),
-        distributionLength: getPlannedRawDistributionLength(
-          normalizedPlan,
-          attack.value - defence.value
-        ),
-        rawSupportMax: normalizedPlan.rawSupportMax,
-      }
-    : runtimeOptions
+  const normalizedPlan = validateDamageRangePlan(damageRangePlan, attack, defence)
+  const providerOptions = {
+    ...runtimeOptions,
+    fftLength: Math.max(
+      RUNTIME_DAMAGE_MIN_FFT_SIZE,
+      normalizedPlan.fftLength
+    ),
+    distributionLength: getPlannedRawDistributionLength(
+      normalizedPlan,
+      attack.value - defence.value
+    ),
+    rawSupportMax: normalizedPlan.rawSupportMax,
+  }
   const damageRollDistribution = await getDamageRollDistribution(
     request.weights,
-    attack.kazanari,
+    attack.kazanari ?? 0,
     providerOptions
   )
   const hitProbability = sumProbabilities(request.weights)
   const expectedLength = providerOptions.distributionLength
+  if (expectedLength === undefined) {
+    throw new RangeError('damage provider options must include distributionLength')
+  }
 
   return {
     damageRollDistribution: validateDamageRollDistribution(
@@ -398,16 +459,16 @@ async function requestDamageRollDistribution(
 }
 
 export async function calculateDamageOnDemand(
-  score,
-  attack,
-  defence,
+  score: ScorePair,
+  attack: NormalizedAttackDamageInput,
+  defence: DefenceDamageInput,
   {
     getDamageRollDistribution,
     getD10Distribution = getRuntimeD10Distribution,
     onFftLength,
-  } = {},
-  runtimeOptions = {},
-  rangePlan
+  }: DamageCalculationDependencies,
+  runtimeOptions: CalculationRuntimeOptions = {},
+  rangePlan?: AttackCalculationRangePlan,
 ) {
   if (typeof getDamageRollDistribution !== 'function') {
     throw new TypeError(
