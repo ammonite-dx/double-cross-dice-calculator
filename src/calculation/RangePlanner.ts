@@ -19,12 +19,21 @@ import {
   object,
   positiveInteger,
 } from './planning/PlanningMath'
+import type { ScoreInput } from '../domain/InputDomain'
+import type { ScoreResolution } from '../domain/ScoreResolution'
+import type { DamageInput, DefenceDamageInput } from '../domain/CalculationInputs'
+import type {
+  CalculationRangePlan,
+  DamageRangePlan,
+  RangeOverflowInfoSet,
+  RangePlannerParams,
+  RangePlanWarning,
+  RangePolicyInput,
+  RolledScoreRangePlan,
+  ScoreRangePlan,
+} from './planning/RangePlannerTypes'
 
 export { DEFAULT_POLICY }
-
-/** @typedef {import('./planning/RangePlannerTypes').RangePlannerParams} RangePlannerParams */
-/** @typedef {import('./planning/RangePlannerTypes').RangePolicyInput} RangePolicyInput */
-/** @typedef {import('./planning/RangePlannerTypes').CalculationRangePlan} CalculationRangePlan */
 
 /**
  * The façade coordinates operation-specific planners and combines their
@@ -39,9 +48,10 @@ export { DEFAULT_POLICY }
  * @param {Object} plan
  * @returns {Object}
  */
-function makeOverflowInfo(plan) {
+function makeOverflowInfo(plan: CalculationRangePlan): RangeOverflowInfoSet {
   const tailScores = plan.scores.filter(
-    (item) => item.kind === 'rolled-score' && !item.finiteSupport
+    (item): item is RolledScoreRangePlan =>
+      item.kind === 'rolled-score' && !item.finiteSupport
   )
   const score = plan.scores.length > 0
     ? tailScores.length === 0
@@ -56,7 +66,7 @@ function makeOverflowInfo(plan) {
           type: 'dx-tail',
           finiteSupport: false,
           lowerBound: tailScores.length === 1
-            ? tailScores[0].workingMax + 1
+            ? (tailScores[0] as RolledScoreRangePlan).workingMax + 1
             : null,
           bound: tailScores.reduce(
             (sum, item) => sum + item.tail.bound,
@@ -107,7 +117,10 @@ function makeOverflowInfo(plan) {
  * @param {RangePolicyInput} [policy]
  * @returns {CalculationRangePlan}
  */
-export function planCalculationRanges(params, policy = {}) {
+export function planCalculationRanges(
+  params: RangePlannerParams,
+  policy: RangePolicyInput = {},
+): CalculationRangePlan {
   const effectivePolicy = mergePolicy(policy)
   object(params, 'params')
 
@@ -117,23 +130,27 @@ export function planCalculationRanges(params, policy = {}) {
       'operation must be score, check, attack, or backtrack'
     )
   }
-  const display = normalizeDisplay(params.display, effectivePolicy)
+  const display = normalizeDisplay(params.display)
   const comboCount = params.comboCount ?? 1
   positiveInteger(comboCount, 'comboCount')
 
-  let scores = []
-  let damage = null
-  let backtrack = null
+  let scores: ScoreRangePlan[] = []
+  let damage: DamageRangePlan | null = null
+  let backtrack: ReturnType<typeof planBacktrack> | null = null
   let tailBudget = 0
 
   if (operation === 'backtrack') {
     backtrack = planBacktrack(params.backtrack ?? params, display)
   } else {
+    const scorePair = params.score && typeof params.score === 'object'
+      && 'action' in params.score
+      ? params.score
+      : undefined
     const scoreParams = operation === 'score'
       ? [params.score ?? params]
       : [
-          params.score?.action ?? params.action,
-          params.score?.reaction ?? params.reaction,
+          scorePair?.action ?? params.action,
+          scorePair?.reaction ?? params.reaction,
         ]
 
     if (scoreParams.some((value) => !value)) {
@@ -141,15 +158,19 @@ export function planCalculationRanges(params, policy = {}) {
     }
     tailBudget = effectivePolicy.errorBudget.scoreTail / scoreParams.length
     scores = scoreParams.map((score) => {
-      const resolution = score?.kind
-        ? score
-        : { kind: 'rolled-score', params: score }
+      const candidate = score as ScoreResolution | ScoreInput
+      const resolution: ScoreResolution = 'kind' in candidate
+        ? candidate
+        : { kind: 'rolled-score', params: candidate }
       return planScoreResolution(resolution, display, tailBudget)
     })
 
     if (operation === 'attack') {
+      if (!params.attack || !params.defence) {
+        throw new TypeError('attack and defence damage parameters are required')
+      }
       damage = planDamage(
-        params,
+        { attack: params.attack, defence: params.defence },
         display,
         getScoreValueUpperBound(scores)
       )
@@ -187,14 +208,16 @@ export function planCalculationRanges(params, policy = {}) {
       totalDamage: 'once a value is aggregated above display.max, later operations must not subtract from it',
       backtrack: 'backtrack values have finite support; this plan generates the complete support on demand',
     },
-    overflowInfo: null,
-    warnings: [],
+    overflowInfo: null as RangeOverflowInfoSet | null,
+    warnings: [] as RangePlanWarning[],
+    rejectionReasons: undefined as readonly string[] | undefined,
   }
-  result.overflowInfo = makeOverflowInfo(result)
+  const typedResult = result as unknown as CalculationRangePlan
+  result.overflowInfo = makeOverflowInfo(typedResult)
 
-  const limitResult = applyLimits(result, effectivePolicy)
+  const limitResult = applyLimits(typedResult, effectivePolicy)
   result.accepted = limitResult.accepted
-  result.warnings = limitResult.warnings
+  result.warnings = [...limitResult.warnings]
   if (!result.accepted) {
     result.rejectionReasons = Array.from(
       new Set(
@@ -204,5 +227,5 @@ export function planCalculationRanges(params, policy = {}) {
       )
     )
   }
-  return result
+  return result as unknown as CalculationRangePlan
 }
