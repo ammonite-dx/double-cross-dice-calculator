@@ -2,6 +2,17 @@ import {
   DISPLAY_PROBABILITY_TOLERANCE,
 } from './DistributionPresenter'
 import { planDisplayRange } from './DisplayRangePlanner'
+import type {
+  DisplayProjectionUncertainty,
+  DisplayRangePlan,
+  DisplayWindow,
+  DistributionDisplay,
+  DistributionProjection,
+  DistributionProjectionDecision,
+  DistributionProjectionMode,
+  ReadyDistributionProjection,
+} from './DistributionProjectionTypes'
+import type { DistributionOverflow } from '../../domain/DistributionResultTypes'
 
 /** @typedef {import('./DistributionProjectionTypes').DistributionProjection} DistributionProjection */
 /** @typedef {import('./DistributionProjectionTypes').ReadyDistributionProjection} ReadyDistributionProjection */
@@ -37,11 +48,25 @@ export const DISTRIBUTION_PROJECTION_ERROR_CODES = Object.freeze({
   INVALID_MODE: 'invalid-mode',
 })
 
-function hasOwn(value, property) {
+interface ProjectionOptions {
+  readonly mode?: DistributionProjectionMode
+  readonly displayWindow?: unknown
+  readonly policy?: unknown
+}
+
+interface NormalizedProjectionOptions {
+  readonly mode: DistributionProjectionMode
+  readonly plannerOptions: {
+    readonly displayWindow?: unknown
+    readonly policy?: unknown
+  }
+}
+
+function hasOwn(value: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(value, property)
 }
 
-function isPlainRecord(value) {
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
@@ -53,44 +78,57 @@ function isPlainRecord(value) {
   }
 }
 
-function freezeDetails(details) {
+function freezeDetails(details: unknown): Readonly<Record<string, unknown>> {
   return Object.freeze(isPlainRecord(details) ? { ...details } : {})
 }
 
 export class DistributionProjectionError extends Error {
-  constructor(code, message, details = {}) {
+  readonly code: string
+  readonly details: Readonly<Record<string, unknown>>
+  readonly distributionProjection = true
+  readonly validation: boolean = false
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(message)
     this.name = 'DistributionProjectionError'
     this.code = code
     this.details = freezeDetails(details)
-    this.distributionProjection = true
   }
 }
 
 export class DistributionProjectionValidationError
   extends DistributionProjectionError {
-  constructor(code, message, details = {}) {
+  override readonly validation: boolean = true
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(code, message, details)
     this.name = 'DistributionProjectionValidationError'
     this.validation = true
   }
 }
 
-export function isDistributionProjectionError(error) {
-  return error?.distributionProjection === true
+export function isDistributionProjectionError(
+  error: unknown,
+): error is DistributionProjectionError {
+  return isPlainRecord(error)
+    && error.distributionProjection === true
     && typeof error.code === 'string'
 }
 
-export function isDistributionProjectionValidationError(error) {
+export function isDistributionProjectionValidationError(
+  error: unknown,
+): error is DistributionProjectionValidationError {
   return isDistributionProjectionError(error) && error.validation === true
 }
 
-function fail(code, message, details = {}) {
+function fail(code: string, message: string, details: unknown = {}): never {
   throw new DistributionProjectionValidationError(code, message, details)
 }
 
-function normalizeOptions(options) {
-  const supplied = options === undefined ? {} : options
+function normalizeOptions(
+  options: ProjectionOptions | undefined,
+): NormalizedProjectionOptions {
+  const supplied: ProjectionOptions = options ?? {}
   if (!isPlainRecord(supplied)) {
     fail(
       DISTRIBUTION_PROJECTION_ERROR_CODES.INVALID_OPTIONS,
@@ -124,7 +162,10 @@ function normalizeOptions(options) {
     )
   }
 
-  const plannerOptions = {}
+  const plannerOptions: {
+    displayWindow?: unknown
+    policy?: unknown
+  } = {}
   if (displayWindow !== undefined) {
     plannerOptions.displayWindow = displayWindow
   }
@@ -132,10 +173,10 @@ function normalizeOptions(options) {
     plannerOptions.policy = supplied.policy
   }
 
-  return { mode, plannerOptions }
+  return { mode: mode as DistributionProjectionMode, plannerOptions }
 }
 
-function hasPotentialOverflowMass(overflow) {
+function hasPotentialOverflowMass(overflow: DistributionOverflow | null): boolean {
   return overflow !== null
     && (
       overflow.errorBound > 0
@@ -147,30 +188,40 @@ function hasPotentialOverflowMass(overflow) {
     )
 }
 
-function hasOutputOverflowLowerBound(uncertainty) {
+function hasOutputOverflowLowerBound(
+  uncertainty: DisplayProjectionUncertainty | null,
+): boolean {
   return uncertainty !== null
     && hasOwn(uncertainty, 'outputOverflowLowerBound')
     && uncertainty.outputOverflowLowerBound !== null
 }
 
-function getOverflowLowerBound(overflow, uncertainty) {
+function getOverflowLowerBound(
+  overflow: DistributionOverflow | null,
+  uncertainty: DisplayProjectionUncertainty | null,
+): number | null {
   if (uncertainty !== null) {
     return hasOutputOverflowLowerBound(uncertainty)
-      ? uncertainty.outputOverflowLowerBound
+      ? uncertainty.outputOverflowLowerBound ?? null
       : null
   }
   return overflow?.lowerBound ?? null
 }
 
-function makeWindow(plan) {
+function makeWindow(plan: DisplayRangePlan): DisplayWindow {
   // DisplayRangePlanner owns and freezes this value. Reuse it instead of
   // creating another structurally identical window for every projection
   // status.
   return plan.displayWindow
 }
 
-/** @returns {DistributionProjection} */
-function makeNotReady(plan, mode, decision, reason, status = 'not-ready') {
+function makeNotReady(
+  plan: DisplayRangePlan,
+  mode: DistributionProjectionMode,
+  decision: DistributionProjectionDecision,
+  reason: string,
+  status: 'not-ready' | 'not-projectable' = 'not-ready',
+): DistributionProjection {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
@@ -180,11 +231,14 @@ function makeNotReady(plan, mode, decision, reason, status = 'not-ready') {
     mode,
     displayWindow: makeWindow(plan),
     plan,
-  })
+  }) as DistributionProjection
 }
 
-/** @returns {DistributionProjection} */
-function makeNotProjectable(plan, mode, reason) {
+function makeNotProjectable(
+  plan: DisplayRangePlan,
+  mode: DistributionProjectionMode,
+  reason: string,
+): DistributionProjection {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
@@ -199,8 +253,12 @@ function makeNotProjectable(plan, mode, reason) {
   })
 }
 
-/** @returns {ReadyDistributionProjection} */
-function makeReady(plan, mode, values, decision) {
+function makeReady(
+  plan: DisplayRangePlan,
+  mode: DistributionProjectionMode,
+  values: Float64Array,
+  decision: 'reuse' | 'known-zero',
+): ReadyDistributionProjection {
   return Object.freeze({
     kind: 'canonical-distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
@@ -216,12 +274,16 @@ function makeReady(plan, mode, values, decision) {
   })
 }
 
-function getExplicitValue(display, value) {
+function getExplicitValue(display: DistributionDisplay, value: number): number {
   const { offset, probabilities } = display.explicit
   return probabilities[value - offset]
 }
 
-function fillPmf(values, display, plan) {
+function fillPmf(
+  values: Float64Array,
+  display: DistributionDisplay,
+  plan: DisplayRangePlan,
+): void {
   const { min, max } = plan.displayWindow
   const { offset, probabilities } = display.explicit
   const explicitMax = display.explicitMax
@@ -243,7 +305,11 @@ function fillPmf(values, display, plan) {
   }
 }
 
-function fillUpperTail(values, display, plan) {
+function fillUpperTail(
+  values: Float64Array,
+  display: DistributionDisplay,
+  plan: DisplayRangePlan,
+): void {
   const { min, max } = plan.displayWindow
   const { offset, probabilities } = display.explicit
   const explicitMax = display.explicitMax
@@ -306,7 +372,11 @@ function fillUpperTail(values, display, plan) {
   }
 }
 
-function createValues(display, plan, mode) {
+function createValues(
+  display: DistributionDisplay,
+  plan: DisplayRangePlan,
+  mode: DistributionProjectionMode,
+): Float64Array {
   const values = new Float64Array(plan.displayWindow.pointCount)
   if (plan.decision === DISTRIBUTION_PROJECTION_DECISIONS.KNOWN_ZERO) {
     return values
@@ -319,7 +389,11 @@ function createValues(display, plan, mode) {
   return values
 }
 
-function classifyOverflow(display, plan, mode) {
+function classifyOverflow(
+  display: DistributionDisplay,
+  plan: DisplayRangePlan,
+  mode: DistributionProjectionMode,
+): string | null {
   if (plan.decision === DISTRIBUTION_PROJECTION_DECISIONS.KNOWN_ZERO) {
     return null
   }
@@ -371,7 +445,11 @@ function classifyOverflow(display, plan, mode) {
     : null
 }
 
-function classifyDecision(display, plan, mode) {
+function classifyDecision(
+  display: DistributionDisplay,
+  plan: DisplayRangePlan,
+  mode: DistributionProjectionMode,
+): { decision: DistributionProjectionDecision; reason: string } {
   if (plan.status === 'resource-rejected') {
     return {
       decision: DISTRIBUTION_PROJECTION_DECISIONS.RESOURCE_REJECTED,
@@ -423,7 +501,10 @@ function classifyDecision(display, plan, mode) {
  * @param {Object} [options] Projection mode, display window, and policy.
  * @returns {DistributionProjection}
  */
-export function projectDistribution(display, options = {}) {
+export function projectDistribution(
+  display: DistributionDisplay,
+  options: ProjectionOptions = {},
+): DistributionProjection {
   const normalized = normalizeOptions(options)
   const plan = planDisplayRange(display, normalized.plannerOptions)
   const classification = classifyDecision(display, plan, normalized.mode)
