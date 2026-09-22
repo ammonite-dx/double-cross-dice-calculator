@@ -3,6 +3,15 @@ import {
   createExactCertifiedValue,
   createLowerBoundCertifiedValue,
 } from '../domain/CertifiedValue'
+import type {
+  CertifiedValue,
+} from '../domain/CertifiedValue'
+import type {
+  DistributionOverflow,
+  DistributionResult,
+  DistributionSupport,
+  ProbabilityMassSummary,
+} from '../domain/DistributionResultTypes'
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const FLOAT64_BYTES = Float64Array.BYTES_PER_ELEMENT
@@ -34,58 +43,96 @@ export const DISTRIBUTION_RESULT_ERROR_CODES = Object.freeze({
   UPPER_BOUND_TOO_SMALL: 'upper-bound-too-small',
 })
 
-function hasOwn(object, property) {
+type DistributionResultCode = string
+
+interface InspectedDistributionResult {
+  readonly result: DistributionResult
+  readonly values: Float64Array
+  readonly offset: number
+  readonly explicitMax: number | null
+  readonly explicitMass: number
+  readonly support: DistributionSupport
+  readonly overflow: DistributionOverflow | null
+}
+
+function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isValueSource(value) {
+function isValueSource(value: unknown): value is ArrayLike<number> {
   return value !== null
     && typeof value === 'object'
-    && Number.isSafeInteger(value.length)
-    && value.length >= 0
+    && Number.isSafeInteger((value as { length?: unknown }).length)
+    && ((value as { length: number }).length >= 0)
 }
 
-function freezeDetails(details) {
+function freezeDetails(details: unknown): Readonly<Record<string, unknown>> {
   return Object.freeze({ ...(isRecord(details) ? details : {}) })
 }
 
 export class DistributionResultError extends Error {
-  constructor(code, message, details = {}) {
+  readonly code: DistributionResultCode
+  readonly details: Readonly<Record<string, unknown>>
+  readonly distributionResultError = true
+  readonly validation: boolean = false
+
+  constructor(
+    code: DistributionResultCode,
+    message: string,
+    details: unknown = {},
+  ) {
     super(message)
     this.name = 'DistributionResultError'
     this.code = code
     this.details = freezeDetails(details)
-    this.distributionResultError = true
   }
 }
 
 export class DistributionResultValidationError extends DistributionResultError {
-  constructor(code, message, details = {}) {
+  override readonly validation: boolean = true
+
+  constructor(
+    code: DistributionResultCode,
+    message: string,
+    details: unknown = {},
+  ) {
     super(code, message, details)
     this.name = 'DistributionResultValidationError'
-    this.validation = true
   }
 }
 
-export function isDistributionResultError(error) {
-  return error?.distributionResultError === true
+export function isDistributionResultError(
+  error: unknown,
+): error is DistributionResultError {
+  return isRecord(error)
+    && error.distributionResultError === true
     && typeof error.code === 'string'
 }
 
-export function isDistributionResultValidationError(error) {
+export function isDistributionResultValidationError(
+  error: unknown,
+): error is DistributionResultValidationError {
   return isDistributionResultError(error) && error.validation === true
 }
 
-function failValidation(code, message, details = {}) {
+function failValidation(
+  code: DistributionResultCode,
+  message: string,
+  details: unknown = {},
+): never {
   throw new DistributionResultValidationError(code, message, details)
 }
 
-function validateProbability(value, field, index) {
-  if (!Number.isFinite(value)) {
+function validateProbability(
+  value: unknown,
+  field: string,
+  index?: number,
+): asserts value is number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.NON_FINITE_PROBABILITY,
       `${field} must be a finite probability`,
@@ -108,7 +155,7 @@ function validateProbability(value, field, index) {
   }
 }
 
-function copyValues(values) {
+function copyValues(values: unknown): Float64Array {
   if (!isValueSource(values)) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_VALUES,
@@ -133,7 +180,7 @@ function copyValues(values) {
   return copied
 }
 
-function validateResultValues(values) {
+function validateResultValues(values: unknown): asserts values is Float64Array {
   if (!(values instanceof Float64Array)) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_VALUES,
@@ -146,7 +193,7 @@ function validateResultValues(values) {
   }
 }
 
-function validateOffset(offset, valuesLength) {
+function validateOffset(offset: unknown, valuesLength: number): asserts offset is number {
   if (!Number.isSafeInteger(offset)) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_OFFSET,
@@ -157,7 +204,8 @@ function validateOffset(offset, valuesLength) {
   // The last explicit coordinate is offset + length - 1.  A one-point
   // distribution at MAX_SAFE_INTEGER is therefore valid; only a second point
   // would leave the safe-integer domain.
-  const explicitMax = BigInt(offset)
+  const numericOffset = offset as number
+  const explicitMax = BigInt(numericOffset)
     + BigInt(valuesLength === 0 ? 0 : valuesLength - 1)
   if (
     explicitMax < BigInt(Number.MIN_SAFE_INTEGER)
@@ -166,16 +214,19 @@ function validateOffset(offset, valuesLength) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INDEX_OVERFLOW,
       'offset plus values.length minus one must be a safe integer',
-      { offset, valuesLength }
+      { offset: numericOffset, valuesLength }
     )
   }
 }
 
-function getExplicitMaxFromParts(offset, valuesLength) {
+function getExplicitMaxFromParts(
+  offset: number,
+  valuesLength: number,
+): number | null {
   return valuesLength === 0 ? null : offset + valuesLength - 1
 }
 
-function hasPotentialOverflowMass(overflow) {
+function hasPotentialOverflowMass(overflow: DistributionOverflow | null): boolean {
   return overflow !== null
     && (
       overflow.errorBound > 0
@@ -187,7 +238,11 @@ function hasPotentialOverflowMass(overflow) {
     )
 }
 
-function validateSupport(support, explicitMax, overflow) {
+function validateSupport(
+  support: unknown,
+  explicitMax: number | null,
+  overflow: DistributionOverflow | null,
+): asserts support is DistributionSupport {
   if (!isRecord(support) || typeof support.kind !== 'string') {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SUPPORT,
@@ -219,26 +274,28 @@ function validateSupport(support, explicitMax, overflow) {
       { max: support.max }
     )
   }
-  if (explicitMax !== null && support.max < explicitMax) {
+  const supportMax = support.max as number
+  if (explicitMax !== null && supportMax < explicitMax) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.SUPPORT_BELOW_EXPLICIT,
       'finite support.max must be at least explicitMax',
-      { explicitMax, supportMax: support.max }
+      { explicitMax, supportMax }
     )
   }
   if (
-    hasPotentialOverflowMass(overflow)
-    && support.max < overflow.lowerBound
+    overflow !== null
+    && hasPotentialOverflowMass(overflow)
+    && supportMax < overflow.lowerBound
   ) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.SUPPORT_BELOW_OVERFLOW,
       'finite support.max must contain the overflow lowerBound',
-      { lowerBound: overflow.lowerBound, supportMax: support.max }
+      { lowerBound: overflow.lowerBound, supportMax }
     )
   }
 }
 
-function validateOverflow(overflow) {
+function validateOverflow(overflow: unknown): DistributionOverflow | null {
   if (overflow === null) {
     return null
   }
@@ -248,31 +305,53 @@ function validateOverflow(overflow) {
       'overflow must be null or a discriminated union'
     )
   }
-  if (!Number.isSafeInteger(overflow.lowerBound) || overflow.lowerBound < 0) {
+  const lowerBound = overflow.lowerBound
+  const errorBound = overflow.errorBound
+  if (
+    typeof lowerBound !== 'number'
+    || !Number.isSafeInteger(lowerBound)
+    || lowerBound < 0
+  ) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_LOWER_BOUND,
       'overflow.lowerBound must be a non-negative safe integer',
-      { lowerBound: overflow.lowerBound }
+      { lowerBound }
     )
   }
-  if (!Number.isFinite(overflow.errorBound) || overflow.errorBound < 0) {
+  if (
+    typeof errorBound !== 'number'
+    || !Number.isFinite(errorBound)
+    || errorBound < 0
+  ) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_ERROR_BOUND,
       'overflow.errorBound must be a finite non-negative number',
-      { errorBound: overflow.errorBound }
+      { errorBound }
     )
   }
 
   if (overflow.kind === 'exact') {
-    validateProbability(overflow.probability, 'overflow.probability')
-    return overflow
+    const probability = overflow.probability
+    validateProbability(probability, 'overflow.probability')
+    return Object.freeze({
+      kind: 'exact',
+      lowerBound,
+      probability,
+      errorBound,
+    })
   }
   if (overflow.kind === 'upper-bound') {
+    const probabilityUpperBound = overflow.probabilityUpperBound
     validateProbability(
-      overflow.probabilityUpperBound,
+      probabilityUpperBound,
       'overflow.probabilityUpperBound'
     )
-    return overflow
+    return Object.freeze({
+      kind: 'upper-bound',
+      lowerBound,
+      probabilityUpperBound,
+      errorBound,
+    })
   }
 
   failValidation(
@@ -282,15 +361,15 @@ function validateOverflow(overflow) {
   )
 }
 
-function sumValues(values) {
+function sumValues(values: ArrayLike<number>): number {
   let total = 0
-  for (const value of values) {
-    total += value
+  for (let index = 0; index < values.length; index += 1) {
+    total += values[index]
   }
   return total
 }
 
-function inspectDistributionResult(result) {
+function inspectDistributionResult(result: unknown): InspectedDistributionResult {
   if (!isRecord(result)) {
     failValidation(
       DISTRIBUTION_RESULT_ERROR_CODES.INVALID_SCHEMA,
@@ -395,25 +474,35 @@ function inspectDistributionResult(result) {
     }
   }
 
-  return {
-    result,
+  const typedResult: DistributionResult = {
+    version: result.version as number,
     values,
-    offset: result.offset,
+    offset: result.offset as number,
+    support: result.support as DistributionSupport,
+    overflow,
+  }
+
+  return {
+    result: typedResult,
+    values,
+    offset: typedResult.offset,
     explicitMax,
     explicitMass,
-    support: result.support,
-    overflow,
+    support: typedResult.support,
+    overflow: typedResult.overflow,
   }
 }
 
-function copySupport(support) {
+function copySupport(support: DistributionSupport): DistributionSupport {
   if (support.kind === 'finite') {
     return Object.freeze({ kind: 'finite', max: support.max })
   }
   return Object.freeze({ kind: 'infinite' })
 }
 
-function copyOverflow(overflow) {
+function copyOverflow(
+  overflow: DistributionOverflow | null,
+): DistributionOverflow | null {
   if (overflow === null) {
     return null
   }
@@ -433,7 +522,12 @@ function copyOverflow(overflow) {
   })
 }
 
-function createImmutableResult(values, offset, support, overflow) {
+function createImmutableResult(
+  values: Float64Array,
+  offset: number,
+  support: DistributionSupport,
+  overflow: DistributionOverflow | null,
+): DistributionResult {
   const result = {
     version: DISTRIBUTION_RESULT_VERSION,
     values,
@@ -445,7 +539,7 @@ function createImmutableResult(values, offset, support, overflow) {
   return Object.freeze(result)
 }
 
-function normalizeFactoryInput(input) {
+function normalizeFactoryInput(input: unknown): Record<string, unknown> {
   if (isRecord(input) && hasOwn(input, 'values')) {
     return input
   }
@@ -463,7 +557,7 @@ function normalizeFactoryInput(input) {
  * writable copy is needed. Input values may be any object with a safe integer
  * length and numeric indexed elements.
  */
-export function createDistributionResult(input) {
+export function createDistributionResult(input: unknown): DistributionResult {
   const source = normalizeFactoryInput(input)
   const values = copyValues(source.values)
   const offset = source.offset === undefined ? 0 : source.offset
@@ -472,7 +566,7 @@ export function createDistributionResult(input) {
   const version = source.version === undefined
     ? DISTRIBUTION_RESULT_VERSION
     : source.version
-  const candidate = {
+  const candidate: Record<string, unknown> = {
     version,
     values,
     offset,
@@ -480,21 +574,26 @@ export function createDistributionResult(input) {
     overflow,
   }
 
-  inspectDistributionResult(candidate)
-  return createImmutableResult(values, offset, support, overflow)
+  const inspected = inspectDistributionResult(candidate)
+  return createImmutableResult(
+    values,
+    inspected.offset,
+    inspected.support,
+    inspected.overflow,
+  )
 }
 
 /** Validate a distribution result. Returns true and throws a typed error on failure. */
-export function validateDistributionResult(result) {
+export function validateDistributionResult(result: unknown): true {
   inspectDistributionResult(result)
   return true
 }
 
-export function getExplicitMax(result) {
+export function getExplicitMax(result: unknown): number | null {
   return inspectDistributionResult(result).explicitMax
 }
 
-export function copyDistributionValues(result) {
+export function copyDistributionValues(result: unknown): Float64Array {
   const { values } = inspectDistributionResult(result)
   return new Float64Array(values)
 }
@@ -504,7 +603,9 @@ export function copyDistributionValues(result) {
  * overflow. `totalMass` is null for an upper-bound result because no exact
  * unrepresented mass is available.
  */
-export function getProbabilityMassSummary(result) {
+export function getProbabilityMassSummary(
+  result: unknown,
+): ProbabilityMassSummary {
   const inspected = inspectDistributionResult(result)
   const { explicitMass, overflow } = inspected
   const exactOverflowMass = overflow?.kind === 'exact'
@@ -532,7 +633,7 @@ export function getProbabilityMassSummary(result) {
   })
 }
 
-function sumExplicitFirstMoment(values, offset) {
+function sumExplicitFirstMoment(values: Float64Array, offset: number): number {
   let firstMoment = 0
   for (let index = 0; index < values.length; index += 1) {
     firstMoment += (offset + index) * values[index]
@@ -548,7 +649,7 @@ function sumExplicitFirstMoment(values, offset) {
  * the result retains the strongest safe interval or lower bound available.
  * Upper-bound overflow is never treated as actual probability mass.
  */
-export function getCertifiedExpectedValue(result) {
+export function getCertifiedExpectedValue(result: unknown): CertifiedValue {
   const inspected = inspectDistributionResult(result)
   const { values, offset, support, overflow } = inspected
   const explicitFirstMoment = sumExplicitFirstMoment(values, offset)
