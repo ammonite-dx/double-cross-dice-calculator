@@ -13,10 +13,10 @@ export const BACKTRACK_D10_GENERATION_FACTOR = 10
 export const BACKTRACK_LIVINGDEAD_GENERATION_FACTOR = 110
 
 export function getBacktrackGenerationOperationEstimate(
-  maxDice,
-  size,
-  livingdead
-) {
+  maxDice: number,
+  size: number,
+  livingdead: boolean,
+): number {
   const factor = livingdead
     ? BACKTRACK_LIVINGDEAD_GENERATION_FACTOR
     : BACKTRACK_D10_GENERATION_FACTOR

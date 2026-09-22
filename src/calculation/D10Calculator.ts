@@ -8,6 +8,16 @@
  */
 
 const NEGATIVE_PROBABILITY_TOLERANCE = 1e-12
+export interface D10RuntimeOptions {
+  readonly signal?: AbortSignal
+}
+
+export interface D10DistributionOptions extends D10RuntimeOptions {
+  readonly size?: number
+  readonly workingLength?: number
+}
+
+type DiceCounts = readonly number[] | ArrayLike<number>
 export const D10_MAX_GENERATION_LENGTH = 1 << 20
 export const D10_MAX_GENERATION_OPERATIONS = 100_000_000
 export const D10_ABORT_CHECK_INTERVAL = 4_096
@@ -18,7 +28,7 @@ export const D10_ABORT_CHECK_INTERVAL = 4_096
  * policy; callers such as RangePlanner need to inspect the estimate and
  * report a resource rejection before invoking the calculator.
  */
-export function getD10RequiredLength(dice) {
+export function getD10RequiredLength(dice: number): number {
   if (!Number.isSafeInteger(dice) || dice < 0) {
     throw new TypeError('D10 dice must be a non-negative safe integer')
   }
@@ -33,7 +43,7 @@ export function getD10RequiredLength(dice) {
  * Keeping this expression in one place prevents planner and calculator from
  * admitting different D10 workloads.
  */
-export function getD10GenerationOperationEstimate(dice, size) {
+export function getD10GenerationOperationEstimate(dice: number, size: number): number {
   if (!Number.isSafeInteger(dice) || dice < 0) {
     throw new TypeError('D10 dice must be a non-negative safe integer')
   }
@@ -47,19 +57,24 @@ export function getD10GenerationOperationEstimate(dice, size) {
   return estimate
 }
 
-function createAbortError() {
+function createAbortError(): Error {
   const error = new Error('D10 calculation was aborted')
   error.name = 'AbortError'
   return error
 }
 
-function throwIfAborted(runtimeOptions) {
+function throwIfAborted(runtimeOptions: D10RuntimeOptions): void {
   if (runtimeOptions?.signal?.aborted) {
     throw createAbortError()
   }
 }
 
-function createAbortChecker(runtimeOptions) {
+interface AbortChecker {
+  force: () => void
+  tick: () => void
+}
+
+function createAbortChecker(runtimeOptions: D10RuntimeOptions): AbortChecker {
   let pendingChecks = 0
   return {
     force() {
@@ -76,7 +91,7 @@ function createAbortChecker(runtimeOptions) {
   }
 }
 
-function normalizeDiceCounts(diceCounts) {
+function normalizeDiceCounts(diceCounts: DiceCounts): number[] {
   if (
     !Array.isArray(diceCounts)
     && !(ArrayBuffer.isView(diceCounts) && typeof diceCounts.length === 'number')
@@ -87,7 +102,7 @@ function normalizeDiceCounts(diceCounts) {
     throw new RangeError('D10 diceCounts must not be empty')
   }
 
-  const normalized = Array.from(diceCounts)
+  const normalized = Array.from(diceCounts as ArrayLike<number>)
   normalized.forEach((dice, index) => {
     if (!Number.isSafeInteger(dice) || dice < 0) {
       throw new TypeError(
@@ -98,7 +113,7 @@ function normalizeDiceCounts(diceCounts) {
   return normalized
 }
 
-function normalizeSize(size, maxDice) {
+function normalizeSize(size: number | undefined, maxDice: number): number {
   const maxGeneratedDice = Math.floor((D10_MAX_GENERATION_LENGTH - 1) / 10)
   if (maxDice > maxGeneratedDice) {
     throw new RangeError(
@@ -124,7 +139,11 @@ function normalizeSize(size, maxDice) {
   return normalized
 }
 
-function normalizeGeneratedDistribution(distribution, label, abortChecker) {
+function normalizeGeneratedDistribution(
+  distribution: Float64Array,
+  label: string,
+  abortChecker: AbortChecker,
+): Float64Array {
   const normalized = new Float64Array(distribution.length)
   let total = 0
 
@@ -153,7 +172,7 @@ function normalizeGeneratedDistribution(distribution, label, abortChecker) {
   return normalized
 }
 
-function validateOperationEstimate(maxDice, size) {
+function validateOperationEstimate(maxDice: number, size: number): void {
   if (
     getD10GenerationOperationEstimate(maxDice, size) >
     D10_MAX_GENERATION_OPERATIONS
@@ -169,10 +188,10 @@ function validateOperationEstimate(maxDice, size) {
  * Every returned array contains complete finite support and no overflow bucket.
  */
 export function calculateD10Distributions(
-  diceCounts,
-  size,
-  runtimeOptions = {}
-) {
+  diceCounts: DiceCounts,
+  size?: number,
+  runtimeOptions: D10RuntimeOptions = {},
+): Map<number, Float64Array> {
   const requestedDice = normalizeDiceCounts(diceCounts)
   const maxDice = Math.max(...requestedDice)
   const normalizedSize = normalizeSize(size, maxDice)
@@ -216,7 +235,10 @@ export function calculateD10Distributions(
 }
 
 /** Generate one complete ordinary D10 sum distribution. */
-export function calculateD10Distribution(dice, options = {}) {
+export function calculateD10Distribution(
+  dice: number,
+  options: D10DistributionOptions = {},
+): Float64Array {
   if (!Number.isSafeInteger(dice) || dice < 0) {
     throw new TypeError('D10 dice must be a non-negative safe integer')
   }
@@ -227,17 +249,23 @@ export function calculateD10Distribution(dice, options = {}) {
   const runtimeOptions = options.signal === undefined
     ? options
     : { signal: options.signal }
-  return calculateD10Distributions([dice], size, runtimeOptions).get(dice)
+  const distribution = calculateD10Distributions([dice], size, runtimeOptions).get(dice)
+  if (!distribution) {
+    throw new Error('D10 distribution was not generated')
+  }
+  return distribution
 }
 
 /** Create a small LRU provider suitable for a CalculationClient lifetime. */
-export function createD10DistributionProvider({ cacheSize = 8 } = {}) {
+export function createD10DistributionProvider(
+  { cacheSize = 8 }: { readonly cacheSize?: number } = {},
+): (dice: number, size?: number, runtimeOptions?: D10RuntimeOptions) => Float64Array {
   if (!Number.isSafeInteger(cacheSize) || cacheSize < 0) {
     throw new RangeError('D10 cacheSize must be a non-negative safe integer')
   }
   const cache = new Map()
 
-  return (dice, size, runtimeOptions = {}) => {
+  return (dice: number, size?: number, runtimeOptions: D10RuntimeOptions = {}): Float64Array => {
     if (!Number.isSafeInteger(dice) || dice < 0) {
       throw new TypeError('D10 dice must be a non-negative safe integer')
     }
@@ -248,7 +276,7 @@ export function createD10DistributionProvider({ cacheSize = 8 } = {}) {
     )
     const key = `${dice}:${normalizedSize}`
     if (cache.has(key)) {
-      const distribution = cache.get(key)
+      const distribution = cache.get(key) as Float64Array
       cache.delete(key)
       cache.set(key, distribution)
       return distribution.slice()
@@ -260,7 +288,10 @@ export function createD10DistributionProvider({ cacheSize = 8 } = {}) {
     if (cacheSize > 0) {
       cache.set(key, distribution)
       while (cache.size > cacheSize) {
-        cache.delete(cache.keys().next().value)
+        const oldestKey = cache.keys().next().value
+        if (oldestKey !== undefined) {
+          cache.delete(oldestKey)
+        }
       }
     }
     return distribution.slice()
