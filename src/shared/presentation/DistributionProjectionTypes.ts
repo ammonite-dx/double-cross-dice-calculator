@@ -194,7 +194,7 @@ export interface ChartJsDataset {
 
 /** The small Chart.js DTO emitted only at the rendering boundary. */
 export interface ChartJsData {
-  readonly datasets: readonly [ChartJsDataset]
+  readonly datasets: readonly ChartJsDataset[]
   readonly labels?: readonly number[]
 }
 

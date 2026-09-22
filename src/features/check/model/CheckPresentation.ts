@@ -15,11 +15,32 @@ import {
   toChartPercentage,
 } from '../../../shared/presentation'
 import { getChartColor } from '../../../shared/theme/ChartPalette'
+import type { CheckCalculationResult } from '../../../runtime/CalculationClientTypes'
+import type {
+  DisplayMode,
+  DisplayRequestSnapshot,
+} from '../../../domain/CalculationInputs'
+import type {
+  DistributionEnvelope,
+  DistributionResult,
+} from '../../../domain/DistributionResultTypes'
+import type { ScoreEnvelope } from '../../../domain/ScoreResultTypes'
+import type {
+  ChartJsData,
+  DistributionDisplay,
+  DistributionProjection,
+  DistributionProjectionDecision,
+  ReadyDistributionProjection,
+} from '../../../shared/presentation/DistributionProjectionTypes'
+import type {
+  CheckPresentation,
+  CheckPresentationSide,
+} from './CheckPresentationTypes'
 
 /** @typedef {import('./CheckPresentationTypes').CheckPresentation} CheckPresentation */
 /** @typedef {import('./CheckPresentationTypes').CheckPresentationSide} CheckPresentationSide */
 
-export const CHECK_PRESENTATION_VERSION = 1
+export const CHECK_PRESENTATION_VERSION: 1 = 1
 
 export const CHECK_PRESENTATION_MODES = Object.freeze({
   PMF: DISTRIBUTION_PROJECTION_MODES.PMF,
@@ -39,23 +60,32 @@ export const CHECK_PRESENTATION_ERROR_CODES = Object.freeze({
   UNEXPECTED_ERROR: 'unexpected-error',
 })
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null
     && typeof value === 'object'
     && !Array.isArray(value)
 }
 
-function freezeDetails(details) {
+function freezeDetails(details: unknown): Readonly<Record<string, unknown>> {
   return Object.freeze(isRecord(details) ? { ...details } : {})
 }
 
 export class CheckPresentationError extends Error {
-  constructor(code, message, details = {}, cause) {
+  readonly code: string
+  readonly details: Readonly<Record<string, unknown>>
+  readonly checkPresentation = true
+  readonly validation: boolean = false
+
+  constructor(
+    code: string,
+    message: string,
+    details: unknown = {},
+    cause?: unknown,
+  ) {
     super(message, cause === undefined ? undefined : { cause })
     this.name = 'CheckPresentationError'
     this.code = code
     this.details = freezeDetails(details)
-    this.checkPresentation = true
     if (cause !== undefined && this.cause === undefined) {
       this.cause = cause
     }
@@ -64,27 +94,57 @@ export class CheckPresentationError extends Error {
 
 export class CheckPresentationValidationError
   extends CheckPresentationError {
-  constructor(code, message, details = {}, cause) {
+  override readonly validation: boolean = true
+
+  constructor(
+    code: string,
+    message: string,
+    details: unknown = {},
+    cause?: unknown,
+  ) {
     super(code, message, details, cause)
     this.name = 'CheckPresentationValidationError'
     this.validation = true
   }
 }
 
-export function isCheckPresentationError(error) {
-  return error?.checkPresentation === true
+export function isCheckPresentationError(
+  error: unknown,
+): error is CheckPresentationError {
+  return isRecord(error)
+    && error.checkPresentation === true
     && typeof error.code === 'string'
 }
 
-export function isCheckPresentationValidationError(error) {
+export function isCheckPresentationValidationError(
+  error: unknown,
+): error is CheckPresentationValidationError {
   return isCheckPresentationError(error) && error.validation === true
 }
 
-function fail(code, message, details = {}) {
+function fail(code: string, message: string, details: unknown = {}): never {
   throw new CheckPresentationValidationError(code, message, details)
 }
 
-function normalizeOptions(options) {
+interface CheckPresentationOptions {
+  readonly displayWindow: Readonly<{ min: number; max: number }>
+  readonly mode?: DisplayMode
+  readonly opposed?: boolean
+  readonly policy?: unknown
+}
+
+type CheckPresentationInput = Pick<CheckCalculationResult, 'score'>
+
+interface NormalizedCheckPresentationOptions {
+  readonly displayWindow: Readonly<{ min: number; max: number }>
+  readonly mode: DisplayMode
+  readonly opposed: boolean
+  readonly policy?: unknown
+}
+
+function normalizeOptions(
+  options: CheckPresentationOptions,
+): NormalizedCheckPresentationOptions {
   if (!isRecord(options)) {
     fail(
       CHECK_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
@@ -135,7 +195,10 @@ function normalizeOptions(options) {
   }
 }
 
-function normalizeCheckResult(checkResult, opposed) {
+function normalizeCheckResult(
+  checkResult: CheckPresentationInput,
+  opposed: boolean,
+): { action: ScoreEnvelope; reaction: ScoreEnvelope | null } {
   if (!isRecord(checkResult)) {
     fail(
       CHECK_PRESENTATION_ERROR_CODES.INVALID_RESULT,
@@ -160,7 +223,7 @@ function normalizeCheckResult(checkResult, opposed) {
       { path: 'checkResult.score.action' }
     )
   }
-  const reaction = opposed ? score.reaction : undefined
+  const reaction = opposed ? score.reaction : null
   if (opposed && (reaction === undefined || reaction === null)) {
     fail(
       CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
@@ -172,7 +235,17 @@ function normalizeCheckResult(checkResult, opposed) {
   return { action, reaction }
 }
 
-function createScorePresentation(envelope, displayWindow, mode, policy) {
+interface ScorePresentation {
+  readonly display: DistributionDisplay
+  readonly projection: DistributionProjection
+}
+
+function createScorePresentation(
+  envelope: ScoreEnvelope,
+  displayWindow: Readonly<{ min: number; max: number }>,
+  mode: DisplayMode,
+  policy?: unknown,
+): ScorePresentation {
   const summary = {
     mass: getProbabilityMassSummary(envelope.result),
     expectedValue: getCertifiedExpectedValue(envelope.result),
@@ -181,7 +254,11 @@ function createScorePresentation(envelope, displayWindow, mode, policy) {
     summary,
     displayWindow,
   })
-  const projectionOptions = {
+  const projectionOptions: {
+    displayWindow: Readonly<{ min: number; max: number }>
+    mode: DisplayMode
+    policy?: unknown
+  } = {
     displayWindow,
     mode,
   }
@@ -193,7 +270,9 @@ function createScorePresentation(envelope, displayWindow, mode, policy) {
   return Object.freeze({ display, projection })
 }
 
-function getPresentationStatus(sides) {
+function getPresentationStatus(
+  sides: readonly ScorePresentation[],
+): 'ready' | 'not-ready' | 'not-projectable' {
   if (sides.some(({ projection }) => projection.status === 'not-projectable')) {
     return 'not-projectable'
   }
@@ -203,7 +282,9 @@ function getPresentationStatus(sides) {
   return 'ready'
 }
 
-function getPresentationDecision(sides) {
+function getPresentationDecision(
+  sides: readonly ScorePresentation[],
+): DistributionProjectionDecision {
   const decisions = sides.map(({ projection }) => projection.decision)
   if (decisions.includes(CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE)) {
     return CHECK_PRESENTATION_DECISIONS.NOT_PROJECTABLE
@@ -223,7 +304,7 @@ function getPresentationDecision(sides) {
 }
 
 /** @returns {CheckPresentationSide} */
-function createSideState(side) {
+function createSideState(side: ScorePresentation): CheckPresentationSide {
   const state = {
     plan: side.projection.plan,
     status: side.projection.status,
@@ -235,7 +316,9 @@ function createSideState(side) {
   return Object.freeze(state)
 }
 
-function toPercentageProjection(projection) {
+function toPercentageProjection(
+  projection: ReadyDistributionProjection,
+): ReadyDistributionProjection {
   const values = new Float64Array(projection.values.length)
   for (let index = 0; index < projection.values.length; index += 1) {
     // The legacy Check chart displays probability as a percentage rounded to
@@ -253,7 +336,12 @@ function toPercentageProjection(projection) {
   }
 }
 
-function materializeSideChart(side, label, color, includeLabels) {
+function materializeSideChart(
+  side: ScorePresentation & { readonly projection: ReadyDistributionProjection },
+  label: string,
+  color: string,
+  includeLabels: boolean,
+): ChartJsData {
   return materializeChartJsData(
     toPercentageProjection(side.projection),
     {
@@ -265,7 +353,11 @@ function materializeSideChart(side, label, color, includeLabels) {
   )
 }
 
-function createChartData(action, reaction, opposed) {
+function createChartData(
+  action: ScorePresentation & { readonly projection: ReadyDistributionProjection },
+  reaction: (ScorePresentation & { readonly projection: ReadyDistributionProjection }) | null,
+  opposed: boolean,
+): ChartJsData {
   const actionChart = materializeSideChart(
     action,
     'アクション側',
@@ -273,6 +365,10 @@ function createChartData(action, reaction, opposed) {
     true
   )
   if (!opposed) {
+    return actionChart
+  }
+
+  if (reaction === null) {
     return actionChart
   }
 
@@ -291,7 +387,7 @@ function createChartData(action, reaction, opposed) {
   })
 }
 
-function isKnownTypedError(error) {
+function isKnownTypedError(error: unknown): boolean {
   return isCheckPresentationError(error)
     || isDistributionResultError(error)
     || isDistributionPresentationError(error)
@@ -310,9 +406,9 @@ function isKnownTypedError(error) {
  * @returns {CheckPresentation}
  */
 export function createCheckPresentation(
-  checkResult,
-  options = {}
-) {
+  checkResult: CheckPresentationInput,
+  options: CheckPresentationOptions,
+): CheckPresentation {
   try {
     const normalized = normalizeOptions(options)
     const scores = normalizeCheckResult(checkResult, normalized.opposed)
@@ -324,7 +420,7 @@ export function createCheckPresentation(
     )
     const reaction = normalized.opposed
       ? createScorePresentation(
-          scores.reaction,
+          scores.reaction as ScoreEnvelope,
           normalized.displayWindow,
           normalized.mode,
           normalized.policy
@@ -333,15 +429,28 @@ export function createCheckPresentation(
     const sides = reaction === null ? [action] : [action, reaction]
     const status = getPresentationStatus(sides)
     const decision = getPresentationDecision(sides)
-    const chart = status === 'ready'
-      ? createChartData(action, reaction, normalized.opposed)
+    const actionIsReady = action.projection.status === 'ready'
+    const reactionIsReady = reaction === null
+      || reaction.projection.status === 'ready'
+    const chart = status === 'ready' && actionIsReady && reactionIsReady
+      ? createChartData(
+          action as ScorePresentation & {
+            readonly projection: ReadyDistributionProjection
+          },
+          reaction === null || reaction.projection.status !== 'ready'
+            ? null
+            : reaction as ScorePresentation & {
+                readonly projection: ReadyDistributionProjection
+              },
+          normalized.opposed
+        )
       : null
     const actionState = createSideState(action)
     const reactionState = reaction === null
       ? null
       : createSideState(reaction)
 
-    const result = {
+    const result: CheckPresentation = {
       version: CHECK_PRESENTATION_VERSION,
       kind: 'check-canonical-presentation',
       status,
@@ -351,10 +460,10 @@ export function createCheckPresentation(
       chart,
       decision,
     }
-    if (reactionState !== null) {
-      result.reaction = reactionState
-    }
-    return Object.freeze(result)
+    return Object.freeze({
+      ...result,
+      ...(reactionState === null ? {} : { reaction: reactionState }),
+    })
   } catch (error) {
     if (isKnownTypedError(error)) {
       throw error
