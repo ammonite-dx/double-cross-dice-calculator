@@ -12,13 +12,27 @@ import {
   throwIfAborted,
 } from './BacktrackDistributionGenerator'
 import { validateBacktrackRangePlan } from './BacktrackPlanValidation'
+import type { BacktrackParams } from '../domain/BacktrackRules'
+import type { BacktrackRangePlan } from './planning/RangePlannerTypes'
+
+interface BacktrackRuntimeOptions {
+  readonly signal?: AbortSignal
+}
+
+type BacktrackLabel = 'single' | 'double' | 'second'
+
+interface PlannedBacktrackDistributions {
+  readonly normalizedParams: BacktrackParams
+  readonly diceCounts: readonly number[]
+  readonly distributions: readonly Float64Array[]
+}
 
 export {
   calculateD10Distributions,
   calculateLivingdeadDistributions,
 }
 
-function subtractSafeInteger(left, right, label) {
+function subtractSafeInteger(left: number, right: number, label: string): number {
   const result = left - right
   if (!Number.isSafeInteger(result)) {
     throw new RangeError(`${label} must be a safe integer`)
@@ -27,10 +41,10 @@ function subtractSafeInteger(left, right, label) {
 }
 
 function getPlannedBacktrackDistributions(
-  params,
-  runtimeOptions,
-  backtrackRangePlan
-) {
+  params: BacktrackParams,
+  runtimeOptions: BacktrackRuntimeOptions,
+  backtrackRangePlan: BacktrackRangePlan | undefined,
+): PlannedBacktrackDistributions {
   if (!backtrackRangePlan) {
     throw new TypeError(
       'backtrack calculation requires a range plan'
@@ -48,7 +62,7 @@ function getPlannedBacktrackDistributions(
   const generatedDistributions = generateBacktrackDistributions(
     diceCounts,
     size,
-    rule.livingdead,
+    rule.livingdead === true,
     runtimeOptions
   )
   const label = rule.livingdead ? 'livingdead distribution' : 'D10 distribution'
@@ -70,10 +84,10 @@ function getPlannedBacktrackDistributions(
 }
 
 function createFinalEncroachmentDistributionResult(
-  distribution,
-  params,
-  dice,
-  label
+  distribution: Float64Array,
+  params: BacktrackParams,
+  dice: number,
+  label: string,
 ) {
   const rawSupportMax = getBacktrackSupportMax(params.dlois, dice)
   const rawSupportMin = getBacktrackSupportMin(params.dlois, dice)
@@ -128,9 +142,9 @@ function createFinalEncroachmentDistributionResult(
  * finite support on demand.
  */
 export function calculateFinalEncroachment(
-  params,
-  runtimeOptions = {},
-  backtrackRangePlan
+  params: BacktrackParams,
+  runtimeOptions: BacktrackRuntimeOptions = {},
+  backtrackRangePlan?: BacktrackRangePlan,
 ) {
   throwIfAborted(runtimeOptions)
 
@@ -144,8 +158,8 @@ export function calculateFinalEncroachment(
     backtrackRangePlan
   )
 
-  const labels = ['single', 'double', 'second']
-  const result = {}
+  const labels: readonly BacktrackLabel[] = ['single', 'double', 'second']
+  const result = {} as Record<BacktrackLabel, ReturnType<typeof createFinalEncroachmentDistributionResult>>
   for (let index = 0; index < labels.length; index += 1) {
     throwIfAborted(runtimeOptions)
     const label = labels[index]

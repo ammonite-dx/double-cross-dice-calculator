@@ -10,13 +10,21 @@ import {
   getBacktrackSupportMax,
 } from '../domain/BacktrackRules'
 import { normalizeBacktrackParams } from '../domain/CalculationInputNormalization'
+import type { BacktrackParams } from '../domain/BacktrackRules'
+import type {
+  BacktrackRangePlan,
+} from './planning/RangePlannerTypes'
+import type { ValidatedBacktrackExecutionPlan } from './BacktrackCalculationTypes'
 
 /**
  * Validate that a range plan was produced for exactly the request being
  * executed. The calculator deliberately repeats these checks so a direct
  * caller cannot bypass the planner by supplying a look-alike object.
  */
-export function validateBacktrackRangePlan(params, plan) {
+export function validateBacktrackRangePlan(
+  params: BacktrackParams,
+  plan: BacktrackRangePlan,
+): ValidatedBacktrackExecutionPlan {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
     throw new TypeError('backtrackRangePlan must be an object')
   }
@@ -29,7 +37,8 @@ export function validateBacktrackRangePlan(params, plan) {
     'fftLength',
     'generationOperations',
   ]) {
-    if (!Number.isSafeInteger(plan[field])) {
+    const value = (plan as unknown as Record<string, unknown>)[field]
+    if (!Number.isSafeInteger(value)) {
       throw new TypeError(
         `backtrackRangePlan.${field} must be a safe integer`
       )
@@ -91,7 +100,7 @@ export function validateBacktrackRangePlan(params, plan) {
   const expectedGenerationOperations = getBacktrackGenerationOperationEstimate(
     expectedMaxDice,
     expectedRawSupportMax + 1,
-    getBacktrackRule(normalizedParams.dlois).livingdead
+    getBacktrackRule(normalizedParams.dlois).livingdead === true
   )
   if (plan.rawSupportMax !== expectedRawSupportMax) {
     throw new RangeError(
@@ -125,7 +134,9 @@ export function validateBacktrackRangePlan(params, plan) {
       'value',
       'dlois',
     ]) {
-      if (plan.params[field] !== normalizedParams[field]) {
+      const planValue = (plan.params as unknown as Record<string, unknown>)[field]
+      const expectedValue = (normalizedParams as unknown as Record<string, unknown>)[field]
+      if (planValue !== expectedValue) {
         throw new RangeError(
           `backtrackRangePlan.params.${field} does not match the request`
         )
