@@ -569,7 +569,7 @@ export function createAttackRunner({
         presentationErrorToken = error
         feedbackErrorProvenance = {
           kind: 'presentation',
-          revision: null,
+          revision: calculationCoordinator.snapshot().revision,
         }
         recordCalculationError(state.feedback, error)
         handleCalculationError(error)
