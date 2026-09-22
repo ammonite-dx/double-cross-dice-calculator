@@ -12,27 +12,33 @@ import {
 } from './DxOrderStatistic'
 import { oneDieTail } from './DxOneDieModel'
 
-function object(value, name) {
+interface ScoreTailParams {
+  readonly dice: number
+  readonly critical: number
+  readonly shihai?: number
+  readonly yousei?: number
+}
+
+function object(value: unknown, name: string): asserts value is ScoreTailParams {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`${name} must be an object`)
   }
-  return value
 }
 
-function nonNegativeInteger(value, name) {
+function nonNegativeInteger(value: unknown, name: string): number {
   return assertNonNegativeSafeInteger(value, name)
 }
 
-function positiveInteger(value, name) {
-  assertSafeInteger(value, name)
-  if (value <= 0) {
+function positiveInteger(value: unknown, name: string): number {
+  const integer = assertSafeInteger(value, name)
+  if (integer <= 0) {
     throw new RangeError(`${name} must be positive`)
   }
-  return value
+  return integer
 }
 
-function probability(value, name) {
-  if (!Number.isFinite(value) || value <= 0 || value >= 1) {
+function probability(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value >= 1) {
     throw new RangeError(`${name} must be between 0 and 1`)
   }
   return value
@@ -52,7 +58,7 @@ export const MAX_CERTIFIED_ORDER_STATISTIC_RANK = 1_000
  * outside the certified range fails closed instead of switching to an
  * approximation whose rounding direction is not proven.
  */
-function logBinomialCoefficient(n, k) {
+function logBinomialCoefficient(n: number, k: number): number {
   const reduced = Math.min(k, n - k)
   if (reduced <= 0) {
     return 0
@@ -82,11 +88,11 @@ function logBinomialCoefficient(n, k) {
  * E[(Y-(cutoff+1))_+].
  */
 export function orderStatisticTailFirstMomentUpperBound(
-  cutoff,
-  dice,
-  critical,
-  shihai,
-) {
+  cutoff: number,
+  dice: number,
+  critical: number,
+  shihai: number,
+): number {
   nonNegativeInteger(cutoff, 'cutoff')
   nonNegativeInteger(dice, 'dice')
   nonNegativeInteger(shihai, 'shihai')
@@ -131,7 +137,7 @@ export function orderStatisticTailFirstMomentUpperBound(
 }
 
 /** Tail model for the score before fixed skill and fumble conversion. */
-export function scoreTailBound(value, params) {
+export function scoreTailBound(value: number, params: ScoreTailParams): number {
   object(params, 'score')
   const { dice, critical, shihai = 0, yousei = 0 } = params
   nonNegativeInteger(dice, 'score.dice')
@@ -180,13 +186,17 @@ export function scoreTailBound(value, params) {
   )
 }
 
-export function findTailCutoff(params, epsilon, maxSearch = 1 << 20) {
+export function findTailCutoff(
+  params: ScoreTailParams,
+  epsilon: number,
+  maxSearch = 1 << 20,
+): { reachable: boolean; cutoff: number; bound: number } {
   object(params, 'score')
   probability(epsilon, 'epsilon')
   positiveInteger(maxSearch, 'maxSearch')
 
   const cache = new Map()
-  const evaluate = (value) => {
+  const evaluate = (value: number): number => {
     if (!cache.has(value)) {
       cache.set(value, scoreTailBound(value, params))
     }

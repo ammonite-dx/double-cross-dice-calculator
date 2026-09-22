@@ -1,4 +1,5 @@
 import { addSafe } from './planning/PlanningMath'
+import type { ScoreInput } from '../domain/InputDomain'
 
 /**
  * Return the largest raw score that is known to be reachable without a
@@ -9,7 +10,7 @@ import { addSafe } from './planning/PlanningMath'
  * one pure helper makes the planner's memory estimate agree with the score
  * producer's actual representation.
  */
-export function getFiniteRawSupportMax(params) {
+export function getFiniteRawSupportMax(params: ScoreInput): number | null {
   if (params.dice === 0) {
     return 0
   }
@@ -24,7 +25,9 @@ export function getFiniteRawSupportMax(params) {
   return null
 }
 
-export function getScoreSupport(params) {
+export function getScoreSupport(
+  params: ScoreInput,
+): { kind: 'finite'; max: number } | { kind: 'infinite' } {
   const finiteRawSupportMax = getFiniteRawSupportMax(params)
   if (finiteRawSupportMax === null) {
     return { kind: 'infinite' }
@@ -49,7 +52,7 @@ export function getScoreSupport(params) {
   }
 }
 
-export function getScoreOutputMax(params, workingMax) {
+export function getScoreOutputMax(params: ScoreInput, workingMax: number): number {
   if (!Number.isSafeInteger(workingMax) || workingMax < 0) {
     throw new RangeError('workingMax must be a non-negative safe integer')
   }
@@ -64,7 +67,7 @@ export function getScoreOutputMax(params, workingMax) {
   )
 }
 
-export function getScoreOutputBufferLength(params, workingMax) {
+export function getScoreOutputBufferLength(params: ScoreInput, workingMax: number): number {
   return addSafe(
     getScoreOutputMax(params, workingMax),
     1,
