@@ -30,7 +30,7 @@ feature runnerはcoordinatorで最新要求を管理し、`CalculationClient`は
 
 ## 検証
 
-最終HEAD`f6a4bd9`で次を実行し、すべて成功した。
+最終HEAD`616ce09`（`docs: record R29-E reference follow-up`）で次を実行し、すべて成功した。R29-Eの実装検証は`f6a4bd9`で完了しており、`616ce09`はその検証結果とreference follow-upを確定するdocs-only commitである。
 
 - Vitest: 88 files / 1025 tests
 - `npm run typecheck`
@@ -39,6 +39,8 @@ feature runnerはcoordinatorで最新要求を管理し、`CalculationClient`は
 - `npm run build`（457 modules）
 - `npm run diff:check`
 - `npm run verify:release`
+- `npm run verify:reference`（reference repository 53 tests、generator 18 tests、simulation 13 tests）
+- runtime DX verification（20,000 cases、許容誤差内、non-finite／負値なし）
 - production browser smoke（Check、Attack、Backtrack、動的表示範囲、resource rejection、stale result、browser diagnostics）
 
 検証後の作業ツリーはcleanである。reference assetのproduction取得は0件で、数値・resource・lifecycle semanticsに変更がないことを回帰テストとbrowser smokeで確認した。
