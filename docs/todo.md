@@ -14,13 +14,12 @@
 
 ## 次に行う作業
 
-1. **R29-E: compatibility surface cleanup**: 移行期の互換surfaceを監査し、現行契約に不要なものを削除する。
-2. **R29-F: production TypeScript convergence**: production sourceのTypeScript移行を進める。
-3. **R29-G: architecture/source-text test cleanup**: 残る構造テストを意味論に合わせて整理する。
-4. **R29-H: active documentation/naming cleanup**: 現行ドキュメントと命名を整理する。
-5. **R29-I: architecture convergence closure**: R29全体の境界と検証を閉じる。
-6. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-7. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **R29-F: production TypeScript convergence**: production sourceのTypeScript移行を進める。
+2. **R29-G: architecture/source-text test cleanup**: 残る構造テストを意味論に合わせて整理する。
+3. **R29-H: active documentation/naming cleanup**: 現行ドキュメントと命名を整理する。
+4. **R29-I: architecture convergence closure**: R29全体の境界と検証を閉じる。
+5. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+6. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -53,4 +52,5 @@
 - **R29-A: production FFT primitive consolidation**: radix-2 FFTのin-place transformを`src/core/probability/Radix2FFT.js`へ集約し、distribution convolutionとRuntime DRが同じ低位primitiveを利用するようにした。`FFT.js`のconvolution・係数cleanup、Runtime DRのspectrum生成・support・mass検証、Abort semantics、数値許容誤差、resource estimate、Worker protocolは変更していない。旧`RuntimeDamageRollFFT.js`は削除し、歴史的experimentのFFTは保持した。詳細は[`archive/r29-a-fft-primitive-consolidation.md`](./archive/r29-a-fft-primitive-consolidation.md)を参照する。次はR29-Bへ進む。
 - **R29-B: DamageAggregation preparation/execution convergence**: Damage集約のopaque plan registryとplan再受け渡しを削除し、構造的に凍結されたresource planと、検査済みsnapshotを閉じ込めた`PreparedDamageAggregation`へ統一した。`prepareDamageAggregation`がResourceGuard投入用のplanとlease取得後の`execute` closureを返し、`sumDamage`はone-shot専用としてresource limitやplanの実行時受け渡しを拒否する。CalculationClientはsnapshot→prepare→lease→executeの順で実行し、実行時optionsはAbortSignalとFFT長通知に限定した。`DamageAggregation.ts`への移行、型契約、構造テスト、準備・実行の反復性と入力変更分離を追加した。詳細は[`archive/r29-b-damage-aggregation-preparation.md`](./archive/r29-b-damage-aggregation-preparation.md)を参照する。次はR29-Cへ進む。
 - **R29-C: presentation trust-boundary simplification**: `presentDistribution`を計算結果と表示の検証・配列snapshot境界として明確化し、下流の表示範囲プランナーと投影は信頼済みDTOを参照するよう整理した。プランナーは表示窓・policy・resource見積りだけを検証し、support・overflow・projection uncertaintyを再コピーせずに計画構造を所有する。投影はplanner-ownedのdisplay windowを再利用し、Chart.js adapterはready判定とmaterializer optionsだけを検証してprojectionの`values`をdatasetへ借用する。coverage、overflow、missing coverage、known-zero、resource rejection、upper-tail、1023超の表示範囲、Chart.jsの見た目と数値意味論は変更していない。詳細は[`archive/r29-c-presentation-trust-boundary.md`](./archive/r29-c-presentation-trust-boundary.md)を参照する。次はR29-Dへ進む。
-- **R29-D: Attack lifecycle convergence**: Attackのrequest snapshot、coordinator、incremental execution、committed calculation records、base/display presentationの責務を収束させた。runner-localなbatch・range plan・entries cacheとmutableなactive requestを削除し、表示再試行は`AttackState`の完全なcommitted snapshotから再構築する。score displayは独立revisionを持つ単一ライフサイクル状態へ整理し、presentation failureとcalculation failureのprovenanceを分離した。コンボ再利用、total-only retry、partial failure、resource recovery、score expansion、latest-wins、Abort、disposeの既存契約は維持した。詳細は[`archive/r29-d-attack-lifecycle-convergence.md`](./archive/r29-d-attack-lifecycle-convergence.md)を参照する。次はR29-Eへ進む。
+- **R29-D: Attack lifecycle convergence**: Attackのrequest snapshot、coordinator、incremental execution、committed calculation records、base/display presentationの責務を収束させた。runner-localなbatch・range plan・entries cacheとmutableなactive requestを削除し、表示再試行は`AttackState`の完全なcommitted snapshotから再構築する。score displayは独立revisionを持つ単一ライフサイクル状態へ整理し、presentation failureとcalculation failureのprovenanceを分離した。コンボ再利用、total-only retry、partial failure、resource recovery、score expansion、latest-wins、Abort、disposeの既存契約は維持した。詳細は[`archive/r29-d-attack-lifecycle-convergence.md`](./archive/r29-d-attack-lifecycle-convergence.md)を参照する。次はR29-Eへ進み、完了した。
+- **R29-E: compatibility surface cleanup**: 移行期の互換runner、caller-supplied revision、ResourceGuard・DisplayRangePlanner・DistributionResult・Attack presentationのalias、DX providerのpositional/sparse fallback、Backtrackの未使用dependency引数を削除し、現行production APIへ収束させた。未知のrange policy fieldはgeneric schema validationでfail-closedにし、historical/reference compatibilityは`tooling/reference-data/`へ限定して保持した。数値計算、resource threshold、UI表示、latest-wins、Abort、Worker protocolは変更していない。詳細は[`archive/r29-e-compatibility-surface-cleanup.md`](./archive/r29-e-compatibility-surface-cleanup.md)を参照する。次はR29-Fへ進む。

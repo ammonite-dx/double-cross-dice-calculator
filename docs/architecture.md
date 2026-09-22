@@ -5,7 +5,7 @@
 ## レイヤーと責務
 
 - `src/features/`: Check、Attack、Backtrackの入力snapshot、runner、画面状態、Vue UI
-- `src/runtime/`: `CalculationClient`、latest-wins、Abort、`ResourceGuard`、DR Workerの非同期境界
+- `src/runtime/`: `CalculationClient`、`CalculationRequestCoordinator`、latest-wins、Abort、`ResourceGuard`、DR Workerの非同期境界
 - `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア。汎用結果契約は`src/domain/`に置き、各計算の意味論はScore/Damageの境界モジュールに分ける。Damageの実行は`DamageAggregationCommon`、`DamageAggregationInspection`、`DamageAggregationPlanner`、`DamageAggregationExecutor`、`DamageAggregationMetadata`へ分離し、Backtrackは`BacktrackDistributionGenerator`、`BacktrackLivingdeadDistribution`、`BacktrackPlanValidation`と薄い`BacktrackCalculator`へ分ける
 - `src/core/probability/`: 配列分布、上側確率、FFTなどのVue非依存primitive
 - `src/domain/`: 入力domain、Backtrack rules、`CertifiedValue`などの共有契約
@@ -30,7 +30,7 @@ validated input
   -> Chart.js materializer / Vue state
 ```
 
-入力変更のたびにfeatureはvalidated snapshotを作り、`CalculationClient`へ最新要求を渡します。古い要求のAbortまたは遅延完了は、request identityで結果commitから除外します。表示範囲の変更は計算結果を再利用できる場合と、範囲を拡張して再計算する場合をprojection plannerが判断します。
+入力変更のたびにfeatureはvalidated snapshotを作り、`CalculationRequestCoordinator`経由で`CalculationClient`へ最新要求を渡します。古い要求のAbortまたは遅延完了は、request identityで結果commitから除外します。表示範囲の変更は計算結果を再利用できる場合と、範囲を拡張して再計算する場合をprojection plannerが判断します。
 
 Attackでは、入力snapshotをcoordinatorが固定し、incremental executorが変更されたコンボだけを計算して、コンボレコードとtotalレコードを`AttackState`へ先にコミットします。表示はこのcommitted calculation snapshotから生成されるため、presentationや表示資源の失敗は計算レコードを失わず、表示範囲の変更・資源回復時には計算を再利用できます。score displayはdamageとは独立したrevisionを持ち、score-onlyの失敗やstale結果がdamage表示へ混入しないようにします。
 
@@ -48,7 +48,7 @@ Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`�
 
 Damageでは、Scoreの明示範囲を命中・失敗の重みへ変換する処理を`DamageRollRequest`、DamageおよびTotal Damageの統計値を`DamageStatistics`、Score tailからDamage期待値certificateを組み立てる処理を`DamageExpectationCertificate`が担当します。複数Damageの集約は、入力envelopeの検査とcaller-owned配列のsnapshotを`DamageAggregationInspection`、FFT長・畳み込み手順・resource estimateを`DamageAggregationPlanner`、準備済みsnapshotのFFT実行と正規化を`DamageAggregationExecutor`、component descriptorと期待値certificateを`DamageAggregationMetadata`が担当します。`prepareDamageAggregation`は凍結された構造的planと実行closureを返し、planはResourceGuardへのresource見積りに、closureはlease取得後の実行に使います。`sumDamage`はこの二段階を隠したone-shot APIです。`DistributionResult`はこれらのDamage固有の意味論を持たず、分布の生成・検証・汎用統計だけを提供します。
 
-DXのYousei作業ブロック数とFFT長は`DxWorkingShape`で共有します。正の`shihai`で使う二項分布の項数とCPU work見積りは`DxOrderStatistic`が共有し、Scoreのrange plannerが`DxCalculator`をimportすることはありません。producerとplannerは同じ作業形状規則と順序統計量のコストモデルを参照します。
+DX providerは入力オブジェクトとoptionsを受け取り、要求された`workingLength`のdenseな`Float64Array`を返します。Yousei作業ブロック数とFFT長は`DxWorkingShape`で共有します。正の`shihai`で使う二項分布の項数とCPU work見積りは`DxOrderStatistic`が共有し、Scoreのrange plannerが`DxCalculator`をimportすることはありません。producerとplannerは同じ作業形状規則と順序統計量のコストモデルを参照します。
 
 DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Workerは一度に1つのactive jobを処理し、同じ入力のsubscriberを共有します。最後のsubscriberが離脱したjobだけを停止し、遅延した旧Workerのイベントはidentity guardで無視します。
 
