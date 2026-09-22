@@ -259,7 +259,7 @@ describe('canonical CalculationClient surface', () => {
 
     await expect(client.calculateAttack(attackParams(), {
       rangePolicy: { scorePropagation: 'published-bucket' },
-    })).rejects.toThrow('scorePropagation')
+    })).rejects.toThrow('not a supported range policy key')
   })
 
   it('keeps canonical Check compatibility summary without a legacy score call', async () => {

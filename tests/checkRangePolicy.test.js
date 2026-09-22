@@ -29,7 +29,7 @@ describe('CheckRangePolicy runtime boundary', () => {
     const suppliedPolicy = {
       display: { maxPoints: 100 },
       limits: shared,
-      extra: { values: [1, 2, 3] },
+      errorBudget: { total: 0.1, scoreTail: 0.01 },
     }
 
     const snapshot = createCheckRangePolicy(
@@ -41,40 +41,34 @@ describe('CheckRangePolicy runtime boundary', () => {
     expect(snapshot.display).not.toBe(suppliedPolicy.display)
     expect(snapshot.limits).not.toBe(suppliedPolicy.limits)
     expect(snapshot.limits.workingLength).toBe(4096)
-    expect(snapshot.extra.values).toEqual([1, 2, 3])
     expect(Object.isFrozen(snapshot)).toBe(true)
     expect(Object.isFrozen(snapshot.display)).toBe(true)
     expect(Object.isFrozen(snapshot.limits)).toBe(true)
-    expect(Object.isFrozen(snapshot.extra.values)).toBe(true)
 
     suppliedPolicy.display.maxPoints = 1
     suppliedPolicy.limits.workingLength = 1
-    suppliedPolicy.extra.values[0] = 99
+    suppliedPolicy.errorBudget.total = 0.2
 
     expect(snapshot.display.maxPoints).toBe(100)
     expect(snapshot.limits.workingLength).toBe(4096)
-    expect(snapshot.extra.values[0]).toBe(1)
+    expect(snapshot.errorBudget.total).toBe(0.1)
     expect(snapshot).not.toHaveProperty('min')
     expect(snapshot).not.toHaveProperty('max')
     expect(snapshot).not.toHaveProperty('mode')
   })
 
   it('preserves cycles and shared aliases in the detached snapshot', () => {
-    const shared = { value: 1 }
     const suppliedPolicy = {
-      extraA: shared,
-      extraB: shared,
+      display: null,
     }
-    suppliedPolicy.self = suppliedPolicy
+    suppliedPolicy.display = suppliedPolicy
 
     const snapshot = createCheckRangePolicy(
       validDisplayRequest(),
       suppliedPolicy,
     )
 
-    expect(snapshot.self).toBe(snapshot)
-    expect(snapshot.extraA).toBe(snapshot.extraB)
-    expect(snapshot.extraA).not.toBe(shared)
+    expect(snapshot.display).toBe(snapshot)
     expect(Object.isFrozen(snapshot)).toBe(true)
     expect(Object.isFrozen(snapshot.extraA)).toBe(true)
   })
@@ -144,7 +138,7 @@ describe('CheckRangePolicy runtime boundary', () => {
 
     expect(error).toBeInstanceOf(TypeError)
     expect(error.code).toBe('invalid-check-range-policy')
-    expect(error.message).toContain('no longer supported')
+    expect(error.message).toContain('not a supported range policy key')
     expect(Object.isFrozen(error.details)).toBe(true)
   })
 

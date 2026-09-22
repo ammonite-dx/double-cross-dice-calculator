@@ -28,79 +28,53 @@ export const DEFAULT_POLICY = {
   },
 }
 
+function rejectUnknownKeys(value, path, allowedKeys) {
+  object(value, path)
+  const allowed = new Set(allowedKeys)
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !allowed.has(key)) {
+      throw new RangeError(
+        `${path}.${String(key)} is not a supported range policy key`
+      )
+    }
+  }
+}
+
 export function mergePolicy(policy) {
   const supplied = policy ?? {}
   object(supplied, 'policy')
-
-  for (const legacyKey of [
-    'costModel',
-    'estimatedTimeMs',
-    'dxOperationsPerMs',
-    'fftOperationsPerMs',
-    'damageOperationsPerMs',
-    'backtrackOperationsPerMs',
-  ]) {
-    if (Object.prototype.hasOwnProperty.call(supplied, legacyKey)) {
-      throw new RangeError(`policy.${legacyKey} is no longer supported`)
-    }
-  }
-  if (supplied.limits !== undefined) {
-    object(supplied.limits, 'policy.limits')
-    for (const threshold of ['warning', 'hard']) {
-      if (Object.prototype.hasOwnProperty.call(supplied.limits, threshold)) {
-        throw new RangeError(
-          `policy.limits.${threshold} is no longer supported; use policy.limits directly`
-        )
-      }
-    }
-    if (
-      Object.prototype.hasOwnProperty.call(
-        supplied.limits,
-        'estimatedTimeMs'
-      )
-    ) {
-      throw new RangeError(
-        'policy.limits.estimatedTimeMs is no longer supported'
-      )
-    }
-  }
+  rejectUnknownKeys(supplied, 'policy', [
+    'errorBudget',
+    'display',
+    'limits',
+  ])
+  const errorBudget = supplied.errorBudget ?? {}
+  const display = supplied.display ?? {}
+  const limits = supplied.limits ?? {}
+  rejectUnknownKeys(errorBudget, 'policy.errorBudget', ['total', 'scoreTail'])
+  rejectUnknownKeys(display, 'policy.display', ['maxPoints'])
+  rejectUnknownKeys(limits, 'policy.limits', [
+    'maxCpuWork',
+    'estimatedMemoryBytes',
+    'workingLength',
+    'fftLength',
+  ])
 
   const merged = {
     ...DEFAULT_POLICY,
     ...supplied,
     errorBudget: {
       ...DEFAULT_POLICY.errorBudget,
-      ...(supplied.errorBudget ?? {}),
+      ...errorBudget,
     },
     display: {
       ...DEFAULT_POLICY.display,
-      ...(supplied.display ?? {}),
+      ...display,
     },
     limits: {
       ...DEFAULT_POLICY.limits,
-      ...(supplied.limits ?? {}),
+      ...limits,
     },
-  }
-
-  if (Object.prototype.hasOwnProperty.call(supplied, 'scorePropagation')) {
-    throw new RangeError(
-      'policy.scorePropagation is no longer supported; production uses canonical full-tail propagation'
-    )
-  }
-  if (Object.prototype.hasOwnProperty.call(supplied, 'calculationMax')) {
-    throw new RangeError(
-      'policy.calculationMax is no longer supported; use explicit display coverage and the tail budget'
-    )
-  }
-  for (const legacyDisplayKey of ['defaultMin', 'defaultMax']) {
-    if (
-      supplied.display !== undefined
-      && Object.prototype.hasOwnProperty.call(supplied.display, legacyDisplayKey)
-    ) {
-      throw new RangeError(
-        `policy.display.${legacyDisplayKey} is no longer supported; pass a display request to the planner`
-      )
-    }
   }
 
   probability(merged.errorBudget.total, 'policy.errorBudget.total')

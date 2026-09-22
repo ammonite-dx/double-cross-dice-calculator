@@ -158,7 +158,7 @@ describe('Attack display request snapshot', () => {
       min: 0,
       max: 100,
       mode: ATTACK_DISPLAY_MODES.PMF,
-    }, policy)).toThrow('no longer supported')
+    }, policy)).toThrow('not a supported range policy key')
   })
 
   it('passes the expanded display boundary through the existing RangePlanner', () => {

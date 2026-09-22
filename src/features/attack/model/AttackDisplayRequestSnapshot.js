@@ -87,6 +87,56 @@ function validateOptionalPolicyInteger(value, path) {
   }
 }
 
+function validatePolicySchema(value, path, allowed, seen = new WeakSet()) {
+  if (value === null || value === undefined) {
+    return
+  }
+  if (!isRecord(value)) {
+    fail(
+      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
+      `${path} must be an object`,
+      { path }
+    )
+  }
+  if (seen.has(value)) {
+    return
+  }
+  seen.add(value)
+  for (const property of Reflect.ownKeys(value)) {
+    if (typeof property !== 'string' || !allowed.has(property)) {
+      fail(
+        ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
+        `${path}.${String(property)} is not a supported range policy key`,
+        { path: `${path}.${String(property)}` }
+      )
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'display')) {
+    validatePolicySchema(
+      value.display,
+      `${path}.display`,
+      new Set(['maxPoints']),
+      seen
+    )
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'errorBudget')) {
+    validatePolicySchema(
+      value.errorBudget,
+      `${path}.errorBudget`,
+      new Set(['total', 'scoreTail']),
+      seen
+    )
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'limits')) {
+    validatePolicySchema(
+      value.limits,
+      `${path}.limits`,
+      new Set(['maxCpuWork', 'estimatedMemoryBytes', 'workingLength', 'fftLength']),
+      seen
+    )
+  }
+}
+
 function fail(code, message, details = {}) {
   const error = new TypeError(message)
   error.code = code
@@ -217,6 +267,11 @@ export function createAttackRangePolicy(
   }
 
   const policy = clonePolicyValue(suppliedPolicy)
+  validatePolicySchema(
+    policy,
+    'rangePolicy',
+    new Set(['errorBudget', 'display', 'limits'])
+  )
   const suppliedDisplay = policy.display ?? {}
   if (!isRecord(suppliedDisplay)) {
     fail(
@@ -229,16 +284,5 @@ export function createAttackRangePolicy(
     suppliedDisplay.maxPoints,
     'rangePolicy.display.maxPoints'
   )
-  if (
-    Object.prototype.hasOwnProperty.call(policy, 'calculationMax')
-    || Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMin')
-    || Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMax')
-  ) {
-    fail(
-      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
-      'legacy calculation/display coverage fields are no longer supported; pass score display coverage as a planner request',
-      { path: 'rangePolicy' }
-    )
-  }
   return deepFreeze(policy)
 }

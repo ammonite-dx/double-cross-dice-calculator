@@ -162,6 +162,73 @@ function validateOptionalPolicyInteger(value: unknown, path: string): void {
   }
 }
 
+const POLICY_KEYS = Object.freeze({
+  root: new Set(['errorBudget', 'display', 'limits']),
+  errorBudget: new Set(['total', 'scoreTail']),
+  display: new Set(['maxPoints']),
+  limits: new Set([
+    'maxCpuWork',
+    'estimatedMemoryBytes',
+    'workingLength',
+    'fftLength',
+  ]),
+})
+
+function validatePolicySchema(
+  value: unknown,
+  path: string,
+  allowed: ReadonlySet<string>,
+  seen: WeakSet<object> = new WeakSet(),
+): void {
+  if (value === null || value === undefined) {
+    return
+  }
+  if (!isRecord(value)) {
+    fail(
+      CHECK_RANGE_POLICY_ERROR_CODE,
+      `${path} must be an object`,
+      { path },
+    )
+  }
+  if (seen.has(value)) {
+    return
+  }
+  seen.add(value)
+  for (const property of Reflect.ownKeys(value)) {
+    if (typeof property !== 'string' || !allowed.has(property)) {
+      fail(
+        CHECK_RANGE_POLICY_ERROR_CODE,
+        `${path}.${String(property)} is not a supported range policy key`,
+        { path: `${path}.${String(property)}` },
+      )
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'errorBudget')) {
+    validatePolicySchema(
+      value.errorBudget,
+      `${path}.errorBudget`,
+      POLICY_KEYS.errorBudget,
+      seen,
+    )
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'display')) {
+    validatePolicySchema(
+      value.display,
+      `${path}.display`,
+      POLICY_KEYS.display,
+      seen,
+    )
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'limits')) {
+    validatePolicySchema(
+      value.limits,
+      `${path}.limits`,
+      POLICY_KEYS.limits,
+      seen,
+    )
+  }
+}
+
 /**
  * Snapshot the calculation policy needed by a Check request. Display
  * coordinates are validated here, but remain planner parameters rather than
@@ -190,13 +257,7 @@ export function createCheckRangePolicy(
     )
   }
   const policy = clonedPolicy
-  if (Object.prototype.hasOwnProperty.call(policy, 'calculationMax')) {
-    fail(
-      CHECK_RANGE_POLICY_ERROR_CODE,
-      'rangePolicy.calculationMax is no longer supported; pass display coverage as a planner request',
-      { path: 'rangePolicy.calculationMax' },
-    )
-  }
+  validatePolicySchema(policy, 'rangePolicy', POLICY_KEYS.root)
   const suppliedDisplay = policy.display ?? {}
   if (!isRecord(suppliedDisplay)) {
     fail(
@@ -210,15 +271,5 @@ export function createCheckRangePolicy(
     'rangePolicy.display.maxPoints',
   )
 
-  if (
-    Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMin')
-    || Object.prototype.hasOwnProperty.call(suppliedDisplay, 'defaultMax')
-  ) {
-    fail(
-      CHECK_RANGE_POLICY_ERROR_CODE,
-      'rangePolicy.display.defaultMin/defaultMax are no longer supported; pass display coverage as a planner request',
-      { path: 'rangePolicy.display' },
-    )
-  }
   return deepFreeze(policy) as RangePolicyInput
 }

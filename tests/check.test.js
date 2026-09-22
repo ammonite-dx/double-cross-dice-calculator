@@ -158,7 +158,7 @@ describe('canonical normal check score producer', () => {
       min: 0,
       max: 100,
       mode: CHECK_DISPLAY_MODES.PMF,
-    }, policy)).toThrow('no longer supported')
+    }, policy)).toThrow('not a supported range policy key')
   })
 
   it('keeps a large fixed score as a sparse canonical point mass', () => {

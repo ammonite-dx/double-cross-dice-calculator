@@ -162,7 +162,7 @@ describe('production range planner', () => {
     { display: { defaultMax: 999 } },
   ])('rejects retired fixed-boundary policy fields: %o', (policy) => {
     expect(() => planCalculationRanges(scoreOnlyParams(), policy))
-      .toThrow('no longer supported')
+      .toThrow('not a supported range policy key')
   })
 
   it('finds a cutoff boundary and preserves tail monotonicity', () => {
@@ -733,16 +733,16 @@ describe('production range planner', () => {
     expect(rejected.rejectionReasons).toContain('cpu-work')
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       costModel: { dxOperationsPerMs: 1 },
-    })).toThrow('costModel')
+    })).toThrow('not a supported range policy key')
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       limits: { warning: { workingLength: 1 } },
-    })).toThrow('warning')
+    })).toThrow('not a supported range policy key')
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       limits: { estimatedTimeMs: 1 },
-    })).toThrow('estimatedTimeMs')
+    })).toThrow('not a supported range policy key')
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       estimatedTimeMs: 1,
-    })).toThrow('estimatedTimeMs')
+    })).toThrow('not a supported range policy key')
   })
 
   it('uses fixed CPU weights for score and FFT work', () => {
@@ -830,7 +830,7 @@ describe('production range planner', () => {
     expect(plan.damage.scoreValueUpperBound).toBe(plan.scores[0].outputMax)
     expect(() => planCalculationRanges(params, {
       scorePropagation: 'published-bucket',
-    })).toThrow('scorePropagation')
+    })).toThrow('not a supported range policy key')
   })
 
   it.each([
@@ -1450,7 +1450,7 @@ describe('production range planner', () => {
     })).toThrow(RangeError)
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       costModel: { fftOperationsPerMs: 0 },
-    })).toThrow('costModel')
+    })).toThrow('not a supported range policy key')
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       errorBudget: { total: 1e-8, scoreTail: 2e-8 },
     })).toThrow(RangeError)

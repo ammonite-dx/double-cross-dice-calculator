@@ -275,7 +275,7 @@ describe('CalculationClient integration', () => {
     expect(() => calculationClient.planAttackCombo(
       attackParams,
       { scorePropagation: 'published-bucket' }
-    )).toThrow('scorePropagation')
+    )).toThrow('not a supported range policy key')
     expect(backtrackPlan.accepted).toBe(true)
   })
 
