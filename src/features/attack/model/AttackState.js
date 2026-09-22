@@ -206,7 +206,6 @@ export function createAttackState() {
     totalCalculation: null,
     basePresentation: null,
     displayPresentation: null,
-    generation: 0,
     feedback: createCalculationFeedbackState(),
     scoreDisplayFeedback: createCalculationFeedbackState(),
     displayFeedback: createCalculationFeedbackState(),
@@ -242,23 +241,17 @@ function clearResults(state) {
  * The caller's latest-runner owns AbortSignal cancellation.
  */
 export function invalidateAttackState(state) {
-  const currentGeneration = Number.isSafeInteger(state.generation)
-    ? state.generation
-    : 0
-  state.generation = currentGeneration + 1
   clearResults(state)
-  return state.generation
 }
 
 /**
  * Disable/reset calculation state, including user-facing feedback.
  */
 export function clearAttackState(state) {
-  const generation = invalidateAttackState(state)
+  invalidateAttackState(state)
   if (state.feedback) {
     markCalculationAborted(state.feedback)
   }
-  return generation
 }
 
 function sameId(left, right) {
@@ -496,17 +489,14 @@ function hasIncrementalExecutionShape(execution, combos) {
  * failure cannot discard otherwise valid combo and total records.
  *
  * @param {AttackState} state
- * @param {number} generation
  * @param {AttackIncrementalExecution} execution
  * @returns {boolean}
  */
 export function commitAttackCalculationExecution(
   state,
-  generation,
   execution,
 ) {
-  if (generation !== state.generation
-    || !Array.isArray(state.combos)
+  if (!Array.isArray(state.combos)
     || !hasIncrementalExecutionShape(execution, state.combos)) {
     return false
   }
@@ -556,20 +546,17 @@ function hasDisplayPresentationShape(presentation, combos) {
  * incremental calculation. Calculation records are never touched here.
  *
  * @param {AttackState} state
- * @param {number} generation
  * @param {AttackPresentation|null} basePresentation
  * @param {AttackDisplayPresentation} displayPresentation
  * @returns {boolean}
  */
 export function commitAttackPresentation(
   state,
-  generation,
   basePresentation,
   displayPresentation,
 ) {
   if (
-    generation !== state.generation
-    || !isAttackCalculationReady(state)
+    !isAttackCalculationReady(state)
     || !Array.isArray(state.combos)
     || !hasDisplayPresentationShape(displayPresentation, state.combos)
   ) {

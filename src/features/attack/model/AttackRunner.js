@@ -50,7 +50,7 @@ export function createAttackRunner({
     )
   }
   const presentationFactory = createPresentation ?? createAttackPresentation
-  let displayRequestGeneration = 0
+  let displayRevision = 0
   let scoreDisplayLifecycle = {
     status: 'enabled',
     revision: 0,
@@ -109,9 +109,9 @@ export function createAttackRunner({
   }
 
   function invalidateScoreDisplay() {
-    // score-only failures must not touch the damage/batch generation. The
+    // score-only failures must not touch the damage/batch revision. The
     // next batch commit may still publish damage, but its score payload is
-    // suppressed by this independent generation and state flag.
+    // suppressed by this independent revision and state flag.
     cancelScoreDisplayRecalculation()
     scoreDisplayLifecycle = {
       status: 'suppressed',
@@ -193,7 +193,7 @@ export function createAttackRunner({
 
   function invalidateDisplayResult(presentation) {
     calculationCoordinator.invalidate()
-    displayRequestGeneration += 1
+    displayRevision += 1
     invalidateScoreDisplay()
     state.displayPresentation = null
     onDisplayRejected?.(presentation)
@@ -244,7 +244,8 @@ export function createAttackRunner({
       scoreDisplayRequest: request.scoreDisplayRequest === null
         ? null
         : createAttackDisplayRequestSnapshot(request.scoreDisplayRequest),
-      generation: null,
+      displayRevision: null,
+      scoreDisplayRevision: null,
     }
   }
 
@@ -267,13 +268,9 @@ export function createAttackRunner({
         if (!preserveScoreLifecycle) {
           cancelScoreDisplayRecalculation()
         }
-        state.generation = Number.isSafeInteger(state.generation)
-          ? state.generation + 1
-          : 1
         state.basePresentation = null
         state.displayPresentation = null
       }
-      request.generation = state.generation
     },
     onPlan: (plan) => {
       publishRangePlan(state.feedback, plan)
@@ -283,16 +280,16 @@ export function createAttackRunner({
       if (
         !isAttackInputCurrent(state.combos, request.entries)
         || (
-          request.displayRequestGeneration !== null
-          && request.displayRequestGeneration !== displayRequestGeneration
+          request.displayRevision !== null
+          && request.displayRevision !== displayRevision
         )
       ) {
         return false
       }
       const scoreDisplaySuppressed = scoreDisplayLifecycle.status === 'suppressed'
         || (
-          request.scoreDisplayRequestGeneration !== null
-          && request.scoreDisplayRequestGeneration
+          request.scoreDisplayRevision !== null
+          && request.scoreDisplayRevision
             !== scoreDisplayLifecycle.revision
         )
       const execution = calculationResult?.batchResult
@@ -306,7 +303,6 @@ export function createAttackRunner({
       // this state-owned snapshot and may fail without losing reusable work.
       const committedCalculation = commitAttackCalculationExecution(
         state,
-        request.generation,
         execution,
       )
       if (!committedCalculation) {
@@ -353,7 +349,6 @@ export function createAttackRunner({
         : presentation
       const committed = commitAttackPresentation(
         state,
-        request.generation,
         basePresentation,
         committedPresentation
       )
@@ -409,33 +404,21 @@ export function createAttackRunner({
     },
   })
 
-  const run = (options = {}) => {
+  const run = (options = {}, internal = {}) => {
     const {
       signal,
       onRangePlan,
       displayRequest,
-      displayRequestGeneration: suppliedDisplayRequestGeneration,
       scoreDisplayRequest,
-      scoreDisplayRequestGeneration: suppliedScoreDisplayRequestGeneration,
-      preserveResult,
       forceAll,
       ...calculationOptions
     } = options ?? {}
     const requestDisplay = displayRequest === undefined
       ? null
       : createAttackDisplayRequestSnapshot(displayRequest)
-    const requestDisplayGeneration = requestDisplay === null
+    const requestDisplayRevision = requestDisplay === null
       ? null
-      : Number.isSafeInteger(suppliedDisplayRequestGeneration)
-        ? suppliedDisplayRequestGeneration
-        : ++displayRequestGeneration
-    if (
-      requestDisplayGeneration !== null
-      && requestDisplayGeneration > displayRequestGeneration
-    ) {
-      displayRequestGeneration = requestDisplayGeneration
-    }
-
+      : ++displayRevision
     const hasScoreDisplayRequest = scoreDisplayRequest !== undefined
     const requestScoreDisplay = hasScoreDisplayRequest
       ? createAttackDisplayRequestSnapshot(scoreDisplayRequest)
@@ -452,22 +435,9 @@ export function createAttackRunner({
         request: requestScoreDisplay,
       }
     }
-    const requestScoreDisplayGeneration = requestScoreDisplay === null
+    const requestScoreDisplayRevision = requestScoreDisplay === null
       ? null
-      : Number.isSafeInteger(suppliedScoreDisplayRequestGeneration)
-        ? suppliedScoreDisplayRequestGeneration
-        : hasScoreDisplayRequest
-          ? scoreDisplayLifecycle.revision
-          : scoreDisplayLifecycle.revision
-    if (
-      requestScoreDisplayGeneration !== null
-      && requestScoreDisplayGeneration > scoreDisplayLifecycle.revision
-    ) {
-      scoreDisplayLifecycle = {
-        ...scoreDisplayLifecycle,
-        revision: requestScoreDisplayGeneration,
-      }
-    }
+      : scoreDisplayLifecycle.revision
     const entries = snapshotAttackEntries(state.combos)
     const committedRecords = getAttackCalculationRecords(state.combos)
     return calculationCoordinator.run({
@@ -475,11 +445,10 @@ export function createAttackRunner({
       committedRecords,
       calculationOptions,
       displayRequest: requestDisplay,
-      displayRequestGeneration: requestDisplayGeneration,
+      displayRevision: requestDisplayRevision,
       scoreDisplayRequest: requestScoreDisplay,
-      scoreDisplayRequestGeneration: requestScoreDisplayGeneration,
-      scoreDisplayEnabled: scoreDisplayLifecycle.status !== 'suppressed',
-      preservePresentation: preserveResult === true,
+      scoreDisplayRevision: requestScoreDisplayRevision,
+      preservePresentation: internal.preservePresentation === true,
       forceAll: forceAll === true,
     }, {
       signal,
@@ -491,7 +460,7 @@ export function createAttackRunner({
     run,
     invalidate() {
       calculationCoordinator.invalidate()
-      displayRequestGeneration += 1
+      displayRevision += 1
       invalidateScoreDisplay()
     },
     invalidateScoreDisplay() {
@@ -505,9 +474,9 @@ export function createAttackRunner({
       }
 
       const scoreOnly = options.scoreOnly === true
-      const nextDisplayRequestGeneration = scoreOnly
-        ? displayRequestGeneration
-        : ++displayRequestGeneration
+      if (!scoreOnly) {
+        displayRevision += 1
+      }
       if (scoreOnly) {
         scoreDisplayLifecycle = {
           ...scoreDisplayLifecycle,
@@ -542,7 +511,6 @@ export function createAttackRunner({
           ? createDisplayPresentation({
               ...options,
               state,
-              generation: state.generation,
               batchResult: committedSnapshot.batchResult,
               rangePlans: committedSnapshot.rangePlans,
               basePresentation,
@@ -672,7 +640,6 @@ export function createAttackRunner({
         return run({
           ...calculationOptions,
           displayRequest: requestedDisplayRequest,
-          displayRequestGeneration: nextDisplayRequestGeneration,
           scoreDisplayRequest: requestedScoreDisplayRequest,
           forceAll: true,
         })
@@ -691,7 +658,6 @@ export function createAttackRunner({
         return run({
           ...calculationOptions,
           displayRequest: requestedDisplayRequest,
-          displayRequestGeneration: nextDisplayRequestGeneration,
           forceAll: true,
           ...(
             requestedScoreDisplayRequest !== null
@@ -716,17 +682,13 @@ export function createAttackRunner({
           return false
         }
         const calculationOptions = options.calculationOptions ?? {}
-        const recalculationDisplayRequestGeneration =
-          ++displayRequestGeneration
         beginScoreDisplayRecalculation()
         return run({
           ...calculationOptions,
           displayRequest: requestedDisplayRequest,
-          displayRequestGeneration: recalculationDisplayRequestGeneration,
           scoreDisplayRequest: requestedScoreDisplayRequest,
-          preserveResult: true,
           forceAll: true,
-        })
+        }, { preservePresentation: true })
       }
 
       if (
@@ -757,7 +719,6 @@ export function createAttackRunner({
           )
       const committed = commitAttackPresentation(
         state,
-        state.generation,
         basePresentation,
         committedPresentation
       )
@@ -784,7 +745,7 @@ export function createAttackRunner({
     },
     dispose() {
       calculationCoordinator.dispose()
-      displayRequestGeneration += 1
+      displayRevision += 1
       scoreDisplayLifecycle = {
         status: 'suppressed',
         revision: scoreDisplayLifecycle.revision + 1,

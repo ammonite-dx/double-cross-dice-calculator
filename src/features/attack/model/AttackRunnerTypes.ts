@@ -38,17 +38,14 @@ export interface AttackRunnerCalculationRequest {
 export interface AttackRunnerRequestSnapshot
   extends AttackRunnerCalculationRequest {
   readonly displayRequest: DisplayRequestSnapshot | null
-  readonly displayRequestGeneration: number | null
   readonly scoreDisplayRequest: DisplayRequestSnapshot | null
-  readonly scoreDisplayRequestGeneration: number | null
-  readonly scoreDisplayEnabled: boolean
+  readonly displayRevision: number | null
+  readonly scoreDisplayRevision: number | null
   readonly preservePresentation: boolean
-  readonly generation?: number
 }
 
 export interface AttackRunnerDisplayContext {
   readonly state: AttackState
-  readonly generation?: number | null
   readonly batchResult?: AttackBatchResult
   readonly rangePlans?: readonly AttackRangePlanReference[]
   readonly basePresentation?: AttackPresentation | null
@@ -60,7 +57,7 @@ export interface AttackRunnerDisplayContext {
 
 export type AttackRunnerRefreshOptions = Omit<
   AttackRunnerDisplayContext,
-  'state' | 'generation' | 'batchResult' | 'rangePlans' | 'basePresentation'
+  'state' | 'batchResult' | 'rangePlans' | 'basePresentation'
 >
 
 export interface AttackRunnerRunOptions
@@ -71,11 +68,7 @@ export interface AttackRunnerRunOptions
   readonly signal?: AbortSignal
   readonly onRangePlan?: (plan: CalculationRangePlan) => void
   readonly displayRequest?: DisplayRequestSnapshot | null
-  readonly displayRequestGeneration?: number
   readonly scoreDisplayRequest?: DisplayRequestSnapshot | null
-  readonly scoreDisplayRequestGeneration?: number
-  readonly scoreDisplayEnabled?: boolean
-  readonly preserveResult?: boolean
   readonly forceAll?: boolean
 }
 

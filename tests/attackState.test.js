@@ -115,7 +115,6 @@ describe('AttackState', () => {
       'totalCalculation',
       'basePresentation',
       'displayPresentation',
-      'generation',
       'feedback',
       'scoreDisplayFeedback',
       'displayFeedback',
@@ -179,7 +178,6 @@ describe('AttackState', () => {
 
     expect(commitAttackCalculationExecution(
       state,
-      state.generation,
       execution
     )).toBe(true)
     expect(getAttackCalculationRecords(state.combos).map(({ id }) => id))
@@ -195,7 +193,7 @@ describe('AttackState', () => {
   it('reconstructs a complete batch from committed records without cloning results', () => {
     const state = createState()
     const execution = createExecution()
-    commitAttackCalculationExecution(state, state.generation, execution)
+    commitAttackCalculationExecution(state, execution)
 
     const snapshot = getCommittedAttackCalculationSnapshot(state)
 
@@ -217,7 +215,7 @@ describe('AttackState', () => {
   it('rejects a snapshot when records, source order, or inputs are incomplete', () => {
     const state = createState()
     const execution = createExecution()
-    commitAttackCalculationExecution(state, state.generation, execution)
+    commitAttackCalculationExecution(state, execution)
 
     state.totalCalculation = {
       ...state.totalCalculation,
@@ -231,10 +229,6 @@ describe('AttackState', () => {
 
   it('rejects stale or malformed executions before writing records', () => {
     const cases = [
-      {
-        name: 'stale generation',
-        mutate: ({ state }) => { state.generation += 1 },
-      },
       {
         name: 'wrong combo id',
         mutate: ({ execution }) => { execution.records[0].id = 'wrong' },
@@ -269,7 +263,6 @@ describe('AttackState', () => {
 
       expect(commitAttackCalculationExecution(
         state,
-        0,
         execution
       ), testCase.name).toBe(false)
       expect(state.combos.every(({ data }) => data.calculation === null))
@@ -281,13 +274,12 @@ describe('AttackState', () => {
   it('commits display presentation without replacing calculation records', () => {
     const state = createState()
     const execution = createExecution()
-    commitAttackCalculationExecution(state, state.generation, execution)
+    commitAttackCalculationExecution(state, execution)
     const base = { kind: 'base' }
     const display = createDisplayPresentation()
 
     expect(commitAttackPresentation(
       state,
-      state.generation,
       base,
       display
     )).toBe(true)
@@ -301,7 +293,7 @@ describe('AttackState', () => {
   it('rejects a mismatched presentation without changing calculation state', () => {
     const state = createState()
     const execution = createExecution()
-    commitAttackCalculationExecution(state, state.generation, execution)
+    commitAttackCalculationExecution(state, execution)
     const previousBase = { kind: 'previous-base' }
     const previousDisplay = createDisplayPresentation()
     state.basePresentation = previousBase
@@ -311,7 +303,6 @@ describe('AttackState', () => {
 
     expect(commitAttackPresentation(
       state,
-      state.generation,
       { kind: 'new-base' },
       invalidDisplay
     )).toBe(false)
@@ -323,7 +314,7 @@ describe('AttackState', () => {
   it('invalidates one combo and then the aggregate without touching other records', () => {
     const state = createState()
     const execution = createExecution()
-    commitAttackCalculationExecution(state, state.generation, execution)
+    commitAttackCalculationExecution(state, execution)
     const unaffected = state.combos[1].data.calculation
 
     expect(invalidateAttackComboCalculation(state, 'first')).toBe(true)
@@ -340,13 +331,10 @@ describe('AttackState', () => {
   it('clears all calculation and presentation state while preserving input combos', () => {
     const state = createState()
     const execution = createExecution()
-    commitAttackCalculationExecution(state, state.generation, execution)
+    commitAttackCalculationExecution(state, execution)
     state.basePresentation = { kind: 'base' }
     state.displayPresentation = createDisplayPresentation()
-    const generation = state.generation
-
-    expect(clearAttackState(state)).toBe(generation + 1)
-    expect(state.generation).toBe(generation + 1)
+    clearAttackState(state)
     expect(state.totalCalculation).toBeNull()
     expect(state.basePresentation).toBeNull()
     expect(state.displayPresentation).toBeNull()

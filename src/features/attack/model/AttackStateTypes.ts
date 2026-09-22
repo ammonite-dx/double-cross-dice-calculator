@@ -22,7 +22,6 @@ export interface AttackState {
   totalCalculation: AttackTotalCalculationRecord | null
   basePresentation: AttackPresentation | null
   displayPresentation: AttackDisplayPresentation | null
-  generation: number
   feedback: CalculationFeedbackState<CalculationRangePlan>
   scoreDisplayFeedback: CalculationFeedbackState<DisplayFeedbackPlan>
   displayFeedback: CalculationFeedbackState<DisplayFeedbackPlan>
