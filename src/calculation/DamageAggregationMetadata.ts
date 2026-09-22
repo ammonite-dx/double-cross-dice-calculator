@@ -5,8 +5,14 @@ import {
   hasPotentialTail,
   unionProbability,
 } from './DamageAggregationInspection'
+import type {
+  AggregatedDamageMetadata,
+  DamageAggregationExecutionDiagnostics,
+  DamageAggregationInternalPlan,
+  InspectedDamageComponent,
+} from './DamageAggregationTypes'
 
-export function createComponentDescriptor(component) {
+export function createComponentDescriptor(component: InspectedDamageComponent) {
   return Object.freeze({
     index: component.index,
     offset: component.offset,
@@ -22,7 +28,9 @@ export function createComponentDescriptor(component) {
   })
 }
 
-export function createAggregateDamageExpectationCertificate(inspected) {
+export function createAggregateDamageExpectationCertificate(
+  inspected: readonly InspectedDamageComponent[],
+) {
   if (inspected.length === 0) {
     return null
   }
@@ -67,7 +75,9 @@ export function createAggregateDamageExpectationCertificate(inspected) {
   })
 }
 
-export function createAggregateProjectionUncertainty(inspected) {
+export function createAggregateProjectionUncertainty(
+  inspected: readonly InspectedDamageComponent[],
+) {
   const descriptors = inspected
     .map((component) => component.projectionUncertainty)
   const hasDescriptor = descriptors.some((descriptor) => descriptor !== null)
@@ -112,7 +122,11 @@ export function createAggregateProjectionUncertainty(inspected) {
 }
 
 /** Construct the aggregate metadata and diagnostics certificate. */
-export function createDamageAggregationMetadata(inspected, plan, diagnostics) {
+export function createDamageAggregationMetadata(
+  inspected: readonly InspectedDamageComponent[],
+  plan: DamageAggregationInternalPlan,
+  diagnostics: DamageAggregationExecutionDiagnostics,
+): AggregatedDamageMetadata {
   const componentDescriptors = Object.freeze(inspected.map(createComponentDescriptor))
   const modeledSupport = copySupport(plan.modeledSupport)
   const sourceSupport = copySupport(plan.sourceSupport)
