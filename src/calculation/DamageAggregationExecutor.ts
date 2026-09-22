@@ -347,7 +347,7 @@ export function executePreparedDamageAggregation(
     }
   }
 
-  let rawExplicitMass = 0
+  let rawExplicitMass: number
   let explicitMass = 0
   let fftMassDrift = 0
   let sourceMassDrift = 0
