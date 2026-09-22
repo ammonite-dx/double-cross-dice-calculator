@@ -19,6 +19,7 @@
 ```text
 validated input
   -> feature snapshot / latest-wins request
+  -> Attack coordinator / committed calculation records
   -> CalculationClient
   -> reaction normalization: rolled / fixed / forced-failure Score resolution
   -> range preflight + ResourceGuard lease
@@ -30,6 +31,8 @@ validated input
 ```
 
 入力変更のたびにfeatureはvalidated snapshotを作り、`CalculationClient`へ最新要求を渡します。古い要求のAbortまたは遅延完了は、request identityで結果commitから除外します。表示範囲の変更は計算結果を再利用できる場合と、範囲を拡張して再計算する場合をprojection plannerが判断します。
+
+Attackでは、入力snapshotをcoordinatorが固定し、incremental executorが変更されたコンボだけを計算して、コンボレコードとtotalレコードを`AttackState`へ先にコミットします。表示はこのcommitted calculation snapshotから生成されるため、presentationや表示資源の失敗は計算レコードを失わず、表示範囲の変更・資源回復時には計算を再利用できます。score displayはdamageとは独立したrevisionを持ち、score-onlyの失敗やstale結果がdamage表示へ混入しないようにします。
 
 ## 計算実行境界
 
