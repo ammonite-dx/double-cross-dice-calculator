@@ -133,14 +133,26 @@ describe('canonical distribution result', () => {
   })
 
   it('copies generic ArrayLike input into the canonical Float64Array', () => {
-    const result = createDistributionResult(
-      { 0: 0.2, 1: 0.8, length: 2 },
-      { offset: 3, support: { kind: 'finite', max: 4 }, overflow: null }
-    )
+    const result = createDistributionResult({
+      values: { 0: 0.2, 1: 0.8, length: 2 },
+      offset: 3,
+      support: { kind: 'finite', max: 4 },
+      overflow: null,
+    })
 
     expect(result.values).toBeInstanceOf(Float64Array)
     expect(Array.from(result.values)).toEqual([0.2, 0.8])
     expect(getExplicitMax(result)).toBe(4)
+  })
+
+  it('rejects the retired values-plus-options factory form', () => {
+    expectTypedError(
+      () => createDistributionResult(
+        { 0: 0.2, 1: 0.8, length: 2 },
+        { offset: 3, support: { kind: 'finite', max: 4 }, overflow: null }
+      ),
+      DISTRIBUTION_RESULT_ERROR_CODES.INVALID_INPUT
+    )
   })
 
   it('validates exact and upper-bound mass separately', () => {

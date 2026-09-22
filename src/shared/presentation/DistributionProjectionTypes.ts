@@ -13,16 +13,11 @@ import type { CertifiedValue } from '../../domain/CertifiedValue'
 import type {
   DistributionEnvelope,
   DistributionOverflow,
-  DistributionResult,
   DistributionSupport,
   ProbabilityMassSummary,
 } from '../../domain/DistributionResultTypes'
 
 export type DisplayMode = 'pmf' | 'upper-tail'
-
-/** Compatibility names for the shared presentation boundary. */
-export type CanonicalDistributionResult = DistributionResult
-export type CanonicalDistributionEnvelope = DistributionEnvelope
 
 /** A closed, inclusive display interval and its derived number of points. */
 export interface DisplayWindow {

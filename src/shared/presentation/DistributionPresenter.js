@@ -3,7 +3,7 @@ import {
 } from '../../calculation/DistributionResult'
 
 /** @typedef {import('./DistributionProjectionTypes').DistributionDisplay} DistributionDisplay */
-/** @typedef {import('./DistributionProjectionTypes').CanonicalDistributionEnvelope} CanonicalDistributionEnvelope */
+/** @typedef {import('./DistributionProjectionTypes').DistributionEnvelope} DistributionEnvelope */
 
 export const DISTRIBUTION_DISPLAY_VERSION = 1
 
@@ -308,7 +308,7 @@ function readSummary(options) {
  * An optional displayWindow is retained as a request boundary and never
  * truncates the explicit coverage.
  *
- * @param {CanonicalDistributionEnvelope} envelope
+ * @param {DistributionEnvelope} envelope
  * @param {{ summary: Object, warnings?: readonly Object[], displayWindow?: { min: number, max: number } }} options
  * @returns {DistributionDisplay}
  */

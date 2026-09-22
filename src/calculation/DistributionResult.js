@@ -12,7 +12,6 @@ export const DISTRIBUTION_RESULT_VERSION = 1
 // Keep the distribution result's mass checks in one place. This matches the
 // existing runtime calculation total tolerance without changing those paths.
 export const DISTRIBUTION_RESULT_TOLERANCE = 1e-8
-export const PROBABILITY_TOLERANCE = DISTRIBUTION_RESULT_TOLERANCE
 
 export const DISTRIBUTION_RESULT_ERROR_CODES = Object.freeze({
   INVALID_INPUT: 'invalid-input',
@@ -446,16 +445,13 @@ function createImmutableResult(values, offset, support, overflow) {
   return Object.freeze(result)
 }
 
-function normalizeFactoryInput(input, options) {
-  if (options === undefined && isRecord(input) && hasOwn(input, 'values')) {
+function normalizeFactoryInput(input) {
+  if (isRecord(input) && hasOwn(input, 'values')) {
     return input
-  }
-  if (options !== undefined && isValueSource(input) && isRecord(options)) {
-    return { ...options, values: input }
   }
   failValidation(
     DISTRIBUTION_RESULT_ERROR_CODES.INVALID_INPUT,
-    'createDistributionResult expects a result object or values plus options'
+    'createDistributionResult expects a result object'
   )
 }
 
@@ -467,8 +463,8 @@ function normalizeFactoryInput(input, options) {
  * writable copy is needed. Input values may be any object with a safe integer
  * length and numeric indexed elements.
  */
-export function createDistributionResult(input, options) {
-  const source = normalizeFactoryInput(input, options)
+export function createDistributionResult(input) {
+  const source = normalizeFactoryInput(input)
   const values = copyValues(source.values)
   const offset = source.offset === undefined ? 0 : source.offset
   const support = source.support
@@ -496,10 +492,6 @@ export function validateDistributionResult(result) {
 
 export function getExplicitMax(result) {
   return inspectDistributionResult(result).explicitMax
-}
-
-export function getValuesCopy(result) {
-  return copyDistributionValues(result)
 }
 
 export function copyDistributionValues(result) {
@@ -539,8 +531,6 @@ export function getProbabilityMassSummary(result) {
     isExact: overflow?.kind !== 'upper-bound',
   })
 }
-
-export const summarizeProbabilityMass = getProbabilityMassSummary
 
 function sumExplicitFirstMoment(values, offset) {
   let firstMoment = 0
