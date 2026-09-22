@@ -8,6 +8,13 @@ import {
   isDisplayCoordinate,
 } from '../../../shared/validation/DisplayRangeRules'
 import { createCheckInputSnapshot } from './CheckInputSnapshot'
+import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
+import type { RangePolicyInput } from '../../../calculation/planning/RangePlannerTypes'
+
+type CheckCalculationDraft = Parameters<typeof createCheckInputSnapshot>[0] & {
+  readonly displayRequest?: unknown
+  readonly rangePolicy?: RangePolicyInput
+}
 
 export const CHECK_DISPLAY_REQUEST_VERSION = 1
 
@@ -24,24 +31,31 @@ export const CHECK_DISPLAY_REQUEST_ERROR_CODES = Object.freeze({
   INVALID_POLICY: CHECK_RANGE_POLICY_ERROR_CODE,
 })
 
-export const DEFAULT_CHECK_DISPLAY_REQUEST = Object.freeze({
+export const DEFAULT_CHECK_DISPLAY_REQUEST: DisplayRequestSnapshot = Object.freeze({
   min: 0,
   max: 30,
   mode: CHECK_DISPLAY_MODES.PMF,
 })
 
-function isRecord(value) {
+const DEFAULT_CHECK_DISPLAY_REQUEST_SNAPSHOT = DEFAULT_CHECK_DISPLAY_REQUEST
+
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function fail(code, message, details = {}) {
-  const error = new TypeError(message)
-  error.code = code
-  error.details = Object.freeze({ ...details })
+function fail(
+  code: string,
+  message: string,
+  details: Record<string, unknown> = {},
+): never {
+  const error = Object.assign(new TypeError(message), {
+    code,
+    details: Object.freeze({ ...details }),
+  })
   throw error
 }
 
-function readOwn(request, property) {
+function readOwn(request: Record<string, unknown>, property: string): unknown {
   if (!Object.prototype.hasOwnProperty.call(request, property)) {
     fail(
       CHECK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
@@ -52,7 +66,7 @@ function readOwn(request, property) {
   return request[property]
 }
 
-function normalizeCoordinate(value, property) {
+function normalizeCoordinate(value: unknown, property: 'min' | 'max'): number {
   if (!isDisplayCoordinate(value)) {
     fail(
       property === 'min'
@@ -65,7 +79,7 @@ function normalizeCoordinate(value, property) {
   return value
 }
 
-function normalizeMode(value) {
+function normalizeMode(value: unknown): DisplayRequestSnapshot['mode'] {
   if (!isDisplayMode(value)) {
     fail(
       CHECK_DISPLAY_REQUEST_ERROR_CODES.INVALID_MODE,
@@ -81,7 +95,9 @@ function normalizeMode(value) {
  * calculation aliases such as `displayWindow` or `setting`; the returned
  * object is the only shape passed between the Check form and presentation.
  */
-export function normalizeCheckDisplayRequest(request) {
+export function normalizeCheckDisplayRequest(
+  request: unknown,
+): DisplayRequestSnapshot {
   if (!isRecord(request)) {
     fail(
       CHECK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
@@ -108,7 +124,9 @@ export function normalizeCheckDisplayRequest(request) {
   return { min, max, mode: normalizeMode(readOwn(request, 'mode')) }
 }
 
-export function createCheckDisplayRequestSnapshot(request) {
+export function createCheckDisplayRequestSnapshot(
+  request: unknown = DEFAULT_CHECK_DISPLAY_REQUEST_SNAPSHOT,
+): DisplayRequestSnapshot {
   const normalized = normalizeCheckDisplayRequest(request)
   return Object.freeze({
     min: normalized.min,
@@ -117,12 +135,12 @@ export function createCheckDisplayRequestSnapshot(request) {
   })
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value !== 'object' || seen.has(value)) {
     return value
   }
-  seen.add(value)
-  for (const entry of Object.values(value)) {
+  seen.add(value as object)
+  for (const entry of Object.values(value as object)) {
     deepFreeze(entry, seen)
   }
   return Object.freeze(value)
@@ -133,7 +151,9 @@ function deepFreeze(value, seen = new WeakSet()) {
  * latest-wins runner. Existing createCheckInputSnapshot remains unchanged for
  * callers that only need calculation inputs.
  */
-export function createCheckCalculationRequestSnapshot(draft = {}) {
+export function createCheckCalculationRequestSnapshot(
+  draft: CheckCalculationDraft = {},
+) {
   const displayRequest = createCheckDisplayRequestSnapshot(
     draft.displayRequest ?? DEFAULT_CHECK_DISPLAY_REQUEST
   )

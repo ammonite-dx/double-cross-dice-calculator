@@ -362,7 +362,7 @@ export async function useCheck({
         snapshot.difficulty,
         {
           ...snapshot,
-          signal: context.signal,
+          signal: context.signal ?? undefined,
           onRangePlan: context.onRangePlan,
         }
       ),

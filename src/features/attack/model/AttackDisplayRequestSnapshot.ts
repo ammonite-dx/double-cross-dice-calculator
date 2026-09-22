@@ -3,6 +3,8 @@ import {
   isDisplayMode,
   isDisplayCoordinate,
 } from '../../../shared/validation/DisplayRangeRules'
+import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
+import type { RangePolicyInput } from '../../../calculation/planning/RangePlannerTypes'
 
 /** @typedef {import('../../../domain/CalculationInputs').DisplayRequestSnapshot} DisplayRequestSnapshot */
 /** @typedef {import('../../../calculation/planning/RangePlannerTypes').RangePolicyInput} RangePolicyInput */
@@ -23,17 +25,20 @@ export const ATTACK_DISPLAY_REQUEST_ERROR_CODES = Object.freeze({
   INVALID_POLICY: 'invalid-attack-range-policy',
 })
 
-export const DEFAULT_ATTACK_DISPLAY_REQUEST = Object.freeze({
+export const DEFAULT_ATTACK_DISPLAY_REQUEST: DisplayRequestSnapshot = Object.freeze({
   min: 0,
   max: 100,
   mode: ATTACK_DISPLAY_MODES.PMF,
 })
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function clonePolicyValue(value, seen = new WeakMap()) {
+function clonePolicyValue(
+  value: unknown,
+  seen = new WeakMap<object, unknown>(),
+): unknown {
   if (value === null || typeof value !== 'object') {
     return value
   }
@@ -41,7 +46,7 @@ function clonePolicyValue(value, seen = new WeakMap()) {
     return seen.get(value)
   }
   if (Array.isArray(value)) {
-    const copy = []
+    const copy: unknown[] = []
     seen.set(value, copy)
     for (const entry of value) {
       copy.push(clonePolicyValue(entry, seen))
@@ -55,7 +60,7 @@ function clonePolicyValue(value, seen = new WeakMap()) {
       { path: 'rangePolicy' }
     )
   }
-  const copy = {}
+  const copy: Record<string, unknown> = {}
   seen.set(value, copy)
   for (const [key, entry] of Object.entries(value)) {
     copy[key] = clonePolicyValue(entry, seen)
@@ -63,22 +68,26 @@ function clonePolicyValue(value, seen = new WeakMap()) {
   return copy
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value !== 'object' || seen.has(value)) {
     return value
   }
-  seen.add(value)
-  for (const child of Object.values(value)) {
+  seen.add(value as object)
+  for (const child of Object.values(value as object)) {
     deepFreeze(child, seen)
   }
   return Object.freeze(value)
 }
 
-function validateOptionalPolicyInteger(value, path) {
+function validateOptionalPolicyInteger(value: unknown, path: string): void {
   if (value === undefined) {
     return
   }
-  if (!Number.isSafeInteger(value) || value < 0) {
+  if (
+    typeof value !== 'number'
+    || !Number.isSafeInteger(value)
+    || value < 0
+  ) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
       `${path} must be a non-negative safe integer`,
@@ -87,7 +96,12 @@ function validateOptionalPolicyInteger(value, path) {
   }
 }
 
-function validatePolicySchema(value, path, allowed, seen = new WeakSet()) {
+function validatePolicySchema(
+  value: unknown,
+  path: string,
+  allowed: ReadonlySet<string>,
+  seen = new WeakSet<object>(),
+): void {
   if (value === null || value === undefined) {
     return
   }
@@ -144,15 +158,20 @@ function validatePolicySchema(value, path, allowed, seen = new WeakSet()) {
   }
 }
 
-function fail(code, message, details = {}) {
-  const error = new TypeError(message)
-  error.code = code
-  error.details = Object.freeze({ ...details })
-  error.attackDisplayRequest = true
+function fail(
+  code: string,
+  message: string,
+  details: Record<string, unknown> = {},
+): never {
+  const error = Object.assign(new TypeError(message), {
+    code,
+    details: Object.freeze({ ...details }),
+    attackDisplayRequest: true,
+  })
   throw error
 }
 
-function readOwn(request, property) {
+function readOwn(request: Record<string, unknown>, property: string): unknown {
   if (!Object.prototype.hasOwnProperty.call(request, property)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
@@ -163,7 +182,7 @@ function readOwn(request, property) {
   return request[property]
 }
 
-function normalizeCoordinate(value, property) {
+function normalizeCoordinate(value: unknown, property: 'min' | 'max'): number {
   if (!isDisplayCoordinate(value)) {
     fail(
       property === 'min'
@@ -176,7 +195,7 @@ function normalizeCoordinate(value, property) {
   return value
 }
 
-function normalizeMode(value) {
+function normalizeMode(value: unknown): DisplayRequestSnapshot['mode'] {
   if (!isDisplayMode(value)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_MODE,
@@ -192,7 +211,9 @@ function normalizeMode(value) {
  * damage requests. Calculation aliases and legacy 999 limits deliberately do
  * not belong to this value.
  */
-export function normalizeAttackDisplayRequest(request) {
+export function normalizeAttackDisplayRequest(
+  request: unknown,
+): DisplayRequestSnapshot {
   if (!isRecord(request)) {
     fail(
       ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_REQUEST,
@@ -234,8 +255,8 @@ export function normalizeAttackDisplayRequest(request) {
  * @returns {DisplayRequestSnapshot}
  */
 export function createAttackDisplayRequestSnapshot(
-  request = DEFAULT_ATTACK_DISPLAY_REQUEST
-) {
+  request: unknown = DEFAULT_ATTACK_DISPLAY_REQUEST,
+): DisplayRequestSnapshot {
   const normalized = normalizeAttackDisplayRequest(request)
   return Object.freeze({
     min: normalized.min,
@@ -256,10 +277,10 @@ export function createAttackDisplayRequestSnapshot(
  * @returns {RangePolicyInput}
  */
 export function createAttackRangePolicy(
-  displayRequest,
-  suppliedPolicy = {},
-  scoreDisplayRequest
-) {
+  displayRequest: DisplayRequestSnapshot,
+  suppliedPolicy: RangePolicyInput = {},
+  scoreDisplayRequest?: DisplayRequestSnapshot,
+): RangePolicyInput {
   createAttackDisplayRequestSnapshot(displayRequest)
   if (!isRecord(suppliedPolicy)) {
     fail(
@@ -273,7 +294,7 @@ export function createAttackRangePolicy(
     createAttackDisplayRequestSnapshot(scoreDisplayRequest)
   }
 
-  const policy = clonePolicyValue(suppliedPolicy)
+  const policy = clonePolicyValue(suppliedPolicy) as Record<string, unknown>
   validatePolicySchema(
     policy,
     'rangePolicy',
@@ -291,5 +312,5 @@ export function createAttackRangePolicy(
     suppliedDisplay.maxPoints,
     'rangePolicy.display.maxPoints'
   )
-  return deepFreeze(policy)
+  return deepFreeze(policy) as RangePolicyInput
 }
