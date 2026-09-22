@@ -1,4 +1,16 @@
 import { DISPLAY_PROBABILITY_TOLERANCE } from './DistributionPresenter'
+import type {
+  DisplayRangePlan,
+  DisplayRangeSegment,
+  DisplayWarning,
+  DisplayWindow,
+  DisplayWindowResourcePlan,
+  DistributionDisplay,
+} from './DistributionProjectionTypes'
+import type {
+  DistributionOverflow,
+  DistributionSupport,
+} from '../../domain/DistributionResultTypes'
 
 /** @typedef {import('./DistributionProjectionTypes').DisplayRangePlan} DisplayRangePlan */
 /** @typedef {import('./DistributionProjectionTypes').DisplayWindowResourcePlan} DisplayWindowResourcePlan */
@@ -6,6 +18,36 @@ import { DISPLAY_PROBABILITY_TOLERANCE } from './DistributionPresenter'
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER
 const FLOAT64_BYTES_PER_POINT = Float64Array.BYTES_PER_ELEMENT
+
+interface NormalizedDisplayWindow extends DisplayWindow {
+  readonly float64Bytes: number
+  readonly chartPoints: number
+}
+
+interface DisplayRangePolicy {
+  readonly pointCount: number
+  readonly float64Bytes: number
+  readonly chartPoints: number
+}
+
+interface DisplayRangePlannerOptions {
+  readonly displayWindow?: unknown
+  readonly policy?: unknown
+}
+
+interface CoverageClassification {
+  readonly decision: 'reuse' | 'known-zero' | 'recalculate'
+  readonly reason: string
+  readonly missingSegments: readonly DisplayRangeSegment[]
+  readonly knownZero: DisplayRangePlan['coverage']['knownZero']
+}
+
+interface ResourceClassification {
+  readonly accepted: boolean
+  readonly status: 'accepted' | 'rejected'
+  readonly warnings: readonly DisplayWarning[]
+  readonly rejectionReasons: readonly string[]
+}
 
 export const DISPLAY_RANGE_PLANNER_VERSION = 1
 
@@ -27,11 +69,11 @@ export const DEFAULT_DISPLAY_RANGE_PLANNER_POLICY = Object.freeze({
   chartPoints: 16_384,
 })
 
-function hasOwn(object, property) {
+function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
 
-function isPlainRecord(value) {
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
@@ -43,43 +85,59 @@ function isPlainRecord(value) {
   }
 }
 
-function freezeDetails(details) {
+function freezeDetails(details: unknown): Readonly<Record<string, unknown>> {
   return Object.freeze(isPlainRecord(details) ? { ...details } : {})
 }
 
 export class DisplayRangePlannerError extends Error {
-  constructor(code, message, details = {}) {
+  readonly code: string
+  readonly details: Readonly<Record<string, unknown>>
+  readonly displayRangePlanner = true
+  readonly validation: boolean = false
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(message)
     this.name = 'DisplayRangePlannerError'
     this.code = code
     this.details = freezeDetails(details)
-    this.displayRangePlanner = true
   }
 }
 
 export class DisplayRangePlannerValidationError
   extends DisplayRangePlannerError {
-  constructor(code, message, details = {}) {
+  override readonly validation: boolean = true
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(code, message, details)
     this.name = 'DisplayRangePlannerValidationError'
     this.validation = true
   }
 }
 
-export function isDisplayRangePlannerError(error) {
-  return error?.displayRangePlanner === true
+export function isDisplayRangePlannerError(
+  error: unknown,
+): error is DisplayRangePlannerError {
+  return isPlainRecord(error)
+    && error.displayRangePlanner === true
     && typeof error.code === 'string'
 }
 
-export function isDisplayRangePlannerValidationError(error) {
+export function isDisplayRangePlannerValidationError(
+  error: unknown,
+): error is DisplayRangePlannerValidationError {
   return isDisplayRangePlannerError(error) && error.validation === true
 }
 
-function fail(code, message, details = {}) {
+function fail(code: string, message: string, details: unknown = {}): never {
   throw new DisplayRangePlannerValidationError(code, message, details)
 }
 
-function getOwnDataProperty(value, property, code, path) {
+function getOwnDataProperty(
+  value: Record<string, unknown>,
+  property: string,
+  code: string,
+  path: string,
+): unknown {
   if (!hasOwn(value, property)) {
     fail(
       code,
@@ -108,21 +166,35 @@ function getOwnDataProperty(value, property, code, path) {
   return descriptor.value
 }
 
-function requirePlainRecord(value, code, path, message) {
+function requirePlainRecord(
+  value: unknown,
+  code: string,
+  path: string,
+  message: string,
+): Record<string, unknown> {
   if (!isPlainRecord(value)) {
     fail(code, message ?? `${path} must be a plain record`, { path })
   }
   return value
 }
 
-function requireNonNegativeSafeInteger(value, code, message, path) {
-  if (!Number.isSafeInteger(value) || value < 0) {
+function requireNonNegativeSafeInteger(
+  value: unknown,
+  code: string,
+  message: string,
+  path: string,
+): number {
+  if (
+    typeof value !== 'number'
+    || !Number.isSafeInteger(value)
+    || value < 0
+  ) {
     fail(code, message, { path, value })
   }
-  return value
+  return value as number
 }
 
-function hasPotentialOverflowMass(overflow) {
+function hasPotentialOverflowMass(overflow: DistributionOverflow | null): boolean {
   return overflow !== null
     && (
       overflow.errorBound > 0
@@ -134,51 +206,51 @@ function hasPotentialOverflowMass(overflow) {
   )
 }
 
-function normalizeDisplayWindow(windowInput) {
-  requirePlainRecord(
+function normalizeDisplayWindow(windowInput: unknown): NormalizedDisplayWindow {
+  const window = requirePlainRecord(
     windowInput,
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
     'displayWindow',
     'displayWindow must be a plain record'
   )
   const min = getOwnDataProperty(
-    windowInput,
+    window,
     'min',
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
     'displayWindow'
   )
   const max = getOwnDataProperty(
-    windowInput,
+    window,
     'max',
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
     'displayWindow'
   )
-  requireNonNegativeSafeInteger(
+  const normalizedMin = requireNonNegativeSafeInteger(
     min,
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
     'displayWindow.min must be a non-negative safe integer',
     'displayWindow.min'
   )
-  requireNonNegativeSafeInteger(
+  const normalizedMax = requireNonNegativeSafeInteger(
     max,
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
     'displayWindow.max must be a non-negative safe integer',
     'displayWindow.max'
   )
-  if (max < min) {
+  if (normalizedMax < normalizedMin) {
     fail(
       DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_DISPLAY_WINDOW,
       'displayWindow.max must be greater than or equal to displayWindow.min',
-      { min, max }
+      { min: normalizedMin, max: normalizedMax }
     )
   }
 
-  const difference = max - min
+  const difference = normalizedMax - normalizedMin
   if (difference >= MAX_SAFE_INTEGER) {
     fail(
       DISPLAY_RANGE_PLANNER_ERROR_CODES.RANGE_OVERFLOW,
       'displayWindow.max - min + 1 must be a safe integer',
-      { min, max, difference }
+      { min: normalizedMin, max: normalizedMax, difference }
     )
   }
   const pointCount = difference + 1
@@ -186,7 +258,7 @@ function normalizeDisplayWindow(windowInput) {
     fail(
       DISPLAY_RANGE_PLANNER_ERROR_CODES.ESTIMATE_OVERFLOW,
       'displayWindow Float64Array memory estimate must be a safe integer',
-      { min, max, pointCount, bytesPerPoint: FLOAT64_BYTES_PER_POINT }
+      { min: normalizedMin, max: normalizedMax, pointCount, bytesPerPoint: FLOAT64_BYTES_PER_POINT }
     )
   }
   const float64Bytes = pointCount * FLOAT64_BYTES_PER_POINT
@@ -194,31 +266,34 @@ function normalizeDisplayWindow(windowInput) {
     fail(
       DISPLAY_RANGE_PLANNER_ERROR_CODES.ESTIMATE_OVERFLOW,
       'displayWindow Float64Array memory estimate must be a safe integer',
-      { min, max, pointCount, float64Bytes }
+      { min: normalizedMin, max: normalizedMax, pointCount, float64Bytes }
     )
   }
 
   return {
-    min,
-    max,
+    min: normalizedMin,
+    max: normalizedMax,
     pointCount,
     float64Bytes,
     chartPoints: pointCount,
   }
 }
 
-function normalizeLimitRecord(value, name) {
+function normalizeLimitRecord(
+  value: unknown,
+  name: string,
+): Partial<DisplayRangePolicy> {
   if (value === undefined) {
     return {}
   }
-  requirePlainRecord(
+  const record = requirePlainRecord(
     value,
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
     name,
     `${name} must be a plain record`
   )
   const allowedMetrics = new Set(['pointCount', 'float64Bytes', 'chartPoints'])
-  for (const property of Reflect.ownKeys(value)) {
+  for (const property of Reflect.ownKeys(record)) {
     if (typeof property !== 'string' || !allowedMetrics.has(property)) {
       fail(
         DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
@@ -227,39 +302,41 @@ function normalizeLimitRecord(value, name) {
       )
     }
   }
-  const normalized = {}
-  for (const metric of ['pointCount', 'float64Bytes', 'chartPoints']) {
-    if (!hasOwn(value, metric)) {
+  const normalized: Partial<Record<keyof DisplayRangePolicy, number>> = {}
+  for (const metric of ['pointCount', 'float64Bytes', 'chartPoints'] as const) {
+    if (!hasOwn(record, metric)) {
       continue
     }
     const threshold = getOwnDataProperty(
-      value,
+      record,
       metric,
       DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
       name
     )
-    if (!Number.isSafeInteger(threshold) || threshold < 0) {
+    if (
+      typeof threshold !== 'number'
+      || !Number.isSafeInteger(threshold)
+      || threshold < 0
+    ) {
       fail(
         DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
         `${name}.${metric} must be a non-negative safe integer`,
         { path: `${name}.${metric}`, value: threshold }
       )
     }
-    normalized[metric] = threshold
+    normalized[metric] = threshold as number
   }
   return normalized
 }
 
-function normalizePolicy(policy) {
+function normalizePolicy(policy: unknown): DisplayRangePolicy {
   const supplied = policy === undefined ? {} : policy
-  requirePlainRecord(
+  const source = requirePlainRecord(
     supplied,
     DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
     'policy',
     'display range planner policy must be a plain record'
   )
-
-  const source = supplied
 
   return {
     ...DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
@@ -267,7 +344,10 @@ function normalizePolicy(policy) {
   }
 }
 
-function getInvocationOptions(display, options) {
+function getInvocationOptions(
+  display: DistributionDisplay,
+  options: DisplayRangePlannerOptions | undefined,
+): { displayWindow: unknown; policy: unknown } {
   if (options === undefined) {
     return {
       displayWindow: display.displayWindow,
@@ -309,7 +389,7 @@ function getInvocationOptions(display, options) {
   return { displayWindow, policy }
 }
 
-function makeSegment(min, max) {
+function makeSegment(min: number, max: number): DisplayRangeSegment | null {
   if (min > max) {
     return null
   }
@@ -320,7 +400,10 @@ function makeSegment(min, max) {
   }
 }
 
-function classifyCoverage(display, displayWindow) {
+function classifyCoverage(
+  display: DistributionDisplay,
+  displayWindow: DisplayWindow,
+): CoverageClassification {
   // The display has already crossed the validation/copy boundary in
   // `presentDistribution`. Keep this stage O(1) in explicit coverage: use the
   // trusted metadata and validate only the new window and resource policy.
@@ -358,8 +441,8 @@ function classifyCoverage(display, displayWindow) {
       )
     )
 
-  let lowerMissing = null
-  let upperMissing = null
+  let lowerMissing: DisplayRangeSegment | null = null
+  let upperMissing: DisplayRangeSegment | null = null
   if (!entirelyAboveFiniteSupport) {
     if (min < offset) {
       lowerMissing = makeSegment(min, Math.min(max, offset - 1))
@@ -379,7 +462,7 @@ function classifyCoverage(display, displayWindow) {
   }
 
   const missingSegments = [lowerMissing, upperMissing]
-    .filter((segment) => segment !== null)
+    .filter((segment): segment is DisplayRangeSegment => segment !== null)
   const decision = entirelyAboveFiniteSupport
     ? 'known-zero'
     : missingSegments.length > 0 || overflowOverlapsWindow
@@ -389,7 +472,7 @@ function classifyCoverage(display, displayWindow) {
   const knownZeroRight = finiteSupport && max > support.max
     ? makeSegment(Math.max(min, support.max + 1), max)
     : null
-  const knownZero = knownZeroRight === null
+  const knownZero: CoverageClassification['knownZero'] = knownZeroRight === null
     ? {
         kind: 'none',
         pointCount: 0,
@@ -421,10 +504,18 @@ function classifyCoverage(display, displayWindow) {
   }
 }
 
-function classifyResources(estimates, policy) {
-  const warnings = []
+function classifyResources(
+  estimates: Pick<NormalizedDisplayWindow, 'pointCount' | 'float64Bytes' | 'chartPoints'>,
+  policy: DisplayRangePolicy,
+): ResourceClassification {
+  const warnings: DisplayWarning[] = []
   let accepted = true
-  const metrics = [
+  const metrics: readonly {
+    readonly name: keyof DisplayRangePolicy
+    readonly code: string
+    readonly value: number
+    readonly unit: string
+  }[] = [
     // These currently have the same worst-case value because one requested
     // coordinate maps to one prospective chart point. They remain separate
     // budgets: array length and renderer load can acquire different limits.
@@ -473,12 +564,16 @@ function classifyResources(estimates, policy) {
   }
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) {
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
+  if (
+    value === null
+    || typeof value !== 'object'
+    || seen.has(value as object)
+  ) {
     return value
   }
-  seen.add(value)
-  for (const child of Object.values(value)) {
+  seen.add(value as object)
+  for (const child of Object.values(value as object)) {
     deepFreeze(child, seen)
   }
   return Object.freeze(value)
@@ -499,7 +594,10 @@ function deepFreeze(value, seen = new WeakSet()) {
  * @param {Object} [options.policy]
  * @returns {DisplayRangePlan} A frozen coverage and resource plan.
  */
-export function planDisplayRange(display, options) {
+export function planDisplayRange(
+  display: DistributionDisplay,
+  options?: DisplayRangePlannerOptions,
+): DisplayRangePlan {
   if (arguments.length > 2) {
     fail(
       DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_OPTIONS,
@@ -567,7 +665,10 @@ export function planDisplayRange(display, options) {
  * @param {Object} [policy]
  * @returns {DisplayWindowResourcePlan}
  */
-export function planDisplayWindowResources(displayWindow, policy) {
+export function planDisplayWindowResources(
+  displayWindow: { readonly min: number; readonly max: number },
+  policy?: unknown,
+): DisplayWindowResourcePlan {
   const normalizedWindow = normalizeDisplayWindow(displayWindow)
   const normalizedPolicy = normalizePolicy(policy)
   const estimates = {
