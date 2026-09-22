@@ -325,7 +325,7 @@ describe('Attack canonical display integration', () => {
       max: 0,
       mode: ATTACK_DISPLAY_MODES.PMF,
     })
-    expect(state.displayPresentation.combos[0].series.values)
+    expect(state.displayPresentation.combos[0].projection.values)
       .toHaveLength(1)
 
     state.combos[0].data.params.action.score.dice = 2
@@ -402,7 +402,7 @@ describe('Attack canonical display integration', () => {
     })).toBe(true)
     expect(state.displayPresentation.score.status).toBe('ready')
     expect(Array.from(
-      state.displayPresentation.score.combos[0].action.series.values
+      state.displayPresentation.score.combos[0].action.projection.values
     )).toEqual([0, 0])
     expect(calculationClient.resolveAttackFixture)
       .toHaveBeenCalledOnce()
@@ -582,7 +582,7 @@ describe('Attack canonical display integration', () => {
     expect(state.displayPresentation.score.displayRequest)
       .toEqual(expandedScoreRequest)
     expect(state.displayPresentation.score.combos[0]
-      .action.series.values)
+      .action.projection.values)
       .toEqual(new Float64Array([0.2, 0.3, 0.5]))
     expect(calculationCount).toBe(2)
   })
@@ -961,7 +961,7 @@ describe('Attack canonical display integration', () => {
     expect(state.displayPresentation.score.displayRequest)
       .toEqual(latestScoreRequest)
     expect(Array.from(
-      state.displayPresentation.score.combos[0].action.series.values
+      state.displayPresentation.score.combos[0].action.projection.values
     )).toEqual([0.1, 0.2, 0.3, 0.4])
   })
 
@@ -1336,7 +1336,7 @@ describe('Attack canonical display integration', () => {
     expect(calculationClient.resolveAttackFixture).toHaveBeenCalledTimes(3)
     expect(signals[1].aborted).toBe(true)
     expect(state.displayPresentation.displayRequest.max).toBe(3)
-    expect(Array.from(state.displayPresentation.combos[0].series.values))
+    expect(Array.from(state.displayPresentation.combos[0].projection.values))
       .toEqual([0.1, 0.2, 0.3, 0.4])
   })
 

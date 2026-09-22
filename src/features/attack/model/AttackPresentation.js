@@ -391,7 +391,6 @@ function createAttackDisplaySide(
     display,
     projection,
     plan: projection.plan,
-    series: projection,
     chart,
     status: projection.status,
     reason: projection.status === 'ready'

@@ -108,19 +108,19 @@ describe('createAttackDisplayPresentation', () => {
         decision: 'reuse',
       },
       plan: { decision: 'reuse' },
-      series: {
+      projection: {
         kind: 'canonical-distribution-projection',
         status: 'ready',
         displayWindow: { min: 0, max: 1, pointCount: 2 },
       },
     })
-    expect(Array.from(presentation.combos[0].series.values))
+    expect(Array.from(presentation.combos[0].projection.values))
       .toEqual([0.25, 0.75])
     expect(presentation.combos[0].chart.labels).toEqual([0, 1])
     expect(presentation.combos[0].chart.datasets[0].data)
-      .toBe(presentation.combos[0].series.values)
+      .toBe(presentation.combos[0].projection.values)
     expect(presentation.total.status).toBe('ready')
-    expect(Array.from(presentation.total.series.values))
+    expect(Array.from(presentation.total.projection.values))
       .toEqual([0.25, 0.75])
   })
 
@@ -142,8 +142,8 @@ describe('createAttackDisplayPresentation', () => {
       decision: 'reuse',
       coverage: { explicit: { max: 1200 } },
     })
-    expect(presentation.combos[0].series.values).toHaveLength(1201)
-    expect(presentation.combos[0].series.values[1200]).toBe(1)
+    expect(presentation.combos[0].projection.values).toHaveLength(1201)
+    expect(presentation.combos[0].projection.values[1200]).toBe(1)
     expect(presentation.combos[0].chart.labels.at(-1)).toBe(1200)
   })
 
@@ -157,8 +157,8 @@ describe('createAttackDisplayPresentation', () => {
     })
 
     expect(presentation.status).toBe('ready')
-    expect(presentation.combos[0].series.mode).toBe('upper-tail')
-    expect(Array.from(presentation.combos[0].series.values))
+    expect(presentation.combos[0].projection.mode).toBe('upper-tail')
+    expect(Array.from(presentation.combos[0].projection.values))
       .toEqual([1, 0.75])
     expect(presentation.combos[0].display.expectedValue.kind).toBe('exact')
   })
@@ -185,7 +185,7 @@ describe('createAttackDisplayPresentation', () => {
         decision: 'recalculate',
         coverage: { missingSegments: [{ min: 2, max: 4, pointCount: 3 }] },
       },
-      series: {
+      projection: {
         status: 'not-ready',
         reason: DISTRIBUTION_PROJECTION_REASONS.RECALCULATE,
       },
@@ -213,7 +213,7 @@ describe('createAttackDisplayPresentation', () => {
       decision: 'known-zero',
       plan: { decision: 'known-zero' },
     })
-    expect(Array.from(presentation.combos[0].series.values))
+    expect(Array.from(presentation.combos[0].projection.values))
       .toEqual([0, 0, 0])
   })
 
@@ -237,7 +237,7 @@ describe('createAttackDisplayPresentation', () => {
     expect(outside.combos[0]).toMatchObject({
       status: 'ready',
       decision: 'reuse',
-      series: { status: 'ready' },
+      projection: { status: 'ready' },
     })
     expect(outside.combos[0].display.expectedValue.kind).toBe('exact')
 
@@ -302,7 +302,7 @@ describe('createAttackDisplayPresentation', () => {
       reason: DISTRIBUTION_PROJECTION_REASONS.EXACT_OVERFLOW_OVERLAP,
       chart: null,
     })
-    expect(overlap.combos[0].series).not.toHaveProperty('values')
+    expect(overlap.combos[0].projection).not.toHaveProperty('values')
   })
 
   it('does not pointify upper-bound overflow', () => {
@@ -360,7 +360,7 @@ describe('createAttackDisplayPresentation', () => {
       decision: 'not-projectable',
       reason: DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW,
       plan: { decision: 'recalculate' },
-      series: {
+      projection: {
         status: 'not-ready',
         reason: DISTRIBUTION_PROJECTION_REASONS.UPPER_BOUND_OVERFLOW,
       },
@@ -388,7 +388,7 @@ describe('createAttackDisplayPresentation', () => {
       status: 'not-ready',
       decision: 'resource-rejected',
       plan: { status: 'resource-rejected' },
-      series: {
+      projection: {
         status: 'not-ready',
         reason: DISTRIBUTION_PROJECTION_REASONS.RESOURCE_REJECTED,
       },
@@ -409,11 +409,11 @@ describe('createAttackDisplayPresentation', () => {
     expect(presentation.status).toBe('ready')
     expect(presentation.combos.map(({ id }) => id))
       .toEqual(['combo-1', 'combo-2'])
-    expect(Array.from(presentation.combos[0].series.values))
+    expect(Array.from(presentation.combos[0].projection.values))
       .toEqual([1, 0])
-    expect(Array.from(presentation.combos[1].series.values))
+    expect(Array.from(presentation.combos[1].projection.values))
       .toEqual([0.5, 0.5])
-    expect(Array.from(presentation.total.series.values))
+    expect(Array.from(presentation.total.projection.values))
       .toEqual([0.5, 0.5])
   })
 
@@ -440,7 +440,7 @@ describe('createAttackDisplayPresentation', () => {
     expect(Object.isFrozen(presentation.combos[0].plan)).toBe(true)
     expect(Object.isFrozen(presentation.combos[0].chart)).toBe(true)
     expect(presentation.displayRequest).not.toBe(request)
-    expect(presentation.combos[0].series.values)
+    expect(presentation.combos[0].projection.values)
       .not.toBe(batch.combos[0].damage.result.values)
 
     request.max = 1200

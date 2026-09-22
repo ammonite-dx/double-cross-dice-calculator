@@ -79,7 +79,6 @@ export interface AttackDisplaySide {
   readonly display: DistributionDisplay
   readonly projection: DistributionProjection
   readonly plan: DisplayRangePlan
-  readonly series: DistributionProjection
   readonly chart: ChartJsData | null
   readonly status: AttackDisplayStatus
   readonly reason: string | null

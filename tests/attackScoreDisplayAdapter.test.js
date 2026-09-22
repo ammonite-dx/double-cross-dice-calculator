@@ -481,7 +481,7 @@ describe('Attack canonical score display adapter', () => {
     expect(presentation.status).toBe('ready')
     expect(presentation.score.status).toBe('ready')
     expect(presentation.score.combos[0].action.chart.labels).toEqual([0, 1])
-    expect(Array.from(presentation.score.combos[0].action.series.values))
+    expect(Array.from(presentation.score.combos[0].action.projection.values))
       .toEqual([0.12345, 0.87655])
 
     const chart = getAttackScoreChartData(presentation, attackData.combos)
