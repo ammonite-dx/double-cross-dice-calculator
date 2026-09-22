@@ -6,10 +6,8 @@ import {
 import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import {
   DISTRIBUTION_DISPLAY_VERSION,
-  DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
   DISPLAY_RANGE_PLANNER_ERROR_CODES,
   DisplayRangePlannerError,
-  createDisplayRangePlanner,
   planDisplayRange,
   presentDistribution,
 } from '../src/shared/presentation'
@@ -601,23 +599,4 @@ describe('DisplayRangePlanner', () => {
     })).toThrow(DisplayRangePlannerError)
   })
 
-  it('exposes an immutable policy-bound planner without reusing legacy limits', () => {
-    const display = createDisplay({
-      values: [1],
-      support: { kind: 'finite', max: 10 },
-    })
-    const planner = createDisplayRangePlanner({ pointCount: 2 })
-    const result = planner.plan(display, { min: 0, max: 1 })
-
-    expect(DEFAULT_DISPLAY_RANGE_PLANNER_POLICY.pointCount)
-      .toBeGreaterThan(1000)
-    expect(planner.policy).toEqual({
-      pointCount: 2,
-      float64Bytes: 64 * 1024 * 1024,
-      chartPoints: 16_384,
-    })
-    expect(result.warnings).toEqual([])
-    expect(Object.isFrozen(planner)).toBe(true)
-    expect(Object.isFrozen(planner.policy)).toBe(true)
-  })
 })

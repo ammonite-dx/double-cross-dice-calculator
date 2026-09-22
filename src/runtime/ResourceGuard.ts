@@ -115,13 +115,9 @@ export function isResourceGuardAbortError(
 function getPolicyValue(
   policy: ResourceGuardPolicyInput,
   key: keyof ResourceGuardPolicy,
-  alias?: 'capacity',
 ): number | undefined {
   if (hasOwn(policy, key)) {
     return policy[key]
-  }
-  if (alias && hasOwn(policy, alias)) {
-    return policy[alias]
   }
   return DEFAULT_RESOURCE_GUARD_POLICY[key]
 }
@@ -144,7 +140,7 @@ function normalizePolicy(
     throw invalidPolicy('Resource guard policy must be an object')
   }
 
-  const capacityBytes = getPolicyValue(policy, 'capacityBytes', 'capacity')
+  const capacityBytes = getPolicyValue(policy, 'capacityBytes')
   const maxActive = getPolicyValue(policy, 'maxActive')
   const maxQueued = getPolicyValue(policy, 'maxQueued')
   const reservationMultiplier = getPolicyValue(
@@ -446,13 +442,6 @@ export class ResourceGuard implements ResourceGuardContract {
     }
   }
 
-  acquirePlan(
-    plan: ResourceReservationPlan,
-    options: ResourceGuardAcquireOptions = {},
-  ): ResourceLeaseResult {
-    return this.acquireForPlan(plan, options)
-  }
-
   acquire(request: ResourceGuardRequest = {}): Promise<ResourceLease> {
     const result = this.#acquire(request)
     return isPromiseLike(result)
@@ -577,14 +566,6 @@ export class ResourceGuard implements ResourceGuardContract {
         copyMetadata(entry, 'active')),
       queued: this.#queue.map((entry) => copyMetadata(entry, 'queued')),
     }
-  }
-
-  getSnapshot(): ResourceGuardSnapshot {
-    return this.snapshot()
-  }
-
-  diagnostics(): ResourceGuardSnapshot {
-    return this.snapshot()
   }
 
   #canAdmit(reservedBytes: number): boolean {

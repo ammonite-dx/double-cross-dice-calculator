@@ -21,7 +21,7 @@ function createPlan() {
 function createDependencies(plan, Result = 'canonical-result') {
   const release = vi.fn()
   const resourceGuard = {
-    acquirePlan: vi.fn(() => ({ release })),
+    acquireForPlan: vi.fn(() => ({ release })),
   }
   return {
     planCalculationRanges: vi.fn(() => plan),
@@ -69,7 +69,7 @@ describe('CalculationClient.calculateBacktrack', () => {
       options.rangePolicy
     )
     expect(onRangePlan).toHaveBeenCalledWith(plan)
-    expect(dependencies.resourceGuard.acquirePlan).toHaveBeenCalledWith(
+    expect(dependencies.resourceGuard.acquireForPlan).toHaveBeenCalledWith(
       plan,
       {
         signal,
@@ -112,7 +112,7 @@ describe('CalculationClient.calculateBacktrack', () => {
     await expect(client.calculateBacktrack(params))
       .rejects.toBeInstanceOf(CalculationRangeError)
 
-    expect(dependencies.resourceGuard.acquirePlan).not.toHaveBeenCalled()
+    expect(dependencies.resourceGuard.acquireForPlan).not.toHaveBeenCalled()
     expect(dependencies.getFinalEncroachment).not.toHaveBeenCalled()
     expect(dependencies.release).not.toHaveBeenCalled()
   })

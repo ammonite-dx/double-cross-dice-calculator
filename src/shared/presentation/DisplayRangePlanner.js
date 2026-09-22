@@ -217,6 +217,16 @@ function normalizeLimitRecord(value, name) {
     name,
     `${name} must be a plain record`
   )
+  const allowedMetrics = new Set(['pointCount', 'float64Bytes', 'chartPoints'])
+  for (const property of Reflect.ownKeys(value)) {
+    if (typeof property !== 'string' || !allowedMetrics.has(property)) {
+      fail(
+        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
+        `${name}.${String(property)} is not a supported display policy key`,
+        { path: `${name}.${String(property)}` }
+      )
+    }
+  }
   const normalized = {}
   for (const metric of ['pointCount', 'float64Bytes', 'chartPoints']) {
     if (!hasOwn(value, metric)) {
@@ -249,44 +259,19 @@ function normalizePolicy(policy) {
     'display range planner policy must be a plain record'
   )
 
-  // `limits` is accepted as a descriptive alias so the policy can be passed
-  // beside RangePlanner policies without changing the metric names.
-  const source = hasOwn(supplied, 'limits')
-    ? getOwnDataProperty(
-        supplied,
-        'limits',
-        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
-        'policy'
-      )
-    : supplied
-  requirePlainRecord(
-    source,
-    DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
-    'policy.limits',
-    'policy.limits must be a plain record'
-  )
-
-  for (const limitKind of ['warning', 'hard']) {
-    if (hasOwn(source, limitKind)) {
-      fail(
-        DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_POLICY,
-        `policy.limits.${limitKind} is no longer supported; use policy.limits directly`,
-        { path: `policy.limits.${limitKind}` }
-      )
-    }
-  }
+  const source = supplied
 
   return {
     ...DEFAULT_DISPLAY_RANGE_PLANNER_POLICY,
-    ...normalizeLimitRecord(source, 'policy.limits'),
+    ...normalizeLimitRecord(source, 'policy'),
   }
 }
 
-function getInvocationOptions(display, options, policyOverride) {
+function getInvocationOptions(display, options) {
   if (options === undefined) {
     return {
       displayWindow: display.displayWindow,
-      policy: policyOverride,
+      policy: undefined,
     }
   }
 
@@ -298,7 +283,13 @@ function getInvocationOptions(display, options, policyOverride) {
     )
   }
 
-  const isDirectWindow = hasOwn(options, 'min') || hasOwn(options, 'max')
+  if (hasOwn(options, 'min') || hasOwn(options, 'max')) {
+    fail(
+      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_OPTIONS,
+      'options.displayWindow must contain the requested window',
+      { path: 'options.displayWindow' }
+    )
+  }
   const displayWindow = hasOwn(options, 'displayWindow')
     ? getOwnDataProperty(
         options,
@@ -306,12 +297,8 @@ function getInvocationOptions(display, options, policyOverride) {
         DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_OPTIONS,
         'options'
       )
-    : isDirectWindow
-      ? options
-      : display.displayWindow
-  const policy = policyOverride !== undefined
-    ? policyOverride
-    : hasOwn(options, 'policy')
+    : display.displayWindow
+  const policy = hasOwn(options, 'policy')
       ? getOwnDataProperty(
           options,
           'policy',
@@ -502,20 +489,25 @@ function deepFreeze(value, seen = new WeakSet()) {
  *
  * The function is intentionally UI-independent. It does not project
  * probabilities, allocate a window-sized array, invoke RangePlanner, or
- * acquire a ResourceGuard lease. A caller may pass a window as
- * `{ displayWindow, policy }`, as `{ min, max, policy }`, or use the
- * `displayWindow` retained by `presentDistribution`.
+ * acquire a ResourceGuard lease. A caller passes `{ displayWindow, policy }`,
+ * or omits the options to use the display's retained window.
  *
  * @param {DistributionDisplay} display A trusted display payload from
  * `presentDistribution`.
  * @param {Object} [options]
  * @param {{ min: number, max: number }} [options.displayWindow]
  * @param {Object} [options.policy]
- * @param {Object} [policyOverride] Optional third-argument policy overload.
  * @returns {DisplayRangePlan} A frozen coverage and resource plan.
  */
-export function planDisplayRange(display, options, policyOverride) {
-  const invocation = getInvocationOptions(display, options, policyOverride)
+export function planDisplayRange(display, options) {
+  if (arguments.length > 2) {
+    fail(
+      DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_OPTIONS,
+      'planDisplayRange accepts only display and options arguments',
+      { path: 'arguments' }
+    )
+  }
+  const invocation = getInvocationOptions(display, options)
   const displayWindow = normalizeDisplayWindow(invocation.displayWindow)
   const policy = normalizePolicy(invocation.policy)
   const coverage = classifyCoverage(display, displayWindow)
@@ -600,36 +592,5 @@ export function planDisplayWindowResources(displayWindow, policy) {
     estimates,
     warnings: resource.warnings,
     rejectionReasons: resource.rejectionReasons,
-  })
-}
-
-/**
- * Create a small policy-bound planner facade for callers that plan multiple
- * windows against the same resource budget.
- */
-export function createDisplayRangePlanner(policy = {}) {
-  const normalizedPolicy = normalizePolicy(policy)
-  return Object.freeze({
-    policy: deepFreeze({
-      ...normalizedPolicy,
-    }),
-    plan(display, options) {
-      if (options === undefined) {
-        return planDisplayRange(display, {
-          policy: normalizedPolicy,
-        })
-      }
-      if (!isPlainRecord(options)) {
-        fail(
-          DISPLAY_RANGE_PLANNER_ERROR_CODES.INVALID_OPTIONS,
-          'display range planner options must be a plain record',
-          { path: 'options' }
-        )
-      }
-      return planDisplayRange(display, {
-        ...options,
-        policy: normalizedPolicy,
-      })
-    },
   })
 }

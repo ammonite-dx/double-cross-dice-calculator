@@ -14,7 +14,6 @@ export {
   DISPLAY_RANGE_PLANNER_VERSION,
   DisplayRangePlannerError,
   DisplayRangePlannerValidationError,
-  createDisplayRangePlanner,
   isDisplayRangePlannerError,
   isDisplayRangePlannerValidationError,
   planDisplayRange,

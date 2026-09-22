@@ -216,7 +216,7 @@ describe('ResourceGuard', () => {
       maxQueued: 1,
       reservationMultiplier: 1,
     })
-    const planLease = guard.acquirePlan(createPlan('check', 2), {
+    const planLease = guard.acquireForPlan(createPlan('check', 2), {
       operation: 'check',
       requestId: 'plan',
     })
@@ -401,7 +401,7 @@ describe('CalculationClient resource guard integration', () => {
     const leases = []
     let planCallCount = 0
     const resourceGuard = {
-      acquirePlan: vi.fn(() => {
+      acquireForPlan: vi.fn(() => {
         const lease = { release: vi.fn() }
         leases.push(lease)
         planCallCount += 1
@@ -420,7 +420,7 @@ describe('CalculationClient resource guard integration', () => {
     await client.calculateBacktrack(backtrackParams())
     await client.calculateTotalDamage([])
 
-    expect(resourceGuard.acquirePlan).toHaveBeenCalledTimes(4)
+    expect(resourceGuard.acquireForPlan).toHaveBeenCalledTimes(4)
     expect(leases).toHaveLength(4)
     expect(leases.every(({ release }) => release.mock.calls.length === 1))
       .toBe(true)
@@ -434,7 +434,7 @@ describe('CalculationClient resource guard integration', () => {
     const controller = new AbortController()
     const release = vi.fn()
     const resourceGuard = {
-      acquirePlan: vi.fn(() => {
+      acquireForPlan: vi.fn(() => {
         controller.abort()
         return { release }
       }),
@@ -623,7 +623,7 @@ describe('CalculationClient resource guard integration', () => {
   it('leases canonical total damage through the same plan guard', async () => {
     const releases = []
     const resourceGuard = {
-      acquirePlan: vi.fn(() => {
+      acquireForPlan: vi.fn(() => {
         const release = vi.fn()
         releases.push(release)
         return { release }
@@ -640,7 +640,7 @@ describe('CalculationClient resource guard integration', () => {
     ])).resolves.toMatchObject({
       totalDamageStatistics: 'canonical total summary',
     })
-    expect(resourceGuard.acquirePlan).toHaveBeenCalledTimes(2)
+    expect(resourceGuard.acquireForPlan).toHaveBeenCalledTimes(2)
     expect(releases).toHaveLength(2)
     expect(releases.every((release) => release.mock.calls.length === 1))
       .toBe(true)

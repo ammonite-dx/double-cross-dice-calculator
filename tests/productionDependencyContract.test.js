@@ -65,7 +65,7 @@ function createHarness(overrides = {}) {
   const getDamageStatistics = vi.fn(() => ({ kind: 'damage-summary' }))
   const release = vi.fn()
   const resourceGuard = {
-    acquirePlan: vi.fn(() => ({ release })),
+    acquireForPlan: vi.fn(() => ({ release })),
   }
   const planCalculationRanges = vi.fn(({ operation }) => createPlan(operation))
   const dependencies = {

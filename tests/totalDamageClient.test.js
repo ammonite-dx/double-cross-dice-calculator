@@ -68,7 +68,7 @@ describe('CalculationClient canonical total damage', () => {
     })
     const release = vi.fn(() => events.push('release'))
     const resourceGuard = {
-      acquirePlan: vi.fn((passedPlan, options) => {
+      acquireForPlan: vi.fn((passedPlan, options) => {
         events.push('lease')
         expect(passedPlan).toBe(plan)
         expect(options).toMatchObject({
@@ -91,7 +91,7 @@ describe('CalculationClient canonical total damage', () => {
       totalDamageStatistics: 'canonical total summary',
     })
     expect(events).toEqual(['plan', 'lease', 'execute', 'summary', 'release'])
-    expect(resourceGuard.acquirePlan).toHaveBeenCalledWith(plan, {
+    expect(resourceGuard.acquireForPlan).toHaveBeenCalledWith(plan, {
       signal: undefined,
       requestId: 'canonical-total-1',
       operation: 'total-damage',
@@ -133,15 +133,15 @@ describe('CalculationClient canonical total damage', () => {
   it('rejects before lease admission when the signal is already aborted', async () => {
     const controller = new AbortController()
     controller.abort()
-    const acquirePlan = vi.fn()
+    const acquireForPlan = vi.fn()
     const client = createCalculationClient(createDependencies({
-      resourceGuard: { acquirePlan },
+      resourceGuard: { acquireForPlan },
     }))
 
     await expect(client.calculateTotalDamage([], {
       signal: controller.signal,
     })).rejects.toMatchObject({ code: 'aborted' })
-    expect(acquirePlan).not.toHaveBeenCalled()
+    expect(acquireForPlan).not.toHaveBeenCalled()
   })
 
   it('releases a lease when abort occurs after admission', async () => {
@@ -153,7 +153,7 @@ describe('CalculationClient canonical total damage', () => {
     })
     const execute = vi.fn()
     const resourceGuard = {
-      acquirePlan: vi.fn(() => {
+      acquireForPlan: vi.fn(() => {
         controller.abort()
         return { release }
       }),
@@ -194,7 +194,7 @@ describe('CalculationClient canonical total damage', () => {
           metadata: Object.freeze({ modeledDistribution: true }),
         })),
       })),
-      resourceGuard: { acquirePlan: vi.fn(() => ({ release })) },
+      resourceGuard: { acquireForPlan: vi.fn(() => ({ release })) },
       ...overrides,
     }))
 

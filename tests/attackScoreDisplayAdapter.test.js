@@ -304,7 +304,7 @@ describe('Attack canonical score display adapter', () => {
         },
       })),
       resourceGuard: {
-        acquirePlan: vi.fn(() => ({ release: vi.fn() })),
+        acquireForPlan: vi.fn(() => ({ release: vi.fn() })),
       },
       sumDamage,
     })
@@ -382,7 +382,7 @@ describe('Attack canonical score display adapter', () => {
         }
       }),
       resourceGuard: {
-        acquirePlan: vi.fn(() => ({ release: vi.fn() })),
+        acquireForPlan: vi.fn(() => ({ release: vi.fn() })),
       },
       sumDamage,
     })

@@ -332,7 +332,7 @@ describe('CalculationClient integration', () => {
       getD10Distribution,
       planCalculationRanges,
       resourceGuard: {
-        acquirePlan: vi.fn(() => ({ release: vi.fn() })),
+        acquireForPlan: vi.fn(() => ({ release: vi.fn() })),
       },
     })
 

@@ -308,13 +308,13 @@ function getRuntimeOptions(
   return runtimeOptions
 }
 
-function acquirePlanLease(
+function acquireForPlanLease(
   resourceGuard: ResourceGuard,
   plan: ResourceReservationPlan,
   options: CalculationRequestOptions,
   operation: string,
 ): ResourceLeaseResult {
-  return resourceGuard.acquirePlan(plan, {
+  return resourceGuard.acquireForPlan(plan, {
     signal: options.signal,
     requestId: options.requestId,
     operation,
@@ -571,7 +571,7 @@ export function createCalculationClient(
       options.rangePolicy,
       options.onRangePlan
     )
-    const leaseRequest = acquirePlanLease(
+    const leaseRequest = acquireForPlanLease(
       resourceGuard,
       plan,
       options,
@@ -656,7 +656,7 @@ export function createCalculationClient(
       aggregationOptions
     )
     const plan = prepared.plan
-    const leaseRequest = resourceGuard.acquirePlan(plan, {
+    const leaseRequest = resourceGuard.acquireForPlan(plan, {
       signal: calculationOptions.signal,
       requestId: calculationOptions.requestId,
       operation: 'total-damage',
@@ -729,7 +729,7 @@ export function createCalculationClient(
         getCheckRangePolicy(options),
         options.onRangePlan
       )
-      const leaseRequest = acquirePlanLease(
+      const leaseRequest = acquireForPlanLease(
         resourceGuard,
         plan,
         options,
@@ -789,7 +789,7 @@ export function createCalculationClient(
         options.rangePolicy,
         options.onRangePlan
       )
-      const leaseRequest = acquirePlanLease(
+      const leaseRequest = acquireForPlanLease(
         resourceGuard,
         plan,
         options,

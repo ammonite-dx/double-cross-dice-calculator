@@ -8,8 +8,6 @@ export interface ResourceGuardPolicy {
 /** Partial policy accepted by the ResourceGuard constructor and factory. */
 export interface ResourceGuardPolicyInput {
   readonly capacityBytes?: number
-  /** Historical alias for capacityBytes. */
-  readonly capacity?: number
   readonly maxActive?: number
   readonly maxQueued?: number
   readonly reservationMultiplier?: number
@@ -90,11 +88,5 @@ export interface ResourceGuard {
     plan: ResourceReservationPlan,
     options?: ResourceGuardAcquireOptions,
   ): ResourceLeaseResult
-  acquirePlan(
-    plan: ResourceReservationPlan,
-    options?: ResourceGuardAcquireOptions,
-  ): ResourceLeaseResult
   snapshot(): ResourceGuardSnapshot
-  getSnapshot(): ResourceGuardSnapshot
-  diagnostics(): ResourceGuardSnapshot
 }

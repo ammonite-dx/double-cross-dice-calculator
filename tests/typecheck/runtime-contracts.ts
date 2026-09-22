@@ -46,7 +46,7 @@ void browserWorkerLike
 void readonlyWeights
 
 const typedGuard: ResourceGuard = createResourceGuard({
-  capacity: 1024,
+  capacityBytes: 1024,
   maxActive: 1,
 })
 const partialPolicy: ResourceGuardPolicyInput = {
@@ -89,7 +89,7 @@ const immediateLease: Promise<ResourceLease> = guard.acquire({
   requestId: null,
 })
 const flexibleLease: ResourceLeaseResult = guard.acquireLease()
-const planLease: ResourceLeaseResult = guard.acquirePlan({
+const planLease: ResourceLeaseResult = guard.acquireForPlan({
   operation: 'check',
 })
 void immediateLease

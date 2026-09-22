@@ -101,7 +101,7 @@ function createHarness() {
       execute: vi.fn(() => Envelope()),
     })),
     resourceGuard: {
-      acquirePlan: vi.fn(() => ({ release })),
+      acquireForPlan: vi.fn(() => ({ release })),
     },
   })
   return {

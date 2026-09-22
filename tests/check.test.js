@@ -576,7 +576,7 @@ function createClientDependencies(overrides = {}) {
     },
   }
   const resourceGuard = {
-    acquirePlan: vi.fn(() => ({ release: vi.fn() })),
+    acquireForPlan: vi.fn(() => ({ release: vi.fn() })),
   }
   return {
     calculateScore: vi.fn(() => createScoreEnvelope()),
@@ -653,11 +653,11 @@ describe('CalculationClient canonical normal check API', () => {
       result.score,
       { opposed: true, target: 0 }
     )
-    expect(dependencies.resourceGuard.acquirePlan).toHaveBeenCalledWith(
+    expect(dependencies.resourceGuard.acquireForPlan).toHaveBeenCalledWith(
       dependencies.plan,
       { signal, requestId: 'canonical-check-1', operation: 'check' }
     )
-    expect(dependencies.resourceGuard.acquirePlan.mock.results[0].value.release)
+    expect(dependencies.resourceGuard.acquireForPlan.mock.results[0].value.release)
       .toHaveBeenCalledOnce()
   })
 
@@ -683,7 +683,7 @@ describe('CalculationClient canonical normal check API', () => {
       return true
     })
     expect(onRangePlan).toHaveBeenCalledWith(plan)
-    expect(dependencies.resourceGuard.acquirePlan).not.toHaveBeenCalled()
+    expect(dependencies.resourceGuard.acquireForPlan).not.toHaveBeenCalled()
     expect(dependencies.calculateScore).not.toHaveBeenCalled()
   })
 
@@ -756,7 +756,7 @@ describe('CalculationClient canonical normal check API', () => {
     const release = vi.fn()
     const dependencies = createClientDependencies({
       resourceGuard: {
-        acquirePlan: vi.fn(() => {
+        acquireForPlan: vi.fn(() => {
           controller.abort()
           return { release }
         }),
@@ -779,7 +779,7 @@ describe('CalculationClient canonical normal check API', () => {
     const failure = new Error('canonical score failure')
     const dependencies = createClientDependencies({
       resourceGuard: {
-        acquirePlan: vi.fn(() => ({ release })),
+        acquireForPlan: vi.fn(() => ({ release })),
       },
       calculateScore: vi.fn(() => {
         controller.abort()
