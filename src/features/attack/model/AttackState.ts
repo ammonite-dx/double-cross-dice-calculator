@@ -2,6 +2,32 @@ import {
   createCalculationFeedbackState,
   markCalculationAborted,
 } from '../../../runtime/CalculationFeedback'
+import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
+import type {
+  AttackCombo,
+  AttackComboParams,
+} from './AttackComboState'
+import type {
+  AttackCommittedRecord,
+  AttackIncrementalExecution,
+} from './AttackIncrementalExecutionTypes'
+import type { AttackTotalCalculationRecord } from './AttackCalculationRecord'
+import type {
+  AttackDisplayPresentation,
+  AttackPresentation,
+  AttackRangePlanReference,
+} from './AttackPresentationTypes'
+import type {
+  AttackCommittedCalculationSnapshot,
+  AttackState,
+  AttackStateSeed,
+} from './AttackStateTypes'
+import type {
+  DamageInput,
+  DefenceDamageInput,
+  ReactionMode,
+} from '../../../domain/CalculationInputs'
+import type { ScoreInput } from '../../../domain/InputDomain'
 
 /** @typedef {import('./AttackStateTypes').AttackState} AttackState */
 /** @typedef {import('./AttackStateTypes').AttackStateSeed} AttackStateSeed */
@@ -37,42 +63,46 @@ const REACTION_DAMAGE_PARAM_NAMES = Object.freeze([
   'value',
 ])
 
-function hasOwn(object, property) {
+function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null
     && typeof value === 'object'
     && !Array.isArray(value)
 }
 
-function requireRecord(value, path) {
+function requireRecord(value: unknown, path: string): Record<string, unknown> {
   if (!isRecord(value)) {
     throw new TypeError(`${path} must be an object`)
   }
   return value
 }
 
-function snapshotScoreParams(score, path) {
+function snapshotScoreParams(score: unknown, path: string): ScoreInput {
   const source = requireRecord(score, path)
   return {
-    dice: source.dice,
-    critical: source.critical,
-    skill: source.skill,
-    yousei: source.yousei,
-    shihai: source.shihai,
+    dice: source.dice as number,
+    critical: source.critical as number,
+    skill: source.skill as number,
+    yousei: source.yousei as number,
+    shihai: source.shihai as number,
   }
 }
 
-function snapshotDamageParams(damage, path, includeKazanari) {
+function snapshotDamageParams(
+  damage: unknown,
+  path: string,
+  includeKazanari: boolean,
+): DamageInput | (DamageInput & { kazanari: number }) {
   const source = requireRecord(damage, path)
-  const snapshot = {
-    dice: source.dice,
-    value: source.value,
+  const snapshot: DamageInput & { kazanari?: number } = {
+    dice: source.dice as number,
+    value: source.value as number,
   }
   if (includeKazanari) {
-    snapshot.kazanari = source.kazanari
+    snapshot.kazanari = source.kazanari as number
   }
   return snapshot
 }
@@ -85,7 +115,7 @@ function snapshotDamageParams(damage, path, includeKazanari) {
  * @param {AttackComboParams} params
  * @returns {AttackComboParams}
  */
-export function snapshotAttackParams(params) {
+export function snapshotAttackParams(params: AttackComboParams): AttackComboParams {
   const source = requireRecord(params, 'params')
   const action = requireRecord(source.action, 'params.action')
   const reaction = requireRecord(source.reaction, 'params.reaction')
@@ -97,10 +127,10 @@ export function snapshotAttackParams(params) {
         action.damage,
         'params.action.damage',
         true
-      ),
+      ) as DamageInput & { kazanari: number },
     },
     reaction: {
-      mode: reaction.mode,
+      mode: reaction.mode as ReactionMode,
       score: snapshotScoreParams(
         reaction.score,
         'params.reaction.score'
@@ -109,7 +139,7 @@ export function snapshotAttackParams(params) {
         reaction.damage,
         'params.reaction.damage',
         false
-      ),
+      ) as DefenceDamageInput,
     },
   }
 }
@@ -121,7 +151,9 @@ export function snapshotAttackParams(params) {
  * @param {ReadonlyArray<AttackCombo>} combos
  * @returns {ReadonlyArray<import('./AttackIncrementalExecutionTypes').AttackExecutionEntry>}
  */
-export function snapshotAttackEntries(combos) {
+export function snapshotAttackEntries(
+  combos: readonly AttackCombo[],
+): readonly import('./AttackIncrementalExecutionTypes').AttackExecutionEntry[] {
   if (!Array.isArray(combos)) {
     throw new TypeError('combos must be an array')
   }
@@ -130,20 +162,24 @@ export function snapshotAttackEntries(combos) {
     const source = requireRecord(combo, `combos[${index}]`)
     const data = requireRecord(source.data, `combos[${index}].data`)
     return {
-      id: source.id,
-      params: snapshotAttackParams(data.params),
+      id: source.id as string | number,
+      params: snapshotAttackParams(data.params as AttackComboParams),
     }
   })
 }
 
-function sameParamRecord(left, right, names) {
+function sameParamRecord(
+  left: unknown,
+  right: unknown,
+  names: readonly string[],
+): boolean {
   if (!isRecord(left) || !isRecord(right)) {
     return false
   }
   return names.every((name) => Object.is(left[name], right[name]))
 }
 
-function sameAttackParams(left, right) {
+function sameAttackParams(left: unknown, right: unknown): boolean {
   if (!isRecord(left) || !isRecord(right)) {
     return false
   }
@@ -182,7 +218,7 @@ function sameAttackParams(left, right) {
     )
 }
 
-export function createComboDataState() {
+export function createComboDataState(): { calculation: null } {
   return { ...COMBO_DEFAULTS }
 }
 
@@ -190,18 +226,21 @@ export function createComboDataState() {
  * Lazily add calculation fields to combo data created by InputForm.
  * Existing unrelated fields are not read or modified.
  */
-export function ensureComboData(data) {
-  const target = requireRecord(data, 'combo.data')
+export function ensureComboData<T extends { calculation?: unknown }>(
+  data: T,
+): T & { calculation: unknown } {
+  const target = data as T & { calculation?: unknown }
+  const targetRecord = target as Record<string, unknown>
   for (const [property, value] of Object.entries(COMBO_DEFAULTS)) {
-    if (!hasOwn(target, property)) {
-      target[property] = value
+    if (!hasOwn(targetRecord, property)) {
+      targetRecord[property] = value
     }
   }
-  return target
+  return target as T & { calculation: unknown }
 }
 
 /** @returns {AttackStateSeed} */
-export function createAttackState() {
+export function createAttackState(): AttackStateSeed {
   return {
     totalCalculation: null,
     basePresentation: null,
@@ -212,7 +251,7 @@ export function createAttackState() {
   }
 }
 
-function clearResults(state) {
+function clearResults(state: AttackState): void {
   state.totalCalculation = null
   state.basePresentation = null
   state.displayPresentation = null
@@ -240,21 +279,21 @@ function clearResults(state) {
  * Invalidate the current request and clear only calculation results.
  * The caller's latest-runner owns AbortSignal cancellation.
  */
-export function invalidateAttackState(state) {
+export function invalidateAttackState(state: AttackState): void {
   clearResults(state)
 }
 
 /**
  * Disable/reset calculation state, including user-facing feedback.
  */
-export function clearAttackState(state) {
+export function clearAttackState(state: AttackState): void {
   invalidateAttackState(state)
   if (state.feedback) {
     markCalculationAborted(state.feedback)
   }
 }
 
-function sameId(left, right) {
+function sameId(left: unknown, right: unknown): boolean {
   return left === right
     || (typeof left === 'number'
       && typeof right === 'number'
@@ -270,7 +309,10 @@ function sameId(left, right) {
  * Compare only the ordered input shape. Results and presentation
  * arrays are deliberately excluded so this remains a small commit guard.
  */
-export function areAttackEntriesEqual(leftEntries, rightEntries) {
+export function areAttackEntriesEqual(
+  leftEntries: readonly unknown[],
+  rightEntries: readonly unknown[],
+): boolean {
   if (
     !Array.isArray(leftEntries)
     || !Array.isArray(rightEntries)
@@ -298,7 +340,10 @@ export function areAttackEntriesEqual(leftEntries, rightEntries) {
  * Snapshot and compare the current combo inputs without observing any result
  * or presentation field. Invalid current input is a non-match.
  */
-export function isAttackInputCurrent(combos, expectedEntries) {
+export function isAttackInputCurrent(
+  combos: readonly AttackCombo[],
+  expectedEntries: readonly unknown[],
+): boolean {
   try {
     return areAttackEntriesEqual(
       expectedEntries,
@@ -317,7 +362,9 @@ export function isAttackInputCurrent(combos, expectedEntries) {
  * @param {ReadonlyArray<AttackCombo>} combos
  * @returns {ReadonlyArray<AttackCommittedRecord>}
  */
-export function getAttackCalculationRecords(combos) {
+export function getAttackCalculationRecords(
+  combos: readonly AttackCombo[],
+): readonly AttackCommittedRecord[] {
   if (!Array.isArray(combos)) {
     return []
   }
@@ -342,7 +389,9 @@ export function getAttackCalculationRecords(combos) {
  * @param {AttackState} state
  * @returns {AttackCommittedCalculationSnapshot|null}
  */
-export function getCommittedAttackCalculationSnapshot(state) {
+export function getCommittedAttackCalculationSnapshot(
+  state: AttackState,
+): AttackCommittedCalculationSnapshot | null {
   if (!isRecord(state) || !Array.isArray(state.combos)) {
     return null
   }
@@ -410,7 +459,10 @@ export function getCommittedAttackCalculationSnapshot(state) {
   }
 }
 
-export function invalidateAttackComboCalculation(state, id) {
+export function invalidateAttackComboCalculation(
+  state: AttackState,
+  id: unknown,
+): boolean {
   if (!Array.isArray(state?.combos)) {
     return false
   }
@@ -423,7 +475,7 @@ export function invalidateAttackComboCalculation(state, id) {
   return true
 }
 
-export function invalidateAttackTotalCalculation(state) {
+export function invalidateAttackTotalCalculation(state: AttackState): boolean {
   if (!state || typeof state !== 'object') {
     return false
   }
@@ -433,12 +485,15 @@ export function invalidateAttackTotalCalculation(state) {
   return true
 }
 
-export function isAttackCalculationReady(state) {
+export function isAttackCalculationReady(state: AttackState): boolean {
   return state?.totalCalculation !== null
     && state?.totalCalculation !== undefined
 }
 
-function hasIncrementalExecutionShape(execution, combos) {
+function hasIncrementalExecutionShape(
+  execution: unknown,
+  combos: readonly AttackCombo[],
+): execution is AttackIncrementalExecution {
   if (!isRecord(execution)
     || !Array.isArray(execution.records)
     || execution.records.length !== combos.length
@@ -453,10 +508,11 @@ function hasIncrementalExecutionShape(execution, combos) {
     || execution.batchResult.combos.length !== combos.length) {
     return false
   }
+  const candidate = execution as unknown as AttackIncrementalExecution
   return combos.every((combo, index) => {
-    const entry = execution.records[index]
-    const source = execution.totalCalculation.sources[index]
-    const batchCombo = execution.batchResult.combos[index]
+    const entry = candidate.records[index]
+    const source = candidate.totalCalculation.sources[index]
+    const batchCombo = candidate.batchResult.combos[index]
     const inputMatches = (() => {
       try {
         return areAttackEntriesEqual(
@@ -493,9 +549,9 @@ function hasIncrementalExecutionShape(execution, combos) {
  * @returns {boolean}
  */
 export function commitAttackCalculationExecution(
-  state,
-  execution,
-) {
+  state: AttackState,
+  execution: AttackIncrementalExecution,
+): boolean {
   if (!Array.isArray(state.combos)
     || !hasIncrementalExecutionShape(execution, state.combos)) {
     return false
@@ -516,7 +572,10 @@ export function commitAttackCalculationExecution(
   return true
 }
 
-function hasDisplayPresentationShape(presentation, combos) {
+function hasDisplayPresentationShape(
+  presentation: unknown,
+  combos: readonly AttackCombo[],
+): presentation is AttackDisplayPresentation {
   if (
     !isRecord(presentation)
     || !hasOwn(presentation, 'total')
@@ -529,9 +588,10 @@ function hasDisplayPresentationShape(presentation, combos) {
   ) {
     return false
   }
+  const candidate = presentation as unknown as AttackDisplayPresentation
 
   return combos.every((combo, index) => {
-    const presentedCombo = presentation.combos[index]
+    const presentedCombo = candidate.combos[index]
     return isRecord(combo)
       && isRecord(presentedCombo)
       && hasOwn(presentedCombo, 'id')
@@ -551,10 +611,10 @@ function hasDisplayPresentationShape(presentation, combos) {
  * @returns {boolean}
  */
 export function commitAttackPresentation(
-  state,
-  basePresentation,
-  displayPresentation,
-) {
+  state: AttackState,
+  basePresentation: AttackPresentation | null,
+  displayPresentation: AttackDisplayPresentation,
+): boolean {
   if (
     !isAttackCalculationReady(state)
     || !Array.isArray(state.combos)
