@@ -13,12 +13,35 @@ import {
   nextPowerOfTwo,
 } from './PlanningMath'
 import { isSupportedScoreFeatureCombination } from '../../domain/InputDomain'
+import type {
+  BacktrackRangePlan,
+  CalculationRangePlan,
+  DamageRangePlan,
+  RangePlanEstimates,
+  RangePlanWarning,
+  RangePolicy,
+  ScoreRangePlan,
+} from './RangePlannerTypes'
 
-function addWarning(warnings, code, severity, message, value, limit) {
+function addWarning(
+  warnings: RangePlanWarning[],
+  code: string,
+  severity: 'warning' | 'reject',
+  message: string,
+  value: unknown,
+  limit: unknown,
+): void {
   warnings.push({ code, severity, message, value, limit })
 }
 
-function rejectMetric(warnings, accepted, code, value, limit, unit) {
+function rejectMetric(
+  warnings: RangePlanWarning[],
+  accepted: boolean,
+  code: string,
+  value: number,
+  limit: number,
+  unit?: string,
+): boolean {
   if (!Number.isFinite(value) || value > limit) {
     addWarning(
       warnings,
@@ -33,7 +56,11 @@ function rejectMetric(warnings, accepted, code, value, limit, unit) {
   return accepted
 }
 
-export function planResources(scorePlans, damagePlan, comboCount) {
+export function planResources(
+  scorePlans: readonly ScoreRangePlan[],
+  damagePlan: DamageRangePlan,
+  comboCount: number,
+): RangePlanEstimates {
   const scoreOperations = scorePlans.reduce(
     (sum, plan) => sum + plan.operations,
     0
@@ -75,7 +102,7 @@ export function planResources(scorePlans, damagePlan, comboCount) {
   }
 }
 
-export function scoreOnlyResources(scores) {
+export function scoreOnlyResources(scores: readonly ScoreRangePlan[]): RangePlanEstimates {
   const scoreOperations = scores.reduce(
     (sum, score) => sum + score.operations,
     0
@@ -100,7 +127,7 @@ export function scoreOnlyResources(scores) {
   }
 }
 
-export function backtrackResources(backtrack) {
+export function backtrackResources(backtrack: BacktrackRangePlan): RangePlanEstimates {
   return {
     cpuWork: calculateCpuWork({
       backtrackOperations: backtrack.operations,
@@ -115,8 +142,11 @@ export function backtrackResources(backtrack) {
 }
 
 /** Apply policy limits and return warnings without mutating the plan. */
-export function applyLimits(plan, policy) {
-  const warnings = []
+export function applyLimits(
+  plan: CalculationRangePlan,
+  policy: RangePolicy,
+): { accepted: boolean; warnings: readonly RangePlanWarning[] } {
+  const warnings: RangePlanWarning[] = []
   let accepted = true
   const limits = policy.limits
 
