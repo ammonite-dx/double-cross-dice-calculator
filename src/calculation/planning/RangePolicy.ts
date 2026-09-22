@@ -5,6 +5,11 @@ import {
   probability,
   DEFAULT_MAX_CPU_WORK,
 } from './PlanningMath'
+import type {
+  RangeDisplayPlan,
+  RangePolicy,
+  RangePolicyInput,
+} from './RangePlannerTypes'
 
 const DEFAULT_ERROR_BUDGET = 1e-8
 
@@ -28,10 +33,14 @@ export const DEFAULT_POLICY = {
   },
 }
 
-function rejectUnknownKeys(value, path, allowedKeys) {
+function rejectUnknownKeys(
+  value: unknown,
+  path: string,
+  allowedKeys: readonly string[],
+): void {
   object(value, path)
   const allowed = new Set(allowedKeys)
-  for (const key of Reflect.ownKeys(value)) {
+  for (const key of Reflect.ownKeys(value as object)) {
     if (typeof key !== 'string' || !allowed.has(key)) {
       throw new RangeError(
         `${path}.${String(key)} is not a supported range policy key`
@@ -40,7 +49,7 @@ function rejectUnknownKeys(value, path, allowedKeys) {
   }
 }
 
-export function mergePolicy(policy) {
+export function mergePolicy(policy?: RangePolicyInput | null): RangePolicy {
   const supplied = policy ?? {}
   object(supplied, 'policy')
   rejectUnknownKeys(supplied, 'policy', [
@@ -98,7 +107,9 @@ export function mergePolicy(policy) {
   return merged
 }
 
-export function normalizeDisplay(display) {
+export function normalizeDisplay(
+  display?: Readonly<{ min?: number; max?: number }> | null,
+): RangeDisplayPlan {
   const supplied = display ?? {}
   object(supplied, 'display')
   const min = supplied.min ?? 0

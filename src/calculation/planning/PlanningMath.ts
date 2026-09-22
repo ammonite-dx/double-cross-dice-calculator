@@ -12,11 +12,11 @@ import {
  * safe-integer behavior without making the RangePlanner façade a dependency.
  */
 
-export function integer(value, name) {
+export function integer(value: unknown, name: string): number {
   return assertSafeInteger(value, name)
 }
 
-export function addSafe(left, right, name) {
+export function addSafe(left: number, right: number, name: string): number {
   const result = left + right
   if (!Number.isSafeInteger(result)) {
     throw new RangeError(`${name} exceeds the safe integer range`)
@@ -24,7 +24,7 @@ export function addSafe(left, right, name) {
   return result
 }
 
-export function subtractSafe(left, right, name) {
+export function subtractSafe(left: number, right: number, name: string): number {
   const result = left - right
   if (!Number.isSafeInteger(result)) {
     throw new RangeError(`${name} exceeds the safe integer range`)
@@ -32,7 +32,7 @@ export function subtractSafe(left, right, name) {
   return result
 }
 
-export function multiplySafe(left, right, name) {
+export function multiplySafe(left: number, right: number, name: string): number {
   const result = left * right
   if (!Number.isSafeInteger(result) || result < 0) {
     throw new RangeError(`${name} exceeds the safe integer range`)
@@ -40,50 +40,50 @@ export function multiplySafe(left, right, name) {
   return result
 }
 
-export function nonNegativeInteger(value, name) {
+export function nonNegativeInteger(value: unknown, name: string): number {
   return assertNonNegativeSafeInteger(value, name)
 }
 
-export function positiveInteger(value, name) {
-  integer(value, name)
-  if (value <= 0) {
+export function positiveInteger(value: unknown, name: string): number {
+  const integerValue = integer(value, name)
+  if (integerValue <= 0) {
     throw new RangeError(`${name} must be positive`)
   }
-  return value
+  return integerValue
 }
 
-export function positiveNumber(value, name) {
-  if (!Number.isFinite(value) || value <= 0) {
+export function positiveNumber(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     throw new RangeError(`${name} must be a positive finite number`)
   }
   return value
 }
 
-export function nonNegativeNumber(value, name) {
-  if (!Number.isFinite(value) || value < 0) {
+export function nonNegativeNumber(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     throw new RangeError(`${name} must be a non-negative finite number`)
   }
   return value
 }
 
-export function probability(value, name) {
-  if (!Number.isFinite(value) || value <= 0 || value >= 1) {
+export function probability(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value >= 1) {
     throw new RangeError(`${name} must be between 0 and 1`)
   }
   return value
 }
 
-export function object(value, name) {
+export function object(value: unknown, name: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`${name} must be an object`)
   }
-  return value
+  return value as Record<string, unknown>
 }
 
-export function nextPowerOfTwo(value) {
-  positiveInteger(value, 'value')
+export function nextPowerOfTwo(value: unknown): number {
+  const integerValue = positiveInteger(value, 'value')
   let result = 1
-  while (result < value) {
+  while (result < integerValue) {
     if (result > Number.MAX_SAFE_INTEGER / 2) {
       throw new RangeError('value is too large for a power-of-two length')
     }
@@ -92,7 +92,7 @@ export function nextPowerOfTwo(value) {
   return result
 }
 
-export function fftOperationCount(length) {
+export function fftOperationCount(length: number): number {
   if (!length) {
     return 0
   }
@@ -117,7 +117,7 @@ export const CPU_WORK_WEIGHTS = Object.freeze({
   backtrack: 16,
 })
 
-function weightedCpuWork(value, weight, name) {
+function weightedCpuWork(value: unknown, weight: number, name: string): number {
   const normalized = nonNegativeNumber(value, name)
   const result = normalized * weight
   if (!Number.isFinite(result) || result < 0) {
@@ -139,7 +139,13 @@ export function calculateCpuWork({
   defenceD10Operations = 0,
   fftOperations = 0,
   backtrackOperations = 0,
-} = {}) {
+}: {
+  scoreOperations?: number
+  damageOperations?: number
+  defenceD10Operations?: number
+  fftOperations?: number
+  backtrackOperations?: number
+} = {}): number {
   const components = [
     weightedCpuWork(
       scoreOperations,
