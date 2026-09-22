@@ -1,6 +1,19 @@
 import {
   validateDistributionResult,
 } from '../../calculation/DistributionResult'
+import type { CertifiedValue } from '../../domain/CertifiedValue'
+import type {
+  DistributionEnvelope,
+  DistributionOverflow,
+  DistributionResult,
+  DistributionSupport,
+  ProbabilityMassSummary,
+} from '../../domain/DistributionResultTypes'
+import type {
+  DisplayProjectionUncertainty,
+  DisplayWarning,
+  DistributionDisplay,
+} from './DistributionProjectionTypes'
 
 /** @typedef {import('./DistributionProjectionTypes').DistributionDisplay} DistributionDisplay */
 /** @typedef {import('./DistributionProjectionTypes').DistributionEnvelope} DistributionEnvelope */
@@ -20,55 +33,86 @@ export const DISTRIBUTION_PRESENTATION_ERROR_CODES = Object.freeze({
   INVALID_WARNING: 'invalid-warning',
 })
 
-function hasOwn(value, property) {
+interface PresentationSummary {
+  readonly mass: ProbabilityMassSummary
+  readonly expectedValue: CertifiedValue
+}
+
+interface PresentationOptions {
+  readonly summary: PresentationSummary
+  readonly warnings?: readonly unknown[]
+  readonly displayWindow?: unknown
+}
+
+interface ValidatedEnvelope {
+  readonly values: Float64Array
+  readonly offset: number
+  readonly explicitMax: number | null
+  readonly support: DistributionSupport
+  readonly overflow: DistributionOverflow | null
+  readonly projectionUncertainty: DisplayProjectionUncertainty | null
+}
+
+function hasOwn(value: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(value, property)
 }
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function freezeDetails(details) {
+function freezeDetails(details: unknown): Readonly<Record<string, unknown>> {
   return Object.freeze(isRecord(details) ? { ...details } : {})
 }
 
 export class DistributionPresentationError extends Error {
-  constructor(code, message, details = {}) {
+  readonly code: string
+  readonly details: Readonly<Record<string, unknown>>
+  readonly distributionPresentation = true
+  readonly validation: boolean = false
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(message)
     this.name = 'DistributionPresentationError'
     this.code = code
     this.details = freezeDetails(details)
-    this.distributionPresentation = true
   }
 }
 
 export class DistributionPresentationValidationError
   extends DistributionPresentationError {
-  constructor(code, message, details = {}) {
+  override readonly validation: boolean = true
+
+  constructor(code: string, message: string, details: unknown = {}) {
     super(code, message, details)
     this.name = 'DistributionPresentationValidationError'
     this.validation = true
   }
 }
 
-export function isDistributionPresentationError(error) {
-  return error?.distributionPresentation === true
+export function isDistributionPresentationError(
+  error: unknown,
+): error is DistributionPresentationError {
+  return isRecord(error)
+    && error.distributionPresentation === true
     && typeof error.code === 'string'
 }
 
-export function isDistributionPresentationValidationError(error) {
+export function isDistributionPresentationValidationError(
+  error: unknown,
+): error is DistributionPresentationValidationError {
   return isDistributionPresentationError(error) && error.validation === true
 }
 
-function fail(code, message, details = {}) {
+function fail(code: string, message: string, details: unknown = {}): never {
   throw new DistributionPresentationValidationError(code, message, details)
 }
 
-function isFiniteNumber(value) {
+function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function copySupport(support) {
+function copySupport(support: DistributionSupport): DistributionSupport {
   if (support.kind === 'finite') {
     return Object.freeze({
       kind: 'finite',
@@ -78,7 +122,9 @@ function copySupport(support) {
   return Object.freeze({ kind: 'infinite' })
 }
 
-function copyOverflow(overflow) {
+function copyOverflow(
+  overflow: DistributionOverflow | null,
+): DistributionOverflow | null {
   if (overflow === null) {
     return null
   }
@@ -98,7 +144,9 @@ function copyOverflow(overflow) {
   })
 }
 
-function copyProjectionUncertainty(metadata) {
+function copyProjectionUncertainty(
+  metadata: Record<string, unknown>,
+): DisplayProjectionUncertainty | null {
   if (!hasOwn(metadata, 'projectionUncertainty')) {
     return null
   }
@@ -125,13 +173,21 @@ function copyProjectionUncertainty(metadata) {
     )
   }
 
-  const copied = { positionUnknownProbabilityUpperBound }
+  const copied: {
+    positionUnknownProbabilityUpperBound: number
+    outputOverflowLowerBound?: number | null
+  } = {
+    positionUnknownProbabilityUpperBound,
+  }
   if (hasOwn(value, 'outputOverflowLowerBound')) {
     const outputOverflowLowerBound = value.outputOverflowLowerBound
     if (
       outputOverflowLowerBound !== null
-      && (!Number.isSafeInteger(outputOverflowLowerBound)
-        || outputOverflowLowerBound < 0)
+      && (
+        typeof outputOverflowLowerBound !== 'number'
+        || !Number.isSafeInteger(outputOverflowLowerBound)
+        || outputOverflowLowerBound < 0
+      )
     ) {
       fail(
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
@@ -141,10 +197,10 @@ function copyProjectionUncertainty(metadata) {
     }
     copied.outputOverflowLowerBound = outputOverflowLowerBound
   }
-  return Object.freeze(copied)
+  return Object.freeze(copied) as DisplayProjectionUncertainty
 }
 
-function validateEnvelope(envelope) {
+function validateEnvelope(envelope: unknown): ValidatedEnvelope {
   if (!isRecord(envelope)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
@@ -167,10 +223,18 @@ function validateEnvelope(envelope) {
     )
   }
 
+  let typedResult: DistributionResult
   try {
     validateDistributionResult(result)
-  } catch (error) {
-    const details = typeof error?.code === 'string'
+    typedResult = {
+      version: result.version as number,
+      values: result.values as Float64Array,
+      offset: result.offset as number,
+      support: result.support as DistributionSupport,
+      overflow: result.overflow as DistributionOverflow | null,
+    }
+  } catch (error: unknown) {
+    const details = isRecord(error) && typeof error.code === 'string'
       ? { causeCode: error.code }
       : {}
     fail(
@@ -182,27 +246,27 @@ function validateEnvelope(envelope) {
 
   // Display coordinates are non-negative even though the calculation core
   // can represent a signed explicit offset.
-  if (!Number.isSafeInteger(result.offset) || result.offset < 0) {
+  if (!Number.isSafeInteger(typedResult.offset) || typedResult.offset < 0) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_ENVELOPE,
       'distribution display does not support negative explicit offsets',
-      { offset: result.offset }
+      { offset: typedResult.offset }
     )
   }
 
   return {
-    values: result.values,
-    offset: result.offset,
-    explicitMax: result.values.length === 0
+    values: typedResult.values,
+    offset: typedResult.offset,
+    explicitMax: typedResult.values.length === 0
       ? null
-      : result.offset + result.values.length - 1,
-    support: result.support,
-    overflow: result.overflow,
+      : typedResult.offset + typedResult.values.length - 1,
+    support: typedResult.support,
+    overflow: typedResult.overflow,
     projectionUncertainty: copyProjectionUncertainty(metadata),
   }
 }
 
-function copyWarnings(warnings) {
+function copyWarnings(warnings: unknown): readonly DisplayWarning[] {
   if (!Array.isArray(warnings)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_WARNING,
@@ -210,7 +274,7 @@ function copyWarnings(warnings) {
     )
   }
 
-  const copied = Array.from(warnings, (warning, index) => {
+  const copied = Array.from(warnings, (warning: unknown, index): DisplayWarning => {
     if (!isRecord(warning)) {
       fail(
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_WARNING,
@@ -225,7 +289,10 @@ function copyWarnings(warnings) {
         { index }
       )
     }
-    if (!['info', 'warning', 'error', 'reject'].includes(warning.severity)) {
+    if (
+      typeof warning.severity !== 'string'
+      || !['info', 'warning', 'error', 'reject'].includes(warning.severity)
+    ) {
       fail(
         DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_WARNING,
         `warnings[${index}].severity must be info, warning, error, or reject`,
@@ -236,12 +303,14 @@ function copyWarnings(warnings) {
     // Planner warnings are trusted, shallow DTOs. Keep consumer-visible
     // fields such as entryId/details, but do not recursively copy or freeze
     // their owned nested values.
-    return Object.freeze({ ...warning })
+    return Object.freeze({ ...warning }) as DisplayWarning
   })
   return Object.freeze(copied)
 }
 
-function copyDisplayWindow(options) {
+function copyDisplayWindow(
+  options: Record<string, unknown>,
+): Readonly<{ min: number; max: number }> | null {
   if (!hasOwn(options, 'displayWindow')) {
     return null
   }
@@ -255,14 +324,14 @@ function copyDisplayWindow(options) {
   }
 
   const { min, max } = displayWindow
-  if (!Number.isSafeInteger(min) || min < 0) {
+  if (typeof min !== 'number' || !Number.isSafeInteger(min) || min < 0) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
       'options.displayWindow.min must be a non-negative safe integer',
       { min }
     )
   }
-  if (!Number.isSafeInteger(max) || max < 0) {
+  if (typeof max !== 'number' || !Number.isSafeInteger(max) || max < 0) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_DISPLAY_WINDOW,
       'options.displayWindow.max must be a non-negative safe integer',
@@ -280,7 +349,7 @@ function copyDisplayWindow(options) {
   return Object.freeze({ min, max })
 }
 
-function readSummary(options) {
+function readSummary(options: Record<string, unknown>): PresentationSummary {
   if (!hasOwn(options, 'summary')) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
@@ -298,7 +367,7 @@ function readSummary(options) {
       'summary must contain mass and expectedValue objects'
     )
   }
-  return summary
+  return summary as unknown as PresentationSummary
 }
 
 /**
@@ -312,7 +381,10 @@ function readSummary(options) {
  * @param {{ summary: Object, warnings?: readonly Object[], displayWindow?: { min: number, max: number } }} options
  * @returns {DistributionDisplay}
  */
-export function presentDistribution(envelope, options = {}) {
+export function presentDistribution(
+  envelope: DistributionEnvelope,
+  options: PresentationOptions,
+): DistributionDisplay {
   if (!isRecord(options)) {
     fail(
       DISTRIBUTION_PRESENTATION_ERROR_CODES.INVALID_OPTIONS,
@@ -326,7 +398,7 @@ export function presentDistribution(envelope, options = {}) {
   const validated = validateEnvelope(envelope)
   const probabilities = Array.from(validated.values)
 
-  const display = {
+  const display: DistributionDisplay = {
     version: DISTRIBUTION_DISPLAY_VERSION,
     kind: 'canonical-distribution-display',
     explicit: Object.freeze({
@@ -345,8 +417,8 @@ export function presentDistribution(envelope, options = {}) {
       ? {}
       : { projectionUncertainty: validated.projectionUncertainty }),
   }
-  if (displayWindow !== null) {
-    display.displayWindow = displayWindow
-  }
-  return Object.freeze(display)
+  return Object.freeze({
+    ...display,
+    ...(displayWindow === null ? {} : { displayWindow }),
+  })
 }
