@@ -15,6 +15,19 @@ import {
   DEFAULT_MAX_CPU_WORK,
   fftOperationCount,
 } from './planning/PlanningMath'
+import type { DistributionSupport } from '../domain/DistributionResultTypes'
+import type {
+  DamageAggregationInternalPlan,
+  DamageAggregationPlanStep,
+  InspectedDamageComponent,
+} from './DamageAggregationTypes'
+
+type PlannerOptions = Readonly<{
+  maxValuesLength: number
+  maxFftLength: number
+  maxResourceBytes: number
+}>
+type NumericDetails = Record<string, unknown>
 
 const FLOAT64_BYTES = Float64Array.BYTES_PER_ELEMENT
 const FFT_BUFFER_COUNT = 4
@@ -26,7 +39,12 @@ const PERSISTENT_DESCRIPTOR_BYTES = 512
 const PERSISTENT_COMPONENT_METADATA_BYTES = 512
 const PERSISTENT_OUTPUT_BUFFER_COUNT = 2
 
-function addSafeIntegers(left, right, field, details = {}) {
+function addSafeIntegers(
+  left: number,
+  right: number,
+  field: string,
+  details: NumericDetails = {},
+): number {
   if (
     !Number.isSafeInteger(left)
     || !Number.isSafeInteger(right)
@@ -47,7 +65,11 @@ function addSafeIntegers(left, right, field, details = {}) {
   return left + right
 }
 
-function getLinearConvolutionLength(left, right, details = {}) {
+function getLinearConvolutionLength(
+  left: number,
+  right: number,
+  details: NumericDetails = {},
+): number {
   if (
     !Number.isSafeInteger(left)
     || !Number.isSafeInteger(right)
@@ -68,7 +90,12 @@ function getLinearConvolutionLength(left, right, details = {}) {
   return left + right - 1
 }
 
-function addFiniteNumbers(left, right, field, details = {}) {
+function addFiniteNumbers(
+  left: number,
+  right: number,
+  field: string,
+  details: NumericDetails = {},
+): number {
   const value = left + right
   if (!Number.isFinite(value)) {
     failNumerical(
@@ -79,7 +106,12 @@ function addFiniteNumbers(left, right, field, details = {}) {
   return value
 }
 
-function multiplyFiniteNumbers(left, right, field, details = {}) {
+function multiplyFiniteNumbers(
+  left: number,
+  right: number,
+  field: string,
+  details: NumericDetails = {},
+): number {
   const value = left * right
   if (!Number.isFinite(value)) {
     failNumerical(
@@ -90,7 +122,12 @@ function multiplyFiniteNumbers(left, right, field, details = {}) {
   return value
 }
 
-export function estimateConvolutionBytes(leftLength, rightLength, resultLength, fftLength) {
+export function estimateConvolutionBytes(
+  leftLength: number,
+  rightLength: number,
+  resultLength: number,
+  fftLength: number,
+): number {
   let words = multiplyFiniteNumbers(
     FFT_BUFFER_COUNT,
     fftLength,
@@ -113,7 +150,12 @@ export function estimateConvolutionBytes(leftLength, rightLength, resultLength, 
   return bytes
 }
 
-export function addResourceBytes(left, right, field, details = {}) {
+export function addResourceBytes(
+  left: number,
+  right: number,
+  field: string,
+  details: NumericDetails = {},
+): number {
   if (
     !Number.isSafeInteger(left)
     || !Number.isSafeInteger(right)
@@ -134,7 +176,12 @@ export function addResourceBytes(left, right, field, details = {}) {
   return left + right
 }
 
-export function multiplyResourceBytes(left, right, field, details = {}) {
+export function multiplyResourceBytes(
+  left: number,
+  right: number,
+  field: string,
+  details: NumericDetails = {},
+): number {
   if (
     !Number.isSafeInteger(left)
     || !Number.isSafeInteger(right)
@@ -156,10 +203,10 @@ export function multiplyResourceBytes(left, right, field, details = {}) {
 }
 
 export function estimatePersistentBytes(
-  componentCount,
-  outputLength,
-  sourceValuesLength = 0
-) {
+  componentCount: number,
+  outputLength: number,
+  sourceValuesLength = 0,
+): number {
   let bytes = PERSISTENT_METADATA_BYTES
   const perComponentBytes =
     PERSISTENT_COMPONENT_REFERENCE_BYTES
@@ -197,7 +244,9 @@ export function estimatePersistentBytes(
   return bytes
 }
 
-export function getSourceValuesLength(inspected) {
+export function getSourceValuesLength(
+  inspected: readonly InspectedDamageComponent[],
+): number {
   let length = 0
   for (const component of inspected) {
     length = addResourceBytes(
@@ -209,7 +258,12 @@ export function getSourceValuesLength(inspected) {
   return length
 }
 
-export function ensureLengthLimit(length, options, field, index) {
+export function ensureLengthLimit(
+  length: number,
+  options: PlannerOptions,
+  field: string,
+  index?: number,
+): void {
   if (!Number.isSafeInteger(length) || length < 0) {
     failIndex(
       `${field} must be a non-negative safe integer`,
@@ -224,7 +278,10 @@ export function ensureLengthLimit(length, options, field, index) {
   }
 }
 
-export function estimateAggregateOutputLength(inspected, options) {
+export function estimateAggregateOutputLength(
+  inspected: readonly InspectedDamageComponent[],
+  options: PlannerOptions,
+): number {
   if (inspected.some((component) => component.values.length === 0)) {
     return 0
   }
@@ -240,7 +297,11 @@ export function estimateAggregateOutputLength(inspected, options) {
   return currentLength
 }
 
-function combineSupport(left, right, field) {
+function combineSupport(
+  left: DistributionSupport,
+  right: DistributionSupport,
+  field: string,
+): DistributionSupport {
   if (left.kind === 'infinite' || right.kind === 'infinite') {
     return Object.freeze({ kind: 'infinite' })
   }
@@ -251,10 +312,20 @@ function combineSupport(left, right, field) {
 }
 
 /** Plan convolution steps and resource estimates without executing FFT. */
-export function buildDamageAggregationPlan(inspected, options, persistentBytes) {
+export function buildDamageAggregationPlan(
+  inspected: readonly InspectedDamageComponent[],
+  options: PlannerOptions,
+  persistentBytes: number,
+): DamageAggregationInternalPlan {
   let offset = 0
-  let modeledSupport = Object.freeze({ kind: 'finite', max: 0 })
-  let sourceSupport = Object.freeze({ kind: 'finite', max: 0 })
+  let modeledSupport: DistributionSupport = Object.freeze({
+    kind: 'finite',
+    max: 0,
+  })
+  let sourceSupport: DistributionSupport = Object.freeze({
+    kind: 'finite',
+    max: 0,
+  })
   let sourceErrorBound = 0
   let expectedExplicitMass = 1
   let exactTailProbabilities = []
@@ -308,7 +379,7 @@ export function buildDamageAggregationPlan(inspected, options, persistentBytes) 
   const upperUnion = unionProbability(upperTailProbabilities)
 
   const hasEmptyValues = inspected.some((component) => component.values.length === 0)
-  const steps = []
+  const steps: DamageAggregationPlanStep[] = []
   let peakResourceBytes = persistentBytes
   let operations = 0
   let currentLength = hasEmptyValues ? 0 : inspected[0]?.values.length ?? 0
@@ -331,10 +402,14 @@ export function buildDamageAggregationPlan(inspected, options, persistentBytes) 
       let fftLength
       try {
         fftLength = getConvolutionFftLength(currentLength, nextLength)
-      } catch (error) {
+      } catch (error: unknown) {
         failIndex(
           'unable to determine a safe FFT length for convolution',
-          { index, causeName: error?.name, causeMessage: error?.message }
+          {
+            index,
+            causeName: error instanceof Error ? error.name : undefined,
+            causeMessage: error instanceof Error ? error.message : undefined,
+          }
         )
       }
       if (fftLength > options.maxFftLength) {
