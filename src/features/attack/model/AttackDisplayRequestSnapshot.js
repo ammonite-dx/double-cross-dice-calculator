@@ -102,7 +102,7 @@ function validatePolicySchema(value, path, allowed, seen = new WeakSet()) {
     return
   }
   seen.add(value)
-  for (const property of Reflect.ownKeys(value)) {
+  for (const property of Object.keys(value)) {
     if (typeof property !== 'string' || !allowed.has(property)) {
       fail(
         ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
@@ -110,6 +110,13 @@ function validatePolicySchema(value, path, allowed, seen = new WeakSet()) {
         { path: `${path}.${String(property)}` }
       )
     }
+  }
+  for (const property of Object.getOwnPropertySymbols(value)) {
+    fail(
+      ATTACK_DISPLAY_REQUEST_ERROR_CODES.INVALID_POLICY,
+      `${path}.${String(property)} is not a supported range policy key`,
+      { path: `${path}.${String(property)}` }
+    )
   }
   if (Object.prototype.hasOwnProperty.call(value, 'display')) {
     validatePolicySchema(

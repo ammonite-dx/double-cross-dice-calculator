@@ -194,7 +194,7 @@ function validatePolicySchema(
     return
   }
   seen.add(value)
-  for (const property of Reflect.ownKeys(value)) {
+  for (const property of Object.keys(value)) {
     if (typeof property !== 'string' || !allowed.has(property)) {
       fail(
         CHECK_RANGE_POLICY_ERROR_CODE,
@@ -202,6 +202,13 @@ function validatePolicySchema(
         { path: `${path}.${String(property)}` },
       )
     }
+  }
+  for (const property of Object.getOwnPropertySymbols(value)) {
+    fail(
+      CHECK_RANGE_POLICY_ERROR_CODE,
+      `${path}.${String(property)} is not a supported range policy key`,
+      { path: `${path}.${String(property)}` },
+    )
   }
   if (Object.prototype.hasOwnProperty.call(value, 'errorBudget')) {
     validatePolicySchema(
