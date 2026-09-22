@@ -3,7 +3,20 @@ import {
   transformRadix2FftInPlace,
 } from './Radix2FFT'
 
-function assertCompatibleDistributions(distribution1, distribution2) {
+import type { NumericDistribution } from './Distribution'
+
+export interface FftOptions {
+  fftLength?: number
+  signal?: AbortSignal
+  onFftLength?: (length: number) => void
+}
+
+type FftOptionsInput = FftOptions | number | null | undefined
+
+function assertCompatibleDistributions(
+  distribution1: NumericDistribution,
+  distribution2: NumericDistribution,
+): void {
   if (
     distribution1.length === 0 ||
     distribution1.length !== distribution2.length
@@ -12,13 +25,19 @@ function assertCompatibleDistributions(distribution1, distribution2) {
   }
 }
 
-function assertNonEmptyDistributions(distribution1, distribution2) {
+function assertNonEmptyDistributions(
+  distribution1: NumericDistribution,
+  distribution2: NumericDistribution,
+): void {
   if (distribution1.length === 0 || distribution2.length === 0) {
     throw new Error('Distributions must have non-zero length')
   }
 }
 
-export function getConvolutionFftLength(length, otherLength = length) {
+export function getConvolutionFftLength(
+  length: number,
+  otherLength = length,
+): number {
   if (!Number.isSafeInteger(length) || length <= 0 ||
       !Number.isSafeInteger(otherLength) || otherLength <= 0) {
     throw new RangeError(
@@ -45,7 +64,7 @@ export function getConvolutionFftLength(length, otherLength = length) {
 // silently converted into probability mass.
 export const FFT_COEFFICIENT_CLEANUP_TOLERANCE = 1e-12
 
-export function sanitizeFftCoefficients(values) {
+export function sanitizeFftCoefficients(values: Float64Array): Float64Array {
   for (let index = 0; index < values.length; index += 1) {
     const coefficient = values[index]
     if (!Number.isFinite(coefficient)) {
@@ -70,8 +89,12 @@ export function sanitizeFftCoefficients(values) {
  * Unlike sumDistribution, this helper keeps every coefficient and accepts
  * different input lengths.
  */
-export function convolveDistributions(distribution1, distribution2, options = {}) {
-  const normalizedOptions = typeof options === 'number'
+export function convolveDistributions(
+  distribution1: NumericDistribution,
+  distribution2: NumericDistribution,
+  options: FftOptionsInput = {},
+): number[] {
+  const normalizedOptions: FftOptions = typeof options === 'number'
     ? { fftLength: options }
     : options ?? {}
   assertNonEmptyDistributions(distribution1, distribution2)
@@ -131,11 +154,15 @@ export function convolveDistributions(distribution1, distribution2, options = {}
     normalizedOptions.signal,
   )
   throwIfFftAborted(normalizedOptions.signal)
-  return sanitizeFftCoefficients(firstReal.slice(0, resultLength))
+  return Array.from(sanitizeFftCoefficients(firstReal.slice(0, resultLength)))
 }
 
-export function sumDistribution(distribution1, distribution2, options = {}) {
-  const normalizedOptions = typeof options === 'number'
+export function sumDistribution(
+  distribution1: NumericDistribution,
+  distribution2: NumericDistribution,
+  options: FftOptionsInput = {},
+): number[] {
+  const normalizedOptions: FftOptions = typeof options === 'number'
     ? { fftLength: options }
     : options ?? {}
   assertCompatibleDistributions(distribution1, distribution2)
@@ -157,17 +184,21 @@ export function sumDistribution(distribution1, distribution2, options = {}) {
   return result
 }
 
-export function subDistribution(distribution1, distribution2, options = {}) {
+export function subDistribution(
+  distribution1: NumericDistribution,
+  distribution2: NumericDistribution,
+  options: FftOptionsInput = {},
+): number[] {
   assertNonEmptyDistributions(distribution1, distribution2)
 
-  const normalizedOptions = typeof options === 'number'
+  const normalizedOptions: FftOptions = typeof options === 'number'
     ? { fftLength: options }
     : options ?? {}
 
   const size = distribution1.length
   const convolved = convolveDistributions(
     distribution1,
-    distribution2.slice().reverse(),
+    Array.from(distribution2).reverse(),
     normalizedOptions,
   )
   const result = Array(size).fill(0)

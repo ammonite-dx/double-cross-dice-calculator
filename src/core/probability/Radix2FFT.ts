@@ -1,4 +1,4 @@
-export function throwIfFftAborted(signal) {
+export function throwIfFftAborted(signal?: AbortSignal): void {
   if (signal?.aborted) {
     const error = new Error('The FFT convolution was aborted')
     error.name = 'AbortError'
@@ -7,11 +7,11 @@ export function throwIfFftAborted(signal) {
 }
 
 export function transformRadix2FftInPlace(
-  real,
-  imaginary,
+  real: Float64Array,
+  imaginary: Float64Array,
   inverse = false,
-  signal
-) {
+  signal?: AbortSignal,
+): void {
   const size = real.length
   throwIfFftAborted(signal)
 

@@ -1,8 +1,10 @@
+export type NumericDistribution = ArrayLike<number>
+
 /** Expand the historical sparse reference-data representation. */
 export function expandSparseDistribution(
-  sparseDistribution,
-  size
-) {
+  sparseDistribution: { offset: number; values: NumericDistribution },
+  size: number,
+): number[] {
   if (!Number.isSafeInteger(size) || size <= 0) {
     throw new TypeError('distribution expansion size must be a positive safe integer')
   }
@@ -16,7 +18,10 @@ export function expandSparseDistribution(
   return distribution
 }
 
-export function shiftDistribution(distribution, amount) {
+export function shiftDistribution(
+  distribution: NumericDistribution,
+  amount: number,
+): number[] {
   const size = distribution.length
   const shifted = Array(size).fill(0)
 
@@ -31,7 +36,7 @@ export function shiftDistribution(distribution, amount) {
   return shifted
 }
 
-export function getUpperTailProbability(distribution) {
+export function getUpperTailProbability(distribution: NumericDistribution): number[] {
   const upperTailProbability = Array(distribution.length).fill(0)
   upperTailProbability[0] = 1
 
