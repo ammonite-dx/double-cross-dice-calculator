@@ -12,7 +12,18 @@ import {
 
 const NEGATIVE_PROBABILITY_TOLERANCE = 1e-12
 
-function throwIfAborted(runtimeOptions) {
+interface BacktrackRuntimeOptions {
+  readonly signal?: AbortSignal
+}
+
+type DiceCounts = readonly number[] | ArrayLike<number>
+
+interface AbortChecker {
+  force: () => void
+  tick: () => void
+}
+
+function throwIfAborted(runtimeOptions: BacktrackRuntimeOptions): void {
   if (runtimeOptions?.signal?.aborted) {
     const error = new Error('Backtrack calculation was aborted')
     error.name = 'AbortError'
@@ -20,7 +31,7 @@ function throwIfAborted(runtimeOptions) {
   }
 }
 
-function createAbortChecker(runtimeOptions) {
+function createAbortChecker(runtimeOptions: BacktrackRuntimeOptions): AbortChecker {
   let pendingChecks = 0
   return {
     force() {
@@ -37,7 +48,11 @@ function createAbortChecker(runtimeOptions) {
   }
 }
 
-function normalizeGeneratedDistribution(distribution, label, abortChecker) {
+function normalizeGeneratedDistribution(
+  distribution: Float64Array,
+  label: string,
+  abortChecker: AbortChecker,
+): Float64Array {
   const normalized = new Float64Array(distribution.length)
   let total = 0
   for (let index = 0; index < distribution.length; index += 1) {
@@ -63,7 +78,7 @@ function normalizeGeneratedDistribution(distribution, label, abortChecker) {
   return normalized
 }
 
-function normalizeDiceCounts(diceCounts, label) {
+function normalizeDiceCounts(diceCounts: DiceCounts, label: string): number[] {
   if (
     !Array.isArray(diceCounts) &&
     !(ArrayBuffer.isView(diceCounts) && typeof diceCounts.length === 'number')
@@ -73,7 +88,7 @@ function normalizeDiceCounts(diceCounts, label) {
   if (diceCounts.length === 0) {
     throw new RangeError(`${label} diceCounts must not be empty`)
   }
-  const normalized = Array.from(diceCounts)
+  const normalized = Array.from(diceCounts as ArrayLike<number>)
   normalized.forEach((dice, index) => {
     if (!Number.isSafeInteger(dice) || dice < 0) {
       throw new TypeError(
@@ -89,7 +104,10 @@ function normalizeDiceCounts(diceCounts, label) {
   return normalized
 }
 
-function validateLivingdeadInputs(diceCounts, size) {
+function validateLivingdeadInputs(
+  diceCounts: DiceCounts,
+  size: number,
+): { requestedDice: number[]; maxDice: number } {
   const requestedDice = normalizeDiceCounts(diceCounts, 'livingdead distribution')
   if (!Number.isSafeInteger(size)) {
     throw new TypeError('livingdead distribution size must be a safe integer')
@@ -127,10 +145,10 @@ function validateLivingdeadInputs(diceCounts, size) {
 
 /** Generate the complete finite 《屍人》 PMF using max/sum-minus-max DP. */
 export function calculateLivingdeadDistributions(
-  diceCounts,
-  size,
-  runtimeOptions = {}
-) {
+  diceCounts: DiceCounts,
+  size: number,
+  runtimeOptions: BacktrackRuntimeOptions = {},
+): Map<number, Float64Array> {
   const { requestedDice, maxDice } = validateLivingdeadInputs(diceCounts, size)
   const abortChecker = createAbortChecker(runtimeOptions)
   abortChecker.force()
@@ -189,7 +207,12 @@ export function calculateLivingdeadDistributions(
   return result
 }
 
-function sumLivingdeadStates(states, size, label, abortChecker) {
+function sumLivingdeadStates(
+  states: Float64Array[],
+  size: number,
+  label: string,
+  abortChecker: AbortChecker,
+): Float64Array {
   const distribution = new Float64Array(size)
   for (let maximum = 1; maximum <= 10; maximum += 1) {
     const state = states[maximum]

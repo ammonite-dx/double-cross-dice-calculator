@@ -8,7 +8,13 @@ import { getBacktrackSupportMax, LIVINGDEAD_DLOIS } from '../domain/BacktrackRul
 import { calculateD10Distributions as calculateSharedD10Distributions } from './D10Calculator'
 import { calculateLivingdeadDistributions } from './BacktrackLivingdeadDistribution'
 
-function throwIfAborted(runtimeOptions) {
+interface BacktrackRuntimeOptions {
+  readonly signal?: AbortSignal
+}
+
+type DiceCounts = readonly number[] | ArrayLike<number>
+
+function throwIfAborted(runtimeOptions: BacktrackRuntimeOptions): void {
   if (runtimeOptions?.signal?.aborted) {
     const error = new Error('Backtrack calculation was aborted')
     error.name = 'AbortError'
@@ -16,7 +22,7 @@ function throwIfAborted(runtimeOptions) {
   }
 }
 
-function normalizeDiceCounts(diceCounts, label) {
+function normalizeDiceCounts(diceCounts: DiceCounts, label: string): number[] {
   if (
     !Array.isArray(diceCounts) &&
     !(ArrayBuffer.isView(diceCounts) && typeof diceCounts.length === 'number')
@@ -27,7 +33,7 @@ function normalizeDiceCounts(diceCounts, label) {
     throw new RangeError(`${label} diceCounts must not be empty`)
   }
 
-  const normalized = Array.from(diceCounts)
+  const normalized = Array.from(diceCounts as ArrayLike<number>)
   normalized.forEach((dice, index) => {
     if (!Number.isSafeInteger(dice) || dice < 0) {
       throw new TypeError(
@@ -43,7 +49,12 @@ function normalizeDiceCounts(diceCounts, label) {
   return normalized
 }
 
-function validateGenerationInputs(diceCounts, size, label, livingdead) {
+function validateGenerationInputs(
+  diceCounts: DiceCounts,
+  size: number,
+  label: string,
+  livingdead: boolean,
+): { requestedDice: number[]; maxDice: number; supportMax: number } {
   const requestedDice = normalizeDiceCounts(diceCounts, label)
   if (!Number.isSafeInteger(size)) {
     throw new TypeError(`${label} size must be a safe integer`)
@@ -86,7 +97,11 @@ function validateGenerationInputs(diceCounts, size, label, livingdead) {
 
 // Keep the Backtrack API's stricter generation policy while delegating the
 // ordinary D10 arithmetic to the shared runtime primitive.
-export function calculateD10Distributions(diceCounts, size, runtimeOptions = {}) {
+export function calculateD10Distributions(
+  diceCounts: DiceCounts,
+  size: number,
+  runtimeOptions: BacktrackRuntimeOptions = {},
+): Map<number, Float64Array> {
   validateGenerationInputs(diceCounts, size, 'D10 distribution', false)
   return calculateSharedD10Distributions(diceCounts, size, runtimeOptions)
 }
@@ -94,11 +109,11 @@ export function calculateD10Distributions(diceCounts, size, runtimeOptions = {})
 export { calculateLivingdeadDistributions }
 
 export function generateBacktrackDistributions(
-  diceCounts,
-  size,
-  livingdead,
-  runtimeOptions = {}
-) {
+  diceCounts: DiceCounts,
+  size: number,
+  livingdead: boolean,
+  runtimeOptions: BacktrackRuntimeOptions = {},
+): Map<number, Float64Array> {
   return livingdead
     ? calculateLivingdeadDistributions(diceCounts, size, runtimeOptions)
     : calculateD10Distributions(diceCounts, size, runtimeOptions)
