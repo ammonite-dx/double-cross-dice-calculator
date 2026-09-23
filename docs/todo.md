@@ -25,5 +25,6 @@
 
 ## 完了した直近の作業
 
+- **R30-prep: 《屍人》runtime最適化と表示丸めの安定化**: 《屍人》のmax/sum状態DPをbounded-sum DPへ置き換え、generation work・メモリ見積りを更新した。Check、Attack、Backtrackで小数1桁表示の丸めを共通化し、歴史fixture、直接列挙、845D/846D境界、表示回帰を検証した。詳細は[`archive/r30-prep-livingdead-runtime-optimization.md`](./archive/r30-prep-livingdead-runtime-optimization.md)を参照する。
 - **R29-I: architecture convergence closure**: R29-A〜Hの計算・runtime・presentation・参照境界と検証責務を監査し、旧移行用語を整理した。全体ゲートが成功し、R29を`CLOSED / GREEN`とした。詳細は[`archive/r29-i-architecture-convergence-closure.md`](./archive/r29-i-architecture-convergence-closure.md)を参照する。
 - **R29-H: active documentation and naming cleanup**: production presentation DTO、Attack runtime benchmark、現行用語とドキュメントを整理し、active Markdown link contractを追加した。詳細は[`archive/r29-h-active-documentation-naming-cleanup.md`](./archive/r29-h-active-documentation-naming-cleanup.md)を参照する。

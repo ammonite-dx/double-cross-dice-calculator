@@ -128,13 +128,31 @@ $$
 
 負のダイス数は0個として扱います。現在侵蝕率を$e$、固定減少を$v$、ダイス合計を$S$とすると、最終値は$E=e-v-S$です。各振り方の区分は`dice-rules.md`の境界へ直接分類し、表示時だけ百分率へ丸めます。Backtrackは有限supportを完全に生成するため、静的livingdead assetのcoverage不足をproduction結果へ持ち込みません。
 
-通常D10の生成は共有D10計算器へ委譲します。《屍人》では、状態`states[max][value]`を使って「現在までの最大値が`max`、`sum - max + 1`が`value`」である確率を保持します。次の1D10の出目が現在の最大値以下なら`value`へ出目を加え、新しい最大値なら`value`へ旧最大値を加えます。各ダイス数で最大値を合計すれば、完全supportの《屍人》分布になります。`BacktrackPlanValidation`は、入力から期待されるダイス数・support・生成量と渡されたrange planが一致することを確認してから、この生成器を呼び出します。
+通常D10の生成は共有D10計算器へ委譲します。$n>0$のとき、《屍人》の効果後の値は、出目を$X_1,\ldots,X_n$、合計を$S_n=\sum_{i=1}^{n}X_i$、最大値を$M_n=\max_i X_i$とすると、$Y_n=S_n-M_n+1$です。0個のダイスは別に値0の点分布として扱います。最大値ごとの状態を直接追う代わりに、「すべての出目が$m$以下で、合計が$s$」となる確率
+
+$$
+C_{m,n}(s)=P(X_1\le m,\ldots,X_n\le m, S_n=s)
+$$
+
+を$m=1,\ldots,10$について保持します。境界条件は$C_{m,0}(0)=1$であり、次の1D10を加えると
+
+$$
+C_{m,n}(s)=\frac{1}{10}\sum_{r=1}^{m}C_{m,n-1}(s-r)
+$$
+
+となります。最大値がちょうど$m$で合計が$s$となる確率は、すべての出目が$m$以下となる場合から、すべての出目が$m-1$以下となる場合を引いた$C_{m,n}(s)-C_{m-1,n}(s)$です（$C_{0,n}(s)=0$）。したがって、$Y_n=y$の確率は、$s=y+m-1$となる各$m$の確率を足し合わせれば得られます。
+
+実装は$m$ごとに合計の配列を1本持ち、次のダイス数の値を大きい合計から小さい合計へ上書きします。漸化式の和は移動窓で更新するため、前のダイス数と次のダイス数の配列を二重に持つ必要がありません。1本あたりの長さは、生の出目合計の最大値を含む`10 * maxDice + 1`です。要求されたダイス数でだけ、隣り合う$m$の配列の差を$Y_n$の位置へ射影し、最終分布を正規化します。中間の$C_{m,n}$は確率分布全体ではなく、その総質量は$(m/10)^n$です。
+
+この方式では、最終的な差分で浮動小数点誤差による微小な負値が生じることがあります。絶対値$10^{-12}$以下の負値だけを0へ丸めてから正規化しますが、極端に小さいtailの相対精度は保証対象にしません。通常のD10はこの追加状態配列を確保しません。《屍人》では10本の状態配列に加え、生成分布・射影・正規化の一時配列と最終結果の最大3本をresource estimateへ含めます。CPU workは`14 * maxDice * workingLength`を上限検査用に見積もり、845D（working length 8442）は99,868,860 operationsとして受理し、846Dは1億operationsを超えるため拒否します。この係数14は安全な入力範囲を定めるための実測に基づく調整値であり、ループ反復回数そのものではありません。
+
+`BacktrackPlanValidation`は、入力から期待されるダイス数・support・生成量と渡されたrange planが一致することを確認してから、この生成器を呼び出します。歴史的livingdead JSONとgeneratorは独立した比較用資産として維持し、production runtimeは参照しません。
 
 ## 7. 非同期実行と資源
 
 `CalculationClient`は、validated snapshot、range preflight、resource lease、Abort確認、計算、presentation生成、lease解放を一つの要求 lifecycleとして管理します。入力が連続して変わった場合は最新要求だけをcommitし、不要なDR Worker jobはsubscriberがなくなった時点で停止します。
 
-Check、Attack、Backtrackはそれぞれのplannerでworking rangeとCPU workを見積もります。`ResourceGuard`はメモリ予約と同時実行数だけを担当し、時間予測はadmission metricにしません。範囲不足で表示できない結果は旧結果へfallbackせず、再計算または明示的なresource rejectionにします。
+Check、Attack、Backtrackはそれぞれのplannerでworking rangeとCPU workを見積もります。`ResourceGuard`はメモリ予約と同時実行数だけを担当し、時間予測はadmission metricにしません。範囲不足で表示できない結果は旧結果へfallbackせず、再計算または明示的なresource rejectionにします。表示用の百分率と要約値は共通の`roundToOneDecimal`を使い、10倍した値が表現可能な小数第1位の中間点から$10^{-9}$以内の場合だけ浮動小数点誤差を補正してからJavaScriptの`Math.round`規則を適用します。許容値を無条件に加算するのではなく、中間点付近だけを安定化します。
 
 ## 8. 参照fixtureとの比較
 

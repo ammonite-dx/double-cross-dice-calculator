@@ -55,7 +55,7 @@ Attackでは、入力snapshotをcoordinatorが固定し、incremental executor�
 
 Attackのリアクションは、入力モードを計算方法へ解決してからplannerとproducerへ同じresolutionを渡します。ドッジは`rolled-score`、《イベイジョン》は`fixed-score`、ガード・リアクション放棄は`forced-failure`です。固定値と強制失敗はDXのworking rangeやFFTを持たず、`offset`付き1点分布を生成するため、固定値の大きさに比例した配列を確保しません。
 
-Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`、Scoreの出目結果分解と対決の疎なbucket走査は`ScoreOutcome`、表示用の統計値構築は`ScoreStatistics`に分離しています。`ScoreCalculator`はScoreのproducerとresolution dispatchだけを担当します。Backtrackの通常D10は共有D10 primitiveへ委譲し、《屍人》は`BacktrackLivingdeadDistribution`の状態DPで完全supportを生成します。`BacktrackPlanValidation`はplannerを再実行せず、入力・support・生成量・generation modeの整合性だけを検証します。
+Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`、Scoreの出目結果分解と対決の疎なbucket走査は`ScoreOutcome`、表示用の統計値構築は`ScoreStatistics`に分離しています。`ScoreCalculator`はScoreのproducerとresolution dispatchだけを担当します。Backtrackの通常D10は共有D10 primitiveへ委譲し、《屍人》は`BacktrackLivingdeadDistribution`が10本のbounded-sum状態を移動窓で更新して完全supportを生成します。`BacktrackPlanValidation`はplannerを再実行せず、入力・support・生成量・generation modeの整合性だけを検証します。
 
 Damageでは、Scoreの明示範囲を命中・失敗の重みへ変換する処理を`DamageRollRequest`、DamageおよびTotal Damageの統計値を`DamageStatistics`、Score tailからDamage期待値certificateを組み立てる処理を`DamageExpectationCertificate`が担当します。複数Damageの集約は、入力envelopeの検査とcaller-owned配列のsnapshotを`DamageAggregationInspection`、FFT長・畳み込み手順・resource estimateを`DamageAggregationPlanner`、準備済みsnapshotのFFT実行と正規化を`DamageAggregationExecutor`、component descriptorと期待値certificateを`DamageAggregationMetadata`が担当します。`prepareDamageAggregation`は凍結された構造的planと実行closureを返し、planはResourceGuardへのresource見積りに、closureはlease取得後の実行に使います。`sumDamage`はこの二段階を隠したone-shot APIです。`DistributionResult`はこれらのDamage固有の意味論を持たず、分布の生成・検証・汎用統計だけを提供します。
 
@@ -75,7 +75,7 @@ productionの計算範囲には、事前計算asset由来の`calculationMax`や1
 
 ## 表示と結果契約
 
-`presentDistribution`は、計算coreの`DistributionResult`を検証し、可変な確率配列をpresentation所有のsnapshotへコピーする計算結果と表示の境界です。以降の`DistributionDisplay`、`DisplayRangePlan`、readyな`DistributionProjection`は、その境界を通過した内部DTOとして扱います。表示範囲・mode・policy・resource見積りの入力は各段階で検証しますが、下流で表示DTO全体を再検証・再コピーしません。readyなprojectionだけをChart.js adapterへ渡し、adapterはChart.js用オプションを検証してprojectionの値をdatasetへ借用します。百分率、桁丸め、チャートdatasetの生成はpresentationの責務であり、計算coreの確率値を変更しません。
+`presentDistribution`は、計算coreの`DistributionResult`を検証し、可変な確率配列をpresentation所有のsnapshotへコピーする計算結果と表示の境界です。以降の`DistributionDisplay`、`DisplayRangePlan`、readyな`DistributionProjection`は、その境界を通過した内部DTOとして扱います。表示範囲・mode・policy・resource見積りの入力は各段階で検証しますが、下流で表示DTO全体を再検証・再コピーしません。readyなprojectionだけをChart.js adapterへ渡し、adapterはChart.js用オプションを検証してprojectionの値をdatasetへ借用します。百分率と要約値の小数1桁丸めは共通の`roundToOneDecimal`を使うpresentationの責務であり、表現可能な半端値の近傍だけを許容誤差で安定化します。計算coreの確率値は変更しません。
 
 期待値と成功率は`exact`、`bounded`、`lower-bound`などの証明状態を保持します。自動失敗・ファンブルの強制失敗確率と、通常の達成値0は別の意味を持ちます。詳細は[`result-contract.md`](./result-contract.md)を参照してください。
 
