@@ -13,7 +13,8 @@
 - `3dfd087` — `refactor: clean production migration terminology`
 - `8706125` — `chore: rename attack runtime benchmark`
 - `c0f96f7` — `docs: refresh active runtime and reference documentation`
-- TODO整理、active documentation link contract、最終検証とR29-H closureは後続コミットへ記録する。
+- `b0151de` — `docs: simplify active todo and validate documentation links`
+- このclosure記録を含む最終commitでR29-Hを閉じる。
 
 ## production naming
 
@@ -63,5 +64,8 @@ README、CONTRIBUTING、architecture、dice rules、runtime algorithm・validati
 - `npm run benchmark:attack-runtime -- --help`: passed; prints the new command.
 - `npm run typecheck`: passed.
 - `npm test -- tests/activeDocumentationLinks.test.js`: passed after fixing the two broken relative links.
-- `npm run lint:markdown`: 104 files / 0 issues.
-- Full `verify:all` and final closure commit are recorded by the final R29-H closure entry.
+- `npm run verify:all`: passed. Vitest 83 files / 982 tests、typecheck、ESLint、Markdown lint 105 files / 0 issues、build 485 modules、production browser smokeが成功した。
+- Production browser smokeはCheck・Attack・Backtrackと表示範囲の回復・拒否を通過し、事前計算JSON request、console warning/error、same-origin HTTP errorは0件だった。
+- Reference verification: 32 assets、7 files / 53 tests、generator通常18件、simulation 13件、Ruffが成功した。
+- Runtime DX verification: 20,000 cases passed。最大絶対差は`9e-7`で許容値`1.000001e-6`以内、最大total errorは`1.45e-15`未満、非有限値・負値は0件だった。
+- `npm run diff:check`と最終archive更新後の`git diff --check`が成功し、R29-HはP0/P1/P2=0で`CLOSED / GREEN`。
