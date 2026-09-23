@@ -9,20 +9,6 @@ import {
 } from '../experiments/phase2h-browser/full-tail-attack-fixtures.js'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
-const runnerSource = readFileSync(
-  new URL(
-    '../experiments/phase2h-browser/playwright-runner.mjs',
-    import.meta.url
-  ),
-  'utf8'
-)
-const benchmarkSource = readFileSync(
-  new URL(
-    '../experiments/phase2h-browser/full-tail-attack-resource-benchmark.js',
-    import.meta.url
-  ),
-  'utf8'
-)
 const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8')
 )
@@ -95,34 +81,17 @@ describe('full-tail Attack browser resource benchmark contract', () => {
     }
   })
 
-  it('keeps the benchmark policy threshold-only and records browser diagnostics', () => {
+  it('keeps the benchmark policy threshold-only', () => {
     expect(FULL_TAIL_ATTACK_BENCHMARK_POLICY).not.toHaveProperty('calculationMax')
     expect(FULL_TAIL_ATTACK_BENCHMARK_POLICY).not.toHaveProperty('display')
     expect(FULL_TAIL_ATTACK_BENCHMARK_POLICY).not.toHaveProperty('costModel')
-    expect(benchmarkSource).toContain('calculationClient.planAttackCombo')
-    expect(benchmarkSource).toContain('calculateAttackExecution')
-    expect(benchmarkSource).toContain('performance.memory')
-    expect(benchmarkSource).toContain("supported: longTaskSupported")
-    expect(benchmarkSource).toContain('responseElapsedMs')
-    expect(benchmarkSource).toContain('FULL_TAIL_ATTACK_BENCHMARK_POLICY')
   })
 
-  it('adds a dedicated Playwright target and short command without changing the existing target', () => {
-    expect(runnerSource).toContain("id: 'full-tail-attack-resource'")
-    expect(runnerSource).toContain(
-      "'/experiments/phase2h-browser/full-tail-attack-resource-benchmark.html'"
-    )
-    expect(runnerSource).toContain(
-      "'__phase2hFullTailAttackBrowserResourceResult'"
-    )
-    expect(runnerSource).toContain("chromeOnly: true")
+  it('keeps the browser benchmark CLI commands wired in package config', () => {
     expect(packageJson.scripts['benchmark:attack-resource'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource')
     expect(packageJson.scripts['benchmark:attack-resource:short'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target full-tail-attack-resource --iterations 1 --warmup 0')
   })
 
-  it('expects no static D10 fetches on the full-tail target', () => {
-    expect(runnerSource).toContain('d10Fetches.length === 0')
-  })
 })

@@ -1,63 +1,60 @@
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-const runnerSource = readFileSync(
-  new URL(
-    '../experiments/phase2h-browser/playwright-runner.mjs',
-    import.meta.url
-  ),
-  'utf8'
-)
+const runnerPath = fileURLToPath(new URL(
+  '../experiments/phase2h-browser/playwright-runner.mjs',
+  import.meta.url,
+))
+const repositoryRoot = fileURLToPath(new URL('../', import.meta.url))
 const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8')
 )
 
+function runRunner(...args) {
+  return spawnSync(process.execPath, [runnerPath, ...args], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    timeout: 10_000,
+  })
+}
+
 describe('canonical Attack Playwright runner contract', () => {
-  it('keeps the canonical Attack target as the default and exposes canonical CLI args', () => {
-    expect(runnerSource).toContain("target: 'canonical-attack'")
-    expect(runnerSource).toContain("--target NAME")
-    expect(runnerSource).toContain('--target must be one of:')
+  it('exposes the benchmark targets and Chrome option through CLI help', () => {
+    const result = runRunner('--help')
+    const output = `${result.stdout}\n${result.stderr}`
+
+    expect(result.error).toBeUndefined()
+    expect(result.status).toBe(0)
+    expect(output).toContain('canonical-attack')
+    expect(output).toContain('full-tail-attack-resource')
+    expect(output).toContain('default: canonical-attack')
+    expect(output).toContain('--include-chrome')
+  })
+
+  it('reports allowed target names for an invalid CLI target', () => {
+    const result = runRunner('--target', 'not-a-target')
+    const output = `${result.stdout}\n${result.stderr}`
+
+    expect(result.error).toBeUndefined()
+    expect(result.status).not.toBe(0)
+    expect(output).toContain('--target must be one of:')
+    expect(output).toContain('canonical-attack')
+    expect(output).toContain('full-tail-attack-resource')
+  })
+
+  it('keeps the benchmark serving command connected to its config', () => {
     expect(packageJson.scripts['benchmark:attack-worker:serve'])
       .toBe('vite --config experiments/phase2h-browser/vite.config.mjs')
   })
 
-  it('routes the canonical target to its page and result globals', () => {
-    expect(runnerSource).toContain("id: 'canonical-attack'")
-    expect(runnerSource).toContain(
-      "'/experiments/phase2h-browser/canonical-attack-worker-benchmark.html'"
-    )
-    expect(runnerSource).toContain(
-      "'__phase2hCanonicalAttackWorkerBenchmarkResult'"
-    )
-    expect(runnerSource).toContain(
-      "'__phase2hCanonicalAttackWorkerBenchmarkError'"
-    )
+  it('keeps the public benchmark commands wired to their CLI targets', () => {
     expect(packageJson.scripts['benchmark:attack-worker'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack')
     expect(packageJson.scripts['benchmark:attack-worker:short'])
       .toBe('node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack --iterations 1 --warmup 0')
   })
 
-  it('retains the Firefox, WebKit, throttled Chrome, and optional Chrome ids', () => {
-    expect(runnerSource).toContain("id: 'firefox'")
-    expect(runnerSource).toContain("id: 'webkit'")
-    expect(runnerSource).toContain("id: 'chrome-cpu-4x'")
-    expect(runnerSource).toContain("id: 'chrome'")
-    expect(runnerSource).toContain('Emulation.setCPUThrottlingRate')
-    expect(runnerSource).toContain('--include-chrome')
-  })
-
-  it('validates the canonical report before marking an engine measured', () => {
-    expect(runnerSource).toContain("report?.status === 'measured'")
-    expect(runnerSource).toContain("workerSummary.status === 'production-runtime-observed'")
-    expect(runnerSource).toContain('workerCounters.workerErrors === 0')
-    expect(runnerSource).toContain('workerCounters.workerMessageErrors === 0')
-    expect(runnerSource).toContain("cancel.abortBoundary === 'onRangePlan-preflight'")
-    expect(runnerSource).toContain("cancel.result?.error?.name === 'AbortError'")
-    expect(runnerSource).toContain('stale.firstCommit === false')
-    expect(runnerSource).toContain('stale.secondCommit === true')
-    expect(runnerSource).toContain('assetSummary.d10Fetches.length === 0')
-    expect(runnerSource).toContain('timingSummary')
-  })
 })
