@@ -87,8 +87,8 @@ export function planDamage(
     fixedDifference,
     'damage working range'
   )
-  // Canonical full-tail propagation carries the complete finite DR support
-  // into final damage coordinates.
+  // Runtime damage propagation carries the complete finite DR support into
+  // final damage coordinates.
   const workingMax = fixedDifference >= 0
     ? Math.max(0, rawPlusDifference)
     : rawMax

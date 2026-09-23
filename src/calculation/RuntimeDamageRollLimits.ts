@@ -3,8 +3,8 @@ export const RUNTIME_DAMAGE_MAX_FFT_SIZE = 1 << 20
 export const RUNTIME_DAMAGE_MIN_DISTRIBUTION_SIZE = 2
 // A non-zero coefficient at index n needs raw support through 10n. Keep the
 // coefficient-length guard derived from the existing absolute FFT limit so a
-// caller cannot request an unhandleable polynomial while leaving the legacy
-// 202-dice asset boundary out of runtime input validation.
+// caller cannot request an unhandleable polynomial while leaving the
+// historical 202-dice asset boundary out of runtime input validation.
 export const RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH =
   Math.floor((RUNTIME_DAMAGE_MAX_FFT_SIZE - 1) / 10) + 1
 // The reroll algorithm is quadratic in the effective reroll count and is

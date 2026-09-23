@@ -112,8 +112,8 @@ export function createBacktrackRunner({
     onCommitted: () => completeCalculation(feedback),
     onCancelled: () => markCalculationAborted(feedback),
     onError: (error) => {
-      //  errors must not leave the previous chart visible or fall
-      // back to the legacy calculation. A later run can retry normally.
+      // Errors clear the previous chart instead of showing stale results. A
+      // later request can retry normally.
       recordCalculationError(feedback, error)
       state.presentation = null
       state.resultReady = false

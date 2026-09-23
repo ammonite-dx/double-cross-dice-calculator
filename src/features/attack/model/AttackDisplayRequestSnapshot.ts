@@ -207,9 +207,9 @@ function normalizeMode(value: unknown): DisplayRequestSnapshot['mode'] {
 }
 
 /**
- * Normalize the display-only Attack boundary shared by future score and
- * damage requests. Calculation aliases and legacy 999 limits deliberately do
- * not belong to this value.
+ * Normalize the display-only Attack boundary shared by score and damage
+ * requests. Calculation aliases and fixed display limits do not belong to
+ * this value.
  */
 export function normalizeAttackDisplayRequest(
   request: unknown,

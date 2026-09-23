@@ -110,7 +110,7 @@ function snapshotDamageParams(
 /**
  * Make a plain, non-aliased snapshot of the params accepted by the attack
  * attack batch API. This deliberately copies only calculation inputs, so
- * legacy result arrays and presentation state never enter the request watch.
+ * display result arrays and presentation state never enter the request watch.
  *
  * @param {AttackComboParams} params
  * @returns {AttackComboParams}

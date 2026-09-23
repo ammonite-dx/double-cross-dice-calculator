@@ -98,8 +98,8 @@ function createRejectedPlan(
 }
 
 /**
- * Adapt the UI-independent Attack display decision to the existing feedback
- * state consumed by RangePlanNotice. This never creates a legacy display.
+ * Adapt the UI-independent Attack display decision to the feedback state
+ * consumed by RangePlanNotice.
  *
  * @param {AttackDisplayPresentation|null} presentation
  * @returns {CalculationFeedbackState<DisplayFeedbackPlan>}

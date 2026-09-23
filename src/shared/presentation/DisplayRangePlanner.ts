@@ -60,9 +60,9 @@ export const DISPLAY_RANGE_PLANNER_ERROR_CODES = Object.freeze({
   ESTIMATE_OVERFLOW: 'estimate-overflow',
 })
 
-// These are resource budgets, not display-input limits. In particular, the
-// legacy 999/1000 boundary is intentionally not reused here. Applications
-// may replace every limit with a route-specific policy.
+// These are resource budgets, not display-input limits. The former fixed
+// 999/1000 boundary is not reused here. Applications may replace every limit
+// with a route-specific policy.
 export const DEFAULT_DISPLAY_RANGE_PLANNER_POLICY = Object.freeze({
   pointCount: 16_384,
   float64Bytes: 64 * 1024 * 1024,

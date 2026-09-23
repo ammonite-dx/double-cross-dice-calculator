@@ -293,7 +293,7 @@ function normalizeResults(
     fail(
       BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_INPUT,
       'backtrack result must be a plain record',
-      { path: 'Result' },
+      { path: 'result' },
     )
   }
 
@@ -404,19 +404,19 @@ function createCharts(
 }
 
 export function createBacktrackPresentation(
-  Result: unknown,
+  result: unknown,
   params: unknown,
 ): BacktrackPresentation {
   try {
     if (arguments.length !== 2) {
       fail(
         BACKTRACK_PRESENTATION_ERROR_CODES.INVALID_INPUT,
-        'createBacktrackPresentation expects Result and params',
+        'createBacktrackPresentation expects result and params',
         { path: 'arguments' },
       )
     }
     const normalizedParams = normalizeParams(params)
-    const results = normalizeResults(Result)
+    const results = normalizeResults(result)
     return Object.freeze({
       version: BACKTRACK_PRESENTATION_VERSION,
       kind: 'backtrack-presentation' as const,

@@ -126,7 +126,7 @@ function validateTotalDamageEnvelope(
   }
 }
 
-/** Summarize one canonical damage envelope. */
+/** Summarize one damage envelope. */
 export function getDamageStatistics(damage: unknown): DamageStatistics {
   if (!isDamageEnvelope(damage)) {
     throw new TypeError(
@@ -143,7 +143,7 @@ export function getDamageStatistics(damage: unknown): DamageStatistics {
   return Object.freeze({ expectedValue, mass })
 }
 
-/** Summarize an aggregated canonical damage envelope. */
+/** Summarize an aggregated damage envelope. */
 export function getTotalDamageStatistics(
   totalDamage: unknown,
 ): DamageStatistics {

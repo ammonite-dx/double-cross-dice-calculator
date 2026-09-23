@@ -137,9 +137,9 @@ function createFinalEncroachmentDistributionResult(
  * Calculate complete final-encroachment distributions.
  *
  * Each returned DistributionResult is keyed by the actual final encroachment
- * value, not by the intermediate decrease amount used by the legacy
- * category calculator. The production plan always generates the complete
- * finite support on demand.
+ * value, not by the intermediate decrease amount used for category
+ * aggregation. The production plan generates the complete finite support on
+ * demand.
  */
 export function calculateFinalEncroachment(
   params: BacktrackParams,

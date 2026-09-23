@@ -171,7 +171,7 @@ export function applyLimits(
         warnings,
         'incompatible-input',
         'reject',
-        'shihai and yousei cannot both be non-zero in the current compatibility mode',
+        'shihai and yousei cannot both be non-zero under the current rule policy',
         {
           shihai: score.params.shihai,
           yousei: score.params.yousei,

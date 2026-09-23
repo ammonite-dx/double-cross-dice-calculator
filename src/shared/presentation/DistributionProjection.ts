@@ -490,7 +490,7 @@ function classifyDecision(
 }
 
 /**
- * Project a trusted canonical distribution display into a requested window.
+ * Project a trusted DistributionDisplay into a requested window.
  * Planning and projection are intentionally one operation so callers cannot
  * accidentally allocate a partial series for a missing or uncertain range.
  * The returned `values` buffer is present only for ready projections and is

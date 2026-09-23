@@ -586,7 +586,7 @@ export function createAttackPresentation(
 
 /**
  * Connect a completed Attack batch to the shared dynamic display contract.
- * No calculation, legacy projection, or fallback is performed here.
+ * This combines already calculated display state without recalculating it.
  */
 function buildAttackDisplayPresentationFrom(
   presentation: AttackPresentation,

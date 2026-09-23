@@ -46,7 +46,7 @@ export interface NormalizedScoreInput {
   readonly shihai: number
 }
 
-/** Normalize a score while leaving feature compatibility to its own policy. */
+/** Normalize a score while leaving feature constraints to their own policy. */
 export function normalizeScoreInput(
   input: unknown,
   label = 'score',
@@ -76,10 +76,9 @@ export function normalizeDifficultyInput(
   input: unknown = {},
   label = 'difficulty',
 ): NormalizedDifficultyInput {
-  // The legacy CalculationClient passed an omitted difficulty object as an
-  // empty object to getScoreStatistics(), which means a fixed difficulty of
-  // zero. Preserve that behavior while rejecting explicitly supplied values
-  // of the wrong type at the public runtime boundary.
+  // An omitted difficulty object means a fixed difficulty of zero. Treat it
+  // like an empty object while rejecting explicitly supplied values of the
+  // wrong type at the public runtime boundary.
   const source = input === undefined ? {} : object(input, label)
   const opposed = source.opposed === undefined ? false : source.opposed
   if (typeof opposed !== 'boolean') {

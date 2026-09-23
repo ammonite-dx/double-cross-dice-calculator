@@ -14,8 +14,8 @@ import type {
 const DEFAULT_ERROR_BUDGET = 1e-8
 
 /**
- * The default propagates the complete canonical score tail. Resource
- * thresholds are provisional policy inputs, not UI input limits.
+ * The default computes the planned score range and retains its tail
+ * certificate. Resource thresholds are policy inputs, not UI input limits.
  */
 export const DEFAULT_POLICY = {
   errorBudget: {

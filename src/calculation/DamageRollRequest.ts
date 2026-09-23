@@ -174,7 +174,7 @@ export function createDamageRollRequest(
     || maxDamageDice + 1 > RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH
   ) {
     throw new TypeError(
-      'full-tail damage plan maxDamageDice must fit the runtime damage weight length',
+      'damage plan maxDamageDice must fit the runtime damage weight length',
     )
   }
   const weights = new Float64Array(maxDamageDice + 1)
@@ -209,7 +209,7 @@ export function createDamageRollRequest(
     const damageDice = Math.floor(scoreValue / 10) + 1 + attack.dice
     if (damageDice < 0 || damageDice >= weights.length) {
       throw new RangeError(
-        `damage dice are outside the planned full-tail range: ${damageDice}`,
+        `damage dice are outside the planned runtime range: ${damageDice}`,
       )
     }
     weights[damageDice] += hit

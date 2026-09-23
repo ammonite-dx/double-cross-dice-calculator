@@ -21,7 +21,7 @@ export function createCheckAdvancedSettingsEnabled(): CheckAdvancedSettingsEnabl
 
 /**
  * Advanced score effects are feature state, not merely form decoration.
- * Keep the canonical snapshot consistent even when a caller bypasses Vue.
+ * Keep the feature input snapshot consistent even when a caller bypasses Vue.
  */
 export function applyCheckAdvancedSettingsPolicy(
   params: Partial<ScoreInput>,

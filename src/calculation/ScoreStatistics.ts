@@ -181,7 +181,8 @@ function getFixedDifficultySuccessProbability(
 }
 
 /**
- * Summarize two score envelopes without projecting them into legacy buckets.
+ * Summarize score envelopes without projecting them into the historical
+ * published-bucket format.
  */
 export function getScoreStatistics(
   score: ScorePair,

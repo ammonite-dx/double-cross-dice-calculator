@@ -321,9 +321,9 @@ function toPercentageProjection(
 ): ReadyDistributionProjection {
   const values = new Float64Array(projection.values.length)
   for (let index = 0; index < projection.values.length; index += 1) {
-    // The legacy Check chart displays probability as a percentage rounded to
-    // one decimal place. Keep this conversion at the Chart.js compatibility
-  // boundary; the display and series remain probabilities.
+    // The Check chart displays probability as a percentage rounded to one
+    // decimal place. Convert only at the Chart.js boundary; the display and
+    // series remain probabilities.
     values[index] = toChartPercentage(projection.values[index])
   }
 

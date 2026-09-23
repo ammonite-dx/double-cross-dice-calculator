@@ -153,7 +153,7 @@ function normalizeMaterializerOptions(
 }
 
 /**
- * Materialize a ready canonical distribution projection at the Chart.js
+ * Materialize a ready distribution projection at the Chart.js
  * boundary. Labels are allocated only here; the projection remains a dense
  * typed array with no Chart.js-specific objects.
  *
