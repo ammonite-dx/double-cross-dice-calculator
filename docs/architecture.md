@@ -21,6 +21,10 @@
 
 DR Workerは`RuntimeDamageRollWorker.ts`内で必要なmessage eventと`postMessage`だけを表すscope interfaceを定義します。main thread用TypeScript設定へWorker global libraryを追加せず、DOM側のglobal typeとWorker側のglobal typeを混在させません。`CalculationRuntimeTypes`は計算coreが必要とするruntime optionとprovider契約を所有し、coreからruntime layerへの型依存を作りません。
 
+## テストの責務
+
+数値結果、状態遷移、snapshot ownershipはbehavior testで検証します。依存方向はESLintまたはstatic import graph test、UIのrole・label・操作・layoutはproduction browser smoke、production TypeScript境界とrelease command／CI構成はrepository/config testを正本にします。production sourceの関数名、import表記、template文字列、CSS宣言、内部実行順序を文字列で固定しません。履歴的な実験とreference assetの検証は、それぞれ専用suiteで扱います。
+
 ## データフロー
 
 ```text
@@ -88,8 +92,8 @@ productionの計算範囲には、事前計算asset由来の`calculationMax`や1
 ## 検証
 
 - `npm run verify:core`: Node、通常テスト、typecheck、ESLint、Markdown lint、build、差分検査
-- `npm run verify:browser`: production buildとChromium smoke。Check、Attack、Backtrackの計算、表示範囲、latest-wins、browser diagnosticsを確認
+- `npm run verify:browser`: production buildとChromium smoke。Check、Attack、Backtrackの計算、表示範囲、latest-wins、複合入力のアクセシビリティ、footerの通常フロー、browser diagnosticsを確認
 - `npm run verify:reference`: generator、reference tests、simulation、runtime DX比較
 - `npm run verify:release`: production releaseに必要なcoreとbrowser smoke
 
-本番の計算経路に参照assetが混入していないことは、source architecture tests、build後の`dist/data`不在、production smokeのrevision-1 request 0で確認します。
+本番の計算経路に参照assetが混入していないことは、ESLintとstatic import graphによる依存境界、build後の`dist/data`不在、production smokeのrevision-1 request 0で確認します。

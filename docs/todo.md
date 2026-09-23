@@ -14,11 +14,10 @@
 
 ## 次に行う作業
 
-1. **R29-G: architecture/source-text test cleanup**: 残る構造テストを意味論に合わせて整理する。
-2. **R29-H: active documentation/naming cleanup**: 現行ドキュメントと命名を整理する。
-3. **R29-I: architecture convergence closure**: R29全体の境界と検証を閉じる。
-4. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-5. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **R29-H: active documentation/naming cleanup**: 現行ドキュメントと命名を整理する。
+2. **R29-I: architecture convergence closure**: R29全体の境界と検証を閉じる。
+3. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+4. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -53,4 +52,5 @@
 - **R29-C: presentation trust-boundary simplification**: `presentDistribution`を計算結果と表示の検証・配列snapshot境界として明確化し、下流の表示範囲プランナーと投影は信頼済みDTOを参照するよう整理した。プランナーは表示窓・policy・resource見積りだけを検証し、support・overflow・projection uncertaintyを再コピーせずに計画構造を所有する。投影はplanner-ownedのdisplay windowを再利用し、Chart.js adapterはready判定とmaterializer optionsだけを検証してprojectionの`values`をdatasetへ借用する。coverage、overflow、missing coverage、known-zero、resource rejection、upper-tail、1023超の表示範囲、Chart.jsの見た目と数値意味論は変更していない。詳細は[`archive/r29-c-presentation-trust-boundary.md`](./archive/r29-c-presentation-trust-boundary.md)を参照する。次はR29-Dへ進む。
 - **R29-D: Attack lifecycle convergence**: Attackのrequest snapshot、coordinator、incremental execution、committed calculation records、base/display presentationの責務を収束させた。runner-localなbatch・range plan・entries cacheとmutableなactive requestを削除し、表示再試行は`AttackState`の完全なcommitted snapshotから再構築する。score displayは独立revisionを持つ単一ライフサイクル状態へ整理し、presentation failureとcalculation failureのprovenanceを分離した。コンボ再利用、total-only retry、partial failure、resource recovery、score expansion、latest-wins、Abort、disposeの既存契約は維持した。詳細は[`archive/r29-d-attack-lifecycle-convergence.md`](./archive/r29-d-attack-lifecycle-convergence.md)を参照する。次はR29-Eへ進み、完了した。
 - **R29-E: compatibility surface cleanup**: 移行期の互換runner、caller-supplied revision、ResourceGuard・DisplayRangePlanner・DistributionResult・Attack presentationのalias、DX providerのpositional/sparse fallback、Backtrackの未使用dependency引数を削除し、現行production APIへ収束させた。未知のrange policy fieldはgeneric schema validationでfail-closedにし、historical/reference compatibilityは`tooling/reference-data/`へ限定して保持した。数値計算、resource threshold、UI表示、latest-wins、Abort、Worker protocolは変更していない。詳細は[`archive/r29-e-compatibility-surface-cleanup.md`](./archive/r29-e-compatibility-surface-cleanup.md)を参照する。次段階としてR29-Fを設定し、完了した。
-- **R29-F: production TypeScript convergence**: production `src/`内のJavaScriptをゼロにし、すべてのVue script blockをTypeScript化した。`tsconfig.json`はstrict modeを維持して`allowJs`を有効にせず、JavaScript tests・scripts・experimentsは型検査入力に含めない。DR Workerのscopeを局所interfaceで型付けし、main-thread設定へWorker globalを混在させず、core/runtime間で共有するprovider contractをcalculation側へ配置した。入力検証、計算式、latest-wins、Abort、resource policy、表示の数値意味論は変更していない。詳細は[`archive/r29-f-production-typescript-convergence.md`](./archive/r29-f-production-typescript-convergence.md)を参照する。次はR29-G。
+- **R29-F: production TypeScript convergence**: production `src/`内のJavaScriptをゼロにし、すべてのVue script blockをTypeScript化した。`tsconfig.json`はstrict modeを維持して`allowJs`を有効にせず、JavaScript tests・scripts・experimentsは型検査入力に含めない。DR Workerのscopeを局所interfaceで型付けし、main-thread設定へWorker globalを混在させず、core/runtime間で共有するprovider contractをcalculation側へ配置した。入力検証、計算式、latest-wins、Abort、resource policy、表示の数値意味論は変更していない。詳細は[`archive/r29-f-production-typescript-convergence.md`](./archive/r29-f-production-typescript-convergence.md)を参照する。次はR29-Gへ進み、完了した。
+- **R29-G: architecture / source-text test cleanup**: production内部の関数名・import表記・Vue markup・CSS宣言・実装順を文字列で固定する通常テストを整理し、計算層の依存方向はTypeScript ASTによるstatic import graph、UIのアクセシビリティとlayoutはproduction browser smokeへ移した。snapshot ownership、数値・resource・lifecycle behavior、TypeScript repository boundary、release configuration、reference asset検証は維持した。benchmark runnerは文字列検査からCLI subprocess behaviorへ変更した。計算アルゴリズム、UI仕様、resource policyは変更していない。通常suiteは89 files / 1,028 testsから82 files / 981 testsとなり、意図的に7 files / 47 tests減少した。詳細は[`archive/r29-g-architecture-source-test-cleanup.md`](./archive/r29-g-architecture-source-test-cleanup.md)を参照する。次はR29-H。
