@@ -60,5 +60,6 @@ Historical source-text tests remain under `tests/experiments/` as explicitly inv
 - `f19e429` — remove feature implementation source assertions.
 - `8999162` — move UI contracts to browser behavior.
 - `20c1854` — simplify benchmark harness contracts.
+- `d1b00bf` — docs: close R29-G architecture test cleanup.
 
 R29-G is complete. The next task is R29-H; no R29-H implementation is included here.
