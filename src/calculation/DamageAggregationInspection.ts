@@ -271,15 +271,6 @@ export function unionProbability(probabilities: readonly number[]): number {
   return Math.min(1, Math.max(0, union))
 }
 
-export function probabilityFromExplicitMass(explicitMass: number): number {
-  if (!Number.isFinite(explicitMass)) {
-    failNumerical('final explicit probability mass is not finite', {
-      explicitMass,
-    })
-  }
-  return Math.min(1, Math.max(0, 1 - explicitMass))
-}
-
 export function snapshotInspectedComponents(
   inspected: readonly InspectedDamageComponent[],
   signal?: AbortSignal | null,

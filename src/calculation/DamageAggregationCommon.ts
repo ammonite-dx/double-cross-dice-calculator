@@ -109,6 +109,15 @@ export function failNumerical(message: string, details: unknown = {}): never {
   )
 }
 
+export function probabilityFromExplicitMass(explicitMass: number): number {
+  if (!Number.isFinite(explicitMass)) {
+    failNumerical('final explicit probability mass is not finite', {
+      explicitMass,
+    })
+  }
+  return Math.min(1, Math.max(0, 1 - explicitMass))
+}
+
 export function checkAbort(signal: AbortSignal | null | undefined): void {
   if (signal?.aborted) {
     throw new DamageAggregationAbortError()

@@ -11,8 +11,8 @@ import {
   fail,
   failNumerical,
   isRecord,
+  probabilityFromExplicitMass,
 } from './DamageAggregationCommon'
-import { probabilityFromExplicitMass } from './DamageAggregationInspection'
 import { createDamageAggregationMetadata } from './DamageAggregationMetadata'
 import type {
   DamageAggregationExecutionOptions,
