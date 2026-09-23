@@ -22,6 +22,24 @@ import {
   publishRangePlan,
   recordCalculationError,
 } from '../../../runtime/CalculationFeedback'
+import type {
+  AttackRunner,
+  AttackRunnerOptions,
+  AttackRunnerPresentation,
+  AttackRunnerRequestSnapshot,
+  AttackRunnerRefreshOptions,
+  AttackRunnerRunOptions,
+} from './AttackRunnerTypes'
+import type {
+  AttackBatchResult,
+  AttackDisplayPresentation,
+  AttackPresentation,
+  AttackRangePlanReference,
+} from './AttackPresentationTypes'
+import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
+import type { AttackIncrementalExecution } from './AttackIncrementalExecutionTypes'
+import type { AttackCalculationOptions } from '../../../runtime/CalculationClientTypes'
+import type { AttackCalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
 
 /** @typedef {import('./AttackRunnerTypes').AttackRunnerOptions} AttackRunnerOptions */
 /** @typedef {import('./AttackRunnerTypes').AttackRunner} AttackRunner */
@@ -34,7 +52,9 @@ import {
  * @param {import('./AttackRunnerTypes').AttackRunnerOptions<TPresentation>} options
  * @returns {import('./AttackRunnerTypes').AttackRunner<TPresentation>}
  */
-export function createAttackRunner({
+export function createAttackRunner<
+  TPresentation extends AttackRunnerPresentation = AttackRunnerPresentation,
+>({
   state,
   executeCalculation,
   createBasePresentation,
@@ -43,15 +63,24 @@ export function createAttackRunner({
   onPresentation,
   onDisplayRejected,
   onError,
-}) {
+}: AttackRunnerOptions<TPresentation>): AttackRunner<TPresentation> {
   if (typeof executeCalculation !== 'function') {
     throw new TypeError(
       'createAttackRunner requires an incremental executeCalculation function'
     )
   }
-  const presentationFactory = createPresentation ?? createAttackPresentation
+  const presentationFactory: NonNullable<
+    AttackRunnerOptions<TPresentation>['createPresentation']
+  > = createPresentation
+    ?? createAttackPresentation as unknown as NonNullable<
+      AttackRunnerOptions<TPresentation>['createPresentation']
+    >
   let displayRevision = 0
-  let scoreDisplayLifecycle = {
+  let scoreDisplayLifecycle: {
+    status: 'enabled' | 'recalculating' | 'suppressed'
+    revision: number
+    request: DisplayRequestSnapshot | null
+  } = {
     status: 'enabled',
     revision: 0,
     request: null,
@@ -59,10 +88,13 @@ export function createAttackRunner({
   // Keep error provenance tied to the coordinator revision. A presentation
   // retry may clear only its own error; a later calculation error must remain
   // visible until a successful calculation commits.
-  let feedbackErrorProvenance = { kind: 'none', revision: null }
-  let presentationErrorToken = null
+  let feedbackErrorProvenance: {
+    kind: 'none' | 'presentation' | 'calculation'
+    revision: number | null
+  } = { kind: 'none', revision: null }
+  let presentationErrorToken: unknown = null
 
-  function clearScoreDisplayPresentation() {
+  function clearScoreDisplayPresentation(): void {
     const current = state.displayPresentation
     if (
       current !== null
@@ -76,7 +108,7 @@ export function createAttackRunner({
     }
   }
 
-  function beginScoreDisplayRecalculation() {
+  function beginScoreDisplayRecalculation(): void {
     // Keep the batch and the damage presentation available while
     // the expanded score batch is pending, but never expose the old score as
     // if it belonged to the new window.
@@ -91,7 +123,7 @@ export function createAttackRunner({
     }
   }
 
-  function cancelScoreDisplayRecalculation() {
+  function cancelScoreDisplayRecalculation(): void {
     if (scoreDisplayLifecycle.status !== 'recalculating') {
       return
     }
@@ -108,7 +140,7 @@ export function createAttackRunner({
     }
   }
 
-  function invalidateScoreDisplay() {
+  function invalidateScoreDisplay(): void {
     // score-only failures must not touch the damage/batch revision. The
     // next batch commit may still publish damage, but its score payload is
     // suppressed by this independent revision and state flag.
@@ -121,7 +153,9 @@ export function createAttackRunner({
     clearScoreDisplayPresentation()
   }
 
-  function suppressScoreDisplay(presentation, score = null) {
+  function suppressScoreDisplay<
+    TValue extends AttackRunnerPresentation | null,
+  >(presentation: TValue, score: unknown = null): TValue {
     if (
       presentation === null
       || typeof presentation !== 'object'
@@ -132,15 +166,15 @@ export function createAttackRunner({
     return Object.freeze({
       ...presentation,
       score,
-    })
+    }) as TValue
   }
 
   function createBatchPresentation(
-    batchResult,
-    request,
-    scoreRequest,
-    rangePlans = []
-  ) {
+    batchResult: AttackBatchResult,
+    request: DisplayRequestSnapshot | null,
+    scoreRequest: DisplayRequestSnapshot | null,
+    rangePlans: readonly AttackRangePlanReference[] = [],
+  ): TPresentation {
     if (request === null) {
       if (scoreRequest === null) {
         return presentationFactory(batchResult, rangePlans)
@@ -167,39 +201,42 @@ export function createAttackRunner({
     )
   }
 
-  function createBaseBatchPresentation(batchResult, rangePlans) {
+  function createBaseBatchPresentation(
+    batchResult: AttackBatchResult,
+    rangePlans: readonly AttackRangePlanReference[],
+  ): AttackPresentation | null {
     if (typeof createBasePresentation !== 'function') {
       return null
     }
     return createBasePresentation(batchResult, rangePlans)
   }
 
-  function mergeScoreOnlyPresentation(presentation) {
+  function mergeScoreOnlyPresentation(
+    presentation: AttackDisplayPresentation,
+  ): AttackDisplayPresentation {
     const current = state.displayPresentation
     if (
       current === null
       || typeof current !== 'object'
-      || presentation === null
-      || typeof presentation !== 'object'
       || !Object.prototype.hasOwnProperty.call(current, 'score')
     ) {
       return presentation
     }
     return Object.freeze({
-      ...current,
+      ...(current as AttackDisplayPresentation),
       score: presentation.score ?? null,
     })
   }
 
-  function invalidateDisplayResult(presentation) {
+  function invalidateDisplayResult(presentation: AttackDisplayPresentation): void {
     calculationCoordinator.invalidate()
     displayRevision += 1
     invalidateScoreDisplay()
     state.displayPresentation = null
-    onDisplayRejected?.(presentation)
+    onDisplayRejected?.(presentation as unknown as TPresentation)
   }
 
-  function handleCalculationError(error) {
+  function handleCalculationError(error: unknown): void {
     if (scoreDisplayLifecycle.status === 'recalculating') {
       scoreDisplayLifecycle = {
         ...scoreDisplayLifecycle,
@@ -208,11 +245,14 @@ export function createAttackRunner({
       }
       recordCalculationError(state.scoreDisplayFeedback, error)
     }
-    const stage = error?.attackExecutionStage
+    const errorRecord = error !== null && typeof error === 'object'
+      ? error as Record<string, unknown>
+      : undefined
+    const stage = errorRecord?.attackExecutionStage
     if (stage === 'combo') {
       invalidateAttackComboCalculation(
         state,
-        error?.attackExecutionEntryId
+        errorRecord?.attackExecutionEntryId
       )
       invalidateAttackTotalCalculation(state)
     } else if (stage === 'total') {
@@ -226,7 +266,9 @@ export function createAttackRunner({
     }
   }
 
-  function snapshotRequest(request) {
+  function snapshotRequest(
+    request: AttackRunnerRequestSnapshot,
+  ): AttackRunnerRequestSnapshot {
     return {
       ...request,
       entries: request.entries.map((entry) => ({
@@ -249,11 +291,16 @@ export function createAttackRunner({
     }
   }
 
-  const calculationCoordinator = createCalculationRequestCoordinator({
+  const calculationCoordinator = createCalculationRequestCoordinator<
+    AttackRunnerRequestSnapshot,
+    AttackIncrementalExecution,
+    AttackCalculationRangePlan,
+    AttackCalculationOptions
+  >({
     snapshotRequest,
     execute: (request, context) => executeCalculation({
       ...request,
-      signal: context.signal,
+      signal: context.signal ?? undefined,
       onRangePlan: context.onRangePlan,
     }),
     onStart: (request) => {
@@ -325,7 +372,7 @@ export function createAttackRunner({
       state.displayPresentation = null
 
       let basePresentation
-      let presentation
+      let presentation: TPresentation
       try {
         basePresentation = createBaseBatchPresentation(
           committedSnapshot.batchResult,
@@ -350,7 +397,7 @@ export function createAttackRunner({
       const committed = commitAttackPresentation(
         state,
         basePresentation,
-        committedPresentation
+        committedPresentation as unknown as AttackDisplayPresentation
       )
       if (!committed) {
         const error = new Error(' attack presentation was incomplete')
@@ -404,7 +451,10 @@ export function createAttackRunner({
     },
   })
 
-  const run = (options = {}, internal = {}) => {
+  const run = (
+    options: AttackRunnerRunOptions = {},
+    internal: { preservePresentation?: boolean } = {},
+  ): Promise<boolean> => {
     const {
       signal,
       onRangePlan,
@@ -466,7 +516,7 @@ export function createAttackRunner({
     invalidateScoreDisplay() {
       invalidateScoreDisplay()
     },
-    refreshPresentation(options = {}) {
+    refreshPresentation(options: AttackRunnerRefreshOptions = {}) {
       const committedSnapshot = getCommittedAttackCalculationSnapshot(state)
       if (committedSnapshot === null
         || !isAttackInputCurrent(state.combos, committedSnapshot.entries)) {
@@ -532,7 +582,7 @@ export function createAttackRunner({
                 ? createAttackDisplayRequestSnapshot(options.displayRequest)
                 : undefined,
               requestedScoreDisplayRequest ?? undefined
-            )
+            ) as unknown as AttackDisplayPresentation
       } catch (error) {
         presentationErrorToken = error
         feedbackErrorProvenance = {
@@ -737,7 +787,7 @@ export function createAttackRunner({
             request: requestedScoreDisplayRequest,
           }
         }
-        onPresentation?.(committedPresentation, {
+        onPresentation?.(committedPresentation as unknown as TPresentation, {
           scoreDisplaySuppressed: !scoreDisplayAllowed,
         })
       }

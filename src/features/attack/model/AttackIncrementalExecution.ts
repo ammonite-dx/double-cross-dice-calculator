@@ -11,7 +11,7 @@ import type {
   AttackIncrementalExecution,
 } from './AttackIncrementalExecutionTypes'
 import type { AttackCalculationOptions } from '../../../runtime/CalculationClientTypes'
-import type { CalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
+import type { AttackCalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
 import type { AttackRangePlanFallback } from './AttackPresentationTypes'
 
 /** @typedef {import('./AttackIncrementalExecutionTypes').AttackExecutionEntry} AttackExecutionEntry */
@@ -189,7 +189,7 @@ export async function executeAttackIncrementally({
     let rangePlan = null
     const calculateOptions: AttackCalculationOptions = {
       ...options,
-      onRangePlan: (plan: CalculationRangePlan) => {
+      onRangePlan: (plan: AttackCalculationRangePlan) => {
         rangePlan = plan
         onRangePlan?.(plan, { entryId: item.id })
       },

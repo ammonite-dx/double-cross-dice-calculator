@@ -2,7 +2,7 @@ import type {
   AttackCalculationOptions,
 } from '../../../runtime/CalculationClientTypes'
 import type {
-  CalculationRangePlan,
+  AttackCalculationRangePlan,
 } from '../../../calculation/planning/RangePlannerTypes'
 import type {
   DisplayRequestSnapshot,
@@ -30,7 +30,7 @@ export interface AttackRunnerCalculationRequest {
   readonly calculationOptions: AttackCalculationOptions
   readonly signal?: AbortSignal
   readonly scoreDisplayRequest?: DisplayRequestSnapshot | null
-  readonly onRangePlan?: (plan: CalculationRangePlan) => void
+  readonly onRangePlan?: (plan: AttackCalculationRangePlan) => void
   readonly forceAll?: boolean
 }
 
@@ -66,7 +66,7 @@ export interface AttackRunnerRunOptions
     'signal' | 'onRangePlan' | 'scoreDisplayRequest'
   > {
   readonly signal?: AbortSignal
-  readonly onRangePlan?: (plan: CalculationRangePlan) => void
+  readonly onRangePlan?: (plan: AttackCalculationRangePlan) => void
   readonly displayRequest?: DisplayRequestSnapshot | null
   readonly scoreDisplayRequest?: DisplayRequestSnapshot | null
   readonly forceAll?: boolean
@@ -108,6 +108,8 @@ export interface AttackRunner<
   run(options?: AttackRunnerRunOptions): Promise<boolean>
   invalidate(): void
   invalidateScoreDisplay(): void
-  refreshPresentation(options?: AttackRunnerRefreshOptions): boolean
+  refreshPresentation(
+    options?: AttackRunnerRefreshOptions,
+  ): boolean | Promise<boolean>
   dispose(): void
 }

@@ -1,7 +1,6 @@
 import type { AttackCalculationOptions, CalculationClient } from '../../../runtime/CalculationClientTypes'
 import type {
   AttackCalculationRangePlan,
-  CalculationRangePlan,
 } from '../../../calculation/planning/RangePlannerTypes'
 import type { AttackCalculationRecord, AttackTotalCalculationRecord } from './AttackCalculationRecord'
 import type { AttackComboParams } from './AttackComboState'
@@ -35,7 +34,7 @@ export interface AttackIncrementalExecutionRequest {
   readonly calculationClient: CalculationClient
   readonly options?: AttackCalculationOptions
   readonly onRangePlan?: (
-    plan: CalculationRangePlan,
+    plan: AttackCalculationRangePlan,
     context?: Readonly<{ entryId: string | number }>,
   ) => void
   readonly forceAll?: boolean
@@ -52,4 +51,3 @@ export interface AttackIncrementalExecution {
 export type AttackCalculationRangePlanCallback = (
   plan: AttackCalculationRangePlan,
 ) => void
-
