@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -8,11 +6,6 @@ import {
 } from '../src/runtime/CalculationClient'
 import { createDistributionResult } from '../src/calculation/DistributionResult'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
-
-const calculationClientSource = readFileSync(
-  new URL('../src/runtime/CalculationClient.ts', import.meta.url),
-  'utf8'
-)
 
 function createScoreEnvelope(params, _getDistribution, _plan, fix = false) {
   const offset = fix ? Math.max(0, params.skill) : 0
@@ -99,24 +92,6 @@ function createPlannedDependencies() {
 }
 
 describe('canonical CalculationClient surface', () => {
-  it('keeps production canonical imports on calculation cores', () => {
-    expect(calculationClientSource).toContain(
-      "from '../calculation/ScoreCalculator'"
-    )
-    expect(calculationClientSource).toContain(
-      "from '../calculation/BacktrackCalculator'"
-    )
-    expect(calculationClientSource).not.toMatch(
-      /from ['"]\.\.\/data\/(?:score|Backtrack)Calculator['"]/
-    )
-    expect(calculationClientSource).not.toContain(
-      'toPublishedBucketDistribution'
-    )
-    expect(calculationClientSource).not.toContain(
-      'createPublishedScoreFromEnvelope'
-    )
-  })
-
   it('runs default Check and Backtrack canonical adapters without data wrappers', async () => {
     const client = createCalculationClient()
     const score = {

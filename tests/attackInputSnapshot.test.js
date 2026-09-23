@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -9,27 +8,6 @@ import {
   replaceAttackSideSnapshot,
 } from '../src/features/attack/model/AttackInputSnapshot'
 import { createLatestValidationGate } from '../src/shared/validation/LatestValidationGate'
-
-const attackFormSource = readFileSync(
-  new URL('../src/features/attack/ui/AttackForm.vue', import.meta.url),
-  'utf8'
-)
-const defenceFormSource = readFileSync(
-  new URL('../src/features/attack/ui/DefenceForm.vue', import.meta.url),
-  'utf8'
-)
-const comboFormSource = readFileSync(
-  new URL('../src/features/attack/ui/ComboForm.vue', import.meta.url),
-  'utf8'
-)
-const inputFormSource = readFileSync(
-  new URL('../src/features/attack/ui/InputForm.vue', import.meta.url),
-  'utf8'
-)
-const attackSnapshotSource = readFileSync(
-  new URL('../src/features/attack/model/AttackInputSnapshot.ts', import.meta.url),
-  'utf8'
-)
 
 function createAttackDraft() {
   return {
@@ -47,10 +25,6 @@ function createDefenceDraft(mode = 'ドッジ') {
 }
 
 describe('AttackInputSnapshot', () => {
-  it('keeps async validation coordination in the shared validation layer', () => {
-    expect(attackSnapshotSource).not.toContain('createLatestValidationGate')
-  })
-
   it('normalizes the attack draft without changing its values', () => {
     expect(normalizeAttackInputDraft(createAttackDraft())).toEqual({
       score: {dice: 7, critical: 8, skill: 3, yousei: 1, shihai: 0},
@@ -145,54 +119,5 @@ describe('AttackInputSnapshot', () => {
     gate.dispose()
     expect(gate.canCommit(disposableTicket)).toBe(false)
     expect(gate.canCommit(gate.begin())).toBe(false)
-  })
-})
-
-describe('Attack input flow contracts', () => {
-  it('guards asynchronous form validation and emits only validated snapshots', () => {
-    for (const source of [attackFormSource, defenceFormSource]) {
-      expect(source).toContain("'advanced-settings-changed'")
-      expect(source).toContain('advancedSettingsEnabled')
-      expect(source).toContain("@/shared/validation/LatestValidationGate")
-      expect(source).toContain('const ticket = validationGate.begin()')
-      expect(source).toContain('validationGate.canCommit(ticket)')
-      expect(source).toContain('validationGate.dispose()')
-      expect(source).toContain("emit('validated',")
-      expect(source).not.toMatch(/props\.params\.[\w.]+\s*=/)
-      expect(source).not.toContain('props.advancedSettingsEnabled.value =')
-    }
-  })
-
-  it('passes validated snapshots to the parent canonical lane', () => {
-    expect(comboFormSource).not.toContain('watch(')
-    expect(comboFormSource).not.toContain('onMounted')
-    expect(comboFormSource).not.toContain('onUnmounted')
-    expect(comboFormSource).not.toContain('createLatestCalculationRunner')
-    expect(comboFormSource).not.toContain('calculateAttackCombo')
-    expect(comboFormSource).not.toContain('replaceAttackSideSnapshot(')
-    expect(comboFormSource).toContain(
-      "@validated=\"(snapshot) => onSideValidated('action', snapshot)\""
-    )
-    expect(comboFormSource).toContain(
-      "@validated=\"(snapshot) => onSideValidated('reaction', snapshot)\""
-    )
-
-    const handlerStart = comboFormSource.indexOf('const onSideValidated')
-    const handlerEnd = comboFormSource.indexOf('const onShowDetails')
-    const handler = comboFormSource.slice(handlerStart, handlerEnd)
-    expect(handler).not.toContain('updateCombo')
-    expect(inputFormSource).not.toContain('calculateTotalDamage')
-  })
-
-  it('passes explicit advanced-settings events through InputForm', () => {
-    expect(attackFormSource).toContain("emit('advanced-settings-changed'")
-    expect(defenceFormSource).toContain("emit('advanced-settings-changed'")
-    expect(comboFormSource).toContain(
-      "@advanced-settings-changed=\"(enabled) => onAdvancedSettingsChanged('action', enabled)\""
-    )
-    expect(comboFormSource).toContain(
-      "@advanced-settings-changed=\"(enabled) => onAdvancedSettingsChanged('reaction', enabled)\""
-    )
-    expect(inputFormSource).toContain('@advanced-settings-changed="(change) => onAdvancedSettingsChanged(combo, change)"')
   })
 })

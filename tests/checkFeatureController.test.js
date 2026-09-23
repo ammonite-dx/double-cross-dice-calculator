@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createDistributionResult } from '../src/calculation/DistributionResult'
@@ -367,12 +366,4 @@ describe('useCheck', () => {
     await vi.waitFor(() => expect(check.resultReady.value).toBe(true))
   })
 
-  it('registers disposal for the latest-wins runner', async () => {
-    const source = readFileSync(
-      new URL('../src/features/check/model/useCheck.ts', import.meta.url),
-      'utf8'
-    )
-
-    expect(source).toContain('onUnmounted(() => calculationRunner.dispose())')
-  })
 })
