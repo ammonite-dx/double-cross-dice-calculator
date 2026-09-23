@@ -223,7 +223,7 @@ function makeNotReady(
   status: 'not-ready' | 'not-projectable' = 'not-ready',
 ): DistributionProjection {
   return Object.freeze({
-    kind: 'canonical-distribution-projection',
+    kind: 'distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
     status,
     decision,
@@ -240,7 +240,7 @@ function makeNotProjectable(
   reason: string,
 ): DistributionProjection {
   return Object.freeze({
-    kind: 'canonical-distribution-projection',
+    kind: 'distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
     status: plan.coverage.missingSegments.length > 0
       ? 'not-ready'
@@ -260,7 +260,7 @@ function makeReady(
   decision: 'reuse' | 'known-zero',
 ): ReadyDistributionProjection {
   return Object.freeze({
-    kind: 'canonical-distribution-projection',
+    kind: 'distribution-projection',
     version: DISTRIBUTION_PROJECTION_VERSION,
     status: 'ready',
     decision,

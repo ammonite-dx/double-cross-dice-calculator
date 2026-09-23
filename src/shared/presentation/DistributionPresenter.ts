@@ -400,7 +400,7 @@ export function presentDistribution(
 
   const display: DistributionDisplay = {
     version: DISTRIBUTION_DISPLAY_VERSION,
-    kind: 'canonical-distribution-display',
+    kind: 'distribution-display',
     explicit: Object.freeze({
       offset: validated.offset,
       probabilities: Object.freeze(probabilities),

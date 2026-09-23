@@ -43,7 +43,7 @@ function createDeferred() {
 function createPresentationFixture(overrides = {}) {
   return {
     version: 2,
-    kind: 'backtrack-canonical-presentation',
+    kind: 'backtrack-presentation',
     charts: {
       single: {
         key: 'single',

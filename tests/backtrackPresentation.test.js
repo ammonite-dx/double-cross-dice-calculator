@@ -203,7 +203,7 @@ describe('backtrack canonical presentation adapter', () => {
     )
 
     expect(presentation).toMatchObject({
-      kind: 'backtrack-canonical-presentation',
+      kind: 'backtrack-presentation',
       version: 2,
     })
     expect(Object.isFrozen(presentation)).toBe(true)

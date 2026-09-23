@@ -425,7 +425,7 @@ describe('DisplayRangePlanner', () => {
       },
     })
     const display = {
-      kind: 'canonical-distribution-display',
+      kind: 'distribution-display',
       version: DISTRIBUTION_DISPLAY_VERSION,
       explicit: { offset: 0, probabilities },
       explicitMax: probabilities.length - 1,

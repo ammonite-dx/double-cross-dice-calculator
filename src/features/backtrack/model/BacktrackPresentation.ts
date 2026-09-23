@@ -32,7 +32,7 @@ export interface BacktrackChartPresentation {
 
 export interface BacktrackPresentation {
   readonly version: typeof BACKTRACK_PRESENTATION_VERSION
-  readonly kind: 'backtrack-canonical-presentation'
+  readonly kind: 'backtrack-presentation'
   readonly charts: Readonly<{
     single: BacktrackChartPresentation
     double: BacktrackChartPresentation
@@ -419,7 +419,7 @@ export function createBacktrackPresentation(
     const results = normalizeResults(Result)
     return Object.freeze({
       version: BACKTRACK_PRESENTATION_VERSION,
-      kind: 'backtrack-canonical-presentation' as const,
+      kind: 'backtrack-presentation' as const,
       charts: createCharts(results, normalizedParams),
     })
   } catch (error: unknown) {

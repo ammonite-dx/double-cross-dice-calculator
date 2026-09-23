@@ -87,7 +87,7 @@ export interface AttackDisplaySide {
 
 export interface AttackScoreDisplaySidePresentation {
   readonly version: 1
-  readonly kind: 'attack-canonical-score-display-presentation'
+  readonly kind: 'attack-score-display-presentation'
   readonly status: AttackDisplayStatus
   readonly decision: AttackDisplayDecision
   readonly mode: DisplayMode
@@ -105,7 +105,7 @@ export type AttackScoreDisplayCombo =
 
 export interface AttackScoreDisplayBatchPresentation {
   readonly version: 1
-  readonly kind: 'attack-canonical-score-display-presentation'
+  readonly kind: 'attack-score-display-presentation'
   readonly status: AttackDisplayStatus
   readonly decision: AttackDisplayDecision
   readonly mode: DisplayMode
@@ -130,7 +130,7 @@ export type AttackDisplayCombo =
 
 export interface AttackDisplayPresentation {
   readonly version: 1
-  readonly kind: 'attack-canonical-display-presentation'
+  readonly kind: 'attack-display-presentation'
   readonly status: AttackDisplayStatus
   readonly decision: AttackDisplayDecision
   readonly mode: DisplayMode

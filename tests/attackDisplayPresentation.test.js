@@ -91,7 +91,7 @@ describe('createAttackDisplayPresentation', () => {
     })
 
     expect(presentation).toMatchObject({
-      kind: 'attack-canonical-display-presentation',
+      kind: 'attack-display-presentation',
       status: 'ready',
       decision: ATTACK_DISPLAY_PRESENTATION_DECISIONS.REUSE,
       mode: ATTACK_DISPLAY_MODES.PMF,
@@ -103,7 +103,7 @@ describe('createAttackDisplayPresentation', () => {
       status: 'ready',
       decision: 'reuse',
       projection: {
-        kind: 'canonical-distribution-projection',
+        kind: 'distribution-projection',
         status: 'ready',
         decision: 'reuse',
         displayWindow: { min: 0, max: 1, pointCount: 2 },

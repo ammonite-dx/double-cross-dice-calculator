@@ -329,7 +329,7 @@ function toPercentageProjection(
 
   return {
     ...projection,
-    kind: 'canonical-distribution-projection',
+    kind: 'distribution-projection',
     version: 1,
     status: 'ready',
     values,
@@ -452,7 +452,7 @@ export function createCheckPresentation(
 
     const result: CheckPresentation = {
       version: CHECK_PRESENTATION_VERSION,
-      kind: 'check-canonical-presentation',
+      kind: 'check-presentation',
       status,
       mode: normalized.mode,
       opposed: normalized.opposed,

@@ -500,7 +500,7 @@ function createAttackScoreDisplayPresentation(
   const displayedSides = [action]
   return Object.freeze({
     version: ATTACK_DISPLAY_PRESENTATION_VERSION,
-    kind: 'attack-canonical-score-display-presentation',
+    kind: 'attack-score-display-presentation',
     status: getAttackDisplayStatus(displayedSides),
     decision: getAttackDisplayDecision(displayedSides),
     mode: displayRequest.mode,
@@ -640,7 +640,7 @@ function buildAttackDisplayPresentationFrom(
     ? null
     : Object.freeze({
         version: ATTACK_DISPLAY_PRESENTATION_VERSION,
-        kind: 'attack-canonical-score-display-presentation',
+        kind: 'attack-score-display-presentation',
         status: hasMissingScore
           ? 'not-ready'
           : getAttackDisplayStatus(scoreSides),
@@ -654,7 +654,7 @@ function buildAttackDisplayPresentationFrom(
 
   return Object.freeze({
     version: ATTACK_DISPLAY_PRESENTATION_VERSION,
-    kind: 'attack-canonical-display-presentation',
+    kind: 'attack-display-presentation',
     status: getAttackDisplayStatus(sides),
     decision: getAttackDisplayDecision(sides),
     mode: normalized.displayRequest.mode,

@@ -115,7 +115,7 @@ export interface DisplayFeedbackPlan {
 
 export type DistributionDisplay = Readonly<{
   readonly version: 1
-  readonly kind: 'canonical-distribution-display'
+  readonly kind: 'distribution-display'
   readonly explicit: Readonly<{
     readonly offset: number
     readonly probabilities: readonly number[]
@@ -147,7 +147,7 @@ export type DistributionProjectionStatus =
 export type DistributionProjectionReason = string
 
 interface DistributionProjectionBase {
-  readonly kind: 'canonical-distribution-projection'
+  readonly kind: 'distribution-projection'
   readonly version: 1
   readonly reason: DistributionProjectionReason
   readonly mode: DistributionProjectionMode

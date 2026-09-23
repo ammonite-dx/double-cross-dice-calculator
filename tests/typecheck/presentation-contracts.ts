@@ -28,7 +28,7 @@ if (projection.status !== 'ready') {
 }
 
 const terminal: NotProjectableDistributionProjection = {
-  kind: 'canonical-distribution-projection',
+  kind: 'distribution-projection',
   version: 1,
   status: 'not-projectable',
   decision: 'recalculate',

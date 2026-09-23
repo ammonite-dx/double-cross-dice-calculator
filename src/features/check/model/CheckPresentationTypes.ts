@@ -26,7 +26,7 @@ export interface CheckPresentationSide {
 /** The UI-independent payload consumed by the Check view. */
 export interface CheckPresentation {
   readonly version: 1
-  readonly kind: 'check-canonical-presentation'
+  readonly kind: 'check-presentation'
   readonly status: CheckPresentationStatus
   readonly mode: DisplayMode
   readonly opposed: boolean
@@ -41,4 +41,3 @@ export type CheckCalculationFeedbackPlan = CheckCalculationRangePlan
 
 /** The display lane accepts either a full coverage plan or a preflight plan. */
 export type CheckDisplayRequest = DisplayRequestSnapshot
-

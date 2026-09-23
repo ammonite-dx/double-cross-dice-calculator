@@ -18,7 +18,7 @@ function makeDisplay({
 } = {}) {
   return {
     version: DISTRIBUTION_DISPLAY_VERSION,
-    kind: 'canonical-distribution-display',
+    kind: 'distribution-display',
     explicit: { offset, probabilities: values },
     explicitMax: values.length === 0
       ? null

@@ -23,7 +23,7 @@ function makeDisplay({
   const probabilities = values
   return {
     version: DISTRIBUTION_DISPLAY_VERSION,
-    kind: 'canonical-distribution-display',
+    kind: 'distribution-display',
     explicit: { offset, probabilities },
     explicitMax: probabilities.length === 0
       ? null
@@ -50,7 +50,7 @@ describe('materializeChartJsData', () => {
     const projection = project(display, { min: 5, max: 7 })
 
     expect(projection).toMatchObject({
-      kind: 'canonical-distribution-projection',
+      kind: 'distribution-projection',
       status: 'ready',
       decision: DISTRIBUTION_PROJECTION_DECISIONS.REUSE,
       mode: DISTRIBUTION_PROJECTION_MODES.PMF,

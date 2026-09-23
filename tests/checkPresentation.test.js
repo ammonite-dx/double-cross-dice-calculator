@@ -69,7 +69,7 @@ describe('createCheckPresentation', () => {
     })
 
     expect(presentation).toMatchObject({
-      kind: 'check-canonical-presentation',
+      kind: 'check-presentation',
       version: 1,
       status: 'ready',
       mode: 'pmf',
