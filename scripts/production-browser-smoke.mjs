@@ -502,6 +502,43 @@ async function assertAccessibleChartNames(page, caseId, expectedNames) {
   )
 }
 
+async function assertFooterNormalFlow(page, caseId) {
+  const layout = await page.evaluate(() => {
+    const main = document.querySelector('.main-area')
+    const content = main?.querySelector('.main-area__content')
+    const footer = main?.querySelector('.main-area__footer')
+
+    if (!main || !content || !footer) {
+      return null
+    }
+
+    const contentRect = content.getBoundingClientRect()
+    const footerRect = footer.getBoundingClientRect()
+    const position = getComputedStyle(footer).position
+    const followsContent = Boolean(
+      content.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING
+    )
+
+    return {
+      position,
+      followsContent,
+      followsAfterContent: footerRect.top >= contentRect.bottom - 1,
+    }
+  })
+
+  assertCondition(caseId, layout !== null, 'main content or footer was not rendered')
+  assertCondition(
+    caseId,
+    layout.position !== 'fixed' && layout.position !== 'absolute',
+    `footer is positioned outside normal flow (${layout.position})`,
+  )
+  assertCondition(
+    caseId,
+    layout.followsContent && layout.followsAfterContent,
+    'footer does not follow the main content in document flow',
+  )
+}
+
 async function assertCompoundD10Groups(page, caseId, expectedGroups) {
   for (const { name, fieldNames, count } of expectedGroups) {
     const groups = page.getByRole('group', { name, exact: true })
@@ -617,6 +654,7 @@ async function runCheck(browser, baseUrl) {
     await assertAccessibleChartNames(page, 'check accessible chart name', [
       '一般判定 達成値確率分布',
     ])
+    await assertFooterNormalFlow(page, 'check footer normal flow')
     assertNoPrecomputedRequests('check', record)
     assertNoBrowserErrors('check', record)
 
@@ -908,6 +946,7 @@ async function runAttack(browser, baseUrl) {
       '攻撃判定 達成値確率分布',
       '攻撃判定 ダメージ確率分布',
     ])
+    await assertFooterNormalFlow(page, 'attack footer normal flow')
     const advancedCheckboxes = page.getByRole('checkbox', {
       name: '高度な設定',
       exact: true,
@@ -1390,6 +1429,14 @@ async function runBacktrack(browser, baseUrl) {
       '最終侵蝕率分布 一倍振り',
       '最終侵蝕率分布 二倍振り',
       '最終侵蝕率分布 二倍振りと追加振り',
+    ])
+    await assertFooterNormalFlow(page, 'backtrack footer normal flow')
+    await assertCompoundD10Groups(page, 'backtrack other reduction compound inputs', [
+      {
+        name: 'その他減少量',
+        fieldNames: ['その他減少量（ダイス）', 'その他減少量（固定値）'],
+        count: 1,
+      },
     ])
     assertNoPrecomputedRequests('backtrack', record)
     assertNoBrowserErrors('backtrack', record)
