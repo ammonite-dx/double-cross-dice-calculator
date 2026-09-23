@@ -1,6 +1,22 @@
 import { getChartColor } from '@/shared/theme/ChartPalette';
 import { toChartPercentages } from '@/shared/presentation/ChartPercentages';
 import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
+import type { ProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig'
+import type { ChartData, ChartDataset } from 'chart.js'
+import type { DisplayMode } from '@/domain/CalculationInputs'
+import type {
+    AttackDisplayPresentation,
+    AttackScoreDisplayPresentation,
+} from '../model/AttackPresentationTypes'
+import type { AttackCombo } from '../model/AttackComboState'
+import type { ChartJsDataset } from '@/shared/presentation/DistributionProjectionTypes'
+
+type ComboLabel = Pick<AttackCombo, 'id' | 'name'>
+type ProbabilityChartData = ChartData<'line', number[], number>
+
+function toPercentageData(dataset: ChartJsDataset): number[] {
+    return toChartPercentages(dataset.data) ?? []
+}
 
 /**
  * Adapt the action side of the Attack score presentation to the
@@ -8,11 +24,17 @@ import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLin
  * intentionally does not draw the reaction side; the reaction side
  * remains available in the atomic presentation for summary/future consumers.
  */
-export function getAttackScoreChartData (presentation, combos) {
-    const scorePresentation = presentation?.score ?? presentation;
+export function getAttackScoreChartData (
+    presentation: AttackDisplayPresentation | AttackScoreDisplayPresentation | null,
+    combos?: readonly ComboLabel[],
+): ProbabilityChartData | null {
+    const scorePresentation = presentation && 'score' in presentation
+        ? presentation.score
+        : presentation;
     if (
-        scorePresentation?.status !== 'ready'
-        || !Array.isArray(scorePresentation.combos)
+        !scorePresentation
+        || !('combos' in scorePresentation)
+        || scorePresentation.status !== 'ready'
     ) {
         return null;
     }
@@ -20,41 +42,42 @@ export function getAttackScoreChartData (presentation, combos) {
     const comboCount = Array.isArray(combos)
         ? combos.length
         : scorePresentation.combos.length;
-    const datasets = scorePresentation.combos.map((combo, index) => {
+    const candidates = scorePresentation.combos.map((combo, index) => {
         const action = combo?.action;
         const dataset = action?.chart?.datasets?.[0];
         if (!dataset) {
             return null;
         }
         const attackCombo = combos?.[index];
-        const id = attackCombo?.id ?? combo.id ?? index;
-        const color = Number.isFinite(id)
-            ? getChartColor(id)
-            : getChartColor(index);
+        const id = attackCombo?.id ?? combo?.id ?? index;
+        const color = getIndexedChartColor(id, index)
         return {
-            ...dataset,
-            data: toChartPercentages(dataset.data),
+            data: toPercentageData(dataset),
             label: attackCombo?.name ?? `コンボ${index + 1}`,
             backgroundColor: color,
             borderColor: color,
         };
     });
     if (
-        datasets.some((dataset) => dataset === null)
-        || datasets.length !== comboCount
+        candidates.some((dataset) => dataset === null)
+        || candidates.length !== comboCount
     ) {
         return null;
     }
 
+    const datasets: ChartDataset<'line', number[]>[] = candidates
+        .filter((dataset): dataset is NonNullable<typeof dataset> => dataset !== null)
+        .map((dataset) => ({ ...dataset }))
+    const firstChart = scorePresentation.combos[0]?.action.chart
     return {
-        labels: (
-            scorePresentation.combos[0]?.action
-        )?.chart?.labels ?? [],
+        labels: Array.from(firstChart?.labels ?? []),
         datasets,
     };
 }
 
-export function getAttackScoreChartOptions ({ mode } = {}) {
+export function getAttackScoreChartOptions (
+    { mode }: { mode?: DisplayMode } = {},
+): ProbabilityLineChartOptions {
 
     /*
     概要:
@@ -72,8 +95,8 @@ export function getAttackScoreChartOptions ({ mode } = {}) {
 
 }
 
-function getIndexedChartColor (id, index) {
-    return Number.isFinite(id) ? getChartColor(id) : getChartColor(index);
+function getIndexedChartColor (id: string | number | undefined, index: number): string {
+    return typeof id === 'number' && Number.isFinite(id) ? getChartColor(id) : getChartColor(index);
 }
 
 /**
@@ -82,7 +105,10 @@ function getIndexedChartColor (id, index) {
  * boundary converts probability data into the percentage array expected by
  * the existing damage chart without mutating the source data.
  */
-export function getAttackDamageChartData (presentation, combos) {
+export function getAttackDamageChartData (
+    presentation: AttackDisplayPresentation | null,
+    combos?: readonly ComboLabel[],
+): ProbabilityChartData | null {
     if (
         presentation?.status !== 'ready'
         || !Array.isArray(presentation.combos)
@@ -94,7 +120,7 @@ export function getAttackDamageChartData (presentation, combos) {
     const comboCount = Array.isArray(combos)
         ? combos.length
         : presentation.combos.length;
-    const datasets = presentation.combos.map((side, index) => {
+    const candidates = presentation.combos.map((side, index) => {
         const dataset = side?.chart?.datasets?.[0];
         if (!dataset) {
             return null;
@@ -102,25 +128,26 @@ export function getAttackDamageChartData (presentation, combos) {
         const combo = combos?.[index];
         const id = combo?.id ?? side.id;
         return {
-            ...dataset,
-            data: toChartPercentages(dataset.data),
+            data: toPercentageData(dataset),
             label: combo?.name ?? `コンボ${index + 1}`,
             backgroundColor: getIndexedChartColor(id, index),
             borderColor: getIndexedChartColor(id, index),
         };
     });
-    if (datasets.some((dataset) => dataset === null)) {
+    if (candidates.some((dataset) => dataset === null)) {
         return null;
     }
 
+    const datasets: ChartDataset<'line', number[]>[] = candidates
+        .filter((dataset): dataset is NonNullable<typeof dataset> => dataset !== null)
+        .map((dataset) => ({ ...dataset }))
     if (comboCount > 1) {
         const totalDataset = presentation.total.chart.datasets?.[0];
         if (!totalDataset) {
             return null;
         }
         datasets.push({
-            ...totalDataset,
-            data: toChartPercentages(totalDataset.data),
+            data: toPercentageData(totalDataset),
             label: '合計',
             backgroundColor: 'secondary',
             borderColor: 'secondary',
@@ -128,12 +155,14 @@ export function getAttackDamageChartData (presentation, combos) {
     }
 
     return {
-        labels: presentation.total.chart.labels,
+        labels: Array.from(presentation.total.chart.labels ?? []),
         datasets,
     };
 }
 
-export function getAttackDamageChartOptions ({ mode } = {}) {
+export function getAttackDamageChartOptions (
+    { mode }: { mode?: DisplayMode } = {},
+): ProbabilityLineChartOptions {
 
     /*
     概要:

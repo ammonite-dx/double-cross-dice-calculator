@@ -1,7 +1,11 @@
 import { getChartColor } from '@/shared/theme/ChartPalette';
 import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
+import type { ProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig'
+import type { DifficultyInput, DisplayMode } from '@/domain/CalculationInputs'
 
-export function getCheckChartOptions (difficulty) {
+export function getCheckChartOptions (
+    difficulty: DifficultyInput & { mode?: DisplayMode },
+): ProbabilityLineChartOptions {
 
     /*
     概要:
