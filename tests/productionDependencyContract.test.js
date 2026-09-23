@@ -137,7 +137,7 @@ describe('CalculationClient runtime dependency contract', () => {
     expect(harness.release).toHaveBeenCalledOnce()
   })
 
-  it('uses canonical on-demand Backtrack without a data request', async () => {
+  it('uses on-demand Backtrack without a data request', async () => {
     const harness = createHarness()
     const result = await harness.client.calculateBacktrack(
       createBacktrackParams()

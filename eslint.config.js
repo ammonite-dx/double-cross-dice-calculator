@@ -105,7 +105,7 @@ const sharedPresentationInternalPattern = internalPattern(
 
 const sharedPresentationCalculationPattern = {
   regex: `^${relativeOrAlias}calculation/(?!DistributionResult(?:\\.js)?(?:/|$))`,
-  message: 'Shared presentation may read only the canonical DistributionResult contract from calculation.',
+  message: 'Shared presentation may read only the DistributionResult contract from calculation.',
 }
 
 const sharedPresentationCorePattern = {
@@ -222,7 +222,7 @@ export default [
       },
     },
     rules: {
-      // R2 parses TypeScript for architecture rules; type-aware lint is deferred.
+      // TypeScript parsing supports architecture rules; type-aware lint is deferred.
       'no-undef': 'off',
       'no-unused-vars': 'off',
       'no-redeclare': 'off',
