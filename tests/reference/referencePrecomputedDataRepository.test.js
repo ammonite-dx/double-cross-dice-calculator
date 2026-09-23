@@ -8,6 +8,7 @@ import {
 } from '../../tooling/reference-data/ReferencePrecomputedDataRepository'
 import dxShihai0 from '../../tooling/reference-data/assets/schema-v2/revision-1/dx/shihai-0.json'
 import livingdead from '../../tooling/reference-data/assets/schema-v2/revision-1/livingdead.json'
+import { calculateLivingdeadDistributions } from '../../src/calculation/BacktrackLivingdeadDistribution'
 
 function createJsonResponse(body, { ok = true, status = 200 } = {}) {
   return {
@@ -79,5 +80,25 @@ describe('reference precomputed repository', () => {
     expect(() => getLivingdeadDistribution(104, 1041)).toThrow(
       'cannot be expanded after overflow aggregation'
     )
+  })
+
+  it('matches the rounded historical 103D livingdead fixture within its precision', () => {
+    const size = 1031
+    registerLivingdeadAsset(livingdead)
+    const reference = getLivingdeadDistribution(103, size)
+    const runtime = calculateLivingdeadDistributions([103], size).get(103)
+    let maximumAbsoluteDifference = 0
+
+    expect(runtime).toBeInstanceOf(Float64Array)
+    expect(runtime).toHaveLength(size)
+    for (let index = 0; index < size; index += 1) {
+      maximumAbsoluteDifference = Math.max(
+        maximumAbsoluteDifference,
+        Math.abs((runtime?.[index] ?? 0) - reference[index]),
+      )
+    }
+
+    // The historical fixture is rounded and is not a full-precision oracle.
+    expect(maximumAbsoluteDifference).toBeLessThan(6e-7)
   })
 })

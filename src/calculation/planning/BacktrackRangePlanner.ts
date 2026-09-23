@@ -1,4 +1,7 @@
-import { getBacktrackGenerationOperationEstimate } from '../BacktrackLimits'
+import {
+  getBacktrackFloat64MemoryEstimate,
+  getBacktrackGenerationOperationEstimate,
+} from '../BacktrackLimits'
 import {
   getBacktrackDiceCounts,
   getBacktrackRule,
@@ -38,11 +41,11 @@ export function planBacktrack(
     rule.livingdead === true
   )
   const operations = workingLength * 3 + generationOperations
-  const generationFloat64Arrays = rule.livingdead ? 22 : 2
-  const baseFloat64Bytes = (
-    3 + generationFloat64Arrays
-  ) * workingLength * Float64Array.BYTES_PER_ELEMENT
-  const resultFloat64Bytes = 3 * workingLength * Float64Array.BYTES_PER_ELEMENT
+  const memoryEstimate = getBacktrackFloat64MemoryEstimate(
+    maxDice,
+    workingLength,
+    rule.livingdead === true,
+  )
 
   const plan: BacktrackRangePlan = {
     params: normalized,
@@ -68,11 +71,11 @@ export function planBacktrack(
     fftLength: 0,
     generationOperations,
     operations,
-    float64Bytes: baseFloat64Bytes + resultFloat64Bytes,
+    float64Bytes: memoryEstimate.float64Bytes,
     finiteSupport: true,
     generationMode: 'on-demand',
-    baseFloat64Bytes,
-    resultFloat64Bytes,
+    baseFloat64Bytes: memoryEstimate.baseFloat64Bytes,
+    resultFloat64Bytes: memoryEstimate.resultFloat64Bytes,
   }
   return plan
 }

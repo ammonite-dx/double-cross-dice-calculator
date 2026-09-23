@@ -164,8 +164,8 @@ describe('backtrack distribution generators', () => {
       BACKTRACK_MAX_GENERATION_LENGTH + 1
     )).toThrow('absolute safety limit')
     expect(() => calculateLivingdeadDistributions(
-      [400],
-      3992
+      [846],
+      8452
     )).toThrow('absolute generation safety limit')
   })
 })

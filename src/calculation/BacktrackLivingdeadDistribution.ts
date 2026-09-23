@@ -11,6 +11,8 @@ import {
 } from '../domain/BacktrackRules'
 
 const NEGATIVE_PROBABILITY_TOLERANCE = 1e-12
+const D10_FACE_COUNT = 10
+const MAXIMUM_FACE = 10
 
 interface BacktrackRuntimeOptions {
   readonly signal?: AbortSignal
@@ -56,7 +58,7 @@ function normalizeGeneratedDistribution(
   const normalized = new Float64Array(distribution.length)
   let total = 0
   for (let index = 0; index < distribution.length; index += 1) {
-    abortChecker?.tick()
+    abortChecker.tick()
     const probability = distribution[index]
     if (!Number.isFinite(probability)) {
       throw new RangeError(`${label} contains a non-finite probability`)
@@ -72,7 +74,7 @@ function normalizeGeneratedDistribution(
     throw new RangeError(`${label} probability total is invalid`)
   }
   for (let index = 0; index < normalized.length; index += 1) {
-    abortChecker?.tick()
+    abortChecker.tick()
     normalized[index] /= total
   }
   return normalized
@@ -107,7 +109,7 @@ function normalizeDiceCounts(diceCounts: DiceCounts, label: string): number[] {
 function validateLivingdeadInputs(
   diceCounts: DiceCounts,
   size: number,
-): { requestedDice: number[]; maxDice: number } {
+): { requestedDice: number[]; maxDice: number; rawSumLength: number } {
   const requestedDice = normalizeDiceCounts(diceCounts, 'livingdead distribution')
   if (!Number.isSafeInteger(size)) {
     throw new TypeError('livingdead distribution size must be a safe integer')
@@ -127,6 +129,10 @@ function validateLivingdeadInputs(
       'livingdead distribution size does not contain the complete finite support'
     )
   }
+  const rawSumLength = D10_FACE_COUNT * maxDice + 1
+  if (!Number.isSafeInteger(rawSumLength)) {
+    throw new RangeError('livingdead raw sum length must be a safe integer')
+  }
   const operationEstimate = getBacktrackGenerationOperationEstimate(
     maxDice,
     size,
@@ -140,20 +146,76 @@ function validateLivingdeadInputs(
       `livingdead distribution exceeds the absolute generation safety limit of ${BACKTRACK_MAX_GENERATION_OPERATIONS} operations`
     )
   }
-  return { requestedDice, maxDice }
+  return { requestedDice, maxDice, rawSumLength }
 }
 
-/** Generate the complete finite 《屍人》 PMF using max/sum-minus-max DP. */
+function updateBoundedSums(
+  boundedSums: Float64Array[],
+  dice: number,
+  abortChecker: AbortChecker,
+): void {
+  for (let maximum = 1; maximum <= MAXIMUM_FACE; maximum += 1) {
+    const state = boundedSums[maximum - 1]
+    const previousMax = (dice - 1) * maximum
+    const newMin = dice
+    const newMax = dice * maximum
+    let window = state[previousMax]
+
+    for (let sum = newMax; sum >= newMin; sum -= 1) {
+      abortChecker.tick()
+      state[sum] = window / D10_FACE_COUNT
+
+      if (sum > newMin) {
+        // Descending order keeps these entries at their previous-dice values.
+        window -= state[sum - 1]
+        const entering = sum - maximum - 1
+        if (entering >= 0) {
+          window += state[entering]
+        }
+      }
+    }
+
+    // This is the only lower endpoint that became invalid in this update.
+    state[dice - 1] = 0
+  }
+}
+
+function projectLivingdeadDistribution(
+  boundedSums: Float64Array[],
+  dice: number,
+  size: number,
+  abortChecker: AbortChecker,
+): Float64Array {
+  const distribution = new Float64Array(size)
+  for (let maximum = 1; maximum <= MAXIMUM_FACE; maximum += 1) {
+    const upper = boundedSums[maximum - 1]
+    const lower = maximum === 1 ? null : boundedSums[maximum - 2]
+    const sumMax = dice * maximum
+
+    for (let sum = dice; sum <= sumMax; sum += 1) {
+      abortChecker.tick()
+      const probability = upper[sum] - (lower?.[sum] ?? 0)
+      const value = sum - maximum + 1
+      distribution[value] += probability
+    }
+  }
+  return distribution
+}
+
+/** Generate the complete finite 《屍人》 PMF with bounded-sum distributions. */
 export function calculateLivingdeadDistributions(
   diceCounts: DiceCounts,
   size: number,
   runtimeOptions: BacktrackRuntimeOptions = {},
 ): Map<number, Float64Array> {
-  const { requestedDice, maxDice } = validateLivingdeadInputs(diceCounts, size)
+  const { requestedDice, maxDice, rawSumLength } = validateLivingdeadInputs(
+    diceCounts,
+    size,
+  )
   const abortChecker = createAbortChecker(runtimeOptions)
   abortChecker.force()
 
-  const result = new Map()
+  const result = new Map<number, Float64Array>()
   if (requestedDice.includes(0)) {
     const zero = new Float64Array(size)
     zero[0] = 1
@@ -164,62 +226,35 @@ export function calculateLivingdeadDistributions(
     return result
   }
 
-  // states[max][value] stores P(current max=max, sum-max+1=value).
-  let states = Array.from({ length: 11 }, () => new Float64Array(size))
-  for (let face = 1; face <= 10; face += 1) {
-    states[face][1] = 0.1
+  const boundedSums = Array.from(
+    { length: MAXIMUM_FACE },
+    () => new Float64Array(rawSumLength),
+  )
+  for (const state of boundedSums) {
+    state[0] = 1
   }
-  if (requestedDice.includes(1)) {
-    result.set(1, sumLivingdeadStates(states, size, 'livingdead[1]', abortChecker))
-  }
+  const requestedDiceSet = new Set(requestedDice)
 
-  for (let dice = 2; dice <= maxDice; dice += 1) {
+  for (let dice = 1; dice <= maxDice; dice += 1) {
     abortChecker.force()
-    const nextStates = Array.from({ length: 11 }, () => new Float64Array(size))
-    const previousValueMax = getBacktrackSupportMax(LIVINGDEAD_DLOIS, dice - 1)
-    for (let maximum = 1; maximum <= 10; maximum += 1) {
-      const state = states[maximum]
-      for (let value = 0; value <= previousValueMax; value += 1) {
-        abortChecker.tick()
-        const probability = state[value]
-        if (probability === 0) {
-          continue
-        }
-        const faceProbability = probability / 10
-        for (let face = 1; face <= 10; face += 1) {
-          if (face <= maximum) {
-            nextStates[maximum][value + face] += faceProbability
-          } else {
-            nextStates[face][value + maximum] += faceProbability
-          }
-        }
-      }
-    }
-    states = nextStates
-    if (requestedDice.includes(dice)) {
+    updateBoundedSums(boundedSums, dice, abortChecker)
+    if (requestedDiceSet.has(dice)) {
+      const distribution = projectLivingdeadDistribution(
+        boundedSums,
+        dice,
+        size,
+        abortChecker,
+      )
       result.set(
         dice,
-        sumLivingdeadStates(states, size, `livingdead[${dice}]`, abortChecker)
+        normalizeGeneratedDistribution(
+          distribution,
+          `livingdead[${dice}]`,
+          abortChecker,
+        ),
       )
     }
   }
   abortChecker.force()
   return result
-}
-
-function sumLivingdeadStates(
-  states: Float64Array[],
-  size: number,
-  label: string,
-  abortChecker: AbortChecker,
-): Float64Array {
-  const distribution = new Float64Array(size)
-  for (let maximum = 1; maximum <= 10; maximum += 1) {
-    const state = states[maximum]
-    for (let value = 0; value < size; value += 1) {
-      abortChecker?.tick()
-      distribution[value] += state[value]
-    }
-  }
-  return normalizeGeneratedDistribution(distribution, label, abortChecker)
 }

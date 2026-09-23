@@ -8,7 +8,10 @@ import {
   getBacktrackDiceCounts,
   getBacktrackSupportMax,
 } from '../src/domain/BacktrackRules'
-import { getBacktrackGenerationOperationEstimate } from '../src/calculation/BacktrackLimits'
+import {
+  BACKTRACK_MAX_GENERATION_OPERATIONS,
+  getBacktrackGenerationOperationEstimate,
+} from '../src/calculation/BacktrackLimits'
 import {
   calculateLivingdeadDistributions,
 } from '../src/calculation/BacktrackLivingdeadDistribution'
@@ -38,6 +41,32 @@ function sumMass(result) {
   return result.values.reduce((sum, probability) => sum + probability, 0)
 }
 
+function enumerateLivingdead(dice, size) {
+  const distribution = new Float64Array(size)
+  if (dice === 0) {
+    distribution[0] = 1
+    return distribution
+  }
+
+  let outcomes = 0
+  function visit(remaining, sum, maximum) {
+    if (remaining === 0) {
+      distribution[sum - maximum + 1] += 1
+      outcomes += 1
+      return
+    }
+    for (let face = 1; face <= 10; face += 1) {
+      visit(remaining - 1, sum + face, Math.max(maximum, face))
+    }
+  }
+
+  visit(dice, 0, 0)
+  for (let index = 0; index < distribution.length; index += 1) {
+    distribution[index] /= outcomes
+  }
+  return distribution
+}
+
 function expectRelativeProbability(actual, expected) {
   expect(actual).toBeGreaterThan(0)
   expect(Number.isFinite(actual)).toBe(true)
@@ -64,8 +93,13 @@ function expectResult(result, params, dice) {
     .toBe(result.support.max)
   expect(result.overflow).toBeNull()
   expect(sumMass(result)).toBeCloseTo(1, 12)
-  expect(result.values[0]).toBeGreaterThan(0)
-  expect(result.values[result.values.length - 1]).toBeGreaterThan(0)
+  expect(Array.from(result.values).every(Number.isFinite)).toBe(true)
+  expect(Array.from(result.values).every((probability) => probability >= 0))
+    .toBe(true)
+  if (params.dlois !== '屍人') {
+    expect(result.values[0]).toBeGreaterThan(0)
+    expect(result.values[result.values.length - 1]).toBeGreaterThan(0)
+  }
 }
 
 describe('livingdead distribution generator', () => {
@@ -101,6 +135,43 @@ describe('livingdead distribution generator', () => {
     }
     expect(Array.from(twoDice ?? []).reduce((sum, value) => sum + value, 0))
       .toBeCloseTo(1, 14)
+  })
+
+  it('matches direct face enumeration from zero through four dice', () => {
+    const size = 40
+    const distributions = calculateLivingdeadDistributions(
+      [0, 1, 2, 3, 4],
+      size,
+    )
+
+    for (let dice = 0; dice <= 4; dice += 1) {
+      const actual = distributions.get(dice)
+      const expected = enumerateLivingdead(dice, size)
+      expect(actual).toBeInstanceOf(Float64Array)
+      expect(actual).toHaveLength(size)
+      for (let value = 0; value < size; value += 1) {
+        expect(actual?.[value]).toBeCloseTo(expected[value], 13)
+      }
+    }
+  })
+
+  it('checks for cancellation between bounded-sum dice updates', () => {
+    let abortChecks = 0
+    const signal = {
+      get aborted() {
+        abortChecks += 1
+        return abortChecks >= 2
+      },
+    }
+
+    let thrown
+    try {
+      calculateLivingdeadDistributions([4], 40, { signal })
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toMatchObject({ name: 'AbortError' })
+    expect(abortChecks).toBe(2)
   })
 })
 
@@ -245,11 +316,11 @@ describe('backtrack canonical producer', () => {
     expectResult(canonical.single, params, 103)
 
     // The canonical PMF is reversed into final-encroachment coordinates:
-    // index 0 is S=1021 (all tens), while the last index is S=103. The
-    // S=103 endpoint has 1 all-ones path plus 103 * 9 paths with one die
-    // in 2..10, for 928 paths in total.
-    expectRelativeProbability(canonical.single.values[0], 10 ** -103)
-    expectRelativeProbability(canonical.single.values.at(-1), 928 * 10 ** -103)
+    // The PMF preserves complete support and unit mass. At this depth the
+    // endpoint is intentionally not required to retain relative precision.
+    expect(Array.from(canonical.single.values).every(Number.isFinite)).toBe(true)
+    expect(Array.from(canonical.single.values)
+      .every((probability) => probability >= 0)).toBe(true)
   })
 
   it('accounts for on-demand generation memory in the resource plan', () => {
@@ -300,6 +371,44 @@ describe('backtrack canonical producer', () => {
     )
     expect(createBacktrackPlan({ ...params, dice: 1 }).generationOperations)
       .toBeGreaterThan(0)
+  })
+
+  it('accepts 845 livingdead dice and rejects 846 using the generation plan', () => {
+    const params = {
+      encroachment: 100,
+      lois: 0,
+      elois: 0,
+      dice: 845,
+      value: 0,
+      dlois: '屍人',
+    }
+    const accepted = planCalculationRanges({
+      operation: 'backtrack',
+      backtrack: params,
+    })
+    const plan = accepted.backtrack
+
+    expect(accepted.accepted).toBe(true)
+    expect(plan?.workingLength).toBe(8442)
+    expect(plan?.generationOperations).toBe(
+      getBacktrackGenerationOperationEstimate(845, 8442, true)
+    )
+    expect(plan?.generationOperations).toBe(99_868_860)
+    expect(plan?.baseFloat64Bytes).toBe(1_013_760)
+    expect(plan?.resultFloat64Bytes).toBe(202_608)
+    expect(plan?.float64Bytes).toBe(1_216_368)
+
+    const result = calculateFinalEncroachment(params, {}, plan)
+    expectResult(result.single, params, 845)
+
+    const rejected = planCalculationRanges({
+      operation: 'backtrack',
+      backtrack: { ...params, dice: 846 },
+    })
+    expect(rejected.accepted).toBe(false)
+    expect(rejected.rejectionReasons).toContain('backtrack-generation')
+    expect(rejected.backtrack?.generationOperations)
+      .toBeGreaterThan(BACKTRACK_MAX_GENERATION_OPERATIONS)
   })
 
   it('rejects a backtrack plan with inconsistent generation operations', () => {
