@@ -49,7 +49,7 @@ npm test
 
 実行時の判定・ダメージ・バックトラックの計算方法は[`docs/runtime-calculation-algorithms.md`](./docs/runtime-calculation-algorithms.md)、その独立テストは[`docs/runtime-rule-validation.md`](./docs/runtime-rule-validation.md)に記載しています。参照fixture自体の検証とproduction gateから分離した手順は[`docs/reference/precomputation-validation.md`](./docs/reference/precomputation-validation.md)を参照してください。CI分離の経緯は[`docs/archive/r25-i-test-ci-reference-decoupling.md`](./docs/archive/r25-i-test-ci-reference-decoupling.md)にあります。
 
-Attackのfull-tail計算に関する参考ベンチマークは`npm run benchmark:full-tail-attack`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
+Attack runtimeのstress・resource benchmarkは`npm run benchmark:attack-runtime`で実行できます。絶対時間は実行環境に依存するため、性能変更の前後を同じ環境で比較してください。
 
 Damage期待値は、Score tail first moment certificateとDamage expectation certificateに基づく`exact`・`bounded`・`lower-bound`の区別を保ち、semantic uncertainty（証明できる範囲）とnumerical diagnostics（数値計算上の診断）を分離します。複数コンボのTotal Damageでは、各componentの期待値区間を合計へ伝播します。現行の結果契約は[`docs/result-contract.md`](./docs/result-contract.md)を参照してください。過去の証明書設計と調査過程は[`docs/archive/`](./docs/archive/)に履歴資料として残しています。
 

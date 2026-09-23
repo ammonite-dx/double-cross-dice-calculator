@@ -13,7 +13,7 @@
     "dev": "vite",
     "prebuild": "node scripts/check-node-version.mjs",
     "build": "vite build",
-    "benchmark:full-tail-attack": "node scripts/benchmark-full-tail-attack.mjs",
+    "benchmark:attack-runtime": "node scripts/benchmark-attack-runtime.mjs",
     "benchmark:attack-worker:serve": "vite --config experiments/phase2h-browser/vite.config.mjs",
     "benchmark:attack-worker": "node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack",
     "benchmark:attack-worker:short": "node experiments/phase2h-browser/playwright-runner.mjs --target canonical-attack --iterations 1 --warmup 0",

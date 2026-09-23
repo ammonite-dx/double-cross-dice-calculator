@@ -13,15 +13,15 @@ import {
   MAX_WARMUP_ITERATIONS,
   parseBenchmarkArgs,
   PRODUCTION_RANGE_POLICY,
-} from '../scripts/benchmark-full-tail-attack.mjs'
+} from '../scripts/benchmark-attack-runtime.mjs'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
 
 const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8')
 )
 
-describe('full-tail Attack resource benchmark contract', () => {
-  it('keeps the DR matrix above the legacy 202-dice boundary', () => {
+describe('Attack runtime resource benchmark contract', () => {
+  it('keeps the DR matrix above the historical 202-dice asset boundary', () => {
     expect(DR_CASES).toHaveLength(15)
     expect(DR_CASES.map(({ dice }) => dice)).toEqual([
       202, 202, 202,
@@ -39,7 +39,7 @@ describe('full-tail Attack resource benchmark contract', () => {
     ])
   })
 
-  it('keeps the boundary and stress Attack matrix on the canonical path', () => {
+  it('keeps the boundary and stress Attack matrix on the runtime path', () => {
     expect(ATTACK_CASES).toHaveLength(9)
     expect(ATTACK_CASES.map(({ id }) => id)).toEqual([
       'attack-99d-critical2-skill0-kazanari0',
@@ -103,7 +103,7 @@ describe('full-tail Attack resource benchmark contract', () => {
     expect(BENCHMARK_RANGE_POLICY).not.toHaveProperty('costModel')
   })
 
-  it('keeps every Attack matrix case on the planner-safe canonical path', () => {
+  it('keeps every Attack matrix case on a planner-safe runtime path', () => {
     const expectedBoundaryMaxDamageDice = new Map([
       ['attack-202d-critical11-skill1010-attack99', 202],
       ['attack-300d-critical11-skill1010-attack197', 300],
@@ -184,8 +184,9 @@ describe('full-tail Attack resource benchmark contract', () => {
   })
 
   it('exposes the package script and required human-readable fields', () => {
-    expect(packageJson.scripts['benchmark:full-tail-attack'])
-      .toBe('node scripts/benchmark-full-tail-attack.mjs')
+    expect(packageJson.scripts['benchmark:attack-runtime'])
+      .toBe('node scripts/benchmark-attack-runtime.mjs')
+    expect(packageJson.scripts['benchmark:full-tail-attack']).toBeUndefined()
 
     const output = formatHumanReport({
       metadata: {

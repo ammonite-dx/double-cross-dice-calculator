@@ -86,7 +86,7 @@ export const DR_CASES = Object.freeze(
 export const ATTACK_CASES = Object.freeze([
   Object.freeze({
     id: 'attack-99d-critical2-skill0-kazanari0',
-    label: 'full-tail Attack 99D critical=2 skill=0 kazanari=0',
+    label: 'Attack runtime 99D critical=2 skill=0 kazanari=0',
     kind: 'attack',
     params: createAttackParams({
       score: { skill: 0 },
@@ -95,7 +95,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-202d-critical11-skill1010-attack99',
-    label: 'full-tail Attack 202D from 99D critical=11 skill=1010 attackDice=99',
+    label: 'Attack runtime 202D from 99D critical=11 skill=1010 attackDice=99',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 11, skill: 1010 },
@@ -105,7 +105,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-300d-critical11-skill1010-attack197',
-    label: 'full-tail Attack 300D from 99D critical=11 skill=+1010 attackDice=197',
+    label: 'Attack runtime 300D from 99D critical=11 skill=+1010 attackDice=197',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 11, skill: 1010 },
@@ -115,7 +115,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-400d-critical11-skill3260-attack72',
-    label: 'full-tail Attack 400D from 99D critical=11 skill=+3260 attackDice=72',
+    label: 'Attack runtime 400D from 99D critical=11 skill=+3260 attackDice=72',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 11, skill: 3260 },
@@ -125,7 +125,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-600d-critical11-skill3260-attack272',
-    label: 'full-tail Attack 600D from 99D critical=11 skill=+3260 attackDice=272',
+    label: 'Attack runtime 600D from 99D critical=11 skill=+3260 attackDice=272',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 11, skill: 3260 },
@@ -135,7 +135,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-99d-critical2-kazanari1',
-    label: 'full-tail Attack 99D critical=2 skill=0 kazanari=1',
+    label: 'Attack runtime 99D critical=2 skill=0 kazanari=1',
     kind: 'attack',
     params: createAttackParams({
       score: { skill: 0 },
@@ -144,7 +144,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-99d-critical2-kazanari9',
-    label: 'full-tail Attack 99D critical=2 skill=0 kazanari=9',
+    label: 'Attack runtime 99D critical=2 skill=0 kazanari=9',
     kind: 'attack',
     params: createAttackParams({
       score: { skill: 0 },
@@ -153,7 +153,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-99d-critical10-skill5250-yousei9-shihai0',
-    label: 'full-tail Attack stress critical=10 skill=+5250 yousei=9',
+    label: 'Attack runtime stress critical=10 skill=+5250 yousei=9',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 10, skill: 5250, yousei: 9, shihai: 0 },
@@ -162,7 +162,7 @@ export const ATTACK_CASES = Object.freeze([
   }),
   Object.freeze({
     id: 'attack-99d-critical11-skill3260-yousei0-shihai19',
-    label: 'full-tail Attack stress critical=11 skill=+3260 shihai=19',
+    label: 'Attack runtime stress critical=11 skill=+3260 shihai=19',
     kind: 'attack',
     params: createAttackParams({
       score: { critical: 11, skill: 3260, yousei: 0, shihai: 19 },
@@ -926,7 +926,7 @@ async function loadDependencies() {
       scoreCalculation,
       runtimeDamageRollCalculation,
       rangePlanner,
-      canonicalDamageAggregation,
+      damageAggregation,
       d10Calculation,
     ] = await Promise.all([
       server.ssrLoadModule('/src/calculation/DamageCalculator.ts'),
@@ -936,7 +936,7 @@ async function loadDependencies() {
         '/src/calculation/RuntimeDamageRollCalculator.ts'
       ),
       server.ssrLoadModule('/src/calculation/RangePlanner.ts'),
-        server.ssrLoadModule('/src/calculation/DamageAggregation.ts'),
+      server.ssrLoadModule('/src/calculation/DamageAggregation.ts'),
       server.ssrLoadModule('/src/calculation/D10Calculator.ts'),
     ])
     return {
@@ -954,7 +954,7 @@ async function loadDependencies() {
         }),
       planCalculationRanges: rangePlanner.planCalculationRanges,
       prepareDamageAggregation:
-        canonicalDamageAggregation.prepareDamageAggregation,
+      damageAggregation.prepareDamageAggregation,
     }
   } catch (error) {
     await server.close()
@@ -1092,7 +1092,7 @@ export function formatHumanReport(report) {
   return lines.join('\n')
 }
 
-export const HELP_TEXT = `Usage: npm run benchmark:full-tail-attack -- [options]
+export const HELP_TEXT = `Usage: npm run benchmark:attack-runtime -- [options]
 
 Options:
   --json                 write machine-readable JSON to stdout
