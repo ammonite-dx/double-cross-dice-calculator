@@ -111,6 +111,22 @@ describe('Check canonical summary formatter', () => {
       .toBe(formatCertifiedExpectedValue(expectedValue))
   })
 
+  it('stabilizes exact and bounded summaries at decimal half-step ties', () => {
+    expect(formatScoreStatisticsExpectedValue({
+      kind: 'exact',
+      value: 79.54999999999997,
+    })).toBe(79.6)
+    expect(formatCertifiedExpectedValue({
+      kind: 'bounded',
+      lowerBound: 79.54999999999997,
+      upperBound: 79.55000000000003,
+    })).toBe(79.6)
+    expect(formatCertifiedProbabilityPercent({
+      kind: 'exact',
+      value: 0.7954999999999997,
+    })).toBe(79.6)
+  })
+
   it('formats opposed and non-opposed success rates with a suffix only when numeric', () => {
     expect(formatCertifiedProbabilityPercentDisplay({
       kind: 'exact',

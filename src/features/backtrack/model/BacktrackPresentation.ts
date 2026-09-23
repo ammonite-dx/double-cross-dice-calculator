@@ -6,6 +6,7 @@ import type { DistributionResult } from '../../../domain/DistributionResultTypes
 import {
   validateDistributionResult,
 } from '../../../calculation/DistributionResult'
+import { toChartPercentage } from '../../../shared/presentation/ChartPercentages'
 
 export const BACKTRACK_PRESENTATION_VERSION = 2 as const
 
@@ -304,11 +305,6 @@ function normalizeResults(
   return normalized
 }
 
-function roundPercentage(probability: number): number {
-  const rounded = Math.round(probability * 1000) / 10
-  return Object.is(rounded, -0) ? 0 : rounded
-}
-
 function aggregate(
   result: DistributionResult,
   categoryCount: number,
@@ -319,7 +315,7 @@ function aggregate(
     const finalEncroachment = result.offset + index
     buckets[getCategory(finalEncroachment)] += result.values[index]
   }
-  return Object.freeze(buckets.map(roundPercentage))
+  return Object.freeze(buckets.map(toChartPercentage))
 }
 
 function getSingleCategory(

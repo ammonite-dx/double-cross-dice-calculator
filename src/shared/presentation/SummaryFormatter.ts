@@ -1,3 +1,5 @@
+import { roundToOneDecimal } from './DecimalRounding'
+
 export const SUMMARY_UNAVAILABLE = '—'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -15,7 +17,7 @@ function isExactFiniteExpectedValue(expectedValue: unknown): expectedValue is {
 }
 
 function roundScoreValue(value: number): number | null {
-  const rounded = Math.round(value * 10) / 10
+  const rounded = roundToOneDecimal(value)
   if (!Number.isFinite(rounded)) {
     return null
   }

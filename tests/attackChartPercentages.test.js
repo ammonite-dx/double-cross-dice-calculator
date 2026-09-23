@@ -10,6 +10,9 @@ describe('Attack chart percentage formatter', () => {
     [0.12349, 12.3],
     [0.1235, 12.4],
     [0.12351, 12.4],
+    [0.7955, 79.6],
+    [0.7954999999999997, 79.6],
+    [0.7955000000000001, 79.6],
     [1, 100],
   ])('rounds %s to %s percent', (probability, expected) => {
     expect(toChartPercentage(probability)).toBe(expected)

@@ -118,6 +118,20 @@ describe('createCheckPresentation', () => {
       .toEqual(new Float64Array([20, 80]))
   })
 
+  it('stabilizes a chart percentage near a one-decimal half-step', () => {
+    const action = createScoreResult({
+      values: [0.7954999999999997, 0.2045000000000003],
+      support: { kind: 'finite', max: 1 },
+    })
+    const presentation = present(createCheckResult(action), {
+      min: 0,
+      max: 1,
+    })
+
+    expect(presentation.chart.datasets[0].data)
+      .toEqual(new Float64Array([79.6, 20.5]))
+  })
+
   it('keeps exact overflow out of a projected window and preserves bounded expectation', () => {
     const action = createScoreResult({
       values: [0.4, 0.2],

@@ -188,6 +188,23 @@ describe('backtrack canonical presentation adapter', () => {
     ])
   })
 
+  it('stabilizes the 6D livingdead 79.55% chart category', () => {
+    const params = {
+      encroachment: 119,
+      lois: 0,
+      elois: 0,
+      dice: 6,
+      value: 0,
+      dlois: '屍人',
+    }
+    const presentation = createBacktrackPresentation(
+      createFromProducer(params),
+      params,
+    )
+
+    expect(presentation.charts.single.probabilities[1]).toBe(79.6)
+  })
+
   it('supports zero-dice producer output and preserves chart presentation metadata', () => {
     const params = {
       encroachment: 100,

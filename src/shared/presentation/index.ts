@@ -38,6 +38,10 @@ export {
   toChartPercentages,
 } from './ChartPercentages'
 export {
+  ONE_DECIMAL_TIE_TOLERANCE,
+  roundToOneDecimal,
+} from './DecimalRounding'
+export {
   DISTRIBUTION_PROJECTION_DECISIONS,
   DISTRIBUTION_PROJECTION_ERROR_CODES,
   DISTRIBUTION_PROJECTION_MODES,
