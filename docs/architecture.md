@@ -6,13 +6,20 @@
 
 - `src/features/`: Check、Attack、Backtrackの入力snapshot、runner、画面状態、Vue UI
 - `src/runtime/`: `CalculationClient`、`CalculationRequestCoordinator`、latest-wins、Abort、`ResourceGuard`、DR Workerの非同期境界
-- `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア。汎用結果契約は`src/domain/`に置き、各計算の意味論はScore/Damageの境界モジュールに分ける。Damageの実行は`DamageAggregationCommon`、`DamageAggregationInspection`、`DamageAggregationPlanner`、`DamageAggregationExecutor`、`DamageAggregationMetadata`へ分離し、Backtrackは`BacktrackDistributionGenerator`、`BacktrackLivingdeadDistribution`、`BacktrackPlanValidation`と薄い`BacktrackCalculator`へ分ける
+- `src/calculation/`: Score、Damage、Backtrack、D10、DX、DR、範囲計画の計算コア。汎用結果契約は`src/domain/`に置き、各計算の意味論はScore/Damageの境界モジュールに分ける。Damageの実行は`DamageAggregationCommon`、`DamageAggregationInspection`、`DamageAggregationPlanner`、`DamageAggregationExecutor`、`DamageAggregationMetadata`へ分離し、Backtrackは`BacktrackDistributionGenerator`、`BacktrackLivingdeadDistribution`、`BacktrackPlanValidation`と薄い`BacktrackCalculator`へ分ける。core/runtime間で共有する呼び出し契約は`CalculationRuntimeTypes`が所有する
 - `src/core/probability/`: 配列分布、上側確率、FFTなどのVue非依存primitive
 - `src/domain/`: 入力domain、Backtrack rules、`CertifiedValue`などの共有契約
+- `src/types/`: feature間で共有する、domain意味論を持たない境界型
 - `src/shared/`: validation、presentation、Chart.js adapter、themeなどの横断処理
 - `tooling/reference-data/`: 歴史的JSONのschema、登録・検証・比較用repository
 
 計算コアはVue、DOM、HTTP、Cloudflare API、静的アセットの配置に依存しません。必要な分布やDR providerは`CalculationClient`から注入します。production sourceから`tooling/reference-data`をimportすることは禁止しています。
+
+## Production TypeScript
+
+`src/`配下のproduction実装はTypeScriptへ統一し、Vue SFCのすべてのscript blockは`lang="ts"`を指定します。`tsconfig.json`はstrict modeで、JavaScriptを型検査対象へ取り込む`allowJs`を有効にしません。JavaScriptのtest、script、experiment、configurationは既存の実行環境に残し、通常の型検査からは分離します。型付きtest fixtureは`tests/**/*.ts`として型検査に含めます。
+
+DR Workerは`RuntimeDamageRollWorker.ts`内で必要なmessage eventと`postMessage`だけを表すscope interfaceを定義します。main thread用TypeScript設定へWorker global libraryを追加せず、DOM側のglobal typeとWorker側のglobal typeを混在させません。`CalculationRuntimeTypes`は計算coreが必要とするruntime optionとprovider契約を所有し、coreからruntime layerへの型依存を作りません。
 
 ## データフロー
 
