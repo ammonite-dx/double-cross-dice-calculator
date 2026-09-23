@@ -1,6 +1,13 @@
 import {
   ATTACK_DISPLAY_PRESENTATION_DECISIONS,
 } from './AttackPresentation'
+import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
+import type { DisplayFeedbackPlan, DisplayWarning } from '../../../shared/presentation/DistributionProjectionTypes'
+import type {
+  AttackDisplayPresentation,
+  AttackDisplaySide,
+  AttackScoreDisplayPresentation,
+} from './AttackPresentationTypes'
 
 /** @typedef {import('../../../runtime/CalculationFeedbackTypes').CalculationFeedbackState} CalculationFeedbackState */
 /** @typedef {import('../../../shared/presentation/DistributionProjectionTypes').DisplayFeedbackPlan} DisplayFeedbackPlan */
@@ -17,51 +24,59 @@ const DISPLAY_FEEDBACK_CODES = Object.freeze({
   SCORE_NOT_PROJECTABLE: 'attack-score-display-not-projectable',
 })
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isExactExpectedValue(expectedValue) {
+function isExactExpectedValue(expectedValue: unknown): boolean {
   return isRecord(expectedValue)
     && expectedValue.kind === 'exact'
     && typeof expectedValue.value === 'number'
     && Number.isFinite(expectedValue.value)
 }
 
-function getSides(presentation) {
-  return [
-    ...(Array.isArray(presentation?.combos) ? presentation.combos : []),
-    ...(isRecord(presentation?.total) ? [presentation.total] : []),
-  ]
+function getSides(
+  presentation: AttackDisplayPresentation,
+): readonly AttackDisplaySide[] {
+  return [...presentation.combos, presentation.total]
 }
 
-function getScoreSides(presentation) {
-  return (Array.isArray(presentation?.combos)
-    ? presentation.combos
-    : []
-  )
-    .map((combo) => combo?.action)
-    .filter((side) => isRecord(side))
+function getScoreSides(
+  presentation: AttackScoreDisplayPresentation,
+): readonly AttackDisplaySide[] {
+  if ('combos' in presentation) {
+    return presentation.combos.flatMap((combo) =>
+      combo === null ? [] : [combo.action]
+    )
+  }
+  return [presentation.action]
 }
 
-function getDisplayWindow(presentation, side) {
+function getDisplayWindow(
+  presentation: AttackDisplayPresentation | AttackScoreDisplayPresentation,
+  side: AttackDisplaySide | undefined,
+): { min: number; max: number; pointCount?: number } {
   return side?.plan?.displayWindow
     ?? presentation?.displayRequest
     ?? { min: 0, max: 0, pointCount: 1 }
 }
 
-/** @returns {DisplayFeedbackPlan} */
-function createRejectedPlan(presentation, sides, code) {
+function createRejectedPlan(
+  presentation: AttackDisplayPresentation | AttackScoreDisplayPresentation,
+  sides: readonly AttackDisplaySide[],
+  code: string,
+): DisplayFeedbackPlan {
   const source = sides.find((side) => isRecord(side?.plan))
   const displayWindow = getDisplayWindow(presentation, source)
-  const pointCount = Number.isSafeInteger(displayWindow.pointCount)
+  const pointCount = typeof displayWindow.pointCount === 'number'
+    && Number.isSafeInteger(displayWindow.pointCount)
     ? displayWindow.pointCount
     : displayWindow.max - displayWindow.min + 1
-  const warnings = [{
+  const warnings: readonly DisplayWarning[] = [Object.freeze({
     code,
     severity: 'reject',
     message: 'Attack display is not ready for this window',
-  }]
+  })]
   return {
     accepted: false,
     status: 'resource-rejected',
@@ -89,7 +104,9 @@ function createRejectedPlan(presentation, sides, code) {
  * @param {AttackDisplayPresentation|null} presentation
  * @returns {CalculationFeedbackState<DisplayFeedbackPlan>}
  */
-export function createAttackDisplayFeedback(presentation) {
+export function createAttackDisplayFeedback(
+  presentation: AttackDisplayPresentation | null,
+): CalculationFeedbackState<DisplayFeedbackPlan> {
   if (!isRecord(presentation)) {
     return {
       status: 'idle',
@@ -170,7 +187,9 @@ export function createAttackDisplayFeedback(presentation) {
  * @param {AttackScoreDisplayPresentation|null} presentation
  * @returns {CalculationFeedbackState<DisplayFeedbackPlan>}
  */
-export function createAttackScoreDisplayFeedback(presentation) {
+export function createAttackScoreDisplayFeedback(
+  presentation: AttackScoreDisplayPresentation | null,
+): CalculationFeedbackState<DisplayFeedbackPlan> {
   if (!isRecord(presentation)) {
     return {
       status: 'idle',
