@@ -13,8 +13,35 @@ import {
 import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'
+import type { CalculationClient, BacktrackCalculationOptions } from '../../../runtime/CalculationClientTypes'
+import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
+import type { BacktrackCalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
+import type { BacktrackParams } from '../../../domain/BacktrackRules'
+import type { BacktrackInputSnapshot } from '../../../domain/CalculationInputs'
+import type { BacktrackCalculationResult } from '../../../domain/CalculationResultTypes'
+import type { BacktrackPresentation } from './BacktrackPresentation'
+import type { BacktrackState } from './BacktrackControllerTypes'
 
-function createCalculationEnvelope(params, result) {
+interface BacktrackCalculationEnvelope {
+  readonly params: Partial<BacktrackParams>
+  readonly result: BacktrackCalculationResult
+}
+
+export interface BacktrackRunnerOptions {
+  readonly state: BacktrackState
+  readonly feedback: CalculationFeedbackState<BacktrackCalculationRangePlan>
+  readonly calculationClient: CalculationClient
+  readonly createPresentation?: (
+    result: BacktrackCalculationResult,
+    params: Partial<BacktrackParams>,
+  ) => BacktrackPresentation
+  readonly onError?: (error: unknown) => void
+}
+
+function createCalculationEnvelope(
+  params: Partial<BacktrackParams>,
+  result: BacktrackCalculationResult,
+): BacktrackCalculationEnvelope {
   return {
     params: { ...params },
     result,
@@ -32,7 +59,7 @@ export function createBacktrackRunner({
   calculationClient,
   createPresentation = createBacktrackPresentation,
   onError,
-}) {
+}: BacktrackRunnerOptions) {
   if (state === null || typeof state !== 'object') {
     throw new TypeError('createBacktrackRunner requires state')
   }
@@ -49,7 +76,12 @@ export function createBacktrackRunner({
     )
   }
 
-  return createCalculationRequestCoordinator({
+  return createCalculationRequestCoordinator<
+    BacktrackInputSnapshot,
+    BacktrackCalculationEnvelope,
+    BacktrackCalculationRangePlan,
+    BacktrackCalculationOptions
+  >({
     snapshotRequest: createBacktrackInputSnapshot,
     execute: (snapshot, context) => {
       const { params, ...calculationOptions } = snapshot
@@ -58,7 +90,7 @@ export function createBacktrackRunner({
           params,
           {
             ...calculationOptions,
-            signal: context.signal,
+            signal: context.signal ?? undefined,
             onRangePlan: context.onRangePlan,
           }
         )

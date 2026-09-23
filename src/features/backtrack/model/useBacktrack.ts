@@ -14,15 +14,8 @@ import {
 import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'
-import type { BacktrackController } from './BacktrackControllerTypes'
+import type { BacktrackController, BacktrackState } from './BacktrackControllerTypes'
 import type { BacktrackPresentation } from './BacktrackPresentation'
-
-interface BacktrackState {
-  params: Partial<BacktrackParams>
-  presentation: BacktrackPresentation | null
-  resultReady: boolean
-  rangeFeedback: CalculationFeedbackState<BacktrackCalculationRangePlan>
-}
 
 const INITIAL_PARAMS: Partial<BacktrackParams> = {
   encroachment: 100,
