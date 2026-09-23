@@ -26,7 +26,7 @@ $$
 
 ## 2. 達成値
 
-実装の入口は`src/calculation/ScoreCalculator.js`の`calculateScore`です。
+実装の入口は`src/calculation/ScoreCalculator.ts`の`calculateScore`です。
 
 ### 2.1 Score resolutionの分岐
 
@@ -74,7 +74,7 @@ DX分布のインデックス0と1を強制失敗確率として先に取り出�
 
 ## 3. 単発ダメージ
 
-実装は`src/calculation/DamageCalculator.js`の`calculateDamageOnDemand`です。アクション達成値$a$ごとの命中重みを
+実装は`src/calculation/DamageCalculator.ts`の`calculateDamageOnDemand`です。アクション達成値$a$ごとの命中重みを
 
 $$
 w_a=P(A=a)\left(1-P(R\ge a)\right)
@@ -106,7 +106,7 @@ $$
 
 で計画します。固定値差の正部分を$v_+$とすると、Damage作業上端は$W=R+v_+$、`workingLength`は$W+2$です。最後のsentinelはworking range外のoverflowを表します。Damage RollのFFT長、防御D10の畳み込み長、CPU work、メモリは同じplanから見積もります。
 
-1023を超えること自体は拒否理由ではありません。配列長、FFT長、CPU work、メモリがpolicy内に収まるかで判断し、過大な入力はsilent truncationせずresource rejectionにします。productionはcanonical full-tailをそのまま伝播し、published-bucket projectionを使う参照・比較経路だけが1023以上を最後のバケットへ集約します。
+1023を超えること自体は拒否理由ではありません。配列長、FFT長、CPU work、メモリがpolicy内に収まるかで判断し、過大な入力はsilent truncationせずresource rejectionにします。production runtimeは計画した範囲を計算し、数学的support、overflow、tail certificateを結果に保持します。historical published-bucket projectionを使う参照・比較経路だけが1023以上を最後のバケットへ集約します。
 
 ## 5. Tailと期待値
 
@@ -120,7 +120,7 @@ Scoreは、明示範囲外の質量を`scoreTailCertificate`、一次モーメ�
 
 ## 6. バックトラック
 
-`src/calculation/BacktrackCalculator.js`の`calculateFinalEncroachmentCanonical`は、通常D10または《屍人》の分布を完全supportで生成します。ロイス数$l$、Eロイス数$e_l$、画面の補正$b$、Dロイス補正$\delta$に対し、1倍・2倍・追加振りのダイス数は
+`src/calculation/BacktrackCalculator.ts`の`calculateFinalEncroachment`は、通常D10または《屍人》の分布を有限support全体にわたって生成します。ロイス数$l$、Eロイス数$e_l$、画面の補正$b$、Dロイス補正$\delta$に対し、1倍・2倍・追加振りのダイス数は
 
 $$
 n_1=\max(0,l+e_l+b+\delta),\quad n_2=\max(0,2l+e_l+b+\delta),\quad n_3=\max(0,3l+e_l+b+\delta).

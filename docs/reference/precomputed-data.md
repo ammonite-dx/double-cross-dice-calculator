@@ -13,7 +13,7 @@
 
 アセットは`tooling/reference-data/assets/schema-v2/revision-1/`に保存します。旧schema-v1とdense JSONは退役済みで、内容を確認したい場合はGit履歴を参照します。
 
-revision-1のファイルはimmutableな歴史的fixtureとしてリポジトリ内に保持します。R25-Jで新しいproduction deployからは旧revision-1公開URLを退役させました。新しい静的アセットをproductionで配布する場合は、別のアーキテクチャ判断と新しいrevisionを必要とします。公開URLの退役は`published-bucket`互換の削除・変更とは別の判断です。
+revision-1のファイルはimmutableな歴史的fixtureとしてリポジトリ内に保持し、production deployからは配信しません。新しい静的アセットをproductionで配布する場合は、別のアーキテクチャ判断と新しいrevisionが必要です。fixtureの非配信は`published-bucket`比較形式の削除・変更とは別の判断です。
 
 現行の生成元は`generator/`のPython実装です。参照アセットはgeneratorの照合、独立検証、互換比較のために保持します。
 
@@ -51,7 +51,7 @@ revision-1のファイルはimmutableな歴史的fixtureとしてリポジトリ
 
 この例では、値12、13、14の確率がそれぞれ0.01、0.08、0.15であり、それ以外の確率はゼロです。`offset + values.length`は`distributionSize`以下でなければなりません。
 
-`dx`と`dr`の`distributionSize`は2048、`d10`と`livingdead`は1024です。事前計算assetの最終インデックスは、その値以上をまとめたlegacy/reference用オーバーフローバケットです。canonical production UIはこのasset形状を最終表示へ直接返さず、要求されたdisplay windowとcanonical support/overflow契約に従って表示します。1024要素とインデックス1023の意味はpublished-bucket compatibilityと移行比較の境界としてのみ維持します。
+`dx`と`dr`の`distributionSize`は2048、`d10`と`livingdead`は1024です。事前計算assetの最終インデックスは、その値以上をまとめたhistorical/reference用オーバーフローバケットです。production display pathはこのasset形状を最終表示へ直接返さず、要求されたdisplay windowと`DistributionResult`のsupport/overflow契約に従います。1024要素とインデックス1023の意味は、歴史的なpublished-bucket形式との比較境界として維持します。
 
 中間表現と公開表現を分けた経緯、および2048要素で検証した入力範囲は[`ADR 0001`](../adr/0001-expanded-working-distributions.md)に記載します。
 
@@ -104,7 +104,7 @@ production UIはroute preloadを行わず、schema-v2 JSONを取得しません�
 
 `npm run data:check`と`npm run data:verify-generator`は、Python generatorからreference assetsを再生成して比較します。`npm run generator:test`は数値監査、独立全列挙、current asset equivalenceを、`npm run generator:test:simulation`は乱数シミュレーションとの一致を検証します。
 
-旧dense JSONとschema-v1変換スクリプトはPhase 8-2G9で削除しました。旧gateが保証していたdense形状・旧形式変換・旧revision equivalenceは、generatorのschema/manifest validation、numerical audit、exhaustive reference、asset manifest validationへ移行済みです。
+旧dense JSONとschema-v1変換スクリプトは現在のrepositoryにはありません。旧gateが保証していたdense形状・旧形式変換・旧revision equivalenceは、generatorのschema/manifest validation、numerical audit、exhaustive reference、asset manifest validationで検証します。削除の経緯はGit historyに残っています。
 
 ## ファイル名と整合性
 
@@ -121,4 +121,4 @@ production UIはroute preloadを行わず、schema-v2 JSONを取得しません�
 5. `npm run data:check`でPython generatorとreference assetの一致を検証し、PythonとJavaScriptのテスト、lint、ビルドを実行する
 6. 静的アセットをproductionへ追加する場合は、公開範囲・revision・デプロイ構成を別途設計し、既存fixtureを上書きしない
 
-Python環境、データセット単位の照合、全再生成については[`generator/README.md`](../generator/README.md)を参照してください。生成器の現行ソースはPython generatorに一本化され、旧JS生成scriptとdense JSONはGit履歴にのみ残ります。
+Python環境、データセット単位の照合、全再生成については[`generator/README.md`](../../generator/README.md)を参照してください。生成器の現行ソースはPython generatorに一本化され、旧JS生成scriptとdense JSONはGit履歴にのみ残ります。

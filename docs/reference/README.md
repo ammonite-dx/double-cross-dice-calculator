@@ -8,4 +8,4 @@
 
 生成器は`generator/`にあり、`npm run verify:reference`または個別の`npm run data:check`で参照アセットとの一致を確認できます。production runtimeはD10、DX、DR、Backtrackの分布を入力に応じて生成するため、これらのJSONを取得しません。
 
-revision-1のファイルは再現性・比較用の歴史的fixtureとしてリポジトリ内に保持します。R25-Jで新しいproduction deployからは旧revision-1公開URLを退役させ、R25-Kで`published-bucket` adapterも参照toolingへ分離しました。互換形式はproductionの計算・表示モードではなく、歴史的fixtureとの比較境界として維持します。
+revision-1のファイルは再現性・比較用の歴史的fixtureとしてリポジトリ内に保持し、production deployからは配信しません。`published-bucket` adapterも参照toolingに置き、互換形式をproductionの計算・表示モードとしては使用せず、fixtureとの比較境界として維持します。

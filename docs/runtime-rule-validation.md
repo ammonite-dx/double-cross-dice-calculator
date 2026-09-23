@@ -30,7 +30,7 @@
 
 ### ダメージ
 
-通常D10合計の期待分布は、テスト内の単純な三重ループによる畳み込みで作成します。本番のFFT、`dr`生成ロジック、canonical calculatorの内部関数は使用しません。
+通常D10合計の期待分布は、テスト内の単純な三重ループによる畳み込みで作成します。本番のFFT、`dr`生成ロジック、production calculatorの内部関数は使用しません。
 
 達成値9と10を固定して、それぞれ1D10と2D10になることを比較します。対決が同値なら攻撃力にかかわらずダメージ0になることも検証します。
 
@@ -87,6 +87,6 @@ npm run build
 
 ルール解釈、入力範囲、Dロイスの選択肢、結果区分を変更するときは、`dice-rules.md`、実装、独立テスト、この文書を同じ変更単位で更新します。
 
-期待値の計算に本番のCalculator、FFT、生成器の内部関数、旧Calculatorを流用してはいけません。確率分布の比較では、理論上の完全一致が保証できない浮動小数点演算に明示した絶対誤差を使用します。
+期待値の計算にproduction calculator、FFT、生成器の内部関数を流用してはいけません。確率分布の比較では、理論上の完全一致が保証できない浮動小数点演算に明示した絶対誤差を使用します。
 
 新しいルール効果を追加した場合は、production runtimeの独立oracleを先に用意します。判定は`dxDirectOracle`、ダメージは独立D10畳み込みを使うDamage oracle、バックトラックは全出目列挙を使うenumeration oracleを期待値の根拠とし、production calculatorと比較します。過去fixtureを変更する場合だけ、別途generatorと`npm run test:reference`でreference領域を検証します。

@@ -87,7 +87,7 @@ productionの計算範囲には、事前計算asset由来の`calculationMax`や1
 
 ## published-bucket互換
 
-1024要素のpublished-bucket形式とインデックス1023への集約は、過去データとの比較・互換性を必要とする境界だけに残します。adapterの実装は[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)にあり、productionの`src/`から参照しません。`DistributionResult`のsupport、overflow、要求されたdisplay windowを置き換えるものでも、productionの表示上限でもありません。productionのrange plannerとDamage計算はcanonical full-tailだけを受け付け、`scorePropagation`による旧モード選択は廃止しました。Backtrackは歴史的assetのcoverageによらず常にon-demandで生成します。
+1024要素のpublished-bucket形式とインデックス1023への集約は、過去データとの比較に必要な境界だけに残します。adapterの実装は[`tooling/reference-data/PublishedBucketCompatibility.js`](../tooling/reference-data/PublishedBucketCompatibility.js)にあり、productionの`src/`から参照しません。これは`DistributionResult`のsupport、overflow、要求されたdisplay windowを置き換えるものでも、productionの表示上限でもありません。production runtimeは`RangePlanner`で表示要求とsupportに応じた計算範囲を計画します。有限supportは全体を扱い、無限supportは明示範囲にtail certificateとoverflow情報を付けて返します。Backtrackは歴史的assetのcoverageによらずruntimeで生成します。
 
 ## 検証
 

@@ -72,7 +72,7 @@
 | `d10` | 0～223 | バックトラックで要求される最大値`3 × 7 + 99 + 99 + 4 = 223`を収容する |
 | `livingdead` | 0～223 | 《屍人》で要求される最大値は`3 × 7 + 99 + 99 = 219`だが、バックトラック用データの件数を`d10`と統一する |
 
-`dr`のダイス数は、命中側の配列インデックスを`a`、攻撃力の追加ダイスを`b`として`floor(a / 10) + 1 + b`で求めます。旧実装では`a <= 1023`かつ`b <= 99`だったため、最大値は`floor(1023 / 10) + 1 + 99 = 202`でした。現在はこの値をゲーム上の上限として扱わず、canonical plannerが必要なsupportと資源量を計画します。
+`dr`のダイス数は、命中側の配列インデックスを`a`、攻撃力の追加ダイスを`b`として`floor(a / 10) + 1 + b`で求めます。旧実装では`a <= 1023`かつ`b <= 99`だったため、最大値は`floor(1023 / 10) + 1 + 99 = 202`でした。現在はこの値をゲーム上の上限として扱わず、`RangePlanner`が必要なsupportと資源量を計画します。
 
 バックトラックでは、残存ロイス数を`L`、Eロイス数を`E`、その他減少量のダイス数を`A`、Dロイスによるダイス数補正を`M`として、次の3種類の分布を参照します。
 
@@ -82,7 +82,7 @@
 追加振り: max(0, 3L + E + A + M)
 ```
 
-旧フォームの上限は`L <= 7`、`E <= 99`、`A <= 99`でした。通常D10を使う選択肢で最大の補正は「戦友(強化)」の`M = 4`なので、追加振りの最大値は223です。《屍人》は他のDロイスと同時に選択しないため`M = 0`であり、`livingdead`を実際に参照する最大値は219です。現在のフォームとcanonical runtimeは、これらをゲーム上の上限として強制せず、JavaScriptの安全な整数とresource policyの範囲で受け付けます。
+旧フォームの上限は`L <= 7`、`E <= 99`、`A <= 99`でした。通常D10を使う選択肢で最大の補正は「戦友(強化)」の`M = 4`なので、追加振りの最大値は223です。《屍人》は他のDロイスと同時に選択しないため`M = 0`であり、`livingdead`を実際に参照する最大値は219です。現在のフォームとproduction runtimeは、これらをゲーム上の上限として強制せず、`Number.isSafeInteger`で表せる整数とresource policyの範囲で受け付けます。
 
 「戦闘用人格・生きる伝説」の`M = -1`によって補正後の値が0未満になる場合、振れるダイス数は0として扱います。
 
@@ -249,11 +249,11 @@ Lₙ = X₁ + X₂ + ... + Xₙ - max(X₁, X₂, ..., Xₙ) + 1
 
 最大値が複数ある場合も、1へ変更するのはそのうち1個だけです。どの最大値を選んでも結果は変わりません。`n = 0`の結果は0と定義します。
 
-旧事前計算データ`livingdead`がこの分布に対応します。実際に参照していた最大ダイス数は219ですが、生成範囲は`d10`と統一して0～223でした。canonical Backtrack経路では通常D10と《屍人》をruntimeで必要なダイス数まで生成します。
+旧事前計算データ`livingdead`がこの分布に対応します。実際に参照していた最大ダイス数は219ですが、生成範囲は`d10`と統一して0～223でした。Backtrack runtimeでは通常D10と《屍人》を必要なダイス数まで生成します。
 
 ## 配列範囲、上限集約、丸め
 
-旧JSONでは、判定とダメージの中間計算に使用する`dx`と`dr`をインデックス0～2047の長さ2048で生成し、値2047以上の確率をインデックス2047へ集約していました。バックトラック結果を直接表す`d10`と`livingdead`はインデックス0～1023の長さ1024で生成し、値1023以上の確率をインデックス1023へ集約していました。canonical runtimeは要求されたdisplay windowと有限supportを基に配列長を決め、必要な場合だけ互換形式へ投影します。
+旧JSONでは、判定とダメージの中間計算に使用する`dx`と`dr`をインデックス0～2047の長さ2048で生成し、値2047以上の確率をインデックス2047へ集約していました。バックトラック結果を直接表す`d10`と`livingdead`はインデックス0～1023の長さ1024で生成し、値1023以上の確率をインデックス1023へ集約していました。production runtimeは要求されたdisplay windowと数学的supportに応じて配列長を決め、無限supportの明示範囲にはoverflowとtail certificateを保持します。
 
 | 旧データセット | 配列長 | 最終バケット |
 | --- | ---: | --- |
@@ -262,7 +262,7 @@ Lₙ = X₁ + X₂ + ... + Xₙ - max(X₁, X₂, ..., Xₙ) + 1
 | `d10` | 1024 | 1023以上 |
 | `livingdead` | 1024 | 1023以上 |
 
-旧画面経路では判定・ダメージ・バックトラックの分布を1024要素へ統一し、値1023以上をインデックス1023へ集約していました。現在のcanonical画面経路では、display windowの点数とresource policyを分離し、値を固定1024バケットへ自動的に押し込みません。2048要素の中間表現を使う旧経路の近似と、canonical結果から互換形式へ投影する境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)に記載します。
+旧画面経路では判定・ダメージ・バックトラックの分布を1024要素へ統一し、値1023以上をインデックス1023へ集約していました。現在のproduction display pathでは、表示窓の点数とresource policyを分離し、結果を固定1024バケットへ自動的に押し込みません。2048要素の中間表現を使う旧経路の近似と、現在の結果をhistorical published-bucket形式へ投影する境界は[`ADR 0001`](./adr/0001-expanded-working-distributions.md)に記載します。
 
 生成物は各確率を小数点以下6桁へ丸めます。すべてのデータセットで、丸め後の確率総和が1になるよう、丸め単位`0.000001`で補正します。
 
@@ -276,9 +276,9 @@ Lₙ = X₁ + X₂ + ... + Xₙ - max(X₁, X₂, ..., Xₙ) + 1
 | 判定、`shihai`（生成） | `generator/src/dx_precompute/dx.py` |
 | ダメージ、`kazanari`（生成） | `generator/src/dx_precompute/dr.py` |
 | `livingdead`（生成） | `generator/src/dx_precompute/livingdead.py` |
-| runtime D10 | `src/calculation/D10Calculator.js` |
-| runtime DX | `src/calculation/DxCalculator.js` |
-| runtime DR | `src/calculation/RuntimeDamageRollCalculator.js` |
+| runtime D10 | `src/calculation/D10Calculator.ts` |
+| runtime DX | `src/calculation/DxCalculator.ts` |
+| runtime DR | `src/calculation/RuntimeDamageRollCalculator.ts` |
 | 丸め、疎形式、検証 | `generator/src/dx_precompute/assets.py` |
 
 この表は追跡用であり、実装を仕様の代わりにはしません。仕様と実装が異なる場合は、ゲームルールとして承認されたこの文書を基準に実装を修正します。
@@ -305,7 +305,7 @@ Lₙ = X₁ + X₂ + ... + Xₙ - max(X₁, X₂, ..., Xₙ) + 1
 
 ### 実行時計算
 
-技能値、自動失敗とファンブル、成功判定、ダメージ軽減、バックトラック区分など、事前計算済み分布へJavaScriptで加える処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載し、旧Calculatorを参照しない独立テストで検証します。対象ケース、期待値の作り方、実行方法は[`runtime-rule-validation.md`](./runtime-rule-validation.md)に定義します。
+技能値、自動失敗とファンブル、成功判定、ダメージ軽減、バックトラック区分などのruntime処理は[`runtime-calculation-algorithms.md`](./runtime-calculation-algorithms.md)に記載し、production実装から独立した期待値を使うテストで検証します。対象ケース、期待値の作り方、実行方法は[`runtime-rule-validation.md`](./runtime-rule-validation.md)に定義します。
 
 ### 全入力範囲の数値監査
 

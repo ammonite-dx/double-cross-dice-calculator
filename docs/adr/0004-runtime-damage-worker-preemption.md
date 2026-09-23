@@ -35,7 +35,7 @@ The Worker request/response protocol is unchanged. No cancel message, Worker poo
 - Only the Runtime Damage Roll FFT primitive uses a Worker.
 - DX, score, D10, damage orchestration, backtrack, range planning, and total aggregation remain on the main thread.
 - LRU caching, identical-request deduplication, defensive copies, and disposal semantics remain unchanged.
-- The existing Worker protocol, numerical kernel, ResourceGuard policy, full-tail semantics, and published-bucket compatibility boundary remain unchanged.
+- The existing Worker protocol, numerical kernel, ResourceGuard policy, dynamic range / `DistributionResult` semantics, and published-bucket comparison boundary remain unchanged.
 
 ## Consequences
 
