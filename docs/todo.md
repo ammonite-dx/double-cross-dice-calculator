@@ -14,9 +14,8 @@
 
 ## 次に行う作業
 
-1. **R29-I: architecture convergence closure**: production境界、検証責務、参照領域を最終監査し、R29全体を閉じる。
-2. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-3. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
+2. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
 
 ## 保留
 
@@ -26,4 +25,5 @@
 
 ## 完了した直近の作業
 
+- **R29-I: architecture convergence closure**: R29-A〜Hの計算・runtime・presentation・参照境界と検証責務を監査し、旧移行用語を整理した。全体ゲートが成功し、R29を`CLOSED / GREEN`とした。詳細は[`archive/r29-i-architecture-convergence-closure.md`](./archive/r29-i-architecture-convergence-closure.md)を参照する。
 - **R29-H: active documentation and naming cleanup**: production presentation DTO、Attack runtime benchmark、現行用語とドキュメントを整理し、active Markdown link contractを追加した。詳細は[`archive/r29-h-active-documentation-naming-cleanup.md`](./archive/r29-h-active-documentation-naming-cleanup.md)を参照する。

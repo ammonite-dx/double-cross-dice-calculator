@@ -14,7 +14,7 @@
 - `8706125` — `chore: rename attack runtime benchmark`
 - `c0f96f7` — `docs: refresh active runtime and reference documentation`
 - `b0151de` — `docs: simplify active todo and validate documentation links`
-- このclosure記録を含む最終commitでR29-Hを閉じる。
+- `fd5be20` — `docs: close R29-H documentation and naming cleanup`
 
 ## production naming
 
