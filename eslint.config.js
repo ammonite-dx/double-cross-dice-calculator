@@ -190,7 +190,7 @@ export default [
     },
   },
   {
-    files: ['src/runtime/RuntimeDamageRollWorker.js'],
+    files: ['src/runtime/RuntimeDamageRollWorker.ts'],
     languageOptions: {
       globals: globals.worker,
     },

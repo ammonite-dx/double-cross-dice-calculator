@@ -1,21 +1,20 @@
-<script setup>
+<script setup lang="ts">
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
     import {
         getAttackScoreChartData,
         getAttackScoreChartOptions,
     } from './AttackChartAdapter';
+    import type { AttackUiCombo } from '../model/AttackControllerTypes'
+    import type {
+        AttackDisplayPresentation,
+        AttackScoreDisplayPresentation,
+    } from '../model/AttackPresentationTypes'
 
-    const props = defineProps({
-        combos: {
-            type: Array,
-            required: true,
-        },
-        presentation: {
-            type: Object,
-            default: null,
-        },
-    });
+    const props = defineProps<{
+        combos: readonly AttackUiCombo[]
+        presentation: AttackDisplayPresentation | AttackScoreDisplayPresentation | null
+    }>()
     const data = computed(() => getAttackScoreChartData(
         props.presentation,
         props.combos

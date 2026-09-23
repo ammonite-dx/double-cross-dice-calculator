@@ -67,7 +67,7 @@ describe('Attack canonical integration contract', () => {
 
   it('accepts arbitrary non-negative safe display ranges in both setting forms', () => {
     for (const source of [scoreFormSource, damageFormSource]) {
-      expect(source).toContain("defineEmits(['validated'])")
+      expect(source).toContain('validated: [request: DisplayRequestSnapshot]')
       expect(source).toContain('createAttackDisplayRequestSnapshot')
       expect(source).toContain('ATTACK_DISPLAY_MODES.PMF')
       expect(source).toContain('ATTACK_DISPLAY_MODES.UPPER_TAIL')

@@ -1,18 +1,18 @@
 import {
   calculationClient,
 } from '../../src/runtime/CalculationClient.ts'
-import { createAttackRunner } from '../../src/features/attack/model/AttackRunner.js'
-import { executeAttackIncrementally } from '../../src/features/attack/model/AttackIncrementalExecution.js'
+import { createAttackRunner } from '../../src/features/attack/model/AttackRunner.ts'
+import { executeAttackIncrementally } from '../../src/features/attack/model/AttackIncrementalExecution.ts'
 import {
   createAttackDisplayPresentation,
-} from '../../src/features/attack/model/AttackPresentation.js'
+} from '../../src/features/attack/model/AttackPresentation.ts'
 import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
-} from '../../src/features/attack/model/AttackDisplayRequestSnapshot.js'
+} from '../../src/features/attack/model/AttackDisplayRequestSnapshot.ts'
 import {
   createAttackState,
   createComboDataState,
-} from '../../src/features/attack/model/AttackState.js'
+} from '../../src/features/attack/model/AttackState.ts'
 import {
   BENCHMARK_CASES,
   BENCHMARK_CASE_IDS,

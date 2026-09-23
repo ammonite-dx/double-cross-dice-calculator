@@ -4,7 +4,7 @@ import {
 } from '../../src/runtime/CalculationClient.ts'
 import {
   generateMixedDamageDistribution,
-} from '../../src/calculation/RuntimeDamageRollCalculator.js'
+} from '../../src/calculation/RuntimeDamageRollCalculator.ts'
 
 const workerStartedAt = performance.now()
 

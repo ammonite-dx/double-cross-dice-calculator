@@ -1,6 +1,6 @@
 # Runtime DX browser performance experiment
 
-This experiment compares direct main-thread execution with a resident module Worker for `calculateDxDistribution({ dice, critical, shihai })`. It imports the production calculator from `src/calculation/DxCalculator.js`; the experiment does not copy the distribution algorithm. The Worker transfers the calculated 2048-element `Float64Array` back to the page.
+This experiment compares direct main-thread execution with a resident module Worker for `calculateDxDistribution({ dice, critical, shihai })`. It imports the production calculator from `src/calculation/DxCalculator.ts`; the experiment does not copy the distribution algorithm. The Worker transfers the calculated 2048-element `Float64Array` back to the page.
 
 ## Run
 

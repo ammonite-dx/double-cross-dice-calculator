@@ -9,7 +9,7 @@ import {
   Title,
   Tooltip,
 } from 'chart.js'
-import { createProbabilityLineChartOptions } from '../../src/shared/chart/ProbabilityLineChartConfig.js'
+import { createProbabilityLineChartOptions } from '../../src/shared/chart/ProbabilityLineChartConfig.ts'
 
 Chart.register(
   CategoryScale,

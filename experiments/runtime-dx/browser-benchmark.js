@@ -1,4 +1,4 @@
-import { calculateDxDistribution } from '../../src/calculation/DxCalculator.js'
+import { calculateDxDistribution } from '../../src/calculation/DxCalculator.ts'
 import { REFERENCE_WORKING_DISTRIBUTION_SIZE } from '../../tooling/reference-data/ReferenceDataConstants.js'
 import { createDxWorkerClient } from './client.js'
 

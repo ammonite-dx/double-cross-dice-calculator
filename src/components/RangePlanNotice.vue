@@ -1,15 +1,15 @@
-<script setup>
+<script setup lang="ts">
 
     import { computed } from 'vue';
     import { formatRangeFeedback } from './RangePlanNoticeFormatter';
+    import type { RangeFeedbackState } from './RangePlanNoticeFormatter'
 
-    const props = defineProps({
-        feedback: {
-            type: Object,
-            default: null,
-        },
-    });
-    const display = computed(() => formatRangeFeedback(props.feedback));
+    const props = withDefaults(defineProps<{
+        feedback?: RangeFeedbackState | null
+    }>(), { feedback: null })
+    const display = computed(() => props.feedback === null
+        ? null
+        : formatRangeFeedback(props.feedback))
 
 </script>
 
@@ -27,13 +27,8 @@
         <ul class="pl-4">
             <li v-for="(reason, index) in display.reasons" :key="`${index}:${reason}`">{{ reason }}</li>
         </ul>
-        <p
-            v-if="display.metrics.time !== null || display.metrics.memory !== null"
-            class="mb-0 mt-2"
-        >
-            <span v-if="display.metrics.time !== null">推定計算時間: {{ display.metrics.time }}</span>
-            <span v-if="display.metrics.time !== null && display.metrics.memory !== null">、</span>
-            <span v-if="display.metrics.memory !== null">推定メモリ: {{ display.metrics.memory }}</span>
+        <p v-if="display.metrics.memory !== null" class="mb-0 mt-2">
+            <span>推定メモリ: {{ display.metrics.memory }}</span>
         </p>
         <ul v-if="display.overflow.length > 0" class="pl-4 mt-2">
             <li v-for="(overflow, index) in display.overflow" :key="`${index}:${overflow}`">{{ overflow }}</li>

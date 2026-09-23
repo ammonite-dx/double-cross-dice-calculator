@@ -4,8 +4,8 @@ import {
 } from '../runtime/ResourceGuard'
 import { isAbortError } from '../runtime/CalculationFeedback'
 import type {
+  CalculationStatus,
   CalculationFeedbackPlan,
-  CalculationFeedbackState,
 } from '../runtime/CalculationFeedbackTypes'
 
 const RANGE_REASON_BY_CODE: Readonly<Record<string, string>> = Object.freeze({
@@ -63,6 +63,12 @@ export interface RangePlanNoticeDisplay {
   }
   readonly overflow: readonly string[]
   readonly action: string
+}
+
+export interface RangeFeedbackState {
+  readonly status: CalculationStatus
+  readonly plan: CalculationFeedbackPlan | null
+  readonly error: unknown
 }
 
 function isRecord(value: unknown): value is RecordValue {
@@ -158,7 +164,7 @@ function planRejectionReasons(plan: CalculationFeedbackPlan | null | undefined):
 
 function collectWarnings(
   plan: CalculationFeedbackPlan | null | undefined,
-  feedback: CalculationFeedbackState<CalculationFeedbackPlan> | null | undefined,
+  feedback: RangeFeedbackState | null | undefined,
 ): FeedbackWarning[] {
   const warnings = planWarnings(plan)
   const rejectionReasons = [
@@ -195,8 +201,8 @@ function collectOverflowMessages(
     )
 }
 
-export function formatRangeFeedback<TPlan extends CalculationFeedbackPlan = CalculationFeedbackPlan>(
-  feedback: CalculationFeedbackState<TPlan>,
+export function formatRangeFeedback(
+  feedback: RangeFeedbackState,
 ): RangePlanNoticeDisplay | null {
   if (isAbortError(feedback?.error)) {
     return null
@@ -204,7 +210,7 @@ export function formatRangeFeedback<TPlan extends CalculationFeedbackPlan = Calc
   const plan = feedback?.plan
   const warnings = collectWarnings(
     plan,
-    feedback as CalculationFeedbackState<CalculationFeedbackPlan>,
+    feedback,
   )
   const rejected = feedback?.status === 'rejected'
     || plan?.accepted === false

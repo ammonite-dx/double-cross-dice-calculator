@@ -54,7 +54,7 @@ describe('runtime damage-roll Worker protocol', () => {
     })
 
     try {
-      await import('../src/runtime/RuntimeDamageRollWorker.js?protocol-test')
+      await import('../src/runtime/RuntimeDamageRollWorker.ts?protocol-test')
       expect(listeners).toHaveLength(1)
 
       listeners[0]({ data: { id: 7, weights: null } })
@@ -93,7 +93,7 @@ describe('runtime damage-roll Worker protocol', () => {
     })
 
     try {
-      await import('../src/runtime/RuntimeDamageRollWorker.js?protocol-invalid-id-test')
+      await import('../src/runtime/RuntimeDamageRollWorker.ts?protocol-invalid-id-test')
       expect(() => listeners[0]({ data: null }))
         .toThrow('must be an object')
     } finally {

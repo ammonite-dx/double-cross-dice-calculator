@@ -1,29 +1,23 @@
-<script setup>
+<script setup lang="ts">
 
     import ScoreChart from './ScoreChart.vue';
     import SettingForm from './SettingForm.vue';
     import RangePlanNotice from '@/components/RangePlanNotice.vue';
     import { mdiChartLine } from '@mdi/js';
+    import type { DifficultyInput, DisplayRequestSnapshot } from '@/domain/CalculationInputs'
+    import type { CheckPresentation } from '../model/CheckPresentationTypes'
+    import type { CalculationFeedbackState } from '@/runtime/CalculationFeedbackTypes'
+    import type { DisplayFeedbackPlan } from '@/shared/presentation/DistributionProjectionTypes'
 
-    const props = defineProps({
-        difficulty: {
-            type: Object,
-            required: true,
-        },
-        displayRequest: {
-            type: Object,
-            required: true,
-        },
-        presentation: {
-            type: Object,
-            default: null,
-        },
-        displayFeedback: {
-            type: Object,
-            default: null,
-        },
-    });
-    const emit = defineEmits(['display-validated']);
+    const props = defineProps<{
+        difficulty: DifficultyInput
+        displayRequest: DisplayRequestSnapshot
+        presentation: CheckPresentation | null
+        displayFeedback: CalculationFeedbackState<DisplayFeedbackPlan> | null
+    }>()
+    const emit = defineEmits<{
+        'display-validated': [request: DisplayRequestSnapshot]
+    }>()
 
 </script>
 

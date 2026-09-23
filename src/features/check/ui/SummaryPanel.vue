@@ -1,18 +1,14 @@
-<script setup>
+<script setup lang="ts">
 
     import SummaryTable from './SummaryTable.vue';
     import { mdiFileChartOutline } from '@mdi/js'
+    import type { DifficultyInput } from '@/domain/CalculationInputs'
+    import type { ScoreStatistics } from '@/domain/ScoreResultTypes'
 
-    const props = defineProps({
-        difficulty: {
-            type: Object,
-            required: true,
-        },
-        scoreStatistics: {
-            type: Object,
-            default: null,
-        },
-    });
+    const props = defineProps<{
+        difficulty: DifficultyInput
+        scoreStatistics: ScoreStatistics | null
+    }>()
 
 </script>
 

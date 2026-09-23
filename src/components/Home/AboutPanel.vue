@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
     import { mdiHelp } from '@mdi/js'
 </script>
 

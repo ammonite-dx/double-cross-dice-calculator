@@ -1,21 +1,19 @@
-<script setup>
+<script setup lang="ts">
 
     import BacktrackForm from './BacktrackForm.vue';
     import RangePlanNotice from '@/components/RangePlanNotice.vue';
     import { mdiTuneVariant } from '@mdi/js'
+    import type { BacktrackParams } from '@/domain/BacktrackRules'
+    import type { CalculationFeedbackState } from '@/runtime/CalculationFeedbackTypes'
 
-    const props = defineProps({
-        params: {
-            type: Object,
-            required: true,
-        },
-        rangeFeedback: {
-            type: Object,
-            required: true,
-        },
-    });
-    const emit = defineEmits(['validated']);
-    const onValidated = (params) => {
+    const props = defineProps<{
+        params: Partial<BacktrackParams>
+        rangeFeedback: CalculationFeedbackState
+    }>()
+    const emit = defineEmits<{
+        validated: [params: Partial<BacktrackParams>]
+    }>()
+    const onValidated = (params: Partial<BacktrackParams>) => {
         emit('validated', params);
     };
 

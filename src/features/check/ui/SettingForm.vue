@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 
     import { onUnmounted, reactive, ref, watch } from 'vue';
     import {

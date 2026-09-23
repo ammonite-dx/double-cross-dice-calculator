@@ -1,19 +1,15 @@
-<script setup>
+<script setup lang="ts">
 
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
     import { getCheckChartOptions } from './CheckChartConfig';
+    import type { DifficultyInput } from '@/domain/CalculationInputs'
+    import type { CheckPresentation } from '../model/CheckPresentationTypes'
 
-    const props = defineProps({
-        difficulty: {
-            type: Object,
-            required: true,
-        },
-        presentation: {
-            type: Object,
-            default: null,
-        },
-    });
+    const props = defineProps<{
+        difficulty: DifficultyInput
+        presentation: CheckPresentation | null
+    }>()
     const data = computed(() => props.presentation?.status === 'ready'
         ? props.presentation.chart
         : null);

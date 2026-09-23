@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
     import { mdiHome,mdiDiceMultiple,mdiSwordCross,mdiScaleUnbalanced } from '@mdi/js'
 </script>
 

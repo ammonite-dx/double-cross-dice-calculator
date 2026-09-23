@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 
     import { computed } from 'vue'
     import { useDisplay } from 'vuetify'
@@ -15,6 +15,11 @@
     import annotationPlugin from 'chartjs-plugin-annotation'
     import { Line } from 'vue-chartjs'
     import { getProbabilityLineChartStyle } from './ProbabilityLineChartConfig'
+    import type { ChartData, ChartOptions } from 'chart.js'
+    import type { ProbabilityLineChartOptions } from './ProbabilityLineChartConfig'
+    import type { ChartJsData } from '@/types/ChartJsDataTypes'
+
+    type ProbabilityChartData = ChartData<'line', ArrayLike<number>, number> | ChartJsData
 
     Chart.register(
         CategoryScale,
@@ -27,28 +32,27 @@
         annotationPlugin,
     )
 
-    const props = defineProps({
-        data: {
-            type: Object,
-            default: null,
-        },
-        options: {
-            type: Object,
-            required: true,
-        },
-        accessibleName: {
-            type: String,
-            default: '確率分布チャート',
-        },
+    const props = withDefaults(defineProps<{
+        data?: ProbabilityChartData | null
+        options: ProbabilityLineChartOptions
+        accessibleName?: string
+    }>(), {
+        data: null,
+        accessibleName: '確率分布チャート',
     })
 
     const { mdAndUp } = useDisplay()
     const style = computed(() => getProbabilityLineChartStyle(mdAndUp.value))
+    const chartData = computed(() => props.data === null
+        ? null
+        : props.data as unknown as ChartData<'line'>)
+    const chartOptions = computed(() =>
+        props.options as unknown as ChartOptions<'line'>)
 
 </script>
 
 <template>
     <div>
-        <Line v-if="props.data !== null" :data="props.data" :options="props.options" :style="style" :aria-label="props.accessibleName" />
+        <Line v-if="chartData !== null" :data="chartData" :options="chartOptions" :style="style" :aria-label="props.accessibleName" />
     </div>
 </template>

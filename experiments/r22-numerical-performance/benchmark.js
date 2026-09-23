@@ -1,11 +1,11 @@
 import {
   calculateFinalEncroachment,
-} from '../../src/calculation/BacktrackCalculator.js'
+} from '../../src/calculation/BacktrackCalculator.ts'
 import {
   calculateD10Distribution,
   createD10DistributionProvider,
-} from '../../src/calculation/D10Calculator.js'
-import { calculateDamageOnDemand } from '../../src/calculation/DamageCalculator.js'
+} from '../../src/calculation/D10Calculator.ts'
+import { calculateDamageOnDemand } from '../../src/calculation/DamageCalculator.ts'
 import {
   getDamageStatistics,
   getTotalDamageStatistics,
@@ -13,13 +13,13 @@ import {
 import {
   planDamageAggregation,
   sumDamage,
-} from '../../src/calculation/DamageAggregation.js'
-import { calculateDxDistribution } from '../../src/calculation/DxCalculator.js'
-import { convolveDistributions } from '../../src/core/probability/FFT.js'
+} from '../../src/calculation/DamageAggregation.ts'
+import { calculateDxDistribution } from '../../src/calculation/DxCalculator.ts'
+import { convolveDistributions } from '../../src/core/probability/FFT.ts'
 import {
   planCalculationRanges,
-} from '../../src/calculation/RangePlanner.js'
-import { calculateScore } from '../../src/calculation/ScoreCalculator.js'
+} from '../../src/calculation/RangePlanner.ts'
+import { calculateScore } from '../../src/calculation/ScoreCalculator.ts'
 import { getScoreStatistics } from '../../src/calculation/ScoreStatistics.ts'
 import {
   createCalculationClient,
@@ -27,7 +27,7 @@ import {
 } from '../../src/runtime/CalculationClient.ts'
 import { createResourceGuard } from '../../src/runtime/ResourceGuard.ts'
 import { createRuntimeDamageRollClient } from '../../src/runtime/RuntimeDamageRollClient.ts'
-import { generateMixedDamageDistribution } from '../../src/calculation/RuntimeDamageRollCalculator.js'
+import { generateMixedDamageDistribution } from '../../src/calculation/RuntimeDamageRollCalculator.ts'
 
 import { createInstrumentedRuntime } from './instrumented-runtime.js'
 import {

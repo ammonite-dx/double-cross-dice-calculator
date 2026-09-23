@@ -1,4 +1,4 @@
-import { createDistributionResult } from '../../src/calculation/DistributionResult.js'
+import { createDistributionResult } from '../../src/calculation/DistributionResult.ts'
 
 function score({ dice, critical, skill = 0, yousei = 0, shihai = 0 }) {
   return { dice, critical, skill, yousei, shihai }

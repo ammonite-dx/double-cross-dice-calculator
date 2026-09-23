@@ -141,7 +141,7 @@ function waitWithSignal(
 }
 
 function defaultWorkerFactory(): RuntimeDamageRollWorkerLike {
-  return new Worker(new URL('./RuntimeDamageRollWorker.js', import.meta.url), {
+  return new Worker(new URL('./RuntimeDamageRollWorker.ts', import.meta.url), {
     type: 'module',
   })
 }

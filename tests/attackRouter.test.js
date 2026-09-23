@@ -20,7 +20,7 @@ vi.mock('vue-router', () => ({
   }),
 }))
 
-import router from '../src/router/index.js'
+import router from '../src/router/index.ts'
 
 describe('Attack route behavior', () => {
   it('enters Attack without route-level calculation preparation', async () => {

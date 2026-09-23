@@ -70,11 +70,13 @@ describe('Backtrack input flow contracts', () => {
   })
 
   it('forwards only validated events through BacktrackForm and InputPanel', () => {
-    expect(backtrackFormSource).toContain("defineEmits(['validated'])")
+    expect(backtrackFormSource).toContain(
+      'validated: [params: Partial<BacktrackParams>]'
+    )
     expect(inputPanelSource).toContain('<BacktrackForm')
     expect(inputPanelSource).toContain('@validated="onValidated"')
-    expect(inputPanelSource).toMatch(
-      /defineEmits\(\s*\[\s*['"]validated['"]\s*\]\s*\)/
+    expect(inputPanelSource).toContain(
+      'validated: [params: Partial<BacktrackParams>]'
     )
     expect(inputPanelSource).toMatch(/@validated\s*=\s*['"]onValidated['"]/
     )

@@ -5,7 +5,7 @@
   </v-app-bar>
 </template>
 
-<script setup>
+<script setup lang="ts">
   const emit = defineEmits(['change']);
   const invert = () => {emit('change')};
 </script>

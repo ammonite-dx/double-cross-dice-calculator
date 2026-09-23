@@ -1,22 +1,18 @@
-<script setup>
+<script setup lang="ts">
 
     import SummaryTable from './SummaryTable.vue';
     import { mdiFileChartOutline } from '@mdi/js'
+    import type { AttackUiCombo } from '../model/AttackControllerTypes'
+    import type {
+        AttackDisplayPresentation,
+        AttackScoreDisplayPresentation,
+    } from '../model/AttackPresentationTypes'
 
-    const props = defineProps({
-        combos: {
-            type: Array,
-            required: true,
-        },
-        presentation: {
-            type: Object,
-            default: null,
-        },
-        scorePresentation: {
-            type: Object,
-            default: null,
-        },
-    });
+    const props = defineProps<{
+        combos: readonly AttackUiCombo[]
+        presentation: AttackDisplayPresentation | null
+        scorePresentation: AttackScoreDisplayPresentation | null
+    }>()
 
 </script>
 

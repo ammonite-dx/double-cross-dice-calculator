@@ -1,6 +1,6 @@
 # `dr`オンデマンド計算実験
 
-> この実験ディレクトリは、旧schema-v2 assetとの照合と当時の性能測定を再現するための履歴資料です。`reference.js`と`optimized.js`に残る`202`ダイス・`9`回の定数は、その比較fixtureの範囲を表すものであり、productionの`src/calculation/RuntimeDamageRollCalculator.js`が受け付ける入力上限ではありません。
+> この実験ディレクトリは、旧schema-v2 assetとの照合と当時の性能測定を再現するための履歴資料です。`reference.js`と`optimized.js`に残る`202`ダイス・`9`回の定数は、その比較fixtureの範囲を表すものであり、productionの`src/calculation/RuntimeDamageRollCalculator.ts`が受け付ける入力上限ではありません。
 
 ## 目的
 
@@ -66,7 +66,7 @@ Workerが計算エラーを返した場合は該当要求だけを失敗させ�
 
 現行の`DamageCalculator`は、命中した達成値ごとにダメージダイス数を求め、対応する`dr`の列を混合します。オンデマンド版では、先に同じダメージダイス数となる命中確率を$w_n$へ集約し、この重みをWorkerへ渡します。Workerから返る分布には非命中確率を含めず、攻撃力、防御ダイス、防御固定値を適用した後でダメージ0へ加えます。この順序は現行実装と同じです。
 
-当時の統合プロトタイプは`kazanari = 0, 3, 9`について、正の攻撃力、負の攻撃力、防御ダイス、防御固定値、命中と非命中の混合を含む最終ダメージ分布を公開asset経路と比較し、最大絶対差$2\times10^{-6}$以内で一致することを確認しました。統合処理の現行実装は`src/calculation/DamageCalculator.js`と`src/runtime/CalculationClient.ts`です。
+当時の統合プロトタイプは`kazanari = 0, 3, 9`について、正の攻撃力、負の攻撃力、防御ダイス、防御固定値、命中と非命中の混合を含む最終ダメージ分布を公開asset経路と比較し、最大絶対差$2\times10^{-6}$以内で一致することを確認しました。統合処理の現行実装は`src/calculation/DamageCalculator.ts`と`src/runtime/CalculationClient.ts`です。
 
 ## 予備結果
 

@@ -30,10 +30,10 @@ async function loadProductionModules() {
   })
   try {
     const [backtrack, distribution, rules, presentation, clientModule] = await Promise.all([
-      server.ssrLoadModule('/src/calculation/BacktrackCalculator.js'),
-      server.ssrLoadModule('/src/calculation/DistributionResult.js'),
+      server.ssrLoadModule('/src/calculation/BacktrackCalculator.ts'),
+      server.ssrLoadModule('/src/calculation/DistributionResult.ts'),
       server.ssrLoadModule('/src/domain/BacktrackRules.ts'),
-      server.ssrLoadModule('/src/features/backtrack/model/BacktrackPresentation.js'),
+      server.ssrLoadModule('/src/features/backtrack/model/BacktrackPresentation.ts'),
       server.ssrLoadModule('/src/runtime/CalculationClient.ts'),
     ])
     return {

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
   import AboutPanel from '@/components/Home/AboutPanel.vue';
   import NewsPanel from '@/components/Home/NewsPanel.vue';
   import UseCasePanel from '@/components/Home/UseCasePanel.vue';

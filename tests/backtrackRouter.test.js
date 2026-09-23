@@ -20,7 +20,7 @@ vi.mock('vue-router', () => ({
   }),
 }))
 
-import router from '../src/router/index.js'
+import router from '../src/router/index.ts'
 
 describe('Backtrack route behavior', () => {
   it('navigates to Backtrack without preparing its legacy assets', async () => {

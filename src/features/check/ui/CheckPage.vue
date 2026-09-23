@@ -37,13 +37,13 @@
         <v-row><v-col cols="12"><ChartPanel
             :difficulty="difficulty"
             :displayRequest="displayRequest"
-            :presentation="presentation ?? undefined"
+            :presentation="presentation"
             :displayFeedback="displayFeedback"
             @display-validated="onDisplayValidated"
         /></v-col></v-row>
         <v-row v-if="resultReady"><v-col cols="12"><SummaryPanel
             :difficulty="difficulty"
-            :scoreStatistics="scoreStatistics ?? undefined"
+            :scoreStatistics="scoreStatistics"
         /></v-col></v-row>
     </v-container>
 </template>

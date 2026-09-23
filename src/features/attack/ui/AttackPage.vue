@@ -48,7 +48,7 @@
                 <ScoreChartPanel
                     :combos="combos"
                     :displayRequest="scoreDisplayRequest"
-                    :presentation="scoreDisplayPresentation ?? undefined"
+                    :presentation="scoreDisplayPresentation"
                     :displayFeedback="scoreDisplayFeedback"
                     @display-validated="onScoreDisplayValidated"
                 />
@@ -57,7 +57,7 @@
                 <DamageChartPanel
                     :combos="combos"
                     :displayRequest="displayRequest"
-                    :presentation="displayPresentation ?? undefined"
+                    :presentation="displayPresentation"
                     :displayFeedback="displayFeedback"
                     @display-validated="onDisplayValidated"
                 />
@@ -66,8 +66,8 @@
         <v-row v-if="summaryReady"><v-col cols="12">
             <SummaryPanel
                 :combos="combos"
-                :presentation="displayPresentation ?? undefined"
-                :scorePresentation="scoreDisplayPresentation ?? undefined"
+                :presentation="displayPresentation"
+                :scorePresentation="scoreDisplayPresentation"
             />
         </v-col></v-row>
     </v-container>

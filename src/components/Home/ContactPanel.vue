@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
     import { mdiAlertOutline,mdiChevronRight,mdiYoutube,mdiTwitter } from '@mdi/js';
     import niconico from '@/components/Icon/Niconico.vue'
 </script>

@@ -10,6 +10,7 @@ export interface DisplayWarning {
 }
 
 import type { CertifiedValue } from '../../domain/CertifiedValue'
+import type { ChartJsData } from '../../types/ChartJsDataTypes'
 import type {
   DistributionEnvelope,
   DistributionOverflow,
@@ -184,19 +185,7 @@ export type DistributionProjection =
   | NotReadyDistributionProjection
   | NotProjectableDistributionProjection
 
-export interface ChartJsDataset {
-  readonly data: Float64Array
-  readonly parsing: true
-  readonly label?: string
-  readonly backgroundColor?: unknown
-  readonly borderColor?: unknown
-}
-
-/** The small Chart.js DTO emitted only at the rendering boundary. */
-export interface ChartJsData {
-  readonly datasets: readonly ChartJsDataset[]
-  readonly labels?: readonly number[]
-}
+export type { ChartJsData, ChartJsDataset } from '../../types/ChartJsDataTypes'
 
 export interface ChartMaterializerOptions {
   readonly includeLabels?: boolean

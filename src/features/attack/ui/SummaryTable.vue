@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 
     import {
         findComboPresentation,
@@ -7,23 +7,19 @@
         formatScoreStatisticsExpectedValue,
         getScoreStatisticsForCombo,
     } from './SummaryTableHelpers';
+    import type { AttackUiCombo } from '../model/AttackControllerTypes'
+    import type {
+        AttackDisplayPresentation,
+        AttackScoreDisplayPresentation,
+    } from '../model/AttackPresentationTypes'
 
-    const props = defineProps({
-        combos: {
-            type: Array,
-            required: true,
-        },
-        presentation: {
-            type: Object,
-            default: null,
-        },
-        scorePresentation: {
-            type: Object,
-            default: null,
-        },
-    });
+    const props = defineProps<{
+        combos: readonly AttackUiCombo[]
+        presentation: AttackDisplayPresentation | null
+        scorePresentation: AttackScoreDisplayPresentation | null
+    }>()
 
-    function getComboDamageExpectedValue(combo) {
+    function getComboDamageExpectedValue(combo: AttackUiCombo) {
         if (props.presentation?.status !== 'ready') {
             return formatSummaryExpectedValue(null);
         }
@@ -36,7 +32,7 @@
         );
     }
 
-    function getComboScoreExpectedValue(combo) {
+    function getComboScoreExpectedValue(combo: AttackUiCombo) {
         const summary = getScoreStatisticsForCombo(
             props.scorePresentation,
             combo?.id
@@ -46,7 +42,7 @@
         );
     }
 
-    function getComboScoreSuccessRate(combo) {
+    function getComboScoreSuccessRate(combo: AttackUiCombo) {
         const summary = getScoreStatisticsForCombo(
             props.scorePresentation,
             combo?.id

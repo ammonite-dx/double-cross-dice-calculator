@@ -9,7 +9,7 @@ import {
 
 async function loadRuntimeDxModule() {
   const entryPoint = fileURLToPath(
-    new URL('../src/calculation/DxCalculator.js', import.meta.url)
+    new URL('../src/calculation/DxCalculator.ts', import.meta.url)
   )
   const bundle = await rolldown({ input: entryPoint })
   const generated = await bundle.generate({ format: 'esm' })

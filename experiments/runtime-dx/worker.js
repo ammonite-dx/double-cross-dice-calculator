@@ -1,4 +1,4 @@
-import { calculateDxDistribution } from '../../src/calculation/DxCalculator.js'
+import { calculateDxDistribution } from '../../src/calculation/DxCalculator.ts'
 
 self.postMessage({ type: 'ready' })
 

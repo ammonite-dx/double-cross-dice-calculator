@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 
     import { onUnmounted, reactive, ref, watch } from 'vue';
     import {
@@ -8,16 +8,14 @@
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
     import { createDisplayRangeRules } from '@/shared/validation/DisplayRangeRules';
     import '@/styles/display-range-form.css';
+    import type { DisplayRequestSnapshot } from '@/domain/CalculationInputs'
 
-    const props = defineProps({
-        displayRequest: {
-            type: Object,
-            required: true,
-        },
-    });
-    const emit = defineEmits(['validated']);
-    const form = ref();
-    const currentRequest = reactive({
+    const props = defineProps<{ displayRequest: DisplayRequestSnapshot }>()
+    const emit = defineEmits<{
+        validated: [request: DisplayRequestSnapshot]
+    }>()
+    const form = ref<{ validate?: () => Promise<{ valid: boolean }> } | null>(null);
+    const currentRequest = reactive<DisplayRequestSnapshot>({
         min: props.displayRequest.min,
         max: props.displayRequest.max,
         mode: props.displayRequest.mode,
@@ -42,7 +40,7 @@
         props.displayRequest.min,
         props.displayRequest.max,
         props.displayRequest.mode,
-    ], ([min, max, mode]) => {
+    ] as const, ([min, max, mode]) => {
         validationGate.invalidate();
         currentRequest.min = min;
         currentRequest.max = max;

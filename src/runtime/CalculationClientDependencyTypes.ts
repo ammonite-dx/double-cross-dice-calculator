@@ -21,14 +21,12 @@ import type {
   ScoreRangePlan,
 } from '../calculation/planning/RangePlannerTypes'
 import type {
-  NormalizedAttackDamageInput,
   NormalizedBacktrackParams,
   NormalizedDifficultyInput,
   NormalizedScoreInput,
 } from '../domain/CalculationInputNormalization'
-import type { DefenceDamageInput } from '../domain/CalculationInputs'
 import type { BacktrackParams } from '../domain/BacktrackRules'
-import type { DamageEnvelope, DamageStatistics } from '../domain/DamageResultTypes'
+import type { DamageStatistics } from '../domain/DamageResultTypes'
 import type { DistributionEnvelope } from '../domain/DistributionResultTypes'
 import type {
   ScoreEnvelope,
@@ -39,39 +37,23 @@ import type { ScoreResolution } from '../domain/ScoreResolution'
 import type { BacktrackCalculationResult } from '../domain/CalculationResultTypes'
 import type { ResourceGuard } from './ResourceGuardTypes'
 import type { RuntimeDamageRollClient } from './RuntimeDamageRollClientTypes'
+import type {
+  CalculationRuntimeOptions,
+  CalculateDamageOnDemand,
+  DamageCalculationDependencies,
+} from '../calculation/CalculationRuntimeTypes'
 
-/** Options passed from the client to calculation cores after runtime fields are removed. */
-export interface CalculationRuntimeOptions {
-  readonly signal?: AbortSignal
-  readonly requestId?: string | number
-  readonly requestMetadata?: Readonly<Record<string, unknown>>
-  readonly [key: string]: unknown
-}
+export type {
+  CalculationRuntimeOptions,
+  CalculateDamageOnDemand,
+  DamageCalculationDependencies,
+} from '../calculation/CalculationRuntimeTypes'
 
 /** normalizeDxOptions() guarantees these fields for the cache/provider boundary. */
 export interface NormalizedDxOptions {
   readonly workingLength: number
   readonly fftLength?: number
 }
-
-export interface DamageCalculationDependencies {
-  readonly getDamageRollDistribution?: RuntimeDamageRollClient['calculate']
-  readonly getD10Distribution?: (
-    dice: number,
-    size?: number,
-    runtimeOptions?: CalculationRuntimeOptions,
-  ) => Float64Array
-  readonly onFftLength?: (fftLength: number) => void
-}
-
-export type CalculateDamageOnDemand = (
-  score: ScorePair,
-  attack: NormalizedAttackDamageInput,
-  defence: DefenceDamageInput,
-  dependencies: DamageCalculationDependencies,
-  options: CalculationRuntimeOptions,
-  rangePlan: AttackCalculationRangePlan,
-) => Promise<DamageEnvelope>
 
 export type CalculateDxDistribution = (
   input: DxDistributionInput,

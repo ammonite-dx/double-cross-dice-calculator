@@ -18,11 +18,11 @@ import type {
   DamageRangePlan,
   ScoreTailPlan,
 } from './planning/RangePlannerTypes'
-import type { RuntimeDamageRollCalculateOptions } from '../runtime/RuntimeDamageRollClientTypes'
 import type {
   CalculationRuntimeOptions,
   DamageCalculationDependencies,
-} from '../runtime/CalculationClientDependencyTypes'
+  RuntimeDamageRollCalculateOptions,
+} from './CalculationRuntimeTypes'
 import type { NormalizedAttackDamageInput } from '../domain/CalculationInputNormalization'
 
 type ProbabilityArray = number[] | Float64Array

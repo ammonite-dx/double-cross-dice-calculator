@@ -929,15 +929,15 @@ async function loadDependencies() {
       canonicalDamageAggregation,
       d10Calculation,
     ] = await Promise.all([
-      server.ssrLoadModule('/src/calculation/DamageCalculator.js'),
-      server.ssrLoadModule('/src/calculation/DxCalculator.js'),
-      server.ssrLoadModule('/src/calculation/ScoreCalculator.js'),
+      server.ssrLoadModule('/src/calculation/DamageCalculator.ts'),
+      server.ssrLoadModule('/src/calculation/DxCalculator.ts'),
+      server.ssrLoadModule('/src/calculation/ScoreCalculator.ts'),
       server.ssrLoadModule(
-        '/src/calculation/RuntimeDamageRollCalculator.js'
+        '/src/calculation/RuntimeDamageRollCalculator.ts'
       ),
-      server.ssrLoadModule('/src/calculation/RangePlanner.js'),
+      server.ssrLoadModule('/src/calculation/RangePlanner.ts'),
         server.ssrLoadModule('/src/calculation/DamageAggregation.ts'),
-      server.ssrLoadModule('/src/calculation/D10Calculator.js'),
+      server.ssrLoadModule('/src/calculation/D10Calculator.ts'),
     ])
     return {
       server,

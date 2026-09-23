@@ -14,7 +14,7 @@ function importsFrom(path) {
 
 describe('calculation core planning boundaries', () => {
   it('keeps the RangePlanner as a thin orchestration façade', () => {
-    const planner = source('src/calculation/RangePlanner.js')
+    const planner = source('src/calculation/RangePlanner.ts')
 
     for (const moduleName of [
       'BacktrackRangePlanner',
@@ -32,28 +32,33 @@ describe('calculation core planning boundaries', () => {
   })
 
   it('keeps score and DX calculators independent from the planner façade', () => {
-    expect(source('src/calculation/ScoreCalculator.js'))
-      .not.toMatch(/RangePlanner/)
-    expect(source('src/calculation/DxCalculator.js'))
-      .not.toMatch(/RangePlanner/)
+    expect(importsFrom('src/calculation/ScoreCalculator.ts'))
+      .not.toContain('./RangePlanner')
+    expect(importsFrom('src/calculation/DxCalculator.ts'))
+      .not.toContain('./RangePlanner')
 
     for (const path of [
-      'src/calculation/planning/ScoreRangePlanner.js',
-      'src/calculation/planning/DamageRangePlanner.js',
-      'src/calculation/planning/BacktrackRangePlanner.js',
-      'src/calculation/planning/ResourcePlan.js',
-      'src/calculation/planning/RangePolicy.js',
-      'src/calculation/planning/PlanningMath.js',
+      'src/calculation/planning/ScoreRangePlanner.ts',
+      'src/calculation/planning/DamageRangePlanner.ts',
+      'src/calculation/planning/BacktrackRangePlanner.ts',
+      'src/calculation/planning/ResourcePlan.ts',
+      'src/calculation/planning/RangePolicy.ts',
+      'src/calculation/planning/PlanningMath.ts',
     ]) {
-      expect(source(path), path).not.toMatch(/from ['"].*RangePlanner/)
+      expect(
+        importsFrom(path).some((specifier) =>
+          /(?:^|\/)RangePlanner(?:\.js)?$/.test(specifier)
+        ),
+        path,
+      ).toBe(false)
     }
   })
 
   it('centralizes planning arithmetic and the DX tail model', () => {
-    const math = source('src/calculation/planning/PlanningMath.js')
-    const tail = source('src/calculation/DxTailModel.js')
-    const scoreTail = source('src/calculation/ScoreTailModel.js')
-    const rangePlanner = source('src/calculation/RangePlanner.js')
+    const math = source('src/calculation/planning/PlanningMath.ts')
+    const tail = source('src/calculation/DxTailModel.ts')
+    const scoreTail = source('src/calculation/ScoreTailModel.ts')
+    const rangePlanner = source('src/calculation/RangePlanner.ts')
 
     expect(math).toContain('export function nextPowerOfTwo')
     expect(math).toContain('export function fftOperationCount')
@@ -65,13 +70,13 @@ describe('calculation core planning boundaries', () => {
   })
 
   it('keeps shihai order-statistic work in a shared low-level helper', () => {
-    const calculator = source('src/calculation/DxCalculator.js')
-    const planner = source('src/calculation/planning/ScoreRangePlanner.js')
-    const orderStatistic = source('src/calculation/DxOrderStatistic.js')
+    const calculator = source('src/calculation/DxCalculator.ts')
+    const planner = source('src/calculation/planning/ScoreRangePlanner.ts')
+    const orderStatistic = source('src/calculation/DxOrderStatistic.ts')
 
-    expect(importsFrom('src/calculation/DxCalculator.js'))
+    expect(importsFrom('src/calculation/DxCalculator.ts'))
       .toContain('./DxOrderStatistic')
-    expect(importsFrom('src/calculation/planning/ScoreRangePlanner.js'))
+    expect(importsFrom('src/calculation/planning/ScoreRangePlanner.ts'))
       .toContain('../DxOrderStatistic')
     for (const retiredOwner of [
       'binomialProbabilities',
@@ -91,7 +96,7 @@ describe('calculation core planning boundaries', () => {
   })
 
   it('keeps score production, outcome semantics, and statistics separate', () => {
-    const scoreCalculator = source('src/calculation/ScoreCalculator.js')
+    const scoreCalculator = source('src/calculation/ScoreCalculator.ts')
     const scoreOutcome = source('src/calculation/ScoreOutcome.ts')
     const scoreStatistics = source('src/calculation/ScoreStatistics.ts')
 
@@ -101,9 +106,9 @@ describe('calculation core planning boundaries', () => {
   })
 
   it('keeps damage request and statistics boundaries explicit', () => {
-    const damageCalculator = source('src/calculation/DamageCalculator.js')
+    const damageCalculator = source('src/calculation/DamageCalculator.ts')
     const damageStatistics = source('src/calculation/DamageStatistics.ts')
-    const distributionResult = source('src/calculation/DistributionResult.js')
+    const distributionResult = source('src/calculation/DistributionResult.ts')
 
     expect(damageCalculator).not.toMatch(/ScoreCalculator/)
     expect(damageCalculator).not.toMatch(/function getDamageStatistics/)
@@ -114,9 +119,9 @@ describe('calculation core planning boundaries', () => {
   })
 
   it('shares DX working-shape rules without a planner-to-calculator import', () => {
-    const planner = source('src/calculation/planning/ScoreRangePlanner.js')
-    const dxCalculator = source('src/calculation/DxCalculator.js')
-    const workingShape = source('src/calculation/DxWorkingShape.js')
+    const planner = source('src/calculation/planning/ScoreRangePlanner.ts')
+    const dxCalculator = source('src/calculation/DxCalculator.ts')
+    const workingShape = source('src/calculation/DxWorkingShape.ts')
 
     expect(planner).toContain('../DxWorkingShape')
     expect(planner).not.toContain('../DxCalculator')
@@ -132,21 +137,21 @@ describe('calculation core planning boundaries', () => {
     expect(facade).toContain('./DamageAggregationPlanner')
     expect(facade).toContain('./DamageAggregationExecutor')
 
-    const planner = source('src/calculation/DamageAggregationPlanner.js')
+    const planner = source('src/calculation/DamageAggregationPlanner.ts')
     expect(planner).toContain('buildDamageAggregationPlan')
     expect(planner).toContain('getConvolutionFftLength')
     expect(planner).not.toContain('convolveDistributions')
 
-    const executor = source('src/calculation/DamageAggregationExecutor.js')
+    const executor = source('src/calculation/DamageAggregationExecutor.ts')
     expect(executor).toContain('executePreparedDamageAggregation')
     expect(executor).toContain('convolveDistributions')
     expect(executor).toContain('./DamageAggregationMetadata')
   })
 
   it('prevents execution and planning dependencies from crossing ownership boundaries', () => {
-    const metadata = 'src/calculation/DamageAggregationMetadata.js'
-    const executor = 'src/calculation/DamageAggregationExecutor.js'
-    const planner = 'src/calculation/DamageAggregationPlanner.js'
+    const metadata = 'src/calculation/DamageAggregationMetadata.ts'
+    const executor = 'src/calculation/DamageAggregationExecutor.ts'
+    const planner = 'src/calculation/DamageAggregationPlanner.ts'
 
     expect(importsFrom(metadata)).not.toContain('../core/probability/FFT')
     expect(importsFrom(metadata)).not.toContain('./DamageAggregationExecutor')
@@ -157,19 +162,19 @@ describe('calculation core planning boundaries', () => {
   })
 
   it('keeps Backtrack generation and plan validation outside the orchestrator', () => {
-    const calculator = source('src/calculation/BacktrackCalculator.js')
+    const calculator = source('src/calculation/BacktrackCalculator.ts')
     expect(calculator).toContain('./BacktrackDistributionGenerator')
     expect(calculator).toContain('./BacktrackPlanValidation')
     expect(calculator).toContain('generateBacktrackDistributions')
 
-    const generator = source('src/calculation/BacktrackDistributionGenerator.js')
+    const generator = source('src/calculation/BacktrackDistributionGenerator.ts')
     expect(generator).toContain('calculateSharedD10Distributions')
     expect(generator).toContain('./BacktrackLivingdeadDistribution')
-    const livingdead = source('src/calculation/BacktrackLivingdeadDistribution.js')
+    const livingdead = source('src/calculation/BacktrackLivingdeadDistribution.ts')
     expect(livingdead).toContain('states[max][value]')
     expect(livingdead).toContain('calculateLivingdeadDistributions')
     const livingdeadImports = importsFrom(
-      'src/calculation/BacktrackLivingdeadDistribution.js'
+      'src/calculation/BacktrackLivingdeadDistribution.ts'
     )
     for (const forbidden of [
       '../runtime',
@@ -182,12 +187,12 @@ describe('calculation core planning boundaries', () => {
         .toBe(false)
     }
 
-    const validation = source('src/calculation/BacktrackPlanValidation.js')
+    const validation = source('src/calculation/BacktrackPlanValidation.ts')
     expect(validation).toContain('validateBacktrackRangePlan')
     expect(validation).toContain('generationOperations')
 
     const rangePlannerImports = importsFrom(
-      'src/calculation/planning/BacktrackRangePlanner.js'
+      'src/calculation/planning/BacktrackRangePlanner.ts'
     )
     for (const forbidden of [
       'BacktrackDistributionGenerator',

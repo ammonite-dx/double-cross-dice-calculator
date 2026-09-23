@@ -19,7 +19,7 @@ const scoreChartSource = readFileSync(
   'utf8'
 )
 const chartConfigSource = readFileSync(
-  new URL('../src/features/check/ui/CheckChartConfig.js', import.meta.url),
+  new URL('../src/features/check/ui/CheckChartConfig.ts', import.meta.url),
   'utf8'
 )
 const inputFormSource = readFileSync(

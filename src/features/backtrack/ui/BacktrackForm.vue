@@ -1,13 +1,16 @@
-<script setup>
+<script setup lang="ts">
 
     import { ref,reactive,useId,watch } from 'vue';
     import { INPUT_DOMAIN } from '@/domain/InputDomain';
     import { createSafeIntegerRules } from '@/shared/validation/IntegerRules';
+    import type { BacktrackParams } from '@/domain/BacktrackRules'
 
-    const props = defineProps(['params']);
-    const emit = defineEmits(['validated']);
-    const form = ref();
-    const currentParams = reactive({
+    const props = defineProps<{ params: Partial<BacktrackParams> }>()
+    const emit = defineEmits<{
+        validated: [params: Partial<BacktrackParams>]
+    }>()
+    const form = ref<{ validate?: () => Promise<{ valid: boolean }> } | null>(null);
+    const currentParams = reactive<Partial<BacktrackParams>>({
         encroachment: props.params.encroachment,
         lois: props.params.lois,
         elois: props.params.elois,
@@ -17,14 +20,6 @@
     });
     const otherReductionGroupId = useId();
     let validationGeneration = 0;
-    const backtrackFields = [
-        'encroachment',
-        'lois',
-        'elois',
-        'dice',
-        'value',
-        'dlois',
-    ];
     const dloisItem = ['なし', '戦闘用人格・生きる伝説', '生還者', '不死者・悪夢', '屍人', '戦友(通常)', '戦友(強化)']
     const encroachmentRule = createSafeIntegerRules({
         requiredMessage: '現在侵蝕率を入力して下さい。',
@@ -63,11 +58,10 @@
         props.params.dice,
         props.params.value,
         props.params.dlois,
-    ], (values) => {
+    ] as const, (values) => {
         validationGeneration += 1;
-        backtrackFields.forEach((field, index) => {
-            currentParams[field] = values[index];
-        });
+        [currentParams.encroachment, currentParams.lois, currentParams.elois,
+            currentParams.dice, currentParams.value, currentParams.dlois] = values;
     });
     watch(currentParams, async () => {
         const generation = ++validationGeneration;

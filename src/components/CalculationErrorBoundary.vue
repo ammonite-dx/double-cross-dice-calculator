@@ -1,9 +1,9 @@
-<script setup>
+<script setup lang="ts">
     import { onErrorCaptured,ref,watch } from 'vue';
     import { useRoute } from 'vue-router';
 
     const route = useRoute();
-    const error = ref(null);
+    const error = ref<Error | null>(null);
 
     onErrorCaptured((capturedError) => {
         error.value = capturedError;

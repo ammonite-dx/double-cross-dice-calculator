@@ -3,20 +3,17 @@ import type {
   RuntimeDamageRollWorkerRequest,
   RuntimeDamageRollWorkerResponse,
 } from './RuntimeDamageRollProtocol'
+import type {
+  RuntimeDamageRollCalculateOptions,
+  RuntimeDamageRollWeights,
+} from '../calculation/CalculationRuntimeTypes'
+
+export type {
+  RuntimeDamageRollCalculateOptions,
+  RuntimeDamageRollWeights,
+} from '../calculation/CalculationRuntimeTypes'
 
 /** Options accepted by the caller-facing runtime damage-roll client. */
-export interface RuntimeDamageRollCalculateOptions {
-  readonly fftLength?: number
-  readonly distributionLength?: number
-  readonly rawSupportMax?: number
-  readonly signal?: AbortSignal
-  readonly requestId?: string | number
-  readonly requestMetadata?: Readonly<Record<string, unknown>>
-}
-
-/** Weight vectors accepted by the runtime validator. */
-export type RuntimeDamageRollWeights = readonly number[] | Float64Array
-
 export type RuntimeDamageRollWorkerEvent = Readonly<{
   readonly data?: RuntimeDamageRollWorkerResponse
   readonly message?: string

@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks'
 import {
   calculateDxDistribution,
   DX_DISTRIBUTION_SIZE,
-} from '../../src/calculation/DxCalculator.js'
+} from '../../src/calculation/DxCalculator.ts'
 import {
   generateMixedDamageDistributionOptimized as generateMixedDamageDistribution,
 } from '../runtime-dr/optimized.js'

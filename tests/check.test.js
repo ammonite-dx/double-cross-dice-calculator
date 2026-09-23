@@ -235,7 +235,7 @@ describe('canonical normal check score producer', () => {
       scoreParams(),
       {},
       { workingLength: 4097, fftLength: 0 }
-    )).toThrow('getDxDistribution is not a function')
+    )).toThrow('calculateScore requires a runtime distribution provider')
   })
 
   it('uses the planned working coverage and models the DX tail as exact overflow', () => {
