@@ -83,6 +83,8 @@ productionの計算範囲には、事前計算asset由来の`calculationMax`や1
 
 `presentDistribution`は、計算coreの`DistributionResult`を検証し、可変な確率配列をpresentation所有のsnapshotへコピーする計算結果と表示の境界です。以降の`DistributionDisplay`、`DisplayRangePlan`、readyな`DistributionProjection`は、その境界を通過した内部DTOとして扱います。表示範囲・mode・policy・resource見積りの入力は各段階で検証しますが、下流で表示DTO全体を再検証・再コピーしません。readyなprojectionだけをChart.js adapterへ渡し、adapterはChart.js用オプションを検証してprojectionの値をdatasetへ借用します。百分率と要約値の小数1桁丸めは共通の`roundToOneDecimal`を使うpresentationの責務であり、表現可能な半端値の近傍だけを許容誤差で安定化します。計算coreの確率値は変更しません。
 
+Check、Attack、Backtrackのチャートは、新しい要求の計算中だけ最後に表示できたChart.js frameを描画上に保持します。これは計算結果やcurrent presentationを保持するものではなく、成功時は新しいframeへ置き換わり、失敗・拒否時は消去されます。そのためChart.js instance/canvasは通常の再計算をまたいで維持されますが、入力結果の所有権、latest-wins、Abortやerrorの扱いは変わりません。Attackのdataset identityは表示名ではなくcombo ID（合計系列は固定key）で識別し、名前変更時に系列のidentityを維持します。
+
 期待値と成功率は`exact`、`bounded`、`lower-bound`などの証明状態を保持します。自動失敗・ファンブルの強制失敗確率と、通常の達成値0は別の意味を持ちます。詳細は[`result-contract.md`](./result-contract.md)を参照してください。
 
 ## 参照アセットとgenerator
