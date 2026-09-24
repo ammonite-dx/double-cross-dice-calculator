@@ -25,6 +25,7 @@
 
 ## 完了した直近の作業
 
+- **R30-prep: Attack reaction tailのDamage分類**: 有限なaction scoreの最大値以下にならないreaction tailを、対決時のtieはreaction側勝利となる規則に基づいてdamage 0のfailureへ分類した。比較・期待値certificateで実際に確率を持つaction bucketの最大値を共有し、曖昧なtailや許容誤差を超えるtail確率誤差は従来どおり保守的に保持する。reactionのtail uncertaintyとDamage座標supportを分離し、許容誤差内の質量差は再正規化せず未確定tailとして増幅しない。詳細は[`archive/r30-prep-attack-reaction-tail-damage.md`](./archive/r30-prep-attack-reaction-tail-damage.md)を参照する。
 - **R30-prep: summary layout continuity**: Check／Attackのreplacement計算中にサマリー行の実測高さだけを一時保持し、footerの位置ずれを防いだ。サマリー値やcurrent calculation stateは保持せず、初回・error・rejection・invalidateではlayout cacheを残さない。ブラウザsmokeで遷移中の高さとfooter位置、拒否時clearを確認した。詳細は[`archive/r30-prep-summary-layout-continuity.md`](./archive/r30-prep-summary-layout-continuity.md)を参照する。
 - **R30-prep: chart transition parity**: Check／Attack／Backtrackの再計算中は直前のreadyな描画frameだけを一時保持し、完了時に新結果へ置換、失敗・拒否時に消去する。計算状態やlatest-winsの契約は変更せず、Attack系列のidentityをcombo IDで安定化した。詳細とブラウザsmoke記録は[`archive/r30-prep-chart-transition-parity.md`](./archive/r30-prep-chart-transition-parity.md)を参照する。
 - **R30-prep: post-TypeScript boundary cleanup**: RangePlannerの入力・戻り値を操作別型へ収束し、CalculationClientのruntime optionをallowlist化した。production TypeScriptの未使用宣言lint、古いJavaScript呼び出しの修正、DataView snapshot範囲の保持も完了した。`verify:all`による最終確認と作業記録は[`archive/r30-prep-post-typescript-boundary-cleanup.md`](./archive/r30-prep-post-typescript-boundary-cleanup.md)を参照する。

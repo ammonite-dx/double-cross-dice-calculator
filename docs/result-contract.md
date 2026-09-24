@@ -32,6 +32,8 @@ type DistributionResult = {
 
 `support`は数学的に結果が取り得る範囲を表します。`finite`なら`max`が最大値であり、`infinite`なら入力に応じて上側へ続く可能性があります。これは今回の計算で配列に格納した範囲（computed range）とは別の情報です。
 
+Damageの座標supportを広げるのは攻撃側の達成値とダメージロールです。リアクション側の達成値は命中または失敗を決めるだけなので、そのtailが未確定でもDamageの座標supportを`infinite`にはしません。tailから結果を一意に決められない確率は、supportではなく`overflow`とmetadataで表します。
+
 `overflow`は明示範囲の外側を表します。`exact`はoverflowの確率質量を正確に知っている場合、`upper-bound`は残りの質量の上限しか証明できない場合に使います。どちらも`lowerBound`以上の値に対応し、`errorBound`は数値計算に由来する許容誤差です。overflowが`null`なら、有限support全体が明示されているか、外側の質量が契約上ゼロです。
 
 したがって、配列の末尾へ未計算の質量を無条件に押し込んだり、未知のtailを確率0として返したりしてはいけません。完全supportが必要な処理は、計画したworking rangeを拡張してから再計算するか、証明できる区間として扱います。
