@@ -8,7 +8,7 @@
     import type { ScoreStatistics } from '@/domain/ScoreResultTypes'
 
     const props = defineProps<{
-        difficulty: DifficultyInput
+        difficulty: Partial<DifficultyInput>
         scoreStatistics: ScoreStatistics | null
     }>()
 

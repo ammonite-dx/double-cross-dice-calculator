@@ -483,6 +483,87 @@ async function settlePage(page) {
   await page.waitForTimeout(SETTLE_TIMEOUT_MILLISECONDS)
 }
 
+async function installInitialSummaryTracking(page) {
+  await page.addInitScript(() => {
+    const state = {
+      emptyCardObserved: false,
+      emptyFootprintObserved: false,
+      readyCardObserved: false,
+      finished: false,
+    }
+    window.__dcdcInitialSummaryState = state
+
+    const inspect = () => {
+      const row = document.querySelector('.layout-footprint-row')
+      const card = row?.querySelector('.v-card')
+      if (card) {
+        const table = card.querySelector('table')
+        if (!table || table.querySelectorAll('tr').length === 0) {
+          state.emptyCardObserved = true
+        } else if (table.textContent?.trim()) {
+          state.readyCardObserved = true
+        }
+      } else if (!state.readyCardObserved && row) {
+        const rowHeight = row.getBoundingClientRect().height
+        if (rowHeight > 0) state.emptyFootprintObserved = true
+      }
+    }
+
+    const observe = () => {
+      if (document.documentElement) {
+        state.observer = new MutationObserver(inspect)
+        state.observer.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+        })
+      }
+      const sample = () => {
+        inspect()
+        if (!state.finished) requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    }
+
+    if (document.documentElement) observe()
+    else document.addEventListener('DOMContentLoaded', observe, { once: true })
+  })
+}
+
+async function assertInitialSummary(page, caseId) {
+  const result = await page.evaluate(() => {
+    const state = window.__dcdcInitialSummaryState
+    if (state) {
+      state.finished = true
+      state.observer?.disconnect()
+    }
+    return state && {
+      emptyCardObserved: state.emptyCardObserved,
+      emptyFootprintObserved: state.emptyFootprintObserved,
+      readyCardObserved: state.readyCardObserved,
+    }
+  })
+  assertCondition(
+    caseId,
+    result !== null && result !== undefined,
+    'initial summary tracker was not initialized',
+  )
+  assertCondition(
+    caseId,
+    !result.emptyCardObserved,
+    'an empty summary card was rendered during initial calculation',
+  )
+  assertCondition(
+    caseId,
+    !result.emptyFootprintObserved,
+    'an empty summary footprint was rendered during initial calculation',
+  )
+  assertCondition(
+    caseId,
+    result.readyCardObserved,
+    'initial calculation did not render a ready summary card',
+  )
+}
+
 async function stubExternalFonts(page) {
   const fontStub = async (route) => route.fulfill({
     status: 200,
@@ -608,11 +689,13 @@ async function beginFooterContinuityTracking(page, caseId) {
     const footer = main?.querySelector('.main-area__footer')
     const summaryRow = content?.querySelector('.layout-footprint-row')
     const originalSummaryCard = summaryRow?.querySelector('.v-card')
+    const originalSummaryTable = originalSummaryCard?.querySelector('table')
     if (
       !content
       || !footer
       || !summaryRow
-      || !originalSummaryCard?.querySelector('table')
+      || !originalSummaryCard
+      || !originalSummaryTable
     ) {
       return null
     }
@@ -631,31 +714,91 @@ async function beginFooterContinuityTracking(page, caseId) {
     observer.observe(content)
     observer.observe(footer)
     observer.observe(summaryRow)
+    observer.observe(originalSummaryCard)
+    observer.observe(originalSummaryTable)
     const summaryState = {
-      wasRemoved: false,
-      wasReplacedWithReadyTable: false,
+      originalText: originalSummaryTable.innerText,
+      cardWasDisconnected: false,
+      tableWasDisconnected: false,
+      cardWasHidden: false,
+      tableWasHidden: false,
+      cardHadZeroHeight: false,
+      tableHadZeroHeight: false,
+      textChanged: false,
+      sameNodesAfterCommit: false,
     }
-    const updateSummaryState = () => {
-      if (!originalSummaryCard.isConnected) {
-        summaryState.wasRemoved = true
+
+    const isVisibleAndSized = (element) => {
+      const style = getComputedStyle(element)
+      const rect = element.getBoundingClientRect()
+      return element.isConnected
+        && element.getClientRects().length > 0
+        && style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.opacity !== '0'
+        && rect.height > 0
+    }
+
+    const nodeContains = (node, target) => node === target
+      || (node instanceof Element && node.contains(target))
+
+    const updateSummaryState = (mutationRecords = []) => {
+      for (const mutation of mutationRecords) {
+        for (const removedNode of mutation.removedNodes) {
+          if (nodeContains(removedNode, originalSummaryCard)) {
+            summaryState.cardWasDisconnected = true
+          }
+          if (nodeContains(removedNode, originalSummaryTable)) {
+            summaryState.tableWasDisconnected = true
+          }
+        }
       }
+
+      if (!originalSummaryCard.isConnected) {
+        summaryState.cardWasDisconnected = true
+      }
+      if (!originalSummaryTable.isConnected) {
+        summaryState.tableWasDisconnected = true
+      }
+      if (!isVisibleAndSized(originalSummaryCard)) {
+        summaryState.cardWasHidden = true
+        if (originalSummaryCard.getBoundingClientRect().height <= 0) {
+          summaryState.cardHadZeroHeight = true
+        }
+      }
+      if (!isVisibleAndSized(originalSummaryTable)) {
+        summaryState.tableWasHidden = true
+        if (originalSummaryTable.getBoundingClientRect().height <= 0) {
+          summaryState.tableHadZeroHeight = true
+        }
+      }
+      if (originalSummaryTable.innerText !== summaryState.originalText) {
+        summaryState.textChanged = true
+      }
+
       const currentSummaryCard = summaryRow.querySelector('.v-card')
+      const currentSummaryTable = currentSummaryCard?.querySelector('table')
       if (
-        summaryState.wasRemoved
-        && currentSummaryCard
-        && currentSummaryCard !== originalSummaryCard
-        && currentSummaryCard.querySelector('table')
+        currentSummaryCard === originalSummaryCard
+        && currentSummaryTable === originalSummaryTable
       ) {
-        summaryState.wasReplacedWithReadyTable = true
+        summaryState.sameNodesAfterCommit = true
       }
     }
     const summaryObserver = new MutationObserver(updateSummaryState)
-    summaryObserver.observe(summaryRow, { childList: true, subtree: true })
+    summaryObserver.observe(content, {
+      attributes: true,
+      attributeOldValue: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    })
     let active = true
     let animationFrame = 0
     const sampleFrame = () => {
       if (!active) return
       samples.push(readLayout())
+      updateSummaryState()
       animationFrame = requestAnimationFrame(sampleFrame)
     }
     animationFrame = requestAnimationFrame(sampleFrame)
@@ -694,7 +837,8 @@ async function assertFooterContinuity(page, caseId) {
     () => {
       const tracker = window.__dcdcFooterContinuityTracker
       tracker?.updateSummaryState()
-      return tracker?.summaryState.wasReplacedWithReadyTable === true
+      return tracker?.summaryState.textChanged === true
+        && tracker?.summaryState.sameNodesAfterCommit === true
     },
     undefined,
     { timeout: PAGE_TIMEOUT_MILLISECONDS },
@@ -718,8 +862,14 @@ async function assertFooterContinuity(page, caseId) {
       minimumSummaryRowHeight: Math.min(...tracker.samples.map(
         (sample) => sample.summaryRowHeight
       )),
-      summaryWasRemoved: tracker.summaryState.wasRemoved,
-      summaryWasReplacedWithReadyTable: tracker.summaryState.wasReplacedWithReadyTable,
+      cardWasDisconnected: tracker.summaryState.cardWasDisconnected,
+      tableWasDisconnected: tracker.summaryState.tableWasDisconnected,
+      cardWasHidden: tracker.summaryState.cardWasHidden,
+      tableWasHidden: tracker.summaryState.tableWasHidden,
+      cardHadZeroHeight: tracker.summaryState.cardHadZeroHeight,
+      tableHadZeroHeight: tracker.summaryState.tableHadZeroHeight,
+      summaryTextChanged: tracker.summaryState.textChanged,
+      sameSummaryNodesAfterCommit: tracker.summaryState.sameNodesAfterCommit,
       sampleCount: tracker.samples.length,
     }
   })
@@ -732,8 +882,23 @@ async function assertFooterContinuity(page, caseId) {
   )
   assertCondition(
     caseId,
-    result.summaryWasRemoved && result.summaryWasReplacedWithReadyTable,
-    'continuity tracking did not span summary removal and ready replacement',
+    !result.cardWasDisconnected && !result.tableWasDisconnected,
+    'summary card or table node was disconnected during replacement',
+  )
+  assertCondition(
+    caseId,
+    !result.cardWasHidden && !result.tableWasHidden,
+    'summary card or table became invisible during replacement',
+  )
+  assertCondition(
+    caseId,
+    !result.cardHadZeroHeight && !result.tableHadZeroHeight,
+    'summary card or table had zero height during replacement',
+  )
+  assertCondition(
+    caseId,
+    result.summaryTextChanged && result.sameSummaryNodesAfterCommit,
+    'the same summary card and table did not update to new ready content',
   )
   const tolerance = 1
   assertCondition(
@@ -858,12 +1023,14 @@ async function selectDisplayMode(page, record, caseId, label) {
 async function runCheck(browser, baseUrl) {
   const context = await browser.newContext()
   const page = await context.newPage()
+  await installInitialSummaryTracking(page)
   const record = createNetworkRecorder(page, baseUrl)
   const fontStub = await stubExternalFonts(page)
   try {
     await navigateTo(page, record, baseUrl, '/check')
     const canvases = await waitForCanvases(page, 1)
     await settlePage(page)
+    await assertInitialSummary(page, 'check initial summary')
     const displayForms = await assertDisplayRangeFormStyles(page, 'check display styles', 1)
     await assertAccessibleChartNames(page, 'check accessible chart name', [
       '一般判定 達成値確率分布',
@@ -1169,12 +1336,14 @@ async function runCheck(browser, baseUrl) {
 async function runAttack(browser, baseUrl) {
   const context = await browser.newContext()
   const page = await context.newPage()
+  await installInitialSummaryTracking(page)
   const record = createNetworkRecorder(page, baseUrl)
   const fontStub = await stubExternalFonts(page)
   try {
     await navigateTo(page, record, baseUrl, '/attack')
     const initialCanvases = await waitForCanvases(page, 2, { exact: true })
     await settlePage(page)
+    await assertInitialSummary(page, 'attack initial summary')
     const displayForms = await assertDisplayRangeFormStyles(page, 'attack display styles', 2)
     await assertAccessibleChartNames(page, 'attack accessible chart names', [
       '攻撃判定 達成値確率分布',

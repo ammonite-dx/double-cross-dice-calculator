@@ -14,12 +14,12 @@
     } from '../model/AttackPresentationTypes'
 
     const props = defineProps<{
-        combos: readonly AttackUiCombo[]
+        combos: readonly Pick<AttackUiCombo, 'id' | 'name'>[]
         presentation: AttackDisplayPresentation | null
         scorePresentation: AttackScoreDisplayPresentation | null
     }>()
 
-    function getComboDamageExpectedValue(combo: AttackUiCombo) {
+    function getComboDamageExpectedValue(combo: Pick<AttackUiCombo, 'id' | 'name'>) {
         if (props.presentation?.status !== 'ready') {
             return formatSummaryExpectedValue(null);
         }
@@ -32,7 +32,7 @@
         );
     }
 
-    function getComboScoreExpectedValue(combo: AttackUiCombo) {
+    function getComboScoreExpectedValue(combo: Pick<AttackUiCombo, 'id' | 'name'>) {
         const summary = getScoreStatisticsForCombo(
             props.scorePresentation,
             combo?.id
@@ -42,7 +42,7 @@
         );
     }
 
-    function getComboScoreSuccessRate(combo: AttackUiCombo) {
+    function getComboScoreSuccessRate(combo: Pick<AttackUiCombo, 'id' | 'name'>) {
         const summary = getScoreStatisticsForCombo(
             props.scorePresentation,
             combo?.id

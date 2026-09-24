@@ -72,11 +72,13 @@
             :ready="summaryReady"
             :preserve-footprint="scoreChartTransitionPending || damageChartTransitionPending"
         >
-            <v-col v-if="summaryReady" cols="12">
+            <v-col cols="12">
                 <SummaryPanel
                     :combos="combos"
                     :presentation="displayPresentation"
                     :scorePresentation="scoreDisplayPresentation"
+                    :ready="summaryReady"
+                    :replacement-loading="scoreChartTransitionPending || damageChartTransitionPending"
                 />
             </v-col>
         </LayoutFootprintRow>

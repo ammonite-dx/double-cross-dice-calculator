@@ -11,7 +11,7 @@
         difficulty,
         scoreParams,
         advancedSettingsEnabled,
-        scoreStatistics,
+        calculationRecord,
         resultReady,
         displayRequest,
         presentation,
@@ -47,9 +47,9 @@
             :ready="resultReady"
             :preserve-footprint="rangeFeedback.status === 'loading'"
         >
-            <v-col v-if="resultReady" cols="12"><SummaryPanel
-                :difficulty="difficulty"
-                :scoreStatistics="scoreStatistics"
+            <v-col cols="12"><SummaryPanel
+                :record="calculationRecord"
+                :replacement-loading="rangeFeedback.status === 'loading'"
             /></v-col>
         </LayoutFootprintRow>
     </v-container>
