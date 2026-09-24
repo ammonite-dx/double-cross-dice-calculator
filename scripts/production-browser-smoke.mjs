@@ -607,7 +607,13 @@ async function beginFooterContinuityTracking(page, caseId) {
     const content = main?.querySelector('.main-area__content')
     const footer = main?.querySelector('.main-area__footer')
     const summaryRow = content?.querySelector('.layout-footprint-row')
-    if (!content || !footer || !summaryRow) {
+    const originalSummaryCard = summaryRow?.querySelector('.v-card')
+    if (
+      !content
+      || !footer
+      || !summaryRow
+      || !originalSummaryCard?.querySelector('table')
+    ) {
       return null
     }
 
@@ -625,6 +631,26 @@ async function beginFooterContinuityTracking(page, caseId) {
     observer.observe(content)
     observer.observe(footer)
     observer.observe(summaryRow)
+    const summaryState = {
+      wasRemoved: false,
+      wasReplacedWithReadyTable: false,
+    }
+    const updateSummaryState = () => {
+      if (!originalSummaryCard.isConnected) {
+        summaryState.wasRemoved = true
+      }
+      const currentSummaryCard = summaryRow.querySelector('.v-card')
+      if (
+        summaryState.wasRemoved
+        && currentSummaryCard
+        && currentSummaryCard !== originalSummaryCard
+        && currentSummaryCard.querySelector('table')
+      ) {
+        summaryState.wasReplacedWithReadyTable = true
+      }
+    }
+    const summaryObserver = new MutationObserver(updateSummaryState)
+    summaryObserver.observe(summaryRow, { childList: true, subtree: true })
     let active = true
     let animationFrame = 0
     const sampleFrame = () => {
@@ -637,11 +663,15 @@ async function beginFooterContinuityTracking(page, caseId) {
       baseline: samples[0],
       samples,
       observer,
+      summaryObserver,
+      summaryState,
+      updateSummaryState,
       readLayout,
       stop: () => {
         active = false
         cancelAnimationFrame(animationFrame)
         observer.disconnect()
+        summaryObserver.disconnect()
       },
     }
     return samples[0]
@@ -660,9 +690,20 @@ async function beginFooterContinuityTracking(page, caseId) {
 }
 
 async function assertFooterContinuity(page, caseId) {
+  await page.waitForFunction(
+    () => {
+      const tracker = window.__dcdcFooterContinuityTracker
+      tracker?.updateSummaryState()
+      return tracker?.summaryState.wasReplacedWithReadyTable === true
+    },
+    undefined,
+    { timeout: PAGE_TIMEOUT_MILLISECONDS },
+  )
+
   const result = await page.evaluate(() => {
     const tracker = window.__dcdcFooterContinuityTracker
     if (!tracker) return null
+    tracker.updateSummaryState()
     tracker.samples.push(tracker.readLayout())
     tracker.stop()
     delete window.__dcdcFooterContinuityTracker
@@ -677,6 +718,8 @@ async function assertFooterContinuity(page, caseId) {
       minimumSummaryRowHeight: Math.min(...tracker.samples.map(
         (sample) => sample.summaryRowHeight
       )),
+      summaryWasRemoved: tracker.summaryState.wasRemoved,
+      summaryWasReplacedWithReadyTable: tracker.summaryState.wasReplacedWithReadyTable,
       sampleCount: tracker.samples.length,
     }
   })
@@ -686,6 +729,11 @@ async function assertFooterContinuity(page, caseId) {
     caseId,
     result.sampleCount >= 2,
     `footer continuity tracker collected too few samples (${result.sampleCount})`,
+  )
+  assertCondition(
+    caseId,
+    result.summaryWasRemoved && result.summaryWasReplacedWithReadyTable,
+    'continuity tracking did not span summary removal and ready replacement',
   )
   const tolerance = 1
   assertCondition(

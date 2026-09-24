@@ -16,7 +16,7 @@ Checkは`rangeFeedback.status`、Attackは既存score／damage chart transition 
 
 ## ブラウザ回帰検査
 
-production browser smokeでは、通常の有効入力変更の直前から結果が反映されるまで`requestAnimationFrame`と`ResizeObserver`でmain content高さ、summary row高さ、footerのdocument座標を追跡する。CheckとAttackそれぞれで遷移中にいずれも縮まないことを確認し、既存のcanvas node identity検査も同じ入力変更で継続する。
+production browser smokeでは、通常の有効入力変更の直前から、旧summary nodeのunmountとreadyなsummary tableを持つ新nodeの再mountまで`requestAnimationFrame`と`ResizeObserver`でmain content高さ、summary row高さ、footerのdocument座標を追跡する。CheckとAttackそれぞれで遷移中にいずれも縮まないことを確認し、既存のcanvas node identity検査も同じ入力変更で継続する。汎用のresult-change待機がsummary tableの一時消失で早期終了しても、continuity assertionはready summaryの再mountまでtrackerを停止しない。
 
 Checkのrejected display request後に新しい入力を変えた場合にstale summaryを表示しない既存検査を維持した。Attackのdisplay resource rejectionでもSummaryPanelが消えることを確認し、回復後に新しいsummaryが再表示されることを確認する。Backtrackの3 chart continuityとresource rejection後のclear／recoveryも継続して確認した。
 
