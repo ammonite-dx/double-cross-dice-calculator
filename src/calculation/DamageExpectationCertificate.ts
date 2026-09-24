@@ -3,6 +3,7 @@ import {
   isValidScoreTailCertificate,
   isValidScoreTailMomentCertificate,
 } from './ScoreCertificates'
+import { isReactionTailAtOrAboveActionMaximum } from './ScoreOutcome'
 import type { DamageInput, DefenceDamageInput } from '../domain/CalculationInputs'
 import type { DamageExpectationCertificate } from '../domain/DamageResultTypes'
 import type { ScoreTailCertificate, ScoreTailMomentCertificate } from '../domain/ScoreResultTypes'
@@ -123,10 +124,10 @@ export function createDamageExpectationCertificate(
     if (actionExplicitMax === null) {
       return null
     }
-    const reactionTailLowerBound = reactionMassCertificate.lowerBound
-    const cannotWin = reactionTailLowerBound !== null
-      && Number.isFinite(reactionTailLowerBound)
-      && actionExplicitMax <= reactionTailLowerBound
+    const cannotWin = isReactionTailAtOrAboveActionMaximum(
+      actionExplicitMax,
+      reactionMassCertificate.lowerBound,
+    )
     if (!cannotWin) {
       reactionTailContributionUpperBound =
         reactionTailMass * (

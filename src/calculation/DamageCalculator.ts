@@ -602,7 +602,9 @@ export async function calculateDamageOnDemand(
       attack,
       defence
     )
-    const outputSupport = hasUnmodeledTail || sourceSupport.kind === 'infinite'
+    // Unresolved score probability affects which finite damage coordinates
+    // receive mass, not whether reaction scores can extend the damage axis.
+    const outputSupport = sourceSupport.kind === 'infinite'
       ? Object.freeze({ kind: 'infinite' })
       : modeledSupport
     const overflow = hasUnmodeledTail

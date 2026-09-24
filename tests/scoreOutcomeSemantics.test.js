@@ -8,6 +8,7 @@ import {
 } from '../src/calculation/DistributionResult'
 import {
   getScoreOutcomePartition,
+  isReactionTailAtOrAboveActionMaximum,
 } from '../src/calculation/ScoreOutcome'
 import { getScoreStatistics } from '../src/calculation/ScoreStatistics'
 
@@ -36,6 +37,22 @@ function opposed(action, reaction) {
 }
 
 describe('score outcome semantics', () => {
+  it.each([
+    [10, 10, true],
+    [10, 11, true],
+    [10, 9, false],
+    [null, 10, false],
+    [10, null, false],
+  ])(
+    'classifies a reaction tail lower bound against the finite action maximum',
+    (actionMaximum, reactionTailLowerBound, expected) => {
+      expect(isReactionTailAtOrAboveActionMaximum(
+        actionMaximum,
+        reactionTailLowerBound,
+      )).toBe(expected)
+    }
+  )
+
   it.each([
     ['forced action loses to a regular reaction', [[[0, 1]], 1], [[[1, 1]], 0], 0],
     ['forced action loses to a forced reaction', [[[0, 1]], 1], [[[0, 1]], 1], 0],

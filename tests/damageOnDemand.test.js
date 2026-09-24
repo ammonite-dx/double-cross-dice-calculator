@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   calculateDamageOnDemand,
 } from '../src/calculation/DamageCalculator'
+import { createDamageRollRequest } from '../src/calculation/DamageRollRequest'
 import { getDamageStatistics } from '../src/calculation/DamageStatistics'
 import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { planCalculationRanges } from '../src/calculation/RangePlanner'
@@ -252,7 +253,7 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.support).toEqual({ kind: 'finite', max: 20 })
     expect(result.values).toHaveLength(6)
     expect(result.overflow).toMatchObject({
       kind: 'upper-bound',
@@ -290,7 +291,7 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.support).toEqual({ kind: 'finite', max: 29 })
     expect(result.values).toHaveLength(16)
     for (const probability of result.values.slice(0, -1)) {
       expect(probability).toBeCloseTo(0, 12)
@@ -331,7 +332,7 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.support).toEqual({ kind: 'finite', max: 26 })
     expect(result.values).toHaveLength(16)
     expect(result.overflow).toMatchObject({
       kind: 'upper-bound',
@@ -367,7 +368,7 @@ describe('canonical on-demand damage calculation', () => {
       rangePlan
     )
 
-    expect(result.support).toEqual({ kind: 'infinite' })
+    expect(result.support).toEqual({ kind: 'finite', max: 29 })
     expect(result.values).toHaveLength(6)
     expect(result.overflow).toMatchObject({
       kind: 'upper-bound',
@@ -627,38 +628,203 @@ describe('canonical on-demand damage calculation', () => {
     })
   })
 
-  it('keeps reaction score tail uncertainty capable of reaching damage zero', async () => {
+  it('classifies an exact reaction tail at the finite action maximum as failure', async () => {
     const attack = { dice: 0, value: 0, kazanari: 0 }
+    const action = ScoreEnvelope([[10, 1]])
+    const reactionTailCertificate = {
+      version: 1,
+      kind: 'score-tail-certificate',
+      massLowerBound: 0.4,
+      massUpperBound: 0.4,
+      lowerBound: 10,
+      probabilityErrorBound: 1e-8,
+    }
     const canonical = await calculateDamageOnDemand(
       {
-        action: ScoreEnvelope([[1, 1]]),
+        action,
         reaction: ScoreEnvelope([[0, 0.6]], {
           support: { kind: 'infinite' },
           overflow: {
             kind: 'exact',
-            lowerBound: 1,
+            lowerBound: 10,
+            probability: 0.4,
+            errorBound: 1e-8,
+          },
+          metadata: { scoreTailCertificate: reactionTailCertificate },
+        }),
+      },
+      attack,
+      noDefence,
+      { getDamageRollDistribution: pointProvider(2) },
+      {},
+      createRangePlan(attack, noDefence, {}, 'full-tail')
+    )
+
+    expect(canonical.result.values[0]).toBeCloseTo(0.4, 12)
+    expect(canonical.result.values[2]).toBeCloseTo(0.6, 12)
+    expect(canonical.result.support.kind).toBe('finite')
+    expect(canonical.result.overflow).toBeNull()
+    expect(canonical.metadata.scoreTailProbabilityUpperBound).toBe(0)
+    expect(canonical.metadata.scoreTailErrorBound).toBe(0)
+    expect(canonical.metadata.scoreTailCertificates[1])
+      .toEqual(reactionTailCertificate)
+    expect(canonical.metadata.projectionUncertainty).toEqual({
+      positionUnknownProbabilityUpperBound: 0,
+      outputOverflowLowerBound: null,
+    })
+    expect(getDamageStatistics(canonical)).toMatchObject({
+      expectedValue: { kind: 'exact', value: 1.2 },
+      mass: { totalMass: 1, overflowMass: null },
+    })
+  })
+
+  it('classifies a reaction tail strictly above the finite action maximum as failure', () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const request = createDamageRollRequest(
+      {
+        action: ScoreEnvelope([[10, 1]]),
+        reaction: ScoreEnvelope([[0, 0.6]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 11,
             probability: 0.4,
             errorBound: 0,
           },
         }),
       },
       attack,
+      null,
+    )
+
+    expect(request.failureProbability).toBeCloseTo(0.4, 12)
+    expect(request.hitProbability).toBeCloseTo(0.6, 12)
+    expect(request.weights[2]).toBeCloseTo(0.6, 12)
+    expect(request.unmodeledScoreProbabilityUpperBound).toBe(0)
+    expect(request.scoreTailErrorBound).toBe(0)
+    expect(request.sourceSupport).toEqual({ kind: 'finite', max: 10 })
+  })
+
+  it('keeps reaction-tail probability errors above the mass tolerance unresolved', () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const request = createDamageRollRequest(
+      {
+        action: ScoreEnvelope([[10, 1]]),
+        reaction: ScoreEnvelope([[0, 0.6]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 10,
+            probability: 0.4,
+            errorBound: 2e-8,
+          },
+          metadata: {
+            scoreTailCertificate: {
+              version: 1,
+              kind: 'score-tail-certificate',
+              massLowerBound: 0.4,
+              massUpperBound: 0.4,
+              lowerBound: 10,
+              probabilityErrorBound: 2e-8,
+            },
+          },
+        }),
+      },
+      attack,
+      null,
+    )
+
+    expect(request.hitProbability).toBeCloseTo(0.6, 12)
+    expect(request.failureProbability).toBe(0)
+    expect(request.unmodeledScoreProbabilityUpperBound).toBeCloseTo(0.4, 12)
+    expect(request.scoreTailErrorBound).toBeCloseTo(2e-8, 15)
+  })
+
+  it('does not renormalize a source mass gap already within the result tolerance', () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const explicitMass = 1 - 5e-9
+    const request = createDamageRollRequest(
+      {
+        action: ScoreEnvelope([[10, explicitMass]]),
+        reaction: ScoreEnvelope([[0, 1]]),
+      },
+      attack,
+      null,
+    )
+
+    expect(request.hitProbability).toBe(explicitMass)
+    expect(request.failureProbability).toBe(0)
+    expect(request.unmodeledScoreProbabilityUpperBound).toBe(0)
+  })
+
+  it('retains uncertainty when the reaction tail can still be below the action maximum', async () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const canonical = await calculateDamageOnDemand(
+      {
+        action: ScoreEnvelope([[10, 1]]),
+        reaction: ScoreEnvelope([[0, 0.6]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 9,
+            probability: 0.4,
+            errorBound: 1e-8,
+          },
+        }),
+      },
+      attack,
       noDefence,
-      { getDamageRollDistribution: pointProvider(0) },
+      { getDamageRollDistribution: pointProvider(2) },
       {},
       createRangePlan(attack, noDefence, {}, 'full-tail')
     )
 
-    expect(canonical.result.values[0]).toBeCloseTo(0.6, 12)
+    expect(canonical.result.values[2]).toBeCloseTo(0.6, 12)
+    expect(canonical.result.support).toMatchObject({ kind: 'finite' })
     expect(canonical.result.overflow).toMatchObject({
       kind: 'upper-bound',
       lowerBound: 0,
       probabilityUpperBound: 0.4,
     })
-    expect(canonical.metadata.projectionUncertainty).toEqual({
-      positionUnknownProbabilityUpperBound: 0.4,
-      outputOverflowLowerBound: null,
+    expect(canonical.metadata.scoreTailProbabilityUpperBound).toBeCloseTo(0.4, 12)
+    expect(canonical.metadata.projectionUncertainty).toMatchObject({
+      positionUnknownProbabilityUpperBound: expect.any(Number),
     })
+    expect(canonical.metadata.projectionUncertainty.positionUnknownProbabilityUpperBound)
+      .toBeGreaterThanOrEqual(0.4)
+  })
+
+  it('does not classify a reaction tail against an action that also has a tail', () => {
+    const attack = { dice: 0, value: 0, kazanari: 0 }
+    const request = createDamageRollRequest(
+      {
+        action: ScoreEnvelope([[10, 0.5]], {
+          support: { kind: 'finite', max: 20 },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 11,
+            probability: 0.5,
+            errorBound: 0,
+          },
+        }),
+        reaction: ScoreEnvelope([[0, 0.5]], {
+          support: { kind: 'infinite' },
+          overflow: {
+            kind: 'exact',
+            lowerBound: 20,
+            probability: 0.5,
+            errorBound: 0,
+          },
+        }),
+      },
+      attack,
+      null,
+    )
+
+    expect(request.hitProbability).toBeCloseTo(0.25, 12)
+    expect(request.failureProbability).toBe(0)
+    expect(request.unmodeledScoreProbabilityUpperBound).toBeCloseTo(0.75, 12)
+    expect(request.sourceSupport).toEqual({ kind: 'finite', max: 20 })
   })
 
   it('keeps a damage-output-only overflow positionally bounded', async () => {

@@ -259,6 +259,18 @@ export function calculateScoreSuccessProbability(
   return actionSuccessProbability
 }
 
+/** Return whether every score in a reaction tail ties or beats the action maximum. */
+export function isReactionTailAtOrAboveActionMaximum(
+  actionMaximum: number | null,
+  reactionTailLowerBound: number | null,
+): boolean {
+  return actionMaximum !== null
+    && reactionTailLowerBound !== null
+    && Number.isFinite(actionMaximum)
+    && Number.isFinite(reactionTailLowerBound)
+    && reactionTailLowerBound >= actionMaximum
+}
+
 /** Return a conservative interval for P(action > reaction). */
 export function calculateScoreSuccessProbabilityInterval(
   action: ScoreEnvelope,

@@ -64,6 +64,64 @@ const scoreParams = {
 }
 
 describe('CalculationClient integration', () => {
+  it('completes C11 attack damage when a Dodge tail cannot beat the finite action support', async () => {
+    const rangePlans = []
+    const result = await calculationClient.calculateAttack(
+      {
+        action: {
+          score: {
+            dice: 1,
+            critical: 11,
+            skill: 0,
+            yousei: 0,
+            shihai: 0,
+          },
+          damage: { dice: 1, value: 0, kazanari: 0 },
+        },
+        reaction: {
+          mode: 'ドッジ',
+          score: { ...scoreParams },
+          damage: { dice: 0, value: 0 },
+        },
+      },
+      { onRangePlan: (plan) => rangePlans.push(plan) }
+    )
+
+    const action = result.score.action.result
+    const reaction = result.score.reaction.result
+    expect(rangePlans).toHaveLength(1)
+    expect(action.support).toEqual({ kind: 'finite', max: 10 })
+    expect(reaction.support.kind).toBe('infinite')
+    expect(reaction.overflow).toMatchObject({ kind: 'exact' })
+    expect(reaction.overflow.lowerBound).toBeGreaterThanOrEqual(action.support.max)
+
+    const damage = result.damage
+    expect(damage.result.support.kind).toBe('finite')
+    expect(damage.result.overflow).toBeNull()
+    expect(damage.metadata.scoreTailProbabilityUpperBound).toBe(0)
+    expect(damage.metadata.scoreTailErrorBound).toBe(0)
+    expect(damage.metadata.projectionUncertainty.positionUnknownProbabilityUpperBound)
+      .toBe(0)
+    expect(damage.metadata.scoreTailCertificates[1].probabilityErrorBound)
+      .toBeGreaterThan(0)
+    expect(result.damageStatistics.mass.totalMass).toBeCloseTo(1, 10)
+    expect(damage.result.values.some((probability, value) => (
+      value > 0 && probability > 0
+    ))).toBe(true)
+
+    const distributionExpectedValue = damage.result.values.reduce(
+      (total, probability, value) => total + value * probability,
+      0,
+    )
+    expect(result.damageStatistics.expectedValue).toMatchObject({ kind: 'bounded' })
+    expect(result.damageStatistics.expectedValue.lowerBound)
+      .toBeCloseTo(distributionExpectedValue, 10)
+    expect(result.damageStatistics.expectedValue.upperBound)
+      .toBeCloseTo(distributionExpectedValue, 10)
+    expect(damage.metadata.damageExpectationCertificate)
+      .toMatchObject({ reactionTailContributionUpperBound: 0 })
+  })
+
   it.each([
     ATTACK_DISPLAY_MODES.PMF,
     ATTACK_DISPLAY_MODES.UPPER_TAIL,

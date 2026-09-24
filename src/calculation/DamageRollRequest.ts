@@ -1,6 +1,10 @@
-import { validateDistributionResult } from './DistributionResult'
+import {
+  DISTRIBUTION_RESULT_TOLERANCE,
+  validateDistributionResult,
+} from './DistributionResult'
 import {
   getScoreOutcomePartition,
+  isReactionTailAtOrAboveActionMaximum,
 } from './ScoreOutcome'
 import { RUNTIME_DAMAGE_MAX_WEIGHT_LENGTH } from './RuntimeDamageRollLimits'
 import {
@@ -106,9 +110,13 @@ function validateScoreEnvelope(
 }
 
 function getScoreExplicitMax(score: ValidatedScoreEnvelope): number | null {
-  return score.result.values.length === 0
-    ? null
-    : score.result.offset + score.result.values.length - 1
+  let maximum: number | null = null
+  for (const bucket of score.outcome.regularBuckets) {
+    if (maximum === null || bucket.value > maximum) {
+      maximum = bucket.value
+    }
+  }
+  return maximum
 }
 
 function getReactionRegularBelowLookup(
@@ -131,18 +139,10 @@ function getReactionRegularBelowLookup(
 
 function getScoreSourceSupport(
   action: ValidatedScoreEnvelope,
-  reaction: ValidatedScoreEnvelope,
 ): DistributionSupport {
-  if (
-    action.result.support.kind === 'finite'
-    && reaction.result.support.kind === 'finite'
-  ) {
-    return Object.freeze({
-      kind: 'finite',
-      max: Math.max(action.result.support.max, reaction.result.support.max),
-    })
-  }
-  return Object.freeze({ kind: 'infinite' })
+  return action.result.support.kind === 'finite'
+    ? Object.freeze({ kind: 'finite', max: action.result.support.max })
+    : Object.freeze({ kind: 'infinite' })
 }
 
 /**
@@ -184,6 +184,41 @@ export function createDamageRollRequest(
   const reactionRegularMass = reaction.outcome.regularExplicitMass
   const reactionExplicitMass =
     reactionRegularMass + reaction.outcome.forcedFailureProbability
+  const actionForcedMass = action.outcome.forcedFailureProbability
+  const actionExplicitMass =
+    action.outcome.regularExplicitMass + actionForcedMass
+  const exactReactionOverflow = reaction.result.overflow?.kind === 'exact'
+    ? reaction.result.overflow
+    : null
+  const actionHasUnmodeledTail =
+    action.outcome.tail.massUpperBound > 0
+    || action.outcome.tail.probabilityErrorBound > 0
+    || action.overflowMassUpperBound > 0
+    || action.errorBound > 0
+    || action.certificateErrorBound > 0
+  const reactionTailIsExactlyRepresented = exactReactionOverflow !== null
+    && reaction.outcome.tail.massLowerBound === exactReactionOverflow.probability
+    && reaction.outcome.tail.massUpperBound === exactReactionOverflow.probability
+    // A classified tail is placed at the known failure coordinate. Its
+    // probability error remains in the source certificate, but may be
+    // absorbed into the DistributionResult mass tolerance only when it is
+    // within that existing contract; larger errors stay unresolved below.
+    && Math.max(reaction.errorBound, reaction.certificateErrorBound)
+      <= DISTRIBUTION_RESULT_TOLERANCE
+  const reactionTailIsGuaranteedFailure = !actionHasUnmodeledTail
+    && action.result.support.kind === 'finite'
+    && reactionTailIsExactlyRepresented
+    && isReactionTailAtOrAboveActionMaximum(
+      action.result.support.max,
+      reaction.outcome.tail.lowerBound,
+    )
+  const classifiedReactionTailMass = reactionTailIsGuaranteedFailure
+    ? exactReactionOverflow.probability
+    : 0
+  const unmodeledReactionTailMassUpperBound =
+    reactionTailIsGuaranteedFailure
+      ? 0
+      : reaction.overflowMassUpperBound
 
   for (const actionBucket of action.outcome.regularBuckets) {
     const actionProbability = actionBucket.probability
@@ -216,26 +251,39 @@ export function createDamageRollRequest(
     hitProbability += hit
   }
 
-  const actionForcedMass = action.outcome.forcedFailureProbability
   failureProbability += actionForcedMass * reactionExplicitMass
+  if (classifiedReactionTailMass > 0) {
+    failureProbability += actionExplicitMass * classifiedReactionTailMass
+  }
 
-  const actionExplicitMass =
-    action.outcome.regularExplicitMass + actionForcedMass
-  const explicitPairMass = actionExplicitMass * reactionExplicitMass
+  const reactionMassWithClassifiedTail =
+    reactionExplicitMass + classifiedReactionTailMass
+  const explicitPairMass = actionExplicitMass * reactionMassWithClassifiedTail
   const independentTailPairUpperBound =
     action.overflowMassUpperBound
-    + reaction.overflowMassUpperBound
-    - action.overflowMassUpperBound * reaction.overflowMassUpperBound
+    + unmodeledReactionTailMassUpperBound
+    - action.overflowMassUpperBound * unmodeledReactionTailMassUpperBound
+  const explicitPairMassGap = Math.max(0, 1 - explicitPairMass)
+  // DistributionResult already permits a sub-probability mass discrepancy
+  // within this tolerance. Keep the computed masses as-is (do not
+  // renormalize); do not manufacture an unlocated tail from floating-point
+  // residue that the shared result contract accepts.
+  const effectiveExplicitPairMassGap =
+    explicitPairMassGap > DISTRIBUTION_RESULT_TOLERANCE
+      ? explicitPairMassGap
+      : 0
   const scoreTailMassUpperBound = Math.max(
     0,
     Math.min(
       1,
-      Math.max(1 - explicitPairMass, independentTailPairUpperBound),
+      Math.max(effectiveExplicitPairMassGap, independentTailPairUpperBound),
     ),
   )
   const scoreTailErrorBound =
     Math.max(action.errorBound, action.certificateErrorBound)
-    + Math.max(reaction.errorBound, reaction.certificateErrorBound)
+    + (reactionTailIsGuaranteedFailure
+      ? 0
+      : Math.max(reaction.errorBound, reaction.certificateErrorBound))
 
   return {
     failureProbability,
@@ -252,6 +300,6 @@ export function createDamageRollRequest(
       reaction.momentCertificate,
     ]),
     actionExplicitMax: getScoreExplicitMax(action),
-    sourceSupport: getScoreSourceSupport(action, reaction),
+    sourceSupport: getScoreSourceSupport(action),
   }
 }
