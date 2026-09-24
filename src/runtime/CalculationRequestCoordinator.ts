@@ -1,5 +1,4 @@
 import type {
-  CalculationCancellationContext,
   CalculationCoordinatorOptions,
   CalculationCoordinatorOptionsValue,
   CalculationCoordinatorState,
@@ -89,7 +88,8 @@ function cloneRequestValue<T>(
   }
   if (ArrayBuffer.isView(value)) {
     if (value instanceof DataView) {
-      return new DataView(value.buffer.slice(0)) as T
+      const buffer = value.buffer.slice(0)
+      return new DataView(buffer, value.byteOffset, value.byteLength) as T
     }
     return Reflect.construct(value.constructor, [value]) as T
   }
