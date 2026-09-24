@@ -19,6 +19,8 @@
 
 `src/`配下のproduction実装はTypeScriptへ統一し、Vue SFCのすべてのscript blockは`lang="ts"`を指定します。`tsconfig.json`はstrict modeで、JavaScriptを型検査対象へ取り込む`allowJs`を有効にしません。JavaScriptのtest、script、experiment、configurationは既存の実行環境に残し、通常の型検査からは分離します。型付きtest fixtureは`tests/**/*.ts`として型検査に含めます。
 
+production TypeScriptには`@typescript-eslint/no-unused-vars`をlint gateとして適用します。これはtype-aware lint全面導入ではなく、`src/**/*.ts`の未使用宣言を検出する規則です。JavaScriptのtest、script、experimentはTypeScriptへ移行していません。
+
 DR Workerは`RuntimeDamageRollWorker.ts`内で必要なmessage eventと`postMessage`だけを表すscope interfaceを定義します。main thread用TypeScript設定へWorker global libraryを追加せず、DOM側のglobal typeとWorker側のglobal typeを混在させません。`CalculationRuntimeTypes`は計算coreが必要とするruntime optionとprovider契約を所有し、coreからruntime layerへの型依存を作りません。
 
 ## テストの責務
@@ -55,6 +57,8 @@ Attackでは、入力snapshotをcoordinatorが固定し、incremental executor�
 
 Attackのリアクションは、入力モードを計算方法へ解決してからplannerとproducerへ同じresolutionを渡します。ドッジは`rolled-score`、《イベイジョン》は`fixed-score`、ガード・リアクション放棄は`forced-failure`です。固定値と強制失敗はDXのworking rangeやFFTを持たず、`offset`付き1点分布を生成するため、固定値の大きさに比例した配列を確保しません。
 
+`CalculationClient`から計算coreへ渡すruntime optionsは、`signal`、`requestId`、`requestMetadata`だけを明示的に構築します。`rangePolicy`、`onRangePlan`、`displayRequest`、`scoreDisplayRequest`などのplanning・presentation用optionはこの境界を越えません。
+
 Scoreのtail certificateと期待値certificateの生成は`ScoreCertificates`、Scoreの出目結果分解と対決の疎なbucket走査は`ScoreOutcome`、表示用の統計値構築は`ScoreStatistics`に分離しています。`ScoreCalculator`はScoreのproducerとresolution dispatchだけを担当します。Backtrackの通常D10は共有D10 primitiveへ委譲し、《屍人》は`BacktrackLivingdeadDistribution`が10本のbounded-sum状態を移動窓で更新して完全supportを生成します。`BacktrackPlanValidation`はplannerを再実行せず、入力・support・生成量・generation modeの整合性だけを検証します。
 
 Damageでは、Scoreの明示範囲を命中・失敗の重みへ変換する処理を`DamageRollRequest`、DamageおよびTotal Damageの統計値を`DamageStatistics`、Score tailからDamage期待値certificateを組み立てる処理を`DamageExpectationCertificate`が担当します。複数Damageの集約は、入力envelopeの検査とcaller-owned配列のsnapshotを`DamageAggregationInspection`、FFT長・畳み込み手順・resource estimateを`DamageAggregationPlanner`、準備済みsnapshotのFFT実行と正規化を`DamageAggregationExecutor`、component descriptorと期待値certificateを`DamageAggregationMetadata`が担当します。`prepareDamageAggregation`は凍結された構造的planと実行closureを返し、planはResourceGuardへのresource見積りに、closureはlease取得後の実行に使います。`sumDamage`はこの二段階を隠したone-shot APIです。`DistributionResult`はこれらのDamage固有の意味論を持たず、分布の生成・検証・汎用統計だけを提供します。
@@ -66,6 +70,8 @@ DX、D10、Backtrackは入力に必要な範囲を直接生成します。DR Wor
 ## 範囲計画と資源管理
 
 `ScoreRangePlanner`、`DamageRangePlanner`、`BacktrackRangePlanner`は、requested display window、数学的support、working length、FFT length、CPU work、メモリ見積りを計画します。`ResourceGuard`は計画済みメモリとactive/queued requestを管理します。CPU workと絶対上限の検査は配列確保・FFT・Worker jobの開始前に行い、過大な入力はsilent truncationではなくresource rejectionになります。
+
+公開入口の`planCalculationRanges`は`operation`をdiscriminantとする入力unionを受け取ります。Score、Check、Attack、Backtrackごとに必要なpayloadが定まり、operation別overloadによって対応するplan型が戻ります。`CalculationClient`もこの型対応を保持して、後からcastで復元しません。
 
 Score planはresolutionのdiscriminated unionです。`rolled-score`だけが`workingLength`、`fftLength`、tail cutoff、DX feature compatibilityの制約を持ち、`fixed-score`と`forced-failure`は`operations=0`、`fftOperations=0`、有限supportの点分布として計画します。plannerとproducerのkindや固定値が一致しない要求は実行前に拒否します。
 
