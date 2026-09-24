@@ -28,3 +28,13 @@ Checkのrejected display後のinvalidate、Attackのdisplay resource rejection�
 - `npm run lint`: 成功。
 - `npm run lint:markdown`: 成功、112 Markdown files / 0 issues。
 - `git diff --check`: 成功。
+
+## 追補: Attackのscore-only coverage再計算
+
+score表示範囲の拡張でscore coverageだけを再計算するときは、damage presentationがreadyのままでもscore presentationが一時的に未準備になる。`SummaryPanel`のframe更新をreplacement loading終了後に限定し、再計算中は前回frameを保持するようにした。loading終了後は成功・rejectionの現在状態へ切り替わるため、確定したrejection後に古い値を残さない。
+
+production browser smokeでは、Attackの表示最大値を100から102へ広げ、同じSummary card／tableが可視で高さを保ち、元々値があった「達成値期待値」「命中率」が途中で空欄または`—`にならないことを確認する。完了待ちはscore chartのcanvas更新で行い、丸め済みsummary textの変化は要求しない。
+
+- `npm run verify:all`: 成功。Vitest 84 files / 1008 tests、Markdown lint 112 files / 0 issues、production build 488 modules、browser smoke、reference assets 32件、reference tests 54件、generator tests 18件、simulation 13件、runtime DX 20,000 casesを含む。
+- `npm run verify:browser`: 成功。Attack score-only coverageのsummary/footer continuityを含む。
+- `git diff --check`: 成功。
