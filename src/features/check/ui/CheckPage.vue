@@ -4,6 +4,7 @@
     import InputPanel from './InputPanel.vue'
     import ChartPanel from './ChartPanel.vue'
     import SummaryPanel from './SummaryPanel.vue'
+    import LayoutFootprintRow from '@/shared/layout/LayoutFootprintRow.vue'
 
     const calculationClient = useCalculationClient()
     const {
@@ -42,9 +43,14 @@
             :preserve-previous-frame="rangeFeedback.status === 'loading'"
             @display-validated="onDisplayValidated"
         /></v-col></v-row>
-        <v-row v-if="resultReady"><v-col cols="12"><SummaryPanel
-            :difficulty="difficulty"
-            :scoreStatistics="scoreStatistics"
-        /></v-col></v-row>
+        <LayoutFootprintRow
+            :ready="resultReady"
+            :preserve-footprint="rangeFeedback.status === 'loading'"
+        >
+            <v-col v-if="resultReady" cols="12"><SummaryPanel
+                :difficulty="difficulty"
+                :scoreStatistics="scoreStatistics"
+            /></v-col>
+        </LayoutFootprintRow>
     </v-container>
 </template>

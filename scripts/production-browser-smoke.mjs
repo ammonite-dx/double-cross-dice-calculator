@@ -601,6 +601,110 @@ async function assertFooterNormalFlow(page, caseId) {
   )
 }
 
+async function beginFooterContinuityTracking(page, caseId) {
+  const baseline = await page.evaluate(() => {
+    const main = document.querySelector('.main-area')
+    const content = main?.querySelector('.main-area__content')
+    const footer = main?.querySelector('.main-area__footer')
+    const summaryRow = content?.querySelector('.layout-footprint-row')
+    if (!content || !footer || !summaryRow) {
+      return null
+    }
+
+    const readLayout = () => {
+      const footerRect = footer.getBoundingClientRect()
+      const rowRect = summaryRow.getBoundingClientRect()
+      return {
+        footerDocumentTop: footerRect.top + window.scrollY,
+        contentHeight: content.getBoundingClientRect().height,
+        summaryRowHeight: rowRect.height,
+      }
+    }
+    const samples = [readLayout()]
+    const observer = new ResizeObserver(() => samples.push(readLayout()))
+    observer.observe(content)
+    observer.observe(footer)
+    observer.observe(summaryRow)
+    let active = true
+    let animationFrame = 0
+    const sampleFrame = () => {
+      if (!active) return
+      samples.push(readLayout())
+      animationFrame = requestAnimationFrame(sampleFrame)
+    }
+    animationFrame = requestAnimationFrame(sampleFrame)
+    window.__dcdcFooterContinuityTracker = {
+      baseline: samples[0],
+      samples,
+      observer,
+      readLayout,
+      stop: () => {
+        active = false
+        cancelAnimationFrame(animationFrame)
+        observer.disconnect()
+      },
+    }
+    return samples[0]
+  })
+
+  assertCondition(
+    caseId,
+    baseline !== null,
+    'main content, footer, or summary footprint row was not rendered',
+  )
+  assertCondition(
+    caseId,
+    baseline.summaryRowHeight > 0,
+    'ready summary footprint had no measurable height before input change',
+  )
+}
+
+async function assertFooterContinuity(page, caseId) {
+  const result = await page.evaluate(() => {
+    const tracker = window.__dcdcFooterContinuityTracker
+    if (!tracker) return null
+    tracker.samples.push(tracker.readLayout())
+    tracker.stop()
+    delete window.__dcdcFooterContinuityTracker
+    return {
+      baseline: tracker.baseline,
+      minimumFooterDocumentTop: Math.min(...tracker.samples.map(
+        (sample) => sample.footerDocumentTop
+      )),
+      minimumContentHeight: Math.min(...tracker.samples.map(
+        (sample) => sample.contentHeight
+      )),
+      minimumSummaryRowHeight: Math.min(...tracker.samples.map(
+        (sample) => sample.summaryRowHeight
+      )),
+      sampleCount: tracker.samples.length,
+    }
+  })
+
+  assertCondition(caseId, result !== null, 'footer continuity tracker was not initialized')
+  assertCondition(
+    caseId,
+    result.sampleCount >= 2,
+    `footer continuity tracker collected too few samples (${result.sampleCount})`,
+  )
+  const tolerance = 1
+  assertCondition(
+    caseId,
+    result.minimumFooterDocumentTop >= result.baseline.footerDocumentTop - tolerance,
+    `footer moved upward during replacement (baseline=${result.baseline.footerDocumentTop}, minimum=${result.minimumFooterDocumentTop})`,
+  )
+  assertCondition(
+    caseId,
+    result.minimumContentHeight >= result.baseline.contentHeight - tolerance,
+    `main content collapsed during replacement (baseline=${result.baseline.contentHeight}, minimum=${result.minimumContentHeight})`,
+  )
+  assertCondition(
+    caseId,
+    result.minimumSummaryRowHeight >= result.baseline.summaryRowHeight - tolerance,
+    `summary layout footprint collapsed during replacement (baseline=${result.baseline.summaryRowHeight}, minimum=${result.minimumSummaryRowHeight})`,
+  )
+}
+
 async function assertCompoundD10Groups(page, caseId, expectedGroups) {
   for (const { name, fieldNames, count } of expectedGroups) {
     const groups = page.getByRole('group', { name, exact: true })
@@ -721,6 +825,7 @@ async function runCheck(browser, baseUrl) {
     assertNoBrowserErrors('check', record)
 
     await beginCanvasIdentityTracking(page, 'check chart transition', 1)
+    await beginFooterContinuityTracking(page, 'check chart transition')
     await fillBoundaryInput(
       page,
       record,
@@ -729,6 +834,7 @@ async function runCheck(browser, baseUrl) {
       2,
       1,
     )
+    await assertFooterContinuity(page, 'check chart transition')
     await assertCanvasIdentityPreserved(page, 'check chart transition')
 
     await fillBoundaryInput(
@@ -747,6 +853,7 @@ async function runCheck(browser, baseUrl) {
         id: 'check chart transition continuity',
         precomputed: 0,
         transitionContinuity: true,
+        layoutContinuity: true,
       },
       { canvases: 1, id: 'check dice=100', precomputed: 0 },
     ]
@@ -1053,6 +1160,7 @@ async function runAttack(browser, baseUrl) {
     // Verify the R7 controller wiring for both sides of the first combo
     // before exercising the high-range boundary inputs below.
     await beginCanvasIdentityTracking(page, 'attack chart transition', 2)
+    await beginFooterContinuityTracking(page, 'attack chart transition')
     await fillBoundaryInput(
       page,
       record,
@@ -1061,6 +1169,7 @@ async function runAttack(browser, baseUrl) {
       3,
       2,
     )
+    await assertFooterContinuity(page, 'attack chart transition')
     await assertCanvasIdentityPreserved(page, 'attack chart transition')
     await selectAttackReactionMode(page, record, 'attack reaction mode update', '《イベイジョン》')
     await assertCompoundD10Groups(page, 'attack evasion compound inputs', [
@@ -1228,6 +1337,11 @@ async function runAttack(browser, baseUrl) {
       state: 'visible',
       timeout: PAGE_TIMEOUT_MILLISECONDS,
     })
+    assertCondition(
+      'attack display resource reject',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'summary remained visible after display resource rejection',
+    )
     assertNoPrecomputedRequests('attack display resource reject', record)
     assertNoBrowserErrors('attack display resource reject', record)
 
@@ -1430,6 +1544,7 @@ async function runAttack(browser, baseUrl) {
         id: 'attack chart transition continuity',
         precomputed: 0,
         transitionContinuity: true,
+        layoutContinuity: true,
       },
       {
         canvases: 2,
@@ -1626,6 +1741,9 @@ function printSummary(summaries) {
     console.log(`  precomputed requests: ${summary.precomputed}`)
     if (summary.transitionContinuity !== undefined) {
       console.log(`  chart node continuity: ${summary.transitionContinuity ? 'PASS' : 'FAIL'}`)
+    }
+    if (summary.layoutContinuity !== undefined) {
+      console.log(`  summary/footer layout continuity: ${summary.layoutContinuity ? 'PASS' : 'FAIL'}`)
     }
     if (summary.d10Requests !== undefined) {
       console.log(`  d10 requests: ${summary.d10Requests}`)

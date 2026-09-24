@@ -6,6 +6,7 @@
     import DamageChartPanel from './DamageChartPanel.vue'
     import SummaryPanel from './SummaryPanel.vue'
     import RangePlanNotice from '../../../components/RangePlanNotice.vue'
+    import LayoutFootprintRow from '@/shared/layout/LayoutFootprintRow.vue'
 
     const calculationClient = useCalculationClient()
     const {
@@ -67,12 +68,17 @@
                 />
             </v-col>
         </v-row>
-        <v-row v-if="summaryReady"><v-col cols="12">
-            <SummaryPanel
-                :combos="combos"
-                :presentation="displayPresentation"
-                :scorePresentation="scoreDisplayPresentation"
-            />
-        </v-col></v-row>
+        <LayoutFootprintRow
+            :ready="summaryReady"
+            :preserve-footprint="scoreChartTransitionPending || damageChartTransitionPending"
+        >
+            <v-col v-if="summaryReady" cols="12">
+                <SummaryPanel
+                    :combos="combos"
+                    :presentation="displayPresentation"
+                    :scorePresentation="scoreDisplayPresentation"
+                />
+            </v-col>
+        </LayoutFootprintRow>
     </v-container>
 </template>
