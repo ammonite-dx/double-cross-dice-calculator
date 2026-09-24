@@ -85,6 +85,8 @@ productionの計算範囲には、事前計算asset由来の`calculationMax`や1
 
 Check、Attack、Backtrackのチャートは、新しい要求の計算中だけ最後に表示できたChart.js frameを描画上に保持します。これは計算結果やcurrent presentationを保持するものではなく、成功時は新しいframeへ置き換わり、失敗・拒否時は消去されます。そのためChart.js instance/canvasは通常の再計算をまたいで維持されますが、入力結果の所有権、latest-wins、Abortやerrorの扱いは変わりません。Attackのdataset identityは表示名ではなくcombo ID（合計系列は固定key）で識別し、名前変更時に系列のidentityを維持します。
 
+CheckとAttackのサマリー行も、replacement計算中に直前の行が占めたレイアウト高さだけを一時保持します。サマリー値自体は保持せず、初回計算・error・rejection・明示的invalidateでは空の高さを残しません。Backtrackを含むfooterは引き続きnormal flowです。
+
 期待値と成功率は`exact`、`bounded`、`lower-bound`などの証明状態を保持します。自動失敗・ファンブルの強制失敗確率と、通常の達成値0は別の意味を持ちます。詳細は[`result-contract.md`](./result-contract.md)を参照してください。
 
 ## 参照アセットとgenerator

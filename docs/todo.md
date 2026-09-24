@@ -25,6 +25,7 @@
 
 ## 完了した直近の作業
 
+- **R30-prep: summary layout continuity**: Check／Attackのreplacement計算中にサマリー行の実測高さだけを一時保持し、footerの位置ずれを防いだ。サマリー値やcurrent calculation stateは保持せず、初回・error・rejection・invalidateではlayout cacheを残さない。ブラウザsmokeで遷移中の高さとfooter位置、拒否時clearを確認した。詳細は[`archive/r30-prep-summary-layout-continuity.md`](./archive/r30-prep-summary-layout-continuity.md)を参照する。
 - **R30-prep: chart transition parity**: Check／Attack／Backtrackの再計算中は直前のreadyな描画frameだけを一時保持し、完了時に新結果へ置換、失敗・拒否時に消去する。計算状態やlatest-winsの契約は変更せず、Attack系列のidentityをcombo IDで安定化した。詳細とブラウザsmoke記録は[`archive/r30-prep-chart-transition-parity.md`](./archive/r30-prep-chart-transition-parity.md)を参照する。
 - **R30-prep: post-TypeScript boundary cleanup**: RangePlannerの入力・戻り値を操作別型へ収束し、CalculationClientのruntime optionをallowlist化した。production TypeScriptの未使用宣言lint、古いJavaScript呼び出しの修正、DataView snapshot範囲の保持も完了した。`verify:all`による最終確認と作業記録は[`archive/r30-prep-post-typescript-boundary-cleanup.md`](./archive/r30-prep-post-typescript-boundary-cleanup.md)を参照する。
 - **R30-prep: 《屍人》runtime最適化と表示丸めの安定化**: 《屍人》のmax/sum状態DPをbounded-sum DPへ置き換え、generation work・メモリ見積りを更新した。Check、Attack、Backtrackで小数1桁表示の丸めを共通化し、歴史fixture、直接列挙、845D/846D境界、表示回帰を検証した。詳細は[`archive/r30-prep-livingdead-runtime-optimization.md`](./archive/r30-prep-livingdead-runtime-optimization.md)を参照する。
