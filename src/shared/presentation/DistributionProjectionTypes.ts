@@ -10,9 +10,7 @@ export interface DisplayWarning {
 }
 
 import type { CertifiedValue } from '../../domain/CertifiedValue'
-import type { ChartJsData } from '../../types/ChartJsDataTypes'
 import type {
-  DistributionEnvelope,
   DistributionOverflow,
   DistributionSupport,
   ProbabilityMassSummary,

@@ -290,8 +290,8 @@ describe('Attack canonical score display adapter', () => {
         operation: 'attack',
         propagation: {},
         scores: [
-          { workingLength: 16, fftLength: 16, tail: {} },
-          { workingLength: 16, fftLength: 16, tail: {} },
+          { kind: 'rolled-score', workingLength: 16, fftLength: 16, tail: {} },
+          { kind: 'rolled-score', workingLength: 16, fftLength: 16, tail: {} },
         ],
         damage: {
           fixedDifference: 0,
@@ -367,8 +367,18 @@ describe('Attack canonical score display adapter', () => {
           operation: 'attack',
           propagation: {},
           scores: [
-            { workingLength: calculationMax + 2, fftLength: 0, tail: {} },
-            { workingLength: calculationMax + 2, fftLength: 0, tail: {} },
+            {
+              kind: 'rolled-score',
+              workingLength: calculationMax + 2,
+              fftLength: 0,
+              tail: {},
+            },
+            {
+              kind: 'rolled-score',
+              workingLength: calculationMax + 2,
+              fftLength: 0,
+              tail: {},
+            },
           ],
           damage: {
             fixedDifference: 0,

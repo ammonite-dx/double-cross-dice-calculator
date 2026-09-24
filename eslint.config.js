@@ -181,6 +181,7 @@ export default [
     },
   },
   {
+    // Keep JS/MJS in architecture globs as defense-in-depth against accidental reintroduction.
     files: ['src/**/*.{js,mjs,ts,vue}'],
     languageOptions: {
       globals: globals.browser,
@@ -226,6 +227,19 @@ export default [
       'no-undef': 'off',
       'no-unused-vars': 'off',
       'no-redeclare': 'off',
+    },
+  },
+  {
+    files: ['src/**/*.ts'],
+    plugins: {
+      '@typescript-eslint': tseslint.plugin,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
     },
   },
   {

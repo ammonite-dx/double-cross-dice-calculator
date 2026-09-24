@@ -237,6 +237,35 @@ describe('canonical CalculationClient surface', () => {
     })).rejects.toThrow('not a supported range policy key')
   })
 
+  it('forwards only runtime allowlist options to on-demand damage calculation', async () => {
+    const signal = new AbortController().signal
+    const requestMetadata = { source: 'attack-test' }
+    const onRangePlan = vi.fn()
+    const calculateDamageOnDemand = vi.fn(async () => createDamage())
+    const dependencies = createDependencies({ calculateDamageOnDemand })
+    const client = createCalculationClient(dependencies)
+
+    await client.calculateAttack(attackParams(), {
+      signal,
+      requestId: 'attack-request',
+      requestMetadata,
+      scoreDisplayRequest: { min: 0, max: 20, mode: 'pmf' },
+      rangePolicy: { limits: { workingLength: 2048 } },
+      onRangePlan,
+    })
+
+    const runtimeOptions = calculateDamageOnDemand.mock.calls[0][4]
+    expect(runtimeOptions).toEqual({
+      signal,
+      requestId: 'attack-request',
+      requestMetadata,
+    })
+    expect(runtimeOptions).not.toHaveProperty('scoreDisplayRequest')
+    expect(runtimeOptions).not.toHaveProperty('rangePolicy')
+    expect(runtimeOptions).not.toHaveProperty('onRangePlan')
+    expect(onRangePlan).toHaveBeenCalledOnce()
+  })
+
   it('keeps canonical Check compatibility summary without a legacy score call', async () => {
     const dependencies = createDependencies()
     const client = createCalculationClient(dependencies)

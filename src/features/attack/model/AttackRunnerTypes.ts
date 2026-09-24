@@ -103,7 +103,7 @@ export interface AttackRunnerOptions<
 }
 
 export interface AttackRunner<
-  TPresentation extends AttackRunnerPresentation = AttackRunnerPresentation,
+  _TPresentation extends AttackRunnerPresentation = AttackRunnerPresentation,
 > {
   run(options?: AttackRunnerRunOptions): Promise<boolean>
   invalidate(): void

@@ -11,14 +11,10 @@ import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedb
 import type { CalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
 import type {
   AttackDisplayPresentation,
-  AttackPresentation,
   AttackScoreDisplayBatchPresentation,
   AttackBatchResult,
   AttackRangePlanReference,
 } from './AttackPresentationTypes'
-import type {
-  AttackExecutionEntry,
-} from './AttackIncrementalExecutionTypes'
 import type {
   AttackRunnerCalculationRequest,
   AttackRunnerDisplayContext,

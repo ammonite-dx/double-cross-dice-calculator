@@ -26,13 +26,11 @@ function calculateScoreWithProvider(
   params,
   getDistribution,
   scoreRangePlan,
-  fix = false
 ) {
   return calculateScore(
     params,
     { getDxDistribution: getDistribution },
-    scoreRangePlan,
-    fix
+    scoreRangePlan
   )
 }
 

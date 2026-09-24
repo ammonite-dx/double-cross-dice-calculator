@@ -19,9 +19,7 @@ import type { ScorePair, ScoreStatistics } from '../../../domain/ScoreResultType
 import type {
   DisplayWarning,
   DistributionDisplay,
-  DistributionProjection,
   DistributionProjectionDecision,
-  DisplayRangePlan,
 } from '../../../shared/presentation/DistributionProjectionTypes'
 import type {
   AttackBatchResult,

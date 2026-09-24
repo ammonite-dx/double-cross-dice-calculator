@@ -277,18 +277,46 @@ export type CalculationRangePlan =
 
 export type CalculationRangePlanOperation = CalculationRangePlan['operation']
 
-/** Input used by the public planner façade. */
-export interface RangePlannerParams {
-  readonly operation?: CalculationRangePlanOperation
-  readonly score?: ScoreInput | ScoreResolution | {
+type RangePlannerDisplayInput = Partial<
+  Pick<DisplayRequestSnapshot, 'min' | 'max'>
+>
+
+interface RangePlannerInputBase {
+  readonly display?: RangePlannerDisplayInput
+}
+
+export interface ScoreRangePlannerInput extends RangePlannerInputBase {
+  readonly operation: 'score'
+  readonly score: ScoreInput | ScoreResolution
+}
+
+export interface CheckRangePlannerInput extends RangePlannerInputBase {
+  readonly operation: 'check'
+  readonly score: {
     readonly action: ScoreInput | ScoreResolution
     readonly reaction: ScoreInput | ScoreResolution
   }
-  readonly action?: ScoreInput | ScoreResolution
-  readonly reaction?: ScoreInput | ScoreResolution
-  readonly attack?: AttackCalculationInput['action']['damage']
-  readonly defence?: AttackCalculationInput['reaction']['damage']
-  readonly backtrack?: BacktrackParams
-  readonly display?: Partial<Pick<DisplayRequestSnapshot, 'min' | 'max'>>
+}
+
+export interface AttackRangePlannerInput extends RangePlannerInputBase {
+  readonly operation: 'attack'
+  readonly score: {
+    readonly action: ScoreInput | ScoreResolution
+    readonly reaction: ScoreInput | ScoreResolution
+  }
+  readonly attack: AttackCalculationInput['action']['damage']
+  readonly defence: AttackCalculationInput['reaction']['damage']
   readonly comboCount?: number
 }
+
+export interface BacktrackRangePlannerInput extends RangePlannerInputBase {
+  readonly operation: 'backtrack'
+  readonly backtrack: BacktrackParams
+}
+
+/** Operation-specific inputs accepted by the public planner façade. */
+export type RangePlannerParams =
+  | ScoreRangePlannerInput
+  | CheckRangePlannerInput
+  | AttackRangePlannerInput
+  | BacktrackRangePlannerInput

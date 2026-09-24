@@ -5,7 +5,6 @@ import type {
   DifficultyInput,
 } from '../domain/CalculationInputs'
 import type { BacktrackParams } from '../domain/BacktrackRules'
-import type { ScoreInput } from '../domain/InputDomain'
 import type {
   AttackCalculationResult,
   BacktrackCalculationResult,

@@ -15,7 +15,6 @@ import {
   createBacktrackInputSnapshot,
 } from './BacktrackInputSnapshot'
 import type { BacktrackController, BacktrackState } from './BacktrackControllerTypes'
-import type { BacktrackPresentation } from './BacktrackPresentation'
 
 const INITIAL_PARAMS: Partial<BacktrackParams> = {
   encroachment: 100,

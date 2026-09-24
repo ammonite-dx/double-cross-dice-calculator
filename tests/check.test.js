@@ -572,7 +572,10 @@ function createClientDependencies(overrides = {}) {
   const plan = {
     accepted: true,
     operation: 'check',
-    scores: [{ id: 'action' }, { id: 'reaction' }],
+    scores: [
+      { kind: 'rolled-score', id: 'action' },
+      { kind: 'rolled-score', id: 'reaction' },
+    ],
     estimates: {
       float64Bytes: 64,
       cpuWork: 10,

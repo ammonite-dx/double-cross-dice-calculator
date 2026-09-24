@@ -137,7 +137,7 @@ export interface CalculationCoordinatorOptions<
 
 export interface CalculationRequestCoordinator<
   TRequest,
-  TResult = unknown,
+  _TResult = unknown,
   TPlan = CalculationRangePlan,
   TOptions extends object = Record<string, unknown>,
 > {

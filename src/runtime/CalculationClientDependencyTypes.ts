@@ -11,17 +11,19 @@ import type {
 } from '../calculation/DxProviderTypes'
 import type {
   AttackCalculationRangePlan,
+  AttackRangePlannerInput,
   BacktrackCalculationRangePlan,
-  BacktrackRangePlan,
+  BacktrackRangePlannerInput,
   CalculationRangePlan,
   CheckCalculationRangePlan,
-  RangePlannerParams,
+  CheckRangePlannerInput,
   RangePolicyInput,
   RolledScoreRangePlan,
+  ScoreCalculationRangePlan,
+  ScoreRangePlannerInput,
   ScoreRangePlan,
 } from '../calculation/planning/RangePlannerTypes'
 import type {
-  NormalizedBacktrackParams,
   NormalizedDifficultyInput,
   NormalizedScoreInput,
 } from '../domain/CalculationInputNormalization'
@@ -40,7 +42,6 @@ import type { RuntimeDamageRollClient } from './RuntimeDamageRollClientTypes'
 import type {
   CalculationRuntimeOptions,
   CalculateDamageOnDemand,
-  DamageCalculationDependencies,
 } from '../calculation/CalculationRuntimeTypes'
 
 export type {
@@ -98,10 +99,12 @@ export type PrepareDamageAggregation = (
   options?: TotalDamageCalculationOptions,
 ) => PreparedDamageAggregation
 
-export type PlanCalculationRanges = (
-  params: RangePlannerParams,
-  policy?: RangePolicyInput,
-) => CalculationRangePlan
+export interface PlanCalculationRanges {
+  (params: ScoreRangePlannerInput, policy?: RangePolicyInput): ScoreCalculationRangePlan
+  (params: CheckRangePlannerInput, policy?: RangePolicyInput): CheckCalculationRangePlan
+  (params: AttackRangePlannerInput, policy?: RangePolicyInput): AttackCalculationRangePlan
+  (params: BacktrackRangePlannerInput, policy?: RangePolicyInput): BacktrackCalculationRangePlan
+}
 
 export interface CalculationClientDependencies {
   readonly calculateDamageOnDemand?: CalculateDamageOnDemand

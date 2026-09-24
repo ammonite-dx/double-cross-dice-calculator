@@ -16,14 +16,7 @@ import {
 } from '../../../shared/presentation'
 import { getChartColor } from '../../../shared/theme/ChartPalette'
 import type { CheckCalculationResult } from '../../../runtime/CalculationClientTypes'
-import type {
-  DisplayMode,
-  DisplayRequestSnapshot,
-} from '../../../domain/CalculationInputs'
-import type {
-  DistributionEnvelope,
-  DistributionResult,
-} from '../../../domain/DistributionResultTypes'
+import type { DisplayMode } from '../../../domain/CalculationInputs'
 import type { ScoreEnvelope } from '../../../domain/ScoreResultTypes'
 import type {
   ChartJsData,

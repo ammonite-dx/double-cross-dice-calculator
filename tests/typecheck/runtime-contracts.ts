@@ -9,6 +9,10 @@ import type {
   RuntimeDamageRollWorkerResponse,
 } from '../../src/runtime/RuntimeDamageRollProtocol'
 import type {
+  CalculationRuntimeOptions,
+  RuntimeDamageRollCalculateOptions,
+} from '../../src/calculation/CalculationRuntimeTypes'
+import type {
   CalculationCancellationContext,
   CalculationFeedbackState,
   CalculationRequestCoordinator,
@@ -121,6 +125,25 @@ const request: RuntimeDamageRollWorkerRequest = {
   options: { fftLength: 2, distributionLength: 2, rawSupportMax: 0 },
 }
 void request
+
+const runtimeOptions: CalculationRuntimeOptions = {
+  signal: new AbortController().signal,
+  requestId: 'runtime-request',
+  requestMetadata: { source: 'typecheck' },
+}
+const damageRollOptions: RuntimeDamageRollCalculateOptions = {
+  ...runtimeOptions,
+  fftLength: 16,
+  distributionLength: 9,
+  rawSupportMax: 8,
+}
+// @ts-expect-error: caller-side planning options are not runtime options.
+const invalidRuntimeOptions: CalculationRuntimeOptions = { rangePolicy: {} }
+// @ts-expect-error: unknown keys are not forwarded across the runtime boundary.
+const invalidRuntimeOptionKey: CalculationRuntimeOptions = { scoreDisplayRequest: {} }
+void damageRollOptions
+void invalidRuntimeOptions
+void invalidRuntimeOptionKey
 
 const envelope: RuntimeDamageRollWorkerEnvelope = {
   id: 1,

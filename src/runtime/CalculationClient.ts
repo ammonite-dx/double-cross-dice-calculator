@@ -54,10 +54,12 @@ import type {
 } from '../calculation/DamageAggregationTypes'
 import type {
   AttackCalculationRangePlan,
+  AttackRangePlannerInput,
   BacktrackCalculationRangePlan,
+  BacktrackRangePlannerInput,
   BacktrackRangePlan,
   CalculationRangePlan,
-  RangePlannerParams,
+  CheckRangePlannerInput,
   RangePolicyInput,
   RolledScoreRangePlan,
   ScoreRangePlan,
@@ -70,11 +72,8 @@ import type {
   BacktrackCalculationResult,
   TotalDamageResult,
 } from '../domain/CalculationResultTypes'
-import type {
-  ScoreEnvelope,
-  ScorePair,
-} from '../domain/ScoreResultTypes'
-import type { ResourceGuard, ResourceLease, ResourceLeaseResult, ResourceReservationPlan } from './ResourceGuardTypes'
+import type { ScoreEnvelope } from '../domain/ScoreResultTypes'
+import type { ResourceGuard, ResourceLeaseResult, ResourceReservationPlan } from './ResourceGuardTypes'
 import type {
   AttackCalculationOptions,
   BacktrackCalculationOptions,
@@ -87,7 +86,6 @@ import type {
   CalculationClientDependencies,
   CompleteCalculationClientDependencies,
   CalculationRuntimeOptions,
-  NormalizedDxOptions,
 } from './CalculationClientDependencyTypes'
 import type { DxDistributionProvider } from '../calculation/DxProviderTypes'
 
@@ -113,6 +111,12 @@ function calculateScoreAdapter(
   )
 }
 
+function getRolledScorePlan(
+  plan: ScoreRangePlan | undefined,
+): RolledScoreRangePlan | undefined {
+  return plan?.kind === 'rolled-score' ? plan : undefined
+}
+
 function calculateScoreResolutionAdapter(
   resolution: ScoreResolution,
   getDistribution: DxDistributionProvider | undefined,
@@ -127,7 +131,7 @@ function calculateScoreResolutionAdapter(
     return calculateScoreAdapter(
       resolution.params,
       getDistribution,
-      scoreRangePlan as RolledScoreRangePlan | undefined,
+      getRolledScorePlan(scoreRangePlan),
     )
   }
   return calculateCoreScoreResolution(
@@ -226,7 +230,7 @@ function createCheckRangeParams(
     reaction: NormalizedScoreInput
   }>,
   displayRequest?: DisplayRequestSnapshot,
-): RangePlannerParams {
+): CheckRangePlannerInput {
   const params = {
     operation: 'check' as const,
     score: {
@@ -257,7 +261,7 @@ function getCheckRangePolicy(
 function createAttackRangeParams(
   request: NormalizedAttackCalculationInput,
   scoreDisplayRequest?: DisplayRequestSnapshot | null,
-): RangePlannerParams {
+): AttackRangePlannerInput {
   const params = {
     operation: 'attack' as const,
     score: {
@@ -281,8 +285,8 @@ function createAttackRangeParams(
 
 function createBacktrackRangeParams(
   request: NormalizedBacktrackParams,
-): RangePlannerParams {
-  const params: RangePlannerParams = {
+): BacktrackRangePlannerInput {
+  const params: BacktrackRangePlannerInput = {
     operation: 'backtrack' as const,
     backtrack: { ...request },
   }
@@ -290,21 +294,15 @@ function createBacktrackRangeParams(
 }
 
 function getRuntimeOptions(
-  options: object,
+  options: CalculationRequestOptions,
 ): CalculationRuntimeOptions {
-  const source = options as Record<string, unknown>
-  if (
-    !('rangePolicy' in source) &&
-    !('onRangePlan' in source)
-  ) {
-    return source as CalculationRuntimeOptions
+  return {
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.requestId === undefined ? {} : { requestId: options.requestId }),
+    ...(options.requestMetadata === undefined
+      ? {}
+      : { requestMetadata: options.requestMetadata }),
   }
-
-  const runtimeOptions: Record<string, unknown> = { ...source }
-  delete runtimeOptions.rangePolicy
-  delete runtimeOptions.onRangePlan
-  delete runtimeOptions.scoreDisplayRequest
-  return runtimeOptions
 }
 
 function acquireForPlanLease(
@@ -331,15 +329,6 @@ function isPromiseLike<T>(value: T | Promise<T>): value is Promise<T> {
 function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(object, property)
 }
-
-const TOTAL_DAMAGE_AGGREGATION_OPTION_NAMES = Object.freeze([
-  'maxValuesLength',
-  'maxFftLength',
-  'maxResourceBytes',
-  'maxComponents',
-  'signal',
-  'onFftLength',
-] as const satisfies readonly (keyof TotalDamageCalculationOptions)[])
 
 function createTotalDamageAggregationOptions(
   options: TotalDamageClientOptions,
@@ -417,19 +406,16 @@ function copyTotalDamageEnvelope<T>(totalDamage: T): T {
  * asynchronous callbacks are not part of the CalculationClient contract.
  */
 function runRangePreflight<TPlan extends CalculationRangePlan>(
-  planner: (params: RangePlannerParams, policy?: RangePolicyInput) => CalculationRangePlan,
-  plannerParams: RangePlannerParams,
-  rangePolicy: RangePolicyInput | undefined,
+  plan: TPlan,
   onRangePlan?: (plan: TPlan) => void,
 ): TPlan {
-  const plan = planner(plannerParams, rangePolicy)
   if (typeof onRangePlan === 'function') {
-    onRangePlan(plan as TPlan)
+    onRangePlan(plan)
   }
   if (!plan.accepted) {
     throw new CalculationRangeError(plan)
   }
-  return plan as TPlan
+  return plan
 }
 
 function createRuntimeDxProvider(
@@ -520,7 +506,7 @@ export function createCalculationClient(
       if (resolution?.kind === 'rolled-score') {
         const result = calculateRolled(
           resolution.params,
-          scoreRangePlan as RolledScoreRangePlan | undefined,
+          getRolledScorePlan(scoreRangePlan),
         )
         if (result === null) {
           throw new Error(
@@ -565,10 +551,11 @@ export function createCalculationClient(
   ): Promise<AttackCalculationResult> {
     const request = snapshotAttackParams(params)
     const plan = runRangePreflight(
-      planner,
-      createAttackRangeParams(request, options.scoreDisplayRequest),
-      options.rangePolicy,
-      options.onRangePlan
+      planner(
+        createAttackRangeParams(request, options.scoreDisplayRequest),
+        options.rangePolicy,
+      ),
+      options.onRangePlan,
     )
     const leaseRequest = acquireForPlanLease(
       resourceGuard,
@@ -688,8 +675,7 @@ export function createCalculationClient(
         action: snapshotScoreParams(params.action, 'check.action'),
         reaction: snapshotScoreParams(params.reaction, 'check.reaction'),
       }
-      return planner(createCheckRangeParams(request), policy) as
-        ReturnType<CalculationClient['planCheck']>
+      return planner(createCheckRangeParams(request), policy)
     },
 
     planAttackCombo(
@@ -697,10 +683,7 @@ export function createCalculationClient(
       policy: RangePolicyInput = {},
     ): AttackCalculationRangePlan {
       const request = snapshotAttackParams(params)
-      return planner(
-        createAttackRangeParams(request),
-        policy
-      ) as AttackCalculationRangePlan
+      return planner(createAttackRangeParams(request), policy)
     },
 
     planBacktrack(
@@ -708,8 +691,7 @@ export function createCalculationClient(
       policy: RangePolicyInput = {},
     ): BacktrackCalculationRangePlan {
       const request = snapshotBacktrackParams(params)
-      return planner(createBacktrackRangeParams(request), policy) as
-        BacktrackCalculationRangePlan
+      return planner(createBacktrackRangeParams(request), policy)
     },
 
     async calculateCheck(
@@ -723,10 +705,11 @@ export function createCalculationClient(
       }
       const difficultyRequest = normalizeDifficultyInput(difficulty)
       const plan = runRangePreflight(
-        planner,
-        createCheckRangeParams(request, options.displayRequest),
-        getCheckRangePolicy(options),
-        options.onRangePlan
+        planner(
+          createCheckRangeParams(request, options.displayRequest),
+          getCheckRangePolicy(options),
+        ),
+        options.onRangePlan,
       )
       const leaseRequest = acquireForPlanLease(
         resourceGuard,
@@ -783,10 +766,8 @@ export function createCalculationClient(
     ): Promise<BacktrackCalculationResult> {
       const request = snapshotBacktrackParams(params)
       const plan = runRangePreflight(
-        planner,
-        createBacktrackRangeParams(request),
-        options.rangePolicy,
-        options.onRangePlan
+        planner(createBacktrackRangeParams(request), options.rangePolicy),
+        options.onRangePlan,
       )
       const leaseRequest = acquireForPlanLease(
         resourceGuard,

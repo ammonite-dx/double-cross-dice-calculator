@@ -9,7 +9,6 @@ export interface CalculationRuntimeOptions {
   readonly signal?: AbortSignal
   readonly requestId?: string | number
   readonly requestMetadata?: Readonly<Record<string, unknown>>
-  readonly [key: string]: unknown
 }
 
 /** Options accepted by the runtime damage-roll calculation provider. */

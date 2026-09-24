@@ -1,8 +1,6 @@
 import { planBacktrack } from './planning/BacktrackRangePlanner'
 import { planDamage } from './planning/DamageRangePlanner'
-import {
-  getScoreValueUpperBound,
-} from './planning/ScoreRangePlanner'
+import { getScoreValueUpperBound } from './planning/ScoreRangePlanner'
 import { planScoreResolution } from './planning/ScoreResolutionPlanner'
 import {
   applyLimits,
@@ -15,44 +13,46 @@ import {
   mergePolicy,
   normalizeDisplay,
 } from './planning/RangePolicy'
-import {
-  object,
-  positiveInteger,
-} from './planning/PlanningMath'
+import { object, positiveInteger } from './planning/PlanningMath'
 import type { ScoreInput } from '../domain/InputDomain'
 import type { ScoreResolution } from '../domain/ScoreResolution'
-import type { DamageInput, DefenceDamageInput } from '../domain/CalculationInputs'
 import type {
+  AttackCalculationRangePlan,
+  AttackRangePlannerInput,
+  BacktrackCalculationRangePlan,
+  BacktrackRangePlan,
+  BacktrackRangePlannerInput,
   CalculationRangePlan,
+  CalculationRangePlanBase,
+  CheckCalculationRangePlan,
+  CheckRangePlannerInput,
   DamageRangePlan,
+  RangeDisplayPlan,
   RangeOverflowInfoSet,
   RangePlannerParams,
-  RangePlanWarning,
+  RangePolicy,
   RangePolicyInput,
   RolledScoreRangePlan,
+  ScoreCalculationRangePlan,
   ScoreRangePlan,
+  ScoreRangePlannerInput,
 } from './planning/RangePlannerTypes'
 
 export { DEFAULT_POLICY }
 
-/**
- * The façade coordinates operation-specific planners and combines their
- * resource estimates. It does not contain DX, damage, or backtrack formulas.
- *
- * The detailed result typedefs remain documented in the operation planner
- * modules and in docs/architecture.md; this function intentionally preserves
- * the existing RangePlan shape for callers.
- */
+interface RangePlanOverflowShape {
+  readonly display: RangeDisplayPlan
+  readonly scores: readonly ScoreRangePlan[]
+  readonly damage: DamageRangePlan | null
+  readonly backtrack: BacktrackRangePlan | null
+}
 
-/**
- * @param {Object} plan
- * @returns {Object}
- */
-function makeOverflowInfo(plan: CalculationRangePlan): RangeOverflowInfoSet {
+function makeOverflowInfo(plan: RangePlanOverflowShape): RangeOverflowInfoSet {
   const tailScores = plan.scores.filter(
     (item): item is RolledScoreRangePlan =>
       item.kind === 'rolled-score' && !item.finiteSupport
   )
+  const singleTail = tailScores.length === 1 ? tailScores[0] : undefined
   const score = plan.scores.length > 0
     ? tailScores.length === 0
       ? {
@@ -65,14 +65,9 @@ function makeOverflowInfo(plan: CalculationRangePlan): RangeOverflowInfoSet {
       : {
           type: 'dx-tail',
           finiteSupport: false,
-          lowerBound: tailScores.length === 1
-            ? (tailScores[0] as RolledScoreRangePlan).workingMax + 1
-            : null,
-          bound: tailScores.reduce(
-            (sum, item) => sum + item.tail.bound,
-            0
-          ),
-          meaning: tailScores.length === 1
+          lowerBound: singleTail ? singleTail.workingMax + 1 : null,
+          bound: tailScores.reduce((sum, item) => sum + item.tail.bound, 0),
+          meaning: singleTail
             ? 'DX values above the modeled range are represented by a tail certificate'
             : 'DX values above each modeled range are represented by tail certificates; for multiple scores, bound is the sum and lowerBound is null because each score has its own boundary',
         }
@@ -106,17 +101,224 @@ function makeOverflowInfo(plan: CalculationRangePlan): RangeOverflowInfoSet {
   return { score, damage, display, backtrack }
 }
 
+function createPlanMetadata(
+  policy: RangePolicy,
+  operation: CalculationRangePlan['operation'],
+  scoreCount: number,
+): Pick<
+  CalculationRangePlanBase,
+  'accepted' | 'errorBudget' | 'overflow' | 'warnings' | 'rejectionReasons'
+> {
+  const scoreTail = operation === 'backtrack'
+    ? 0
+    : policy.errorBudget.scoreTail
+  return {
+    accepted: true,
+    errorBudget: {
+      total: policy.errorBudget.total,
+      scoreTail,
+      scorePerSide: scoreCount === 0 ? 0 : scoreTail / scoreCount,
+      finiteDamageTail: 0,
+    },
+    overflow: {
+      score: 'values above the modeled cutoff are omitted only within tail error budget',
+      damage: 'finite modeled values above display.max are an explicit display overflow bucket',
+      totalDamage: 'once a value is aggregated above display.max, later operations must not subtract from it',
+      backtrack: 'backtrack values have finite support; this plan generates the complete support on demand',
+    },
+    warnings: [],
+    rejectionReasons: undefined,
+  }
+}
+
+function applyPlanLimits(
+  plan: ScoreCalculationRangePlan,
+  policy: RangePolicy,
+): ScoreCalculationRangePlan
+function applyPlanLimits(
+  plan: CheckCalculationRangePlan,
+  policy: RangePolicy,
+): CheckCalculationRangePlan
+function applyPlanLimits(
+  plan: AttackCalculationRangePlan,
+  policy: RangePolicy,
+): AttackCalculationRangePlan
+function applyPlanLimits(
+  plan: BacktrackCalculationRangePlan,
+  policy: RangePolicy,
+): BacktrackCalculationRangePlan
+function applyPlanLimits(
+  plan: CalculationRangePlan,
+  policy: RangePolicy,
+): CalculationRangePlan {
+  const result = applyLimits(plan, policy)
+  const rejectionReasons = result.accepted
+    ? undefined
+    : Array.from(new Set(
+        result.warnings
+          .filter((warning) => warning.severity === 'reject')
+          .map((warning) => warning.code)
+      ))
+  return {
+    ...plan,
+    accepted: result.accepted,
+    warnings: [...result.warnings],
+    rejectionReasons,
+  }
+}
+
+function toScoreResolution(
+  score: ScoreInput | ScoreResolution,
+): ScoreResolution {
+  return 'kind' in score
+    ? score
+    : { kind: 'rolled-score', params: score }
+}
+
+function planScore(
+  params: ScoreRangePlannerInput,
+  policy: RangePolicy,
+): ScoreCalculationRangePlan {
+  const display = normalizeDisplay(params.display)
+  const scoreTail = policy.errorBudget.scoreTail
+  const scores = [
+    planScoreResolution(toScoreResolution(params.score), display, scoreTail),
+  ] as const
+  const shape = {
+    operation: 'score' as const,
+    display,
+    scores,
+    damage: null,
+    backtrack: null,
+    estimates: scoreOnlyResources(scores),
+  }
+  const plan = {
+    ...shape,
+    ...createPlanMetadata(policy, 'score', 1),
+    overflowInfo: makeOverflowInfo(shape),
+  } satisfies ScoreCalculationRangePlan
+  return applyPlanLimits(plan, policy)
+}
+
+function planCheck(
+  params: CheckRangePlannerInput,
+  policy: RangePolicy,
+): CheckCalculationRangePlan {
+  const display = normalizeDisplay(params.display)
+  const scoreTail = policy.errorBudget.scoreTail / 2
+  const scores = [
+    planScoreResolution(
+      toScoreResolution(params.score.action),
+      display,
+      scoreTail,
+    ),
+    planScoreResolution(
+      toScoreResolution(params.score.reaction),
+      display,
+      scoreTail,
+    ),
+  ] as const
+  const shape = {
+    operation: 'check' as const,
+    display,
+    scores,
+    damage: null,
+    backtrack: null,
+    estimates: scoreOnlyResources(scores),
+  }
+  const plan = {
+    ...shape,
+    ...createPlanMetadata(policy, 'check', 2),
+    overflowInfo: makeOverflowInfo(shape),
+  } satisfies CheckCalculationRangePlan
+  return applyPlanLimits(plan, policy)
+}
+
+function planAttack(
+  params: AttackRangePlannerInput,
+  policy: RangePolicy,
+): AttackCalculationRangePlan {
+  const display = normalizeDisplay(params.display)
+  const scoreTail = policy.errorBudget.scoreTail / 2
+  const scores = [
+    planScoreResolution(
+      toScoreResolution(params.score.action),
+      display,
+      scoreTail,
+    ),
+    planScoreResolution(
+      toScoreResolution(params.score.reaction),
+      display,
+      scoreTail,
+    ),
+  ] as const
+  const damage = planDamage(
+    { attack: params.attack, defence: params.defence },
+    display,
+    getScoreValueUpperBound(scores),
+  )
+  const comboCount = params.comboCount ?? 1
+  positiveInteger(comboCount, 'comboCount')
+  const shape = {
+    operation: 'attack' as const,
+    display,
+    scores,
+    damage,
+    backtrack: null,
+    estimates: planResources(scores, damage, comboCount),
+  }
+  const plan = {
+    ...shape,
+    ...createPlanMetadata(policy, 'attack', 2),
+    overflowInfo: makeOverflowInfo(shape),
+  } satisfies AttackCalculationRangePlan
+  return applyPlanLimits(plan, policy)
+}
+
+function planBacktrackCalculation(
+  params: BacktrackRangePlannerInput,
+  policy: RangePolicy,
+): BacktrackCalculationRangePlan {
+  const display = normalizeDisplay(params.display)
+  const backtrack = planBacktrack(params.backtrack, display)
+  const shape = {
+    operation: 'backtrack' as const,
+    display,
+    scores: [] as const,
+    damage: null,
+    backtrack,
+    estimates: backtrackResources(backtrack),
+  }
+  const plan = {
+    ...shape,
+    ...createPlanMetadata(policy, 'backtrack', 0),
+    overflowInfo: makeOverflowInfo(shape),
+  } satisfies BacktrackCalculationRangePlan
+  return applyPlanLimits(plan, policy)
+}
+
 /**
  * Plan the ranges and resources required by a calculation.
  *
  * This function only returns a plan. It does not allocate calculator arrays,
  * invoke a calculator, alter UI limits, or select a production data path.
  */
-/**
- * @param {RangePlannerParams} params
- * @param {RangePolicyInput} [policy]
- * @returns {CalculationRangePlan}
- */
+export function planCalculationRanges(
+  params: ScoreRangePlannerInput,
+  policy?: RangePolicyInput,
+): ScoreCalculationRangePlan
+export function planCalculationRanges(
+  params: CheckRangePlannerInput,
+  policy?: RangePolicyInput,
+): CheckCalculationRangePlan
+export function planCalculationRanges(
+  params: AttackRangePlannerInput,
+  policy?: RangePolicyInput,
+): AttackCalculationRangePlan
+export function planCalculationRanges(
+  params: BacktrackRangePlannerInput,
+  policy?: RangePolicyInput,
+): BacktrackCalculationRangePlan
 export function planCalculationRanges(
   params: RangePlannerParams,
   policy: RangePolicyInput = {},
@@ -124,108 +326,18 @@ export function planCalculationRanges(
   const effectivePolicy = mergePolicy(policy)
   object(params, 'params')
 
-  const operation = params.operation ?? 'attack'
-  if (!['score', 'check', 'attack', 'backtrack'].includes(operation)) {
-    throw new RangeError(
-      'operation must be score, check, attack, or backtrack'
-    )
-  }
-  const display = normalizeDisplay(params.display)
-  const comboCount = params.comboCount ?? 1
-  positiveInteger(comboCount, 'comboCount')
-
-  let scores: ScoreRangePlan[] = []
-  let damage: DamageRangePlan | null = null
-  let backtrack: ReturnType<typeof planBacktrack> | null = null
-  let tailBudget = 0
-
-  if (operation === 'backtrack') {
-    backtrack = planBacktrack(params.backtrack ?? params, display)
-  } else {
-    const scorePair = params.score && typeof params.score === 'object'
-      && 'action' in params.score
-      ? params.score
-      : undefined
-    const scoreParams = operation === 'score'
-      ? [params.score ?? params]
-      : [
-          scorePair?.action ?? params.action,
-          scorePair?.reaction ?? params.reaction,
-        ]
-
-    if (scoreParams.some((value) => !value)) {
-      throw new TypeError('score parameters are required')
-    }
-    tailBudget = effectivePolicy.errorBudget.scoreTail / scoreParams.length
-    scores = scoreParams.map((score) => {
-      const candidate = score as ScoreResolution | ScoreInput
-      const resolution: ScoreResolution = 'kind' in candidate
-        ? candidate
-        : { kind: 'rolled-score', params: candidate }
-      return planScoreResolution(resolution, display, tailBudget)
-    })
-
-    if (operation === 'attack') {
-      if (!params.attack || !params.defence) {
-        throw new TypeError('attack and defence damage parameters are required')
-      }
-      damage = planDamage(
-        { attack: params.attack, defence: params.defence },
-        display,
-        getScoreValueUpperBound(scores)
+  switch (params.operation) {
+    case 'score':
+      return planScore(params, effectivePolicy)
+    case 'check':
+      return planCheck(params, effectivePolicy)
+    case 'attack':
+      return planAttack(params, effectivePolicy)
+    case 'backtrack':
+      return planBacktrackCalculation(params, effectivePolicy)
+    default:
+      throw new RangeError(
+        'operation must be score, check, attack, or backtrack'
       )
-    }
   }
-
-  const estimates = backtrack
-    ? backtrackResources(backtrack)
-    : damage
-      ? planResources(scores, damage, comboCount)
-      : scoreOnlyResources(scores)
-
-  const result = {
-    accepted: true,
-    operation,
-    display,
-    scores,
-    damage,
-    backtrack,
-    estimates,
-    errorBudget: {
-      total: effectivePolicy.errorBudget.total,
-      scoreTail: operation === 'backtrack'
-        ? 0
-        : effectivePolicy.errorBudget.scoreTail,
-      scorePerSide: tailBudget,
-      finiteDamageTail: 0,
-    },
-    // Keep the reference planner's human-readable meanings for callers that
-    // only need to display a short explanation. Structured details live in
-    // overflowInfo so the kind and finite/infinite distinction are explicit.
-    overflow: {
-      score: 'values above the modeled cutoff are omitted only within tail error budget',
-      damage: 'finite modeled values above display.max are an explicit display overflow bucket',
-      totalDamage: 'once a value is aggregated above display.max, later operations must not subtract from it',
-      backtrack: 'backtrack values have finite support; this plan generates the complete support on demand',
-    },
-    overflowInfo: null as RangeOverflowInfoSet | null,
-    warnings: [] as RangePlanWarning[],
-    rejectionReasons: undefined as readonly string[] | undefined,
-  }
-  const typedResult = result as unknown as CalculationRangePlan
-  result.overflowInfo = makeOverflowInfo(typedResult)
-
-  const limitResult = applyLimits(typedResult, effectivePolicy)
-  result.accepted = limitResult.accepted
-  result.warnings = [...limitResult.warnings]
-  if (!result.accepted) {
-    result.rejectionReasons = Array.from(
-      new Set(
-        result.warnings
-          .filter((warning) => warning.severity === 'reject')
-          .map((warning) => warning.code)
-      )
-    )
-  }
-  return result as unknown as CalculationRangePlan
 }

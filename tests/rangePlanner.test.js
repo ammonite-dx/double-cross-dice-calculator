@@ -1454,7 +1454,8 @@ describe('production range planner', () => {
     expect(() => planCalculationRanges(scoreOnlyParams(), {
       errorBudget: { total: 1e-8, scoreTail: 2e-8 },
     })).toThrow(RangeError)
-    expect(() => planCalculationRanges(scoreOnlyParams({ comboCount: 0 }))).toThrow(RangeError)
+    expect(() => planCalculationRanges(attackParams({ comboCount: 0 })))
+      .toThrow(RangeError)
     expect(() => findTailCutoff(scoreParams(), 0)).toThrow(RangeError)
   })
 })

@@ -9,7 +9,6 @@ import type {
 } from './DistributionProjectionTypes'
 import type {
   DistributionOverflow,
-  DistributionSupport,
 } from '../../domain/DistributionResultTypes'
 
 /** @typedef {import('./DistributionProjectionTypes').DisplayRangePlan} DisplayRangePlan */

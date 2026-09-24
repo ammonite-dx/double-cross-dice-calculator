@@ -2,7 +2,6 @@ import {
   createCalculationFeedbackState,
   markCalculationAborted,
 } from '../../../runtime/CalculationFeedback'
-import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type {
   AttackCombo,
   AttackComboParams,
@@ -11,11 +10,9 @@ import type {
   AttackCommittedRecord,
   AttackIncrementalExecution,
 } from './AttackIncrementalExecutionTypes'
-import type { AttackTotalCalculationRecord } from './AttackCalculationRecord'
 import type {
   AttackDisplayPresentation,
   AttackPresentation,
-  AttackRangePlanReference,
 } from './AttackPresentationTypes'
 import type {
   AttackCommittedCalculationSnapshot,

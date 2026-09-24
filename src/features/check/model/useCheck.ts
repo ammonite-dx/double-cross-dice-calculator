@@ -39,10 +39,7 @@ import type {
   DisplayRequestSnapshot,
   ScoreInput,
 } from '../../../domain/CalculationInputs'
-import type {
-  ScorePair,
-  ScoreStatistics,
-} from '../../../domain/ScoreResultTypes'
+import type { ScorePair } from '../../../domain/ScoreResultTypes'
 import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type {
   CheckCalculationRangePlan,
