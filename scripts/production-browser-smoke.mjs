@@ -618,6 +618,21 @@ async function waitForCanvasCommit(page, previousState) {
   )
 }
 
+async function waitForCanvasDataChange(page, canvasIndex, previousData, caseId) {
+  await page.waitForFunction(
+    ({ index, previous }) => {
+      const canvas = document.querySelectorAll('canvas')[index]
+      return canvas !== undefined && canvas.toDataURL() !== previous
+    },
+    { index: canvasIndex, previous: previousData },
+    { timeout: PAGE_TIMEOUT_MILLISECONDS },
+  ).catch((error) => {
+    throw new Error(`[${caseId}] canvas ${canvasIndex} did not commit updated data`, {
+      cause: error,
+    })
+  })
+}
+
 async function assertAccessibleChartNames(page, caseId, expectedNames) {
   const chartRoles = page.locator('[role="img"][aria-label]')
   assertCondition(
@@ -682,8 +697,12 @@ async function assertFooterNormalFlow(page, caseId) {
   )
 }
 
-async function beginFooterContinuityTracking(page, caseId) {
-  const baseline = await page.evaluate(() => {
+async function beginFooterContinuityTracking(
+  page,
+  caseId,
+  { trackAttackScoreValues = false } = {},
+) {
+  const baseline = await page.evaluate((trackAttackScoreValues) => {
     const main = document.querySelector('.main-area')
     const content = main?.querySelector('.main-area__content')
     const footer = main?.querySelector('.main-area__footer')
@@ -716,6 +735,25 @@ async function beginFooterContinuityTracking(page, caseId) {
     observer.observe(summaryRow)
     observer.observe(originalSummaryCard)
     observer.observe(originalSummaryTable)
+    const scoreHeaders = [...originalSummaryTable.querySelectorAll('thead th')]
+      .map((cell) => cell.innerText.trim())
+    const expectedValueIndex = scoreHeaders.indexOf('達成値期待値')
+    const hitRateIndex = scoreHeaders.indexOf('命中率')
+    const readAttackScoreValues = () => {
+      const firstRow = originalSummaryTable.querySelector('tbody tr')
+      const cells = firstRow ? [...firstRow.cells] : []
+      return {
+        expectedValue: expectedValueIndex < 0
+          ? null
+          : cells[expectedValueIndex]?.innerText.trim() ?? '',
+        hitRate: hitRateIndex < 0
+          ? null
+          : cells[hitRateIndex]?.innerText.trim() ?? '',
+      }
+    }
+    const initialAttackScoreValues = trackAttackScoreValues
+      ? readAttackScoreValues()
+      : null
     const summaryState = {
       originalText: originalSummaryTable.innerText,
       cardWasDisconnected: false,
@@ -726,6 +764,8 @@ async function beginFooterContinuityTracking(page, caseId) {
       tableHadZeroHeight: false,
       textChanged: false,
       sameNodesAfterCommit: false,
+      initialAttackScoreValues,
+      attackScoreValuesBecameUnavailable: false,
     }
 
     const isVisibleAndSized = (element) => {
@@ -775,6 +815,18 @@ async function beginFooterContinuityTracking(page, caseId) {
       if (originalSummaryTable.innerText !== summaryState.originalText) {
         summaryState.textChanged = true
       }
+      if (trackAttackScoreValues) {
+        const currentValues = readAttackScoreValues()
+        const isUnavailable = (value) => value === null
+          || value === ''
+          || value === '—'
+        if (
+          isUnavailable(currentValues.expectedValue)
+          || isUnavailable(currentValues.hitRate)
+        ) {
+          summaryState.attackScoreValuesBecameUnavailable = true
+        }
+      }
 
       const currentSummaryCard = summaryRow.querySelector('.v-card')
       const currentSummaryTable = currentSummaryCard?.querySelector('table')
@@ -818,7 +870,7 @@ async function beginFooterContinuityTracking(page, caseId) {
       },
     }
     return samples[0]
-  })
+  }, trackAttackScoreValues)
 
   assertCondition(
     caseId,
@@ -832,17 +884,23 @@ async function beginFooterContinuityTracking(page, caseId) {
   )
 }
 
-async function assertFooterContinuity(page, caseId) {
-  await page.waitForFunction(
-    () => {
-      const tracker = window.__dcdcFooterContinuityTracker
-      tracker?.updateSummaryState()
-      return tracker?.summaryState.textChanged === true
-        && tracker?.summaryState.sameNodesAfterCommit === true
-    },
-    undefined,
-    { timeout: PAGE_TIMEOUT_MILLISECONDS },
-  )
+async function assertFooterContinuity(
+  page,
+  caseId,
+  { requireUpdatedSummaryText = true, requireAttackScoreValues = false } = {},
+) {
+  if (requireUpdatedSummaryText) {
+    await page.waitForFunction(
+      () => {
+        const tracker = window.__dcdcFooterContinuityTracker
+        tracker?.updateSummaryState()
+        return tracker?.summaryState.textChanged === true
+          && tracker?.summaryState.sameNodesAfterCommit === true
+      },
+      undefined,
+      { timeout: PAGE_TIMEOUT_MILLISECONDS },
+    )
+  }
 
   const result = await page.evaluate(() => {
     const tracker = window.__dcdcFooterContinuityTracker
@@ -870,6 +928,9 @@ async function assertFooterContinuity(page, caseId) {
       tableHadZeroHeight: tracker.summaryState.tableHadZeroHeight,
       summaryTextChanged: tracker.summaryState.textChanged,
       sameSummaryNodesAfterCommit: tracker.summaryState.sameNodesAfterCommit,
+      initialAttackScoreValues: tracker.summaryState.initialAttackScoreValues,
+      attackScoreValuesBecameUnavailable:
+        tracker.summaryState.attackScoreValuesBecameUnavailable,
       sampleCount: tracker.samples.length,
     }
   })
@@ -897,9 +958,26 @@ async function assertFooterContinuity(page, caseId) {
   )
   assertCondition(
     caseId,
-    result.summaryTextChanged && result.sameSummaryNodesAfterCommit,
-    'the same summary card and table did not update to new ready content',
+    (!requireUpdatedSummaryText || result.summaryTextChanged)
+      && result.sameSummaryNodesAfterCommit,
+    'the same summary card and table did not remain through the ready result',
   )
+  if (requireAttackScoreValues) {
+    const isAvailable = (value) => typeof value === 'string'
+      && value.length > 0
+      && value !== '—'
+    assertCondition(
+      caseId,
+      isAvailable(result.initialAttackScoreValues?.expectedValue)
+        && isAvailable(result.initialAttackScoreValues?.hitRate),
+      `baseline Attack score summary was unavailable (${JSON.stringify(result.initialAttackScoreValues)})`,
+    )
+    assertCondition(
+      caseId,
+      !result.attackScoreValuesBecameUnavailable,
+      'Attack expected value or hit rate became blank or unavailable during score coverage recalculation',
+    )
+  }
   const tolerance = 1
   assertCondition(
     caseId,
@@ -1374,6 +1452,43 @@ async function runAttack(browser, baseUrl) {
       },
     ])
 
+    const scorePanel = page.locator('.v-card').filter({ hasText: '達成値分布' })
+    const scoreMaximumInput = scorePanel.getByLabel('最大値')
+    assertCondition(
+      'attack score-only coverage continuity',
+      await scoreMaximumInput.count() === 1
+        && await scoreMaximumInput.inputValue() === '100',
+      'default score display maximum was not 100',
+    )
+    const scoreCanvasBefore = await page.locator('canvas').nth(0)
+      .evaluate((canvas) => canvas.toDataURL())
+    await beginFooterContinuityTracking(
+      page,
+      'attack score-only coverage continuity',
+      { trackAttackScoreValues: true },
+    )
+    await scoreMaximumInput.fill('102')
+    assertCondition(
+      'attack score-only coverage continuity',
+      await scoreMaximumInput.inputValue() === '102',
+      'expanded score display maximum was not retained',
+    )
+    await waitForCanvasDataChange(
+      page,
+      0,
+      scoreCanvasBefore,
+      'attack score-only coverage continuity',
+    )
+    await assertFooterContinuity(
+      page,
+      'attack score-only coverage continuity',
+      {
+        requireUpdatedSummaryText: false,
+        requireAttackScoreValues: true,
+      },
+    )
+    assertNoBrowserErrors('attack score-only coverage continuity', record)
+
     // Verify the R7 controller wiring for both sides of the first combo
     // before exercising the high-range boundary inputs below.
     await beginCanvasIdentityTracking(page, 'attack chart transition', 2)
@@ -1754,6 +1869,14 @@ async function runAttack(browser, baseUrl) {
         d10Requests: 0,
         id: 'attack defence=0',
         precomputed: 0,
+      },
+      {
+        canvases: 2,
+        d10Requests: 0,
+        id: 'attack score-only coverage summary continuity',
+        precomputed: 0,
+        layoutContinuity: true,
+        summaryValuesPreserved: true,
       },
       {
         canvases: 2,

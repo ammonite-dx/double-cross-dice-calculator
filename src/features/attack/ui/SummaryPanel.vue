@@ -35,6 +35,10 @@
             props.replacementLoading,
         ] as const,
         ([ready, combos, presentation, scorePresentation, replacementLoading]) => {
+            if (replacementLoading) {
+                return
+            }
+
             if (ready && presentation?.status === 'ready') {
                 displayedFrame.value = Object.freeze({
                     combos: Object.freeze(combos.map(({ id, name }) =>
@@ -43,7 +47,7 @@
                     presentation,
                     scorePresentation,
                 })
-            } else if (!replacementLoading) {
+            } else {
                 displayedFrame.value = null
             }
         },
