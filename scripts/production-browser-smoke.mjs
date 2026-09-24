@@ -406,6 +406,68 @@ async function waitForCanvases(page, expectedCount, { exact = false } = {}) {
   return actualCount
 }
 
+async function beginCanvasIdentityTracking(page, caseId, expectedCount) {
+  const result = await page.evaluate((expected) => {
+    const trackerKey = '__dcdcCanvasIdentityTracker'
+    window[trackerKey]?.observer?.disconnect()
+    const canvases = [...document.querySelectorAll('canvas')]
+    if (canvases.length !== expected) {
+      return { count: canvases.length, expected }
+    }
+
+    const removed = new Set()
+    const markRemovedNodes = (records) => {
+      for (const record of records) {
+        for (const removedNode of record.removedNodes) {
+          canvases.forEach((canvas, index) => {
+            if (
+              removedNode === canvas
+              || (removedNode instanceof Element && removedNode.contains(canvas))
+            ) {
+              removed.add(index)
+            }
+          })
+        }
+      }
+    }
+    const observer = new MutationObserver(markRemovedNodes)
+    observer.observe(document.body, { childList: true, subtree: true })
+    window[trackerKey] = { canvases, removed, observer, markRemovedNodes }
+    return { count: canvases.length, expected }
+  }, expectedCount)
+
+  assertCondition(
+    caseId,
+    result.count === expectedCount,
+    `expected ${expectedCount} canvases before tracking, found ${result.count}`,
+  )
+}
+
+async function assertCanvasIdentityPreserved(page, caseId) {
+  const result = await page.evaluate(() => {
+    const trackerKey = '__dcdcCanvasIdentityTracker'
+    const tracker = window[trackerKey]
+    if (!tracker) {
+      return { tracked: false, same: false, removed: [] }
+    }
+    tracker.markRemovedNodes(tracker.observer.takeRecords())
+    const current = [...document.querySelectorAll('canvas')]
+    const same = current.length === tracker.canvases.length
+      && tracker.canvases.every((canvas, index) => current[index] === canvas)
+    const removed = [...tracker.removed]
+    tracker.observer.disconnect()
+    delete window[trackerKey]
+    return { tracked: true, same, removed }
+  })
+
+  assertCondition(caseId, result.tracked, 'canvas identity tracker was not initialized')
+  assertCondition(
+    caseId,
+    result.same && result.removed.length === 0,
+    `canvas node was replaced during recalculation (removed indices: ${result.removed.join(', ') || 'none'})`,
+  )
+}
+
 async function navigateTo(page, record, baseUrl, path) {
   const response = await page.goto(`${baseUrl}${path}`, {
     timeout: PAGE_TIMEOUT_MILLISECONDS,
@@ -658,6 +720,17 @@ async function runCheck(browser, baseUrl) {
     assertNoPrecomputedRequests('check', record)
     assertNoBrowserErrors('check', record)
 
+    await beginCanvasIdentityTracking(page, 'check chart transition', 1)
+    await fillBoundaryInput(
+      page,
+      record,
+      'check chart transition',
+      page.getByLabel('ダイス数'),
+      2,
+      1,
+    )
+    await assertCanvasIdentityPreserved(page, 'check chart transition')
+
     await fillBoundaryInput(
       page,
       record,
@@ -669,6 +742,12 @@ async function runCheck(browser, baseUrl) {
     assertNoPrecomputedRequests('check-dice=100', record)
     const summaries = [
       { canvases, displayForms, id: 'check', precomputed: 0 },
+      {
+        canvases: 1,
+        id: 'check chart transition continuity',
+        precomputed: 0,
+        transitionContinuity: true,
+      },
       { canvases: 1, id: 'check dice=100', precomputed: 0 },
     ]
 
@@ -973,6 +1052,7 @@ async function runAttack(browser, baseUrl) {
 
     // Verify the R7 controller wiring for both sides of the first combo
     // before exercising the high-range boundary inputs below.
+    await beginCanvasIdentityTracking(page, 'attack chart transition', 2)
     await fillBoundaryInput(
       page,
       record,
@@ -981,6 +1061,7 @@ async function runAttack(browser, baseUrl) {
       3,
       2,
     )
+    await assertCanvasIdentityPreserved(page, 'attack chart transition')
     await selectAttackReactionMode(page, record, 'attack reaction mode update', '《イベイジョン》')
     await assertCompoundD10Groups(page, 'attack evasion compound inputs', [
       {
@@ -1044,6 +1125,7 @@ async function runAttack(browser, baseUrl) {
     })
     assertNoBrowserErrors('attack combo add', record)
 
+    await beginCanvasIdentityTracking(page, 'attack combo rename chart identity', 2)
     await comboNameInputs.nth(1).fill('検証コンボ')
     assertCondition(
       'attack combo rename',
@@ -1054,6 +1136,7 @@ async function runAttack(browser, baseUrl) {
       state: 'visible',
       timeout: PAGE_TIMEOUT_MILLISECONDS,
     })
+    await assertCanvasIdentityPreserved(page, 'attack combo rename chart identity')
     assertCondition(
       'attack combo rename',
       await page.locator('tbody tr').filter({ hasText: 'コンボ2' }).count() === 0,
@@ -1344,6 +1427,20 @@ async function runAttack(browser, baseUrl) {
       {
         canvases: 2,
         d10Requests: 0,
+        id: 'attack chart transition continuity',
+        precomputed: 0,
+        transitionContinuity: true,
+      },
+      {
+        canvases: 2,
+        d10Requests: 0,
+        id: 'attack combo rename chart identity',
+        precomputed: 0,
+        transitionContinuity: true,
+      },
+      {
+        canvases: 2,
+        d10Requests: 0,
         id: 'attack defence=1',
         precomputed: 0,
       },
@@ -1442,6 +1539,7 @@ async function runBacktrack(browser, baseUrl) {
     assertNoBrowserErrors('backtrack', record)
     // Keep both high-dice changes across visible chart buckets so each input
     // update can be verified as an actual result commit.
+    await beginCanvasIdentityTracking(page, 'backtrack chart transition', 3)
     await fillBoundaryInput(
       page,
       record,
@@ -1450,6 +1548,7 @@ async function runBacktrack(browser, baseUrl) {
       700,
       3,
     )
+    await assertCanvasIdentityPreserved(page, 'backtrack chart transition')
     await fillBoundaryInput(
       page,
       record,
@@ -1468,9 +1567,44 @@ async function runBacktrack(browser, baseUrl) {
     )
     assertNoPrecomputedRequests('backtrack-boundaries', record)
     assertNoBrowserErrors('backtrack-boundaries', record)
+
+    const backtrackDiceInput = page.getByLabel('その他減少量（ダイス）')
+    await fillBoundaryInput(
+      page,
+      record,
+      'backtrack resource rejection clears old frame',
+      backtrackDiceInput,
+      20000,
+      0,
+    )
+    await page.getByRole('alert').filter({ hasText: 'この入力では計算できません' }).waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    assertNoBrowserErrors('backtrack resource rejection clears old frame', record)
+
+    const backtrackRecoveryState = await captureResultState(page)
+    await fillBoundaryInput(
+      page,
+      record,
+      'backtrack resource recovery',
+      backtrackDiceInput,
+      100,
+      3,
+    )
+    await waitForResultCommit(page, backtrackRecoveryState)
+    assertNoBrowserErrors('backtrack resource recovery', record)
     return [
       { canvases, id: 'backtrack', precomputed: 0 },
       { canvases: 3, id: 'backtrack Eロイス/other dice=100', precomputed: 0 },
+      {
+        canvases: 3,
+        id: 'backtrack chart transition continuity',
+        precomputed: 0,
+        transitionContinuity: true,
+      },
+      { canvases: 0, id: 'backtrack resource rejection clears old frame', precomputed: 0 },
+      { canvases: 3, id: 'backtrack resource recovery', precomputed: 0 },
     ]
   } catch (error) {
     throw enrichCaseError('backtrack', error, record)
@@ -1490,6 +1624,9 @@ function printSummary(summaries) {
       console.log(`  display range forms: ${summary.displayForms}`)
     }
     console.log(`  precomputed requests: ${summary.precomputed}`)
+    if (summary.transitionContinuity !== undefined) {
+      console.log(`  chart node continuity: ${summary.transitionContinuity ? 'PASS' : 'FAIL'}`)
+    }
     if (summary.d10Requests !== undefined) {
       console.log(`  d10 requests: ${summary.d10Requests}`)
     }
