@@ -17,6 +17,8 @@
         displayFeedback,
         scoreDisplayFeedback,
         summaryReady,
+        scoreChartTransitionPending,
+        damageChartTransitionPending,
         feedbackNotice,
         onDisplayValidated,
         onScoreDisplayValidated,
@@ -50,6 +52,7 @@
                     :displayRequest="scoreDisplayRequest"
                     :presentation="scoreDisplayPresentation"
                     :displayFeedback="scoreDisplayFeedback"
+                    :preserve-previous-frame="scoreChartTransitionPending"
                     @display-validated="onScoreDisplayValidated"
                 />
             </v-col>
@@ -59,6 +62,7 @@
                     :displayRequest="displayRequest"
                     :presentation="displayPresentation"
                     :displayFeedback="displayFeedback"
+                    :preserve-previous-frame="damageChartTransitionPending"
                     @display-validated="onDisplayValidated"
                 />
             </v-col>

@@ -346,6 +346,34 @@ describe('Attack canonical score display adapter', () => {
     expect(presentation.score.status).toBe('ready')
     expect(chart).not.toBeNull()
     expect(chart.datasets[0].data).toEqual([100, 0, 0, 0])
+    expect(chart.datasets[0].datasetKey).toBe('combo:production-combo')
+  })
+
+  it('keeps dataset identity stable when only a combo name changes', () => {
+    const scorePresentation = {
+      status: 'ready',
+      combos: [{
+        id: 7,
+        action: {
+          chart: {
+            labels: [0, 1],
+            datasets: [{ data: Float64Array.from([0.25, 0.75]) }],
+          },
+        },
+      }],
+    }
+    const before = getAttackScoreChartData(scorePresentation, [
+      { id: 7, name: 'コンボ1' },
+    ])
+    const after = getAttackScoreChartData(scorePresentation, [
+      { id: 7, name: 'ボス攻撃' },
+    ])
+
+    expect(before.datasets[0].datasetKey).toBe('combo:7')
+    expect(after.datasets[0].datasetKey).toBe(before.datasets[0].datasetKey)
+    expect(before.datasets[0].label).toBe('コンボ1')
+    expect(after.datasets[0].label).toBe('ボス攻撃')
+    expect(after.datasets[0].data).toEqual(before.datasets[0].data)
   })
 
   it('reaches ready score coverage through the production calculation client after expansion', async () => {

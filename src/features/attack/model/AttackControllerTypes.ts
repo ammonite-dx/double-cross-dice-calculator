@@ -44,6 +44,8 @@ export interface AttackController {
   readonly displayFeedback: ComputedRef<CalculationFeedbackState<DisplayFeedbackPlan>>
   readonly scoreDisplayFeedback: ComputedRef<CalculationFeedbackState<DisplayFeedbackPlan>>
   readonly summaryReady: ComputedRef<boolean>
+  readonly scoreChartTransitionPending: ComputedRef<boolean>
+  readonly damageChartTransitionPending: ComputedRef<boolean>
   readonly feedbackNotice: ComputedRef<CalculationFeedbackState<CalculationRangePlan>>
   readonly onDisplayValidated: (request: DisplayRequestSnapshot) => void
   readonly onScoreDisplayValidated: (request: DisplayRequestSnapshot) => void

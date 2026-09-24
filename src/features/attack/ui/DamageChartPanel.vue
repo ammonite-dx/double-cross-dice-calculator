@@ -15,6 +15,7 @@
         displayRequest: DisplayRequestSnapshot
         presentation: AttackDisplayPresentation | null
         displayFeedback: CalculationFeedbackState<DisplayFeedbackPlan> | null
+        preservePreviousFrame: boolean
     }>()
     const emit = defineEmits<{
         'display-validated': [request: DisplayRequestSnapshot]
@@ -32,6 +33,7 @@
                 <DamageChart
                     :combos="props.combos"
                     :presentation="props.presentation"
+                    :preserve-previous-frame="props.preservePreviousFrame"
                 />
                 <DamageSettingForm
                     :displayRequest="props.displayRequest"

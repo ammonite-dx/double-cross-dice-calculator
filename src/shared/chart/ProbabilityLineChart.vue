@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-    import { computed } from 'vue'
+    import { computed, shallowRef, watch } from 'vue'
     import { useDisplay } from 'vuetify'
     import {
         CategoryScale,
@@ -21,6 +21,11 @@
 
     type ProbabilityChartData = ChartData<'line', ArrayLike<number>, number> | ChartJsData
 
+    interface ProbabilityChartFrame {
+        readonly data: ChartData<'line'>
+        readonly options: ChartOptions<'line'>
+    }
+
     Chart.register(
         CategoryScale,
         LinearScale,
@@ -36,23 +41,40 @@
         data?: ProbabilityChartData | null
         options: ProbabilityLineChartOptions
         accessibleName?: string
+        preservePreviousFrame?: boolean
+        datasetIdKey?: string
     }>(), {
         data: null,
         accessibleName: '確率分布チャート',
+        preservePreviousFrame: false,
+        datasetIdKey: 'label',
     })
 
     const { mdAndUp } = useDisplay()
     const style = computed(() => getProbabilityLineChartStyle(mdAndUp.value))
-    const chartData = computed(() => props.data === null
-        ? null
-        : props.data as unknown as ChartData<'line'>)
-    const chartOptions = computed(() =>
-        props.options as unknown as ChartOptions<'line'>)
+    // This is a short-lived rendering cache, not calculation state: stale
+    // data remains visible only while a replacement request is loading.
+    const frame = shallowRef<ProbabilityChartFrame | null>(null)
+
+    watch(
+        () => [props.data, props.options, props.preservePreviousFrame] as const,
+        ([data, options, preservePreviousFrame]) => {
+            if (data !== null && data !== undefined) {
+                frame.value = {
+                    data: data as unknown as ChartData<'line'>,
+                    options: options as unknown as ChartOptions<'line'>,
+                }
+            } else if (!preservePreviousFrame) {
+                frame.value = null
+            }
+        },
+        { immediate: true },
+    )
 
 </script>
 
 <template>
     <div>
-        <Line v-if="chartData !== null" :data="chartData" :options="chartOptions" :style="style" :aria-label="props.accessibleName" />
+        <Line v-if="frame !== null" :data="frame.data" :options="frame.options" :dataset-id-key="props.datasetIdKey" :style="style" :aria-label="props.accessibleName" />
     </div>
 </template>

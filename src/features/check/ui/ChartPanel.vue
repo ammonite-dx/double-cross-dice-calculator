@@ -14,6 +14,7 @@
         displayRequest: DisplayRequestSnapshot
         presentation: CheckPresentation | null
         displayFeedback: CalculationFeedbackState<DisplayFeedbackPlan> | null
+        preservePreviousFrame: boolean
     }>()
     const emit = defineEmits<{
         'display-validated': [request: DisplayRequestSnapshot]
@@ -31,6 +32,7 @@
                 <ScoreChart
                     :difficulty="props.difficulty"
                     :presentation="props.presentation"
+                    :preserve-previous-frame="props.preservePreviousFrame"
                 />
                 <SettingForm
                     :displayRequest="props.displayRequest"

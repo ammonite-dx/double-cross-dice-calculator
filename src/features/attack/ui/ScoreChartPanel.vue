@@ -18,6 +18,7 @@
         displayRequest: DisplayRequestSnapshot
         presentation: AttackDisplayPresentation | AttackScoreDisplayPresentation | null
         displayFeedback: CalculationFeedbackState<DisplayFeedbackPlan> | null
+        preservePreviousFrame: boolean
     }>()
     const emit = defineEmits<{
         'display-validated': [request: DisplayRequestSnapshot]
@@ -35,6 +36,7 @@
                 <ScoreChart
                     :combos="props.combos"
                     :presentation="props.presentation"
+                    :preserve-previous-frame="props.preservePreviousFrame"
                 />
                 <ScoreSettingForm
                     :displayRequest="props.displayRequest"

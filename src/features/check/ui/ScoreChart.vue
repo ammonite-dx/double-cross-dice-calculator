@@ -9,6 +9,7 @@
     const props = defineProps<{
         difficulty: DifficultyInput
         presentation: CheckPresentation | null
+        preservePreviousFrame: boolean
     }>()
     const data = computed(() => props.presentation?.status === 'ready'
         ? props.presentation.chart
@@ -24,6 +25,7 @@
     <ProbabilityLineChart
         :data="data"
         :options="options"
+        :preserve-previous-frame="props.preservePreviousFrame"
         accessibleName="一般判定 達成値確率分布"
     />
 </template>

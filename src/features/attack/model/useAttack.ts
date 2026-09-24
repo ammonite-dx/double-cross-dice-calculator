@@ -540,6 +540,14 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
   const summaryReady = computed(
     () => state.displayPresentation?.status === 'ready'
   )
+  const scoreChartTransitionPending = computed(() =>
+    state.feedback.status === 'loading'
+    || state.scoreDisplayFeedback.status === 'loading'
+  )
+  const damageChartTransitionPending = computed(() =>
+    state.feedback.status === 'loading'
+    || state.displayFeedback.status === 'loading'
+  )
   const feedbackNotice = computed<CalculationFeedbackState<CalculationRangePlan>>(() =>
     state.feedback?.status === 'rejected'
       || state.feedback?.status === 'error'
@@ -556,6 +564,8 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     displayFeedback,
     scoreDisplayFeedback,
     summaryReady,
+    scoreChartTransitionPending,
+    damageChartTransitionPending,
     feedbackNotice,
     onDisplayValidated,
     onScoreDisplayValidated,

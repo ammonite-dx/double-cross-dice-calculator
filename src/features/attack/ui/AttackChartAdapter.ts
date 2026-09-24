@@ -13,6 +13,9 @@ import type { ChartJsDataset } from '@/shared/presentation/DistributionProjectio
 
 type ComboLabel = Pick<AttackCombo, 'id' | 'name'>
 type ProbabilityChartData = ChartData<'line', number[], number>
+type AttackChartDataset = ChartDataset<'line', number[]> & {
+    datasetKey: string
+}
 
 function toPercentageData(dataset: ChartJsDataset): number[] {
     return toChartPercentages(dataset.data) ?? []
@@ -52,6 +55,7 @@ export function getAttackScoreChartData (
         const id = attackCombo?.id ?? combo?.id ?? index;
         const color = getIndexedChartColor(id, index)
         return {
+            datasetKey: `combo:${String(id)}`,
             data: toPercentageData(dataset),
             label: attackCombo?.name ?? `コンボ${index + 1}`,
             backgroundColor: color,
@@ -65,7 +69,7 @@ export function getAttackScoreChartData (
         return null;
     }
 
-    const datasets: ChartDataset<'line', number[]>[] = candidates
+    const datasets: AttackChartDataset[] = candidates
         .filter((dataset): dataset is NonNullable<typeof dataset> => dataset !== null)
         .map((dataset) => ({ ...dataset }))
     const firstChart = scorePresentation.combos[0]?.action.chart
@@ -128,6 +132,7 @@ export function getAttackDamageChartData (
         const combo = combos?.[index];
         const id = combo?.id ?? side.id;
         return {
+            datasetKey: `combo:${String(id)}`,
             data: toPercentageData(dataset),
             label: combo?.name ?? `コンボ${index + 1}`,
             backgroundColor: getIndexedChartColor(id, index),
@@ -138,7 +143,7 @@ export function getAttackDamageChartData (
         return null;
     }
 
-    const datasets: ChartDataset<'line', number[]>[] = candidates
+    const datasets: AttackChartDataset[] = candidates
         .filter((dataset): dataset is NonNullable<typeof dataset> => dataset !== null)
         .map((dataset) => ({ ...dataset }))
     if (comboCount > 1) {
@@ -147,6 +152,7 @@ export function getAttackDamageChartData (
             return null;
         }
         datasets.push({
+            datasetKey: 'total',
             data: toPercentageData(totalDataset),
             label: '合計',
             backgroundColor: 'secondary',

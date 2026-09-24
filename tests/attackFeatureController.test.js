@@ -145,6 +145,24 @@ describe('Attack feature controller', () => {
     controller.dispose()
   })
 
+  it('exposes chart-only transition pending flags without retaining a current result', () => {
+    const { controller, client } = createController()
+    expect(controller.scoreChartTransitionPending.value).toBe(false)
+    expect(controller.damageChartTransitionPending.value).toBe(false)
+
+    controller.onComboSideValidated({
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(),
+    })
+
+    expect(client.calculateAttack).toHaveBeenCalledOnce()
+    expect(controller.scoreChartTransitionPending.value).toBe(true)
+    expect(controller.damageChartTransitionPending.value).toBe(true)
+    expect(controller.displayPresentation.value).toBeNull()
+    controller.dispose()
+  })
+
   it('allocates monotonic ids and calculates once per combo operation', () => {
     const { controller, client } = createController()
     controller.addCombo()
@@ -546,12 +564,16 @@ describe('Attack feature controller', () => {
     })
     await waitForReady(controller)
     const previousDamage = controller.displayPresentation.value?.total
+    expect(controller.scoreChartTransitionPending.value).toBe(false)
+    expect(controller.damageChartTransitionPending.value).toBe(false)
 
     controller.onScoreDisplayValidated({
       min: 0,
       max: 102,
       mode: ATTACK_DISPLAY_MODES.PMF,
     })
+    expect(controller.scoreChartTransitionPending.value).toBe(true)
+    expect(controller.damageChartTransitionPending.value).toBe(true)
 
     await vi.waitFor(() => expect(
       client.executionCalls
@@ -568,6 +590,8 @@ describe('Attack feature controller', () => {
       ])
     expect(controller.scoreDisplayPresentation.value.displayRequest)
       .toEqual({ min: 0, max: 102, mode: ATTACK_DISPLAY_MODES.PMF })
+    expect(controller.scoreChartTransitionPending.value).toBe(false)
+    expect(controller.damageChartTransitionPending.value).toBe(false)
     controller.dispose()
   })
 

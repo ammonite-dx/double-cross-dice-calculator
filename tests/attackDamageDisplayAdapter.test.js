@@ -87,10 +87,12 @@ describe('Attack canonical damage display adapters', () => {
     expect(data.labels).toEqual([0, 1])
     expect(data.datasets).toHaveLength(2)
     expect(data.datasets[0].data).toEqual([75, 25])
+    expect(data.datasets[0].datasetKey).toBe('combo:0')
     expect(data.datasets[0].data).not.toBe(
       presentation.combos[0].chart.datasets[0].data
     )
     expect(data.datasets[1].data).toEqual([75, 25])
+    expect(data.datasets[1].datasetKey).toBe('total')
     expect(data.datasets[1].data).not.toBe(
       presentation.total.chart.datasets[0].data
     )
@@ -112,6 +114,26 @@ describe('Attack canonical damage display adapters', () => {
       createPresentation('not-ready'),
       legacyData.combos
     )).toBeNull()
+  })
+
+  it('keeps combo and total dataset identities stable across name changes', () => {
+    const presentation = createPresentation()
+    const before = getAttackDamageChartData(presentation, [
+      { id: 7, name: 'コンボ1' },
+      { id: 8, name: 'コンボ2' },
+    ])
+    const after = getAttackDamageChartData(presentation, [
+      { id: 7, name: 'ボス攻撃' },
+      { id: 8, name: 'コンボ2' },
+    ])
+
+    expect(before.datasets.map(({ datasetKey }) => datasetKey))
+      .toEqual(['combo:7', 'total'])
+    expect(after.datasets.map(({ datasetKey }) => datasetKey))
+      .toEqual(before.datasets.map(({ datasetKey }) => datasetKey))
+    expect(before.datasets[0].label).toBe('コンボ1')
+    expect(after.datasets[0].label).toBe('ボス攻撃')
+    expect(after.datasets[0].data).toEqual(before.datasets[0].data)
   })
 
   it('displays only exact or stably rounded canonical summaries', () => {

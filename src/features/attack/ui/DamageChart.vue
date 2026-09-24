@@ -11,6 +11,7 @@
     const props = defineProps<{
         combos: readonly AttackUiCombo[]
         presentation: AttackDisplayPresentation | null
+        preservePreviousFrame: boolean
     }>()
     const data = computed(() => getAttackDamageChartData(
         props.presentation,
@@ -26,6 +27,8 @@
     <ProbabilityLineChart
         :data="data"
         :options="options"
+        :preserve-previous-frame="props.preservePreviousFrame"
+        dataset-id-key="datasetKey"
         accessibleName="攻撃判定 ダメージ確率分布"
     />
 </template>

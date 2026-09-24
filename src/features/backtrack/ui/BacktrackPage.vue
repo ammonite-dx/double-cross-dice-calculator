@@ -8,7 +8,6 @@
     const {
         params,
         presentation,
-        resultReady,
         rangeFeedback,
         onValidated,
     } = useBacktrack({ calculationClient })
@@ -21,8 +20,9 @@
             :rangeFeedback="rangeFeedback"
             @validated="onValidated"
         /></v-col></v-row>
-        <v-row v-if="resultReady && presentation"><v-col cols="12"><FinalEncroachmentChartPanel
+        <v-row><v-col cols="12"><FinalEncroachmentChartPanel
             :presentation="presentation"
+            :preserve-previous-frame="rangeFeedback.status === 'loading'"
         /></v-col></v-row>
     </v-container>
 </template>

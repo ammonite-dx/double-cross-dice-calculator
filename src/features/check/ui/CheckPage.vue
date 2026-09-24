@@ -39,6 +39,7 @@
             :displayRequest="displayRequest"
             :presentation="presentation"
             :displayFeedback="displayFeedback"
+            :preserve-previous-frame="rangeFeedback.status === 'loading'"
             @display-validated="onDisplayValidated"
         /></v-col></v-row>
         <v-row v-if="resultReady"><v-col cols="12"><SummaryPanel
