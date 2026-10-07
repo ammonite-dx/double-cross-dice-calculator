@@ -72,13 +72,6 @@ function attackParams() {
   }
 }
 
-function checkParams() {
-  return {
-    action: { ...scoreParams },
-    reaction: { ...scoreParams },
-  }
-}
-
 function createPlannedDependencies() {
   const plan = {
     accepted: true,
@@ -103,9 +96,13 @@ describe('canonical CalculationClient surface', () => {
     }
 
     const check = await client.calculateCheck({
+      kind: 'fixed',
       action: score,
-      reaction: { ...score },
-    }, { opposed: false, target: 0 })
+      target: 0,
+    })
+    expect(check.kind).toBe('fixed')
+    expect(check.score).not.toHaveProperty('reaction')
+    expect(check.scoreStatistics).not.toHaveProperty('reaction')
     expect(check.score.action).toMatchObject({
       result: expect.objectContaining({ values: expect.any(Float64Array) }),
       metadata: expect.objectContaining({ modeledDistribution: true }),
@@ -153,9 +150,10 @@ describe('canonical CalculationClient surface', () => {
     const policy = { limits: { maxCpuWork: 1 } }
 
     expect(client.planCheck({
+      kind: 'opposed',
       action: { ...scoreParams },
       reaction: { ...scoreParams },
-    }, { opposed: true, target: 9 }, policy)).toBe(plan)
+    }, policy)).toBe(plan)
     expect(client.planAttackCombo(params, policy)).toBe(plan)
     expect(client.planBacktrack({ dlois: '屍人', lois: 2 }, policy)).toBe(plan)
 
@@ -272,45 +270,83 @@ describe('canonical CalculationClient surface', () => {
 
     const result = await client.calculateCheck(
       {
+        kind: 'opposed',
         action: { ...scoreParams },
         reaction: { ...scoreParams, skill: 2 },
-      },
-      { opposed: true, target: 10 }
+      }
     )
 
     expect(result.scoreStatistics).toBe('canonical score summary')
     expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
-      result.score,
-      { opposed: true, target: 10 }
+      result.score
     )
     expect(dependencies.calculateScore).toHaveBeenCalledTimes(2)
   })
 
-  it('normalizes strict public difficulty input before planning', async () => {
+  it('validates fixed targets before planning', async () => {
     const { dependencies, planCalculationRanges } = createPlannedDependencies()
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateCheck(
-      checkParams(),
-      { opposed: 'false', target: 10 },
-    )).rejects.toThrow()
-    await expect(client.calculateCheck(
-      checkParams(),
-      { opposed: false, target: -1 },
-    )).rejects.toThrow()
+    await expect(client.calculateCheck({
+      kind: 'fixed', action: { ...scoreParams }, target: -1,
+    })).rejects.toThrow()
     expect(planCalculationRanges).not.toHaveBeenCalled()
   })
 
-  it('preserves the legacy fixed-difficulty default when difficulty is omitted', async () => {
+  it('does not normalize or calculate a hidden reaction for fixed requests', async () => {
     const { dependencies } = createPlannedDependencies()
     const client = createCalculationClient(dependencies)
 
-    await client.calculateCheck(checkParams(), undefined)
+    const input = {
+      kind: 'fixed',
+      action: { ...scoreParams },
+      target: 10,
+      reaction: { dice: -1, critical: 1 },
+    }
+    const result = await client.calculateCheck(input)
 
-    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
-      expect.any(Object),
-      { opposed: false, target: 0 },
-    )
+    expect(result.kind).toBe('fixed')
+    expect(result.score).not.toHaveProperty('reaction')
+    expect(dependencies.calculateScore).toHaveBeenCalledOnce()
+    expect(dependencies.planCalculationRanges.mock.calls[0][0]).toMatchObject({
+      checkKind: 'fixed',
+      score: { action: expect.any(Object) },
+    })
+    expect(dependencies.planCalculationRanges.mock.calls[0][0].score)
+      .not.toHaveProperty('reaction')
+  })
+
+  it('rejects an oversized reaction only while the Check is opposed', async () => {
+    const client = createCalculationClient()
+    const opposedInput = {
+      kind: 'opposed',
+      action: { ...scoreParams },
+      reaction: { ...scoreParams, skill: 10_000_000 },
+    }
+
+    const opposedPlan = client.planCheck(opposedInput)
+    expect(opposedPlan.accepted).toBe(false)
+    expect(opposedPlan.rejectionReasons).toContain('estimated-memory')
+    await expect(client.calculateCheck(opposedInput)).rejects.toMatchObject({
+      name: 'CalculationRangeError',
+      rejectionReasons: expect.arrayContaining(['estimated-memory']),
+    })
+
+    const fixedInput = {
+      kind: 'fixed',
+      action: { ...scoreParams },
+      target: 0,
+      // A hidden UI draft is intentionally not part of the fixed contract.
+      reaction: { ...scoreParams, skill: 10_000_000, critical: Number.NaN },
+    }
+    const fixedPlan = client.planCheck(fixedInput)
+    expect(fixedPlan.accepted).toBe(true)
+    expect(fixedPlan.checkKind).toBe('fixed')
+    await expect(client.calculateCheck(fixedInput)).resolves.toMatchObject({
+      kind: 'fixed',
+      score: { action: expect.any(Object) },
+    })
+    expect(client.planCheck(opposedInput).accepted).toBe(false)
   })
 
   it('passes equivalent canonical coordinates for raw and normalized Evasion input', async () => {
@@ -441,9 +477,10 @@ describe('canonical CalculationClient surface', () => {
     const client = createCalculationClient()
 
     await expect(client.calculateCheck({
+      kind: 'fixed',
       action: { ...scoreParams, yousei: 1, shihai: 1 },
-      reaction: { ...scoreParams },
-    }, { opposed: false, target: 0 }, {
+      target: 0,
+    }, {
       rangePolicy: {},
     })).rejects.toMatchObject({
       name: 'CalculationRangeError',

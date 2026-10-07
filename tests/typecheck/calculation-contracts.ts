@@ -174,20 +174,28 @@ void validatedBacktrackPlan
 // R27-B2b runtime/public-contract regressions.
 const concreteClient: CalculationClient = createCalculationClient()
 const completeDependencies = createCalculationDependencies()
-const rawCheckParams = {
-  action: { dice: 1, critical: 10, skill: 0 },
-  reaction: { dice: 1, critical: 10, skill: 0 },
-}
+const fixedCheckInput = {
+  kind: 'fixed',
+  action: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+  target: 10,
+} as const
+const opposedCheckInput = {
+  kind: 'opposed',
+  action: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+  reaction: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+} as const
 
-void concreteClient.calculateCheck(rawCheckParams, undefined)
-void concreteClient.calculateCheck(rawCheckParams, { opposed: true })
-// @ts-expect-error: difficulty opposed must be boolean.
-void concreteClient.calculateCheck(rawCheckParams, { opposed: 'false' })
+void concreteClient.calculateCheck(fixedCheckInput)
+void concreteClient.calculateCheck(opposedCheckInput)
+// @ts-expect-error: fixed requests do not carry reaction inputs.
+void concreteClient.calculateCheck({ ...fixedCheckInput, reaction: opposedCheckInput.reaction })
+// @ts-expect-error: opposed requests require a reaction input.
+void concreteClient.calculateCheck({ kind: 'opposed', action: fixedCheckInput.action })
 
 void concreteClient.planBacktrack({ lois: 2, dlois: '屍人' })
 void concreteClient.calculateBacktrack({ lois: 2 })
 
-const concreteCheckPlan = concreteClient.planCheck(rawCheckParams)
+const concreteCheckPlan = concreteClient.planCheck(opposedCheckInput)
 concreteCheckPlan.operation satisfies 'check'
 const concreteAttackPlan = concreteClient.planAttackCombo({
   action: {

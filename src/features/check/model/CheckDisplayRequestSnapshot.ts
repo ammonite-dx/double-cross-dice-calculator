@@ -7,13 +7,23 @@ import {
   isDisplayMode,
   isDisplayCoordinate,
 } from '../../../shared/validation/DisplayRangeRules'
-import { createCheckInputSnapshot } from './CheckInputSnapshot'
-import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
+import { snapshotCheckCalculationInput } from './CheckInputSnapshot'
+import type {
+  CheckCalculationInput,
+  DisplayRequestSnapshot,
+} from '../../../domain/CalculationInputs'
 import type { RangePolicyInput } from '../../../calculation/planning/RangePlannerTypes'
 
-type CheckCalculationDraft = Parameters<typeof createCheckInputSnapshot>[0] & {
+type CheckCalculationRequestDraft = {
+  readonly input: CheckCalculationInput
   readonly displayRequest?: unknown
   readonly rangePolicy?: RangePolicyInput
+}
+
+export interface CheckCalculationRequestSnapshot {
+  readonly input: CheckCalculationInput
+  readonly displayRequest: DisplayRequestSnapshot
+  readonly rangePolicy: ReturnType<typeof createCheckRangePolicy>
 }
 
 export const CHECK_DISPLAY_REQUEST_VERSION = 1
@@ -148,19 +158,18 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
 
 /**
  * Make the complete, alias-free Check calculation request consumed by the
- * latest-wins runner. Existing createCheckInputSnapshot remains unchanged for
- * callers that only need calculation inputs.
+ * latest-wins runner. The discriminated input is its calculation identity;
+ * display and resource policy remain request metadata.
  */
 export function createCheckCalculationRequestSnapshot(
-  draft: CheckCalculationDraft = {},
-) {
+  draft: CheckCalculationRequestDraft,
+): CheckCalculationRequestSnapshot {
   const displayRequest = createCheckDisplayRequestSnapshot(
     draft.displayRequest ?? DEFAULT_CHECK_DISPLAY_REQUEST
   )
-  const input = createCheckInputSnapshot(draft)
+  const input = snapshotCheckCalculationInput(draft.input)
   return deepFreeze({
-    difficulty: input.difficulty,
-    params: input.params,
+    input,
     displayRequest,
     rangePolicy: createCheckRangePolicy(displayRequest, draft.rangePolicy),
   })

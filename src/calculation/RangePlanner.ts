@@ -205,13 +205,34 @@ function planCheck(
   policy: RangePolicy,
 ): CheckCalculationRangePlan {
   const display = normalizeDisplay(params.display)
-  const scoreTail = policy.errorBudget.scoreTail / 2
-  const scores = [
-    planScoreResolution(
-      toScoreResolution(params.score.action),
+  const scoreCount = params.checkKind === 'fixed' ? 1 : 2
+  const scoreTail = policy.errorBudget.scoreTail / scoreCount
+  const action = planScoreResolution(
+    toScoreResolution(params.score.action),
+    display,
+    scoreTail,
+  )
+  if (params.checkKind === 'fixed') {
+    const scores = [action] as const
+    const shape = {
+      operation: 'check' as const,
+      checkKind: 'fixed' as const,
       display,
-      scoreTail,
-    ),
+      scores,
+      damage: null,
+      backtrack: null,
+      estimates: scoreOnlyResources(scores),
+    }
+    const plan = {
+      ...shape,
+      ...createPlanMetadata(policy, 'check', 1),
+      overflowInfo: makeOverflowInfo(shape),
+    } satisfies CheckCalculationRangePlan
+    return applyPlanLimits(plan, policy)
+  }
+
+  const scores = [
+    action,
     planScoreResolution(
       toScoreResolution(params.score.reaction),
       display,
@@ -220,6 +241,7 @@ function planCheck(
   ] as const
   const shape = {
     operation: 'check' as const,
+    checkKind: 'opposed' as const,
     display,
     scores,
     damage: null,

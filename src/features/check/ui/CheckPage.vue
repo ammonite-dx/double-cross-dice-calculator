@@ -17,8 +17,8 @@
         presentation,
         rangeFeedback,
         displayFeedback,
-        onDifficultyValidated,
-        onScoreValidated,
+        onDifficultyValidationState,
+        onScoreValidationState,
         onAdvancedSettingsChanged,
         onDisplayValidated,
     } = await useCheck({ calculationClient })
@@ -31,8 +31,8 @@
             :scoreParams="scoreParams"
             :advanced-settings-enabled="advancedSettingsEnabled"
             :rangeFeedback="rangeFeedback"
-            @difficulty-validated="onDifficultyValidated"
-            @score-validated="onScoreValidated"
+            @difficulty-validation-state="onDifficultyValidationState"
+            @score-validation-state="onScoreValidationState"
             @advanced-settings-changed="onAdvancedSettingsChanged"
         /></v-col></v-row>
         <v-row><v-col cols="12"><ChartPanel

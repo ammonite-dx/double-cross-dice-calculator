@@ -2,6 +2,7 @@
 import DifficultyForm from './DifficultyForm.vue'
 import ScoreForm from './ScoreForm.vue'
 import type { DifficultyInput, ScoreInput } from '@/domain/CalculationInputs'
+import type { DraftValidation } from '@/shared/validation/DraftValidation'
 import type {
   CheckAdvancedSettingsChange,
   CheckAdvancedSettingsEnabled,
@@ -18,17 +19,23 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'difficulty-validated': [difficulty: DifficultyInput]
-  'score-validated': [payload: { side: CheckScoreSide; params: Partial<ScoreInput> }]
+  'difficulty-validation-state': [state: DraftValidation<DifficultyInput>]
+  'score-validation-state': [payload: {
+    side: CheckScoreSide
+    state: DraftValidation<Partial<ScoreInput>>
+  }]
   'advanced-settings-changed': [change: CheckAdvancedSettingsChange]
 }>()
 
-const onDifficultyValidated = (difficulty: DifficultyInput) => {
-  emit('difficulty-validated', difficulty)
+const onDifficultyValidationState = (state: DraftValidation<DifficultyInput>) => {
+  emit('difficulty-validation-state', state)
 }
 
-const onScoreValidated = (side: CheckScoreSide, params: Partial<ScoreInput>) => {
-  emit('score-validated', { side, params })
+const onScoreValidationState = (
+  side: CheckScoreSide,
+  state: DraftValidation<Partial<ScoreInput>>,
+) => {
+  emit('score-validation-state', { side, state })
 }
 
 const onAdvancedSettingsChanged = (side: CheckScoreSide, enabled: boolean) => {
@@ -38,12 +45,12 @@ const onAdvancedSettingsChanged = (side: CheckScoreSide, enabled: boolean) => {
 
 <template>
   <v-container class="pa-4">
-    <DifficultyForm :difficulty="difficulty" @validated="onDifficultyValidated" />
+    <DifficultyForm :difficulty="difficulty" @validation-state="onDifficultyValidationState" />
     <ScoreForm
       side="action"
       :params="scoreParams.action"
       :advanced-settings-enabled="advancedSettingsEnabled.action"
-      @validated="(params) => onScoreValidated('action', params)"
+      @validation-state="(state) => onScoreValidationState('action', state)"
       @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('action', enabled)"
     />
     <ScoreForm
@@ -51,7 +58,7 @@ const onAdvancedSettingsChanged = (side: CheckScoreSide, enabled: boolean) => {
       side="reaction"
       :params="scoreParams.reaction"
       :advanced-settings-enabled="advancedSettingsEnabled.reaction"
-      @validated="(params) => onScoreValidated('reaction', params)"
+      @validation-state="(state) => onScoreValidationState('reaction', state)"
       @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('reaction', enabled)"
     />
   </v-container>

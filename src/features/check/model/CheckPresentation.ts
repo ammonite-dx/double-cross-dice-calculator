@@ -122,16 +122,14 @@ function fail(code: string, message: string, details: unknown = {}): never {
 interface CheckPresentationOptions {
   readonly displayWindow: Readonly<{ min: number; max: number }>
   readonly mode?: DisplayMode
-  readonly opposed?: boolean
   readonly policy?: unknown
 }
 
-type CheckPresentationInput = Pick<CheckCalculationResult, 'score'>
+type CheckPresentationInput = CheckCalculationResult
 
 interface NormalizedCheckPresentationOptions {
   readonly displayWindow: Readonly<{ min: number; max: number }>
   readonly mode: DisplayMode
-  readonly opposed: boolean
   readonly policy?: unknown
 }
 
@@ -156,7 +154,6 @@ function normalizeOptions(
   }
 
   const optionMode = options.mode
-  const optionOpposed = options.opposed
   const optionPolicy = options.policy
 
   const mode = optionMode ?? CHECK_PRESENTATION_MODES.PMF
@@ -171,26 +168,15 @@ function normalizeOptions(
     )
   }
 
-  const opposed = optionOpposed ?? true
-  if (typeof opposed !== 'boolean') {
-    fail(
-      CHECK_PRESENTATION_ERROR_CODES.INVALID_OPPOSED,
-      'options.opposed must be boolean',
-      { opposed }
-    )
-  }
-
   return {
     displayWindow,
     mode,
-    opposed,
     policy: optionPolicy,
   }
 }
 
 function normalizeCheckResult(
   checkResult: CheckPresentationInput,
-  opposed: boolean,
 ): { action: ScoreEnvelope; reaction: ScoreEnvelope | null } {
   if (!isRecord(checkResult)) {
     fail(
@@ -216,16 +202,18 @@ function normalizeCheckResult(
       { path: 'checkResult.score.action' }
     )
   }
-  const reaction = opposed ? score.reaction : null
-  if (opposed && (reaction === undefined || reaction === null)) {
-    fail(
-      CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
-      'checkResult.score.reaction is required when opposed',
-      { path: 'checkResult.score.reaction' }
-    )
+  if (checkResult.kind === 'opposed') {
+    const reaction = checkResult.score.reaction
+    if (reaction === undefined || reaction === null) {
+      fail(
+        CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
+        'checkResult.score.reaction is required when opposed',
+        { path: 'checkResult.score.reaction' }
+      )
+    }
+    return { action, reaction }
   }
-
-  return { action, reaction }
+  return { action, reaction: null }
 }
 
 interface ScorePresentation {
@@ -391,7 +379,8 @@ function isKnownTypedError(error: unknown): boolean {
 /**
  * Connect a calculateCheck result to the shared display and Chart.js
  * contracts. The second argument is
- * `{ displayWindow, mode, opposed, policy }`.
+ * `{ displayWindow, mode, policy }`; the result kind determines whether the
+ * calculation contains a reaction side.
  */
 /**
  * @param {Object} checkResult
@@ -404,14 +393,15 @@ export function createCheckPresentation(
 ): CheckPresentation {
   try {
     const normalized = normalizeOptions(options)
-    const scores = normalizeCheckResult(checkResult, normalized.opposed)
+    const opposed = checkResult.kind === 'opposed'
+    const scores = normalizeCheckResult(checkResult)
     const action = createScorePresentation(
       scores.action,
       normalized.displayWindow,
       normalized.mode,
       normalized.policy
     )
-    const reaction = normalized.opposed
+    const reaction = opposed
       ? createScorePresentation(
           scores.reaction as ScoreEnvelope,
           normalized.displayWindow,
@@ -435,7 +425,7 @@ export function createCheckPresentation(
             : reaction as ScorePresentation & {
                 readonly projection: ReadyDistributionProjection
               },
-          normalized.opposed
+          opposed
         )
       : null
     const actionState = createSideState(action)
@@ -448,7 +438,7 @@ export function createCheckPresentation(
       kind: 'check-presentation',
       status,
       mode: normalized.mode,
-      opposed: normalized.opposed,
+      opposed,
       action: actionState,
       chart,
       decision,

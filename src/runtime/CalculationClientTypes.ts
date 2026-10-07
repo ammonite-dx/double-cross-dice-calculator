@@ -1,8 +1,7 @@
 import type {
   AttackCalculationInput,
-  CheckInputSnapshot,
+  CheckCalculationInput,
   DisplayRequestSnapshot,
-  DifficultyInput,
 } from '../domain/CalculationInputs'
 import type { BacktrackParams } from '../domain/BacktrackRules'
 import type {
@@ -11,7 +10,12 @@ import type {
   TotalDamageResult,
 } from '../domain/CalculationResultTypes'
 import type { DistributionEnvelope } from '../domain/DistributionResultTypes'
-import type { ScorePair, ScoreStatistics } from '../domain/ScoreResultTypes'
+import type {
+  ScoreEnvelope,
+  ScorePair,
+  ScoreStatistics,
+  ScoreStatisticsLane,
+} from '../domain/ScoreResultTypes'
 import type {
   TotalDamageCalculationOptions,
 } from '../calculation/DamageAggregationTypes'
@@ -55,15 +59,21 @@ export interface TotalDamageClientOptions
   extends TotalDamageCalculationOptions,
     CalculationRequestOptions {}
 
-export interface CheckCalculationResult {
-  readonly score: ScorePair
-  readonly scoreStatistics: ScoreStatistics
-}
+export type CheckCalculationResult =
+  | {
+      readonly kind: 'fixed'
+      readonly score: { readonly action: ScoreEnvelope }
+      readonly scoreStatistics: { readonly action: ScoreStatisticsLane }
+    }
+  | {
+      readonly kind: 'opposed'
+      readonly score: ScorePair
+      readonly scoreStatistics: ScoreStatistics
+    }
 
 export interface CalculationClient {
   planCheck(
-    params: CheckInputSnapshot['params'],
-    difficulty?: Partial<DifficultyInput>,
+    input: CheckCalculationInput,
     policy?: RangePolicyInput,
   ): CheckCalculationRangePlan
   planAttackCombo(
@@ -75,8 +85,7 @@ export interface CalculationClient {
     policy?: RangePolicyInput,
   ): BacktrackCalculationRangePlan
   calculateCheck(
-    params: CheckInputSnapshot['params'],
-    difficulty?: Partial<DifficultyInput>,
+    input: CheckCalculationInput,
     options?: CheckCalculationOptions,
   ): Promise<CheckCalculationResult>
   calculateAttack(

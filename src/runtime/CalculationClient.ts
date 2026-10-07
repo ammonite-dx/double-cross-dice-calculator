@@ -25,7 +25,10 @@ import {
   calculateScore as calculateCoreScore,
   calculateScoreResolution as calculateCoreScoreResolution,
 } from '../calculation/ScoreCalculator'
-import { getScoreStatistics } from '../calculation/ScoreStatistics'
+import {
+  getFixedScoreStatistics,
+  getScoreStatistics,
+} from '../calculation/ScoreStatistics'
 import { planCalculationRanges } from '../calculation/RangePlanner'
 import {
   normalizeAttackCalculationInput,
@@ -38,9 +41,8 @@ import { createRuntimeDamageRollClient } from './RuntimeDamageRollClient'
 import { createResourceGuard } from './ResourceGuard'
 import type {
   AttackCalculationInput,
-  CheckInputSnapshot,
+  CheckCalculationInput,
   DisplayRequestSnapshot,
-  DifficultyInput,
 } from '../domain/CalculationInputs'
 import type { BacktrackParams } from '../domain/BacktrackRules'
 import type {
@@ -224,20 +226,46 @@ function snapshotBacktrackParams(params: unknown): NormalizedBacktrackParams {
   return normalizeBacktrackParams(params)
 }
 
+function snapshotCheckInput(input: CheckCalculationInput): CheckCalculationInput {
+  if (input.kind === 'fixed') {
+    const target = normalizeDifficultyInput({
+      opposed: false,
+      target: input.target,
+    }).target
+    return {
+      kind: 'fixed',
+      action: snapshotScoreParams(input.action, 'check.action'),
+      target,
+    }
+  }
+  if (input.kind === 'opposed') {
+    return {
+      kind: 'opposed',
+      action: snapshotScoreParams(input.action, 'check.action'),
+      reaction: snapshotScoreParams(input.reaction, 'check.reaction'),
+    }
+  }
+  throw new TypeError('check input kind must be fixed or opposed')
+}
+
 function createCheckRangeParams(
-  request: Readonly<{
-    action: NormalizedScoreInput
-    reaction: NormalizedScoreInput
-  }>,
+  request: CheckCalculationInput,
   displayRequest?: DisplayRequestSnapshot,
 ): CheckRangePlannerInput {
-  const params = {
-    operation: 'check' as const,
-    score: {
-      action: rolledScoreResolution(request.action),
-      reaction: rolledScoreResolution(request.reaction),
-    },
-  }
+  const params: CheckRangePlannerInput = request.kind === 'fixed'
+    ? {
+        operation: 'check',
+        checkKind: 'fixed',
+        score: { action: rolledScoreResolution(request.action) },
+      }
+    : {
+        operation: 'check',
+        checkKind: 'opposed',
+        score: {
+          action: rolledScoreResolution(request.action),
+          reaction: rolledScoreResolution(request.reaction),
+        },
+      }
   if (displayRequest !== undefined) {
     return {
       ...params,
@@ -667,14 +695,10 @@ export function createCalculationClient(
 
   return {
     planCheck(
-      params: CheckInputSnapshot['params'],
-      _difficulty?: Partial<DifficultyInput>,
+      input: CheckCalculationInput,
       policy: RangePolicyInput = {},
     ): ReturnType<CalculationClient['planCheck']> {
-      const request = {
-        action: snapshotScoreParams(params.action, 'check.action'),
-        reaction: snapshotScoreParams(params.reaction, 'check.reaction'),
-      }
+      const request = snapshotCheckInput(input)
       return planner(createCheckRangeParams(request), policy)
     },
 
@@ -695,15 +719,10 @@ export function createCalculationClient(
     },
 
     async calculateCheck(
-      params: CheckInputSnapshot['params'],
-      difficulty?: Partial<DifficultyInput>,
+      input: CheckCalculationInput,
       options: CheckCalculationOptions = {},
     ) {
-      const request = {
-        action: snapshotScoreParams(params.action, 'check.action'),
-        reaction: snapshotScoreParams(params.reaction, 'check.reaction'),
-      }
-      const difficultyRequest = normalizeDifficultyInput(difficulty)
+      const request = snapshotCheckInput(input)
       const plan = runRangePreflight(
         planner(
           createCheckRangeParams(request, options.displayRequest),
@@ -723,23 +742,30 @@ export function createCalculationClient(
 
       try {
         throwIfAborted(options, 'check')
+        const action = scoreResolutionCalculator(
+          rolledScoreResolution(request.action),
+          plan.scores[0],
+        )
+        throwIfAborted(options, 'check')
+        if (request.kind === 'fixed') {
+          return {
+            kind: 'fixed' as const,
+            score: { action },
+            scoreStatistics: getFixedScoreStatistics(action, request.target),
+          }
+        }
         const score = {
-          action: scoreResolutionCalculator(
-            rolledScoreResolution(request.action),
-            plan.scores?.[0]
-          ),
+          action,
           reaction: scoreResolutionCalculator(
             rolledScoreResolution(request.reaction),
-            plan.scores?.[1]
+            plan.scores[1],
           ),
         }
         throwIfAborted(options, 'check')
         return {
+          kind: 'opposed' as const,
           score,
-          scoreStatistics: scoreStatisticsCalculator(
-            score,
-            difficultyRequest
-          ),
+          scoreStatistics: scoreStatisticsCalculator(score),
         }
       } finally {
         lease.release()

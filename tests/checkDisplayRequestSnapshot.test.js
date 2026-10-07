@@ -5,19 +5,20 @@ import {
   createCheckCalculationRequestSnapshot,
   createCheckDisplayRequestSnapshot,
 } from '../src/features/check/model/CheckDisplayRequestSnapshot'
+import { createCheckInputSnapshot } from '../src/features/check/model/CheckInputSnapshot'
 import {
   createCalculationRequestCoordinator,
 } from '../src/runtime/CalculationFeedback'
 import { planDisplayWindowResources } from '../src/shared/presentation'
 
 function createInput() {
-  return {
+  return createCheckInputSnapshot({
     difficulty: { opposed: true, target: 17 },
     params: {
       action: { dice: 7, critical: 8, skill: 3, yousei: 1, shihai: 0 },
       reaction: { dice: 5, critical: 9, skill: -2, yousei: 0, shihai: 4 },
     },
-  }
+  })
 }
 
 describe('Check display request snapshot', () => {
@@ -68,7 +69,7 @@ describe('Check display request snapshot', () => {
       limits: { workingLength: 4096 },
     }
     const request = createCheckCalculationRequestSnapshot({
-      ...input,
+      input,
       displayRequest: {
         min: 0,
         max: 1200,
@@ -82,13 +83,13 @@ describe('Check display request snapshot', () => {
       limits: { workingLength: 4096 },
     })
     expect(Object.isFrozen(request)).toBe(true)
-    expect(Object.isFrozen(request.params.action)).toBe(true)
-    expect(Object.isFrozen(request.difficulty)).toBe(true)
+    expect(Object.isFrozen(request.input.action)).toBe(true)
+    expect(Object.isFrozen(request.input)).toBe(true)
     expect(Object.isFrozen(request.rangePolicy)).toBe(true)
 
-    input.params.action.dice = 99
+    input.action.dice = 99
     policy.limits.workingLength = 1
-    expect(request.params.action.dice).toBe(7)
+    expect(request.input.action.dice).toBe(7)
     expect(request.rangePolicy.limits.workingLength).toBe(4096)
   })
 })
@@ -136,11 +137,11 @@ describe('Check display request latest-wins boundary', () => {
       commit: (result) => committed.push(result),
     })
     const firstRequest = createCheckCalculationRequestSnapshot({
-      ...createInput(),
+      input: createInput(),
       displayRequest: { min: 0, max: 30, mode: CHECK_DISPLAY_MODES.PMF },
     })
     const queuedDraft = {
-      ...createInput(),
+      input: createInput(),
       displayRequest: { min: 0, max: 1200, mode: CHECK_DISPLAY_MODES.UPPER_TAIL },
       rangePolicy: { display: { maxPoints: 2000 } },
     }

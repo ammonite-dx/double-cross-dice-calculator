@@ -301,9 +301,10 @@ describe('CalculationClient integration', () => {
 
   it('uses full-tail production planning with resource limits', () => {
     const checkPlan = calculationClient.planCheck({
+      kind: 'opposed',
       action: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
       reaction: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },
-    }, { opposed: true, target: 0 })
+    })
     const attackParams = {
       action: {
         score: { dice: 99, critical: 2, skill: 0, yousei: 9, shihai: 0 },

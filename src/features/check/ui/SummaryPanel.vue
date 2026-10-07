@@ -10,7 +10,7 @@
     }>()
 
     interface CheckSummaryFrame {
-        readonly difficulty: CheckCalculationRecord['input']['difficulty']
+        readonly difficulty: { readonly opposed: boolean; readonly target: number }
         readonly scoreStatistics: CheckCalculationRecord['result']['scoreStatistics']
     }
 
@@ -21,7 +21,9 @@
         ([record, replacementLoading]) => {
             if (record !== null) {
                 displayedFrame.value = Object.freeze({
-                    difficulty: record.input.difficulty,
+                    difficulty: record.input.kind === 'fixed'
+                        ? { opposed: false, target: record.input.target }
+                        : { opposed: true, target: 0 },
                     scoreStatistics: record.result.scoreStatistics,
                 })
             } else if (!replacementLoading) {

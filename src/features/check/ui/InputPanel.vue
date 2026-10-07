@@ -3,6 +3,7 @@ import InputForm from './InputForm.vue'
 import RangePlanNotice from '@/components/RangePlanNotice.vue'
 import { mdiTuneVariant } from '@mdi/js'
 import type { DifficultyInput, ScoreInput } from '@/domain/CalculationInputs'
+import type { DraftValidation } from '@/shared/validation/DraftValidation'
 import type { CalculationFeedbackState } from '@/runtime/CalculationFeedbackTypes'
 import type {
   CheckAdvancedSettingsChange,
@@ -20,17 +21,23 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'difficulty-validated': [difficulty: DifficultyInput]
-  'score-validated': [payload: { side: 'action' | 'reaction'; params: Partial<ScoreInput> }]
+  'difficulty-validation-state': [state: DraftValidation<DifficultyInput>]
+  'score-validation-state': [payload: {
+    side: 'action' | 'reaction'
+    state: DraftValidation<Partial<ScoreInput>>
+  }]
   'advanced-settings-changed': [change: CheckAdvancedSettingsChange]
 }>()
 
-const onDifficultyValidated = (difficulty: DifficultyInput) => {
-  emit('difficulty-validated', difficulty)
+const onDifficultyValidationState = (state: DraftValidation<DifficultyInput>) => {
+  emit('difficulty-validation-state', state)
 }
 
-const onScoreValidated = (payload: { side: 'action' | 'reaction'; params: Partial<ScoreInput> }) => {
-  emit('score-validated', payload)
+const onScoreValidationState = (payload: {
+  side: 'action' | 'reaction'
+  state: DraftValidation<Partial<ScoreInput>>
+}) => {
+  emit('score-validation-state', payload)
 }
 
 const onAdvancedSettingsChanged = (change: CheckAdvancedSettingsChange) => {
@@ -48,8 +55,8 @@ const onAdvancedSettingsChanged = (change: CheckAdvancedSettingsChange) => {
         :difficulty="difficulty"
         :score-params="scoreParams"
         :advanced-settings-enabled="advancedSettingsEnabled"
-        @difficulty-validated="onDifficultyValidated"
-        @score-validated="onScoreValidated"
+        @difficulty-validation-state="onDifficultyValidationState"
+        @score-validation-state="onScoreValidationState"
         @advanced-settings-changed="onAdvancedSettingsChanged"
       />
     </v-card-text>

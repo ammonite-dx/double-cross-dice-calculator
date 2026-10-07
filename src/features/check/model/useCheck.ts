@@ -39,7 +39,7 @@ import type {
   DisplayRequestSnapshot,
   ScoreInput,
 } from '../../../domain/CalculationInputs'
-import type { ScorePair } from '../../../domain/ScoreResultTypes'
+import type { DraftValidation } from '../../../shared/validation/DraftValidation'
 import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type {
   CheckCalculationRangePlan,
@@ -71,6 +71,11 @@ interface CheckState {
   difficulty: DifficultyInput
   scoreParams: CheckScoreParams
   advancedSettingsEnabled: CheckAdvancedSettingsEnabled
+  validation: {
+    difficulty: DraftValidation<unknown>['status']
+    action: DraftValidation<unknown>['status']
+    reaction: DraftValidation<unknown>['status']
+  }
   calculationRecord: CheckCalculationRecord | null
   displayRequest: DisplayRequestSnapshot
   rangeFeedback: CalculationFeedbackState<CheckCalculationRangePlan>
@@ -123,7 +128,7 @@ export async function useCheck({
     params: INITIAL_PARAMS,
   })
   const initialCalculationRequest = createCheckCalculationRequestSnapshot({
-    ...initialInputSnapshot,
+    input: initialInputSnapshot,
     displayRequest: initialDisplayRequest,
   })
   const rangeFeedback = reactive(
@@ -133,12 +138,17 @@ export async function useCheck({
     createCalculationFeedbackState()
   ) as CalculationFeedbackState<DisplayFeedbackPlan>
   const state = reactive<CheckState>({
-    difficulty: { ...initialInputSnapshot.difficulty } as DifficultyInput,
+    difficulty: { ...INITIAL_DIFFICULTY },
     scoreParams: {
-      action: { ...initialInputSnapshot.params.action },
-      reaction: { ...initialInputSnapshot.params.reaction },
+      action: { ...INITIAL_PARAMS.action },
+      reaction: { ...INITIAL_PARAMS.reaction },
     },
     advancedSettingsEnabled: createCheckAdvancedSettingsEnabled(),
+    validation: {
+      difficulty: 'valid',
+      action: 'valid',
+      reaction: 'valid',
+    },
     calculationRecord: null,
     displayRequest: { ...initialDisplayRequest },
     rangeFeedback,
@@ -245,15 +255,14 @@ export async function useCheck({
   }
 
   function buildPresentationForScore(
-    score: ScorePair,
+    result: CheckCalculationResult,
     request: DisplayRequestSnapshot = state.displayRequest
   ): CheckPresentation {
     return createCheckPresentation(
-      { score },
+      result,
       {
         displayWindow: { min: request.min, max: request.max },
         mode: request.mode,
-        opposed: state.difficulty.opposed,
         policy: displayRangePolicy,
       }
     )
@@ -282,7 +291,7 @@ export async function useCheck({
     if (record === null) {
       return null
     }
-    return buildPresentationForScore(record.result.score, request)
+    return buildPresentationForScore(record.result, request)
   }
 
   const presentation = computed(() => buildPresentation())
@@ -336,15 +345,31 @@ export async function useCheck({
   function submitCheck(
     request: DisplayRequestSnapshot = state.displayRequest
   ) {
-    if (!preflightDisplayRequest(request)) {
+    if (!isCalculationInputValid() || !preflightDisplayRequest(request)) {
       return Promise.resolve(false)
     }
     const calculationRequest = createCheckCalculationRequestSnapshot({
-      difficulty: state.difficulty,
-      params: currentCalculationInput().params,
+      input: currentCalculationInput(),
       displayRequest: request,
     })
     return calculationRunner.run(calculationRequest)
+  }
+
+  function submitAfterInputChange() {
+    displayRecalculationKey = null
+    if (!preflightDisplayRequest()) {
+      // A rejected display request must not leave a result for the previous
+      // input looking like the result of the newly validated input.
+      state.calculationRecord = null
+      return
+    }
+    void submitCheck()
+  }
+
+  function isCalculationInputValid() {
+    return state.validation.difficulty === 'valid'
+      && state.validation.action === 'valid'
+      && (!state.difficulty.opposed || state.validation.reaction === 'valid')
   }
 
   const calculationRunner = createCalculationRequestCoordinator<
@@ -354,29 +379,26 @@ export async function useCheck({
   >({
     snapshotRequest: createCheckCalculationRequestSnapshot,
     execute: (snapshot, context) =>
-      calculationClient.calculateCheck(
-        snapshot.params,
-        snapshot.difficulty,
-        {
-          ...snapshot,
-          signal: context.signal ?? undefined,
-          onRangePlan: context.onRangePlan,
-        }
-      ),
+      calculationClient.calculateCheck(snapshot.input, {
+        displayRequest: snapshot.displayRequest,
+        rangePolicy: snapshot.rangePolicy,
+        signal: context.signal ?? undefined,
+        onRangePlan: context.onRangePlan,
+      }),
     onStart: () => {
       beginCalculation(rangeFeedback)
       state.calculationRecord = null
       resetDisplayFeedback()
     },
     onPlan: (plan) => publishRangePlan(rangeFeedback, plan),
-    commit: (result: CheckCalculationResult) => {
+    commit: (result: CheckCalculationResult, context) => {
       const record = createCheckCalculationRecord(
-        currentCalculationInput(),
+        context.request.input,
         result
       )
       let committedPresentation
       try {
-        committedPresentation = buildPresentationForScore(record.result.score)
+        committedPresentation = buildPresentationForScore(record.result)
       } catch (error) {
         displayRecalculationKey = null
         publishDisplayError(error)
@@ -414,30 +436,58 @@ export async function useCheck({
     resetDisplayFeedback()
   }
 
-  const onDifficultyValidated = (difficulty: DifficultyInput) => {
-    invalidateInputCalculation()
-    state.difficulty = { ...difficulty }
-    displayRecalculationKey = null
-    void submitCheck()
+  const onDifficultyValidationState = (
+    validation: DraftValidation<DifficultyInput>,
+  ) => {
+    state.validation.difficulty = validation.status
+    calculationRunner.invalidate()
+    if (validation.status === 'validating') {
+      return
+    }
+    if (validation.status === 'invalid') {
+      state.calculationRecord = null
+      resetDisplayFeedback()
+      return
+    }
+    state.difficulty = { ...validation.value }
+    if (!state.difficulty.opposed) {
+      // A hidden reaction form can only preserve the last value already
+      // accepted by the feature state; its unfinished draft is not active.
+      state.validation.reaction = 'valid'
+    }
+    submitAfterInputChange()
   }
 
-  const onScoreValidated = ({
+  const onScoreValidationState = ({
     side,
-    params,
+    state: validation,
   }: {
     side: CheckScoreSide
-    params: Partial<ScoreInput>
+    state: DraftValidation<Partial<ScoreInput>>
   }) => {
     if (side !== 'action' && side !== 'reaction') {
       return
     }
-    invalidateInputCalculation()
+    if (side === 'reaction' && !state.difficulty.opposed) {
+      return
+    }
+    state.validation[side] = validation.status
+    calculationRunner.invalidate()
+    if (validation.status === 'validating') {
+      return
+    }
+    if (validation.status === 'invalid') {
+      if (side === 'action' || state.difficulty.opposed) {
+        state.calculationRecord = null
+        resetDisplayFeedback()
+      }
+      return
+    }
     state.scoreParams[side] = applyCheckAdvancedSettingsPolicy(
-      params,
+      validation.value,
       state.advancedSettingsEnabled[side]
     )
-    displayRecalculationKey = null
-    void submitCheck()
+    submitAfterInputChange()
   }
 
   const onAdvancedSettingsChanged = ({
@@ -476,6 +526,10 @@ export async function useCheck({
     }
 
     if (!preflightDisplayRequest(snapshot)) {
+      return
+    }
+
+    if (!isCalculationInputValid()) {
       return
     }
 
@@ -521,22 +575,18 @@ export async function useCheck({
     calculate: (options: {
       onRangePlan: (plan: CheckCalculationRangePlan) => void
     }) =>
-      calculationClient.calculateCheck(
-        initialCalculationRequest.params,
-        initialCalculationRequest.difficulty,
-        {
-          ...options,
-          displayRequest: initialCalculationRequest.displayRequest,
-          rangePolicy: initialCalculationRequest.rangePolicy,
-        }
-      ),
+      calculationClient.calculateCheck(initialCalculationRequest.input, {
+        ...options,
+        displayRequest: initialCalculationRequest.displayRequest,
+        rangePolicy: initialCalculationRequest.rangePolicy,
+      }),
     onError: (error: unknown) => {
       console.error('Failed to initialize check calculation', error)
     },
   })
   if (initialCalculation !== null) {
     state.calculationRecord = createCheckCalculationRecord(
-      currentCalculationInput(),
+      initialCalculationRequest.input,
       initialCalculation
     )
   }
@@ -559,8 +609,8 @@ export async function useCheck({
     presentation,
     rangeFeedback: stateRefs.rangeFeedback,
     displayFeedback: stateRefs.displayFeedback,
-    onDifficultyValidated,
-    onScoreValidated,
+    onDifficultyValidationState,
+    onScoreValidationState,
     onAdvancedSettingsChanged,
     onDisplayValidated,
   }

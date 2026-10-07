@@ -2,6 +2,7 @@
 import { nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { getChartColor } from '@/shared/theme/ChartPalette'
 import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate'
+import type { DraftValidation } from '@/shared/validation/DraftValidation'
 import {
   createScoreFeatureCompatibilityRule,
   createScoreFieldRules,
@@ -16,7 +17,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  validated: [params: Partial<ScoreInput>]
+  'validation-state': [state: DraftValidation<Partial<ScoreInput>>]
   'advanced-settings-changed': [enabled: boolean]
 }>()
 
@@ -66,12 +67,15 @@ watch(currentParams, async () => {
   }
   const ticket = validationGate.begin()
   const draft = { ...currentParams }
+  emit('validation-state', { status: 'validating' })
   const validResult = await form.value?.validate?.()
   if (!validationGate.canCommit(ticket)) {
     return
   }
   if (validResult?.valid) {
-    emit('validated', draft)
+    emit('validation-state', { status: 'valid', value: draft })
+  } else {
+    emit('validation-state', { status: 'invalid' })
   }
 })
 

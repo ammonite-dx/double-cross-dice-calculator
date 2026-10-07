@@ -100,10 +100,12 @@ describe('CalculationClient runtime dependency contract', () => {
   it('does not request precomputed assets for Check', async () => {
     const harness = createHarness()
     const result = await harness.client.calculateCheck({
+      kind: 'opposed',
       action: { ...scoreParams },
       reaction: { ...scoreParams },
-    }, { opposed: false, target: 0 })
+    })
 
+    expect(result.kind).toBe('opposed')
     expect(result.score).toEqual({
       action: { kind: 'score' },
       reaction: { kind: 'score' },

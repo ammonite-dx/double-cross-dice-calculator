@@ -537,9 +537,10 @@ describe('canonical normal check score producer', () => {
 
   it('is exposed through the default CalculationClient with a canonical summary', async () => {
     const result = await calculationClient.calculateCheck({
+      kind: 'opposed',
       action: scoreParams({ skill: 2 }),
       reaction: scoreParams({ skill: -1 }),
-    }, { opposed: true, target: 0 })
+    })
 
     expect(validateDistributionResult(result.score.action.result)).toBe(true)
     expect(validateDistributionResult(result.score.reaction.result)).toBe(true)
@@ -552,10 +553,10 @@ describe('canonical normal check score producer', () => {
     const displayRequest = { min: 0, max: 1200, mode: CHECK_DISPLAY_MODES.PMF }
     const result = await calculationClient.calculateCheck(
       {
+        kind: 'opposed',
         action: scoreParams(),
         reaction: scoreParams(),
       },
-      { opposed: true, target: 0 },
       {
         displayRequest,
         rangePolicy: createCheckRangePolicy(displayRequest),
@@ -597,6 +598,7 @@ function createClientDependencies(overrides = {}) {
 
 function checkParams() {
   return {
+    kind: 'opposed',
     action: scoreParams({ skill: 2 }),
     reaction: scoreParams({ skill: -1 }),
   }
@@ -615,22 +617,16 @@ describe('CalculationClient canonical normal check API', () => {
       onRangePlan,
     }
     const params = checkParams()
-    const difficulty = { opposed: true, target: 0 }
-
-    const resultPromise = client.calculateCheck(
-      params,
-      difficulty,
-      options
-    )
+    const resultPromise = client.calculateCheck(params, options)
     params.action.dice = 99
     params.reaction.skill = 99
-    difficulty.target = 99
     const result = await resultPromise
 
     expect(result.score.action.metadata.modeledDistribution).toBe(true)
     expect(result.score.reaction.metadata.modeledDistribution).toBe(true)
     expect(dependencies.planCalculationRanges).toHaveBeenCalledWith({
       operation: 'check',
+      checkKind: 'opposed',
       score: {
         action: {
           kind: 'rolled-score',
@@ -655,10 +651,7 @@ describe('CalculationClient canonical normal check API', () => {
       expect.any(Function),
       dependencies.plan.scores[1]
     )
-    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
-      result.score,
-      { opposed: true, target: 0 }
-    )
+    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(result.score)
     expect(dependencies.resourceGuard.acquireForPlan).toHaveBeenCalledWith(
       dependencies.plan,
       { signal, requestId: 'canonical-check-1', operation: 'check' }
@@ -681,7 +674,6 @@ describe('CalculationClient canonical normal check API', () => {
 
     await expect(client.calculateCheck(
       checkParams(),
-      { opposed: true, target: 0 },
       { onRangePlan }
     )).rejects.toSatisfy((error) => {
       expect(error).toBeInstanceOf(CalculationRangeError)
@@ -705,23 +697,21 @@ describe('CalculationClient canonical normal check API', () => {
       },
       forcedFailureProbability: 0.25,
     })
-    const Summary = createScoreStatistics()
     const dependencies = createClientDependencies({
       calculateScore: vi.fn(() => safeEnvelope),
-      getScoreStatistics: vi.fn(() => Summary),
     })
     const client = createCalculationClient(dependencies)
 
-    const result = await client.calculateCheck(
-      checkParams(),
-      { opposed: false, target: 0 }
-    )
+    const result = await client.calculateCheck({
+      kind: 'fixed',
+      action: scoreParams(),
+      target: 0,
+    })
     expect(result.score.action).toBe(safeEnvelope)
-    expect(result.scoreStatistics).toBe(Summary)
-    expect(dependencies.getScoreStatistics).toHaveBeenCalledWith(
-      { action: safeEnvelope, reaction: safeEnvelope },
-      { opposed: false, target: 0 }
-    )
+    expect(result.score).not.toHaveProperty('reaction')
+    expect(result.scoreStatistics).toHaveProperty('action')
+    expect(result.scoreStatistics).not.toHaveProperty('reaction')
+    expect(dependencies.getScoreStatistics).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -750,10 +740,8 @@ describe('CalculationClient canonical normal check API', () => {
     })
     const client = createCalculationClient(dependencies)
 
-    await expect(client.calculateCheck(
-      checkParams(),
-      { opposed: true, target: 0 }
-    )).resolves.toMatchObject({ scoreStatistics: Summary })
+    await expect(client.calculateCheck(checkParams()))
+      .resolves.toMatchObject({ kind: 'opposed', scoreStatistics: Summary })
     expect(dependencies.getScoreStatistics).toHaveBeenCalledOnce()
   })
 
@@ -771,9 +759,7 @@ describe('CalculationClient canonical normal check API', () => {
     const client = createCalculationClient(dependencies)
 
     await expect(client.calculateCheck(
-      checkParams(),
-      { opposed: true, target: 0 },
-      { signal: controller.signal }
+      checkParams(), { signal: controller.signal }
     )).rejects.toMatchObject({ name: 'AbortError' })
     expect(dependencies.calculateScore).not.toHaveBeenCalled()
     expect(release).toHaveBeenCalledOnce()
@@ -795,9 +781,7 @@ describe('CalculationClient canonical normal check API', () => {
     const client = createCalculationClient(dependencies)
 
     await expect(client.calculateCheck(
-      checkParams(),
-      { opposed: true, target: 0 },
-      { signal: controller.signal }
+      checkParams(), { signal: controller.signal }
     )).rejects.toBe(failure)
     expect(release).toHaveBeenCalledOnce()
   })

@@ -26,15 +26,24 @@ function createScoreEnvelope({
 }
 
 function createCalculationResult({
+  kind = 'fixed',
   scoreEnvelope = createScoreEnvelope(),
 } = {}) {
   const lane = {
     expectedValue: { kind: 'exact', value: 0 },
     successProbability: { kind: 'exact', value: 1 },
   }
+  if (kind === 'opposed') {
+    return {
+      kind,
+      score: { action: scoreEnvelope, reaction: scoreEnvelope },
+      scoreStatistics: { action: lane, reaction: lane },
+    }
+  }
   return {
-    score: { action: scoreEnvelope, reaction: scoreEnvelope },
-    scoreStatistics: { action: lane, reaction: lane },
+    kind: 'fixed',
+    score: { action: scoreEnvelope },
+    scoreStatistics: { action: lane },
   }
 }
 
@@ -64,7 +73,9 @@ function createPartialCoverageResult() {
 
 async function createController() {
   const client = {
-    calculateCheck: vi.fn(async () => createCalculationResult()),
+    calculateCheck: vi.fn(async (input) =>
+      createCalculationResult({ kind: input.kind })
+    ),
   }
   const check = await useCheck({ calculationClient: client })
   return { check, client }
@@ -86,22 +97,20 @@ describe('useCheck', () => {
 
     expect(client.calculateCheck).toHaveBeenCalledTimes(1)
     expect(client.calculateCheck.mock.calls[0][0]).toMatchObject({
+      kind: 'fixed',
       action: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
-      reaction: { dice: 1, critical: 10, skill: 0, yousei: 0, shihai: 0 },
-    })
-    expect(client.calculateCheck.mock.calls[0][1]).toEqual({
-      opposed: false,
       target: 0,
     })
-    expect(client.calculateCheck.mock.calls[0][2].displayRequest).toEqual({
-      min: 0,
-      max: 30,
-      mode: 'pmf',
+    expect(client.calculateCheck.mock.calls[0][1]).toEqual({
+      displayRequest: { min: 0, max: 30, mode: 'pmf' },
+      rangePolicy: expect.any(Object),
+      onRangePlan: expect.any(Function),
     })
     expect(check.resultReady.value).toBe(true)
     expect(check.calculationRecord.value).toMatchObject({
       input: {
-        difficulty: { opposed: false, target: 0 },
+        kind: 'fixed',
+        target: 0,
       },
     })
   })
@@ -124,43 +133,46 @@ describe('useCheck', () => {
 
   it('detaches the input snapshot owned by a calculation record', () => {
     const input = {
-      difficulty: { opposed: true, target: 12 },
-      params: {
-        action: { dice: 4, critical: 9, skill: 2, yousei: 0, shihai: 0 },
-        reaction: { dice: 3, critical: 10, skill: -1, yousei: 0, shihai: 0 },
-      },
+      kind: 'opposed',
+      action: { dice: 4, critical: 9, skill: 2, yousei: 0, shihai: 0 },
+      reaction: { dice: 3, critical: 10, skill: -1, yousei: 0, shihai: 0 },
     }
-    const result = createCalculationResult()
+    const result = createCalculationResult({ kind: 'opposed' })
     const record = createCheckCalculationRecord(input, result)
 
     expect(Object.isFrozen(record)).toBe(true)
     expect(Object.isFrozen(record.input)).toBe(true)
-    expect(Object.isFrozen(record.input.params.action)).toBe(true)
+    expect(Object.isFrozen(record.input.action)).toBe(true)
+    expect(Object.isFrozen(record.input.reaction)).toBe(true)
     expect(areCheckCalculationInputsEqual(record.input, input)).toBe(true)
-    input.params.action.dice = 99
-    expect(record.input.params.action.dice).toBe(4)
+    input.action.dice = 99
+    expect(record.input.action.dice).toBe(4)
     expect(areCheckCalculationInputsEqual(record.input, input)).toBe(false)
   })
 
   it('updates difficulty and submits a new canonical snapshot', async () => {
     const { check, client } = await createController()
 
-    check.onDifficultyValidated({ opposed: true, target: 12 })
+    check.onDifficultyValidationState({
+      status: 'valid',
+      value: { opposed: true, target: 12 },
+    })
     await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(2))
 
     expect(check.difficulty.value).toEqual({ opposed: true, target: 12 })
-    expect(client.calculateCheck.mock.calls[1][1]).toEqual({
-      opposed: true,
-      target: 12,
+    expect(client.calculateCheck.mock.calls[1][0]).toEqual({
+      kind: 'opposed',
+      action: check.scoreParams.value.action,
+      reaction: check.scoreParams.value.reaction,
     })
   })
 
   it('updates only the validated score side', async () => {
     const { check, client } = await createController()
 
-    check.onScoreValidated({
+    check.onScoreValidationState({
       side: 'action',
-      params: { dice: 4, critical: 9, skill: 2, yousei: 0, shihai: 0 },
+      state: { status: 'valid', value: { dice: 4, critical: 9, skill: 2, yousei: 0, shihai: 0 } },
     })
     await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(2))
 
@@ -190,9 +202,9 @@ describe('useCheck', () => {
       action: false,
       reaction: false,
     })
-    check.onScoreValidated({
+    check.onScoreValidationState({
       side: 'action',
-      params: { dice: 4, critical: 9, skill: 2, yousei: 3, shihai: 2 },
+      state: { status: 'valid', value: { dice: 4, critical: 9, skill: 2, yousei: 3, shihai: 2 } },
     })
     await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(2))
     expect(check.scoreParams.value.action).toMatchObject({ yousei: 0, shihai: 0 })
@@ -201,9 +213,9 @@ describe('useCheck', () => {
 
     check.onAdvancedSettingsChanged({ side: 'action', enabled: true })
     expect(client.calculateCheck).toHaveBeenCalledTimes(2)
-    check.onScoreValidated({
+    check.onScoreValidationState({
       side: 'action',
-      params: { dice: 4, critical: 9, skill: 2, yousei: 3, shihai: 0 },
+      state: { status: 'valid', value: { dice: 4, critical: 9, skill: 2, yousei: 3, shihai: 0 } },
     })
     await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(3))
     expect(check.scoreParams.value.action.yousei).toBe(3)
@@ -258,7 +270,7 @@ describe('useCheck', () => {
     ).toHaveBeenCalledTimes(2))
     await vi.waitFor(() => expect(check.displayFeedback.value.status).toBe('idle'))
 
-    expect(client.calculateCheck.mock.calls[1][2].displayRequest)
+    expect(client.calculateCheck.mock.calls[1][1].displayRequest)
       .toMatchObject({ min: 0, max: 40, mode: 'pmf' })
     expect(check.displayRequest.value).toEqual({
       min: 0,
@@ -311,8 +323,8 @@ describe('useCheck', () => {
     const client = {
       calculateCheck: vi.fn()
         .mockResolvedValueOnce(createCalculationResult())
-        .mockImplementation((params) => new Promise((resolve) => {
-          pending.push({ params, resolve })
+        .mockImplementation((input) => new Promise((resolve) => {
+          pending.push({ input, resolve })
         })),
     }
     const check = await useCheck({ calculationClient: client })
@@ -321,16 +333,16 @@ describe('useCheck', () => {
     await Promise.resolve()
     expect(check.resultReady.value).toBe(true)
 
-    check.onScoreValidated({
+    check.onScoreValidationState({
       side: 'action',
-      params: { dice: 2, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      state: { status: 'valid', value: { dice: 2, critical: 10, skill: 0, yousei: 0, shihai: 0 } },
     })
     expect(check.resultReady.value).toBe(false)
     expect(check.score.value).toBeNull()
 
     check.onDisplayValidated({ min: 0, max: 100, mode: 'pmf' })
     await vi.waitFor(() => expect(pending).toHaveLength(1))
-    expect(pending[0].params.action.dice).toBe(2)
+    expect(pending[0].input.action.dice).toBe(2)
 
     pending[0].resolve(createCalculationResult())
     await vi.waitFor(() => expect(check.resultReady.value).toBe(true))
@@ -342,28 +354,94 @@ describe('useCheck', () => {
     const client = {
       calculateCheck: vi.fn()
         .mockResolvedValueOnce(createCalculationResult())
-        .mockImplementation((params) => new Promise((resolve) => {
-          pending.push({ params, resolve })
+        .mockImplementation((input) => new Promise((resolve) => {
+          pending.push({ input, resolve })
         })),
     }
     const check = await useCheck({ calculationClient: client })
 
-    check.onScoreValidated({
+    check.onScoreValidationState({
       side: 'action',
-      params: { dice: 2, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      state: { status: 'valid', value: { dice: 2, critical: 10, skill: 0, yousei: 0, shihai: 0 } },
     })
-    check.onScoreValidated({
+    check.onScoreValidationState({
       side: 'action',
-      params: { dice: 3, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      state: { status: 'valid', value: { dice: 3, critical: 10, skill: 0, yousei: 0, shihai: 0 } },
     })
     await vi.waitFor(() => expect(pending).toHaveLength(1))
 
-    expect(pending[0].params.action.dice).toBe(2)
+    expect(pending[0].input.action.dice).toBe(2)
     pending[0].resolve(createCalculationResult())
     await vi.waitFor(() => expect(pending).toHaveLength(2))
-    expect(pending[1].params.action.dice).toBe(3)
+    expect(pending[1].input.action.dice).toBe(3)
     pending[1].resolve(createCalculationResult())
     await vi.waitFor(() => expect(check.resultReady.value).toBe(true))
+  })
+
+  it('invalidates an in-flight request as soon as a draft becomes invalid', async () => {
+    const pending = []
+    const client = {
+      calculateCheck: vi.fn((input, options) => {
+        if (pending.length === 0 && client.calculateCheck.mock.calls.length === 1) {
+          return Promise.resolve(createCalculationResult({ kind: input.kind }))
+        }
+        return new Promise((resolve) => {
+          pending.push({ input, resolve, signal: options.signal })
+        })
+      }),
+    }
+    const check = await useCheck({ calculationClient: client })
+
+    check.onScoreValidationState({
+      side: 'action',
+      state: {
+        status: 'valid',
+        value: { dice: 2, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      },
+    })
+    await vi.waitFor(() => expect(pending).toHaveLength(1))
+    const staleRequest = pending[0]
+
+    check.onScoreValidationState({
+      side: 'action',
+      state: { status: 'validating' },
+    })
+    expect(staleRequest.signal.aborted).toBe(true)
+    check.onScoreValidationState({
+      side: 'action',
+      state: { status: 'invalid' },
+    })
+    staleRequest.resolve(createCalculationResult())
+    await Promise.resolve()
+    expect(check.calculationRecord.value).toBeNull()
+    expect(check.resultReady.value).toBe(false)
+
+    check.onScoreValidationState({
+      side: 'action',
+      state: {
+        status: 'valid',
+        value: { dice: 3, critical: 10, skill: 0, yousei: 0, shihai: 0 },
+      },
+    })
+    await vi.waitFor(() => expect(pending).toHaveLength(2))
+    pending[1].resolve(createCalculationResult())
+    await vi.waitFor(() => expect(check.resultReady.value).toBe(true))
+    expect(check.calculationRecord.value.input.action.dice).toBe(3)
+  })
+
+  it('does not recalculate from the last valid input while an active draft is invalid', async () => {
+    const { check, client } = await createController()
+
+    check.onScoreValidationState({
+      side: 'action',
+      state: { status: 'invalid' },
+    })
+    check.onDisplayValidated({ min: 0, max: 20, mode: 'upper-tail' })
+    await Promise.resolve()
+
+    expect(client.calculateCheck).toHaveBeenCalledTimes(1)
+    expect(check.calculationRecord.value).toBeNull()
+    expect(check.resultReady.value).toBe(false)
   })
 
 })

@@ -1,8 +1,9 @@
 import type {
-  CheckInputSnapshot,
+  CheckCalculationInput,
   DifficultyInput,
   ScoreInput,
 } from '../../../domain/CalculationInputs'
+import { normalizeScoreInput } from '../../../domain/CalculationInputNormalization'
 
 const SCORE_FIELDS: readonly (keyof ScoreInput)[] = Object.freeze([
   'dice',
@@ -21,11 +22,11 @@ type CheckInputDraft = {
 } | null
 
 function copyScoreDraft(score: Partial<ScoreInput> = {}): Partial<ScoreInput> {
-  const normalized: Partial<ScoreInput> = {}
+  const snapshot: Partial<ScoreInput> = {}
   for (const field of SCORE_FIELDS) {
-    normalized[field] = score[field]
+    snapshot[field] = score[field]
   }
-  return normalized
+  return snapshot
 }
 
 /**
@@ -33,20 +34,29 @@ function copyScoreDraft(score: Partial<ScoreInput> = {}): Partial<ScoreInput> {
  * numeric meaning. Form validation owns validity; this boundary owns shape
  * and alias-free snapshots for calculation requests.
  */
-export function normalizeCheckInputDraft(
+export function createCheckInputSnapshot(
   draft: CheckInputDraft = {},
-): CheckInputSnapshot {
+): CheckCalculationInput {
   const difficulty = draft?.difficulty ?? {}
   const params = draft?.params ?? {}
+  const action = normalizeScoreInput(
+    copyScoreDraft(params.action),
+    'check.action',
+  )
+  if (difficulty.opposed === true) {
+    return {
+      kind: 'opposed',
+      action,
+      reaction: normalizeScoreInput(
+        copyScoreDraft(params.reaction),
+        'check.reaction',
+      ),
+    }
+  }
   return {
-    difficulty: {
-      opposed: difficulty.opposed,
-      target: difficulty.target,
-    },
-    params: {
-      action: copyScoreDraft(params.action),
-      reaction: copyScoreDraft(params.reaction),
-    },
+    kind: 'fixed',
+    action,
+    target: difficulty.target ?? 0,
   }
 }
 
@@ -55,17 +65,16 @@ export function normalizeCheckInputDraft(
  * calculation. Every nested value is copied so later draft edits cannot
  * change a request that is running or waiting in the coordinator.
  */
-export function createCheckInputSnapshot(
-  draft: CheckInputDraft = {},
-): CheckInputSnapshot {
-  const normalized = normalizeCheckInputDraft(draft)
-  return {
-    difficulty: { ...normalized.difficulty },
-    params: {
-      action: { ...normalized.params.action },
-      reaction: { ...normalized.params.reaction },
-    },
+export function snapshotCheckCalculationInput(
+  input: CheckCalculationInput,
+): CheckCalculationInput {
+  const action = { ...input.action }
+  if (input.kind === 'opposed') {
+    return {
+      kind: 'opposed',
+      action,
+      reaction: { ...input.reaction },
+    }
   }
+  return { kind: 'fixed', action, target: input.target }
 }
-
-export const createCalculationInputSnapshot = createCheckInputSnapshot

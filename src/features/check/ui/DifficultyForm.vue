@@ -3,6 +3,7 @@ import { onUnmounted, reactive, ref, watch } from 'vue'
 import type { DifficultyInput } from '@/domain/CalculationInputs'
 import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate'
 import { createSafeIntegerRules } from '@/shared/validation/IntegerRules'
+import type { DraftValidation } from '@/shared/validation/DraftValidation'
 
 interface ValidatableForm {
   validate?: () => Promise<{ valid: boolean }>
@@ -13,7 +14,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  validated: [difficulty: DifficultyInput]
+  'validation-state': [state: DraftValidation<DifficultyInput>]
 }>()
 
 const form = ref<ValidatableForm | null>(null)
@@ -41,12 +42,15 @@ watch(
 watch(currentDifficulty, async () => {
   const ticket = validationGate.begin()
   const draft: DifficultyInput = { ...currentDifficulty }
+  emit('validation-state', { status: 'validating' })
   const validResult = await form.value?.validate?.()
   if (!validationGate.canCommit(ticket)) {
     return
   }
   if (validResult?.valid) {
-    emit('validated', draft)
+    emit('validation-state', { status: 'valid', value: draft })
+  } else {
+    emit('validation-state', { status: 'invalid' })
   }
 })
 

@@ -31,7 +31,9 @@ function createScoreResult({
 }
 
 function createCheckResult(action, reaction = action) {
-  return { score: { action, reaction } }
+  return reaction === null
+    ? { kind: 'fixed', score: { action } }
+    : { kind: 'opposed', score: { action, reaction } }
 }
 
 function present(
@@ -40,14 +42,12 @@ function present(
     min = 0,
     max = 0,
     mode = 'pmf',
-    opposed = true,
     policy,
   } = {}
 ) {
   return createCheckPresentation(checkResult, {
     displayWindow: { min, max },
     mode,
-    opposed,
     ...(policy === undefined ? {} : { policy }),
   })
 }
@@ -241,7 +241,6 @@ describe('createCheckPresentation', () => {
     const presentation = present(createCheckResult(action, null), {
       min: 0,
       max: 3,
-      opposed: false,
     })
 
     expect(presentation.action.plan.decision).toBe('recalculate')
@@ -362,7 +361,6 @@ describe('createCheckPresentation', () => {
     const presentation = present(createCheckResult(action, null), {
       min: 0,
       max: 3,
-      opposed: false,
     })
 
     expect(presentation.opposed).toBe(false)
@@ -385,6 +383,7 @@ describe('createCheckPresentation', () => {
     const input = createCheckResult(action, reaction)
     const window = { min: 0, max: 1 }
     const inputBefore = {
+      kind: 'opposed',
       score: { action, reaction },
     }
     const actionBefore = Array.from(action.result.values)
@@ -393,7 +392,6 @@ describe('createCheckPresentation', () => {
     createCheckPresentation(input, {
       displayWindow: window,
       mode: 'pmf',
-      opposed: true,
     })
 
     expect(input).toEqual(inputBefore)
@@ -416,9 +414,7 @@ describe('createCheckPresentation', () => {
     }))
     expect(() => createCheckPresentation(
       createCheckResult(action),
-      { displayWindow: { min: 0, max: 0 } },
-      'pmf',
-      false
+      { displayWindow: { min: 0, max: 0 }, mode: 'pmf' }
     )).not.toThrow()
 
     const presentation = createCheckPresentation(
@@ -426,7 +422,6 @@ describe('createCheckPresentation', () => {
       {
         displayWindow: { min: 0, max: 0 },
         mode: 'pmf',
-        opposed: false,
       }
     )
     expect(presentation.action.status).toBe('ready')
@@ -453,7 +448,6 @@ describe('createCheckPresentation', () => {
 
     expect(() => createCheckPresentation({ score: {} }, {
       displayWindow: { min: 0, max: 0 },
-      opposed: true,
     })).toThrow(expect.objectContaining({
       code: CHECK_PRESENTATION_ERROR_CODES.INVALID_SCORE,
     }))

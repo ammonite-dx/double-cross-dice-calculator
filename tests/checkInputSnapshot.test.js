@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createCheckInputSnapshot,
-  normalizeCheckInputDraft,
 } from '../src/features/check/model/CheckInputSnapshot'
 
 function createDraft() {
@@ -16,32 +15,41 @@ function createDraft() {
 }
 
 describe('CheckInputSnapshot', () => {
-  it('normalizes the form draft to the calculation snapshot shape', () => {
-    expect(normalizeCheckInputDraft(createDraft())).toEqual({
-      difficulty: { opposed: true, target: 17 },
-      params: {
-        action: { dice: 7, critical: 8, skill: 3, yousei: 1, shihai: 0 },
-        reaction: { dice: 5, critical: 9, skill: -2, yousei: 0, shihai: 4 },
-      },
+  it('creates an opposed calculation input with both validated score sides', () => {
+    expect(createCheckInputSnapshot(createDraft())).toEqual({
+      kind: 'opposed',
+      action: { dice: 7, critical: 8, skill: 3, yousei: 1, shihai: 0 },
+      reaction: { dice: 5, critical: 9, skill: -2, yousei: 0, shihai: 4 },
     })
   })
 
-  it('does not alias the draft or any nested input object', () => {
+  it('omits hidden reaction input from a fixed request without inspecting it', () => {
+    const draft = createDraft()
+    draft.difficulty.opposed = false
+    draft.params.reaction.dice = -1
+    expect(createCheckInputSnapshot(draft)).toEqual({
+      kind: 'fixed',
+      action: { dice: 7, critical: 8, skill: 3, yousei: 1, shihai: 0 },
+      target: 17,
+    })
+  })
+
+  it('does not alias draft score objects', () => {
     const draft = createDraft()
     const snapshot = createCheckInputSnapshot(draft)
 
     expect(snapshot).not.toBe(draft)
-    expect(snapshot.difficulty).not.toBe(draft.difficulty)
-    expect(snapshot.params).not.toBe(draft.params)
-    expect(snapshot.params.action).not.toBe(draft.params.action)
-    expect(snapshot.params.reaction).not.toBe(draft.params.reaction)
+    expect(snapshot.action).not.toBe(draft.params.action)
+    if (snapshot.kind !== 'opposed') {
+      throw new Error('expected opposed snapshot')
+    }
+    expect(snapshot.reaction).not.toBe(draft.params.reaction)
 
     draft.difficulty.target = 99
     draft.params.action.dice = 99
-    snapshot.params.reaction.skill = 99
+    snapshot.reaction.skill = 99
 
-    expect(snapshot.difficulty.target).toBe(17)
-    expect(snapshot.params.action.dice).toBe(7)
+    expect(snapshot.action.dice).toBe(7)
     expect(draft.params.reaction.skill).toBe(-2)
   })
 })

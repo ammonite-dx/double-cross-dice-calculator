@@ -1,22 +1,27 @@
 import type { CheckCalculationResult } from '../../../runtime/CalculationClientTypes'
 import type {
-  CheckInputSnapshot,
-  ScoreInput,
+  CheckCalculationInput,
 } from '../../../domain/CalculationInputs'
-import { createCheckInputSnapshot } from './CheckInputSnapshot'
+import { snapshotCheckCalculationInput } from './CheckInputSnapshot'
 
 export interface CheckCalculationRecord {
-  readonly input: CheckInputSnapshot
+  readonly input: CheckCalculationInput
   readonly result: CheckCalculationResult
 }
 
-function freezeInput(input: CheckInputSnapshot): CheckInputSnapshot {
+function freezeInput(input: CheckCalculationInput): CheckCalculationInput {
+  const snapshot = snapshotCheckCalculationInput(input)
+  if (snapshot.kind === 'opposed') {
+    return Object.freeze({
+      kind: 'opposed',
+      action: Object.freeze({ ...snapshot.action }),
+      reaction: Object.freeze({ ...snapshot.reaction }),
+    })
+  }
   return Object.freeze({
-    difficulty: Object.freeze({ ...input.difficulty }),
-    params: Object.freeze({
-      action: Object.freeze({ ...input.params.action }),
-      reaction: Object.freeze({ ...input.params.reaction }),
-    }),
+    kind: 'fixed',
+    action: Object.freeze({ ...snapshot.action }),
+    target: snapshot.target,
   })
 }
 
@@ -26,26 +31,25 @@ function freezeInput(input: CheckInputSnapshot): CheckInputSnapshot {
  * the calculation client contract.
  */
 export function createCheckCalculationRecord(
-  input: CheckInputSnapshot,
+  input: CheckCalculationInput,
   result: CheckCalculationResult,
 ): CheckCalculationRecord {
-  const snapshot = createCheckInputSnapshot(input)
+  if (input.kind !== result.kind) {
+    throw new TypeError('Check calculation input and result kinds must match')
+  }
   return Object.freeze({
-    input: freezeInput(snapshot),
+    input: freezeInput(input),
     result,
   })
 }
 
-const SCORE_FIELDS: readonly (keyof ScoreInput)[] = Object.freeze([
-  'dice',
-  'critical',
-  'skill',
-  'yousei',
-  'shihai',
-])
-
-function scoreInputsEqual(left: Partial<ScoreInput>, right: Partial<ScoreInput>) {
-  return SCORE_FIELDS.every((field) => Object.is(left[field], right[field]))
+function scoresEqual(
+  left: CheckCalculationInput['action'],
+  right: CheckCalculationInput['action'],
+) {
+  return Object.keys(left).every((field) =>
+    Object.is(left[field as keyof typeof left], right[field as keyof typeof right])
+  )
 }
 
 /**
@@ -53,14 +57,16 @@ function scoreInputsEqual(left: Partial<ScoreInput>, right: Partial<ScoreInput>)
  * are intentionally outside this identity.
  */
 export function areCheckCalculationInputsEqual(
-  left: CheckInputSnapshot | null | undefined,
-  right: CheckInputSnapshot | null | undefined,
+  left: CheckCalculationInput | null | undefined,
+  right: CheckCalculationInput | null | undefined,
 ): boolean {
   if (left === null || left === undefined || right === null || right === undefined) {
     return false
   }
-  return Object.is(left.difficulty.opposed, right.difficulty.opposed)
-    && Object.is(left.difficulty.target, right.difficulty.target)
-    && scoreInputsEqual(left.params.action, right.params.action)
-    && scoreInputsEqual(left.params.reaction, right.params.reaction)
+  if (left.kind !== right.kind || !scoresEqual(left.action, right.action)) {
+    return false
+  }
+  return left.kind === 'fixed'
+    ? right.kind === 'fixed' && Object.is(left.target, right.target)
+    : right.kind === 'opposed' && scoresEqual(left.reaction, right.reaction)
 }

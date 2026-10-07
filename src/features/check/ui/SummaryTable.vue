@@ -5,15 +5,21 @@
         formatCertifiedProbabilityPercentDisplay,
     } from '@/shared/presentation';
     import type { DifficultyInput } from '@/domain/CalculationInputs'
-    import type { ScoreStatistics } from '@/domain/ScoreResultTypes'
+    import type { CheckCalculationRecord } from '../model/CheckCalculationRecord'
 
     const props = defineProps<{
         difficulty: Partial<DifficultyInput>
-        scoreStatistics: ScoreStatistics | null
+        scoreStatistics: CheckCalculationRecord['result']['scoreStatistics'] | null
     }>()
 
     function getSideSummary(side: 'action' | 'reaction') {
-        return props.scoreStatistics?.[side] ?? null;
+        if (side === 'action') {
+            return props.scoreStatistics?.action ?? null
+        }
+        return props.scoreStatistics !== null
+            && 'reaction' in props.scoreStatistics
+            ? props.scoreStatistics.reaction
+            : null
     }
 
     function getExpectedValue(side: 'action' | 'reaction') {

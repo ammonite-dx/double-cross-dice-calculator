@@ -229,3 +229,30 @@ export function getScoreStatistics(
     }),
   })
 }
+
+/**
+ * Summarize a fixed-difficulty Check without fabricating a reaction lane.
+ */
+export function getFixedScoreStatistics(
+  action: ScoreEnvelope,
+  target: number,
+): Readonly<{
+  action: Readonly<{
+    expectedValue: CertifiedValue
+    successProbability: CertifiedProbability
+    forcedFailureProbability: CertifiedProbability
+  }>
+}> {
+  if (action === null || typeof action !== 'object') {
+    throw new TypeError('action must be a score envelope')
+  }
+  return Object.freeze({
+    action: Object.freeze({
+      expectedValue: getScoreExpectedValueStatistic(action),
+      successProbability: getFixedDifficultySuccessProbability(action, target),
+      forcedFailureProbability: createExactProbability(
+        action.metadata?.forcedFailureProbability ?? 0,
+      ),
+    }),
+  })
+}

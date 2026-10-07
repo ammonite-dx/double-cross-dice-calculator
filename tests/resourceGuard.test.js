@@ -83,6 +83,7 @@ function createClientDependencies(overrides = {}) {
 
 function checkParams() {
   return {
+    kind: 'opposed',
     action: scoreParams(),
     reaction: scoreParams(),
   }
@@ -427,7 +428,7 @@ describe('CalculationClient resource guard integration', () => {
   })
 
   it.each([
-    ['check', (client, options) => client.calculateCheck(checkParams(), {}, options)],
+    ['check', (client, options) => client.calculateCheck(checkParams(), options)],
     ['attack', (client, options) => client.calculateAttack(attackParams(), options)],
     ['backtrack', (client, options) => client.calculateBacktrack(backtrackParams(), options)],
   ])('releases a plan lease when %s aborts after admission', async (_name, run) => {

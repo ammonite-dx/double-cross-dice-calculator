@@ -35,13 +35,17 @@ export interface DefenceInputSnapshot {
   damage: DefenceDamageInput
 }
 
-export interface CheckInputSnapshot {
-  difficulty: Partial<DifficultyInput>
-  params: {
-    action: Partial<ScoreInput>
-    reaction: Partial<ScoreInput>
-  }
-}
+export type CheckCalculationInput =
+  | {
+      readonly kind: 'fixed'
+      readonly action: ScoreInput
+      readonly target: number
+    }
+  | {
+      readonly kind: 'opposed'
+      readonly action: ScoreInput
+      readonly reaction: ScoreInput
+    }
 
 export interface AttackCalculationInput {
   action: AttackInputSnapshot

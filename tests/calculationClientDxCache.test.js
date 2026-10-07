@@ -33,6 +33,7 @@ const score = {
 
 function checkParams(yousei) {
   return {
+    kind: 'opposed',
     action: { ...score, yousei },
     reaction: { ...score, yousei },
   }
@@ -47,21 +48,15 @@ describe('CalculationClient runtime DX cache identity', () => {
       getScoreStatistics,
     })
 
-    await client.calculateCheck(checkParams(0), {
-      opposed: true,
-    })
+    await client.calculateCheck(checkParams(0))
     expect(calculateDx).toHaveBeenCalledTimes(1)
 
-    await client.calculateCheck(checkParams(1), {
-      opposed: true,
-    })
+    await client.calculateCheck(checkParams(1))
     expect(calculateDx).toHaveBeenCalledTimes(2)
     expect(calculateDx.mock.calls.map(([params]) => params.yousei))
       .toEqual([0, 1])
 
-    await client.calculateCheck(checkParams(1), {
-      opposed: true,
-    })
+    await client.calculateCheck(checkParams(1))
     expect(calculateDx).toHaveBeenCalledTimes(2)
   })
 })

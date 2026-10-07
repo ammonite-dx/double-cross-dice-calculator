@@ -248,12 +248,25 @@ export interface ScoreCalculationRangePlan extends CalculationRangePlanBase {
   readonly backtrack: null
 }
 
-export interface CheckCalculationRangePlan extends CalculationRangePlanBase {
+interface CheckCalculationRangePlanBase extends CalculationRangePlanBase {
   readonly operation: 'check'
-  readonly scores: readonly [ScoreRangePlan, ScoreRangePlan]
   readonly damage: null
   readonly backtrack: null
 }
+
+export interface FixedCheckCalculationRangePlan extends CheckCalculationRangePlanBase {
+  readonly checkKind: 'fixed'
+  readonly scores: readonly [ScoreRangePlan]
+}
+
+export interface OpposedCheckCalculationRangePlan extends CheckCalculationRangePlanBase {
+  readonly checkKind: 'opposed'
+  readonly scores: readonly [ScoreRangePlan, ScoreRangePlan]
+}
+
+export type CheckCalculationRangePlan =
+  | FixedCheckCalculationRangePlan
+  | OpposedCheckCalculationRangePlan
 
 export interface AttackCalculationRangePlan extends CalculationRangePlanBase {
   readonly operation: 'attack'
@@ -290,13 +303,20 @@ export interface ScoreRangePlannerInput extends RangePlannerInputBase {
   readonly score: ScoreInput | ScoreResolution
 }
 
-export interface CheckRangePlannerInput extends RangePlannerInputBase {
-  readonly operation: 'check'
-  readonly score: {
-    readonly action: ScoreInput | ScoreResolution
-    readonly reaction: ScoreInput | ScoreResolution
-  }
-}
+export type CheckRangePlannerInput =
+  | (RangePlannerInputBase & {
+      readonly operation: 'check'
+      readonly checkKind: 'fixed'
+      readonly score: { readonly action: ScoreInput | ScoreResolution }
+    })
+  | (RangePlannerInputBase & {
+      readonly operation: 'check'
+      readonly checkKind: 'opposed'
+      readonly score: {
+        readonly action: ScoreInput | ScoreResolution
+        readonly reaction: ScoreInput | ScoreResolution
+      }
+    })
 
 export interface AttackRangePlannerInput extends RangePlannerInputBase {
   readonly operation: 'attack'

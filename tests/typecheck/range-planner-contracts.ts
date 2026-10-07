@@ -15,6 +15,7 @@ const score: ScoreRangePlannerInput = {
 }
 const check = {
   operation: 'check',
+  checkKind: 'opposed',
   score: {
     action: score.score,
     reaction: score.score,
