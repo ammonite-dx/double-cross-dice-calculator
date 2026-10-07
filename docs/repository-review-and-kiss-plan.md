@@ -6,7 +6,7 @@
 
 **グラフはアプリケーションのメインコンテンツであり、グラフ中心のUIを維持する。** サマリーを主役にする再配置、グラフの縮小、表示形式や既定表示範囲の変更は、この計画に含めない。グラフの正確さ、操作可能性、再計算中の連続性を守りながら、実装を簡潔にする。
 
-本書の不具合は調査時点で未修正であり、改善案は今後の実装案である。本書の作成によって計算契約、UI、既存ADRを変更したことにはならない。
+不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01はB01-Aで対象としたplanner・producer・Check経路を解消済みで、B02〜B05は未完了である。改善案は別途実装する案であり、本書の作成によって計算契約、UI、既存ADRを変更したことにはならない。
 
 ## 評価の前提と検証範囲
 
@@ -56,13 +56,13 @@ P1は公開前に優先して解消すべき停止・資源制御上の問題、
 
 ## 確認した不具合
 
-### B01 資源制限より前の計画処理と同期計算による長時間停止
+### B01 資源制限より前の計画処理と同期計算による長時間停止（B01-Aで対象経路を解消）
 
 優先度はP1。範囲計画を拒否するまでの処理と、受理後の同期実行の両方が対象になる。
 
-関連実装は[ScoreRangePlanner.ts](../src/calculation/planning/ScoreRangePlanner.ts)の`planScore`、[ScoreTailModel.ts](../src/calculation/ScoreTailModel.ts)の`findTailCutoff`、[DxOrderStatistic.ts](../src/calculation/DxOrderStatistic.ts)の`logBinomialLowerCdf`、[RangePlanner.ts](../src/calculation/RangePlanner.ts)の`applyPlanLimits`、[CalculationClient.ts](../src/runtime/CalculationClient.ts)である。
+関連実装は[ScoreRangePlanner.ts](../src/calculation/planning/ScoreRangePlanner.ts)の`planScore`、[ScoreTailModel.ts](../src/calculation/ScoreTailModel.ts)の`findTailCutoff`、[DxOrderStatistic.ts](../src/calculation/DxOrderStatistic.ts)、[BinomialSurvival.ts](../src/calculation/BinomialSurvival.ts)、[RangePlanner.ts](../src/calculation/RangePlanner.ts)の`applyPlanLimits`、[CalculationClient.ts](../src/runtime/CalculationClient.ts)である。
 
-`planScore`は計算量の検査より先に`findTailCutoff`を実行する。裾の評価は`min(shihai + 1, dice - shihai)`に比例する二項分布の総和を含む。最終的に資源制限で拒否する要求も、拒否する前にこの評価を繰り返す。
+当初の実装では、`planScore`が計算量の検査より先に`findTailCutoff`を実行し、裾の評価で$L=\min(shihai+1,dice-shihai)$項の二項分布を直接加算していた。そのため、最終的に資源制限で拒否する要求も、拒否する前に大きな総和を繰り返していた。
 
 | 観測 | 条件 | 結果 |
 | --- | --- | --- |
@@ -73,16 +73,28 @@ Chrome側は`calculationClient.calculateCheck`を直接呼び出し、開始前�
 
 期待する動作は、過大要求を安価に拒否できることと、受理要求によって長時間操作不能にならないことである。入力フォームに巨大値を入力して確認する方法はブラウザを停止させるため、再現・回帰確認はタイムアウト付きの子プロセスまたは専用ブラウザで行う。
 
-修正は次の順序で行う。
+当初は、裾探索前の下限検査、探索中の仕事量予算、証明書を含む再計測、残る長時間処理のWorker化または資源policyを候補としていた。しかしB01-Aでは、線形に増える二項和そのものを、同じ確率を保つ正則化不完全ベータ関数の単一計算経路へ置き換えた。対象ケースの再計測で長時間処理が解消したため、事前のWorker化やpolicy変更は行わず、追加の長時間停止が観測された場合に限り再検討する。AbortSignalの検査だけでは同一スレッドの同期処理を中断できず、Promiseや`async`を付けるだけでも応答性は改善しないという制約は引き続き有効である。
 
-1. 裾の探索前に、入力と既定の最小作業量から算出できる計算量の下限を検査する。対象順位の大きさだけで明らかに予算を超える要求を先に拒否する。
-2. 探索中にも、評価回数と二項分布の項数に基づく仕事量の予算を設ける。探索終了後の一回の分布生成だけを見積もらない。
-3. 証明書生成を含む実行全体の見積りを確認し、通常入力と大きな受理入力を再測定する。
-4. 残る重い受理要求はWorkerで実行するか、実測に基づく資源policyで明示的に拒否する。固定ダイス数上限をゲーム仕様に追加する方法は採らない。
+#### B01-A follow-up（2026-10-07）: 二項tailの高速化と再計測
 
-AbortSignalの検査だけでは、同じスレッドの同期処理をユーザー操作から中断できない。Promiseや`async`を付けるだけでも改善しない。Workerへ移す場合は裾の探索も実行境界に含め、重いplannerをメインスレッドに残さない。
+二項survivalを$P(K\ge r)=I_q(r,n-r+1)$として、正則化不完全ベータ関数の修正Lentz連分数で評価する単一primitiveへ置き換えた。小rank/大rankでproductionアルゴリズムを切り替えず、`shihai=0`の最大値tailも変更していない。確率の意味はexact order statisticのままで、収束しない場合はfail-closedとする。
 
-完了条件は、拒否用ケースが重い総和へ入らないこと、受理用ケースでUIの応答が維持されること、旧要求を中断しても最新要求の結果と資源解放が正常であることである。CIでは入力サイズに対する仕事量の上限を決定的に検査し、絶対時間は同一環境で別途測定する。
+反復予算は$\min(100000,\lceil4\sqrt{L}+32\rceil)$で、operation estimateも同じ入力別予算に基づく。producerのtail評価回数だけでなく、`findTailCutoff`の最大42回と、`planScore`が最後に作るtail certificate用の1回を見積もる。有限supportでは存在しない裾探索を加算しない。resource policy閾値、Worker、固定dice上限、UIは変更していない。
+
+| Node側の単発計測 | 変更前 | 変更後 |
+| --- | --- | --- |
+| 10,000万D / shihai 5,000万: planner | 13,391.7ms、`cpu-work`拒否 | 2.6ms、受理、23,110,395 operations、184,883,160 cpu work |
+| 同ケース: DX producer | 未実行（planner拒否） | 0.7ms、working length 8、質量合計1 |
+| 100万D / shihai 50万: planner | 133.0ms、受理 | 0.26ms、受理、2,338,299 operations |
+| 同ケース: DX producer | 99.3ms | 0.13ms、working length 8、質量合計1 |
+| 通常8D / 20D / 100D: planner | 0.20 / 0.12 / 0.09ms | 0.23 / 0.21 / 0.10ms |
+| 通常8D / 20D / 100D: DX producer | 0.32 / 0.14 / 0.07ms | 0.31 / 0.12 / 0.05ms |
+
+再現用の`npm run benchmark:dx-order-statistic`は、同じブラウザ内でplanner、DX producer、巨大中央rankのtail、100万Dのaction/reactionを含む`CalculationClient.calculateCheck`を測る。Windows 11、Node 22.23.2、Headless Chrome 154の単発実測では、10,000万Dケースのplan/producerが1.5/0.4ms、100万D Checkのplan/calculateが0.2/1.6msで、計算分布の質量合計はいずれも1、ChromeのLong Task entryは0件だった。巨大中央rank $n=100000000,r=50000001,q=0.5$のtailは0.7ms、SciPy 1.18.0の独立値との差は約$2.5\times10^{-13}$だった。
+
+小規模の独立直接列挙、境界恒等式、単調性、SciPy 1.18.0から固定した大規模参照値をテストへ追加した。10,000万Dのdefault planner要求は、変更前の400,000,072 operations / 13.4秒での拒否から、23,110,395 operations / 2.6msでの受理になった。推定CPU workは既定閾値の内側で、実測したCheckを含む各要求に50ms以上のLong Taskは観測されなかった。
+
+したがってB01の対象として再現したplanner・producer・Check経路は解消し、現時点でWorker化やpolicy閾値変更を行う根拠はないため、B01をCLOSEDとする。これは各ブラウザ・全入力への性能保証ではない。新たな実利用計測で50ms以上の計算Long Task、または反復上限に近い継続的なtail評価が確認された場合は、該当経路のadmissionまたはWorker境界を再検討する。
 
 ### B02 表示開始位置を変更すると難易度の線がずれる
 
@@ -342,17 +354,17 @@ Canvasへの`aria-label`はグラフの名前を伝えるが、個別の確率�
 
 | 順序 | 変更単位 | 主な対象 | 完了条件 |
 | --- | --- | --- | --- |
-| 1 | 資源検査の前倒しと探索予算 | B01、Score plannerとtail評価 | 過大要求を重い処理の前に拒否し、探索にも予算がある |
+| 1 | 二項tail primitiveの高速化と再計測 | B01（完了）、Score plannerとtail評価 | 10,000万Dのplanner、受理される大入力、ブラウザCheckの実計算を再測定し、B01-Aを閉じた |
 | 2 | 局所的な表示不具合の修正 | B02、B05、chart設定とコンボ操作 | 非ゼロ開始位置の線とモバイルの操作名が正しい |
 | 3 | 有効入力の契約と無効入力通知 | B03、B04、S01 | 隠れた不要入力を計算しない。無効入力へ旧結果がcommitされない |
 | 4 | Check初期化とsnapshotの整理 | S02、S03 | 初期化が通常runnerを使い、coordinatorの汎用コピーが不要になる |
 | 5 | Attackの表示生成の一本化 | S04 | baseを一度だけ生成し、通常commitと表示更新が同じ経路を使う |
 | 6 | Attackの状態とエラー所有者の整理 | S05、S06 | 無効化表の振る舞いを保ち、重複した状態更新を削減する |
 | 7 | 検証と配列所有権の整理 | S07 | 外部境界の検証とalias防止を保ち、寛容な内部fallbackを削減する |
-| 8 | 残る長時間処理の実行境界を判断 | B01の受理側、性能測定、ADR | 受理する要求の応答性を確認し、必要なWorker変更を完了する |
+| 8 | 残る長時間処理の実行境界を判断 | 新たな性能証拠が得られた場合のみ | 現在のB01-A測定ではWorker変更を行わず、長時間停止が再現した場合に再評価する |
 | 9 | 名前と公開文書の整理 | S08、M01からM04 | 初見の開発者が入口、現行契約、検証手順を追える |
 
-順序8はB01の受理側を放置してよいという意味ではない。順序1の後に残る停止が通常利用へ影響する場合は、順序8を繰り上げる。B01の完了は拒否側と受理側の両方を確認した時点とする。
+順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
 
 ## 回帰検証と完了の判定
 

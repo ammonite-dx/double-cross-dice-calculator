@@ -14,21 +14,23 @@
 
 ## 次に行う作業
 
-1. **公開準備**: ライセンス、出典、公開範囲、再生成手順を確認し、ソース公開に必要なファイルだけを現行ツリーへ残す。
-2. **実測に基づくresource policy調整**: 動的範囲の代表ケースを計測し、必要ならCPU・メモリの警告閾値を調整する。入力・表示の固定上限を復活させない。
+1. **局所的な表示不具合の修正**: 独立レビューB02（難易度線の位置ずれ）とB05（モバイル操作ボタンのaccessible name欠落）を修正する。
+2. **有効入力と無効入力の契約整理**: B03/B04とS01に沿い、固定難易度で不要なreactionを計算せず、invalid draftへ古い結果をcurrent resultとしてcommitしない。
+3. **公開準備**: 上記の入力・表示課題を解決した後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
 
 ## 独立レビューに基づく改修案
 
-[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、未修正の不具合5件、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。グラフ中心のUIと既存の計算契約・描画継続を維持する。資源検査前の長時間処理を優先し、入力と結果の対応、表示の不具合、重複した処理経路を順に整理する。同文書の改善案は実装済みの変更や既存ADRの置換を意味しない。
+[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01は二項tail高速化と再計測によりCLOSEDとなり、B02〜B05と改善案は未完了である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の改善案は実装済みの変更や既存ADRの置換を意味しない。
 
 ## 保留
 
 - 実測に基づくruntimeの性能・メモリ上限の再調整。
 - Cloudflare Worker/API/MCP連携。結果契約と公開境界が安定するまで着手しない。
-- 教科書の《支配の領域》関連章。runtimeの最終計算方式が確定してから本文を更新する。
+- 教科書の《支配の領域》関連章の残りをレビューする。順序統計量と正則化不完全ベータ関数の説明を追加し、再帰式が現行実装ではなく別の導出であることを明記した。残るのは学習者向けの流れ・式の説明のレビューである。
 
 ## 完了した直近の作業
 
+- **R30-prep: B01二項tail高速化と再計測**: 正の《支配の領域》で使う二項survivalを正則化不完全ベータ関数の修正Lentz連分数へ置き換え、central rank 100,000,000Dのtail精度とplanner operation estimateを検証した。Nodeとブラウザで10,000万Dのplanner/producer、100万DのCheck、通常域を測り、対象ケースでは50ms以上のLong Taskがないことを確認してB01をCLOSEDとした。詳細は[`archive/r30-prep-b01-order-statistic-tail.md`](./archive/r30-prep-b01-order-statistic-tail.md)を参照する。
 - **R30-prep: summary visual continuity**: Check／Attackでreplacement計算中にready frameをUIだけで保持し、Summary cardとtableの同一DOM nodeを新しいready値への更新まで維持する。Attackのscore-only coverage再計算中も達成値期待値・命中率を維持し、loading終了後は成功・rejectionの現在状態へ切り替える。browser smokeで可視性・高さ・内容更新・recoveryを確認した。詳細は[`archive/r30-prep-summary-visual-continuity.md`](./archive/r30-prep-summary-visual-continuity.md)を参照する。
 - **R30-prep: Attack reaction tailのDamage分類**: 有限なaction scoreの最大値以下にならないreaction tailを、対決時のtieはreaction側勝利となる規則に基づいてdamage 0のfailureへ分類した。比較・期待値certificateで実際に確率を持つaction bucketの最大値を共有し、曖昧なtailや許容誤差を超えるtail確率誤差は従来どおり保守的に保持する。reactionのtail uncertaintyとDamage座標supportを分離し、許容誤差内の質量差は再正規化せず未確定tailとして増幅しない。詳細は[`archive/r30-prep-attack-reaction-tail-damage.md`](./archive/r30-prep-attack-reaction-tail-damage.md)を参照する。
 - **R30-prep: summary layout continuity**: Check／Attackのreplacement計算中にサマリー行の実測高さだけを一時保持し、footerの位置ずれを防いだ。サマリー値やcurrent calculation stateは保持せず、初回・error・rejection・invalidateではlayout cacheを残さない。ブラウザsmokeで遷移中の高さとfooter位置、拒否時clearを確認した。詳細は[`archive/r30-prep-summary-layout-continuity.md`](./archive/r30-prep-summary-layout-continuity.md)を参照する。

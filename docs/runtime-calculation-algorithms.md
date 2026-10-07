@@ -62,7 +62,11 @@ $$
 P(Y=x)=P(Y>x-1)-P(Y>x)
 $$
 
-で求められます。`n <= m`は、`n=0`ならraw DX値0、`n>0`ならraw DX値1の点分布として先に処理します。各`x`について`oneDieTail`と二項上側確率を評価し、隣接差を明示配列へ置き、最後の要素へ作業範囲外のtailを保存します。二項上側確率は成功側と失敗側の短い方を対数空間で評価するため、必要な項数は$L=\min(m+1,n-m)$です。これによりダイス数に比例する状態表を持たずに、巨大な`n`も同じ作業配列で扱えます。
+で求められます。`n <= m`は、`n=0`ならraw DX値0、`n>0`ならraw DX値1の点分布として先に処理します。各`x`について`oneDieTail`と二項上側確率を評価し、隣接差を明示配列へ置き、最後の要素へ作業範囲外のtailを保存します。二項上側確率は正則化不完全ベータ関数$I_q(r,n-r+1)$で評価します。ここで$r=m+1$、$q=q_c(x)$です。
+
+この関数は二項確率を順位まで足し上げるのではなく、正則化不完全ベータ関数の連分数表示で計算します。数値安定性のため、内部で対称変換を使って小さい側の不完全ベータ値を評価し、確率因子は平均からの差を`log1p`で扱い、Stirling補正を用いて大きな対数同士の減算を避けます。連分数は修正Lentz法で計算し、各回の更新幅が$2\times10^{-14}$以内に収束したときだけ返します。反復上限は$L=\min(r,n-r+1)$から$\min(100000,\lceil4\sqrt{L}+32\rceil)$と決め、上限までに収束しなければ結果を近似値へ置き換えず計算を失敗させます。入力サイズによって別の近似式や直接和へ切り替える閾値は設けません。
+
+したがって、正の`shihai`の仕事量は、working lengthを$W$、1DX tailの計算量を$C$として概ね$O(W(C+\sqrt{L}))$で、ベータ連分数の1回あたりの反復数には100,000回の上限があります。`ScoreRangePlanner`は生成処理の反復上限に加え、裾探索の最大42回と、計画後のtail certificate評価1回を見積もります。`critical=11`や有限supportの入力では、不要な裾探索分を見積もりません。tailの意味は従来どおりexact order statisticであり、浮動小数点評価を理由に近似上界へ置き換えてはいません。`shihai=0`の最大値tailは従来の累積分布のべき乗のままです。
 
 `yousei>0`では、元の判定の連続クリティカル数と追加の1D10判定の連続クリティカル数をまとめ、必要な範囲だけを一度畳み込みます。これは「現在の達成値を10単位へ切り上げ、1D10を加える」操作を繰り返す手順と同値で、各回の分布を再取得しません。クリティカル値11では自然クリティカルが起こらず、正のダイス数に対する追加判定は達成値10の点分布になります。
 
@@ -163,8 +167,8 @@ Check、Attack、Backtrackはそれぞれのplannerでworking rangeとCPU work�
 - 配列のシフト、上側確率、範囲集計は$O(N)$です。
 - FFTによる畳み込みは$O(N\log N)$です。
 - DXの`shihai=0`は累積分布のべき乗で、作業長を$W$、1DXのtail評価に必要なクリティカル値依存の仕事量を$C$とすると$O(WC)$、メモリは$O(W)$です。
-- DXの`shihai>0`かつ`dice > shihai`は、順序統計量のtailを使い、$L=\min(shihai+1,dice-shihai)$として$O(W(C+L))$、メモリは$O(W)$です。旧方式のようなダイス数ごとのDP表は確保しません。
-- `ScoreRangePlanner`はproducerと同じ$L$を使ってCPU workを見積もり、正の`shihai`では作業配列数を定数として見積もります。
+- DXの`shihai>0`かつ`dice > shihai`は、順序統計量tailを正則化不完全ベータ関数の修正Lentz連分数で評価し、仕事量は$L=\min(shihai+1,dice-shihai)$に対して最大$O(W(C+\sqrt{L}))$、メモリは$O(W)$です。連分数の入力別反復上限は$\min(100000,\lceil4\sqrt{L}+32\rceil)$で、上限までに収束しない場合は失敗します。旧方式のようなダイス数ごとのDP表や$L$項の直接和は使いません。
+- `ScoreRangePlanner`はproducerと同じ連分数反復上限、最大43回のtail評価、critical値による1DX tail評価をCPU workへ反映し、正の`shihai`では作業配列数を定数として見積もります。有限supportの場合は省略される裾探索を加算しません。
 - DRのFFT本体はWorkerで実行し、同一入力の重複要求を共有します。
 
 実装変更時は、ルールなら`dice-rules.md`と独立テスト、結果意味なら`result-contract.md`、参照fixtureなら[`reference/`](./reference/README.md)を同じ変更単位で更新します。production gateは`npm run verify:core`、browser smokeは`npm run verify:browser`、generatorとfixtureは`npm run verify:reference`で検証します。
