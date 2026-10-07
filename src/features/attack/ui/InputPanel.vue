@@ -3,11 +3,12 @@ import InputForm from './InputForm.vue'
 import { mdiTuneVariant } from '@mdi/js'
 import type { AttackAdvancedSettingsChange } from '../model/AttackAdvancedSettings'
 import type { AttackComboParams } from '../model/AttackComboState'
+import type { DraftValidation } from '@/shared/validation/DraftValidation'
 import type { AttackUiCombo } from '../model/useAttack'
 
 type ComboSideChange =
-  | { side: 'action'; snapshot: AttackComboParams['action'] }
-  | { side: 'reaction'; snapshot: AttackComboParams['reaction'] }
+  | { side: 'action'; state: DraftValidation<AttackComboParams['action']> }
+  | { side: 'reaction'; state: DraftValidation<AttackComboParams['reaction']> }
 
 defineProps<{
   combos: ReadonlyArray<AttackUiCombo>
@@ -20,7 +21,7 @@ const emit = defineEmits<{
   'combo-name-changed': [change: { id: number | string; name: string }]
   'combo-visibility-changed': [change: { id: number | string; show: boolean }]
   'combo-advanced-settings-changed': [change: AttackAdvancedSettingsChange]
-  'combo-side-validated': [change: { id: number | string } & ComboSideChange]
+  'combo-side-validation-state': [change: { id: number | string } & ComboSideChange]
 }>()
 </script>
 
@@ -37,7 +38,7 @@ const emit = defineEmits<{
         @combo-name-changed="(change) => emit('combo-name-changed', change)"
         @combo-visibility-changed="(change) => emit('combo-visibility-changed', change)"
         @combo-advanced-settings-changed="(change) => emit('combo-advanced-settings-changed', change)"
-        @combo-side-validated="(change) => emit('combo-side-validated', change)"
+        @combo-side-validation-state="(change) => emit('combo-side-validation-state', change)"
       />
     </v-card-text>
   </v-card>

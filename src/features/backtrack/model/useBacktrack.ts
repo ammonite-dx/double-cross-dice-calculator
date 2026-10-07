@@ -7,6 +7,7 @@ import type { CalculationClient } from '../../../runtime/CalculationClientTypes'
 import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type { BacktrackCalculationRangePlan } from '../../../calculation/planning/RangePlannerTypes'
 import type { BacktrackParams } from '../../../domain/BacktrackRules'
+import type { DraftValidation } from '../../../shared/validation/DraftValidation'
 import { INPUT_DOMAIN } from '../../../domain/InputDomain'
 import {
   createBacktrackRunner,
@@ -54,8 +55,19 @@ export function useBacktrack({
     },
   })
 
-  const onValidated = (params: Partial<BacktrackParams>) => {
-    const snapshot = createBacktrackInputSnapshot({ params })
+  const onValidationState = (
+    validation: DraftValidation<Partial<BacktrackParams>>,
+  ) => {
+    calculationRunner.invalidate()
+    if (validation.status === 'validating') {
+      return
+    }
+    if (validation.status === 'invalid') {
+      state.presentation = null
+      state.resultReady = false
+      return
+    }
+    const snapshot = createBacktrackInputSnapshot({ params: validation.value })
     state.params = { ...snapshot.params }
     void calculationRunner.run(snapshot)
   }
@@ -71,6 +83,6 @@ export function useBacktrack({
     presentation: stateRefs.presentation,
     resultReady: stateRefs.resultReady,
     rangeFeedback: stateRefs.rangeFeedback,
-    onValidated,
+    onValidationState,
   }
 }

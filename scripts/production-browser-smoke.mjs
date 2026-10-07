@@ -1173,6 +1173,12 @@ async function assertInvalidInput(page, record, caseId, input, value, message) {
     state: 'visible',
     timeout: PAGE_TIMEOUT_MILLISECONDS,
   })
+  await waitForCanvases(page, 0, { exact: true })
+  assertCondition(
+    caseId,
+    await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+    'stale summary remained after input validation failed',
+  )
   assertNoBrowserErrors(caseId, record)
 }
 
@@ -1227,6 +1233,30 @@ async function runCheck(browser, baseUrl) {
       100,
       1,
     )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check dice=1 before invalid draft',
+      page.getByLabel('ダイス数'),
+      1,
+      1,
+    )
+    await assertInvalidInput(
+      page,
+      record,
+      'check dice=-1 invalidates result',
+      page.getByLabel('ダイス数'),
+      -1,
+      'ダイス数は0以上として下さい。',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check dice=1 recovery',
+      page.getByLabel('ダイス数'),
+      1,
+      1,
+    )
     assertNoPrecomputedRequests('check-dice=100', record)
     const summaries = [
       { canvases, displayForms, id: 'check', precomputed: 0 },
@@ -1252,6 +1282,51 @@ async function runCheck(browser, baseUrl) {
     })
     assertNoBrowserErrors('check opposed on', record)
     summaries.push({ canvases: 1, id: 'check opposed on', precomputed: 0 })
+
+    const reactionSkillInput = page.getByLabel('技能値').nth(1)
+    await reactionSkillInput.fill('10000000')
+    await page.getByRole('alert').first().waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    await waitForCanvases(page, 0, { exact: true })
+    assertCondition(
+      'check opposed oversized reaction',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'summary remained after opposed reaction resource rejection',
+    )
+    const fixedRecoveryState = await captureResultState(page)
+    await opposedSwitch.setChecked(false)
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, fixedRecoveryState)
+    assertCondition(
+      'check fixed ignores hidden oversized reaction',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 1,
+      'fixed Check did not recover with only the action side',
+    )
+    const opposedRetryState = await captureResultState(page)
+    await opposedSwitch.setChecked(true)
+    await page.getByRole('alert').first().waitFor({
+      state: 'visible',
+      timeout: PAGE_TIMEOUT_MILLISECONDS,
+    })
+    await waitForCanvases(page, 0, { exact: true })
+    assertCondition(
+      'check opposed restores reaction evaluation',
+      await reactionSkillInput.inputValue() === '10000000'
+        && await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'opposed Check did not restore and reject the saved reaction input',
+    )
+    await reactionSkillInput.fill('0')
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, opposedRetryState)
+    const fixedAfterReactionRecovery = await captureResultState(page)
+    await opposedSwitch.setChecked(false)
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, fixedAfterReactionRecovery)
+    assertNoBrowserErrors('check opposed oversized reaction recovery', record)
+    summaries.push({ canvases: 1, id: 'check fixed excludes hidden oversized reaction', precomputed: 0 })
+    summaries.push({ canvases: 0, id: 'check opposed restores reaction resource rejection', precomputed: 0 })
 
     const opposedOffState = await captureResultState(page)
     await opposedSwitch.setChecked(false)
@@ -1806,6 +1881,23 @@ async function runAttack(browser, baseUrl) {
       1,
       2,
     )
+    const attackActionDiceInput = page.getByLabel('ダイス数').first()
+    await assertInvalidInput(
+      page,
+      record,
+      'attack invalid action dice clears results',
+      attackActionDiceInput,
+      -1,
+      'ダイス数は0以上として下さい。',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack valid action dice recovery',
+      attackActionDiceInput,
+      3,
+      2,
+    )
 
     const comboNameInputs = page.getByLabel('コンボ名')
     const addComboButton = page.getByRole('button', {
@@ -2211,6 +2303,8 @@ async function runAttack(browser, baseUrl) {
         id: 'attack defence=1',
         precomputed: 0,
       },
+      { canvases: 0, id: 'attack invalid action input clears old results', precomputed: 0 },
+      { canvases: 2, id: 'attack valid action input recovers', precomputed: 0 },
       {
         canvases: 2,
         d10Requests: 0,
@@ -2332,10 +2426,26 @@ async function runBacktrack(browser, baseUrl) {
       100,
       3,
     )
+    const backtrackDiceInput = page.getByLabel('その他減少量（ダイス）')
+    await assertInvalidInput(
+      page,
+      record,
+      'backtrack invalid dice clears old charts',
+      backtrackDiceInput,
+      -1,
+      '減少量(ダイス)は0以上として下さい。',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'backtrack valid dice recovery',
+      backtrackDiceInput,
+      100,
+      3,
+    )
     assertNoPrecomputedRequests('backtrack-boundaries', record)
     assertNoBrowserErrors('backtrack-boundaries', record)
 
-    const backtrackDiceInput = page.getByLabel('その他減少量（ダイス）')
     await fillBoundaryInput(
       page,
       record,
@@ -2364,6 +2474,8 @@ async function runBacktrack(browser, baseUrl) {
     return [
       { canvases, id: 'backtrack', precomputed: 0 },
       { canvases: 3, id: 'backtrack Eロイス/other dice=100', precomputed: 0 },
+      { canvases: 0, id: 'backtrack invalid input clears old charts', precomputed: 0 },
+      { canvases: 3, id: 'backtrack valid input recovers', precomputed: 0 },
       {
         canvases: 3,
         id: 'backtrack chart transition continuity',

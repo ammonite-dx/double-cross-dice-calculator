@@ -5,16 +5,17 @@
     import { mdiTuneVariant } from '@mdi/js'
     import type { BacktrackParams } from '@/domain/BacktrackRules'
     import type { CalculationFeedbackState } from '@/runtime/CalculationFeedbackTypes'
+    import type { DraftValidation } from '@/shared/validation/DraftValidation'
 
     const props = defineProps<{
         params: Partial<BacktrackParams>
         rangeFeedback: CalculationFeedbackState
     }>()
     const emit = defineEmits<{
-        validated: [params: Partial<BacktrackParams>]
+        'validation-state': [state: DraftValidation<Partial<BacktrackParams>>]
     }>()
-    const onValidated = (params: Partial<BacktrackParams>) => {
-        emit('validated', params);
+    const onValidationState = (state: DraftValidation<Partial<BacktrackParams>>) => {
+        emit('validation-state', state);
     };
 
 </script>
@@ -27,7 +28,7 @@
             <v-container class="pa-4">
                 <RangePlanNotice :feedback="props.rangeFeedback" />
                 <v-container class="pa-0">
-                    <BacktrackForm :params="props.params" @validated="onValidated"/>
+                    <BacktrackForm :params="props.params" @validation-state="onValidationState"/>
                 </v-container>
             </v-container>
         </v-card-text>

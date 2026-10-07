@@ -513,6 +513,15 @@ export function createAttackRunner<
       displayRevision += 1
       invalidateScoreDisplay()
     },
+    invalidateForValidation() {
+      // A draft is not a committed input yet. Revoke pending calculation
+      // commits immediately, but let the UI retain its last ready frame until
+      // validation resolves. Invalid confirmation uses invalidate() and
+      // clears that frame.
+      calculationCoordinator.invalidate()
+      displayRevision += 1
+      cancelScoreDisplayRecalculation()
+    },
     invalidateScoreDisplay() {
       invalidateScoreDisplay()
     },

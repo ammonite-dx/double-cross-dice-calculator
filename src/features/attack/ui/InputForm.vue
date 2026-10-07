@@ -4,11 +4,12 @@ import ComboForm from './ComboForm.vue'
 import { mdiChevronUp, mdiChevronDown, mdiContentCopy, mdiDelete, mdiPlus } from '@mdi/js'
 import type { AttackComboParams, AttackComboSide } from '../model/AttackComboState'
 import type { AttackAdvancedSettingsChange } from '../model/AttackAdvancedSettings'
+import type { DraftValidation } from '@/shared/validation/DraftValidation'
 import type { AttackUiCombo } from '../model/useAttack'
 
 type ComboSideChange =
-  | { side: 'action'; snapshot: AttackComboParams['action'] }
-  | { side: 'reaction'; snapshot: AttackComboParams['reaction'] }
+  | { side: 'action'; state: DraftValidation<AttackComboParams['action']> }
+  | { side: 'reaction'; state: DraftValidation<AttackComboParams['reaction']> }
 
 defineProps<{
   combos: ReadonlyArray<AttackUiCombo>
@@ -21,7 +22,7 @@ const emit = defineEmits<{
   'combo-name-changed': [change: { id: number | string; name: string }]
   'combo-visibility-changed': [change: { id: number | string; show: boolean }]
   'combo-advanced-settings-changed': [change: AttackAdvancedSettingsChange]
-  'combo-side-validated': [change: { id: number | string } & ComboSideChange]
+  'combo-side-validation-state': [change: { id: number | string } & ComboSideChange]
 }>()
 
 function onNameChanged(combo: AttackUiCombo, name: string) {
@@ -43,18 +44,18 @@ function onAdvancedSettingsChanged(
   })
 }
 
-function onSideValidated(combo: AttackUiCombo, change: ComboSideChange) {
+function onSideValidationState(combo: AttackUiCombo, change: ComboSideChange) {
   if (change.side === 'action') {
-    emit('combo-side-validated', {
+    emit('combo-side-validation-state', {
       id: combo.id,
       side: 'action',
-      snapshot: change.snapshot,
+      state: change.state,
     })
   } else {
-    emit('combo-side-validated', {
+    emit('combo-side-validation-state', {
       id: combo.id,
       side: 'reaction',
-      snapshot: change.snapshot,
+      state: change.state,
     })
   }
 }
@@ -87,7 +88,7 @@ function getComboAccessibleName(combo: AttackUiCombo, index: number) {
         :combo-color="getChartColor(combo.id)"
         :advanced-settings-enabled="combo.advancedSettingsEnabled"
         @advanced-settings-changed="(change) => onAdvancedSettingsChanged(combo, change)"
-        @side-validated="(change) => onSideValidated(combo, change)"
+        @side-validation-state="(change) => onSideValidationState(combo, change)"
       />
     </v-container>
     <v-divider class="mx-8" />

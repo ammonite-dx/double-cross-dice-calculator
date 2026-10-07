@@ -43,12 +43,12 @@ void invalidPlanItem
 const actionValidation: ComboSideValidation = {
   id: 'action',
   side: 'action',
-  snapshot: comboParams.action,
+  state: { status: 'valid', value: comboParams.action },
 }
 const reactionValidation: ComboSideValidation = {
   id: 'reaction',
   side: 'reaction',
-  snapshot: comboParams.reaction,
+  state: { status: 'valid', value: comboParams.reaction },
 }
 
 // The side discriminator must keep the validated snapshot on the same side.
@@ -56,7 +56,7 @@ const reactionValidation: ComboSideValidation = {
 const invalidSideValidation: ComboSideValidation = {
   id: 'mismatch',
   side: 'action',
-  snapshot: comboParams.reaction,
+  state: { status: 'valid', value: comboParams.reaction },
 }
 
 void actionValidation

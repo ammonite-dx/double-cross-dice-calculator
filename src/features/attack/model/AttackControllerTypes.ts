@@ -6,6 +6,7 @@ import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedb
 import type { DisplayFeedbackPlan } from '../../../shared/presentation/DistributionProjectionTypes'
 import type { AttackAdvancedSettingsChange } from './AttackAdvancedSettings'
 import type { AttackComboParams, AttackComboSide } from './AttackComboState'
+import type { DraftValidation } from '../../../shared/validation/DraftValidation'
 import type {
   AttackDisplayPresentation,
   AttackScoreDisplayBatchPresentation,
@@ -26,12 +27,12 @@ export type ComboSideValidation =
   | {
       readonly id: number | string
       readonly side: 'action'
-      readonly snapshot: AttackComboParams['action']
+      readonly state: DraftValidation<AttackComboParams['action']>
     }
   | {
       readonly id: number | string
       readonly side: 'reaction'
-      readonly snapshot: AttackComboParams['reaction']
+      readonly state: DraftValidation<AttackComboParams['reaction']>
     }
 
 /** Public state and actions exposed by the Attack feature controller. */
@@ -63,7 +64,7 @@ export interface AttackController {
   readonly onComboAdvancedSettingsChanged: (
     change: AttackAdvancedSettingsChange,
   ) => void
-  readonly onComboSideValidated: (change: ComboSideValidation) => void
+  readonly onComboSideValidationState: (change: ComboSideValidation) => void
   readonly dispose: () => void
 }
 

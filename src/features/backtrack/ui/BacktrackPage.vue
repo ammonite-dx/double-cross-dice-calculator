@@ -9,7 +9,7 @@
         params,
         presentation,
         rangeFeedback,
-        onValidated,
+        onValidationState,
     } = useBacktrack({ calculationClient })
 </script>
 
@@ -18,7 +18,7 @@
         <v-row><v-col cols="12"><InputPanel
             :params="params"
             :rangeFeedback="rangeFeedback"
-            @validated="onValidated"
+            @validation-state="onValidationState"
         /></v-col></v-row>
         <v-row><v-col cols="12"><FinalEncroachmentChartPanel
             :presentation="presentation"

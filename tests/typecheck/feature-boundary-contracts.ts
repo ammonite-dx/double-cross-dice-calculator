@@ -34,22 +34,25 @@ checkController.onAdvancedSettingsChanged({
 })
 
 declare const attackController: AttackController
-attackController.onComboSideValidated({
+attackController.onComboSideValidationState({
   id: 'action',
   side: 'action',
-  snapshot: attackController.combos.value[0]!.params.action,
+  state: { status: 'valid', value: attackController.combos.value[0]!.params.action },
 })
 // @ts-expect-error: the public combo projection must not expose internal data.
 attackController.combos.value[0]!.data
 // @ts-expect-error: Attack side validation keeps the side and snapshot shapes aligned.
-attackController.onComboSideValidated({
+attackController.onComboSideValidationState({
   id: 'mismatch',
   side: 'action',
-  snapshot: attackController.combos.value[0]!.params.reaction,
+  state: { status: 'valid', value: attackController.combos.value[0]!.params.reaction },
 })
 
 declare const backtrackController: BacktrackController
-backtrackController.onValidated({ encroachment: 100 })
+backtrackController.onValidationState({
+  status: 'valid',
+  value: { encroachment: 100 },
+})
 if (backtrackController.presentation.value) {
   const probability: number =
     backtrackController.presentation.value.charts.single.probabilities[0]!
@@ -58,5 +61,8 @@ if (backtrackController.presentation.value) {
   void probability
   void label
 }
-// @ts-expect-error: Backtrack handlers accept only BacktrackParams fields.
-backtrackController.onValidated({ unsupported: true })
+backtrackController.onValidationState({
+  status: 'valid',
+  // @ts-expect-error: Backtrack handlers accept only BacktrackParams fields.
+  value: { unsupported: true },
+})

@@ -43,6 +43,7 @@ import {
   hasAttackAdvancedSettingsValue,
 } from './AttackAdvancedSettings'
 import type { AttackAdvancedSettingsChange } from './AttackAdvancedSettings'
+import type { AttackComboParams } from './AttackComboState'
 import {
   DEFAULT_ATTACK_DISPLAY_REQUEST,
   createAttackRangePolicy as createRawAttackRangePolicy,
@@ -293,6 +294,9 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     request: DisplayRequestSnapshot = displayRequest,
     scoreRequest: DisplayRequestSnapshot = scoreDisplayRequest,
   ): Promise<boolean> {
+    if (pendingOrInvalidSides.size > 0) {
+      return Promise.resolve(false)
+    }
     const snapshot = createAttackDisplayRequestSnapshot(request)
     const scoreSnapshot = createAttackDisplayRequestSnapshot(scoreRequest)
     if (!preflightDisplay(snapshot)) {
@@ -320,6 +324,14 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     (maximum, combo) => Math.max(maximum, Number(combo.id)),
     -1
   ) + 1
+
+  const pendingOrInvalidSides = new Set<string>()
+  const validationKey = (id: number | string, side: 'action' | 'reaction') =>
+    `${typeof id}:${String(id)}:${side}`
+  const clearValidationForCombo = (id: number | string) => {
+    pendingOrInvalidSides.delete(validationKey(id, 'action'))
+    pendingOrInvalidSides.delete(validationKey(id, 'reaction'))
+  }
 
   function allocateComboId() {
     const id = nextComboId
@@ -349,6 +361,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
       return
     }
     state.combos.splice(index, 1)
+    clearValidationForCombo(id)
     invalidateAttackTotalCalculation(state)
     void runCalculation()
   }
@@ -367,6 +380,9 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     const combo = findCombo(id)
     if (combo !== null) {
       combo.show = show
+      if (!show) {
+        clearValidationForCombo(id)
+      }
     }
   }
 
@@ -382,11 +398,17 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     if (combo === null || combo.advancedSettingsEnabled[side] === enabled) {
       return
     }
+    const wasValidationPending = pendingOrInvalidSides.delete(
+      validationKey(id, side)
+    )
     combo.advancedSettingsEnabled[side] = enabled
     const hasAdvancedValue = side === 'action'
       ? hasAttackAdvancedSettingsValue('action', combo.data.params.action)
       : hasAttackAdvancedSettingsValue('reaction', combo.data.params.reaction)
     if (enabled || !hasAdvancedValue) {
+      if (wasValidationPending && pendingOrInvalidSides.size === 0) {
+        void runCalculation()
+      }
       return
     }
 
@@ -407,7 +429,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     void runCalculation()
   }
 
-  function onComboSideValidated({ id, side, snapshot }: ComboSideValidation) {
+  function onComboSideValidationState({ id, side, state: validation }: ComboSideValidation) {
     if (side !== 'action' && side !== 'reaction') {
       return
     }
@@ -415,17 +437,31 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     if (combo === null) {
       return
     }
+    const key = validationKey(id, side)
+    if (validation.status === 'validating') {
+      pendingOrInvalidSides.add(key)
+      calculationRunner.invalidateForValidation()
+      return
+    }
+    if (validation.status === 'invalid') {
+      pendingOrInvalidSides.add(key)
+      calculationRunner.invalidate()
+      invalidateAttackComboCalculation(state, id)
+      invalidateAttackTotalCalculation(state)
+      return
+    }
+    pendingOrInvalidSides.delete(key)
     // The UI sends a detached validated snapshot. The application snapshot
     // helper performs the second detached copy at the state boundary.
     const sanitizedSnapshot = side === 'action'
       ? applyAttackAdvancedSettingsPolicy(
         'action',
-        snapshot,
+        validation.value as AttackComboParams['action'],
         combo.advancedSettingsEnabled.action
       )
       : applyAttackAdvancedSettingsPolicy(
         'reaction',
-        snapshot,
+        validation.value as AttackComboParams['reaction'],
         combo.advancedSettingsEnabled.reaction
       )
     replaceAttackSideSnapshot(combo.data.params, side, sanitizedSnapshot)
@@ -575,7 +611,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     onComboNameChanged,
     onComboVisibilityChanged,
     onComboAdvancedSettingsChanged,
-    onComboSideValidated,
+    onComboSideValidationState,
     dispose,
   }
 }

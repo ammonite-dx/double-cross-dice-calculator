@@ -6,6 +6,7 @@
         createDefenceInputSnapshot,
     } from '@/features/attack/model/AttackInputSnapshot';
     import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
+    import type { DraftValidation } from '@/shared/validation/DraftValidation';
     import {
         createScoreFeatureCompatibilityRule,
         createScoreFieldRules,
@@ -19,7 +20,7 @@
         advancedSettingsEnabled: boolean;
     }>();
     const emit = defineEmits<{
-        validated: [snapshot: AttackComboParams['reaction']];
+        'validation-state': [state: DraftValidation<AttackComboParams['reaction']>];
         'advanced-settings-changed': [enabled: boolean];
     }>();
     const form = ref<{ validate?: () => Promise<{ valid?: boolean }> } | null>(null);
@@ -63,15 +64,17 @@
         }
         const ticket = validationGate.begin();
         const draft = createDefenceInputDraftSnapshot(currentParams) as AttackComboParams['reaction'];
+        emit('validation-state', { status: 'validating' });
         const validResult = await form.value?.validate?.();
         if (!validationGate.canCommit(ticket)) {
             return;
         }
         if (!validResult?.valid) {
+            emit('validation-state', { status: 'invalid' });
             return;
         }
         const snapshot = createDefenceInputSnapshot(draft) as AttackComboParams['reaction'];
-        emit('validated', snapshot);
+        emit('validation-state', { status: 'valid', value: snapshot });
     });
     function onAdvancedSettingsChanged(value: boolean) {
         validationGate.invalidate();

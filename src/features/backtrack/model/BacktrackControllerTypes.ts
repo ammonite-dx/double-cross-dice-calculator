@@ -4,6 +4,7 @@ import type { BacktrackCalculationRangePlan } from '../../../calculation/plannin
 import type { BacktrackParams } from '../../../domain/BacktrackRules'
 import type { CalculationFeedbackState } from '../../../runtime/CalculationFeedbackTypes'
 import type { BacktrackPresentation } from './BacktrackPresentation'
+import type { DraftValidation } from '../../../shared/validation/DraftValidation'
 
 export interface BacktrackState {
   params: Partial<BacktrackParams>
@@ -18,5 +19,7 @@ export interface BacktrackController {
   readonly presentation: Ref<BacktrackPresentation | null>
   readonly resultReady: Ref<boolean>
   readonly rangeFeedback: Ref<CalculationFeedbackState<BacktrackCalculationRangePlan>>
-  readonly onValidated: (params: Partial<BacktrackParams>) => void
+  readonly onValidationState: (
+    state: DraftValidation<Partial<BacktrackParams>>,
+  ) => void
 }

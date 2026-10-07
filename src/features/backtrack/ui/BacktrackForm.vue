@@ -1,13 +1,15 @@
 <script setup lang="ts">
 
-    import { ref,reactive,useId,watch } from 'vue';
+    import { nextTick, onUnmounted, ref, reactive, useId, watch } from 'vue';
     import { INPUT_DOMAIN } from '@/domain/InputDomain';
     import { createSafeIntegerRules } from '@/shared/validation/IntegerRules';
     import type { BacktrackParams } from '@/domain/BacktrackRules'
+    import { createLatestValidationGate } from '@/shared/validation/LatestValidationGate';
+    import type { DraftValidation } from '@/shared/validation/DraftValidation';
 
     const props = defineProps<{ params: Partial<BacktrackParams> }>()
     const emit = defineEmits<{
-        validated: [params: Partial<BacktrackParams>]
+        'validation-state': [state: DraftValidation<Partial<BacktrackParams>>]
     }>()
     const form = ref<{ validate?: () => Promise<{ valid: boolean }> } | null>(null);
     const currentParams = reactive<Partial<BacktrackParams>>({
@@ -19,7 +21,8 @@
         dlois: props.params.dlois,
     });
     const otherReductionGroupId = useId();
-    let validationGeneration = 0;
+    const validationGate = createLatestValidationGate();
+    let syncingProps = false;
     const dloisItem = ['なし', '戦闘用人格・生きる伝説', '生還者', '不死者・悪夢', '屍人', '戦友(通常)', '戦友(強化)']
     const encroachmentRule = createSafeIntegerRules({
         requiredMessage: '現在侵蝕率を入力して下さい。',
@@ -58,22 +61,33 @@
         props.params.dice,
         props.params.value,
         props.params.dlois,
-    ] as const, (values) => {
-        validationGeneration += 1;
+    ] as const, async (values) => {
+        validationGate.invalidate();
+        syncingProps = true;
         [currentParams.encroachment, currentParams.lois, currentParams.elois,
             currentParams.dice, currentParams.value, currentParams.dlois] = values;
+        await nextTick();
+        syncingProps = false;
     });
     watch(currentParams, async () => {
-        const generation = ++validationGeneration;
+        if (syncingProps) {
+            return;
+        }
+        const ticket = validationGate.begin();
         const draft = { ...currentParams };
+        emit('validation-state', { status: 'validating' });
         const validResult = await form.value?.validate?.();
-        if (generation !== validationGeneration) {
+        if (!validationGate.canCommit(ticket)) {
             return;
         }
         if (validResult?.valid) {
-            emit('validated', draft);
+            emit('validation-state', { status: 'valid', value: draft });
+        } else {
+            emit('validation-state', { status: 'invalid' });
         }
     });
+
+    onUnmounted(() => validationGate.dispose());
 
 </script>
 

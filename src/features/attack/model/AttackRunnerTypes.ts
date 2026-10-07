@@ -107,6 +107,7 @@ export interface AttackRunner<
 > {
   run(options?: AttackRunnerRunOptions): Promise<boolean>
   invalidate(): void
+  invalidateForValidation(): void
   invalidateScoreDisplay(): void
   refreshPresentation(
     options?: AttackRunnerRefreshOptions,

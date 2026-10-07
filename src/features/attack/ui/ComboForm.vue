@@ -2,6 +2,7 @@
 import AttackForm from './AttackForm.vue'
 import DefenceForm from './DefenceForm.vue'
 import type { AttackComboParams, AttackComboSide } from '../model/AttackComboState'
+import type { DraftValidation } from '@/shared/validation/DraftValidation'
 
 defineProps<{
   params: AttackComboParams
@@ -13,19 +14,28 @@ defineProps<{
 }>()
 
 type SideValidation =
-  | { side: 'action'; snapshot: AttackComboParams['action'] }
-  | { side: 'reaction'; snapshot: AttackComboParams['reaction'] }
+  | { side: 'action'; state: DraftValidation<AttackComboParams['action']> }
+  | { side: 'reaction'; state: DraftValidation<AttackComboParams['reaction']> }
 
 const emit = defineEmits<{
-  'side-validated': [change: SideValidation]
+  'side-validation-state': [change: SideValidation]
   'advanced-settings-changed': [change: { side: AttackComboSide; enabled: boolean }]
 }>()
 
-const onSideValidated = (side: AttackComboSide, snapshot: SideValidation['snapshot']) => {
+const onSideValidationState = (
+  side: AttackComboSide,
+  state: DraftValidation<AttackComboParams['action'] | AttackComboParams['reaction']>,
+) => {
   if (side === 'action') {
-    emit('side-validated', { side, snapshot: snapshot as AttackComboParams['action'] })
+    emit('side-validation-state', {
+      side,
+      state: state as DraftValidation<AttackComboParams['action']>,
+    })
   } else {
-    emit('side-validated', { side, snapshot: snapshot as AttackComboParams['reaction'] })
+    emit('side-validation-state', {
+      side,
+      state: state as DraftValidation<AttackComboParams['reaction']>,
+    })
   }
 }
 
@@ -39,14 +49,14 @@ const onAdvancedSettingsChanged = (side: AttackComboSide, enabled: boolean) => {
     :params="params.action"
     :combo-color="comboColor"
     :advanced-settings-enabled="advancedSettingsEnabled.action"
-    @validated="(snapshot) => onSideValidated('action', snapshot)"
+    @validation-state="(state) => onSideValidationState('action', state)"
     @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('action', enabled)"
   />
   <DefenceForm
     :params="params.reaction"
     :combo-color="comboColor"
     :advanced-settings-enabled="advancedSettingsEnabled.reaction"
-    @validated="(snapshot) => onSideValidated('reaction', snapshot)"
+    @validation-state="(state) => onSideValidationState('reaction', state)"
     @advanced-settings-changed="(enabled) => onAdvancedSettingsChanged('reaction', enabled)"
   />
 </template>

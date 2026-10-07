@@ -118,10 +118,19 @@ async function waitForReady(controller) {
 }
 
 function createController(client = createPendingClient()) {
+  const controller = useAttack({ calculationClient: client })
   return {
-    controller: useAttack({ calculationClient: client }),
+    controller,
     client,
   }
+}
+
+function submitValidatedSide(controller, { id, side, snapshot }) {
+  return controller.onComboSideValidationState({
+    id,
+    side,
+    state: { status: 'valid', value: snapshot },
+  })
 }
 
 describe('Attack feature controller', () => {
@@ -150,7 +159,7 @@ describe('Attack feature controller', () => {
     expect(controller.scoreChartTransitionPending.value).toBe(false)
     expect(controller.damageChartTransitionPending.value).toBe(false)
 
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -178,7 +187,7 @@ describe('Attack feature controller', () => {
 
   it('duplicates detached input and starts one fresh calculation', () => {
     const { controller, client } = createController()
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(6),
@@ -221,7 +230,7 @@ describe('Attack feature controller', () => {
       },
     }
 
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'reaction',
       snapshot,
@@ -253,7 +262,7 @@ describe('Attack feature controller', () => {
     snapshot.score.shihai = 2
     snapshot.damage.kazanari = 4
 
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot,
@@ -284,7 +293,7 @@ describe('Attack feature controller', () => {
       damage: { dice: 4, value: 7 },
     }
 
-    controller.onComboSideValidated({ id: 0, side: 'reaction', snapshot })
+    submitValidatedSide(controller, { id: 0, side: 'reaction', snapshot })
 
     expect(controller.combos.value[0].params.reaction).toMatchObject({
       score: { yousei: 0, shihai: 0 },
@@ -306,7 +315,7 @@ describe('Attack feature controller', () => {
     const snapshot = createActionSnapshot()
     snapshot.score.yousei = 1
     snapshot.damage.kazanari = 2
-    controller.onComboSideValidated({ id: 0, side: 'action', snapshot })
+    submitValidatedSide(controller, { id: 0, side: 'action', snapshot })
     await waitForReady(controller)
     const callsBeforeDisable = client.calculateAttack.mock.calls.length
 
@@ -331,7 +340,7 @@ describe('Attack feature controller', () => {
   it('routes validated side snapshots through the controller boundary', () => {
     const { controller, client } = createController()
     const snapshot = createActionSnapshot(4)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot,
@@ -358,7 +367,7 @@ describe('Attack feature controller', () => {
         value: 12,
       },
     }
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'reaction',
       snapshot,
@@ -386,7 +395,7 @@ describe('Attack feature controller', () => {
   it('reuses the committed damage presentation for a display-only change', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -412,7 +421,7 @@ describe('Attack feature controller', () => {
   it('recalculates only a changed combo and re-aggregates the total', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -424,7 +433,7 @@ describe('Attack feature controller', () => {
     const attackCallsBeforeChange = client.calculateAttack.mock.calls.length
     const totalCallsBeforeChange = client.calculateTotalDamage.mock.calls.length
 
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(7),
@@ -444,7 +453,7 @@ describe('Attack feature controller', () => {
       createAttackBatch({ width: 103, marker: 1 }),
     ])
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -470,7 +479,7 @@ describe('Attack feature controller', () => {
   it('rejects a damage display resource plan without starting a calculation', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -493,7 +502,7 @@ describe('Attack feature controller', () => {
   it('recovers a rejected damage display from committed records without recalculation', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -529,7 +538,7 @@ describe('Attack feature controller', () => {
   it('reuses the score presentation without starting a full batch', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -557,7 +566,7 @@ describe('Attack feature controller', () => {
       createAttackBatch({ width: 103, marker: 2, damageMarker: 0 }),
     ])
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -598,7 +607,7 @@ describe('Attack feature controller', () => {
   it('rejects only score display resources and keeps committed damage', async () => {
     const client = createResolvedClient()
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -652,13 +661,13 @@ describe('Attack feature controller', () => {
     }
     const { controller } = createController(client)
 
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(2),
     })
     await vi.waitFor(() => expect(callCount).toBe(1))
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(3),
@@ -675,6 +684,83 @@ describe('Attack feature controller', () => {
     controller.dispose()
   })
 
+  it('drops an invalid combo side and ignores its delayed result before recovery', async () => {
+    const initialBatch = createAttackBatch({ marker: 0 })
+    const recoveredBatch = createAttackBatch({ marker: 1 })
+    let attackCalls = 0
+    let resolveStale
+    let staleSignal
+    let totalCalls = 0
+    const client = {
+      calculateAttack: vi.fn((_params, options) => {
+        attackCalls += 1
+        options.onRangePlan?.({ operation: 'attack', warnings: [] })
+        if (attackCalls === 1) {
+          return Promise.resolve(initialBatch.combos[0])
+        }
+        if (attackCalls === 2) {
+          staleSignal = options.signal
+          return new Promise((resolve) => {
+            resolveStale = resolve
+          })
+        }
+        return Promise.resolve(recoveredBatch.combos[0])
+      }),
+      calculateTotalDamage: vi.fn(async () => {
+        const batch = totalCalls++ === 0 ? initialBatch : recoveredBatch
+        return {
+          totalDamage: batch.totalDamage,
+          totalDamageStatistics: batch.totalDamageStatistics,
+        }
+      }),
+    }
+    const { controller } = createController(client)
+
+    submitValidatedSide(controller, {
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(2),
+    })
+    await waitForReady(controller)
+    submitValidatedSide(controller, {
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(3),
+    })
+    await vi.waitFor(() => expect(attackCalls).toBe(2))
+    const previousPresentation = controller.displayPresentation.value
+
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'validating' },
+    })
+    expect(staleSignal.aborted).toBe(true)
+    expect(controller.displayPresentation.value).toBe(previousPresentation)
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'invalid' },
+    })
+    expect(controller.displayPresentation.value).toBeNull()
+    expect(controller.summaryReady.value).toBe(false)
+    resolveStale(initialBatch.combos[0])
+    await Promise.resolve()
+    expect(controller.displayPresentation.value).toBeNull()
+
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'valid', value: createActionSnapshot(4) },
+    })
+    await vi.waitFor(() => expect(attackCalls).toBe(3))
+    await waitForReady(controller)
+    expect(controller.combos.value[0].params.action.score.dice).toBe(4)
+    expect(controller.displayPresentation.value.combos[0]
+      .score.action.result.values[1]).toBe(1)
+    controller.dispose()
+  })
+
   it('does not commit a stale result after controller disposal', async () => {
     let resolvePending
     const client = {
@@ -687,7 +773,7 @@ describe('Attack feature controller', () => {
       calculateTotalDamage: vi.fn(),
     }
     const { controller } = createController(client)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'action',
       snapshot: createActionSnapshot(),
@@ -723,7 +809,7 @@ describe('Attack feature controller', () => {
     const { controller, client } = createController()
     controller.duplicateCombo(999)
     controller.removeCombo(999)
-    controller.onComboSideValidated({
+    submitValidatedSide(controller, {
       id: 0,
       side: 'unknown',
       snapshot: createActionSnapshot(),
