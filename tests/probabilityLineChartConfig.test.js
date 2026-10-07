@@ -30,7 +30,11 @@ function expectCommonLineOptions(options, xAxisTitle) {
 
 describe('probability line chart behavior baseline', () => {
   it('keeps Check opposed options without an annotation line', () => {
-    const options = getCheckChartOptions({ opposed: true, target: 17 })
+    const options = getCheckChartOptions({
+      opposed: true,
+      target: 17,
+      displayWindow: { min: 10, max: 40 },
+    })
 
     expectCommonLineOptions(options, '達成値')
     expect(options.plugins.annotation.annotations).toEqual({})
@@ -39,7 +43,11 @@ describe('probability line chart behavior baseline', () => {
   })
 
   it('keeps the Check difficulty annotation for non-opposed checks', () => {
-    const options = getCheckChartOptions({ opposed: false, target: 17 })
+    const options = getCheckChartOptions({
+      opposed: false,
+      target: 17,
+      displayWindow: { min: 0, max: 30 },
+    })
     const line = options.plugins.annotation.annotations.line1
 
     expectCommonLineOptions(options, '達成値')
@@ -61,6 +69,79 @@ describe('probability line chart behavior baseline', () => {
     })
   })
 
+  it('maps a nonzero display minimum to category indices and hides out-of-window difficulty', () => {
+    const displayWindow = { min: 10, max: 40 }
+    const atMinimum = getCheckChartOptions({
+      opposed: false,
+      target: 10,
+      displayWindow,
+    }).plugins.annotation.annotations.line1
+    const atMaximum = getCheckChartOptions({
+      opposed: false,
+      target: 40,
+      displayWindow,
+    }).plugins.annotation.annotations.line1
+
+    expect(atMinimum.value).toBe(0)
+    expect(atMinimum.label.content).toBe('難易度: 10')
+    expect(atMaximum.value).toBe(30)
+    expect(atMaximum.label.content).toBe('難易度: 40')
+    expect(getCheckChartOptions({
+      opposed: false,
+      target: 9,
+      displayWindow,
+    }).plugins.annotation.annotations).toEqual({})
+    expect(getCheckChartOptions({
+      opposed: false,
+      target: 41,
+      displayWindow,
+    }).plugins.annotation.annotations).toEqual({})
+  })
+
+  it('keeps zero-based boundaries and out-of-window behavior in both display modes', () => {
+    for (const mode of ['pmf', 'upper-tail']) {
+      const atMinimum = getCheckChartOptions({
+        opposed: false,
+        target: 0,
+        displayWindow: { min: 0, max: 30 },
+        mode,
+      }).plugins.annotation.annotations.line1
+      const atMaximum = getCheckChartOptions({
+        opposed: false,
+        target: 30,
+        displayWindow: { min: 0, max: 30 },
+        mode,
+      }).plugins.annotation.annotations.line1
+
+      expect(atMinimum.value).toBe(0)
+      expect(atMaximum.value).toBe(30)
+      expect(getCheckChartOptions({
+        opposed: false,
+        target: 31,
+        displayWindow: { min: 0, max: 30 },
+        mode,
+      }).plugins.annotation.annotations).toEqual({})
+    }
+  })
+
+  it('keeps the difficulty category index consistent between PMF and upper-tail charts', () => {
+    const common = {
+      opposed: false,
+      target: 20,
+      displayWindow: { min: 10, max: 40 },
+    }
+    const pmf = getCheckChartOptions({ ...common, mode: 'pmf' })
+    const upperTail = getCheckChartOptions({ ...common, mode: 'upper-tail' })
+    const pmfLine = pmf.plugins.annotation.annotations.line1
+    const upperTailLine = upperTail.plugins.annotation.annotations.line1
+
+    expect(pmfLine.value).toBe(10)
+    expect(upperTailLine.value).toBe(pmfLine.value)
+    expect(upperTailLine.label.content).toBe('難易度: 20')
+    expect(upperTail.plugins.tooltip.callbacks.title([{ label: 20 }]))
+      .toBe('達成値20以上')
+  })
+
   it('keeps Attack score and damage line options distinct only by x-axis title', () => {
     const scoreOptions = getAttackScoreChartOptions()
     const damageOptions = getAttackDamageChartOptions()
@@ -79,6 +160,7 @@ describe('probability line chart behavior baseline', () => {
     const checkOptions = getCheckChartOptions({
       opposed: true,
       target: 17,
+      displayWindow: { min: 0, max: 30 },
       mode: 'upper-tail',
     })
     const scoreOptions = getAttackScoreChartOptions({ mode: 'upper-tail' })

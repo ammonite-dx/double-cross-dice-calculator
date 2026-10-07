@@ -31,6 +31,7 @@
                 <RangePlanNotice :feedback="props.displayFeedback" />
                 <ScoreChart
                     :difficulty="props.difficulty"
+                    :display-window="props.displayRequest"
                     :presentation="props.presentation"
                     :preserve-previous-frame="props.preservePreviousFrame"
                 />

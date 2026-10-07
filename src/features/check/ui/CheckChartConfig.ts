@@ -1,10 +1,19 @@
 import { getChartColor } from '@/shared/theme/ChartPalette';
 import { createProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig';
 import type { ProbabilityLineChartOptions } from '@/shared/chart/ProbabilityLineChartConfig'
-import type { DifficultyInput, DisplayMode } from '@/domain/CalculationInputs'
+import type {
+    DifficultyInput,
+    DisplayMode,
+    DisplayRequestSnapshot,
+} from '@/domain/CalculationInputs'
+
+type CheckChartInput = DifficultyInput & {
+    mode?: DisplayMode
+    displayWindow: Pick<DisplayRequestSnapshot, 'min' | 'max'>
+}
 
 export function getCheckChartOptions (
-    difficulty: DifficultyInput & { mode?: DisplayMode },
+    difficulty: CheckChartInput,
 ): ProbabilityLineChartOptions {
 
     /*
@@ -14,6 +23,7 @@ export function getCheckChartOptions (
         difficulty: {
             opposed (boolean): 対決判定ならtrue。
             target (number): 判定難易度。
+            displayWindow: { min, max } (number): 現在表示している達成値の範囲。
         }
     output:
         options: {
@@ -74,13 +84,16 @@ export function getCheckChartOptions (
             distributionMode: difficulty.mode,
             annotations,
         });
-    } else {
+    } else if (
+        difficulty.target >= difficulty.displayWindow.min
+        && difficulty.target <= difficulty.displayWindow.max
+    ) {
         const content = '難易度: ' + String(difficulty.target);
         annotations = {
             line1: {
                 type: 'line',
                 scaleID: 'x',
-                value: difficulty.target,
+                value: difficulty.target - difficulty.displayWindow.min,
                 borderColor: getChartColor(1),
                 borderWidth: 3,
                 label: {
@@ -94,12 +107,13 @@ export function getCheckChartOptions (
                 },
             },
         };
-        return createProbabilityLineChartOptions({
-            xAxisTitle: '達成値',
-            tooltipTitlePrefix: '達成値',
-            distributionMode: difficulty.mode,
-            annotations,
-        });
     }
+
+    return createProbabilityLineChartOptions({
+        xAxisTitle: '達成値',
+        tooltipTitlePrefix: '達成値',
+        distributionMode: difficulty.mode,
+        annotations,
+    });
 
 }

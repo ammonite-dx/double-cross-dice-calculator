@@ -58,21 +58,26 @@ function onSideValidated(combo: AttackUiCombo, change: ComboSideChange) {
     })
   }
 }
+
+function getComboAccessibleName(combo: AttackUiCombo, index: number) {
+  const name = combo.name.trim()
+  return name.length > 0 ? name : `コンボ${index + 1}`
+}
 </script>
 
 <template>
-  <template v-for="combo in combos" :key="combo.id">
+  <template v-for="(combo, index) in combos" :key="combo.id">
     <v-container class="pa-4">
       <v-row class="ma-0">
         <v-col sm="9" cols="7" class="pl-0 pr-3 pb-0"><v-text-field label="コンボ名" :model-value="combo.name" @update:model-value="(name) => onNameChanged(combo, name)" variant="underlined" hide-details="auto" density="compact" class="text-md-body-1 text-caption" /></v-col>
         <v-col sm="3" cols="5" class="px-0">
           <v-row class="ma-0">
             <v-col cols="4" align-self="center" class="px-1 py-0">
-              <v-btn v-if="combo.show" variant="flat" block class="pa-0" :color="getChartColor(combo.id)" @click="onVisibilityChanged(combo, false)"><v-icon color="white" :icon="mdiChevronUp" /><span class="hidden-sm-and-down" style="color:white">畳む</span></v-btn>
-              <v-btn v-else variant="flat" block class="pa-0" :color="getChartColor(combo.id)" @click="onVisibilityChanged(combo, true)"><v-icon color="white" :icon="mdiChevronDown" /><span class="hidden-sm-and-down" style="color:white">開く</span></v-btn>
+              <v-btn v-if="combo.show" variant="flat" block class="pa-0" :color="getChartColor(combo.id)" :aria-label="`${getComboAccessibleName(combo, index)}を畳む`" :aria-expanded="true" @click="onVisibilityChanged(combo, false)"><v-icon color="white" :icon="mdiChevronUp" /><span class="hidden-sm-and-down" style="color:white">畳む</span></v-btn>
+              <v-btn v-else variant="flat" block class="pa-0" :color="getChartColor(combo.id)" :aria-label="`${getComboAccessibleName(combo, index)}を開く`" :aria-expanded="false" @click="onVisibilityChanged(combo, true)"><v-icon color="white" :icon="mdiChevronDown" /><span class="hidden-sm-and-down" style="color:white">開く</span></v-btn>
             </v-col>
-            <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color="getChartColor(combo.id)" @click="emit('combo-duplicate', combo.id)"><v-icon color="white" :icon="mdiContentCopy" /><span class="hidden-sm-and-down" style="color:white">複製</span></v-btn></v-col>
-            <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color="getChartColor(combo.id)" @click="emit('combo-remove', combo.id)"><v-icon color="white" :icon="mdiDelete" /><span class="hidden-sm-and-down" style="color:white">削除</span></v-btn></v-col>
+            <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color="getChartColor(combo.id)" :aria-label="`${getComboAccessibleName(combo, index)}を複製`" @click="emit('combo-duplicate', combo.id)"><v-icon color="white" :icon="mdiContentCopy" /><span class="hidden-sm-and-down" style="color:white">複製</span></v-btn></v-col>
+            <v-col cols="4" align-self="center" class="px-1 py-0"><v-btn variant="flat" block class="pa-0" :color="getChartColor(combo.id)" :aria-label="`${getComboAccessibleName(combo, index)}を削除`" @click="emit('combo-remove', combo.id)"><v-icon color="white" :icon="mdiDelete" /><span class="hidden-sm-and-down" style="color:white">削除</span></v-btn></v-col>
           </v-row>
         </v-col>
       </v-row>

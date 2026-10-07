@@ -660,6 +660,95 @@ async function assertAccessibleChartNames(page, caseId, expectedNames) {
   )
 }
 
+async function waitForStableCanvas(page, index, caseId) {
+  const startedAt = Date.now()
+  let previous = null
+  let stableSamples = 0
+  while (Date.now() - startedAt < PAGE_TIMEOUT_MILLISECONDS) {
+    const current = await page.locator('canvas').nth(index)
+      .evaluate((canvas) => canvas.toDataURL())
+    if (current === previous) {
+      stableSamples += 1
+      if (stableSamples >= 3) return
+    } else {
+      stableSamples = 0
+      previous = current
+    }
+    await delay(100)
+  }
+  throw new Error(`[${caseId}] canvas did not remain stable after chart animation`)
+}
+
+async function readOrangeAnnotationColumns(canvas) {
+  const bitmap = await createImageBitmap(canvas)
+  const pixelCanvas = new OffscreenCanvas(canvas.width, canvas.height)
+  const context = pixelCanvas.getContext('2d', { willReadFrequently: true })
+  if (!context) {
+    bitmap.close()
+    return []
+  }
+  context.drawImage(bitmap, 0, 0)
+  bitmap.close()
+
+  const top = Math.floor(canvas.height * 0.72)
+  const bottom = Math.floor(canvas.height * 0.88)
+  const pixels = context.getImageData(0, top, canvas.width, bottom - top).data
+  const columns = []
+  for (let x = 0; x < canvas.width; x += 1) {
+    let count = 0
+    for (let y = 0; y < bottom - top; y += 1) {
+      const offset = (y * canvas.width + x) * 4
+      const red = pixels[offset]
+      const green = pixels[offset + 1]
+      const blue = pixels[offset + 2]
+      const alpha = pixels[offset + 3]
+      if (red >= 235 && green >= 85 && green <= 165 && blue <= 45 && alpha >= 200) {
+        count += 1
+      }
+    }
+    if (count >= 8) columns.push({ x, count })
+  }
+
+  const groups = []
+  for (const column of columns) {
+    const group = groups.at(-1)
+    if (group && column.x <= group.lastX + 2) {
+      group.weightedX += column.x * column.count
+      group.weight += column.count
+      group.lastX = column.x
+    } else {
+      groups.push({
+        firstX: column.x,
+        lastX: column.x,
+        weightedX: column.x * column.count,
+        weight: column.count,
+      })
+    }
+  }
+  return groups.map(({ firstX, lastX, weightedX, weight }) => ({
+    firstX,
+    lastX,
+    x: weightedX / weight,
+  }))
+}
+
+async function readCheckDifficultyAnnotationX(page, caseId) {
+  await waitForStableCanvas(page, 0, caseId)
+  const clusters = await page.locator('canvas').first().evaluate(readOrangeAnnotationColumns)
+  assertCondition(
+    caseId,
+    clusters.length === 1,
+    `expected one orange difficulty line in the rendered canvas, found ${JSON.stringify(clusters)}`,
+  )
+  return clusters[0].x
+}
+
+async function assertNoCheckDifficultyAnnotation(page, caseId) {
+  await waitForStableCanvas(page, 0, caseId)
+  const clusters = await page.locator('canvas').first().evaluate(readOrangeAnnotationColumns)
+  assertCondition(caseId, clusters.length === 0, 'an out-of-window difficulty annotation was rendered')
+}
+
 async function assertFooterNormalFlow(page, caseId) {
   const layout = await page.evaluate(() => {
     const main = document.querySelector('.main-area')
@@ -1401,6 +1490,138 @@ async function runCheck(browser, baseUrl) {
     summaries.push({ canvases: 1, id: 'check fixed difficulty summary', precomputed: 0 })
 
     assertNoPrecomputedRequests('check final', record)
+
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation display minimum=10',
+      page.getByLabel('最小値'),
+      10,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation display maximum=40',
+      page.getByLabel('最大値'),
+      40,
+      1,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation target=20',
+      page.getByLabel('難易度'),
+      20,
+      1,
+    )
+    const x20Pmf = await readCheckDifficultyAnnotationX(
+      page,
+      'check difficulty annotation PMF target=20',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation target=10',
+      page.getByLabel('難易度'),
+      10,
+      1,
+    )
+    const x10 = await readCheckDifficultyAnnotationX(
+      page,
+      'check difficulty annotation lower boundary',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation target=40',
+      page.getByLabel('難易度'),
+      40,
+      1,
+    )
+    const x40 = await readCheckDifficultyAnnotationX(
+      page,
+      'check difficulty annotation upper boundary',
+    )
+    assertCondition(
+      'check difficulty annotation category coordinates',
+      Math.abs(x20Pmf - (x10 + (10 / 30) * (x40 - x10))) <= 2,
+      `target 20 was not at one-third of the 10..40 category window (x10=${x10}, x20=${x20Pmf}, x40=${x40})`,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation target=41 out of range',
+      page.getByLabel('難易度'),
+      41,
+      1,
+    )
+    await assertNoCheckDifficultyAnnotation(page, 'check out-of-window difficulty')
+    await selectDisplayMode(
+      page,
+      record,
+      'check difficulty annotation upper-tail mode',
+      '達成値がX以上となる確率を表示',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation upper-tail target=20',
+      page.getByLabel('難易度'),
+      20,
+      1,
+    )
+    const x20UpperTail = await readCheckDifficultyAnnotationX(
+      page,
+      'check difficulty annotation upper-tail target=20',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation upper-tail target=10',
+      page.getByLabel('難易度'),
+      10,
+      1,
+    )
+    const x10UpperTail = await readCheckDifficultyAnnotationX(
+      page,
+      'check difficulty annotation upper-tail lower boundary',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation upper-tail target=40',
+      page.getByLabel('難易度'),
+      40,
+      1,
+    )
+    const x40UpperTail = await readCheckDifficultyAnnotationX(
+      page,
+      'check difficulty annotation upper-tail upper boundary',
+    )
+    assertCondition(
+      'check difficulty annotation PMF and upper-tail parity',
+      Math.abs(x20UpperTail - (x10UpperTail + (10 / 30) * (x40UpperTail - x10UpperTail))) <= 2
+        && Math.abs(x20Pmf - (x10 + (10 / 30) * (x40 - x10))) <= 2,
+      `difficulty annotation did not preserve category position in PMF/upper-tail modes (PMF=${x10}/${x20Pmf}/${x40}, upper-tail=${x10UpperTail}/${x20UpperTail}/${x40UpperTail})`,
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'check difficulty annotation upper-tail target=41 out of range',
+      page.getByLabel('難易度'),
+      41,
+      1,
+    )
+    await assertNoCheckDifficultyAnnotation(page, 'check upper-tail out-of-window difficulty')
+    await assertNoPrecomputedRequests('check annotation final', record)
+    await assertNoBrowserErrors('check annotation final', record)
+    summaries.push({
+      canvases: 1,
+      id: 'check difficulty annotation follows nonzero category window',
+      precomputed: 0,
+      pixelVerified: true,
+    })
     return summaries
   } catch (error) {
     throw enrichCaseError('check', error, record)
@@ -1439,6 +1660,67 @@ async function runAttack(browser, baseUrl) {
     )
     assertNoPrecomputedRequests('attack-initial', record)
     assertNoBrowserErrors('attack-initial', record)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const initialCollapseButton = page.getByRole('button', {
+      name: 'コンボ1を畳む',
+      exact: true,
+    })
+    const initialDuplicateButton = page.getByRole('button', {
+      name: 'コンボ1を複製',
+      exact: true,
+    })
+    const initialRemoveButton = page.getByRole('button', {
+      name: 'コンボ1を削除',
+      exact: true,
+    })
+    assertCondition(
+      'attack mobile combo accessible names',
+      await initialCollapseButton.count() === 1
+        && await initialDuplicateButton.count() === 1
+        && await initialRemoveButton.count() === 1,
+      '390px accessibility tree did not expose target-specific collapse, duplicate, and delete names',
+    )
+    assertCondition(
+      'attack mobile combo expanded state',
+      await initialCollapseButton.getAttribute('aria-expanded') === 'true',
+      'expanded combo did not expose aria-expanded=true',
+    )
+    await initialCollapseButton.focus()
+    await page.keyboard.press('Enter')
+    const openComboButton = page.getByRole('button', {
+      name: 'コンボ1を開く',
+      exact: true,
+    })
+    await openComboButton.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'attack mobile combo collapsed state',
+      await openComboButton.getAttribute('aria-expanded') === 'false',
+      'collapsed combo did not expose aria-expanded=false after keyboard activation',
+    )
+    await openComboButton.focus()
+    await page.keyboard.press('Space')
+    await page.getByRole('button', {
+      name: 'コンボ1を畳む',
+      exact: true,
+    }).waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'attack mobile combo keyboard reopen',
+      await page.getByRole('button', {
+        name: 'コンボ1を畳む',
+        exact: true,
+      }).getAttribute('aria-expanded') === 'true',
+      'keyboard re-open did not restore aria-expanded=true',
+    )
+    await page.setViewportSize({ width: 1280, height: 900 })
+    assertCondition(
+      'attack desktop combo accessible names',
+      await page.getByRole('button', { name: 'コンボ1を畳む', exact: true }).count() === 1
+        && await page.getByRole('button', { name: 'コンボ1を複製', exact: true }).count() === 1
+        && await page.getByRole('button', { name: 'コンボ1を削除', exact: true }).count() === 1,
+      'desktop accessibility tree did not expose the same target-specific control names',
+    )
+    assertNoBrowserErrors('attack combo accessible names', record)
     await assertCompoundD10Groups(page, 'attack default dodge compound inputs', [
       {
         name: '攻撃力',
@@ -1560,6 +1842,30 @@ async function runAttack(browser, baseUrl) {
       await comboNameInputs.nth(1).inputValue() === 'コンボ2',
       'new combo name did not appear',
     )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack blank combo name fallback',
+      comboNameInputs.nth(1),
+      '  ',
+      2,
+    )
+    assertCondition(
+      'attack blank combo name fallback',
+      await page.getByRole('button', { name: 'コンボ1を複製', exact: true }).count() === 1
+        && await page.getByRole('button', { name: 'コンボ2を複製', exact: true }).count() === 1
+        && await page.getByRole('button', { name: 'コンボ2を畳む', exact: true }).count() === 1
+        && await page.getByRole('button', { name: 'コンボ2を削除', exact: true }).count() === 1,
+      'blank combo name did not fall back to its displayed ordinal',
+    )
+    await fillBoundaryInput(
+      page,
+      record,
+      'attack restore combo name',
+      comboNameInputs.nth(1),
+      'コンボ2',
+      2,
+    )
     await page.locator('tbody tr').filter({ hasText: 'コンボ2' }).waitFor({
       state: 'visible',
       timeout: PAGE_TIMEOUT_MILLISECONDS,
@@ -1572,6 +1878,14 @@ async function runAttack(browser, baseUrl) {
       'attack combo rename',
       await comboNameInputs.nth(1).inputValue() === '検証コンボ',
       'renamed combo input did not retain its value',
+    )
+    assertCondition(
+      'attack renamed combo accessible names',
+      await page.getByRole('button', { name: 'コンボ1を複製', exact: true }).count() === 1
+        && await page.getByRole('button', { name: '検証コンボを畳む', exact: true }).count() === 1
+        && await page.getByRole('button', { name: '検証コンボを複製', exact: true }).count() === 1
+        && await page.getByRole('button', { name: '検証コンボを削除', exact: true }).count() === 1,
+      'renamed combo controls did not use the user-provided combo name',
     )
     await page.locator('tbody tr').filter({ hasText: '検証コンボ' }).waitFor({
       state: 'visible',
@@ -1586,8 +1900,7 @@ async function runAttack(browser, baseUrl) {
     assertNoBrowserErrors('attack combo rename', record)
 
     const duplicateButtons = page.getByRole('button', {
-      name: '複製',
-      exact: true,
+      name: /を複製$/,
     })
     assertCondition(
       'attack combo duplicate',
@@ -1614,8 +1927,7 @@ async function runAttack(browser, baseUrl) {
     assertNoBrowserErrors('attack combo duplicate', record)
 
     const removeButtons = page.getByRole('button', {
-      name: '削除',
-      exact: true,
+      name: /を削除$/,
     })
     assertCondition(
       'attack combo remove',

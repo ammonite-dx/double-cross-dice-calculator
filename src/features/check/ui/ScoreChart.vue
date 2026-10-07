@@ -3,11 +3,15 @@
     import { computed } from 'vue';
     import ProbabilityLineChart from '@/shared/chart/ProbabilityLineChart.vue';
     import { getCheckChartOptions } from './CheckChartConfig';
-    import type { DifficultyInput } from '@/domain/CalculationInputs'
+    import type {
+        DifficultyInput,
+        DisplayRequestSnapshot,
+    } from '@/domain/CalculationInputs'
     import type { CheckPresentation } from '../model/CheckPresentationTypes'
 
     const props = defineProps<{
         difficulty: DifficultyInput
+        displayWindow: Pick<DisplayRequestSnapshot, 'min' | 'max'>
         presentation: CheckPresentation | null
         preservePreviousFrame: boolean
     }>()
@@ -16,6 +20,7 @@
         : null);
     const options = computed(() => getCheckChartOptions({
         ...props.difficulty,
+        displayWindow: props.displayWindow,
         mode: props.presentation?.mode,
     }));
 
