@@ -20,7 +20,10 @@ import {
   getScoreOutputMax,
   getScoreSupport,
 } from '../ScoreSupport'
-import { getDxOrderStatisticOperationEstimate } from '../DxOrderStatistic'
+import {
+  getDxOrderStatisticOperationEstimate,
+  getDxOrderStatisticTailSearchOperationEstimate,
+} from '../DxOrderStatistic'
 import type { ScoreInput } from '../../domain/InputDomain'
 import type {
   RangeDisplayPlan,
@@ -31,17 +34,30 @@ import type {
 
 function scoreOperationCount(
   plan: Pick<RolledScoreRangePlan, 'params' | 'workingLength'>,
+  finiteSupport: boolean,
 ): number {
   const dice = plan.params.dice
   const size = plan.workingLength
   if (plan.params.shihai === 0) {
     return getDxOperationEstimate(size, plan.params.critical)
   }
-  return getDxOrderStatisticOperationEstimate(
+  const distributionOperations = getDxOrderStatisticOperationEstimate(
     size,
     dice,
     plan.params.shihai,
     plan.params.critical
+  )
+  const tailSearchOperations = finiteSupport
+    ? 0
+    : getDxOrderStatisticTailSearchOperationEstimate(
+        dice,
+        plan.params.shihai,
+        plan.params.critical,
+      )
+  return addSafe(
+    distributionOperations,
+    tailSearchOperations,
+    'score order-statistic operation estimate',
   )
 }
 
@@ -112,7 +128,7 @@ export function planScore(
   const operations = scoreOperationCount({
     params: normalized,
     workingLength,
-  })
+  }, finiteSupport)
   const fftOperations = fftOperationCount(youseiFftLength)
   // When 《絶対支配》 covers every die, DxCalculator returns a point mass
   // immediately and does not allocate the order-statistic work table. Keep the

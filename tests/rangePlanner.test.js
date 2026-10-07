@@ -18,7 +18,7 @@ import { calculateDxDistribution } from '../src/calculation/DxCalculator'
 import { getDxOperationEstimate } from '../src/calculation/DxWorkingShape'
 import {
   getDxOrderStatisticOperationEstimate,
-  getDxOrderStatisticTermCount,
+  getDxOrderStatisticTailSearchOperationEstimate,
 } from '../src/calculation/DxOrderStatistic'
 import {
   getRuntimeDamageRollOperationEstimate,
@@ -387,7 +387,6 @@ describe('production range planner', () => {
     const score = plan.scores[0]
 
     expect(plan.accepted).toBe(true)
-    expect(getDxOrderStatisticTermCount(1_000_000, 1)).toBe(2)
     expect(score.operations).toBe(
       getDxOrderStatisticOperationEstimate(
         score.workingLength,
@@ -416,6 +415,32 @@ describe('production range planner', () => {
       )
     )
     expect(minimumOrder.scores[0].float64Bytes).toBeLessThan(1_000_000)
+  })
+
+  it('accepts the 100-million-dice central order-statistic planner case', () => {
+    const plan = planCalculationRanges(scoreOnlyParams({
+      score: scoreParams({
+        dice: 100_000_000,
+        critical: 10,
+        shihai: 50_000_000,
+      }),
+    }))
+    const score = plan.scores[0]
+
+    expect(plan.accepted).toBe(true)
+    expect(score.operations).toBe(
+      getDxOrderStatisticOperationEstimate(
+        score.workingLength,
+        100_000_000,
+        50_000_000,
+        10,
+      ) + getDxOrderStatisticTailSearchOperationEstimate(
+        100_000_000,
+        50_000_000,
+        10,
+      )
+    )
+    expect(plan.estimates.cpuWork).toBeLessThan(DEFAULT_POLICY.limits.maxCpuWork)
   })
 
   it('accounts for dense score output buffers when estimating memory', () => {
