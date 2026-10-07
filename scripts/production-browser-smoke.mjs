@@ -1211,6 +1211,11 @@ async function runCheck(browser, baseUrl) {
     await assertFooterNormalFlow(page, 'check footer normal flow')
     assertNoPrecomputedRequests('check', record)
     assertNoBrowserErrors('check', record)
+    const advancedSwitch = page.getByRole('checkbox', {
+      name: '高度な設定',
+      exact: true,
+    })
+    assertCondition('check advanced accessibility', await advancedSwitch.count() === 1, 'advanced settings checkbox was not accessible by name')
 
     await beginCanvasIdentityTracking(page, 'check chart transition', 1)
     await beginFooterContinuityTracking(page, 'check chart transition')
@@ -1248,6 +1253,32 @@ async function runCheck(browser, baseUrl) {
       page.getByLabel('ダイス数'),
       -1,
       'ダイス数は0以上として下さい。',
+    )
+    await advancedSwitch.setChecked(true)
+    assertCondition(
+      'check invalid base input survives advanced toggle on',
+      await page.getByLabel('ダイス数').first().inputValue() === '-1'
+        && await page.getByText('ダイス数は0以上として下さい。', { exact: true }).isVisible(),
+      'advanced settings toggle discarded the invalid base input',
+    )
+    await waitForCanvases(page, 0, { exact: true })
+    assertCondition(
+      'check invalid base input remains cleared after advanced toggle on',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'advanced settings toggle restored a stale summary for invalid input',
+    )
+    await advancedSwitch.setChecked(false)
+    assertCondition(
+      'check invalid base input survives advanced toggle off',
+      await page.getByLabel('ダイス数').first().inputValue() === '-1'
+        && await page.getByText('ダイス数は0以上として下さい。', { exact: true }).isVisible(),
+      'advanced settings toggle discarded the invalid base input',
+    )
+    await waitForCanvases(page, 0, { exact: true })
+    assertCondition(
+      'check invalid base input remains cleared after advanced toggle off',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'advanced settings toggle restored a stale summary for invalid input',
     )
     await fillBoundaryInput(
       page,
@@ -1389,11 +1420,6 @@ async function runCheck(browser, baseUrl) {
       1,
     )
 
-    const advancedSwitch = page.getByRole('checkbox', {
-      name: '高度な設定',
-      exact: true,
-    })
-    assertCondition('check advanced accessibility', await advancedSwitch.count() === 1, 'advanced settings checkbox was not accessible by name')
     await advancedSwitch.setChecked(true)
     const youseiInput = page.getByLabel('《妖精の手》等の回数')
     const shihaiInput = page.getByLabel('《支配の領域》の対象ダイス数')
@@ -1407,6 +1433,33 @@ async function runCheck(browser, baseUrl) {
       '《妖精の手》と《支配の領域》の同時利用には対応していません。',
     )
     await fillBoundaryInput(page, record, 'check shihai=0 recovery', shihaiInput, 0, 1)
+    const checkAdvancedInvalidState = await captureResultState(page)
+    await assertInvalidInput(
+      page,
+      record,
+      'check advanced yousei=-1',
+      youseiInput,
+      -1,
+      '《妖精の手》等の回数は0以上として下さい。',
+    )
+    await advancedSwitch.setChecked(false)
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, checkAdvancedInvalidState)
+    assertCondition(
+      'check advanced invalid field disabled recovery',
+      await youseiInput.isVisible() === false && await shihaiInput.isVisible() === false,
+      'advanced inputs remained visible after disabling advanced settings',
+    )
+    const checkAdvancedReenabledState = await captureResultState(page)
+    await advancedSwitch.setChecked(true)
+    await youseiInput.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'check advanced invalid field reset',
+      await youseiInput.inputValue() === '0' && await shihaiInput.inputValue() === '0',
+      'advanced values were not reset after disabling an invalid advanced field',
+    )
+    await waitForCanvases(page, 1, { exact: true })
+    await waitForResultCommit(page, checkAdvancedReenabledState)
     const advancedOffState = await captureResultState(page)
     await advancedSwitch.setChecked(false)
     await waitForResultCommit(page, advancedOffState)
@@ -1415,14 +1468,6 @@ async function runCheck(browser, baseUrl) {
       await youseiInput.isVisible() === false && await shihaiInput.isVisible() === false,
       'advanced score fields remained visible after disabling advanced settings',
     )
-    await advancedSwitch.setChecked(true)
-    await youseiInput.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
-    assertCondition(
-      'check advanced hidden value reset',
-      await youseiInput.inputValue() === '0' && await shihaiInput.inputValue() === '0',
-      'advanced score fields were not reset when advanced settings were disabled',
-    )
-    await advancedSwitch.setChecked(false)
     assertNoBrowserErrors('check advanced off', record)
 
     await selectDisplayMode(
@@ -1882,6 +1927,10 @@ async function runAttack(browser, baseUrl) {
       2,
     )
     const attackActionDiceInput = page.getByLabel('ダイス数').first()
+    const attackAdvancedSwitch = page.getByRole('checkbox', {
+      name: '高度な設定',
+      exact: true,
+    }).first()
     await assertInvalidInput(
       page,
       record,
@@ -1889,6 +1938,32 @@ async function runAttack(browser, baseUrl) {
       attackActionDiceInput,
       -1,
       'ダイス数は0以上として下さい。',
+    )
+    await attackAdvancedSwitch.setChecked(true)
+    assertCondition(
+      'attack invalid base input survives advanced toggle on',
+      await attackActionDiceInput.inputValue() === '-1'
+        && await page.getByText('ダイス数は0以上として下さい。', { exact: true }).first().isVisible(),
+      'advanced settings toggle discarded the invalid base input',
+    )
+    await waitForCanvases(page, 0, { exact: true })
+    assertCondition(
+      'attack invalid base input remains cleared after advanced toggle on',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'advanced settings toggle restored a stale summary for invalid input',
+    )
+    await attackAdvancedSwitch.setChecked(false)
+    assertCondition(
+      'attack invalid base input survives advanced toggle off',
+      await attackActionDiceInput.inputValue() === '-1'
+        && await page.getByText('ダイス数は0以上として下さい。', { exact: true }).first().isVisible(),
+      'advanced settings toggle discarded the invalid base input',
+    )
+    await waitForCanvases(page, 0, { exact: true })
+    assertCondition(
+      'attack invalid base input remains cleared after advanced toggle off',
+      await page.locator('.v-card').filter({ hasText: 'サマリー' }).count() === 0,
+      'advanced settings toggle restored a stale summary for invalid input',
     )
     await fillBoundaryInput(
       page,
@@ -2112,10 +2187,6 @@ async function runAttack(browser, baseUrl) {
     )
     assertNoPrecomputedRequests('attack-d10', record)
     assertNoBrowserErrors('attack-d10', record)
-    const attackAdvancedSwitch = page.getByRole('checkbox', {
-      name: '高度な設定',
-      exact: true,
-    }).first()
     await attackAdvancedSwitch.setChecked(true)
     await fillBoundaryInput(
       page,
@@ -2170,6 +2241,37 @@ async function runAttack(browser, baseUrl) {
         && await attackShihaiInput.inputValue() === '0'
         && await attackKazanariInput.inputValue() === '0',
       'attack yousei or kazanari was restored after re-enabling advanced settings',
+    )
+    const attackAdvancedInvalidState = await captureResultState(page)
+    await assertInvalidInput(
+      page,
+      record,
+      'attack advanced yousei=-1',
+      attackYouseiInput,
+      -1,
+      '《妖精の手》等の回数は0以上として下さい。',
+    )
+    await attackAdvancedSwitch.setChecked(false)
+    await waitForCanvases(page, 2, { exact: true })
+    await waitForResultCommit(page, attackAdvancedInvalidState)
+    assertCondition(
+      'attack advanced invalid field disabled recovery',
+      await attackYouseiInput.isVisible() === false
+        && await attackShihaiInput.isVisible() === false
+        && await attackKazanariInput.isVisible() === false,
+      'advanced inputs remained visible after disabling advanced settings',
+    )
+    const attackAdvancedReenabledState = await captureResultState(page)
+    await attackAdvancedSwitch.setChecked(true)
+    await attackYouseiInput.waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    await waitForCanvases(page, 2, { exact: true })
+    await waitForResultCommit(page, attackAdvancedReenabledState)
+    assertCondition(
+      'attack advanced invalid field reset',
+      await attackYouseiInput.inputValue() === '0'
+        && await attackShihaiInput.inputValue() === '0'
+        && await attackKazanariInput.inputValue() === '0',
+      'advanced values were not reset after disabling an invalid advanced field',
     )
     await fillBoundaryInput(
       page,

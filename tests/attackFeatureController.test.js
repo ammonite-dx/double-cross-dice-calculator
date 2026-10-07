@@ -320,6 +320,12 @@ describe('Attack feature controller', () => {
     const callsBeforeDisable = client.calculateAttack.mock.calls.length
 
     controller.onComboAdvancedSettingsChanged({ id: 0, side: 'action', enabled: false })
+    expect(client.calculateAttack).toHaveBeenCalledTimes(callsBeforeDisable)
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'valid', value: snapshot },
+    })
     await vi.waitFor(() => expect(
       client.calculateAttack.mock.calls.length
     ).toBe(callsBeforeDisable + 1))
@@ -334,6 +340,82 @@ describe('Attack feature controller', () => {
       score: { yousei: 0, shihai: 0 },
       damage: { kazanari: 0 },
     })
+    controller.dispose()
+  })
+
+  it('does not clear an invalid side blocker when advanced settings change', () => {
+    const { controller, client } = createController()
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'invalid' },
+    })
+
+    controller.onComboAdvancedSettingsChanged({
+      id: 0,
+      side: 'action',
+      enabled: true,
+    })
+
+    expect(client.calculateAttack).not.toHaveBeenCalled()
+    expect(controller.displayPresentation.value).toBeNull()
+
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'valid', value: createActionSnapshot(3) },
+    })
+    expect(client.calculateAttack).toHaveBeenCalledOnce()
+    controller.dispose()
+  })
+
+  it('restores the last valid calculation when a hidden invalid combo is discarded', async () => {
+    const client = createResolvedClient()
+    const { controller } = createController(client)
+    submitValidatedSide(controller, {
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(4),
+    })
+    await waitForReady(controller)
+    const callsBeforeInvalidation = client.calculateAttack.mock.calls.length
+
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'invalid' },
+    })
+    expect(controller.displayPresentation.value).toBeNull()
+
+    controller.onComboVisibilityChanged({ id: 0, show: false })
+    await waitForReady(controller)
+
+    expect(client.calculateAttack).toHaveBeenCalledTimes(callsBeforeInvalidation + 1)
+    expect(controller.combos.value[0].params.action.score.dice).toBe(4)
+    controller.dispose()
+  })
+
+  it('does not recalculate when a hidden validating combo still has a ready result', async () => {
+    const client = createResolvedClient()
+    const { controller } = createController(client)
+    submitValidatedSide(controller, {
+      id: 0,
+      side: 'action',
+      snapshot: createActionSnapshot(4),
+    })
+    await waitForReady(controller)
+    const callsBeforeValidation = client.calculateAttack.mock.calls.length
+
+    controller.onComboSideValidationState({
+      id: 0,
+      side: 'action',
+      state: { status: 'validating' },
+    })
+    controller.onComboVisibilityChanged({ id: 0, show: false })
+    await Promise.resolve()
+
+    expect(client.calculateAttack).toHaveBeenCalledTimes(callsBeforeValidation)
+    expect(controller.displayPresentation.value.status).toBe('ready')
     controller.dispose()
   })
 

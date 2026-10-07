@@ -223,6 +223,14 @@ describe('useCheck', () => {
     check.onAdvancedSettingsChanged({ side: 'reaction', enabled: true })
     expect(check.advancedSettingsEnabled.value).toEqual({ action: true, reaction: true })
     check.onAdvancedSettingsChanged({ side: 'action', enabled: false })
+    expect(client.calculateCheck).toHaveBeenCalledTimes(3)
+    check.onScoreValidationState({
+      side: 'action',
+      state: {
+        status: 'valid',
+        value: { dice: 4, critical: 9, skill: 2, yousei: 3, shihai: 0 },
+      },
+    })
     await vi.waitFor(() => expect(client.calculateCheck).toHaveBeenCalledTimes(4))
     expect(check.scoreParams.value.action).toMatchObject({ yousei: 0, shihai: 0 })
     check.onAdvancedSettingsChanged({ side: 'action', enabled: true })

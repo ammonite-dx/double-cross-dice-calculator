@@ -55,7 +55,6 @@ import type {
 import {
   applyCheckAdvancedSettingsPolicy,
   createCheckAdvancedSettingsEnabled,
-  hasCheckAdvancedSettingsValue,
 } from './CheckAdvancedSettings'
 import type {
   CheckAdvancedSettingsChange,
@@ -428,14 +427,6 @@ export async function useCheck({
     },
   })
 
-  function invalidateInputCalculation() {
-    // Input changes invalidate the previous score even when the current
-    // display request is rejected before a new runner request can start.
-    calculationRunner.invalidate()
-    state.calculationRecord = null
-    resetDisplayFeedback()
-  }
-
   const onDifficultyValidationState = (
     validation: DraftValidation<DifficultyInput>,
   ) => {
@@ -501,17 +492,6 @@ export async function useCheck({
       return
     }
     state.advancedSettingsEnabled[side] = enabled
-    if (enabled || !hasCheckAdvancedSettingsValue(state.scoreParams[side])) {
-      return
-    }
-
-    invalidateInputCalculation()
-    state.scoreParams[side] = applyCheckAdvancedSettingsPolicy(
-      state.scoreParams[side],
-      false
-    )
-    displayRecalculationKey = null
-    void submitCheck()
   }
 
   const onDisplayValidated = (request: DisplayRequestSnapshot) => {

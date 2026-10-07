@@ -38,10 +38,7 @@ import {
 } from './AttackState'
 import { executeAttackIncrementally } from './AttackIncrementalExecution'
 import { replaceAttackSideSnapshot } from './AttackInputSnapshot'
-import {
-  applyAttackAdvancedSettingsPolicy,
-  hasAttackAdvancedSettingsValue,
-} from './AttackAdvancedSettings'
+import { applyAttackAdvancedSettingsPolicy } from './AttackAdvancedSettings'
 import type { AttackAdvancedSettingsChange } from './AttackAdvancedSettings'
 import type { AttackComboParams } from './AttackComboState'
 import {
@@ -329,8 +326,9 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
   const validationKey = (id: number | string, side: 'action' | 'reaction') =>
     `${typeof id}:${String(id)}:${side}`
   const clearValidationForCombo = (id: number | string) => {
-    pendingOrInvalidSides.delete(validationKey(id, 'action'))
-    pendingOrInvalidSides.delete(validationKey(id, 'reaction'))
+    const actionCleared = pendingOrInvalidSides.delete(validationKey(id, 'action'))
+    const reactionCleared = pendingOrInvalidSides.delete(validationKey(id, 'reaction'))
+    return actionCleared || reactionCleared
   }
 
   function allocateComboId() {
@@ -381,7 +379,12 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     if (combo !== null) {
       combo.show = show
       if (!show) {
-        clearValidationForCombo(id)
+        const clearedValidation = clearValidationForCombo(id)
+        if (clearedValidation
+          && pendingOrInvalidSides.size === 0
+          && !isAttackCalculationReady(state)) {
+          void runCalculation()
+        }
       }
     }
   }
@@ -398,35 +401,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     if (combo === null || combo.advancedSettingsEnabled[side] === enabled) {
       return
     }
-    const wasValidationPending = pendingOrInvalidSides.delete(
-      validationKey(id, side)
-    )
     combo.advancedSettingsEnabled[side] = enabled
-    const hasAdvancedValue = side === 'action'
-      ? hasAttackAdvancedSettingsValue('action', combo.data.params.action)
-      : hasAttackAdvancedSettingsValue('reaction', combo.data.params.reaction)
-    if (enabled || !hasAdvancedValue) {
-      if (wasValidationPending && pendingOrInvalidSides.size === 0) {
-        void runCalculation()
-      }
-      return
-    }
-
-    const snapshot = side === 'action'
-      ? applyAttackAdvancedSettingsPolicy(
-        'action',
-        combo.data.params.action,
-        false
-      )
-      : applyAttackAdvancedSettingsPolicy(
-        'reaction',
-        combo.data.params.reaction,
-        false
-      )
-    replaceAttackSideSnapshot(combo.data.params, side, snapshot)
-    invalidateAttackComboCalculation(state, id)
-    invalidateAttackTotalCalculation(state)
-    void runCalculation()
   }
 
   function onComboSideValidationState({ id, side, state: validation }: ComboSideValidation) {

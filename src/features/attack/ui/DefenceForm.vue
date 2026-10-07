@@ -58,13 +58,17 @@
         await nextTick();
         syncingProps = false;
     }, { deep: true });
-    watch(currentParams, async () => {
-        if (syncingProps) {
+    function beginValidation() {
+        const ticket = validationGate.begin();
+        emit('validation-state', { status: 'validating' });
+        return ticket;
+    }
+    async function validateCurrentDraft(ticket: number) {
+        await nextTick();
+        if (!validationGate.canCommit(ticket)) {
             return;
         }
-        const ticket = validationGate.begin();
         const draft = createDefenceInputDraftSnapshot(currentParams) as AttackComboParams['reaction'];
-        emit('validation-state', { status: 'validating' });
         const validResult = await form.value?.validate?.();
         if (!validationGate.canCommit(ticket)) {
             return;
@@ -75,10 +79,17 @@
         }
         const snapshot = createDefenceInputSnapshot(draft) as AttackComboParams['reaction'];
         emit('validation-state', { status: 'valid', value: snapshot });
+    }
+    watch(currentParams, () => {
+        if (syncingProps) {
+            return;
+        }
+        void validateCurrentDraft(beginValidation());
     });
     function onAdvancedSettingsChanged(value: boolean) {
-        validationGate.invalidate();
+        const ticket = beginValidation();
         emit('advanced-settings-changed', Boolean(value));
+        void validateCurrentDraft(ticket);
     }
     onUnmounted(() => validationGate.dispose());
 
