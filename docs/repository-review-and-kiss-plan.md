@@ -175,6 +175,12 @@ controllerテストで検証中の古いPromise、invalid確定、修正後の�
 
 B04は**CLOSED / GREEN**。Check・Attack・Backtrackで同じ状態通知原則を適用し、invalid確定時に旧結果を残さない。Attack／Backtrackと本番ブラウザ回帰のcommitは`6c4a463`。
 
+#### B04 follow-up: 高度な設定とvalidation lifecycle（2026-10-08）: 完了
+
+Checkの《妖精の手》等、Attackの《妖精の手》等・《支配の領域》・《風鳴りの爪》の表示切替後も、フォームが`validating`を通知してから次tick後にactive fieldsを再検証する。featureはトグル操作だけではvalidation blockerを解除せず、最新の`valid`通知でのみ正規化済み入力を採用して再計算する。これにより無効な基本入力はON/OFF後も無効のまま保たれ、無効な高度設定だけならOFFで自動的に無効項目を0へ戻して結果を復帰する。
+
+Attackではinvalid draftを持つコンボを畳んで破棄したとき、他のvalidation blockerがなく、readyな計算も残っていなければ最後に確定した入力から再計算する。validation中でreadyな表示が維持されている場合は再計算を重ねない。コントローラーテストと本番ブラウザスモークでこの切替・復帰条件を固定した。B04をCLOSEDのまま維持し、次の作業はS02/S03とする。
+
 ### B05 モバイルのコンボ操作に読み上げ可能な名前がない
 
 優先度はP2。関連実装は[InputForm.vue](../src/features/attack/ui/InputForm.vue)のコンボ操作ボタンである。
