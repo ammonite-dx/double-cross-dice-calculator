@@ -21,15 +21,23 @@ async function launchChromium() {
 }
 
 async function runNodeBenchmarks(server) {
-  const [rangeModule, dxModule, tailModule, clientModule] = await Promise.all([
+  const [
+    rangeModule,
+    dxModule,
+    tailModule,
+    orderStatisticModule,
+    clientModule,
+  ] = await Promise.all([
     server.ssrLoadModule('/src/calculation/RangePlanner.ts'),
     server.ssrLoadModule('/src/calculation/DxCalculator.ts'),
     server.ssrLoadModule('/src/calculation/BinomialSurvival.ts'),
+    server.ssrLoadModule('/src/calculation/DxOrderStatistic.ts'),
     server.ssrLoadModule('/src/runtime/CalculationClient.ts'),
   ])
   const { planCalculationRanges } = rangeModule
   const { calculateDxDistribution } = dxModule
   const { binomialSurvivalProbability } = tailModule
+  const { calculateDxOrderStatisticTail } = orderStatisticModule
   const { createCalculationClient } = clientModule
   const scoreInput = ({ dice, critical, shihai }) => ({
     operation: 'score',
@@ -95,6 +103,12 @@ async function runNodeBenchmarks(server) {
     50_000_001,
     0.5,
   ))
+  const edgeRankTail = measure(() => calculateDxOrderStatisticTail(
+    116,
+    1_000_000_000_000,
+    10,
+    1,
+  ))
   const checkParams = {
     action: { dice: 1_000_000, critical: 10, skill: 0, yousei: 0, shihai: 500_000 },
     reaction: { dice: 1_000_000, critical: 10, skill: 0, yousei: 0, shihai: 500_000 },
@@ -116,6 +130,14 @@ async function runNodeBenchmarks(server) {
     centralTail: {
       elapsedMs: centralTail.elapsedMs,
       probability: centralTail.value,
+    },
+    edgeRankTail: {
+      dice: 1_000_000_000_000,
+      shihai: 1,
+      critical: 10,
+      value: 116,
+      elapsedMs: edgeRankTail.elapsedMs,
+      probability: edgeRankTail.value,
     },
     check: {
       plannerMs: checkPlan.elapsedMs,
@@ -152,15 +174,23 @@ async function run() {
     const page = await browser.newPage()
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     const browserReport = await page.evaluate(async () => {
-      const [rangeModule, dxModule, tailModule, clientModule] = await Promise.all([
+      const [
+        rangeModule,
+        dxModule,
+        tailModule,
+        orderStatisticModule,
+        clientModule,
+      ] = await Promise.all([
         import('/src/calculation/RangePlanner.ts'),
         import('/src/calculation/DxCalculator.ts'),
         import('/src/calculation/BinomialSurvival.ts'),
+        import('/src/calculation/DxOrderStatistic.ts'),
         import('/src/runtime/CalculationClient.ts'),
       ])
       const { planCalculationRanges } = rangeModule
       const { calculateDxDistribution } = dxModule
       const { binomialSurvivalProbability } = tailModule
+      const { calculateDxOrderStatisticTail } = orderStatisticModule
       const { createCalculationClient } = clientModule
       const measure = (fn) => {
         const start = performance.now()
@@ -238,10 +268,25 @@ async function run() {
         50_000_001,
         0.5,
       ))
+      const edgeRankTail = measure(() => calculateDxOrderStatisticTail(
+        116,
+        1_000_000_000_000,
+        10,
+        1,
+      ))
       results.push({
         name: 'central-rank-tail-100m',
         elapsedMs: centralTail.elapsedMs,
         probability: centralTail.value,
+      })
+      results.push({
+        name: 'edge-rank-tail-1t-shihai-1',
+        dice: 1_000_000_000_000,
+        shihai: 1,
+        critical: 10,
+        value: 116,
+        elapsedMs: edgeRankTail.elapsedMs,
+        probability: edgeRankTail.value,
       })
 
       const checkParams = {

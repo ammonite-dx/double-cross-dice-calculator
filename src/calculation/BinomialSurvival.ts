@@ -103,7 +103,12 @@ function stableLogRatio(
  * logarithms near the beta mean. The integer parameters let us use a stable
  * Stirling correction instead of subtracting three large log-gamma values.
  */
-function logBetaFront(a: number, b: number, x: number): number {
+function logBetaFront(
+  a: number,
+  b: number,
+  x: number,
+  oneMinusX: number,
+): number {
   const total = a + b
   const meanA = a / total
   const meanB = b / total
@@ -111,10 +116,10 @@ function logBetaFront(a: number, b: number, x: number): number {
   // subtracting values near one loses several digits for large n.
   const differenceA = meanA <= 0.5
     ? x - meanA
-    : meanB - (1 - x)
+    : meanB - oneMinusX
   const differenceB = -differenceA
   const logRatios = a * stableLogRatio(x, meanA, differenceA)
-    + b * stableLogRatio(1 - x, meanB, differenceB)
+    + b * stableLogRatio(oneMinusX, meanB, differenceB)
   const logScale = 0.5 * (
     LOG_TWO_PI + Math.log(total) - Math.log(a) - Math.log(b)
   )
@@ -136,37 +141,43 @@ function nonzero(value: number): number {
     : MIN_CONTINUED_FRACTION_VALUE
 }
 
-/** Evaluate the continued fraction in the regularized incomplete-beta formula. */
+/** Evaluate the two-argument continued fraction without reconstructing 1-x. */
 function betaContinuedFraction(
   a: number,
   b: number,
   x: number,
+  oneMinusX: number,
   iterationBudget: number,
 ): number {
-  const sum = a + b
-  const aPlusOne = a + 1
-  const aMinusOne = a - 1
-  let c = 1
-  let d = 1 - sum * x / aPlusOne
-  d = 1 / nonzero(d)
-  let fraction = d
+  const firstDenominator = a + 1
+  const firstNumerator = a * oneMinusX - b * x + 1
+  let fraction = nonzero(a * firstNumerator / firstDenominator)
+  let c = fraction
+  let d = 0
   let lastDelta = Number.NaN
 
   for (let iteration = 1; iteration <= iterationBudget; iteration += 1) {
-    const twiceIteration = 2 * iteration
-    let coefficient = iteration * (b - iteration) * x
-      / ((aMinusOne + twiceIteration) * (a + twiceIteration))
-    d = 1 + coefficient * d
-    d = 1 / nonzero(d)
-    c = nonzero(1 + coefficient / c)
-    fraction *= d * c
+    const denominator = a + 2 * iteration - 1
+    const numerator = (iteration * (a + iteration - 1) / denominator)
+      * ((a + b + iteration - 1) / denominator)
+      * (b - iteration)
+      * x
+      * x
+    const partialDenominator = iteration
+      + iteration * (b - iteration) * x / denominator
+      + (a + iteration)
+        * (
+          a * oneMinusX
+          - b * x
+          + 1
+          + iteration * (2 - x)
+        )
+        / (a + 2 * iteration + 1)
 
-    coefficient = -(a + iteration) * (sum + iteration) * x
-      / ((a + twiceIteration) * (aPlusOne + twiceIteration))
-    d = 1 + coefficient * d
+    d = partialDenominator + numerator * d
     d = 1 / nonzero(d)
-    c = nonzero(1 + coefficient / c)
-    const delta = d * c
+    c = nonzero(partialDenominator + numerator / c)
+    const delta = c * d
     fraction *= delta
     lastDelta = delta
 
@@ -190,12 +201,18 @@ function lowerRegularizedIncompleteBeta(
   a: number,
   b: number,
   x: number,
+  oneMinusX: number,
   iterationBudget: number,
 ): number {
-  const fraction = betaContinuedFraction(a, b, x, iterationBudget)
-  const logProbability = logBetaFront(a, b, x)
-    + Math.log(fraction)
-    - Math.log(a)
+  const fraction = betaContinuedFraction(
+    a,
+    b,
+    x,
+    oneMinusX,
+    iterationBudget,
+  )
+  const logProbability = logBetaFront(a, b, x, oneMinusX)
+    - Math.log(fraction)
   if (logProbability === -Infinity) {
     return 0
   }
@@ -210,6 +227,7 @@ function regularizedIncompleteBeta(
   a: number,
   b: number,
   x: number,
+  oneMinusX: number,
   iterationBudget: number,
 ): number {
   if (x <= 0) {
@@ -221,9 +239,15 @@ function regularizedIncompleteBeta(
 
   const threshold = (a + 1) / (a + b + 2)
   if (x < threshold) {
-    return lowerRegularizedIncompleteBeta(a, b, x, iterationBudget)
+    return lowerRegularizedIncompleteBeta(a, b, x, oneMinusX, iterationBudget)
   }
-  const complement = lowerRegularizedIncompleteBeta(b, a, 1 - x, iterationBudget)
+  const complement = lowerRegularizedIncompleteBeta(
+    b,
+    a,
+    oneMinusX,
+    x,
+    iterationBudget,
+  )
   return clampProbability(1 - complement)
 }
 
@@ -263,6 +287,7 @@ export function binomialSurvivalProbability(
     required,
     dice - required + 1,
     probability,
+    1 - probability,
     getBinomialSurvivalIterationBudget(dice, required),
   )
 }

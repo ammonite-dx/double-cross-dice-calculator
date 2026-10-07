@@ -105,6 +105,48 @@ describe('DX order-statistic helpers', () => {
     }
   })
 
+  it('preserves DX tail precision for large and edge order-statistic ranks', () => {
+    // The q values are produced by the same oneDieTail implementation used by
+    // calculateDxOrderStatisticTail. The required=2 and required=dice-1
+    // reference values use their closed binomial forms evaluated with Python
+    // Decimal at 70-digit precision; SciPy 1.18.0 independently agrees with
+    // the trillion-dice required=2 case. Other references use scipy.special.betainc.
+    const cases = [
+      [1_000_000, 2, 10, 56, 4.0000000000000015e-6, 0.9084222451318579],
+      [100_000_000, 2, 10, 76, 4.0000000000000014e-8, 0.9084218099520825],
+      [1_000_000_000, 2, 10, 86, 4.0000000000000019e-9, 0.9084218059959046],
+      [1_000_000_000_000, 2, 10, 116, 4.0000000000000023e-12, 0.9084218055567689],
+      [1_000_000, 500_001, 10, 5, 0.5, 0.49960105781933462],
+      [1_000_000, 900_001, 10, 1, 0.9, 0.49951240392438734],
+      [1_000_000, 90_001, 8, 17, 0.09, 0.49911247701107098],
+      [1_000, 999, 10, 1, 0.9, 1.959557881097998e-44],
+    ]
+
+    for (const [dice, required, critical, value, expectedQ, expected] of cases) {
+      const q = oneDieTail(value, critical)
+      const qRelativeError = Math.abs(q - expectedQ) / expectedQ
+      expect(qRelativeError, `DX tail at ${value}, C${critical}: ${q}`)
+        .toBeLessThan(2e-14)
+      const actual = calculateDxOrderStatisticTail(
+        value,
+        dice,
+        critical,
+        required - 1,
+      )
+      const relativeError = Math.abs(actual - expected) / expected
+      expect(relativeError, `${dice}D, r=${required}, q=${q}: ${actual}`)
+        .toBeLessThan(2e-10)
+      expect(actual).toBeGreaterThanOrEqual(0)
+      expect(actual).toBeLessThanOrEqual(1)
+    }
+
+    const decreasingTails = [106, 116, 126].map((value) => (
+      calculateDxOrderStatisticTail(value, 1_000_000_000_000, 10, 1)
+    ))
+    expect(decreasingTails[1]).toBeLessThanOrEqual(decreasingTails[0])
+    expect(decreasingTails[2]).toBeLessThanOrEqual(decreasingTails[1])
+  })
+
   it('matches both binomial survival boundary identities at large dice counts', () => {
     for (const dice of [1, 1_000_000, 100_000_000]) {
       for (const probability of [1e-10, 0.37, 1 - 1e-8]) {
@@ -177,6 +219,7 @@ describe('DX order-statistic helpers', () => {
     const distribution = calculateDxDistribution(params, { workingLength })
     let total = 0
     for (const probability of distribution) {
+      expect(probability).toBeGreaterThanOrEqual(0)
       total += probability
     }
     expect(total).toBeCloseTo(1, 13)

@@ -182,6 +182,16 @@ describe('production range planner', () => {
     }
   })
 
+  it('keeps the tail cutoff on the correct side of its error budget at trillion dice', () => {
+    const params = { dice: 1_000_000_000_000, critical: 10, shihai: 1, yousei: 0 }
+    const epsilon = 8e-9
+    const cutoff = findTailCutoff(params, epsilon)
+
+    expect(cutoff.reachable).toBe(true)
+    expect(cutoff.bound).toBeLessThanOrEqual(epsilon)
+    expect(scoreTailBound(cutoff.cutoff - 1, params)).toBeGreaterThan(epsilon)
+  })
+
   it('uses working length rather than dice count for ordinary DX operation estimates', () => {
     const plan = planCalculationRanges(scoreOnlyParams({
       score: scoreParams({ dice: 1_000_000, critical: 10 }),
