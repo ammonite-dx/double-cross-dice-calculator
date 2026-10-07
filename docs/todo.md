@@ -14,12 +14,13 @@
 
 ## 次に行う作業
 
-1. **有効入力と無効入力の契約整理**: 独立レビューB03/B04とS01に沿い、固定難易度で不要なreactionを計算せず、invalid draftへ古い結果をcurrent resultとしてcommitしない。
-2. **公開準備**: 入力・表示課題を解決した後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
+1. **S02: Check初期計算と更新計算の経路を統一**: `useCheck`の初期計算を通常runnerへ寄せ、top-level awaitと重複した初期化経路を整理する。初回要求の一度だけの実行、初期計算中の画面離脱、拒否からの復帰を回帰テストする。
+2. **S03: coordinatorの汎用コピー機構を削除**: productionで使われている専用snapshotを必須にし、不要なgeneric deep cloneとそれだけに必要な型分岐を除く。最新要求、Abort、dispose、snapshot ownershipの契約は維持する。
+3. **公開準備**: S02/S03と後続の入力・表示課題を解決した後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
 
 ## 独立レビューに基づく改修案
 
-[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01は二項tail高速化と補数精度、B02の注釈位置、B05のコンボ操作アクセシビリティを検証してCLOSEDとした。B03/B04と改善案は未完了である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の改善案は実装済みの変更や既存ADRの置換を意味しない。
+[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01からB05はすべて検証してCLOSED / GREENとし、S01も完了した。残る改善案はS02以降である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の未完了案は実装済みの変更や既存ADRの置換を意味しない。
 
 ## 保留
 
@@ -29,6 +30,7 @@
 
 ## 完了した直近の作業
 
+- **独立レビューB03/B04・S01: Check入力契約とinvalid draftの整理**: Checkの計算入力をfixed/opposed unionにし、fixed requestからreactionを除外した。固定結果にはreaction distribution/statisticsを要求せず、固定判定へscore tail予算全量を使う（commit `a1381ee`）。Check、Attack、Backtrackのフォームは`validating`/`invalid`/`valid`を通知し、旧要求を即時invalidate、invalid確定時に旧結果をclearする（commit `6c4a463`）。本番ブラウザでreaction resource rejectionからのfixed復帰、3画面のinvalid→valid復帰、既存のvalid-to-valid chartとsummary/footer continuityを確認した。全体検証は85テストファイル・1,026テスト、型検査、lint、Markdown lint、buildを通過した。詳細は[`repository-review-and-kiss-plan.md`](./repository-review-and-kiss-plan.md)のB03/B04 follow-upを参照する。
 - **独立レビューB02/B05: 表示位置とコンボ操作の修正**: Checkでは現在の表示最小値を使ってカテゴリ軸の難易度位置を変換し、範囲外・対決判定では注釈を隠す。攻撃コンボの操作ボタンに対象別のアクセシブル名と開閉状態を付け、空名は表示序数へフォールバックする。オプションテスト、本番ブラウザのcanvas画素検証、390px／デスクトップのアクセシビリティ・キーボード操作を確認した。実装commitは`a47b7b2`。詳細は[`repository-review-and-kiss-plan.md`](./repository-review-and-kiss-plan.md)のB02/B05 follow-upを参照する。
 - **R30-prep: B01二項tail高速化・数値安定化と再計測**: 正の《支配の領域》で使う二項survivalを正則化不完全ベータ関数の修正Lentz連分数で評価する単一経路を維持し、補数を独立に渡す二引数連分数で巨大dice・小確率時の精度を修正した。central rank 100,000,000D、1兆D端rank、cutoff error budget、PMFの非負性とmassを検証した。Nodeとブラウザでplanner/producer、Check、通常域、edge tailを測り、対象ケースで50ms以上のLong Taskやnon-convergenceがないことを確認してB01をCLOSEDとした。詳細は[`archive/r30-prep-b01-order-statistic-tail.md`](./archive/r30-prep-b01-order-statistic-tail.md)を参照する。
 - **R30-prep: summary visual continuity**: Check／Attackでreplacement計算中にready frameをUIだけで保持し、Summary cardとtableの同一DOM nodeを新しいready値への更新まで維持する。Attackのscore-only coverage再計算中も達成値期待値・命中率を維持し、loading終了後は成功・rejectionの現在状態へ切り替える。browser smokeで可視性・高さ・内容更新・recoveryを確認した。詳細は[`archive/r30-prep-summary-visual-continuity.md`](./archive/r30-prep-summary-visual-continuity.md)を参照する。

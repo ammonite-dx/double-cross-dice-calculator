@@ -50,7 +50,7 @@ Damageの座標supportを広げるのは攻撃側の達成値とダメージロ�
 
 ## Scoreの統計値
 
-判定の統計値はactionとreactionを分けた`ScoreStatisticsLane`として返します。
+`ScoreStatisticsLane`は一方のScoreの統計値を表します。CheckとAttackのresultでは、計算条件に応じてこのlaneを組み合わせます。Checkの固定難易度はactionだけ、対決はactionとreactionを返し、Attackは従来どおり両側を返します。
 
 ```ts
 type ScoreStatisticsLane = {
@@ -58,7 +58,24 @@ type ScoreStatisticsLane = {
   successProbability: CertifiedProbability
   forcedFailureProbability: CertifiedProbability
 }
+
+type CheckCalculationResult =
+  | {
+      kind: 'fixed'
+      score: { action: ScoreEnvelope }
+      scoreStatistics: { action: ScoreStatisticsLane }
+    }
+  | {
+      kind: 'opposed'
+      score: { action: ScoreEnvelope; reaction: ScoreEnvelope }
+      scoreStatistics: {
+        action: ScoreStatisticsLane
+        reaction: ScoreStatisticsLane
+      }
+    }
 ```
+
+この判別可能なresult shapeにより、固定難易度で意味のないreaction distributionやstatisticsを生成する必要がありません。表示側は現在のフォーム値ではなく、resultおよび計算recordが保持するrequest kindに基づいてreactionの有無を決めます。
 
 `forcedFailureProbability`は、0個ダイスの自動失敗やファンブルなど、ルール上必ず失敗する結果の確率です。表示上の達成値0に合流することがありますが、通常の計算結果がたまたま0になった確率とは別物です。後者を前者として扱うと、成功率や対決判定を誤ります。
 

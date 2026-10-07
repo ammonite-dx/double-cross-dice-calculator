@@ -6,7 +6,7 @@
 
 **グラフはアプリケーションのメインコンテンツであり、グラフ中心のUIを維持する。** サマリーを主役にする再配置、グラフの縮小、表示形式や既定表示範囲の変更は、この計画に含めない。グラフの正確さ、操作可能性、再計算中の連続性を守りながら、実装を簡潔にする。
 
-不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善に加えて数値安定性follow-upも完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は未完了である。改善案は別途実装する案であり、本書の作成によって計算契約、UI、既存ADRを変更したことにはならない。
+不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善と数値安定性follow-upを完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は2026年10月8日に修正・回帰確認を終えてCLOSED / GREENとし、S01も実装済みである。残るS02以降の改善案は別途実装する案であり、本書の作成によって既存ADRを変更したことにはならない。
 
 ## 評価の前提と検証範囲
 
@@ -145,6 +145,14 @@ B02は**CLOSED / GREEN**。実装と回帰検証はcommit `a47b7b2`に含む。
 
 完了条件は、固定難易度ではリアクションの計算providerが呼ばれないこと、隠れたリアクションの資源超過がアクションへ影響しないこと、再度対決へ切り替えた場合だけその条件を検査すること。無効な難易度から対決へ切り替える逆方向も確認する。
 
+#### B03 follow-up（2026-10-08）: 完了
+
+Checkの計算入力を`fixed`と`opposed`のdiscriminated unionにした。固定難易度の要求は`action`と`target`だけを持ち、対決要求だけが`reaction`を持つ。これにより固定難易度ではリアクションの正規化、範囲計画、資源見積り、DX provider、Score計算を行わない。Checkのplanと結果も同じ`kind`で分岐し、固定難易度のscore tail予算は一側へ全量、対決では両側へ半量ずつ割り当てる。固定結果はreaction distribution/statisticsを持たない。
+
+CalculationClientテストで、極端かつ不正なreaction値を残したままfixed計算が受理され、action側だけが計算されること、同じ値を含むopposed計算は資源制限で拒否されることを確認した。本番ブラウザスモークでも、reaction skill 10,000,000でopposedを拒否した後、fixedへ切り替えると表示が復帰し、opposedへ戻すと再び拒否されることを確認した。固定時もreactionのフォーム値は保持され、計算要求だけから除かれる。
+
+B03は**CLOSED / GREEN**。S01のCheck入力契約とともにcommit `a1381ee`で実装した。
+
 ### B04 無効な入力に以前の計算結果が対応しているように見える
 
 優先度はP2。関連実装は[ScoreForm.vue](../src/features/check/ui/ScoreForm.vue)の検証watch、[useCheck.ts](../src/features/check/model/useCheck.ts)、[SummaryPanel.vue](../src/features/check/ui/SummaryPanel.vue)である。
@@ -156,6 +164,16 @@ B02は**CLOSED / GREEN**。実装と回帰検証はcommit `a47b7b2`に含む。
 AttackとBacktrackにも検証成功時だけ通知するフォームがあるため、同じ状態通知方針を適用する。ただし、今回具体的な旧数値まで再現したケースはCheckであり、他画面の回帰ケースは実装前に追加する。
 
 完了条件は、負数、空欄、小数、効果の非対応組合せについて結果の対応が明確であること。入力を無効にした後に古い非同期計算が完了しても旧結果をcommitしないこと。有効値へ戻せば計算とグラフ表示が復帰すること。
+
+#### B04 follow-up（2026-10-08）: 完了
+
+Check、Attack、Backtrackの各フォームは、入力draftの変更に対して`LatestValidationGate.begin()`を行い、`validating`を親へ同期通知してからフォーム検証を待つ。最新ticketだけが`valid`または`invalid`を通知でき、props同期とunmount後の検証完了は無視する。featureは`validating`の時点で旧要求をinvalidateし、遅れて完了した結果をcommitさせない。Checkではdifficulty、action、reactionのvalidation状態を別々に保持し、固定難易度では非表示reactionを計算可否に使わない。
+
+検証中は直前のready frameを一時保持し、検証がinvalidと確定した時点で現在結果、グラフ、サマリーをclearする。有効値へ戻ると最新snapshotで再計算する。Attackでは該当comboとtotalだけをinvalidateし、無関係なcombo recordは保持する。Backtrackはinvalid確定時にpresentationと`resultReady`をclearする。Attackのvalidation開始では古いcommit権限を失効させながらscore frameを保持する専用runner経路を設け、既存のvalid-to-valid canvas continuityを維持した。
+
+controllerテストで検証中の古いPromise、invalid確定、修正後の新しい結果だけがcommitされることを確認した。本番ブラウザスモークではCheckの負数入力と復帰、Attackのaction入力無効化と復帰、Backtrackの減少ダイス無効化と復帰を確認した。既存のvalid-to-valid graph・summary/footer continuityも維持された。
+
+B04は**CLOSED / GREEN**。Check・Attack・Backtrackで同じ状態通知原則を適用し、invalid確定時に旧結果を残さない。Attack／Backtrackと本番ブラウザ回帰のcommitは`6c4a463`。
 
 ### B05 モバイルのコンボ操作に読み上げ可能な名前がない
 
@@ -187,36 +205,36 @@ B05は**CLOSED / GREEN**。実装と回帰検証はcommit `a47b7b2`に含む。
 - 一度に入力契約、計算アルゴリズム、実行方式、ディレクトリ構成を変更しない。
 - 新しい状態管理ライブラリ、DIコンテナ、イベントバス、汎用ジョブ基盤を初期解として導入しない。
 
-以下の型名とコード例は設計案であり、現行APIではない。実装時は既存契約に合わせて段階的に変更する。
+以下の型名とコード例は設計案であり、現行APIではない。ただし、後段に完了記録がある項目では、そのfollow-up記載を現在の実装契約の正本とする。
 
 ## 具体的なコード簡素化
 
-### S01 編集中の値と計算に使用する入力を分ける
+### S01 編集中の値と計算に使用する入力を分ける（完了）
 
-現在はフォームのdraft、feature snapshot、runtime normalization、計算recordのsnapshotに同じフィールドのコピーが分散している。各段階の目的はあるが、固定難易度でもリアクションを運ぶなど、計算に不要な情報が境界を越えている。
+フォームのdraftと計算要求を分離し、Checkの有効な計算入力を次のdiscriminated unionとして実装した。
 
-一般判定の有効な要求を次のような判別可能なunionへ寄せる。
+現在のCheck計算入力契約は次のとおりである。
 
 ```ts
-type CheckRequest =
+type CheckCalculationInput =
   | { kind: 'fixed'; action: ScoreInput; target: number }
   | { kind: 'opposed'; action: ScoreInput; reaction: ScoreInput }
 
 type DraftValidation<T> =
-  | { kind: 'validating' }
-  | { kind: 'invalid' }
-  | { kind: 'valid'; input: T }
+  | { status: 'validating' }
+  | { status: 'invalid' }
+  | { status: 'valid'; value: T }
 ```
 
-フォームは空欄等を含む編集値とフィールド別エラーを所有する。featureは上記の検証状態を受け取り、有効な要求を作る。隠れた入力の編集値を保存する場合はフォーム状態に置き、`CheckRequest`へ混ぜない。攻撃の防御モードについては既存の[ScoreResolution](../src/domain/ScoreResolution.ts)を活用し、同じ目的のunionを重ねて増やさない。
+フォームは空欄等を含む編集値とフィールド別エラーを所有し、featureは検証済みの最後の値と状態を管理する。`createCheckInputSnapshot`が有効な値から計算要求を作り、固定難易度ではreaction propertyを生成しない。計算recordは実行された要求snapshotを保存するため、後からdraftを変更しても結果の意味は変わらない。攻撃の防御モードについては既存の[ScoreResolution](../src/domain/ScoreResolution.ts)を活用し、同じ目的のunionを重ねて増やさない。
 
-副作用の順序は「draft変更を通知、現在要求のcommit権限を無効化、非同期検証、有効かつ最新なら要求送信」とする。検証完了を待つ間に旧要求がcommitする穴を残さない。既存の`LatestValidationGate`を利用し、検証の世代管理を別実装しない。
+副作用の順序は「`LatestValidationGate.begin()`、`validating`を同期通知、フォーム検証、ticketが最新なら`valid`または`invalid`を通知」とする。featureは`validating`の通知時点で現在要求のcommit権限を無効化する。検証完了を待つ間に旧要求がcommitする穴を残さない。
 
-検証待ちの`validating`と検証済みの`invalid`を区別する。`validating`では旧結果を現在の計算結果として採用せず、UIの直前frameは保持できるようにする。有効ならそのまま再計算中の描画継続へ移り、無効と判定された時点でB04の消去方針を適用する。すべてのキー入力でグラフを消してから再表示する実装にしてはならない。
+検証待ちの`validating`と検証済みの`invalid`を区別する。`validating`では直前frameを一時保持できる。有効ならそのまま再計算中の描画継続へ移り、無効と判定された時点で結果とグラフを消去する。固定難易度ではactionとdifficultyだけを計算可否の判定対象にし、非表示reactionのdraftがinvalidでも妨げない。
 
-変更対象はCheckの入力型、snapshot、フォームイベント、`calculateCheck`、planner入力、statisticsとpresentationの利用箇所になる。固定難易度の結果型でも不要なリアクションを必須にしない。短期的なadapterを置く場合は、削除する変更単位を決めてから導入する。
+固定結果にはreaction distribution/statisticsを含めず、対決結果ではaction/reactionの両方を保持する。Check API、planner、record、presentationはこの判別可能な入力と結果を通している。
 
-完了条件はB03とB04の解消、有効入力snapshotの生成規則が一か所から追えること、計算recordが後続のdraft変更から独立していることである。
+S01は**完了**。次の状態整理はS02/S03で行い、Check初期計算経路や汎用coordinatorの構造変更をこの作業へ含めない。
 
 ### S02 Checkの初期計算と更新計算を同じ経路へ揃える
 
@@ -390,7 +408,7 @@ Canvasへの`aria-label`はグラフの名前を伝えるが、個別の確率�
 | 8 | 残る長時間処理の実行境界を判断 | 新たな性能証拠が得られた場合のみ | 現在のB01-A測定ではWorker変更を行わず、長時間停止が再現した場合に再評価する |
 | 9 | 名前と公開文書の整理 | S08、M01からM04 | 初見の開発者が入口、現行契約、検証手順を追える |
 
-順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
+順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序2はB02/B05の修正と本番ブラウザ検証を終えた。順序3はB03/B04をCLOSED / GREEN、S01を完了とし、Check入力契約と3画面のvalidation lifecycleを揃えた。次はS02/S03で、順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
 
 ## 回帰検証と完了の判定
 
