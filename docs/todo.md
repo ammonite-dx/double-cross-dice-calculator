@@ -14,13 +14,12 @@
 
 ## 次に行う作業
 
-1. **局所的な表示不具合の修正**: 独立レビューB02（難易度線の位置ずれ）とB05（モバイル操作ボタンのaccessible name欠落）を修正する。
-2. **有効入力と無効入力の契約整理**: B03/B04とS01に沿い、固定難易度で不要なreactionを計算せず、invalid draftへ古い結果をcurrent resultとしてcommitしない。
-3. **公開準備**: 上記の入力・表示課題を解決した後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
+1. **有効入力と無効入力の契約整理**: 独立レビューB03/B04とS01に沿い、固定難易度で不要なreactionを計算せず、invalid draftへ古い結果をcurrent resultとしてcommitしない。
+2. **公開準備**: 入力・表示課題を解決した後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
 
 ## 独立レビューに基づく改修案
 
-[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01は二項tail高速化と補数精度のfollow-upを含めてCLOSEDとなり、B02〜B05と改善案は未完了である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の改善案は実装済みの変更や既存ADRの置換を意味しない。
+[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01は二項tail高速化と補数精度、B02の注釈位置、B05のコンボ操作アクセシビリティを検証してCLOSEDとした。B03/B04と改善案は未完了である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の改善案は実装済みの変更や既存ADRの置換を意味しない。
 
 ## 保留
 
@@ -30,6 +29,7 @@
 
 ## 完了した直近の作業
 
+- **独立レビューB02/B05: 表示位置とコンボ操作の修正**: Checkでは現在の表示最小値を使ってカテゴリ軸の難易度位置を変換し、範囲外・対決判定では注釈を隠す。攻撃コンボの操作ボタンに対象別のアクセシブル名と開閉状態を付け、空名は表示序数へフォールバックする。オプションテスト、本番ブラウザのcanvas画素検証、390px／デスクトップのアクセシビリティ・キーボード操作を確認した。実装commitは`a47b7b2`。詳細は[`repository-review-and-kiss-plan.md`](./repository-review-and-kiss-plan.md)のB02/B05 follow-upを参照する。
 - **R30-prep: B01二項tail高速化・数値安定化と再計測**: 正の《支配の領域》で使う二項survivalを正則化不完全ベータ関数の修正Lentz連分数で評価する単一経路を維持し、補数を独立に渡す二引数連分数で巨大dice・小確率時の精度を修正した。central rank 100,000,000D、1兆D端rank、cutoff error budget、PMFの非負性とmassを検証した。Nodeとブラウザでplanner/producer、Check、通常域、edge tailを測り、対象ケースで50ms以上のLong Taskやnon-convergenceがないことを確認してB01をCLOSEDとした。詳細は[`archive/r30-prep-b01-order-statistic-tail.md`](./archive/r30-prep-b01-order-statistic-tail.md)を参照する。
 - **R30-prep: summary visual continuity**: Check／Attackでreplacement計算中にready frameをUIだけで保持し、Summary cardとtableの同一DOM nodeを新しいready値への更新まで維持する。Attackのscore-only coverage再計算中も達成値期待値・命中率を維持し、loading終了後は成功・rejectionの現在状態へ切り替える。browser smokeで可視性・高さ・内容更新・recoveryを確認した。詳細は[`archive/r30-prep-summary-visual-continuity.md`](./archive/r30-prep-summary-visual-continuity.md)を参照する。
 - **R30-prep: Attack reaction tailのDamage分類**: 有限なaction scoreの最大値以下にならないreaction tailを、対決時のtieはreaction側勝利となる規則に基づいてdamage 0のfailureへ分類した。比較・期待値certificateで実際に確率を持つaction bucketの最大値を共有し、曖昧なtailや許容誤差を超えるtail確率誤差は従来どおり保守的に保持する。reactionのtail uncertaintyとDamage座標supportを分離し、許容誤差内の質量差は再正規化せず未確定tailとして増幅しない。詳細は[`archive/r30-prep-attack-reaction-tail-damage.md`](./archive/r30-prep-attack-reaction-tail-damage.md)を参照する。
