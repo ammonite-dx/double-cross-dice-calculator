@@ -21,7 +21,7 @@
         onScoreValidationState,
         onAdvancedSettingsChanged,
         onDisplayValidated,
-    } = await useCheck({ calculationClient })
+    } = useCheck({ calculationClient })
 </script>
 
 <template>

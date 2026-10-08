@@ -10,7 +10,6 @@ import {
   beginCalculation,
   completeCalculation,
   publishRangePlan,
-  runInitialCalculation,
 } from '../../../runtime/CalculationFeedback'
 import type {
   CalculationClient,
@@ -107,9 +106,9 @@ export interface UseCheckOptions {
   calculationClient: CalculationClient
 }
 
-export async function useCheck({
+export function useCheck({
   calculationClient,
-}: UseCheckOptions): Promise<CheckController> {
+}: UseCheckOptions): CheckController {
   if (
     calculationClient === null
     || typeof calculationClient !== 'object'
@@ -544,32 +543,9 @@ export async function useCheck({
   }
 
   onMounted(() => {
-    if (state.calculationRecord === null && rangeFeedback.status !== 'rejected') {
-      void calculationRunner.run(initialCalculationRequest)
-    }
+    void calculationRunner.run(initialCalculationRequest)
   })
   onUnmounted(() => calculationRunner.dispose())
-
-  const initialCalculation = await runInitialCalculation({
-    feedback: rangeFeedback,
-    calculate: (options: {
-      onRangePlan: (plan: CheckCalculationRangePlan) => void
-    }) =>
-      calculationClient.calculateCheck(initialCalculationRequest.input, {
-        ...options,
-        displayRequest: initialCalculationRequest.displayRequest,
-        rangePolicy: initialCalculationRequest.rangePolicy,
-      }),
-    onError: (error: unknown) => {
-      console.error('Failed to initialize check calculation', error)
-    },
-  })
-  if (initialCalculation !== null) {
-    state.calculationRecord = createCheckCalculationRecord(
-      initialCalculationRequest.input,
-      initialCalculation
-    )
-  }
 
   const stateRefs = toRefs(state)
   const score = computed(() => state.calculationRecord?.result.score ?? null)

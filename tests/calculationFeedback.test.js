@@ -9,7 +9,6 @@ import {
   markCalculationAborted,
   publishRangePlan,
   recordCalculationError,
-  runInitialCalculation,
 } from '../src/runtime/CalculationFeedback'
 
 function createDeferred() {
@@ -59,6 +58,14 @@ function createRangeError(plan) {
   return error
 }
 
+function snapshotFeedbackRequest(request) {
+  const snapshot = { ...request }
+  if (request.payload !== undefined) {
+    snapshot.payload = { ...request.payload }
+  }
+  return snapshot
+}
+
 function createFeedbackCoordinator({
   feedback,
   calculate,
@@ -69,7 +76,7 @@ function createFeedbackCoordinator({
   snapshotRequest,
 }) {
   const coordinator = createCalculationRequestCoordinator({
-    snapshotRequest,
+    snapshotRequest: snapshotRequest ?? snapshotFeedbackRequest,
     execute: (request, context) => calculate({
       ...request,
       signal: context.signal,
@@ -272,46 +279,6 @@ describe('CalculationFeedback', () => {
 
     expect(feedback.status).toBe('ready')
     expect(commitResult).toHaveBeenCalledWith('current result')
-  })
-
-  it('keeps an initial hard reject as UI feedback without reporting it as a console error', async () => {
-    const feedback = createCalculationFeedbackState()
-    const onError = vi.fn()
-
-    const result = await runInitialCalculation({
-      feedback,
-      onError,
-      calculate: async (options) => {
-        options.onRangePlan(rejectionPlan)
-        throw createRangeError(rejectionPlan)
-      },
-    })
-
-    expect(result).toBeNull()
-    expect(feedback.status).toBe('rejected')
-    expect(onError).not.toHaveBeenCalled()
-  })
-
-  it('commits a successful initial calculation and keeps its range plan', async () => {
-    const feedback = createCalculationFeedbackState()
-    const initialPlan = { accepted: true, id: 'initial-plan' }
-    const onError = vi.fn()
-
-    await expect(runInitialCalculation({
-      feedback,
-      onError,
-      calculate: async ({ onRangePlan }) => {
-        onRangePlan(initialPlan)
-        return { score: 'initial result' }
-      },
-    })).resolves.toEqual({ score: 'initial result' })
-
-    expect(feedback).toEqual({
-      status: 'ready',
-      plan: initialPlan,
-      error: null,
-    })
-    expect(onError).not.toHaveBeenCalled()
   })
 
   it('ignores a result after the runner is invalidated by unmount', async () => {

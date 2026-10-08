@@ -88,38 +88,4 @@ export function recordCalculationError<TPlan extends CalculationFeedbackPlan>(
   feedback.error = error
 }
 
-export async function runInitialCalculation<
-  TPlan extends CalculationFeedbackPlan,
-  TResult,
->({
-  feedback,
-  calculate,
-  onError,
-}: {
-  feedback: CalculationFeedbackState<TPlan>
-  calculate: (context: {
-    onRangePlan: (plan: TPlan) => void
-  }) => TResult | Promise<TResult>
-  onError?: (error: unknown) => void
-}): Promise<TResult | null> {
-  beginCalculation(feedback)
-  try {
-    const result = await calculate({
-      onRangePlan: (plan) => publishRangePlan(feedback, plan),
-    })
-    completeCalculation(feedback)
-    return result
-  } catch (error: unknown) {
-    if (isAbortError(error)) {
-      markCalculationAborted(feedback)
-      return null
-    }
-    recordCalculationError(feedback, error)
-    if (!isCalculationRangeError(error)) {
-      onError?.(error)
-    }
-    return null
-  }
-}
-
 export { CALCULATION_REQUEST_STATUS, createCalculationRequestCoordinator }

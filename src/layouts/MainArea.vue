@@ -7,18 +7,9 @@
     <div class="main-area__content">
       <router-view v-slot="{ Component }">
         <CalculationErrorBoundary>
-          <Suspense>
-            <template #default>
-              <div>
-                <component :is="Component" />
-              </div>
-            </template>
-            <template #fallback>
-              <v-container class="pa-6 text-center">
-                <v-progress-circular indeterminate color="primary" />
-              </v-container>
-            </template>
-          </Suspense>
+          <div>
+            <component :is="Component" />
+          </div>
         </CalculationErrorBoundary>
       </router-view>
     </div>
