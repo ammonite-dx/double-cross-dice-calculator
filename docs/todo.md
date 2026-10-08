@@ -14,7 +14,7 @@
 
 ## 次に行う作業
 
-1. **S05: Attackの状態所有を整理（進行中）**: 状態所有者の監査と未参照provenance revisionの削除まで完了。次はpresentation invalidation scopeを「base+display」と「displayのみ」に分けて小さなhelperへ集め、Runner、`useAttack`、`AttackState`の重複clearを置き換える。計算record保持、presentation retry、valid→valid描画継続、invalid/離脱時clearを回帰テストで固定する。状態unionやstate managerは導入しない。
+1. **S05: Attackの状態所有を整理（進行中）**: S05-Aのpresentation invalidation scope統合は完了。`clearAttackPresentations()`と`clearAttackDisplayPresentation()`でbase+displayとdisplayのみのclearを区別し、数値record・feedback・revision/lifecycleを維持することをテストした。次のS05-Bでは`displayFeedback`と`scoreDisplayFeedback`の複数writer、および計算・presentation errorの共有通知境界を調査し、retryやscore-only rejectionが他の状態を消さない契約を先に固定する。詳細は[リポジトリレビューとKISS計画](./repository-review-and-kiss-plan.md)を参照。状態union、state manager、event busは導入しない。
 2. **公開準備**: S05の残作業と関連する入力・表示課題を終えた後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
 
 ## 独立レビューに基づく改修案
