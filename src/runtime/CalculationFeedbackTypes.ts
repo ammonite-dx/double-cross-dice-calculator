@@ -107,7 +107,7 @@ export interface CalculationCoordinatorOptions<
     request: TRequest,
     context: CalculationRunnerContext<TRequest, TPlan, TOptions>,
   ) => TResult | Promise<TResult>
-  readonly snapshotRequest?: (request: TRequest) => TRequest
+  readonly snapshotRequest: (request: TRequest) => TRequest
   readonly commit?: (
     result: TResult,
     context: CalculationRunnerContext<TRequest, TPlan, TOptions>,

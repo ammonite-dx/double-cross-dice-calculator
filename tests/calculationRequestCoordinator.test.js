@@ -15,6 +15,19 @@ function createDeferred() {
   return { promise, resolve, reject }
 }
 
+function snapshotIdRequest(request) {
+  return { id: request.id }
+}
+
+function snapshotIdAndNestedRequest(request) {
+  return {
+    id: request.id,
+    ...(request.nested === undefined
+      ? {}
+      : { nested: { value: request.nested.value } }),
+  }
+}
+
 describe('CalculationRequestCoordinator', () => {
   it('limits a lane to one running request and replaces queued work with the latest snapshot', async () => {
     const first = createDeferred()
@@ -23,6 +36,7 @@ describe('CalculationRequestCoordinator', () => {
     let running = 0
     let maximumRunning = 0
     const coordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdAndNestedRequest,
       execute: (snapshot, context) => {
         calls.push(snapshot)
         if (calls.length === 1) {
@@ -78,92 +92,10 @@ describe('CalculationRequestCoordinator', () => {
     })
   })
 
-  it('deep-clones structured request values without cloning signals or promises', async () => {
-    const controller = new AbortController()
-    const promise = Promise.resolve('unchanged')
-    const cycle = { label: 'cycle' }
-    cycle.self = cycle
-    const mapKey = { key: 'map' }
-    const typedBuffer = new ArrayBuffer(12)
-    const offsetView = new Uint16Array(typedBuffer, 2, 3)
-    const dataBuffer = new ArrayBuffer(16)
-    const offsetDataView = new DataView(dataBuffer, 8, 4)
-    new Uint8Array(dataBuffer).set([10, 11, 12, 13], 8)
-    const sharedArrayBuffer = new ArrayBuffer(6)
-    const sharedDataView = new DataView(new ArrayBuffer(6), 1, 3)
-    const sharedDate = new Date('2026-09-20T00:00:00.000Z')
-    const sharedTypedArray = new Uint8Array([4, 5, 6])
-    const request = {
-      date: new Date('2026-09-20T00:00:00.000Z'),
-      regexp: /request/gi,
-      buffer: new ArrayBuffer(8),
-      view: new Uint16Array([1, 2, 3]),
-      dataView: new DataView(new ArrayBuffer(4)),
-      offsetView,
-      offsetDataView,
-      sharedArrayBufferA: sharedArrayBuffer,
-      sharedArrayBufferB: sharedArrayBuffer,
-      sharedDataViewA: sharedDataView,
-      sharedDataViewB: sharedDataView,
-      sharedDateA: sharedDate,
-      sharedDateB: sharedDate,
-      sharedTypedArrayA: sharedTypedArray,
-      sharedTypedArrayB: sharedTypedArray,
-      map: new Map([[mapKey, cycle]]),
-      set: new Set([cycle]),
-      signal: controller.signal,
-      promise,
-      cycle,
-    }
-    let snapshot
-    const coordinator = createCalculationRequestCoordinator({
-      execute: (value) => {
-        snapshot = value
-        return Promise.resolve('done')
-      },
-    })
-
-    await expect(coordinator.run(request)).resolves.toBe(true)
-
-    expect(snapshot).not.toBe(request)
-    expect(snapshot.date).not.toBe(request.date)
-    expect(snapshot.date).toEqual(request.date)
-    expect(snapshot.regexp).not.toBe(request.regexp)
-    expect(snapshot.regexp.source).toBe(request.regexp.source)
-    expect(snapshot.buffer).not.toBe(request.buffer)
-    expect(snapshot.view).not.toBe(request.view)
-    expect(snapshot.view).toEqual(request.view)
-    expect(snapshot.dataView).not.toBe(request.dataView)
-    expect(snapshot.dataView.byteLength).toBe(request.dataView.byteLength)
-    expect(snapshot.offsetView.byteOffset).toBe(0)
-    expect(snapshot.offsetView.buffer.byteLength).toBe(6)
-    expect(snapshot.offsetView).toEqual(request.offsetView)
-    expect(snapshot.offsetDataView.byteOffset).toBe(8)
-    expect(snapshot.offsetDataView.byteLength).toBe(4)
-    expect(snapshot.offsetDataView.buffer.byteLength).toBe(dataBuffer.byteLength)
-    expect([...new Uint8Array(snapshot.offsetDataView.buffer, 8, 4)])
-      .toEqual([10, 11, 12, 13])
-    expect(snapshot.offsetDataView).not.toBe(request.offsetDataView)
-    expect(snapshot.sharedArrayBufferA).not.toBe(snapshot.sharedArrayBufferB)
-    expect(snapshot.sharedArrayBufferA).not.toBe(sharedArrayBuffer)
-    expect(snapshot.sharedDataViewA).not.toBe(snapshot.sharedDataViewB)
-    expect(snapshot.sharedDataViewA.byteOffset).toBe(1)
-    expect(snapshot.sharedDataViewA.byteLength).toBe(3)
-    expect(snapshot.sharedDataViewA.buffer.byteLength).toBe(6)
-    new Uint8Array(dataBuffer).fill(99, 8, 12)
-    expect([...new Uint8Array(snapshot.offsetDataView.buffer, 8, 4)])
-      .toEqual([10, 11, 12, 13])
-    expect(snapshot.sharedDateA).not.toBe(snapshot.sharedDateB)
-    expect(snapshot.sharedDateA).not.toBe(sharedDate)
-    expect(snapshot.sharedTypedArrayA).not.toBe(snapshot.sharedTypedArrayB)
-    expect(snapshot.sharedTypedArrayA).not.toBe(sharedTypedArray)
-    expect(snapshot.map).not.toBe(request.map)
-    expect(snapshot.set).not.toBe(request.set)
-    expect(snapshot.signal).toBe(controller.signal)
-    expect(snapshot.promise).toBe(promise)
-    expect(snapshot.cycle).toBe(snapshot.cycle.self)
-    expect([...snapshot.map.values()][0]).toBe(snapshot.cycle)
-    expect([...snapshot.set][0]).toBe(snapshot.cycle)
+  it('requires an explicit request-specific snapshot function', () => {
+    expect(() => createCalculationRequestCoordinator({
+      execute: (request) => request,
+    })).toThrow('snapshotRequest must be a function')
   })
 
   it('suppresses stale plans, results, and errors after a newer request is queued', async () => {
@@ -175,6 +107,7 @@ describe('CalculationRequestCoordinator', () => {
     const onError = vi.fn()
     const staleError = new Error('stale error')
     const coordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdRequest,
       execute: (_snapshot, context) => {
         callCount += 1
         if (callCount === 1) {
@@ -241,7 +174,7 @@ describe('CalculationRequestCoordinator', () => {
           if (snapshotCalls === 2) {
             throw createSnapshotError()
           }
-          return request
+          return snapshotIdRequest(request)
         },
         execute: (_request, context) => {
           activeSignal = context.signal
@@ -289,7 +222,7 @@ describe('CalculationRequestCoordinator', () => {
           if (snapshotCalls === 3) {
             throw createSnapshotError()
           }
-          return request
+          return snapshotIdRequest(request)
         },
         execute: (_request, context) => {
           executeCalls += 1
@@ -321,6 +254,7 @@ describe('CalculationRequestCoordinator', () => {
     const errors = []
     let callCount = 0
     const coordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdRequest,
       execute: () => {
         callCount += 1
         return callCount === 1 ? first.promise : second.promise
@@ -348,6 +282,7 @@ describe('CalculationRequestCoordinator', () => {
     const onCancelled = vi.fn()
     let receivedSignal
     const coordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdRequest,
       execute: (_snapshot, context) => {
         receivedSignal = context.signal
         return first.promise
@@ -377,6 +312,7 @@ describe('CalculationRequestCoordinator', () => {
 
     const deferred = createDeferred()
     const disposedCoordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdRequest,
       execute: () => deferred.promise,
       commit,
     })
@@ -398,6 +334,7 @@ describe('CalculationRequestCoordinator', () => {
   it('uses a null request and signal for synthetic invalidate/dispose cancellation', () => {
     const onCancelled = vi.fn()
     const coordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdRequest,
       execute: () => new Promise(() => {}),
       onCancelled,
     })
@@ -413,6 +350,7 @@ describe('CalculationRequestCoordinator', () => {
     })
 
     const disposedCoordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdRequest,
       execute: () => new Promise(() => {}),
       onCancelled,
     })
@@ -439,7 +377,7 @@ describe('CalculationRequestCoordinator', () => {
       if (request.id === 'failed') {
         throw new Error('snapshot failed')
       }
-      return request
+      return snapshotIdRequest(request)
     }
     const coordinator = createCalculationRequestCoordinator({
       snapshotRequest,
@@ -473,6 +411,7 @@ describe('CalculationRequestCoordinator', () => {
 
   it('exposes defensive state snapshots and resource-rejected status', async () => {
     const coordinator = createCalculationRequestCoordinator({
+      snapshotRequest: snapshotIdRequest,
       execute: () => Promise.reject(Object.assign(
         new Error('resource rejected'),
         { name: 'ResourceGuardError' }

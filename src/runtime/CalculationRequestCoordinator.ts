@@ -56,86 +56,6 @@ type ExecutionOutcome<TResult, TRequest, TPlan, TOptions extends object> =
   | ErrorOutcome<TRequest, TPlan, TOptions>
   | CancelledOutcome
 
-function isAbortSignal(value: unknown): value is AbortSignal {
-  return value !== null
-    && typeof value === 'object'
-    && typeof Reflect.get(value, 'aborted') === 'boolean'
-    && typeof Reflect.get(value, 'addEventListener') === 'function'
-    && typeof Reflect.get(value, 'removeEventListener') === 'function'
-}
-
-function cloneRequestValue<T>(
-  value: T,
-  seen: WeakMap<object, unknown> = new WeakMap(),
-): T {
-  if (value === null || typeof value !== 'object') {
-    return value
-  }
-  if (isAbortSignal(value)) {
-    return value
-  }
-  if (seen.has(value)) {
-    return seen.get(value) as T
-  }
-  if (value instanceof Date) {
-    return new Date(value.getTime()) as T
-  }
-  if (value instanceof RegExp) {
-    return new RegExp(value.source, value.flags) as T
-  }
-  if (value instanceof ArrayBuffer) {
-    return value.slice(0) as T
-  }
-  if (ArrayBuffer.isView(value)) {
-    if (value instanceof DataView) {
-      const buffer = value.buffer.slice(0)
-      return new DataView(buffer, value.byteOffset, value.byteLength) as T
-    }
-    return Reflect.construct(value.constructor, [value]) as T
-  }
-  if (value instanceof Map) {
-    const clone = new Map<unknown, unknown>()
-    seen.set(value, clone)
-    for (const [key, entry] of value.entries()) {
-      clone.set(
-        cloneRequestValue(key, seen),
-        cloneRequestValue(entry, seen),
-      )
-    }
-    return clone as T
-  }
-  if (value instanceof Set) {
-    const clone = new Set<unknown>()
-    seen.set(value, clone)
-    for (const entry of value.values()) {
-      clone.add(cloneRequestValue(entry, seen))
-    }
-    return clone as T
-  }
-
-  const then = Reflect.get(value, 'then')
-  if (typeof then === 'function') {
-    return value
-  }
-
-  const clone: unknown[] | Record<PropertyKey, unknown> = Array.isArray(value)
-    ? []
-    : {}
-  seen.set(value, clone)
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)
-    if (!descriptor?.enumerable) {
-      continue
-    }
-    Reflect.set(clone, key, cloneRequestValue(Reflect.get(value, key), seen))
-  }
-  return clone as T
-}
-
-function defaultSnapshotRequest<TRequest>(request: TRequest): TRequest {
-  return cloneRequestValue(request)
-}
-
 function combineAbortSignals(
   externalSignal: AbortSignal | null | undefined,
   internalSignal: AbortSignal | null | undefined,
@@ -205,7 +125,7 @@ export function createCalculationRequestCoordinator<
   TOptions extends object = Record<string, unknown>,
 >({
   execute,
-  snapshotRequest = defaultSnapshotRequest,
+  snapshotRequest,
   commit,
   onStart,
   onPlan,
@@ -218,6 +138,9 @@ export function createCalculationRequestCoordinator<
   CalculationRequestCoordinator<TRequest, TResult, TPlan, TOptions> {
   if (typeof execute !== 'function') {
     throw new TypeError('createCalculationRequestCoordinator requires execute')
+  }
+  if (typeof snapshotRequest !== 'function') {
+    throw new TypeError('snapshotRequest must be a function')
   }
 
   let revision = 0

@@ -13,6 +13,7 @@ import type {
   RuntimeDamageRollCalculateOptions,
 } from '../../src/calculation/CalculationRuntimeTypes'
 import type {
+  CalculationCoordinatorOptions,
   CalculationCancellationContext,
   CalculationFeedbackState,
   CalculationRequestCoordinator,
@@ -199,6 +200,7 @@ const typedCoordinator = createCalculationRequestCoordinator<
   { id: string },
   { tag: string }
 >({
+  snapshotRequest: (request) => ({ value: request.value }),
   execute: (request, context: CalculationRunnerContext<
     { value: number },
     { id: string },
@@ -241,6 +243,18 @@ const typedCoordinator = createCalculationRequestCoordinator<
     }
   },
 })
+
+type TypedCoordinatorOptions = CalculationCoordinatorOptions<
+  { value: number },
+  { result: number },
+  { id: string },
+  { tag: string }
+>
+// @ts-expect-error: snapshotRequest is required by the coordinator contract.
+const coordinatorOptionsWithoutSnapshot: TypedCoordinatorOptions = {
+  execute: (request) => ({ result: request.value }),
+}
+void coordinatorOptionsWithoutSnapshot
 
 void typedCoordinator.run({ value: 1 }, { tag: 'typed' })
 
