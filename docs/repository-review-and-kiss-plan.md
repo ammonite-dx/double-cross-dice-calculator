@@ -240,7 +240,7 @@ type DraftValidation<T> =
 
 固定結果にはreaction distribution/statisticsを含めず、対決結果ではaction/reactionの両方を保持する。Check API、planner、record、presentationはこの判別可能な入力と結果を通している。
 
-S01からS04は**完了**。Checkの入力状態・初期計算経路・coordinator snapshot契約、およびAttackのbase-to-display経路は整理済みである。次の状態整理はS05/S06とする。
+S01からS04は**完了**。S06-AではAttackの操作別無効化matrixと非同期表示revision競合を回帰化し、S06をCLOSED / GREENとした。S05は状態所有者の監査と小規模整理まで進行中で、状態モデルの再設計は未完了である。
 
 ### S02 Checkの初期計算と更新計算を同じ経路へ揃える（完了）
 
@@ -328,6 +328,54 @@ S05の状態変更を次の表に照らして実装する。動作を変えず�
 | 画面離脱 | 不要な処理を取消 | 遅延commitを禁止。実際の処理終了に合わせて資源を解放 |
 
 表示範囲と数値計算のcoverageが関係すること自体は必要な複雑さである。すべての表示変更で再計算する実装へ戻すことも、すべての表示変更を計算と無関係に扱うことも避ける。
+
+### S06-A 表示revision競合と操作別回帰matrix（完了）
+
+Coordinatorのrevisionは計算要求のidentityである。新しい計算要求、invalidate、disposeは進行中の古い要求をAbortし、executorがAbortを無視して後から完了してもcommitを許さない。commit時にはさらに、snapshotした入力が現行入力と一致することを`isAttackInputCurrent()`で確認する。damage表示とscore表示のrevisionはこの計算identityとは別であり、既存数値recordを新しいwindow/modeへ投影し直すための表示要求identityである。
+
+履歴上、`a90b769`でCoordinator snapshot時に両表示revisionを`null`へ置き換え、revision guardを実質無効化していた。表示変更だけを理由に有効な数値計算までrejectしない意図とは整合するが、要求時のdisplay snapshotが後着commitで再利用され、表示専用要求Bが計算要求Aの古いwindow/modeに戻る穴があった。S06-Aではrevisionをsnapshotへ保持する一方、revision不一致を数値commitの拒否条件にはせず、damageはRunnerが保持する最新のdisplay request、scoreは最新のscore lifecycle requestで再投影する。score lifecycleが`suppressed`ならscore payloadだけを抑止する。したがってscore-only rejectionはCoordinator revisionや有効なdamage計算を取り消さない。
+
+Deferred PromiseによるCase Aは修正前に再現した。既存recordを保ったままforce計算Aを待たせ、coverage内のdisplay-only要求Bをcommitした後にAを完了すると、旧実装では数値recordは正常更新されるが表示requestがAへ戻った。修正後はAの数値recordをcommitし、最終projectionはBを使う。別のscore-only projection testでは、計算Aの進行中にcoverage内のscore表示要求Bを計算なしで反映し、A完了後もdamageとscoreの両方が最新要求を保つことを確認する。Case Bではscore coverage拡張Aの完了前にdamage request Bを入力すると、Bに必要なcoverage計算がCoordinatorの最新要求となり、Aのsignalがabortされる。Aの遅延完了はcommitされず、拡張scoreとdamage request Bの組合せがcommitする。Case Cは既存の3種のscore-only invalid/resource/error testを維持し、score rejection後も進行中のdamage batch commitと数値recordを保つ。
+
+操作別matrixの検証先は以下の通り。記載した既存テストは今回重複追加せず、必要な不足分としてdamage表示Case A、score表示revisionの独立test、score coverage競合Case Bを追加した。S04で加えたbase再利用、projection失敗後のretry回帰は削除していない。
+
+| 操作・契約 | 回帰テスト |
+| --- | --- |
+| コンボ名変更・開閉は数値計算を起こさない。rename後も系列identityを維持する | `attackFeatureController.test.js`: `does not calculate for labels, visibility, or zero-valued advanced toggles`; `scripts/production-browser-smoke.mjs`: combo rename / canvas identity assertions |
+| hidden invalid draftの破棄は既存復帰条件を守り、readyな結果を重複計算しない | `attackFeatureController.test.js`: `restores the last valid calculation when a hidden invalid combo is discarded`, `does not recalculate when a hidden validating combo still has a ready result` |
+| 1コンボの有効値変更は変更recordと合計だけ再計算 | `attackFeatureController.test.js`: `recalculates only a changed combo and re-aggregates the total`; `attackIncrementalRunner.test.js`: `retains unaffected records when one combo fails and retries only that combo` |
+| invalid化では新要求を出さず、旧結果をclearし後着commitを防ぐ | `attackFeatureController.test.js`: `drops an invalid combo side and ignores its delayed result before recovery`; `attackState.test.js`: `rejects stale or malformed executions before writing records` |
+| 表示mode/windowが既存coverage内ならprojectionだけを更新 | `attackFeatureController.test.js`: `reuses the committed damage presentation for a display-only change`; `attackDisplayIntegration.test.js`: `reuses the committed canonical presentation when only the display changes` |
+| damage計算中のscore-only表示変更は計算なしで反映し、その後のcommitも最新score requestを使う | `attackDisplayIntegration.test.js`: `uses the latest score-only projection when numeric work commits` |
+| score coverage不足では必要なbatch計算だけ行い、damage frameを保つ | `attackDisplayIntegration.test.js`: `recalculates the canonical batch once when score coverage is missing`, `clears only public score while a deferred score expansion is running`, `keeps the latest damage request across deferred score coverage expansion` |
+| score-only rejectionはscoreだけ拒否しdamageと数値recordを保持 | `attackDisplayIntegration.test.js`: `rejects a score display resource plan without clearing damage or calling the client`, `keeps an in-flight damage batch commit after score-only invalid/resource/error` |
+| damage display rejectionは現在表示を拒否し、計算recordを再利用可能に保つ | `attackFeatureController.test.js`: `rejects a damage display resource plan without starting a calculation`, `recovers a rejected damage display from committed records without recalculation`; `attackDisplayIntegration.test.js`: `rejects a display resource plan without calling the calculation client` |
+| presentation失敗は数値再計算なしでretryする | `attackIncrementalRunner.test.js`: `retains calculation records when display projection fails`, `retains calculation records when base presentation creation fails`, `rejects an invalid presentation and recovers feedback without recalculation` |
+| 後続の計算失敗をpresentation retryで消さない | `attackIncrementalRunner.test.js`: `does not let a new combo calculation error inherit presentation recovery` |
+| valid→validの表示-only更新や遅延commitでも最新window/modeを維持 | `attackDisplayIntegration.test.js`: `commits pending numeric work with the latest display-only projection` (Case A), `keeps the latest damage request across deferred score coverage expansion` (Case B), `keeps rapid display changes latest-wins` |
+| 画面離脱でAbortし、dispose後の結果をcommitしない | `attackFeatureController.test.js`: `does not commit a stale result after controller disposal`, `disposes the canonical runner and prevents later execution`; `attackDisplayIntegration.test.js`: `suppresses a recalculation result after its external signal aborts` |
+
+S05の状態所有者監査では、`combos[].data.calculation`と`totalCalculation`の通常commit・入力無効化は`AttackState`のcommit/invalidate関数へ集約されていることを確認した。Runnerのtotal-stage errorに残っていた三フィールドの直接clearは`invalidateAttackTotalCalculation()`へ寄せた。`basePresentation`/`displayPresentation`は`AttackState`のatomic commitに加えてRunnerのstart/error/rejection経路がclearし、`displayPresentation`は`useAttack`のpreflight/error経路からも直接clearされるため、無効化範囲の違いを保った小さなpresentation invalidation helperへの集約が次の候補である。
+
+`state.feedback`は計算進捗と計算失敗・presentation失敗を同じ主通知へ出すため共有される。presentation retryのみがpresentation errorをclearし、計算errorを残す必要がある。`feedbackErrorProvenance.kind`と`presentationErrorToken`はこの区別に使われるが、provenanceの`revision`は一度も読まれていなかったため削除した。`displayFeedback`は`useAttack`のpresentation adapterとpreflight/error処理、state clearから更新される。`scoreDisplayFeedback`はRunnerのloading/abortとscore lifecycle failureに加え、`useAttack`のscore presentation/resource処理およびstate clearから更新される。後二者の複数writerを統合する場合は、数値計算状態の再設計ではなく、feedback値の公開・導出境界を先に定める。
+
+| 状態 | 現在の更新責任・所見 |
+| --- | --- |
+| `state.combos[].data.calculation` | `AttackState`のatomic calculation commit、combo invalidation、全state clear。Runnerは専用commit APIを呼ぶ |
+| `state.totalCalculation` | `AttackState`のcalculation commit、total invalidation、全state clear。Runnerのtotal error clearは今回共通helperへ統合 |
+| `state.basePresentation` | `AttackState.commitAttackPresentation()`でdisplayとatomic commit。Runnerが計算開始・presentation失敗時にclear。total invalidation helperもclear |
+| `state.displayPresentation` | `AttackState`のatomic commit、Runnerの計算開始・失敗・拒否、`useAttack`のpreflight/validation結果処理から更新。clear scopeを区別する必要あり |
+| `state.feedback` | `CalculationFeedback`のmutatorをRunnerから呼ぶ。計算とpresentationのerrorを同じUI通知に出し、provenanceでretry時のclear可否を分ける |
+| `state.displayFeedback` | `useAttack`のpresentation adapter、display preflight/rejection/error、`AttackState.clearResults()`が更新 |
+| `state.scoreDisplayFeedback` | Runnerのscore lifecycle loading/abort/error、`useAttack`のscore adapter/preflight/rejection/error、`AttackState.clearResults()`が更新 |
+| `displayRevision` | Runner内だけでdamage projection要求の新旧を示す。古い値はnumeric commitをrejectせず、最新requestの選択に使う |
+| `scoreDisplayLifecycle` | Runner内だけでscore request、revision、enabled/recalculating/suppressed状態を所有。score-only rejectionからdamageを独立させる |
+| `feedbackErrorProvenance` | Runner内だけ。`kind`はpresentation retryがclearしてよいerrorかを判断する。未参照だった`revision`は削除 |
+| `presentationErrorToken` | Runner内だけ。Coordinator error callbackでprojection exceptionを計算例外と区別するため、該当error objectのidentityを保持 |
+
+`npm run verify:core`は85 test files / 1,033 tests、typecheck、ESLint、Markdown lint（114 files / 0 issues）、build（489 modules）、diff checkを通過した。`npm run verify:browser`のproduction smokeも成功し、Attackのscore-only coverage、chart/summary/footer continuity、combo rename後のchart identity、invalid/rejectionからのclear/recoveryを確認した。precomputed-data requests、console warnings/errors、same-origin HTTP errorsはいずれも0件である。
+
+S06は**CLOSED / GREEN**。S05は状態所有者調査と安全な小規模整理まで完了し、引き続き**進行中**とする。次のS05実装単位は「presentation invalidation scopeの一本化」とし、base+displayをclearする場合とdisplayだけをclearする場合の2つの小さな操作を定義し、Runner、`useAttack`、`AttackState`の重複clearを置き換える。計算recordを保持するdisplay rejection、presentation retry、計算開始時のvalid→valid描画継続、入力invalid/離脱時のfull clearを既存テストで固定し、表示エラーの公開writer統合は別の小単位に分ける。`CalculationState` unionやstate managerは導入しない。
 
 ### S07 検証とコピーを境界へ集める
 
