@@ -29,6 +29,7 @@ import {
   createAttackScoreDisplayFeedback,
 } from './AttackDisplayFeedback'
 import {
+  clearAttackDisplayPresentation,
   clearAttackState,
   createAttackState,
   ensureComboData,
@@ -189,7 +190,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     onPresentation: publishDisplayFeedback,
     onDisplayRejected: publishDisplayRejection,
     onError: (error: unknown) => {
-      state.displayPresentation = null
+      clearAttackDisplayPresentation(state)
       state.displayFeedback.status = 'error'
       state.displayFeedback.plan = null
       state.displayFeedback.error = error
@@ -198,7 +199,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
   })
 
   function publishDisplayResourceRejection(plan: DisplayFeedbackPlan) {
-    state.displayPresentation = null
+    clearAttackDisplayPresentation(state)
     state.displayFeedback.status = 'rejected'
     state.displayFeedback.plan = plan
     state.displayFeedback.error = null
@@ -207,12 +208,8 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     state.scoreDisplayFeedback.error = null
   }
 
-  function clearDisplayPresentation() {
-    state.displayPresentation = null
-  }
-
   function publishDisplayError(error: unknown) {
-    state.displayPresentation = null
+    clearAttackDisplayPresentation(state)
     state.displayFeedback.status = 'error'
     state.displayFeedback.plan = null
     state.displayFeedback.error = error
@@ -235,14 +232,14 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
       )
       if (!plan.accepted) {
         calculationRunner.invalidate()
-        clearDisplayPresentation()
+        clearAttackDisplayPresentation(state)
         publishDisplayResourceRejection(plan)
         return false
       }
       return true
     } catch (error) {
       calculationRunner.invalidate()
-      clearDisplayPresentation()
+      clearAttackDisplayPresentation(state)
       publishDisplayError(error)
       return false
     }
@@ -457,7 +454,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
         },
       })
       if (!refreshed) {
-        state.displayPresentation = null
+        clearAttackDisplayPresentation(state)
       }
     } catch (error) {
       publishDisplayError(error)

@@ -248,10 +248,20 @@ export function createAttackState(): AttackStateSeed {
   }
 }
 
-function clearResults(state: AttackState): void {
-  state.totalCalculation = null
+/** Clear cached projections without changing calculation or feedback state. */
+export function clearAttackPresentations(state: AttackState): void {
   state.basePresentation = null
   state.displayPresentation = null
+}
+
+/** Clear only the current display projection, retaining its reusable base. */
+export function clearAttackDisplayPresentation(state: AttackState): void {
+  state.displayPresentation = null
+}
+
+function clearResults(state: AttackState): void {
+  state.totalCalculation = null
+  clearAttackPresentations(state)
 
   if (state.displayFeedback) {
     markCalculationAborted(state.displayFeedback)
@@ -477,8 +487,7 @@ export function invalidateAttackTotalCalculation(state: AttackState): boolean {
     return false
   }
   state.totalCalculation = null
-  state.basePresentation = null
-  state.displayPresentation = null
+  clearAttackPresentations(state)
   return true
 }
 

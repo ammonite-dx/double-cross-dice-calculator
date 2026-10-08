@@ -1202,6 +1202,7 @@ describe('Attack canonical display integration', () => {
     })
 
     await expect(runner.run()).resolves.toBe(true)
+    const committedBase = state.basePresentation
     expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
 
     displayRequest.max = 2
@@ -1210,7 +1211,14 @@ describe('Attack canonical display integration', () => {
     expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
     expect(onDisplayRejected).toHaveBeenCalledOnce()
     expect(state.displayPresentation).toBeNull()
+    expect(state.basePresentation).toBe(committedBase)
     expect(state.totalCalculation).not.toBeNull()
+
+    displayRequest.max = 0
+    expect(runner.refreshPresentation()).toBe(true)
+    expect(state.basePresentation).toBe(committedBase)
+    expect(state.displayPresentation).not.toBeNull()
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
   })
 
   it('keeps rapid display changes latest-wins', async () => {

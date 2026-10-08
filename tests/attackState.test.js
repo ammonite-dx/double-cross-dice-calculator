@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   areAttackEntriesEqual,
+  clearAttackDisplayPresentation,
+  clearAttackPresentations,
   clearAttackState,
   commitAttackCalculationExecution,
   commitAttackPresentation,
@@ -139,6 +141,83 @@ describe('AttackState', () => {
       label: 'owned by the input form',
       calculation: null,
     })
+  })
+
+  it('clears both presentation caches without changing records or feedback', () => {
+    const state = createState()
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, execution)
+    state.basePresentation = { kind: 'base' }
+    state.displayPresentation = createDisplayPresentation()
+    const records = state.combos.map(({ data }) => data.calculation)
+    const total = state.totalCalculation
+    const feedback = structuredClone({
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    })
+    const feedbackRefs = {
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    }
+
+    clearAttackPresentations(state)
+    clearAttackPresentations(state)
+
+    expect(state.basePresentation).toBeNull()
+    expect(state.displayPresentation).toBeNull()
+    state.combos.forEach(({ data }, index) => {
+      expect(data.calculation).toBe(records[index])
+    })
+    expect(state.totalCalculation).toBe(total)
+    expect(state.feedback).toBe(feedbackRefs.feedback)
+    expect(state.displayFeedback).toBe(feedbackRefs.displayFeedback)
+    expect(state.scoreDisplayFeedback).toBe(feedbackRefs.scoreDisplayFeedback)
+    expect({
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    }).toEqual(feedback)
+  })
+
+  it('clears only the display projection and keeps the reusable base', () => {
+    const state = createState()
+    const execution = createExecution()
+    commitAttackCalculationExecution(state, execution)
+    const base = { kind: 'base' }
+    state.basePresentation = base
+    state.displayPresentation = createDisplayPresentation()
+    const records = state.combos.map(({ data }) => data.calculation)
+    const total = state.totalCalculation
+    const feedback = structuredClone({
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    })
+    const feedbackRefs = {
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    }
+
+    clearAttackDisplayPresentation(state)
+    clearAttackDisplayPresentation(state)
+
+    expect(state.basePresentation).toBe(base)
+    expect(state.displayPresentation).toBeNull()
+    state.combos.forEach(({ data }, index) => {
+      expect(data.calculation).toBe(records[index])
+    })
+    expect(state.totalCalculation).toBe(total)
+    expect(state.feedback).toBe(feedbackRefs.feedback)
+    expect(state.displayFeedback).toBe(feedbackRefs.displayFeedback)
+    expect(state.scoreDisplayFeedback).toBe(feedbackRefs.scoreDisplayFeedback)
+    expect({
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    }).toEqual(feedback)
   })
 
   it('snapshots calculation inputs without retaining nested aliases', () => {

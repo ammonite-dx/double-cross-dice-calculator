@@ -4,6 +4,8 @@ import {
   createAttackDisplayPresentationFrom,
 } from './AttackPresentation'
 import {
+  clearAttackDisplayPresentation,
+  clearAttackPresentations,
   commitAttackCalculationExecution,
   commitAttackPresentation,
   invalidateAttackComboCalculation,
@@ -200,7 +202,7 @@ export function createAttackRunner({
     calculationCoordinator.invalidate()
     displayRevision += 1
     invalidateScoreDisplay()
-    state.displayPresentation = null
+    clearAttackDisplayPresentation(state)
     onDisplayRejected?.(presentation)
   }
 
@@ -227,8 +229,7 @@ export function createAttackRunner({
       invalidateAttackTotalCalculation(state)
     } else {
       // Presentation failures do not invalidate a valid calculation record.
-      state.basePresentation = null
-      state.displayPresentation = null
+      clearAttackPresentations(state)
     }
   }
 
@@ -283,8 +284,7 @@ export function createAttackRunner({
         if (!preserveScoreLifecycle) {
           cancelScoreDisplayRecalculation()
         }
-        state.basePresentation = null
-        state.displayPresentation = null
+        clearAttackPresentations(state)
       }
     },
     onPlan: (plan) => {
@@ -345,8 +345,7 @@ export function createAttackRunner({
       }
       const previousScoreDisplayPresentation =
         state.displayPresentation?.score ?? null
-      state.basePresentation = null
-      state.displayPresentation = null
+      clearAttackPresentations(state)
 
       let basePresentation: AttackPresentation
       let presentation: AttackDisplayPresentation
