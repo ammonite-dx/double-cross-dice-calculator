@@ -14,13 +14,12 @@
 
 ## 次に行う作業
 
-1. **S04: Attackの表示生成を一経路にする**: 計算recordからbase presentationを一度だけ作り、通常commitと表示要求更新が同じ表示変換を使うよう整理する。計算recordを保った表示失敗からの再試行も維持する。詳細は[独立レビュー計画](./repository-review-and-kiss-plan.md#s04-attackの表示生成を一経路にする)を参照する。
-2. **S05/S06: Attackの状態所有と無効化規則を整理**: S04後に着手し、計算record・表示cache・feedbackの更新責任と、各ユーザー操作の再計算規則を段階的に確認する。`AttackRunner`の全面置換は行わない。
-3. **公開準備**: S04以降の入力・表示課題を終えた後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
+1. **S05/S06: Attackの状態所有と無効化規則を整理**: S04完了後に着手し、計算record・表示cache・feedbackの更新責任と、各ユーザー操作の再計算規則を段階的に確認する。`AttackRunner`の全面置換は行わない。
+2. **公開準備**: S05/S06以降の入力・表示課題を終えた後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
 
 ## 独立レビューに基づく改修案
 
-[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01からB05はすべて検証してCLOSED / GREENとし、S01からS03も完了した。次はS04である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の未完了案は実装済みの変更や既存ADRの置換を意味しない。
+[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01からB05、S01からS04はすべて検証してCLOSED / GREENとした。次はS05/S06である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の未完了案は実装済みの変更や既存ADRの置換を意味しない。
 
 ## 保留
 
@@ -31,6 +30,7 @@
 
 ## 完了した直近の作業
 
+- **独立レビューS04: Attack presentation生成経路の一本化**: 通常commitで計算recordのsnapshotからbase presentationを一度だけ生成し、通常commitと表示-only更新が同じbase-to-display projectorを使うようにした。表示-only更新は既存baseを再利用し、base/display生成失敗からも数値計算を再実行せず復帰する。`AttackRunnerPresentation`/`TPresentation`と旧factory経路・不要castを削除し、score/damage独立性、coverage再計算、latest-winsを維持した。S04は2026年10月8日にCLOSED / GREENとし、詳細は[独立レビュー計画](./repository-review-and-kiss-plan.md#s04-attackの表示生成を一経路にする完了)を参照する。
 - **独立レビューS02/S03: Check初期計算とsnapshot契約の整理**: `useCheck`を同期controllerにし、初期・入力更新・coverage再計算を同じcoordinator経路へ統一した。Vue mount/unmount lifecycle、初回要求一度、pending時のAbort、late plan/result抑止、初期error/rejectionから通常入力更新による復帰をテストした。coordinatorのgeneric deep cloneを削除し、shape-specificな`snapshotRequest`を型・runtime両方で必須化した。全体検証は85ファイル・1,030テスト、typecheck、ESLint、Markdown lint（114ファイル・0 issue）、build、production browser smoke、diff checkが成功した。詳細は[独立レビュー計画](./repository-review-and-kiss-plan.md)のS02/S03記録を参照する。
 - **独立レビューB03/B04・S01: Check入力契約とinvalid draftの整理**: Checkの計算入力をfixed/opposed unionにし、fixed requestからreactionを除外した。固定結果にはreaction distribution/statisticsを要求せず、固定判定へscore tail予算全量を使う（commit `a1381ee`）。Check、Attack、Backtrackのフォームは`validating`/`invalid`/`valid`を通知し、旧要求を即時invalidate、invalid確定時に旧結果をclearする（commit `6c4a463`）。本番ブラウザでreaction resource rejectionからのfixed復帰、3画面のinvalid→valid復帰、既存のvalid-to-valid chartとsummary/footer continuityを確認した。全体検証は85テストファイル・1,026テスト、型検査、lint、Markdown lint、buildを通過した。
 - **B04 advanced-settings follow-up**: Check、Attackの高度な設定切替でもフォームが最新ticketによる通常のvalidation lifecycleを通知し、feature側はtoggle単独でinvalid blockerを解除しない。無効な高度項目だけなら非表示化後に自動復帰し、基本項目が無効なら結果はclearのまま維持する。Attackでinvalidな未確定draftを持つコンボを畳んだ場合は、他にblockerがなく計算結果もreadyでなければ最後の有効snapshotから復帰する。詳細と実ブラウザ検証は[`repository-review-and-kiss-plan.md`](./repository-review-and-kiss-plan.md)のB04 advanced-settings follow-upを参照する。

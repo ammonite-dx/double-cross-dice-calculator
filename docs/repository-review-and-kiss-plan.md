@@ -6,7 +6,7 @@
 
 **グラフはアプリケーションのメインコンテンツであり、グラフ中心のUIを維持する。** サマリーを主役にする再配置、グラフの縮小、表示形式や既定表示範囲の変更は、この計画に含めない。グラフの正確さ、操作可能性、再計算中の連続性を守りながら、実装を簡潔にする。
 
-不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善と数値安定性follow-upを完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は2026年10月8日に修正・回帰確認を終えてCLOSED / GREENとし、S01からS03も実装・検証を終えた。次の作業はS04であり、S05以降の改善案は段階的に判断する。本書の作成によって既存ADRを変更したことにはならない。
+不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善と数値安定性follow-upを完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は2026年10月8日に修正・回帰確認を終えてCLOSED / GREENとし、S01からS04も実装・検証を終えた。次はS05/S06であり、その他の改善案は段階的に判断する。本書の作成によって既存ADRを変更したことにはならない。
 
 ## 評価の前提と検証範囲
 
@@ -179,7 +179,7 @@ B04は**CLOSED / GREEN**。Check・Attack・Backtrackで同じ状態通知原則
 
 Checkの《妖精の手》等、Attackの《妖精の手》等・《支配の領域》・《風鳴りの爪》の表示切替後も、フォームが`validating`を通知してから次tick後にactive fieldsを再検証する。featureはトグル操作だけではvalidation blockerを解除せず、最新の`valid`通知でのみ正規化済み入力を採用して再計算する。これにより無効な基本入力はON/OFF後も無効のまま保たれ、無効な高度設定だけならOFFで自動的に無効項目を0へ戻して結果を復帰する。
 
-Attackではinvalid draftを持つコンボを畳んで破棄したとき、他のvalidation blockerがなく、readyな計算も残っていなければ最後に確定した入力から再計算する。validation中でreadyな表示が維持されている場合は再計算を重ねない。コントローラーテストと本番ブラウザスモークでこの切替・復帰条件を固定した。B04をCLOSEDのまま維持する。後続のS02/S03も完了し、次の作業はS04である。
+Attackではinvalid draftを持つコンボを畳んで破棄したとき、他のvalidation blockerがなく、readyな計算も残っていなければ最後に確定した入力から再計算する。validation中でreadyな表示が維持されている場合は再計算を重ねない。コントローラーテストと本番ブラウザスモークでこの切替・復帰条件を固定した。B04をCLOSEDのまま維持する。後続のS02からS04も完了し、次の作業はS05/S06である。
 
 ### B05 モバイルのコンボ操作に読み上げ可能な名前がない
 
@@ -240,7 +240,7 @@ type DraftValidation<T> =
 
 固定結果にはreaction distribution/statisticsを含めず、対決結果ではaction/reactionの両方を保持する。Check API、planner、record、presentationはこの判別可能な入力と結果を通している。
 
-S01からS03は**完了**。Checkの入力状態、初期計算経路、coordinator snapshot契約は整理済みである。次の状態整理はS04とする。
+S01からS04は**完了**。Checkの入力状態・初期計算経路・coordinator snapshot契約、およびAttackのbase-to-display経路は整理済みである。次の状態整理はS05/S06とする。
 
 ### S02 Checkの初期計算と更新計算を同じ経路へ揃える（完了）
 
@@ -260,30 +260,23 @@ coordinatorの最新要求選択、実行中一件＋最新待機一件、Abort�
 
 汎用structured/exotic cloneテストを削除し、nested queued snapshotのalias防止、snapshot failure時の最新revision優先、古いplan/result/errorの抑止、外部Abort、disposeを検証している。型fixtureは`snapshotRequest`の必須性をnegative contractで固定し、runtime misuseもテストする。公開APIとして汎用cloneを維持する必要はなく、production外の利用箇所もない。
 
-### S04 Attackの表示生成を一経路にする
+### S04 Attackの表示生成を一経路にする（完了）
 
-[AttackRunner.ts](../src/features/attack/model/AttackRunner.ts)には`createBasePresentation`、`createPresentation`、`createDisplayPresentation`という複数の任意factoryがあり、省略時の分岐とpresentation型のcastが必要になっている。productionの呼び出し元は[useAttack.ts](../src/features/attack/model/useAttack.ts)である。
+通常commitでは、`commitAttackCalculationExecution()`が数値recordを保存し、`getCommittedAttackCalculationSnapshot()`から復元したbatchとrange planを使って`createAttackPresentation()`を一度だけ呼ぶ。そのbaseを`projectPresentation`経由で`createAttackDisplayPresentationFrom()`へ渡し、baseとdisplayを同時にcommitする。表示範囲・modeだけの更新も同じprojectorを使い、`state.basePresentation`を再利用する。baseが未commitの場合だけ、所有済み計算recordから再生成する。
 
-また、通常のcommitではbase生成の後に`createAttackDisplayPresentation`を呼び、その内部でも`createAttackPresentation`が呼ばれる。これはソースから確認できる重複生成である。実際の性能改善量は未測定であり、速度向上率は主張しない。
+`AttackRunner`のfactory契約はbase生成とbaseからのprojectionの2つに整理した。raw batchからdisplayを別途作るRunner経路、`AttackRunnerPresentation`/`TPresentation`のunion、不要な型castを削除した。`createAttackDisplayPresentation()`はbase生成とprojectionを順に呼ぶ薄いconvenience APIとして残るが、production Runnerからは呼ばれない。productionの`useAttack`は引き続き`DEFAULT_DISPLAY_RANGE_PLANNER_POLICY`を使い、damageとscoreそれぞれの表示要求をprojectionへ渡す。
 
-最初の変更では状態モデル全体を変えず、次の経路へ揃える。
+presentation生成が失敗しても、正常にcommitされたコンボrecord、total record、combo順、range planは残る。base生成失敗とprojection失敗のどちらも、再試行では計算をやり直さず回復する。presentation errorの回復と後続calculation errorの所有関係、stale request抑止も維持した。
 
-```text
-committed calculation records
-  -> createAttackPresentation 一度だけ生成
-  -> createAttackDisplayPresentationFrom 表示要求を適用
-  -> Chart.js用データ
-```
+S04固有のintegration testでは、通常commitのbase生成が1回であること、初回projectionとdisplay-only更新が同じbase objectを使うこと、表示更新で`calculateAttack()`と`calculateTotalDamage()`の呼び出しが増えないことを確認した。base生成失敗とdisplay projection失敗の再試行では、計算recordを維持したまま追加計算なしでreadyへ復帰する。score/damageの独立性、coverage拡張、latest-wins、invalid/rejection時のclearも既存回帰テストで確認した。
 
-通常commitと表示範囲の更新で同じ関数を使う。raw batchから直接displayまで生成する入口は、必要な外部利用がなければ削除し、残す場合も一方向の薄いwrapperに限定する。汎用の`TPresentation`を維持するproduction要件がなければ、戻り値を`AttackDisplayPresentation`へ固定する。任意factoryを多数受け取る代わりに、具体的な純粋関数と必要最小限のテスト差し替え口を使う。
+2026年10月8日の`npm run verify:core`は85 test files / 1,030 tests、typecheck、ESLint、Markdown lint（114 files / 0 issues）、production build（489 modules）、diff checkを通過した。`npm run verify:browser`もproduction smokeに成功し、Attackのdamage/score chart、score-only coverage、通常再計算中のcanvas・summary/footer continuity、combo rename後のseries identity、invalid/rejectionからのclearとrecoveryを確認した。precomputed data request、console warning/error、same-origin HTTP errorはいずれも0件だった。
 
-配列snapshotを担うbase presentationは、毎回computed内で作り直さない。計算recordの変更時に一度生成し、表示範囲だけの変更では再利用する。失敗した場合は正常な計算recordを残して再生成可能にする。
-
-完了条件は、通常commitでbaseの生成と配列snapshotが重複しないこと、表示範囲・mode変更で不要な再計算をしないこと、表示失敗から計算を再実行せず復帰できることである。
+したがってS04は**CLOSED / GREEN**。通常commitとdisplay-only更新は単一のbase-to-display経路を使う。画面上の変更はなく、dogfood UI backlogも別の保留項目として維持する。
 
 ### S05 Attackの計算状態と表示状態の更新責任を整理する
 
-S04の後で取り組む。最初から`AttackRunner`を全面置換しない。
+S04完了後に取り組む。最初から`AttackRunner`を全面置換しない。
 
 現状は計算record、合計record、base presentation、display presentation、feedback、スコア表示lifecycle、複数revisionの関係を追う必要がある。特に計算と表示のエラーを同じfeedbackへ載せると、表示の再試行が計算エラーを消さないよう、エラーの由来を別途管理しなければならない。
 
@@ -412,7 +405,7 @@ Canvasへの`aria-label`はグラフの名前を伝えるが、個別の確率�
 | 8 | 残る長時間処理の実行境界を判断 | 新たな性能証拠が得られた場合のみ | 現在のB01-A測定ではWorker変更を行わず、長時間停止が再現した場合に再評価する |
 | 9 | 名前と公開文書の整理 | S08、M01からM04 | 初見の開発者が入口、現行契約、検証手順を追える |
 
-順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序2はB02/B05の修正と本番ブラウザ検証を終えた。順序3はB03/B04をCLOSED / GREEN、S01を完了とし、Check入力契約と3画面のvalidation lifecycleを揃えた。順序4はS02/S03を完了し、次はS04である。順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
+順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序2はB02/B05の修正と本番ブラウザ検証を終えた。順序3はB03/B04をCLOSED / GREEN、S01を完了とし、Check入力契約と3画面のvalidation lifecycleを揃えた。順序4はS02/S03、順序5はS04を実装・検証して完了した。次の作業候補は順序6のS05/S06である。順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
 
 ## 回帰検証と完了の判定
 
