@@ -1269,6 +1269,226 @@ describe('Attack canonical display integration', () => {
       .toEqual([0.1, 0.2, 0.3, 0.4])
   })
 
+  it('commits pending numeric work with the latest display-only projection', async () => {
+    const state = createState()
+    const displayRequestA = {
+      min: 0,
+      max: 1,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const displayRequestB = {
+      ...displayRequestA,
+      mode: ATTACK_DISPLAY_MODES.UPPER_TAIL,
+    }
+    const batch = createBatch(1)
+    const deferredBatch = createDeferred()
+    let calculationCount = 0
+    const calculationClient = {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        return calculationCount === 1 ? batch : deferredBatch.promise
+      }),
+    }
+    const runner = createAttackRunner({
+      state,
+      calculationClient,
+      projectPresentation: (basePresentation, { displayRequest }) =>
+        createAttackDisplayPresentationFrom(basePresentation, {
+          displayRequest: displayRequest ?? displayRequestA,
+        }),
+    })
+
+    await expect(runner.run({ displayRequest: displayRequestA }))
+      .resolves.toBe(true)
+    const previousRecord = state.combos[0].data.calculation
+
+    const calculationA = runner.run({
+      displayRequest: displayRequestA,
+      forceAll: true,
+    })
+    expect(calculationCount).toBe(2)
+
+    expect(runner.refreshPresentation({ displayRequest: displayRequestB }))
+      .toBe(true)
+    expect(state.displayPresentation.displayRequest).toEqual(displayRequestB)
+    expect(state.combos[0].data.calculation).toBe(previousRecord)
+    expect(calculationCount).toBe(2)
+
+    deferredBatch.resolve(batch)
+    await expect(calculationA).resolves.toBe(true)
+
+    expect(state.combos[0].data.calculation).not.toBe(previousRecord)
+    expect(state.displayPresentation.displayRequest).toEqual(displayRequestB)
+    expect(state.displayPresentation.displayRequest.mode)
+      .toBe(ATTACK_DISPLAY_MODES.UPPER_TAIL)
+  })
+
+  it('uses the latest score-only projection when numeric work commits', async () => {
+    const state = createState()
+    const damageRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const scoreRequestA = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const scoreRequestB = {
+      ...scoreRequestA,
+      max: 1,
+    }
+    const batch = createScoreBatchWithInfiniteScoreSupport()
+    const deferredBatch = createDeferred()
+    let calculationCount = 0
+    const calculationClient = {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        return calculationCount === 1 ? batch : deferredBatch.promise
+      }),
+    }
+    const runner = createAttackRunner({
+      state,
+      calculationClient,
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(basePresentation, {
+        displayRequest: displayRequest ?? damageRequest,
+        scoreDisplayRequest: scoreDisplayRequest ?? scoreRequestA,
+      }),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: scoreRequestA,
+    })).resolves.toBe(true)
+    const previousRecord = state.combos[0].data.calculation
+
+    const calculationA = runner.run({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: scoreRequestA,
+      forceAll: true,
+    })
+    expect(calculationCount).toBe(2)
+
+    expect(runner.refreshPresentation({
+      displayRequest: damageRequest,
+      scoreDisplayRequest: scoreRequestB,
+      scoreOnly: true,
+    })).toBe(true)
+    expect(state.displayPresentation.score.displayRequest)
+      .toEqual(scoreRequestB)
+    expect(calculationCount).toBe(2)
+
+    deferredBatch.resolve(batch)
+    await expect(calculationA).resolves.toBe(true)
+
+    expect(state.combos[0].data.calculation).not.toBe(previousRecord)
+    expect(state.displayPresentation.displayRequest).toEqual(damageRequest)
+    expect(state.displayPresentation.score.displayRequest)
+      .toEqual(scoreRequestB)
+  })
+
+  it('keeps the latest damage request across deferred score coverage expansion', async () => {
+    const state = createState()
+    const damageRequestA = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const damageRequestB = {
+      ...damageRequestA,
+      mode: ATTACK_DISPLAY_MODES.UPPER_TAIL,
+    }
+    const scoreRequest = {
+      min: 0,
+      max: 0,
+      mode: ATTACK_DISPLAY_MODES.PMF,
+    }
+    const expandedScoreRequest = {
+      ...scoreRequest,
+      max: 2,
+    }
+    const initialBatch = createScoreBatchWithInfiniteScoreSupport()
+    const expandedBatch = createScoreExpansion([0.2, 0.3, 0.5])
+    const deferredExpansion = createDeferred()
+    const signals = []
+    let calculationCount = 0
+    const calculationClient = {
+      resolveAttackFixture: vi.fn(async (_entries, options) => {
+        calculationCount += 1
+        signals.push(options.signal)
+        options.onRangePlan({
+          id: `plan-${calculationCount}`,
+          operation: 'attack',
+          warnings: [],
+        })
+        if (calculationCount === 1) {
+          return initialBatch
+        }
+        if (calculationCount === 2) {
+          return deferredExpansion.promise
+        }
+        return expandedBatch
+      }),
+    }
+    const runner = createAttackRunner({
+      state,
+      calculationClient,
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(basePresentation, {
+        displayRequest: displayRequest ?? damageRequestA,
+        scoreDisplayRequest: scoreDisplayRequest ?? scoreRequest,
+      }),
+    })
+
+    await expect(runner.run({
+      displayRequest: damageRequestA,
+      scoreDisplayRequest: scoreRequest,
+    })).resolves.toBe(true)
+
+    const scoreExpansionA = runner.refreshPresentation({
+      displayRequest: damageRequestA,
+      scoreDisplayRequest: expandedScoreRequest,
+      scoreOnly: true,
+    })
+    expect(calculationCount).toBe(2)
+    expect(state.displayPresentation.score).toBeNull()
+    expect(state.displayPresentation.displayRequest).toEqual(damageRequestA)
+
+    const damageRefreshB = runner.refreshPresentation({
+      displayRequest: damageRequestB,
+      scoreDisplayRequest: expandedScoreRequest,
+    })
+    expect(damageRefreshB).toBeInstanceOf(Promise)
+
+    deferredExpansion.resolve(expandedBatch)
+    await expect(scoreExpansionA).resolves.toBe(false)
+    await expect(damageRefreshB).resolves.toBe(true)
+
+    expect(calculationCount).toBe(3)
+    expect(signals[1].aborted).toBe(true)
+    expect(state.displayPresentation.displayRequest)
+      .toEqual(damageRequestB)
+    expect(state.displayPresentation.score.displayRequest)
+      .toEqual(expandedScoreRequest)
+    expect(state.displayPresentation.score.status).toBe('ready')
+  })
+
   it.each(['invalid', 'resource', 'error'])(
     'keeps an in-flight damage batch commit after score-only %s',
     async (failureKind) => {

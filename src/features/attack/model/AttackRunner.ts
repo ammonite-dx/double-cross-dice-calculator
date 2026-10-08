@@ -68,6 +68,10 @@ export function createAttackRunner({
   const presentationProjector = projectPresentation
     ?? ((basePresentation, request) =>
       createAttackDisplayPresentationFrom(basePresentation, request))
+  // Calculation request identity belongs to the Coordinator. This separate
+  // value tracks the latest damage projection request so an older calculation
+  // can still commit reusable records without restoring an obsolete window.
+  let currentDisplayRequest: DisplayRequestSnapshot | null = null
   let displayRevision = 0
   let scoreDisplayLifecycle: {
     status: 'enabled' | 'recalculating' | 'suppressed'
@@ -83,8 +87,7 @@ export function createAttackRunner({
   // visible until a successful calculation commits.
   let feedbackErrorProvenance: {
     kind: 'none' | 'presentation' | 'calculation'
-    revision: number | null
-  } = { kind: 'none', revision: null }
+  } = { kind: 'none' }
   let presentationErrorToken: unknown = null
 
   function clearScoreDisplayPresentation(): void {
@@ -168,6 +171,18 @@ export function createAttackRunner({
     return presentationProjector(basePresentation, projectionRequest)
   }
 
+  function sameDisplayRequest(
+    left: DisplayRequestSnapshot | null,
+    right: DisplayRequestSnapshot | null,
+  ): boolean {
+    return left === right
+      || (left !== null
+        && right !== null
+        && left.min === right.min
+        && left.max === right.max
+        && left.mode === right.mode)
+  }
+
   function mergeScoreOnlyPresentation(
     presentation: AttackDisplayPresentation,
   ): AttackDisplayPresentation {
@@ -209,9 +224,7 @@ export function createAttackRunner({
       )
       invalidateAttackTotalCalculation(state)
     } else if (stage === 'total') {
-      state.totalCalculation = null
-      state.basePresentation = null
-      state.displayPresentation = null
+      invalidateAttackTotalCalculation(state)
     } else {
       // Presentation failures do not invalidate a valid calculation record.
       state.basePresentation = null
@@ -239,8 +252,10 @@ export function createAttackRunner({
       scoreDisplayRequest: request.scoreDisplayRequest === null
         ? null
         : createAttackDisplayRequestSnapshot(request.scoreDisplayRequest),
-      displayRevision: null,
-      scoreDisplayRevision: null,
+      // These revisions select the presentation request at commit time. They
+      // must not be replaced with null or used to reject numeric work.
+      displayRevision: request.displayRevision,
+      scoreDisplayRevision: request.scoreDisplayRevision,
     }
   }
 
@@ -258,7 +273,7 @@ export function createAttackRunner({
     }),
     onStart: (request) => {
       beginCalculation(state.feedback)
-      feedbackErrorProvenance = { kind: 'none', revision: null }
+      feedbackErrorProvenance = { kind: 'none' }
       presentationErrorToken = null
       const preserve = request.preservePresentation === true
         && getCommittedAttackCalculationSnapshot(state) !== null
@@ -277,21 +292,27 @@ export function createAttackRunner({
     },
     commit: (calculationResult, context) => {
       const request = context.request
+      // Coordinator revision and input identity decide whether numeric work
+      // may commit. Display revisions only decide which projection to build.
       if (
         !isAttackInputCurrent(state.combos, request.entries)
-        || (
-          request.displayRevision !== null
-          && request.displayRevision !== displayRevision
-        )
       ) {
         return false
       }
       const scoreDisplaySuppressed = scoreDisplayLifecycle.status === 'suppressed'
-        || (
-          request.scoreDisplayRevision !== null
-          && request.scoreDisplayRevision
-            !== scoreDisplayLifecycle.revision
-        )
+      const displayRequestIsCurrent = request.displayRevision === null
+        || request.displayRevision === displayRevision
+      const displayRequestForProjection = displayRequestIsCurrent
+        ? request.displayRequest ?? currentDisplayRequest
+        : currentDisplayRequest
+      const scoreDisplayRequestIsCurrent =
+        request.scoreDisplayRevision !== null
+        && request.scoreDisplayRevision === scoreDisplayLifecycle.revision
+      const scoreDisplayRequestForProjection = scoreDisplaySuppressed
+        ? null
+        : scoreDisplayRequestIsCurrent
+          ? request.scoreDisplayRequest ?? scoreDisplayLifecycle.request
+          : scoreDisplayLifecycle.request ?? request.scoreDisplayRequest
       const execution = calculationResult?.batchResult
         ? calculationResult
         : null
@@ -312,11 +333,14 @@ export function createAttackRunner({
       if (committedSnapshot === null) {
         throw new Error(' attack calculation snapshot was incomplete')
       }
-      if (!scoreDisplaySuppressed && request.scoreDisplayRequest !== null) {
+      if (
+        !scoreDisplaySuppressed
+        && scoreDisplayRequestForProjection !== null
+      ) {
         scoreDisplayLifecycle = {
           ...scoreDisplayLifecycle,
           status: 'enabled',
-          request: request.scoreDisplayRequest,
+          request: scoreDisplayRequestForProjection,
         }
       }
       const previousScoreDisplayPresentation =
@@ -333,8 +357,8 @@ export function createAttackRunner({
         )
         presentation = projectBasePresentation(
           basePresentation,
-          request.displayRequest,
-          request.scoreDisplayRequest
+          displayRequestForProjection,
+          scoreDisplayRequestForProjection
         )
       } catch (error) {
         presentationErrorToken = error
@@ -362,7 +386,7 @@ export function createAttackRunner({
           status: scoreDisplaySuppressed ? 'suppressed' : 'enabled',
           request: scoreDisplaySuppressed
             ? null
-            : request.scoreDisplayRequest,
+            : scoreDisplayRequestForProjection,
         }
         if (
           scoreDisplaySuppressed
@@ -379,19 +403,13 @@ export function createAttackRunner({
     onCommitted: () => {
       completeCalculation(state.feedback)
     },
-    onError: (error, context) => {
+    onError: (error) => {
       const isPresentationError = presentationErrorToken === error
       presentationErrorToken = null
       if (isPresentationError) {
-        feedbackErrorProvenance = {
-          kind: 'presentation',
-          revision: context.revision,
-        }
+        feedbackErrorProvenance = { kind: 'presentation' }
       } else {
-        feedbackErrorProvenance = {
-          kind: 'calculation',
-          revision: context.revision,
-        }
+        feedbackErrorProvenance = { kind: 'calculation' }
       }
       recordCalculationError(state.feedback, error)
       handleCalculationError(error)
@@ -421,6 +439,9 @@ export function createAttackRunner({
     const requestDisplayRevision = requestDisplay === null
       ? null
       : ++displayRevision
+    if (requestDisplay !== null) {
+      currentDisplayRequest = requestDisplay
+    }
     const hasScoreDisplayRequest = scoreDisplayRequest !== undefined
     const requestScoreDisplay = hasScoreDisplayRequest
       ? createAttackDisplayRequestSnapshot(scoreDisplayRequest)
@@ -485,25 +506,46 @@ export function createAttackRunner({
       }
 
       const scoreOnly = options.scoreOnly === true
-      if (!scoreOnly) {
+      const hasDisplayRequest = Object.prototype.hasOwnProperty.call(
+        options,
+        'displayRequest'
+      )
+      const requestedDisplayRequest = hasDisplayRequest
+        ? createAttackDisplayRequestSnapshot(options.displayRequest)
+        : undefined
+      const hasScoreDisplayRequest = Object.prototype.hasOwnProperty.call(
+        options,
+        'scoreDisplayRequest'
+      )
+      const requestedScoreDisplayRequest = hasScoreDisplayRequest
+        ? createAttackDisplayRequestSnapshot(options.scoreDisplayRequest)
+        : scoreDisplayLifecycle.request
+      const scoreDisplayRequestChanged = hasScoreDisplayRequest
+        && !sameDisplayRequest(
+          requestedScoreDisplayRequest,
+          scoreDisplayLifecycle.request
+        )
+      const damageDisplayRequestChanged = requestedDisplayRequest !== undefined
+        && !sameDisplayRequest(requestedDisplayRequest, currentDisplayRequest)
+      if (!scoreOnly || damageDisplayRequestChanged) {
         displayRevision += 1
       }
-      if (scoreOnly) {
+      if (!scoreOnly) {
+        // When the caller relies on the projector's live source of truth,
+        // discard a previously captured request. A failed projection must
+        // not make that older snapshot look current on a later calculation.
+        currentDisplayRequest = requestedDisplayRequest ?? null
+      }
+      if (requestedDisplayRequest !== undefined) {
+        currentDisplayRequest = requestedDisplayRequest
+      }
+      if (scoreOnly || scoreDisplayRequestChanged) {
         scoreDisplayLifecycle = {
           ...scoreDisplayLifecycle,
           status: 'enabled',
           revision: scoreDisplayLifecycle.revision + 1,
+          request: requestedScoreDisplayRequest,
         }
-      }
-      const requestedScoreDisplayRequest =
-        Object.prototype.hasOwnProperty.call(options, 'scoreDisplayRequest')
-          ? createAttackDisplayRequestSnapshot(options.scoreDisplayRequest)
-          : scoreDisplayLifecycle.request
-      let requestedDisplayRequest
-      if (Object.prototype.hasOwnProperty.call(options, 'displayRequest')) {
-        requestedDisplayRequest = createAttackDisplayRequestSnapshot(
-          options.displayRequest
-        )
       }
       let basePresentation = state.basePresentation
       let presentation: AttackDisplayPresentation
@@ -518,39 +560,32 @@ export function createAttackRunner({
             committedSnapshot.rangePlans
           )
         }
-        const requestedDisplayForProjection =
-          Object.prototype.hasOwnProperty.call(options, 'displayRequest')
-            ? createAttackDisplayRequestSnapshot(options.displayRequest)
-            : null
         presentation = projectBasePresentation(
           basePresentation,
-          requestedDisplayForProjection,
+          requestedDisplayRequest ?? null,
           requestedScoreDisplayRequest
         )
       } catch (error) {
         presentationErrorToken = error
-        feedbackErrorProvenance = {
-          kind: 'presentation',
-          revision: calculationCoordinator.snapshot().revision,
-        }
+        feedbackErrorProvenance = { kind: 'presentation' }
         recordCalculationError(state.feedback, error)
         handleCalculationError(error)
         onError?.(error)
         return false
       }
 
-      if (requestedDisplayRequest === undefined) {
-        if (presentation?.displayRequest !== undefined) {
-          requestedDisplayRequest = createAttackDisplayRequestSnapshot(
-            presentation.displayRequest
-          )
-        } else if (state.displayPresentation?.displayRequest !== null
-          && state.displayPresentation?.displayRequest !== undefined) {
-          requestedDisplayRequest = createAttackDisplayRequestSnapshot(
-            state.displayPresentation.displayRequest
-          )
-        }
+      if (presentation?.displayRequest !== undefined) {
+        currentDisplayRequest = createAttackDisplayRequestSnapshot(
+          presentation.displayRequest
+        )
       }
+      const effectiveDisplayRequest = requestedDisplayRequest
+        ?? currentDisplayRequest
+        ?? (state.displayPresentation?.displayRequest == null
+          ? undefined
+          : createAttackDisplayRequestSnapshot(
+              state.displayPresentation.displayRequest
+            ))
 
       // score coverage is a presentation-local decision. Do not let a score
       // miss accidentally take the damage path, because a score expansion
@@ -625,7 +660,7 @@ export function createAttackRunner({
         && requestedScoreDisplayRequest !== null
         && !scoreDisplaySuppressedForRefresh
       ) {
-        if (requestedDisplayRequest === undefined) {
+        if (effectiveDisplayRequest === undefined) {
           invalidateDisplayResult(presentation)
           return false
         }
@@ -633,7 +668,7 @@ export function createAttackRunner({
         beginScoreDisplayRecalculation()
         return run({
           ...calculationOptions,
-          displayRequest: requestedDisplayRequest,
+          displayRequest: effectiveDisplayRequest,
           scoreDisplayRequest: requestedScoreDisplayRequest,
           forceAll: true,
         })
@@ -644,14 +679,14 @@ export function createAttackRunner({
         && decision
           === ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
       ) {
-        if (requestedDisplayRequest === undefined) {
+        if (effectiveDisplayRequest === undefined) {
           invalidateDisplayResult(presentation)
           return false
         }
         const calculationOptions = options.calculationOptions ?? {}
         return run({
           ...calculationOptions,
-          displayRequest: requestedDisplayRequest,
+          displayRequest: effectiveDisplayRequest,
           forceAll: true,
           ...(
             requestedScoreDisplayRequest !== null
@@ -667,7 +702,7 @@ export function createAttackRunner({
           === ATTACK_DISPLAY_PRESENTATION_DECISIONS.RECALCULATE
       ) {
         if (
-          requestedDisplayRequest === undefined
+          effectiveDisplayRequest === undefined
           || requestedScoreDisplayRequest === null
         ) {
           // There is no safe batch snapshot to run. Preserve the committed
@@ -679,7 +714,7 @@ export function createAttackRunner({
         beginScoreDisplayRecalculation()
         return run({
           ...calculationOptions,
-          displayRequest: requestedDisplayRequest,
+          displayRequest: effectiveDisplayRequest,
           scoreDisplayRequest: requestedScoreDisplayRequest,
           forceAll: true,
         }, { preservePresentation: true })
@@ -720,7 +755,7 @@ export function createAttackRunner({
         if (feedbackErrorProvenance.kind === 'presentation'
           && state.feedback.error !== null) {
           completeCalculation(state.feedback)
-          feedbackErrorProvenance = { kind: 'none', revision: null }
+          feedbackErrorProvenance = { kind: 'none' }
         }
         if (
           requestedScoreDisplayRequest !== null
@@ -745,7 +780,7 @@ export function createAttackRunner({
         revision: scoreDisplayLifecycle.revision + 1,
         request: null,
       }
-      feedbackErrorProvenance = { kind: 'none', revision: null }
+      feedbackErrorProvenance = { kind: 'none' }
       presentationErrorToken = null
     },
   }
