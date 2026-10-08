@@ -16,8 +16,8 @@ import type {
   AttackRangePlanReference,
 } from './AttackPresentationTypes'
 import type {
+  AttackPresentationProjectionRequest,
   AttackRunnerCalculationRequest,
-  AttackRunnerDisplayContext,
 } from './AttackRunnerTypes'
 import type { AttackState } from './AttackStateTypes'
 import type {
@@ -48,7 +48,6 @@ import {
 } from './AttackDisplayRequestSnapshot'
 import {
   createAttackPresentation,
-  createAttackDisplayPresentation,
   createAttackDisplayPresentationFrom,
 } from './AttackPresentation'
 import {
@@ -175,35 +174,18 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
       batchResult: AttackBatchResult,
       rangePlans: readonly AttackRangePlanReference[] = [],
     ) => createAttackPresentation(batchResult, rangePlans),
-    createPresentation: (
-      batchResult: AttackBatchResult,
-      rangePlans: readonly AttackRangePlanReference[] = [],
-      request?: DisplayRequestSnapshot,
-      scoreRequest?: DisplayRequestSnapshot,
-    ) => createAttackDisplayPresentation(batchResult, {
+    projectPresentation: (
+      basePresentation,
+      {
+        displayRequest: request,
+        scoreDisplayRequest: scoreRequest,
+      }: AttackPresentationProjectionRequest,
+    ) => createAttackDisplayPresentationFrom(basePresentation, {
       displayRequest: request ?? createAttackDisplayRequestSnapshot(displayRequest),
       scoreDisplayRequest: scoreRequest
         ?? createAttackDisplayRequestSnapshot(scoreDisplayRequest),
-      rangePlans,
       policy: displayRangePolicy,
     }),
-    createDisplayPresentation: ({
-      state: currentState,
-      basePresentation,
-      displayRequest: request,
-      scoreDisplayRequest: scoreRequest,
-    }: AttackRunnerDisplayContext) => {
-      return createAttackDisplayPresentationFrom(
-        (basePresentation ?? currentState.basePresentation)!,
-        {
-          displayRequest: request
-            ?? createAttackDisplayRequestSnapshot(displayRequest),
-          scoreDisplayRequest: scoreRequest
-            ?? createAttackDisplayRequestSnapshot(scoreDisplayRequest),
-          policy: displayRangePolicy,
-        }
-      )
-    },
     onPresentation: publishDisplayFeedback,
     onDisplayRejected: publishDisplayRejection,
     onError: (error: unknown) => {

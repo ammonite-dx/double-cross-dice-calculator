@@ -20,10 +20,6 @@ import type {
 } from './AttackIncrementalExecutionTypes'
 import type { AttackState } from './AttackStateTypes'
 
-export type AttackRunnerPresentation =
-  | AttackPresentation
-  | AttackDisplayPresentation
-
 export interface AttackRunnerCalculationRequest {
   readonly entries: readonly AttackExecutionEntry[]
   readonly committedRecords: readonly AttackCommittedRecord[]
@@ -44,21 +40,16 @@ export interface AttackRunnerRequestSnapshot
   readonly preservePresentation: boolean
 }
 
-export interface AttackRunnerDisplayContext {
-  readonly state: AttackState
-  readonly batchResult?: AttackBatchResult
-  readonly rangePlans?: readonly AttackRangePlanReference[]
-  readonly basePresentation?: AttackPresentation | null
+export interface AttackPresentationProjectionRequest {
   readonly displayRequest?: DisplayRequestSnapshot
   readonly scoreDisplayRequest?: DisplayRequestSnapshot
+}
+
+export interface AttackRunnerRefreshOptions
+  extends AttackPresentationProjectionRequest {
   readonly scoreOnly?: boolean
   readonly calculationOptions?: AttackCalculationOptions
 }
-
-export type AttackRunnerRefreshOptions = Omit<
-  AttackRunnerDisplayContext,
-  'state' | 'batchResult' | 'rangePlans' | 'basePresentation'
->
 
 export interface AttackRunnerRunOptions
   extends Omit<
@@ -72,9 +63,7 @@ export interface AttackRunnerRunOptions
   readonly forceAll?: boolean
 }
 
-export interface AttackRunnerOptions<
-  TPresentation extends AttackRunnerPresentation = AttackRunnerPresentation,
-> {
+export interface AttackRunnerOptions {
   readonly state: AttackState
   readonly executeCalculation: (
     request: AttackRunnerCalculationRequest,
@@ -83,28 +72,21 @@ export interface AttackRunnerOptions<
     batchResult: AttackBatchResult,
     rangePlans?: readonly AttackRangePlanReference[],
   ) => AttackPresentation
-  readonly createPresentation?: (
-    batchResult: AttackBatchResult,
-    rangePlans?: readonly AttackRangePlanReference[],
-    displayRequest?: DisplayRequestSnapshot,
-    scoreDisplayRequest?: DisplayRequestSnapshot,
-  ) => TPresentation
-  readonly createDisplayPresentation?: (
-    context: AttackRunnerDisplayContext,
+  readonly projectPresentation?: (
+    basePresentation: AttackPresentation,
+    request: AttackPresentationProjectionRequest,
   ) => AttackDisplayPresentation
   readonly onPresentation?: (
-    presentation: TPresentation,
+    presentation: AttackDisplayPresentation,
     metadata?: Readonly<{ scoreDisplaySuppressed?: boolean }>,
   ) => void
   readonly onDisplayRejected?: (
-    presentation: TPresentation | null,
+    presentation: AttackDisplayPresentation | null,
   ) => void
   readonly onError?: (error: unknown) => void
 }
 
-export interface AttackRunner<
-  _TPresentation extends AttackRunnerPresentation = AttackRunnerPresentation,
-> {
+export interface AttackRunner {
   run(options?: AttackRunnerRunOptions): Promise<boolean>
   invalidate(): void
   invalidateForValidation(): void

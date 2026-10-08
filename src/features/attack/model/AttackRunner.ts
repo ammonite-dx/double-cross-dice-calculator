@@ -1,6 +1,7 @@
 import {
   ATTACK_DISPLAY_PRESENTATION_DECISIONS,
   createAttackPresentation,
+  createAttackDisplayPresentationFrom,
 } from './AttackPresentation'
 import {
   commitAttackCalculationExecution,
@@ -25,16 +26,14 @@ import {
 import type {
   AttackRunner,
   AttackRunnerOptions,
-  AttackRunnerPresentation,
+  AttackPresentationProjectionRequest,
   AttackRunnerRequestSnapshot,
   AttackRunnerRefreshOptions,
   AttackRunnerRunOptions,
 } from './AttackRunnerTypes'
 import type {
-  AttackBatchResult,
   AttackDisplayPresentation,
   AttackPresentation,
-  AttackRangePlanReference,
 } from './AttackPresentationTypes'
 import type { DisplayRequestSnapshot } from '../../../domain/CalculationInputs'
 import type { AttackIncrementalExecution } from './AttackIncrementalExecutionTypes'
@@ -48,33 +47,27 @@ import type { AttackCalculationRangePlan } from '../../../calculation/planning/R
  * Connect the attack batch client to a latest-request runner.
  * The runner is UI-independent and owns the current calculation lane.
  *
- * @template {import('./AttackRunnerTypes').AttackRunnerPresentation} [TPresentation=import('./AttackRunnerTypes').AttackRunnerPresentation]
- * @param {import('./AttackRunnerTypes').AttackRunnerOptions<TPresentation>} options
- * @returns {import('./AttackRunnerTypes').AttackRunner<TPresentation>}
+ * @param {import('./AttackRunnerTypes').AttackRunnerOptions} options
+ * @returns {import('./AttackRunnerTypes').AttackRunner}
  */
-export function createAttackRunner<
-  TPresentation extends AttackRunnerPresentation = AttackRunnerPresentation,
->({
+export function createAttackRunner({
   state,
   executeCalculation,
   createBasePresentation,
-  createPresentation,
-  createDisplayPresentation,
+  projectPresentation,
   onPresentation,
   onDisplayRejected,
   onError,
-}: AttackRunnerOptions<TPresentation>): AttackRunner<TPresentation> {
+}: AttackRunnerOptions): AttackRunner {
   if (typeof executeCalculation !== 'function') {
     throw new TypeError(
       'createAttackRunner requires an incremental executeCalculation function'
     )
   }
-  const presentationFactory: NonNullable<
-    AttackRunnerOptions<TPresentation>['createPresentation']
-  > = createPresentation
-    ?? createAttackPresentation as unknown as NonNullable<
-      AttackRunnerOptions<TPresentation>['createPresentation']
-    >
+  const basePresentationFactory = createBasePresentation ?? createAttackPresentation
+  const presentationProjector = projectPresentation
+    ?? ((basePresentation, request) =>
+      createAttackDisplayPresentationFrom(basePresentation, request))
   let displayRevision = 0
   let scoreDisplayLifecycle: {
     status: 'enabled' | 'recalculating' | 'suppressed'
@@ -153,77 +146,37 @@ export function createAttackRunner<
     clearScoreDisplayPresentation()
   }
 
-  function suppressScoreDisplay<
-    TValue extends AttackRunnerPresentation | null,
-  >(presentation: TValue, score: unknown = null): TValue {
-    if (
-      presentation === null
-      || typeof presentation !== 'object'
-      || !Object.prototype.hasOwnProperty.call(presentation, 'score')
-    ) {
-      return presentation
-    }
+  function suppressScoreDisplay(
+    presentation: AttackDisplayPresentation,
+    score: AttackDisplayPresentation['score'] = null,
+  ): AttackDisplayPresentation {
     return Object.freeze({
       ...presentation,
       score,
-    }) as TValue
+    })
   }
 
-  function createBatchPresentation(
-    batchResult: AttackBatchResult,
+  function projectBasePresentation(
+    basePresentation: AttackPresentation,
     request: DisplayRequestSnapshot | null,
     scoreRequest: DisplayRequestSnapshot | null,
-    rangePlans: readonly AttackRangePlanReference[] = [],
-  ): TPresentation {
-    if (request === null) {
-      if (scoreRequest === null) {
-        return presentationFactory(batchResult, rangePlans)
-      }
-      return presentationFactory(
-        batchResult,
-        rangePlans,
-        undefined,
-        scoreRequest
-      )
+  ): AttackDisplayPresentation {
+    const projectionRequest: AttackPresentationProjectionRequest = {
+      ...(request === null ? {} : { displayRequest: request }),
+      ...(scoreRequest === null ? {} : { scoreDisplayRequest: scoreRequest }),
     }
-    if (scoreRequest === null) {
-      return presentationFactory(
-        batchResult,
-        rangePlans,
-        request
-      )
-    }
-    return presentationFactory(
-      batchResult,
-      rangePlans,
-      request,
-      scoreRequest
-    )
-  }
-
-  function createBaseBatchPresentation(
-    batchResult: AttackBatchResult,
-    rangePlans: readonly AttackRangePlanReference[],
-  ): AttackPresentation | null {
-    if (typeof createBasePresentation !== 'function') {
-      return null
-    }
-    return createBasePresentation(batchResult, rangePlans)
+    return presentationProjector(basePresentation, projectionRequest)
   }
 
   function mergeScoreOnlyPresentation(
     presentation: AttackDisplayPresentation,
   ): AttackDisplayPresentation {
     const current = state.displayPresentation
-    if (
-      current === null
-      || typeof current !== 'object'
-      || !Object.prototype.hasOwnProperty.call(current, 'score')
-    ) {
+    if (current === null) {
       return presentation
     }
     return Object.freeze({
-      ...(current as AttackDisplayPresentation),
+      ...current,
       score: presentation.score ?? null,
     })
   }
@@ -233,7 +186,7 @@ export function createAttackRunner<
     displayRevision += 1
     invalidateScoreDisplay()
     state.displayPresentation = null
-    onDisplayRejected?.(presentation as unknown as TPresentation)
+    onDisplayRejected?.(presentation)
   }
 
   function handleCalculationError(error: unknown): void {
@@ -371,18 +324,17 @@ export function createAttackRunner<
       state.basePresentation = null
       state.displayPresentation = null
 
-      let basePresentation
-      let presentation: TPresentation
+      let basePresentation: AttackPresentation
+      let presentation: AttackDisplayPresentation
       try {
-        basePresentation = createBaseBatchPresentation(
+        basePresentation = basePresentationFactory(
           committedSnapshot.batchResult,
           committedSnapshot.rangePlans
         )
-        presentation = createBatchPresentation(
-          committedSnapshot.batchResult,
+        presentation = projectBasePresentation(
+          basePresentation,
           request.displayRequest,
-          request.scoreDisplayRequest,
-          committedSnapshot.rangePlans
+          request.scoreDisplayRequest
         )
       } catch (error) {
         presentationErrorToken = error
@@ -397,7 +349,7 @@ export function createAttackRunner<
       const committed = commitAttackPresentation(
         state,
         basePresentation,
-        committedPresentation as unknown as AttackDisplayPresentation
+        committedPresentation
       )
       if (!committed) {
         const error = new Error(' attack presentation was incomplete')
@@ -554,44 +506,27 @@ export function createAttackRunner<
         )
       }
       let basePresentation = state.basePresentation
-      let presentation
+      let presentation: AttackDisplayPresentation
       try {
         // A base presentation is itself a presentation artifact. If a prior
         // base/display attempt failed before it was committed, rebuild it
         // from the committed calculation records during the retry rather
         // than recalculating any combo or total.
         if (basePresentation === null) {
-          basePresentation = createBaseBatchPresentation(
+          basePresentation = basePresentationFactory(
             committedSnapshot.batchResult,
             committedSnapshot.rangePlans
           )
         }
-        presentation = createDisplayPresentation
-          ? createDisplayPresentation({
-              ...options,
-              state,
-              batchResult: committedSnapshot.batchResult,
-              rangePlans: committedSnapshot.rangePlans,
-              basePresentation,
-              ...(Object.prototype.hasOwnProperty.call(options, 'displayRequest')
-                ? {
-                    displayRequest: createAttackDisplayRequestSnapshot(
-                      options.displayRequest
-                    ),
-                  }
-                : {}),
-              ...(requestedScoreDisplayRequest !== null
-                ? { scoreDisplayRequest: requestedScoreDisplayRequest }
-                : {}),
-            })
-          : presentationFactory(
-              committedSnapshot.batchResult,
-              committedSnapshot.rangePlans,
-              Object.prototype.hasOwnProperty.call(options, 'displayRequest')
-                ? createAttackDisplayRequestSnapshot(options.displayRequest)
-                : undefined,
-              requestedScoreDisplayRequest ?? undefined
-            ) as unknown as AttackDisplayPresentation
+        const requestedDisplayForProjection =
+          Object.prototype.hasOwnProperty.call(options, 'displayRequest')
+            ? createAttackDisplayRequestSnapshot(options.displayRequest)
+            : null
+        presentation = projectBasePresentation(
+          basePresentation,
+          requestedDisplayForProjection,
+          requestedScoreDisplayRequest
+        )
       } catch (error) {
         presentationErrorToken = error
         feedbackErrorProvenance = {
@@ -796,7 +731,7 @@ export function createAttackRunner<
             request: requestedScoreDisplayRequest,
           }
         }
-        onPresentation?.(committedPresentation as unknown as TPresentation, {
+        onPresentation?.(committedPresentation, {
           scoreDisplaySuppressed: !scoreDisplayAllowed,
         })
       }

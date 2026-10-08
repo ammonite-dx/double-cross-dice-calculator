@@ -61,7 +61,12 @@ function createClient() {
   return { calculateAttack, calculateTotalDamage }
 }
 
-function createDisplayPresentation(batch) {
+function makeBasePresentation(batch) {
+  return { kind: 'base', batch }
+}
+
+function projectFixture(basePresentation) {
+  const { batch } = basePresentation
   return {
     kind: 'display',
     displayRequest: { min: 0, max: 10, mode: 'pmf' },
@@ -78,7 +83,14 @@ function createDisplayPresentation(batch) {
   }
 }
 
-function createRunner(state, calculationClient, createPresentation = null) {
+function createRunner(
+  state,
+  calculationClient,
+  {
+    createBase = makeBasePresentation,
+    project = projectFixture,
+  } = {},
+) {
   return createAttackRunner({
     state,
     calculationClient,
@@ -91,11 +103,8 @@ function createRunner(state, calculationClient, createPresentation = null) {
         onRangePlan,
         forceAll,
       }),
-    createPresentation: createPresentation ?? createDisplayPresentation,
-    createBasePresentation: (batch) => ({
-      kind: 'base',
-      batch,
-    }),
+    createBasePresentation: createBase,
+    projectPresentation: project,
   })
 }
 
@@ -155,17 +164,21 @@ describe('incremental Attack runner ownership', () => {
     runner.dispose()
   })
 
-  it('retains calculation records when display presentation creation fails', async () => {
+  it('retains calculation records when display projection fails', async () => {
     const state = createState()
     const client = createClient()
     const presentationError = new Error('presentation failed')
-    const createPresentation = vi
+    const projectPresentation = vi
       .fn()
       .mockImplementationOnce(() => {
         throw presentationError
       })
-      .mockImplementation(createDisplayPresentation)
-    const runner = createRunner(state, client, createPresentation)
+      .mockImplementation(projectFixture)
+    const createBase = vi.fn(makeBasePresentation)
+    const runner = createRunner(state, client, {
+      createBase,
+      project: projectPresentation,
+    })
 
     await expect(runner.run()).resolves.toBe(false)
     const records = state.combos.map(({ data }) => data.calculation)
@@ -185,6 +198,8 @@ describe('incremental Attack runner ownership', () => {
     expect(runner.refreshPresentation()).toBe(true)
     expect(client.calculateAttack).toHaveBeenCalledTimes(attackCalls)
     expect(client.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
+    expect(createBase).toHaveBeenCalledTimes(2)
+    expect(projectPresentation).toHaveBeenCalledTimes(2)
     expect(state.combos[0].data.calculation).toBe(records[0])
     expect(state.combos[1].data.calculation).toBe(records[1])
     expect(state.totalCalculation).toBe(total)
@@ -203,7 +218,8 @@ describe('incremental Attack runner ownership', () => {
       .mockImplementationOnce(() => {
         throw baseError
       })
-      .mockImplementation((batch) => ({ kind: 'base', batch }))
+      .mockImplementation(makeBasePresentation)
+    const projectPresentation = vi.fn(projectFixture)
     const runner = createAttackRunner({
       state,
       calculationClient: client,
@@ -215,9 +231,9 @@ describe('incremental Attack runner ownership', () => {
           options: { ...calculationOptions, signal },
           onRangePlan,
           forceAll,
-        }),
-      createPresentation: createDisplayPresentation,
+      }),
       createBasePresentation,
+      projectPresentation,
     })
 
     await expect(runner.run()).resolves.toBe(false)
@@ -235,6 +251,8 @@ describe('incremental Attack runner ownership', () => {
     expect(runner.refreshPresentation()).toBe(true)
     expect(client.calculateAttack).toHaveBeenCalledTimes(attackCalls)
     expect(client.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
+    expect(createBasePresentation).toHaveBeenCalledTimes(2)
+    expect(projectPresentation).toHaveBeenCalledOnce()
     expect(state.combos[0].data.calculation).toBe(records[0])
     expect(state.combos[1].data.calculation).toBe(records[1])
     expect(state.totalCalculation).toBe(total)
@@ -248,15 +266,15 @@ describe('incremental Attack runner ownership', () => {
   it('rejects an invalid presentation and recovers feedback without recalculation', async () => {
     const state = createState()
     const client = createClient()
-    const createPresentation = vi
+    const projectPresentation = vi
       .fn()
-      .mockImplementationOnce((batch) => {
-        const invalid = createDisplayPresentation(batch)
+      .mockImplementationOnce((basePresentation) => {
+        const invalid = projectFixture(basePresentation)
         invalid.combos[0].id = 'wrong-id'
         return invalid
       })
-      .mockImplementation(createDisplayPresentation)
-    const runner = createRunner(state, client, createPresentation)
+      .mockImplementation(projectFixture)
+    const runner = createRunner(state, client, { project: projectPresentation })
 
     await expect(runner.run()).resolves.toBe(false)
     expect(state.feedback.status).toBe('error')
@@ -278,13 +296,13 @@ describe('incremental Attack runner ownership', () => {
     const state = createState()
     const client = createClient()
     const presentationError = new Error('presentation failed')
-    const createPresentation = vi
+    const projectPresentation = vi
       .fn()
       .mockImplementationOnce(() => {
         throw presentationError
       })
-      .mockImplementation(createDisplayPresentation)
-    const runner = createRunner(state, client, createPresentation)
+      .mockImplementation(projectFixture)
+    const runner = createRunner(state, client, { project: projectPresentation })
 
     await expect(runner.run()).resolves.toBe(false)
     expect(state.feedback.error).toBe(presentationError)

@@ -5,7 +5,6 @@ import {
 } from '../src/features/attack/model/AttackRunner'
 import {
   createAttackPresentation,
-  createAttackDisplayPresentation,
   createAttackDisplayPresentationFrom,
 } from '../src/features/attack/model/AttackPresentation'
 import {
@@ -186,8 +185,17 @@ function createScoreExpansion(actionValues, reactionValues = actionValues) {
   }
 }
 
-function createSource(state) {
-  return state.basePresentation
+function createProjector({
+  displayRequest,
+  scoreDisplayRequest,
+  policy,
+} = {}) {
+  return (basePresentation, request = {}) =>
+    createAttackDisplayPresentationFrom(basePresentation, {
+      displayRequest: request.displayRequest ?? displayRequest,
+      scoreDisplayRequest: request.scoreDisplayRequest ?? scoreDisplayRequest,
+      policy,
+    })
 }
 
 /**
@@ -286,40 +294,52 @@ describe('Attack canonical display integration', () => {
     }
     const batch = createBatch(4)
     const plans = [{ operation: 'attack', warnings: [] }]
-    const createPresentation = vi.fn((batchResult, rangePlans) =>
-      createAttackDisplayPresentation(batchResult, {
-        displayRequest,
-        rangePlans,
+    const createBasePresentation = vi.fn((batchResult, rangePlans) =>
+      createAttackPresentation(batchResult, rangePlans)
+    )
+    const projectPresentation = vi.fn((basePresentation, request) =>
+      createAttackDisplayPresentationFrom(basePresentation, {
+        displayRequest: request.displayRequest ?? displayRequest,
       })
     )
-    const createDisplayPresentation = vi.fn(({ state: currentState }) =>
-      createAttackDisplayPresentationFrom(
-        createSource(currentState),
-        { displayRequest }
-      )
-    )
-    const calculationClient = {
+    const fixtureClient = {
       resolveAttackFixture: vi.fn(async (_entries, options) => {
         options.onRangePlan(plans[0])
         return batch
       }),
     }
+    const calculationClient = createIncrementalFixtureClient(fixtureClient)
+    const calculateAttackCalls = calculationClient.calculateAttack.mock.calls.length
+    const calculateTotalDamageCalls =
+      calculationClient.calculateTotalDamage.mock.calls.length
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation,
-      createDisplayPresentation,
+      createBasePresentation,
+      projectPresentation,
     })
 
-    await expect(runner.run()).resolves.toBe(true)
+    await expect(runner.run({ displayRequest })).resolves.toBe(true)
     expect(state.displayPresentation.status).toBe('ready')
+    const committedBase = state.basePresentation
+    const resolveCalls = calculationClient.resolveAttackFixture.mock.calls.length
+    const attackCalls = calculationClient.calculateAttack.mock.calls.length
+    const totalCalls = calculationClient.calculateTotalDamage.mock.calls.length
 
     displayRequest.max = 0
     expect(runner.refreshPresentation()).toBe(true)
 
     expect(calculationClient.resolveAttackFixture).toHaveBeenCalledOnce()
-    expect(createPresentation).toHaveBeenCalledOnce()
-    expect(createDisplayPresentation).toHaveBeenCalledOnce()
+    expect(createBasePresentation).toHaveBeenCalledOnce()
+    expect(projectPresentation).toHaveBeenCalledTimes(2)
+    expect(projectPresentation.mock.calls[0][0]).toBe(committedBase)
+    expect(projectPresentation.mock.calls[1][0]).toBe(committedBase)
+    expect(state.basePresentation).toBe(committedBase)
+    expect(calculationClient.resolveAttackFixture).toHaveBeenCalledTimes(resolveCalls)
+    expect(calculationClient.calculateAttack).toHaveBeenCalledTimes(attackCalls)
+    expect(calculationClient.calculateTotalDamage).toHaveBeenCalledTimes(totalCalls)
+    expect(attackCalls).toBeGreaterThan(calculateAttackCalls)
+    expect(totalCalls).toBeGreaterThan(calculateTotalDamageCalls)
     expect(state.displayPresentation.displayRequest).toEqual({
       min: 0,
       max: 0,
@@ -358,23 +378,10 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
-        displayRequest,
-        scoreDisplayRequest,
-      }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
-        {
-          displayRequest: displayRequest ?? damageRequest,
-          scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
-        }
-      ),
+      projectPresentation: createProjector({
+        displayRequest: damageRequest,
+        scoreDisplayRequest: initialScoreRequest,
+      }),
     })
 
     await expect(runner.run({
@@ -445,18 +452,11 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
-        displayRequest,
-        scoreDisplayRequest,
-      }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
+        projectPresentation: (
+          basePresentation,
+          { displayRequest, scoreDisplayRequest },
+        ) => createAttackDisplayPresentationFrom(
+          basePresentation,
         {
           displayRequest: displayRequest ?? damageRequest,
           scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -533,18 +533,11 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
-        displayRequest,
-        scoreDisplayRequest,
-      }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(
+        basePresentation,
         {
           displayRequest: displayRequest ?? damageRequest,
           scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -630,18 +623,11 @@ describe('Attack canonical display integration', () => {
       const runner = createAttackRunner({
         state,
         calculationClient,
-        createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-          createAttackDisplayPresentation(batchResult, {
-            displayRequest: request ?? damageRequest,
-            scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-            rangePlans,
-          }),
-        createDisplayPresentation: ({
-          state: currentState,
-          displayRequest,
-          scoreDisplayRequest,
-        }) => createAttackDisplayPresentationFrom(
-          createSource(currentState),
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(
+        basePresentation,
           {
             displayRequest: displayRequest ?? damageRequest,
             scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -711,19 +697,11 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-          policy: displayPolicy,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
-        displayRequest,
-        scoreDisplayRequest,
-      }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(
+        basePresentation,
         {
           displayRequest: displayRequest ?? damageRequest,
           scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -812,19 +790,11 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? initialDamageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-          policy: displayPolicy,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
-        displayRequest,
-        scoreDisplayRequest,
-      }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(
+        basePresentation,
         {
           displayRequest: displayRequest ?? initialDamageRequest,
           scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -918,18 +888,11 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
-        displayRequest,
-        scoreDisplayRequest,
-      }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(
+        basePresentation,
         {
           displayRequest: displayRequest ?? damageRequest,
           scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -1017,18 +980,11 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
-        displayRequest,
-        scoreDisplayRequest,
-      }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
+      projectPresentation: (
+        basePresentation,
+        { displayRequest, scoreDisplayRequest },
+      ) => createAttackDisplayPresentationFrom(
+        basePresentation,
         {
           displayRequest: displayRequest ?? damageRequest,
           scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -1097,11 +1053,8 @@ describe('Attack canonical display integration', () => {
     }
     const requestMetadata = { label: 'attack-display-recalculate' }
     let calculationCount = 0
-    const createPresentation = vi.fn((batchResult, rangePlans, request) =>
-      createAttackDisplayPresentation(batchResult, {
-        displayRequest: request ?? displayRequest,
-        rangePlans,
-      })
+    const createBasePresentation = vi.fn((batchResult, rangePlans) =>
+      createAttackPresentation(batchResult, rangePlans)
     )
     const calculationClient = {
       resolveAttackFixture: vi.fn(async (_entries, options) => {
@@ -1115,13 +1068,12 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation,
-      createDisplayPresentation: ({
-        state: currentState,
+      createBasePresentation,
+      projectPresentation: (basePresentation, {
         displayRequest: requestedDisplayRequest,
       }) =>
         createAttackDisplayPresentationFrom(
-          createSource(currentState),
+          basePresentation,
           {
             displayRequest: requestedDisplayRequest ?? displayRequest,
           }
@@ -1145,8 +1097,8 @@ describe('Attack canonical display integration', () => {
     expect(recalculationOptions.requestMetadata).toEqual(requestMetadata)
     expect(recalculationOptions.signal).toBeInstanceOf(AbortSignal)
     expect(recalculationOptions.onRangePlan).toBeTypeOf('function')
-    expect(createPresentation.mock.calls[0][1]).toEqual([initialPlan])
-    expect(createPresentation.mock.calls[1][1]).toEqual([extendedPlan])
+    expect(createBasePresentation.mock.calls[0][1]).toEqual([initialPlan])
+    expect(createBasePresentation.mock.calls[1][1]).toEqual([extendedPlan])
     expect(state.displayPresentation.decision).toBe('reuse')
     expect(state.displayPresentation.total.chart).not.toBeNull()
     expect(state.displayPresentation.displayRequest.max).toBe(2)
@@ -1163,10 +1115,9 @@ describe('Attack canonical display integration', () => {
     const extendedBatch = createBatch(4, [0.25, 0.5, 0.25])
     const deferredRecalculation = createDeferred()
     const externalController = new AbortController()
-    const createPresentation = vi.fn((batchResult, rangePlans, request) =>
-      createAttackDisplayPresentation(batchResult, {
-        displayRequest: request ?? initialRequest,
-        rangePlans,
+    const projectPresentation = vi.fn((basePresentation, request) =>
+      createAttackDisplayPresentationFrom(basePresentation, {
+        displayRequest: request.displayRequest ?? initialRequest,
       })
     )
     let calculationCount = 0
@@ -1189,16 +1140,12 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation,
-      createDisplayPresentation: ({ state: currentState, displayRequest }) =>
-        createAttackDisplayPresentationFrom(
-          createSource(currentState),
-          { displayRequest: displayRequest ?? initialRequest }
-        ),
+      projectPresentation,
     })
 
     await expect(runner.run({ displayRequest: initialRequest }))
       .resolves.toBe(true)
+    const initialBasePresentation = state.basePresentation
     const recalculation = runner.refreshPresentation({
       displayRequest: { ...initialRequest, max: 2 },
       calculationOptions: {
@@ -1216,7 +1163,11 @@ describe('Attack canonical display integration', () => {
 
     await expect(recalculation).resolves.toBe(false)
     expect(recalculationOptions.signal.aborted).toBe(true)
-    expect(createPresentation).toHaveBeenCalledOnce()
+    expect(projectPresentation).toHaveBeenCalledTimes(2)
+    expect(projectPresentation.mock.calls[0][0])
+      .toBe(initialBasePresentation)
+    expect(projectPresentation.mock.calls[1][0])
+      .toBe(initialBasePresentation)
     expect(state.displayPresentation).toBeNull()
     expect(state.totalCalculation).not.toBeNull()
   })
@@ -1236,32 +1187,17 @@ describe('Attack canonical display integration', () => {
         return batch
       }),
     }
-    const createDisplayPresentation = ({ state: currentState }) =>
-      createAttackDisplayPresentationFrom(
-        createSource(currentState),
-        {
-          displayRequest,
-          policy: {
-            pointCount: 1,
-            float64Bytes: 8,
-            chartPoints: 1,
-          },
-        }
-      )
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest,
-          rangePlans,
-          policy: {
-            pointCount: 1,
-            float64Bytes: 8,
-            chartPoints: 1,
-          },
-        }),
-      createDisplayPresentation,
+      projectPresentation: createProjector({
+        displayRequest,
+        policy: {
+          pointCount: 1,
+          float64Bytes: 8,
+          chartPoints: 1,
+        },
+      }),
       onDisplayRejected,
     })
 
@@ -1306,16 +1242,9 @@ describe('Attack canonical display integration', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (batchResult, rangePlans, request) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? initialRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({ state: currentState, displayRequest }) =>
-        createAttackDisplayPresentationFrom(
-          createSource(currentState),
-          { displayRequest: displayRequest ?? initialRequest }
-        ),
+      projectPresentation: createProjector({
+        displayRequest: initialRequest,
+      }),
     })
 
     const initialResult = await runner.run({ displayRequest: initialRequest })
@@ -1371,16 +1300,15 @@ describe('Attack canonical display integration', () => {
             : deferredBatch.promise
         }),
       }
-      const createPresentation = (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? displayRequest,
-          scoreDisplayRequest: scoreRequest ?? scoreDisplayRequest,
-          rangePlans,
-        })
       const runner = createAttackRunner({
         state,
         calculationClient,
-        createPresentation,
+        projectPresentation: (basePresentation, request) =>
+          createAttackDisplayPresentationFrom(basePresentation, {
+            displayRequest: request.displayRequest ?? displayRequest,
+            scoreDisplayRequest:
+              request.scoreDisplayRequest ?? scoreDisplayRequest,
+          }),
         onPresentation: (presentation, metadata) => {
           presentations.push({ presentation, metadata })
         },

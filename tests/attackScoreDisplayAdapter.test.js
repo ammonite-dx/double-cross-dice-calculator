@@ -459,22 +459,14 @@ describe('Attack canonical score display adapter', () => {
       max: 1025,
       mode: ATTACK_DISPLAY_MODES.PMF,
     }
-    const createSource = (currentState) => currentState.basePresentation
     const runner = createAttackRunner({
       state,
       calculationClient: client,
-      createPresentation: (batchResult, rangePlans, request, scoreRequest) =>
-        createAttackDisplayPresentation(batchResult, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest ?? initialScoreRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({
-        state: currentState,
+      projectPresentation: (basePresentation, {
         displayRequest,
         scoreDisplayRequest,
       }) => createAttackDisplayPresentationFrom(
-        createSource(currentState),
+        basePresentation,
         {
           displayRequest: displayRequest ?? damageRequest,
           scoreDisplayRequest: scoreDisplayRequest ?? initialScoreRequest,
@@ -1010,7 +1002,6 @@ describe('Attack canonical score display adapter', () => {
     }
     const damageRequest = { min: 0, max: 0, mode: ATTACK_DISPLAY_MODES.PMF }
     const scoreRequest = { min: 0, max: 4, mode: ATTACK_DISPLAY_MODES.PMF }
-    const source = (currentState) => currentState.basePresentation
     const calculationClient = {
       resolveAttackFixture: vi.fn(async (_entries, options) => {
         options.onRangePlan(plan)
@@ -1020,15 +1011,9 @@ describe('Attack canonical score display adapter', () => {
     const runner = createAttackRunner({
       state,
       calculationClient,
-      createPresentation: (result, rangePlans, request) =>
-        createAttackDisplayPresentation(result, {
-          displayRequest: request ?? damageRequest,
-          scoreDisplayRequest: scoreRequest,
-          rangePlans,
-        }),
-      createDisplayPresentation: ({ state: currentState, displayRequest }) =>
+      projectPresentation: (basePresentation, { displayRequest }) =>
         createAttackDisplayPresentationFrom(
-          source(currentState),
+          basePresentation,
           {
             displayRequest: displayRequest ?? damageRequest,
             scoreDisplayRequest: scoreRequest,
