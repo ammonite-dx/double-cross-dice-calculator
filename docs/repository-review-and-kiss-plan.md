@@ -6,7 +6,7 @@
 
 **グラフはアプリケーションのメインコンテンツであり、グラフ中心のUIを維持する。** サマリーを主役にする再配置、グラフの縮小、表示形式や既定表示範囲の変更は、この計画に含めない。グラフの正確さ、操作可能性、再計算中の連続性を守りながら、実装を簡潔にする。
 
-不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善と数値安定性follow-upを完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は2026年10月8日に修正・回帰確認を終えてCLOSED / GREENとし、S01も実装済みである。残るS02以降の改善案は別途実装する案であり、本書の作成によって既存ADRを変更したことにはならない。
+不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善と数値安定性follow-upを完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は2026年10月8日に修正・回帰確認を終えてCLOSED / GREENとし、S01からS03も実装・検証を終えた。次の作業はS04であり、S05以降の改善案は段階的に判断する。本書の作成によって既存ADRを変更したことにはならない。
 
 ## 評価の前提と検証範囲
 
@@ -179,7 +179,7 @@ B04は**CLOSED / GREEN**。Check・Attack・Backtrackで同じ状態通知原則
 
 Checkの《妖精の手》等、Attackの《妖精の手》等・《支配の領域》・《風鳴りの爪》の表示切替後も、フォームが`validating`を通知してから次tick後にactive fieldsを再検証する。featureはトグル操作だけではvalidation blockerを解除せず、最新の`valid`通知でのみ正規化済み入力を採用して再計算する。これにより無効な基本入力はON/OFF後も無効のまま保たれ、無効な高度設定だけならOFFで自動的に無効項目を0へ戻して結果を復帰する。
 
-Attackではinvalid draftを持つコンボを畳んで破棄したとき、他のvalidation blockerがなく、readyな計算も残っていなければ最後に確定した入力から再計算する。validation中でreadyな表示が維持されている場合は再計算を重ねない。コントローラーテストと本番ブラウザスモークでこの切替・復帰条件を固定した。B04をCLOSEDのまま維持し、次の作業はS02/S03とする。
+Attackではinvalid draftを持つコンボを畳んで破棄したとき、他のvalidation blockerがなく、readyな計算も残っていなければ最後に確定した入力から再計算する。validation中でreadyな表示が維持されている場合は再計算を重ねない。コントローラーテストと本番ブラウザスモークでこの切替・復帰条件を固定した。B04をCLOSEDのまま維持する。後続のS02/S03も完了し、次の作業はS04である。
 
 ### B05 モバイルのコンボ操作に読み上げ可能な名前がない
 
@@ -240,27 +240,25 @@ type DraftValidation<T> =
 
 固定結果にはreaction distribution/statisticsを含めず、対決結果ではaction/reactionの両方を保持する。Check API、planner、record、presentationはこの判別可能な入力と結果を通している。
 
-S01は**完了**。次の状態整理はS02/S03で行い、Check初期計算経路や汎用coordinatorの構造変更をこの作業へ含めない。
+S01からS03は**完了**。Checkの入力状態、初期計算経路、coordinator snapshot契約は整理済みである。次の状態整理はS04とする。
 
-### S02 Checkの初期計算と更新計算を同じ経路へ揃える
+### S02 Checkの初期計算と更新計算を同じ経路へ揃える（完了）
 
-[useCheck.ts](../src/features/check/model/useCheck.ts)は`async`関数で、初期計算を`runInitialCalculation`から直接行い、更新計算は`CalculationRequestCoordinator`へ渡す。初期結果がない場合の`onMounted`処理もある。AttackとBacktrackは同期的にcontrollerを構築してから計算を開始するため、画面ごとに読解手順が異なる。
+`useCheck`を同期関数にし、初期要求を`onMounted`から通常のcoordinatorへ一度送る形に揃えた。成功時のrecordは`context.request.input`から作り、初期・入力更新・coverage再計算に共通するsnapshot、error、Abort、commitの経路を使う。`CheckPage.vue`のtop-level awaitと`runInitialCalculation`を削除し、Check以外にasync setupがないことを確認したうえで[MainArea.vue](../src/layouts/MainArea.vue)の`Suspense`も外した。ルートのdynamic importは維持している。
 
-`useCheck`を同期関数にし、`onMounted`から通常のrunnerへ初期要求を一度送る。`CheckPage.vue`のtop-level awaitを除去し、初回も更新時も同じerror、Abort、commitの経路を使用する。初回のloading表示は既存のfeedbackから描画する。
+初回のloadingと失敗は既存のfeedbackで表し、初回に古い結果を表示しない。初期計算のerrorまたはresource rejection後も、通常のvalidated input更新から再計算できる。Checkの入力フォームとdisplay formにはmount時に初回要求を重ねるimmediate watcherがなく、初回要求は一つのままである。
 
-`runInitialCalculation`は他のproduction呼び出しがないことを確認してから削除する。`Suspense`も利用箇所を確認し、不要なら[MainArea.vue](../src/layouts/MainArea.vue)から外す。ルートのdynamic importまで同期化する必要はない。
+Vueの実mount/unmountを使うlifecycle harnessで、pending初期要求のsignal abort、遅延range plan/resultの非公開、dispose後の新規要求抑止を検証した。初回要求一度、error/rejectionからの復帰、グラフ・サマリーの既存描画継続も回帰確認した。2026年10月8日に`verify:core`（85 test files / 1,030 tests、typecheck、ESLint、Markdown lint 114 files / 0 issues、build、diff check）と`verify:browser`（production smoke）を通過した。
 
-完了条件は、初回要求が一度だけ実行されること、初期計算中の画面離脱で結果がcommitされないこと、初期拒否と通常の拒否が同じ経路で復帰できることである。グラフとサマリーの通常更新時の描画継続は変更しない。
+### S03 汎用coordinatorから未使用のコピー機構を取り除く（完了）
 
-### S03 汎用coordinatorから未使用のコピー機構を取り除く
+`CalculationRequestCoordinator.ts`から既定`cloneRequestValue`、AbortSignal/Payload/exotic objectの判別、再帰generic cloneを削除した。`snapshotRequest`を必須引数にし、TypeScript契約に加えてJavaScriptからの誤用も`TypeError('snapshotRequest must be a function')`でfail-fastにする。
 
-[CalculationRequestCoordinator.ts](../src/runtime/CalculationRequestCoordinator.ts)の既定snapshotは、Date、RegExp、Map、Set、循環参照、ArrayBuffer、DataView、Promise等を扱う汎用コピー機構になっている。一方、Check、Attack、Backtrackのproduction呼び出しは、すでにそれぞれ専用の`snapshotRequest`を渡している。
+Check、Attack、Backtrackのproduction runnerは、既存のfeature-specific snapshotを明示している。テストcoordinatorもfixtureのshapeに必要な専用copy functionを渡し、queued `payload.value`のmutation isolationを維持する。generic deep cloneを`structuredClone`へ置き換えてはいない。
 
-`snapshotRequest`を必須引数にし、既定の`cloneRequestValue`とそのためだけの型分岐を削除する。フォーム入力や表示要求のように形が決まっているデータは、各featureの明示的なsnapshotを使用する。generic deep cloneを`structuredClone`へ置き換えるだけの変更は、不要な汎用性を残すため目的に合わない。
+coordinatorの最新要求選択、実行中一件＋最新待機一件、Abort合成、commit/plan/errorのstale guard、dispose、resource rejection、snapshot failure処理は維持した。
 
-coordinatorには、最新要求の選択、Abort、commitの可否、disposeといった共通責務を残す。実行中要求と最新待機要求の制御を、単純な`Promise.race`や結果の無視だけへ置き換えない。呼び出し元への取消通知と、実際の処理終了・lease解放の違いも維持する。
-
-テストの汎用データコピーケースは削除する契約に合わせて整理するが、専用snapshotでのalias防止、古い完了の無視、外部Abort、disposeの検証は残す。公開パッケージとしての汎用コピーAPIを維持する必要があるかは、production外の利用も検索して確認する。
+汎用structured/exotic cloneテストを削除し、nested queued snapshotのalias防止、snapshot failure時の最新revision優先、古いplan/result/errorの抑止、外部Abort、disposeを検証している。型fixtureは`snapshotRequest`の必須性をnegative contractで固定し、runtime misuseもテストする。公開APIとして汎用cloneを維持する必要はなく、production外の利用箇所もない。
 
 ### S04 Attackの表示生成を一経路にする
 
@@ -414,7 +412,7 @@ Canvasへの`aria-label`はグラフの名前を伝えるが、個別の確率�
 | 8 | 残る長時間処理の実行境界を判断 | 新たな性能証拠が得られた場合のみ | 現在のB01-A測定ではWorker変更を行わず、長時間停止が再現した場合に再評価する |
 | 9 | 名前と公開文書の整理 | S08、M01からM04 | 初見の開発者が入口、現行契約、検証手順を追える |
 
-順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序2はB02/B05の修正と本番ブラウザ検証を終えた。順序3はB03/B04をCLOSED / GREEN、S01を完了とし、Check入力契約と3画面のvalidation lifecycleを揃えた。次はS02/S03で、順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
+順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序2はB02/B05の修正と本番ブラウザ検証を終えた。順序3はB03/B04をCLOSED / GREEN、S01を完了とし、Check入力契約と3画面のvalidation lifecycleを揃えた。順序4はS02/S03を完了し、次はS04である。順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
 
 ## 回帰検証と完了の判定
 

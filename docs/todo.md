@@ -14,22 +14,24 @@
 
 ## 次に行う作業
 
-1. **S02: Check初期計算と更新計算の経路を統一**: `useCheck`の初期計算を通常runnerへ寄せ、top-level awaitと重複した初期化経路を整理する。初回要求の一度だけの実行、初期計算中の画面離脱、拒否からの復帰を回帰テストする。
-2. **S03: coordinatorの汎用コピー機構を削除**: productionで使われている専用snapshotを必須にし、不要なgeneric deep cloneとそれだけに必要な型分岐を除く。最新要求、Abort、dispose、snapshot ownershipの契約は維持する。
-3. **公開準備**: S02/S03と後続の入力・表示課題を解決した後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
+1. **S04: Attackの表示生成を一経路にする**: 計算recordからbase presentationを一度だけ作り、通常commitと表示要求更新が同じ表示変換を使うよう整理する。計算recordを保った表示失敗からの再試行も維持する。詳細は[独立レビュー計画](./repository-review-and-kiss-plan.md#s04-attackの表示生成を一経路にする)を参照する。
+2. **S05/S06: Attackの状態所有と無効化規則を整理**: S04後に着手し、計算record・表示cache・feedbackの更新責任と、各ユーザー操作の再計算規則を段階的に確認する。`AttackRunner`の全面置換は行わない。
+3. **公開準備**: S04以降の入力・表示課題を終えた後、ライセンス、出典、公開範囲、再生成手順を確認する。実測に基づくresource policy調整は、追加測定で必要性が示された場合に限り、固定入力・表示上限を復活させずに行う。
 
 ## 独立レビューに基づく改修案
 
-[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01からB05はすべて検証してCLOSED / GREENとし、S01も完了した。残る改善案はS02以降である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の未完了案は実装済みの変更や既存ADRの置換を意味しない。
+[リポジトリの独立レビューとコード簡素化計画](./repository-review-and-kiss-plan.md)に、B01を含む不具合5件の調査記録、KISS原則に沿った具体的な整理案、変更単位と回帰検証をまとめた。B01からB05はすべて検証してCLOSED / GREENとし、S01からS03も完了した。次はS04である。グラフ中心のUIと既存の計算契約・描画継続を維持する。同文書の未完了案は実装済みの変更や既存ADRの置換を意味しない。
 
 ## 保留
 
 - 実測に基づくruntimeの性能・メモリ上限の再調整。
 - Cloudflare Worker/API/MCP連携。結果契約と公開境界が安定するまで着手しない。
+- 公開前の実画面dogfoodingとUIレビュー。S02/S03の内部整理完了は画面刷新の承認を意味せず、既存のグラフ中心UIと表示連続性を維持したまま、必要な変更は別途確認する（背景は[ユーザー主導のUIレビュー記録](./archive/r23-user-supervised-ui-review.md)を参照）。
 - 教科書の《支配の領域》関連章の残りをレビューする。順序統計量と正則化不完全ベータ関数の説明を追加し、再帰式が現行実装ではなく別の導出であることを明記した。残るのは学習者向けの流れ・式の説明のレビューである。
 
 ## 完了した直近の作業
 
+- **独立レビューS02/S03: Check初期計算とsnapshot契約の整理**: `useCheck`を同期controllerにし、初期・入力更新・coverage再計算を同じcoordinator経路へ統一した。Vue mount/unmount lifecycle、初回要求一度、pending時のAbort、late plan/result抑止、初期error/rejectionから通常入力更新による復帰をテストした。coordinatorのgeneric deep cloneを削除し、shape-specificな`snapshotRequest`を型・runtime両方で必須化した。全体検証は85ファイル・1,030テスト、typecheck、ESLint、Markdown lint（114ファイル・0 issue）、build、production browser smoke、diff checkが成功した。詳細は[独立レビュー計画](./repository-review-and-kiss-plan.md)のS02/S03記録を参照する。
 - **独立レビューB03/B04・S01: Check入力契約とinvalid draftの整理**: Checkの計算入力をfixed/opposed unionにし、fixed requestからreactionを除外した。固定結果にはreaction distribution/statisticsを要求せず、固定判定へscore tail予算全量を使う（commit `a1381ee`）。Check、Attack、Backtrackのフォームは`validating`/`invalid`/`valid`を通知し、旧要求を即時invalidate、invalid確定時に旧結果をclearする（commit `6c4a463`）。本番ブラウザでreaction resource rejectionからのfixed復帰、3画面のinvalid→valid復帰、既存のvalid-to-valid chartとsummary/footer continuityを確認した。全体検証は85テストファイル・1,026テスト、型検査、lint、Markdown lint、buildを通過した。
 - **B04 advanced-settings follow-up**: Check、Attackの高度な設定切替でもフォームが最新ticketによる通常のvalidation lifecycleを通知し、feature側はtoggle単独でinvalid blockerを解除しない。無効な高度項目だけなら非表示化後に自動復帰し、基本項目が無効なら結果はclearのまま維持する。Attackでinvalidな未確定draftを持つコンボを畳んだ場合は、他にblockerがなく計算結果もreadyでなければ最後の有効snapshotから復帰する。詳細と実ブラウザ検証は[`repository-review-and-kiss-plan.md`](./repository-review-and-kiss-plan.md)のB04 advanced-settings follow-upを参照する。
 - **独立レビューB02/B05: 表示位置とコンボ操作の修正**: Checkでは現在の表示最小値を使ってカテゴリ軸の難易度位置を変換し、範囲外・対決判定では注釈を隠す。攻撃コンボの操作ボタンに対象別のアクセシブル名と開閉状態を付け、空名は表示序数へフォールバックする。オプションテスト、本番ブラウザのcanvas画素検証、390px／デスクトップのアクセシビリティ・キーボード操作を確認した。実装commitは`a47b7b2`。詳細は[`repository-review-and-kiss-plan.md`](./repository-review-and-kiss-plan.md)のB02/B05 follow-upを参照する。
