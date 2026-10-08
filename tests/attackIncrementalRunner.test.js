@@ -164,6 +164,53 @@ describe('incremental Attack runner ownership', () => {
     runner.dispose()
   })
 
+  it('does not publish late calculation or presentation state after dispose', async () => {
+    const state = createState()
+    let resolvePending
+    const calculationClient = {
+      calculateAttack: vi.fn(() => new Promise((resolve) => {
+        resolvePending = resolve
+      })),
+      calculateTotalDamage: vi.fn(),
+    }
+    const runner = createRunner(state, calculationClient)
+
+    const pendingCalculation = runner.run()
+    await vi.waitFor(() => expect(state.feedback.status).toBe('loading'))
+    runner.dispose()
+    const feedbackAtDispose = structuredClone({
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    })
+    const feedbackRefsAtDispose = {
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    }
+
+    resolvePending({
+      score: { action: {}, reaction: {} },
+      scoreStatistics: { action: {}, reaction: {} },
+      damage: { kind: 'finite' },
+      damageStatistics: {},
+    })
+
+    await expect(pendingCalculation).resolves.toBe(false)
+    expect(state.basePresentation).toBeNull()
+    expect(state.displayPresentation).toBeNull()
+    expect(state.totalCalculation).toBeNull()
+    expect(state.feedback).toBe(feedbackRefsAtDispose.feedback)
+    expect(state.displayFeedback).toBe(feedbackRefsAtDispose.displayFeedback)
+    expect(state.scoreDisplayFeedback)
+      .toBe(feedbackRefsAtDispose.scoreDisplayFeedback)
+    expect({
+      feedback: state.feedback,
+      displayFeedback: state.displayFeedback,
+      scoreDisplayFeedback: state.scoreDisplayFeedback,
+    }).toEqual(feedbackAtDispose)
+  })
+
   it('retains calculation records when display projection fails', async () => {
     const state = createState()
     const client = createClient()

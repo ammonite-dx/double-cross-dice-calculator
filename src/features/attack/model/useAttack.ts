@@ -120,18 +120,28 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
   ) as DisplayRequestSnapshot
   const state = createState()
 
+  function publishDisplayLaneFeedback(
+    feedback: CalculationFeedbackState<DisplayFeedbackPlan>,
+  ) {
+    Object.assign(state.displayFeedback, feedback)
+  }
+
+  function publishScoreDisplayFeedback(
+    feedback: CalculationFeedbackState<DisplayFeedbackPlan>,
+  ) {
+    Object.assign(state.scoreDisplayFeedback, feedback)
+  }
+
   function publishDisplayFeedback(
     presentation: AttackDisplayPresentation | null,
     metadata: { scoreDisplaySuppressed?: boolean } = {},
   ) {
-    Object.assign(
-      state.displayFeedback,
+    publishDisplayLaneFeedback(
       createAttackDisplayFeedback(presentation)
     )
     if (metadata.scoreDisplaySuppressed !== true) {
       const scorePresentation = presentation?.score ?? null
-      Object.assign(
-        state.scoreDisplayFeedback,
+      publishScoreDisplayFeedback(
         createAttackScoreDisplayFeedback(scorePresentation)
       )
     }
@@ -140,13 +150,8 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
   function publishDisplayRejection(
     presentation: AttackDisplayPresentation | null
   ) {
-    Object.assign(
-      state.displayFeedback,
-      createAttackDisplayFeedback(presentation)
-    )
-    state.scoreDisplayFeedback.status = 'idle'
-    state.scoreDisplayFeedback.plan = null
-    state.scoreDisplayFeedback.error = null
+    publishDisplayFeedback(presentation, { scoreDisplaySuppressed: true })
+    publishScoreDisplayFeedback({ status: 'idle', plan: null, error: null })
   }
 
   const calculationRunner = createAttackRunner({
@@ -190,38 +195,42 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
     onPresentation: publishDisplayFeedback,
     onDisplayRejected: publishDisplayRejection,
     onError: (error: unknown) => {
-      clearAttackDisplayPresentation(state)
-      state.displayFeedback.status = 'error'
-      state.displayFeedback.plan = null
-      state.displayFeedback.error = error
+      publishDisplayError(error)
       console.error('Failed to update attack', error)
     },
   })
 
   function publishDisplayResourceRejection(plan: DisplayFeedbackPlan) {
     clearAttackDisplayPresentation(state)
-    state.displayFeedback.status = 'rejected'
-    state.displayFeedback.plan = plan
-    state.displayFeedback.error = null
-    state.scoreDisplayFeedback.status = 'idle'
-    state.scoreDisplayFeedback.plan = null
-    state.scoreDisplayFeedback.error = null
+    publishDisplayLaneFeedback({
+      status: 'rejected',
+      plan,
+      error: null,
+    })
+    publishScoreDisplayFeedback({ status: 'idle', plan: null, error: null })
   }
 
-  function publishDisplayError(error: unknown) {
+  function publishDisplayError(
+    error: unknown,
+    options: { includeScoreFeedback?: boolean } = {},
+  ) {
     clearAttackDisplayPresentation(state)
-    state.displayFeedback.status = 'error'
-    state.displayFeedback.plan = null
-    state.displayFeedback.error = error
-    state.scoreDisplayFeedback.status = 'error'
-    state.scoreDisplayFeedback.plan = null
-    state.scoreDisplayFeedback.error = error
+    publishDisplayLaneFeedback({
+      status: 'error',
+      plan: null,
+      error,
+    })
+    if (options.includeScoreFeedback === true) {
+      publishScoreDisplayFeedback({ status: 'error', plan: null, error })
+    }
   }
 
   function publishScoreDisplayResourceRejection(plan: DisplayFeedbackPlan) {
-    state.scoreDisplayFeedback.status = 'rejected'
-    state.scoreDisplayFeedback.plan = plan
-    state.scoreDisplayFeedback.error = null
+    publishScoreDisplayFeedback({ status: 'rejected', plan, error: null })
+  }
+
+  function publishScoreDisplayError(error: unknown) {
+    publishScoreDisplayFeedback({ status: 'error', plan: null, error })
   }
 
   function preflightDisplay(request: DisplayRequestSnapshot) {
@@ -232,15 +241,13 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
       )
       if (!plan.accepted) {
         calculationRunner.invalidate()
-        clearAttackDisplayPresentation(state)
         publishDisplayResourceRejection(plan)
         return false
       }
       return true
     } catch (error) {
       calculationRunner.invalidate()
-      clearAttackDisplayPresentation(state)
-      publishDisplayError(error)
+      publishDisplayError(error, { includeScoreFeedback: true })
       return false
     }
   }
@@ -259,9 +266,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
       return true
     } catch (error) {
       calculationRunner.invalidateScoreDisplay()
-      state.scoreDisplayFeedback.status = 'error'
-      state.scoreDisplayFeedback.plan = null
-      state.scoreDisplayFeedback.error = error
+      publishScoreDisplayError(error)
       return false
     }
   }
@@ -457,7 +462,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
         clearAttackDisplayPresentation(state)
       }
     } catch (error) {
-      publishDisplayError(error)
+      publishDisplayError(error, { includeScoreFeedback: true })
     }
   }
 
@@ -494,9 +499,7 @@ export function useAttack({ calculationClient }: UseAttackOptions): AttackContro
       }
     } catch (error) {
       calculationRunner.invalidateScoreDisplay()
-      state.scoreDisplayFeedback.status = 'error'
-      state.scoreDisplayFeedback.plan = null
-      state.scoreDisplayFeedback.error = error
+      publishScoreDisplayError(error)
     }
   }
 

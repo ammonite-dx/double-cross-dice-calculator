@@ -1891,6 +1891,47 @@ async function runAttack(browser, baseUrl) {
     )
     assertNoBrowserErrors('attack score-only coverage continuity', record)
 
+    const damageSummaryBeforeScoreRejection = await page.locator('tbody tr')
+      .filter({ hasText: '合計' })
+      .allTextContents()
+    await page.evaluate(() => {
+      window.__dcdcDamageCanvasBeforeScoreRejection = document.querySelectorAll('canvas')[1]
+    })
+    await scoreMaximumInput.fill('20000')
+    await waitForCanvases(page, 1, { exact: true })
+    await scorePanel.getByRole('alert')
+      .filter({ hasText: '表示する点数が多すぎるため' })
+      .waitFor({ state: 'visible', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'attack score-only resource rejection',
+      await page.locator('canvas').count() === 1
+        && await page.evaluate(() => document.querySelector('canvas')
+          === window.__dcdcDamageCanvasBeforeScoreRejection)
+        && JSON.stringify(await page.locator('tbody tr')
+          .filter({ hasText: '合計' })
+          .allTextContents()) === JSON.stringify(damageSummaryBeforeScoreRejection),
+      'score display rejection cleared the damage chart or total summary',
+    )
+    assertNoPrecomputedRequests('attack score-only resource rejection', record)
+    assertNoBrowserErrors('attack score-only resource rejection', record)
+
+    await scoreMaximumInput.fill('102')
+    await waitForCanvases(page, 2, { exact: true })
+    await scorePanel.getByRole('alert')
+      .filter({ hasText: '表示する点数が多すぎるため' })
+      .waitFor({ state: 'detached', timeout: PAGE_TIMEOUT_MILLISECONDS })
+    assertCondition(
+      'attack score-only resource recovery',
+      await page.evaluate(() => document.querySelectorAll('canvas')[1]
+        === window.__dcdcDamageCanvasBeforeScoreRejection)
+        && JSON.stringify(await page.locator('tbody tr')
+          .filter({ hasText: '合計' })
+          .allTextContents()) === JSON.stringify(damageSummaryBeforeScoreRejection),
+      'score display recovery changed the unaffected damage chart',
+    )
+    assertNoPrecomputedRequests('attack score-only resource recovery', record)
+    assertNoBrowserErrors('attack score-only resource recovery', record)
+
     // Verify the R7 controller wiring for both sides of the first combo
     // before exercising the high-range boundary inputs below.
     await beginCanvasIdentityTracking(page, 'attack chart transition', 2)
@@ -2383,6 +2424,12 @@ async function runAttack(browser, baseUrl) {
         precomputed: 0,
         layoutContinuity: true,
         summaryValuesPreserved: true,
+      },
+      {
+        canvases: 2,
+        d10Requests: 0,
+        id: 'attack score-only rejection and recovery',
+        precomputed: 0,
       },
       {
         canvases: 2,
