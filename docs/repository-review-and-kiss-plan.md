@@ -6,7 +6,7 @@
 
 **グラフはアプリケーションのメインコンテンツであり、グラフ中心のUIを維持する。** サマリーを主役にする再配置、グラフの縮小、表示形式や既定表示範囲の変更は、この計画に含めない。グラフの正確さ、操作可能性、再計算中の連続性を守りながら、実装を簡潔にする。
 
-不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善と数値安定性follow-upを完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は2026年10月8日に修正・回帰確認を終えてCLOSED / GREENとし、S01からS04、S06も実装・検証を終えた。S05-Aのpresentation invalidation整理も完了し、現在はS05-Bのfeedback/error公開境界が次の作業である。その他の改善案は段階的に判断する。本書の作成によって既存ADRを変更したことにはならない。
+不具合の再現と評価は2026年10月4日の調査時点を記録し、後日の対応状況は各follow-upへ追記する。B01は性能改善と数値安定性follow-upを完了し、B02とB05は2026年10月7日に修正・回帰確認を終えてCLOSED / GREENとした。B03とB04は2026年10月8日に修正・回帰確認を終えてCLOSED / GREENとし、S01からS06も実装・検証を終えた。S05は2026年10月9日にCOMPLETE / GREENとした。次の優先候補は実画面dogfoodingであり、その他の改善案は段階的に判断する。本書の作成によって既存ADRを変更したことにはならない。
 
 ## 評価の前提と検証範囲
 
@@ -179,7 +179,7 @@ B04は**CLOSED / GREEN**。Check・Attack・Backtrackで同じ状態通知原則
 
 Checkの《妖精の手》等、Attackの《妖精の手》等・《支配の領域》・《風鳴りの爪》の表示切替後も、フォームが`validating`を通知してから次tick後にactive fieldsを再検証する。featureはトグル操作だけではvalidation blockerを解除せず、最新の`valid`通知でのみ正規化済み入力を採用して再計算する。これにより無効な基本入力はON/OFF後も無効のまま保たれ、無効な高度設定だけならOFFで自動的に無効項目を0へ戻して結果を復帰する。
 
-Attackではinvalid draftを持つコンボを畳んで破棄したとき、他のvalidation blockerがなく、readyな計算も残っていなければ最後に確定した入力から再計算する。validation中でreadyな表示が維持されている場合は再計算を重ねない。コントローラーテストと本番ブラウザスモークでこの切替・復帰条件を固定した。B04をCLOSEDのまま維持する。後続のS02からS04も完了し、次の作業はS05/S06である。
+Attackではinvalid draftを持つコンボを畳んで破棄したとき、他のvalidation blockerがなく、readyな計算も残っていなければ最後に確定した入力から再計算する。validation中でreadyな表示が維持されている場合は再計算を重ねない。コントローラーテストと本番ブラウザスモークでこの切替・復帰条件を固定した。B04をCLOSEDのまま維持する。この記録時点では後続のS02からS04が完了し、次の作業はS05/S06だった。
 
 ### B05 モバイルのコンボ操作に読み上げ可能な名前がない
 
@@ -240,7 +240,7 @@ type DraftValidation<T> =
 
 固定結果にはreaction distribution/statisticsを含めず、対決結果ではaction/reactionの両方を保持する。Check API、planner、record、presentationはこの判別可能な入力と結果を通している。
 
-S01からS04は**完了**。S06-AではAttackの操作別無効化matrixと非同期表示revision競合を回帰化し、S06をCLOSED / GREENとした。S05は状態所有者の監査と小規模整理まで進行中で、状態モデルの再設計は未完了である。
+S01からS04は**完了**。S06-AではAttackの操作別無効化matrixと非同期表示revision競合を回帰化し、S06をCLOSED / GREENとした。S05はS05-A/Bの局所整理と回帰検証を終えてCOMPLETE / GREENであり、状態モデル全体の置換は不要と判断した。
 
 ### S02 Checkの初期計算と更新計算を同じ経路へ揃える（完了）
 
@@ -379,7 +379,17 @@ S05の状態所有者監査では、`combos[].data.calculation`と`totalCalculat
 
 `AttackState`に`clearAttackPresentations()`（baseとdisplayの両方）および`clearAttackDisplayPresentation()`（displayのみ）を追加し、`clearResults()`、`invalidateAttackTotalCalculation()`、`AttackRunner`、`useAttack`の同じ意味を持つ直接clearを置き換えた。display rejectionではbase presentationを保持して再利用し、presentation失敗や数値record更新前後では必要なpresentation cacheだけを破棄する。両helperは数値record、feedback、revision、score lifecycleを変更しない。`attackState.test.js`で各範囲、参照保持、feedback不変、二重実行の冪等性を検証し、`attackDisplayIntegration.test.js`のresource rejection回帰でもbase再利用を確認する。S04のbase再利用・projection失敗後retry、S06の表示revision競合、invalid/dispose時のclear契約は維持する。
 
-S06は**CLOSED / GREEN**。S05-Aは完了したが、S05全体は引き続き**進行中**とする。次のS05-Bでは`displayFeedback`と`scoreDisplayFeedback`の複数writer、および`state.feedback`に計算・presentationエラーを載せる公開境界を調査する。最初に「表示retryが後発の計算errorを消さない」「score-only rejection/errorがdamage表示・数値commitを壊さない」既存契約をテストで確認し、共通化できる公開writerだけを絞る。S05-Bの完了前に`feedbackErrorProvenance.kind`や`presentationErrorToken`を削除・統合せず、feedback所有権の全面再設計、`CalculationState` union、state managerは導入しない。
+#### S05-B Attack feedback/error公開責任の整理（2026-10-09）: 完了
+
+3つのfeedback laneは責任の異なる更新段階を維持する。`state.feedback`の数値計算進捗・拒否・失敗とpresentation失敗の主通知はRunnerが管理し、`feedbackErrorProvenance.kind`および`presentationErrorToken`でpresentation retryが解消してよいエラーだけを識別する。damage側の`state.displayFeedback`はpresentation変換・preflight・表示失敗を公開する。score側の`state.scoreDisplayFeedback`ではRunnerがcoverage再計算中のloading/Abort等を扱い、featureがpreflightとprojection結果を公開する。`AttackState`のfull clearは既存どおりfeedbackをidleへ戻す。
+
+重複していたfeature内のfeedback field更新をlane専用の`publishDisplayLaneFeedback()`と`publishScoreDisplayFeedback()`へ集め、どちらも`Object.assign`で既存のreactive object参照を保つ。display rejectionは`publishDisplayFeedback()`の既存score抑止経路を再利用し、同じdamage変換を複製しない。preflightはclearとpublication関数を連続して二重実行せず、publication側が一度だけpresentationをclearする。scoreのresource rejection・error・idle更新も同じpublisherを通す。Runnerの`onError`はdamage laneのみをerrorにし、別の外側例外処理だけが従来どおりscore laneにもerrorを公開する。この違いは明示optionとして保った。
+
+`feedbackErrorProvenance.kind`と`presentationErrorToken`は削除していない。数値record後のbase生成/projection失敗からは計算を再実行せず回復でき、後発のcalculation errorはpresentation retryで消えないことを既存の`attackIncrementalRunner.test.js`で確認する。score-only rejection/error後にもdamage表示とbatch commitを維持するS06の3ケース、damage rejection後の同じbase・recordを用いた再投影、invalid/dispose後の遅延結果抑止も維持する。新たなdispose回帰では後着計算が完了しても3つのfeedback laneとpresentationを書き戻さないことを確認した。
+
+`npm run verify:core`は85 test files / 1,036 tests、typecheck、ESLint、Markdown lint（114 files / 0 issues）、build（489 modules）、diff checkを通過した。`npm run verify:browser`のproduction smokeも成功し、Attack初期表示、damage/score表示、coverage再計算、display rejectionからの復帰、invalid→valid、chart/summary/footer continuityを確認した。事前計算データ要求、console warnings/errors、same-origin HTTP errorsはいずれも0件である。
+
+S05は**COMPLETE / GREEN**。feedback laneの処理段階は別責務として残り、追加の統合で状態や抽象化を増やす価値はないと判断した。次の優先候補は保留中の実画面dogfoodingと、そこから確認された具体的なUI修正である。S07/S08や公開準備へ自動的には進まない。
 
 ### S07 検証とコピーを境界へ集める
 
@@ -457,7 +467,7 @@ Canvasへの`aria-label`はグラフの名前を伝えるが、個別の確率�
 | 8 | 残る長時間処理の実行境界を判断 | 新たな性能証拠が得られた場合のみ | 現在のB01-A測定ではWorker変更を行わず、長時間停止が再現した場合に再評価する |
 | 9 | 名前と公開文書の整理 | S08、M01からM04 | 初見の開発者が入口、現行契約、検証手順を追える |
 
-順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序2はB02/B05の修正と本番ブラウザ検証を終えた。順序3はB03/B04をCLOSED / GREEN、S01を完了とし、Check入力契約と3画面のvalidation lifecycleを揃えた。順序4はS02/S03、順序5はS04を実装・検証して完了した。次の作業候補は順序6のS05/S06である。順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
+順序1はB01のplanner拒否ケース、受理されるproducer、実ブラウザのCheck経路を計測して完了した。順序2はB02/B05の修正と本番ブラウザ検証を終えた。順序3はB03/B04をCLOSED / GREEN、S01を完了とし、Check入力契約と3画面のvalidation lifecycleを揃えた。順序4はS02/S03、順序5はS04、順序6はS05/S06を実装・検証して完了した。次の作業候補は実画面dogfoodingである。順序8は新たな長時間停止の証拠が得られた場合だけ再開し、Workerやpolicyの変更を事前に追加しない。
 
 ## 回帰検証と完了の判定
 
